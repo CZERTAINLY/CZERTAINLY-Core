@@ -33,7 +33,7 @@ public class Cbom implements DtoMapper<CbomDto> {
     private String serialNumber;
 
     @Column(name = "version", nullable = false)
-    private String version;
+    private int version;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -62,7 +62,7 @@ public class Cbom implements DtoMapper<CbomDto> {
         OffsetDateTime timestamp = this.createdAt.atOffset(ZoneOffset.UTC);
 
         dto.setSerialNumber(this.serialNumber);
-        dto.setVersion(this.version);
+        dto.setVersion(String.valueOf(this.version));
         dto.setTimestamp(timestamp);
         dto.setSource(this.source);
         dto.setAlgorithms(this.algorithmsCount);

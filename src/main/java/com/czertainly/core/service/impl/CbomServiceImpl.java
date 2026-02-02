@@ -9,6 +9,8 @@ import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.cbom.client.CbomRepositoryClient;
+import com.czertainly.core.cbom.client.CbomRepositoryException;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.repository.CbomRepository;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -17,6 +19,8 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CbomService;
 import jakarta.transaction.Transactional;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.cbom.BomResponseDto;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.czertainly.core.aop.AuditLogged;
@@ -39,12 +43,16 @@ public class CbomServiceImpl implements CbomService {
 
     private CbomRepository cbomRepository;
 
-    // TODO
-    //private CbomRepositoryClient cbomRepositoryClient;
+    private CbomRepositoryClient cbomRepositoryClient;
 
     @Autowired
     public void setCbomRepository(CbomRepository cbomRepository) {
         this.cbomRepository = cbomRepository;
+    }
+
+    @Autowired
+    public void setCbomRepositoryClient(CbomRepositoryClient cbomRepositoryClient) {
+        this.cbomRepositoryClient = cbomRepositoryClient;
     }
 
     @Override
@@ -66,10 +74,24 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DETAIL)
-    public CbomDetailDto getCbomDetail(SecuredUUID uuid) throws NotFoundException {
-        //CbomDto _ = getEntity(uuid).mapToDto();
-        // TODO: this must load CbomDto and use CbomRepositoryClient to fetch the full CBOM
-        throw new NotFoundException();
+    public CbomDetailDto getCbomDetail(SecuredUUID uuid) throws NotFoundException, CbomRepositoryException {
+        Cbom cbom = getEntity(uuid);
+
+        BomResponseDto response;
+        try {
+            response = cbomRepositoryClient.read(
+                cbom.getSerialNumber(),
+                cbom.getVersion());
+        } catch (CbomRepositoryException ex) {
+            if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
+                throw new NotFoundException(CbomDetailDto.class, "Can't find a cbom");
+            } else {
+                throw ex;
+            }
+        }
+
+
+        CbomDetailDto cbomDetail = new CbomDetailDto();
     }
 
     @Override
