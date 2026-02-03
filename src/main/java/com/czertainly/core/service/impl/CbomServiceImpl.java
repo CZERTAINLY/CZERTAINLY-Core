@@ -92,6 +92,7 @@ public class CbomServiceImpl implements CbomService {
 
 
         CbomDetailDto cbomDetail = new CbomDetailDto();
+        return cbomDetail;
     }
 
     @Override
