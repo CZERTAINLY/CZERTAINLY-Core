@@ -17,6 +17,7 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContentItem;
@@ -311,10 +312,17 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetResourceAttributesWithValue() throws NotFoundException {
+    void testGetResourceAttributesWithValue() throws NotFoundException, AttributeException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
         List<CustomAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
+        CustomAttributeUpdateRequestDto request = new CustomAttributeUpdateRequestDto();
+        request.setLabel(definition.getLabel());
+        request.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        request.setContent(List.of(new StringAttributeContentV3("value")));
+        attributeService.editCustomAttribute(definition.getUuid(), request);
+        attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        Assertions.assertNotNull(((List<BaseAttributeContentV3<?>>)attributes.getFirst().getContent()).getFirst().getData());
     }
 
     @Test

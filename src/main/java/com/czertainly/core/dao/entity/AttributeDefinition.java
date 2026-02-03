@@ -163,7 +163,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setName(attribute.getName());
         dto.setType(AttributeType.CUSTOM);
         dto.setContentType(attribute.getContentType());
-        if (Objects.equals(protectionLevel, ProtectionLevel.ENCRYPTED)) {
+        if (Objects.equals(protectionLevel, ProtectionLevel.ENCRYPTED) && encryptedData != null) {
             List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
                     .map(contentItem -> AttributeVersionHelper.decryptContent(
                             contentItem, 3, attribute.getContentType(), encryptedData.get(((List<AttributeContent>) attribute.getContent()).indexOf(contentItem))))

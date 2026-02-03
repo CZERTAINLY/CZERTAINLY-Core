@@ -176,7 +176,7 @@ public class AttributeEngine {
 
     private static CustomAttribute getCustomAttributeWithDecryptedContentFromRelation(AttributeRelation r) {
         CustomAttribute attribute = (CustomAttribute) r.getAttributeDefinition().getDefinition();
-        if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
+        if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED && r.getAttributeDefinition().getEncryptedData() != null) {
             List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
             List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
                 .map(contentItem -> AttributeVersionHelper.decryptContent(
