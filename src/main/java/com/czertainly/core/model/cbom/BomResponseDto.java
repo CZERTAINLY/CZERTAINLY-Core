@@ -15,6 +15,7 @@ import lombok.Setter;
 public class BomResponseDto {
 
     @NotNull
+    @Schema(description = "The CBOM document in JSON format", requiredMode = Schema.RequiredMode.REQUIRED)
     private JsonNode bom;
 
     @Override
