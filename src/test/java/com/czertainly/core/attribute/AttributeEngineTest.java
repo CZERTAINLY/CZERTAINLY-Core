@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
@@ -226,6 +227,38 @@ class AttributeEngineTest extends BaseSpringBootTest {
         // the following should not throw any exception, we cannot update read-only attributes
         UUID certificateUuid = certificate.getUuid();
         Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificateUuid, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
+    }
+
+    @Test
+    void testStrictListAttributeContentValidation() throws AttributeException {
+        CustomAttributeV3 strictListAttribute = new CustomAttributeV3();
+        strictListAttribute.setUuid(UUID.randomUUID().toString());
+        strictListAttribute.setName("strictListAttribute");
+        strictListAttribute.setType(AttributeType.CUSTOM);
+        strictListAttribute.setContentType(AttributeContentType.STRING);
+
+        CustomAttributeProperties customProps = new CustomAttributeProperties();
+        customProps.setLabel("Strict List Attribute");
+        customProps.setList(true);
+        customProps.setStrictList(true);
+        strictListAttribute.setProperties(customProps);
+
+        strictListAttribute.setContent(List.of(new StringAttributeContentV3("data1"), new StringAttributeContentV3("data2")));
+        attributeEngine.updateCustomAttributeDefinition(strictListAttribute, List.of(Resource.CERTIFICATE));
+
+        RequestAttributeV3 strictListAttributeDto = new RequestAttributeV3();
+        UUID definitionUuid = UUID.fromString(strictListAttribute.getUuid());
+        strictListAttributeDto.setUuid(definitionUuid);
+        String attributeName = strictListAttribute.getName();
+        strictListAttributeDto.setName(attributeName);
+        List<BaseAttributeContentV3<?>> invalidOption = List.of(new StringAttributeContentV3("InvalidOption"));
+        strictListAttributeDto.setContent(invalidOption);
+
+        UUID certificateUuid = certificate.getUuid();
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, invalidOption), "Content not in predefined options should not be accepted for strict list attribute");
+
+       List<AttributeContent> validContent = List.of(new StringAttributeContentV3("data1"));
+        Assertions.assertDoesNotThrow(() ->  attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, validContent), "Valid content should be accepted for strict list attribute");
     }
 
     @Test

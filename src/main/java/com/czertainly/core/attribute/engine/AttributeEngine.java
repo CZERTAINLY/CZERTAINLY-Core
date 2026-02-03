@@ -1145,6 +1145,8 @@ public class AttributeEngine {
                 if (contentItem.getData() == null) {
                     throw new AttributeException("Attribute content is malformed and does not contain data", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
                 }
+
+                validateStrictList(attributeDefinition, contentItem, connectorUuidStr);
                 validateContentData(attributeDefinition, contentItem, connectorUuidStr);
 
                 List<ValidationError> constraintsValidationErrors = AttributeDefinitionUtils.validateConstraints(attributeDefinition.getDefinition(), attributeContent);
@@ -1156,6 +1158,22 @@ public class AttributeEngine {
 
                 // convert content items to its respective content classes
                 validateConvertingContentItemsToClasses(attributeDefinition, contentItem, connectorUuidStr);
+            }
+        }
+    }
+
+    private static void validateStrictList(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
+        boolean strictList = false;
+        if (attributeDefinition.getDefinition() instanceof CustomAttribute customAttribute) {
+            strictList = customAttribute.getProperties().isList() && customAttribute.getProperties().isStrictList();
+        } else if (attributeDefinition.getDefinition() instanceof DataAttribute dataAttribute) {
+            strictList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isStrictList();
+        }
+
+        if (strictList) {
+            List<AttributeContent> defaultContentItems = attributeDefinition.getDefinition().getContent();
+            if (defaultContentItems.stream().noneMatch(dci -> dci.equals(contentItem))) {
+                throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
         }
     }
