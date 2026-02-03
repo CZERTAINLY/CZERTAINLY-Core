@@ -67,6 +67,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CertificateUtil {
+    public static final String EMPTY_COMMON_NAME_PLACEHOLDER = "<empty>";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
     private static final Map<String, KeyAlgorithm> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
@@ -92,6 +93,13 @@ public class CertificateUtil {
     }
 
     private CertificateUtil() {
+    }
+
+    public static String formatCommonName(String commonName) {
+        if (commonName == null || commonName.isBlank()) {
+            return EMPTY_COMMON_NAME_PLACEHOLDER;
+        }
+        return commonName;
     }
 
     public static X509Certificate getX509Certificate(byte[] decoded) throws CertificateException {
