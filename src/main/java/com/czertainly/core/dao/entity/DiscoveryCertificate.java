@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
+import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import lombok.*;
@@ -75,7 +76,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     public DiscoveryCertificateDto mapToDto() {
         DiscoveryCertificateDto dto = new DiscoveryCertificateDto();
         dto.setUuid(uuid.toString());
-        dto.setCommonName(commonName);
+        dto.setCommonName(CertificateUtil.formatCommonName(this.commonName));
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
         dto.setNotBefore(notBefore);
