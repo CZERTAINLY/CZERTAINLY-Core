@@ -298,7 +298,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
             certificateRequestDto.setUuid(this.certificateRequestEntity.getUuid());
             certificateRequestDto.setContent(this.certificateRequestEntity.getContent());
             certificateRequestDto.setCertificateType(this.certificateRequestEntity.getCertificateType());
-            certificateRequestDto.setCommonName(this.certificateRequestEntity.getCommonName());
             certificateRequestDto.setCommonName(CertificateUtil.formatCommonName(this.certificateRequestEntity.getCommonName()));
             certificateRequestDto.setSubjectDn(this.certificateRequestEntity.getSubjectDn());
             certificateRequestDto.setSignatureAlgorithm(this.certificateRequestEntity.getSignatureAlgorithm());
