@@ -327,7 +327,6 @@ public class AttributeEngine {
         attributeDefinition.setReadOnly(customAttribute.getProperties().isReadOnly());
         attributeDefinition.setVersion(AttributeVersion.V3.getVersion());
 
-        CustomAttributeV3 customAttributeV3NotEncrypted = new CustomAttributeV3(customAttribute);
         encryptOrDecryptExistingContent(attributeDefinition, customAttribute.getProperties().getProtectionLevel());
         encryptCustomAttributeContent(customAttribute, attributeDefinition, customAttribute.getProperties().getProtectionLevel());
         if (customAttribute.getProperties().getProtectionLevel() != ProtectionLevel.ENCRYPTED) {
