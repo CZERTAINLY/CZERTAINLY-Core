@@ -3,6 +3,8 @@ package com.czertainly.core.dao.repository.cmp;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,4 +21,7 @@ public interface CmpProfileRepository extends SecurityFilterRepository<CmpProfil
 
     List<CmpProfile> findByRaProfile(RaProfile raProfile);
 
+    @Modifying
+    @Query("UPDATE CmpProfile cp SET cp.signingCertificateUuid = NULL WHERE cp.signingCertificateUuid = ?1")
+    void clearSigningCertificateReference(UUID signingCertificateUuid);
 }

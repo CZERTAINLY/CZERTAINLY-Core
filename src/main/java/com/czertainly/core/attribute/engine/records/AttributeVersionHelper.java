@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.metadata.ResponseMetadataV2;
 import com.czertainly.api.model.client.metadata.ResponseMetadataV3;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeVersion;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.GroupAttributeV2;
@@ -111,7 +112,7 @@ public class AttributeVersionHelper {
     }
 
     private static ResponseAttributeV2 getResponseAttributeV2(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
-        return new ResponseAttributeV2((List<BaseAttributeContentV2<?>>) content, uuid, name, label, attributeType, contentType);
+        return new ResponseAttributeV2((List<BaseAttributeContentV2<?>>) content, uuid, name, label, attributeType, contentType, AttributeVersion.V2);
     }
 
 
@@ -131,7 +132,7 @@ public class AttributeVersionHelper {
 
 
     private static ResponseAttribute getResponseAttributeV3(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
-        return new ResponseAttributeV3((List<BaseAttributeContentV3<?>>) content, uuid, name, label, attributeType, contentType);
+        return new ResponseAttributeV3((List<BaseAttributeContentV3<?>>) content, uuid, name, label, attributeType, contentType, AttributeVersion.V3);
     }
 
 

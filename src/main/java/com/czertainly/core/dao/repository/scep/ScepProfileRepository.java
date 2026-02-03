@@ -3,6 +3,8 @@ package com.czertainly.core.dao.repository.scep;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,4 +22,8 @@ public interface ScepProfileRepository extends SecurityFilterRepository<ScepProf
     List<ScepProfile> findByRaProfile(RaProfile raProfile);
 
     List<ScepProfile> findByIntuneEnabled(boolean intuneEnabled);
+
+    @Modifying
+    @Query("UPDATE ScepProfile sp SET sp.caCertificateUuid = NULL WHERE sp.caCertificateUuid = ?1")
+    void clearCaCertificateReference(UUID caCertificateUuid);
 }
