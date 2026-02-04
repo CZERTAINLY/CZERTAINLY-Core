@@ -11,6 +11,7 @@ import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -160,10 +161,18 @@ class CbomRepositoryClientTest {
     void testRead_WithoutVersion() throws Exception {
         // Arrange
         String urn = "urn:uuid:test-serial";
-        String encodedUrn = "urn%3Auuid%3Atest-serial";  // Manually encode
+        String encodedUrn = "urn%3Auuid%3Atest-serial";
+
+        ObjectNode properties = objectMapper.createObjectNode()
+                .put("specVersion", "1.0")
+                .put("serialNumber", urn)
+                .put("version", "1");
+
+        ObjectNode bom = objectMapper.createObjectNode();
+        bom.set("properties", properties);
+
         BomResponseDto response = new BomResponseDto();
-        response.setSerialNumber(urn);
-        response.setVersion(1);
+        response.setBom(bom);
 
         wireMock.stubFor(get(urlPathEqualTo("/v1/bom/" + encodedUrn))
                 .willReturn(aResponse()
@@ -176,8 +185,9 @@ class CbomRepositoryClientTest {
 
         // Assert
         assertNotNull(result);
-        assertEquals(urn, result.getSerialNumber());
-        assertEquals(1, result.getVersion());
+        assertEquals(urn, result.getBom().at("/properties/serialNumber").asText());
+        assertEquals("1", result.getBom().at("/properties/version").asText());
+        assertEquals("1.0", result.getBom().at("/properties/specVersion").asText());
 
         wireMock.verify(getRequestedFor(urlPathEqualTo("/v1/bom/" + encodedUrn))
                 .withoutQueryParam("version"));
@@ -187,29 +197,37 @@ class CbomRepositoryClientTest {
     void testRead_WithVersion() throws Exception {
         // Arrange
         String urn = "urn:uuid:test-serial";
-        String encodedUrn = "urn%3Auuid%3Atest-serial";  // Manually encode
-        Integer version = 2;
+        String encodedUrn = "urn%3Auuid%3Atest-serial";
+
+        ObjectNode properties = objectMapper.createObjectNode()
+                .put("specVersion", "1.0")
+                .put("serialNumber", urn)
+                .put("version", "2");
+
+        ObjectNode bom = objectMapper.createObjectNode();
+        bom.set("properties", properties);
+
         BomResponseDto response = new BomResponseDto();
-        response.setSerialNumber(urn);
-        response.setVersion(version);
+        response.setBom(bom);
 
         wireMock.stubFor(get(urlPathEqualTo("/v1/bom/" + encodedUrn))
-                .withQueryParam("version", equalTo(version.toString()))
+                .withQueryParam("version", equalTo("2"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody(objectMapper.writeValueAsString(response))));
 
         // Act
-        BomResponseDto result = client.read(urn, version);
+        BomResponseDto result = client.read(urn, 2);
 
         // Assert
         assertNotNull(result);
-        assertEquals(urn, result.getSerialNumber());
-        assertEquals(version, result.getVersion());
+        assertEquals(urn, result.getBom().at("/properties/serialNumber").asText());
+        assertEquals("2", result.getBom().at("/properties/version").asText());
+        assertEquals("1.0", result.getBom().at("/properties/specVersion").asText());
 
         wireMock.verify(getRequestedFor(urlPathEqualTo("/v1/bom/" + encodedUrn))
-                .withQueryParam("version", equalTo(version.toString())));
+                .withQueryParam("version", equalTo("2")));
     }
 
     @Test
