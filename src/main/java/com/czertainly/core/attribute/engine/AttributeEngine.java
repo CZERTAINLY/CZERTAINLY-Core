@@ -399,7 +399,7 @@ public class AttributeEngine {
             return encryptedContentItems;
         }
         else {
-            return Collections.emptyList();
+            return baseAttribute.getContent();
         }
     }
 
