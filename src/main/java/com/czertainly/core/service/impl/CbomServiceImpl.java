@@ -23,8 +23,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.cbom.BomCreateResponseDto;
 import com.czertainly.core.model.cbom.BomResponseDto;
-import com.czertainly.core.model.cbom.BomVersionDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
@@ -117,10 +117,6 @@ public class CbomServiceImpl implements CbomService {
                     ValidationError.create("Request must not be empty")
             );
         }
-        Cbom cbom = new Cbom();
-
-        // UUID - generate new one
-        cbom.setUuid(UUID.randomUUID());
 
         // serial_number (required)
         Object serialNumber = content.get("serial_number");
@@ -129,7 +125,6 @@ public class CbomServiceImpl implements CbomService {
                     ValidationError.create("serial_number must not be empty")
             );
         }
-        cbom.setSerialNumber(serialNumber.toString());
 
         // version (required)
         Object version = content.get("version");
@@ -139,48 +134,43 @@ public class CbomServiceImpl implements CbomService {
             );
         }
 
-        int versionInt;
-        try {
-            versionInt = version instanceof Number 
-            ? ((Number) version).intValue() 
-            : Integer.parseInt(version.toString());
-        } catch (Exception ex) {
-            throw new ValidationException("version must be integer");
+        if (!(version instanceof Number)) {
+            try {
+                Integer.parseInt(version.toString());
+            } catch (NumberFormatException e) {
+                throw new ValidationException("version must be integer");
+            }
         }
 
-        cbom.setVersion(versionInt);
+        // upload JSON to cbom-respository
+        BomCreateResponseDto response = cbomRepositoryClient.create(request);
 
-        // createdAt - set to current time
+        // upload stats to database
+        Cbom cbom = new Cbom();
+        cbom.setUuid(UUID.randomUUID());
+        cbom.setSerialNumber(response.getSerialNumber());
+        cbom.setVersion(response.getVersion());
         cbom.setCreatedAt(Instant.now());
+        cbom.setSource("CORE");
 
-        // source (optional)
-        Object source = content.get("source");
-        if (source != null && !StringUtils.isBlank(source.toString())) {
-            cbom.setSource(source.toString());
-        }
+        cbom.setAlgorithmsCount(
+            response.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal()
+        );
+        cbom.setCertificatesCount(
+            response.getCryptoStats().getCryptoAssets().getCertificates().getTotal()
+        );
+        cbom.setProtocolsCount(
+            response.getCryptoStats().getCryptoAssets().getProtocols().getTotal()
+        );
+        cbom.setProtocolsCount(
+            response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal()
+        );
+        cbom.setTotalAssetsCount(
+            response.getCryptoStats().getCryptoAssets().getTotal()
+        );
 
-        // algorithms_count (required, default to 0)
-        Object algorithmsCount = content.get("algorithms_count");
-        cbom.setAlgorithmsCount(algorithmsCount != null ? ((Number) algorithmsCount).intValue() : 0);
-
-        // certificates_count (required, default to 0)
-        Object certificatesCount = content.get("certificates_count");
-        cbom.setCertificatesCount(certificatesCount != null ? ((Number) certificatesCount).intValue() : 0);
-
-        // protocols_count (required, default to 0)
-        Object protocolsCount = content.get("protocols_count");
-        cbom.setProtocolsCount(protocolsCount != null ? ((Number) protocolsCount).intValue() : 0);
-
-        // crypto_material_count (required, default to 0)
-        Object cryptoMaterialCount = content.get("crypto_material_count");
-        cbom.setCryptoMaterialCount(cryptoMaterialCount != null ? ((Number) cryptoMaterialCount).intValue() : 0);
-
-        // total_assets_count (required, default to 0)
-        Object totalAssetsCount = content.get("total_assets_count");
-        cbom.setTotalAssetsCount(totalAssetsCount != null ? ((Number) totalAssetsCount).intValue() : 0);
-
-        CbomDto dto = cbom.mapToDto();
-        return dto;
+        cbomRepository.save(cbom);
+        return  cbom.mapToDto();
     }
 
     // ResourceExtenstionService
