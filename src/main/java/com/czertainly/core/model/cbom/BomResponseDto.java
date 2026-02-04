@@ -4,7 +4,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
@@ -22,12 +22,7 @@ public class BomResponseDto {
 
     @Override
     public String toString() {
-        JsonNode bom2;
-        if (bom == null) {
-            bom2 = new ObjectMapper().createObjectNode();
-        } else {
-            bom2 = bom;
-        }
+        JsonNode bom2 = (bom == null) ? JsonNodeFactory.instance.objectNode() : bom;
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("specVersion", bom2.at("/properties/specVersion").asText("N/A"))
                 .append("serialNumber", bom2.at("/properties/serialNumber").asText("N/A"))
