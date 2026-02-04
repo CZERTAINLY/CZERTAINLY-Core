@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service(Resource.Codes.GROUP)
+@Service(Resource.Codes.CBOM)
 @Transactional
 public class CbomServiceImpl implements CbomService {
 
@@ -189,7 +189,6 @@ public class CbomServiceImpl implements CbomService {
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getEntity(uuid);
-        // Since there are is no parent to the Group, exclusive parent permission evaluation need not be done
     }
 
     private Cbom getEntity(SecuredUUID uuid) throws NotFoundException {
