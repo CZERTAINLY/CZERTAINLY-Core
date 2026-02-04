@@ -144,8 +144,7 @@ public class AttributeVersionHelper {
     }
 
 
-    public static void addResponseMetadataContent(int version, ResponseMetadata responseMetadata, AttributeContent
-            contentItem) {
+    public static void addResponseMetadataContent(int version, ResponseMetadata responseMetadata, AttributeContent contentItem) {
         if (version == 2) {
             addResponseMetadataContentV2(responseMetadata, contentItem);
         }
@@ -155,8 +154,7 @@ public class AttributeVersionHelper {
     }
 
 
-    private static void addResponseMetadataContentV2(ResponseMetadata responseMetadata, AttributeContent
-            contentItem) {
+    private static void addResponseMetadataContentV2(ResponseMetadata responseMetadata, AttributeContent contentItem) {
         ResponseMetadataV2 responseMetadataV2 = (ResponseMetadataV2) responseMetadata;
         BaseAttributeContentV2<?> attributeContentV2 = (BaseAttributeContentV2<?>) contentItem;
         if (!responseMetadataV2.getContent().contains(contentItem)) {
@@ -164,8 +162,7 @@ public class AttributeVersionHelper {
         }
     }
 
-    private static void addResponseMetadataContentV3(ResponseMetadata responseMetadata, AttributeContent
-            contentItem) {
+    private static void addResponseMetadataContentV3(ResponseMetadata responseMetadata, AttributeContent contentItem) {
         ResponseMetadataV3 responseMetadataV3 = (ResponseMetadataV3) responseMetadata;
         BaseAttributeContentV3<?> attributeContentV3 = (BaseAttributeContentV3<?>) contentItem;
         if (!responseMetadataV3.getContent().contains(contentItem)) {
@@ -173,8 +170,7 @@ public class AttributeVersionHelper {
         }
     }
 
-    public static AttributeContent createEncryptedContent(String reference, AttributeContentType contentType,
-                                                          int version) {
+    public static AttributeContent createEncryptedContent(String reference, AttributeContentType contentType, int version) {
         if (version == 2) {
             BaseAttributeContentV2<?> contentV2 = new BaseAttributeContentV2<>();
             contentV2.setReference(reference);
@@ -190,15 +186,11 @@ public class AttributeVersionHelper {
     }
 
 
-    private static ResponseMetadataV2 getResponseMetadataV2(List<NameAndUuidDto> sourceObjects, UUID
-            uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends
-            AttributeContent> content) {
+    private static ResponseMetadataV2 getResponseMetadataV2(List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
         return new ResponseMetadataV2(sourceObjects, uuid, name, label, type, contentType, (List<BaseAttributeContentV2<?>>) content);
     }
 
-    private static ResponseMetadataV3 getResponseMetadataV3(List<NameAndUuidDto> sourceObjects, UUID
-            uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends
-            AttributeContent> content) {
+    private static ResponseMetadataV3 getResponseMetadataV3(List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
         return new ResponseMetadataV3(sourceObjects, uuid, name, label, type, contentType, (List<BaseAttributeContentV3<?>>) content);
     }
 
@@ -208,23 +200,19 @@ public class AttributeVersionHelper {
     }
 
 
-    private static RequestAttributeV2 getRequestAttributeV2(UUID uuid, String name, List<? extends
-            AttributeContent> content, AttributeContentType contentType) {
+    private static RequestAttributeV2 getRequestAttributeV2(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
         return new RequestAttributeV2(uuid, name, contentType, (List<BaseAttributeContentV2<?>>) content);
     }
 
 
-    private static void addRequestAttributeContentV2(RequestAttribute requestAttribute, AttributeContent
-            contentItem) {
+    private static void addRequestAttributeContentV2(RequestAttribute requestAttribute, AttributeContent contentItem) {
         ((RequestAttributeV2) requestAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
     }
 
 
-    private static void addResponseAttributeContentV2(ResponseAttribute responseAttribute, AttributeContent
-            contentItem) {
+    private static void addResponseAttributeContentV2(ResponseAttribute responseAttribute, AttributeContent contentItem) {
         ((ResponseAttributeV2) responseAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
     }
-
 
 
     private static ResponseAttribute getResponseAttributeV3(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
@@ -232,20 +220,17 @@ public class AttributeVersionHelper {
     }
 
 
-    private static RequestAttribute getRequestAttributeV3(UUID uuid, String name, List<? extends
-            AttributeContent> content, AttributeContentType contentType) {
+    private static RequestAttribute getRequestAttributeV3(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
         return new RequestAttributeV3(uuid, name, contentType, (List<BaseAttributeContentV3<?>>) content);
     }
 
 
-    private static void addRequestAttributeContentV3(RequestAttribute requestAttribute, AttributeContent
-            contentItem) {
+    private static void addRequestAttributeContentV3(RequestAttribute requestAttribute, AttributeContent contentItem) {
         ((RequestAttributeV3) requestAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
     }
 
 
-    private static void addResponseAttributeContentV3(ResponseAttribute responseAttribute, AttributeContent
-            contentItem) {
+    private static void addResponseAttributeContentV3(ResponseAttribute responseAttribute, AttributeContent contentItem) {
         ((ResponseAttributeV3) responseAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
     }
 
@@ -255,18 +240,14 @@ public class AttributeVersionHelper {
         return null;
     }
 
-    public static BaseAttributeContentV3<?> convertAttributeContentToV3(AttributeContent
-                                                                                attributeContent, AttributeContentType contentType) {
+    public static BaseAttributeContentV3<?> convertAttributeContentToV3(AttributeContent attributeContent, AttributeContentType contentType) {
         if (attributeContent.getContentType() != null) return (BaseAttributeContentV3<?>) attributeContent;
         else {
             return convertV2ToV3((BaseAttributeContentV2<?>) attributeContent, contentType);
         }
     }
 
-    private static <T extends Serializable> BaseAttributeContentV3<T> convertV2ToV3(
-            BaseAttributeContentV2<T> v2,
-            AttributeContentType contentType
-    ) {
+    private static <T extends Serializable> BaseAttributeContentV3<T> convertV2ToV3(BaseAttributeContentV2<T> v2, AttributeContentType contentType) {
         BaseAttributeContentV3<T> v3 = new BaseAttributeContentV3<>();
         v3.setContentType(contentType);
         v3.setReference(v2.getReference());
@@ -274,8 +255,7 @@ public class AttributeVersionHelper {
         return v3;
     }
 
-    public static List<BaseAttributeContentV3<?>> getBaseAttributeContentV3s(List<? extends
-            AttributeContent> attributeContentItems, AttributeDefinition attributeDefinition) {
+    public static List<BaseAttributeContentV3<?>> getBaseAttributeContentV3s(List<? extends AttributeContent> attributeContentItems, AttributeDefinition attributeDefinition) {
         List<BaseAttributeContentV3<?>> contentV3s = new ArrayList<>();
         for (AttributeContent content : attributeContentItems) {
             BaseAttributeContentV3<?> baseAttributeContentV3;
