@@ -328,7 +328,7 @@ public class AttributeEngine {
         attributeDefinition.setVersion(AttributeVersion.V3.getVersion());
 
         encryptOrDecryptExistingContent(attributeDefinition, customAttribute.getProperties().getProtectionLevel());
-        encryptCustomAttributeContent(customAttribute, attributeDefinition, customAttribute.getProperties().getProtectionLevel());
+        customAttribute.setContent(encryptDefaultAttributeContent(customAttribute, attributeDefinition, customAttribute.getProperties().getProtectionLevel()));
         if (customAttribute.getProperties().getProtectionLevel() != ProtectionLevel.ENCRYPTED) {
             attributeDefinition.setEncryptedData(null);
         }
@@ -387,16 +387,19 @@ public class AttributeEngine {
         }
     }
 
-    private static void encryptCustomAttributeContent(CustomAttributeV3 customAttribute, AttributeDefinition attributeDefinition, ProtectionLevel protectionLevel) throws AttributeException {
-        if (protectionLevel == ProtectionLevel.ENCRYPTED && customAttribute.getContent() != null) {
+    private static List<AttributeContent> encryptDefaultAttributeContent(BaseAttribute baseAttribute, AttributeDefinition attributeDefinition, ProtectionLevel protectionLevel) throws AttributeException {
+        if (protectionLevel == ProtectionLevel.ENCRYPTED && baseAttribute.getContent() != null) {
             List<String> encryptedContents = new ArrayList<>();
             List<AttributeContent> encryptedContentItems = new ArrayList<>();
-            for (AttributeContent contentItem : customAttribute.getContent()) {
+            for (AttributeContent contentItem : (List<AttributeContent>) baseAttribute.getContent()) {
                 encryptedContents.add(encryptAttributeContent(attributeDefinition, contentItem));
                 encryptedContentItems.add(AttributeVersionHelper.createEncryptedContent(contentItem.getReference(), attributeDefinition.getContentType(), attributeDefinition.getVersion()));
             }
             attributeDefinition.setEncryptedData(encryptedContents);
-            customAttribute.setContent(encryptedContentItems);
+            return encryptedContentItems;
+        }
+        else {
+            return Collections.emptyList();
         }
     }
 
@@ -491,16 +494,8 @@ public class AttributeEngine {
         // we need content only for readonly attribute
         if (!Boolean.TRUE.equals(attributeDefinition.isReadOnly())) {
             dataAttribute.setContent(null);
-        } else if (dataAttribute.getContent() != null && dataAttribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
-            List<String> encryptedContents = new ArrayList<>();
-            List<AttributeContent> encryptedContentItems = new ArrayList<>();
-            for (AttributeContent contentItem : (List<? extends AttributeContent>) dataAttribute.getContent()) {
-                encryptedContents.add(encryptAttributeContent(attributeDefinition, contentItem));
-                encryptedContentItems.add(AttributeVersionHelper.createEncryptedContent(contentItem.getReference(), dataAttribute.getContentType(), dataAttribute.getVersion()));
-            }
-            attributeDefinition.setEncryptedData(encryptedContents);
-            dataAttribute.setContent(encryptedContentItems);
-        }
+        } else
+            dataAttribute.setContent(encryptDefaultAttributeContent(dataAttribute, attributeDefinition, dataAttribute.getProperties().getProtectionLevel()));
         attributeDefinition.setDefinition(dataAttribute);
         attributeDefinitionRepository.save(attributeDefinition);
     }
@@ -761,11 +756,7 @@ public class AttributeEngine {
                 requestAttribute = AttributeVersionHelper.getRequestAttribute(objectContent.uuid(), objectContent.name(), new ArrayList<>(), objectContent.contentType(), objectContent.version());
                 mapping.put(uuid, requestAttribute);
             }
-            AttributeContent content = objectContent.contentItem();
-            if (objectContent.encryptedContent() != null) {
-                content = AttributeVersionHelper.decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(), objectContent.encryptedContent());
-            }
-            AttributeVersionHelper.addRequestAttributeContent(requestAttribute, content, objectContent.version());
+            AttributeVersionHelper.addRequestAttributeContent(requestAttribute, objectContent);
         }
 
         return mapping.values().stream().toList();
@@ -782,11 +773,7 @@ public class AttributeEngine {
             } else {
                 responseAttribute = mapping.get(uuid);
             }
-            AttributeContent contentItem = objectContent.contentItem();
-            if (objectContent.encryptedContent() != null) {
-                contentItem = AttributeVersionHelper.decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(), objectContent.encryptedContent());
-            }
-            AttributeVersionHelper.addResponseAttributeContent(responseAttribute, contentItem, objectContent.version());
+            AttributeVersionHelper.addResponseAttributeContent(responseAttribute, objectContent);
         }
 
         return mapping.values().stream().toList();

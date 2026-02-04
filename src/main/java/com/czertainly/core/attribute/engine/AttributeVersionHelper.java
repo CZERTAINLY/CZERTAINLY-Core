@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContent;
 import com.czertainly.core.util.SecretEncodingVersion;
 import com.czertainly.core.util.SecretsUtil;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -63,20 +64,28 @@ public class AttributeVersionHelper {
         return null;
     }
 
-    public static void addRequestAttributeContent(RequestAttribute requestAttribute, AttributeContent contentItem, int version) {
-        if (version == 2) {
+    public static void addRequestAttributeContent(RequestAttribute requestAttribute, ObjectAttributeContent objectContent) {
+        AttributeContent contentItem = objectContent.contentItem();
+        if (objectContent.encryptedContent() != null) {
+            contentItem = AttributeVersionHelper.decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(), objectContent.encryptedContent());
+        }
+        if (objectContent.version() == 2) {
             addRequestAttributeContentV2(requestAttribute, contentItem);
         }
-        if (version == 3) {
+        if (objectContent.version() == 3) {
             addRequestAttributeContentV3(requestAttribute, contentItem);
         }
     }
 
-    public static void addResponseAttributeContent(ResponseAttribute responseAttribute, AttributeContent contentItem, int version) {
-        if (version == 2) {
+    public static void addResponseAttributeContent(ResponseAttribute responseAttribute, ObjectAttributeContent objectContent) {
+        AttributeContent contentItem = objectContent.contentItem();
+        if (objectContent.encryptedContent() != null) {
+            contentItem = AttributeVersionHelper.decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(), objectContent.encryptedContent());
+        }
+        if (objectContent.version() == 2) {
             addResponseAttributeContentV2(responseAttribute, contentItem);
         }
-        if (version == 3) {
+        if (objectContent.version() == 3) {
             addResponseAttributeContentV3(responseAttribute, contentItem);
         }
     }
