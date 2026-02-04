@@ -4,30 +4,30 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
-import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.cbom.client.CbomRepositoryException;
 import com.czertainly.core.dao.entity.Cbom;
+import com.czertainly.core.dao.entity.Cbom_;
 import com.czertainly.core.dao.repository.CbomRepository;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CbomService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.cbom.BomResponseDto;
-
+import com.czertainly.core.model.cbom.BomVersionDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.czertainly.core.aop.AuditLogged;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.Instant;
@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 @Service(Resource.Codes.GROUP)
 @Transactional
 public class CbomServiceImpl implements CbomService {
-    private static final Logger logger = LoggerFactory.getLogger(CbomServiceImpl.class);
 
     private CbomRepository cbomRepository;
 
@@ -90,9 +89,23 @@ public class CbomServiceImpl implements CbomService {
             }
         }
 
+        ObjectMapper mapper = new ObjectMapper();
+        CbomDetailDto detailDto = mapper.convertValue(cbom.mapToDto(), CbomDetailDto.class);
+        Map<String, Object> map = mapper.convertValue(response.getBom(), new TypeReference<Map<String, Object>>() {});
+        detailDto.setContent(map);
+        return detailDto;
+    }
 
-        CbomDetailDto cbomDetail = new CbomDetailDto();
-        return cbomDetail;
+    @Override
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
+    public List<CbomDto> getCbomVersions(String serialNumber) throws NotFoundException {
+
+        List<Cbom> versions = cbomRepository.findBySerialNumber(serialNumber);
+
+        List<CbomDto> ret = versions.stream()
+        .map(cbom -> {return cbom.mapToDto();})
+        .collect(Collectors.toList());
+        return ret;
     }
 
     @Override
@@ -125,7 +138,17 @@ public class CbomServiceImpl implements CbomService {
                     ValidationError.create("version must not be empty")
             );
         }
-        cbom.setVersion(version.toString());
+
+        int versionInt;
+        try {
+            versionInt = version instanceof Number 
+            ? ((Number) version).intValue() 
+            : Integer.parseInt(version.toString());
+        } catch (Exception ex) {
+            throw new ValidationException("version must be integer");
+        }
+
+        cbom.setVersion(versionInt);
 
         // createdAt - set to current time
         cbom.setCreatedAt(Instant.now());
@@ -160,6 +183,24 @@ public class CbomServiceImpl implements CbomService {
         return dto;
     }
 
+    // ResourceExtenstionService
+    @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return cbomRepository.findResourceObject(objectUuid, Cbom_.serialNumber);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        return cbomRepository.listResourceObjects(filter, Cbom_.serialNumber);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getEntity(uuid);
+        // Since there are is no parent to the Group, exclusive parent permission evaluation need not be done
+    }
 
     private Cbom getEntity(SecuredUUID uuid) throws NotFoundException {
         return cbomRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Cbom.class, uuid));

@@ -28,5 +28,5 @@ public interface CbomRepository extends SecurityFilterRepository<Cbom, UUID> {
         WHERE c.serial_number = :serial_number
     """
     )
-    List<Cbom> findBySerialNumber(@Param("serial_number") String serial_number);
+    List<Cbom> findBySerialNumber(@Param("serial_number") String serialNumber);
 }
