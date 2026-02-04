@@ -162,7 +162,7 @@ public class CbomServiceImpl implements CbomService {
         cbom.setProtocolsCount(
             response.getCryptoStats().getCryptoAssets().getProtocols().getTotal()
         );
-        cbom.setProtocolsCount(
+        cbom.setCryptoMaterialCount(
             response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal()
         );
         cbom.setTotalAssetsCount(

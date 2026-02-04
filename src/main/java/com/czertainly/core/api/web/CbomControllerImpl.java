@@ -47,8 +47,8 @@ public class CbomControllerImpl implements CbomController {
     @AuditLogged(
         module = Module.CORE,
         resource = Resource.CBOM,
-        operation = Operation.LIST)
-	public CbomDetailDto getCbomDetail(String uuid, String version)	throws NotFoundException, CbomRepositoryException {
+        operation = Operation.DETAIL)
+    public CbomDetailDto getCbomDetail(String uuid, String version)	throws NotFoundException, CbomRepositoryException {
         return cbomService.getCbomDetail(SecuredUUID.fromString(uuid));
     }
 
