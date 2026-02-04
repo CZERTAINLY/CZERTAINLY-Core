@@ -11,14 +11,20 @@ import com.czertainly.api.model.common.attribute.common.properties.CustomAttribu
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -37,10 +43,18 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     @Autowired
+    private CertificateService certificateService;
+
+    @Autowired
     private CmpProfileService cmpProfileService;
 
     @Autowired
     private CmpProfileRepository cmpProfileRepository;
+
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
+    @Autowired
+    private CertificateRepository certificateRepository;
 
     @Autowired
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
@@ -82,7 +96,22 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetCmpProfileByUuid() throws NotFoundException {
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent("123456");
+        certificateContent = certificateContentRepository.save(certificateContent);
+
+        Certificate certificate = new Certificate();
+        certificate.setSubjectDn("testCertificate");
+        certificate.setIssuerDn("testCertificate");
+        certificate.setSerialNumber("123456789");
+        certificate.setCertificateContent(certificateContent);
+        certificate.setCertificateContentId(certificateContent.getId());
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
+        certificateRepository.save(certificate);
+
         cmpProfile.setEnabled(true);
+        cmpProfile.setSigningCertificateUuid(certificate.getUuid());
         CmpProfileDetailDto dto = cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(cmpProfile.getUuid().toString(), dto.getUuid());
@@ -90,6 +119,9 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(cmpProfile.getCertificateAssociations().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
         Assertions.assertEquals(cmpProfile.getCertificateAssociations().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
         Assertions.assertEquals(cmpProfile.getCertificateAssociations().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
+
+        certificateService.deleteCertificate(certificate.getSecuredUuid());
+        Assertions.assertDoesNotThrow(() -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
     }
 
     @Test
