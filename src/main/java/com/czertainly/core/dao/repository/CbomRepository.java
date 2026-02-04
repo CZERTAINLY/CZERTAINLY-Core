@@ -26,7 +26,6 @@ public interface CbomRepository extends SecurityFilterRepository<Cbom, UUID> {
             total_assets_count
         FROM cbom c
         WHERE c.serial_number = :serial_number
-    """
-    )
+    """, nativeQuery = true)
     List<Cbom> findBySerialNumber(@Param("serial_number") String serialNumber);
 }
