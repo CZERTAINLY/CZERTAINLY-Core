@@ -110,7 +110,7 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.CREATE)
-    public CbomDto createCbom(CbomUploadRequestDto request) throws ValidationException, AlreadyExistException {
+    public CbomDto createCbom(CbomUploadRequestDto request) throws ValidationException {
         Map<String, Object> content = request.getContent();
         if (content == null) {
             throw new ValidationException(

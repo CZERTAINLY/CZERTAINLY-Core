@@ -18,5 +18,5 @@ public interface CbomService extends ResourceExtensionService {
     CbomDetailDto getCbomDetail(SecuredUUID uuid) throws NotFoundException, CbomRepositoryException;
     List<CbomDto> getCbomVersions(String serialNumber) throws NotFoundException;
 
-    CbomDto createCbom(CbomUploadRequestDto request) throws ValidationException, AlreadyExistException;
+    CbomDto createCbom(CbomUploadRequestDto request) throws ValidationException;
 }

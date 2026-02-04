@@ -39,7 +39,7 @@ public class CbomControllerImpl implements CbomController {
         resource = Resource.CBOM,
         operation = Operation.LIST)
 	public CbomListResponseDto listCboms(SearchRequestDto request) {
-        throw new Exception("not yet implemented");
+        return new CbomListResponseDto();
     }
 
     @Override
