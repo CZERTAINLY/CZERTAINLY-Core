@@ -849,6 +849,7 @@ public class AttributeEngine {
         boolean multiSelect;
         boolean hasCallback;
         boolean hasContent;
+        boolean strictList;
         AttributeResource attributeResource = null;
         if (attribute.getType() == AttributeType.CUSTOM) {
             CustomAttributeV3 customAttribute = (CustomAttributeV3) attribute;
@@ -859,6 +860,7 @@ public class AttributeEngine {
             multiSelect = customAttribute.getProperties().isMultiSelect();
             hasCallback = false;
             hasContent = customAttribute.getContent() != null && !customAttribute.getContent().isEmpty();
+            strictList = customAttribute.getProperties().isStrictList();
         } else {
             DataAttribute dataAttribute = (DataAttribute) attribute;
 
@@ -869,6 +871,7 @@ public class AttributeEngine {
             hasCallback = dataAttribute.getAttributeCallback() != null;
             hasContent = dataAttribute.getContent() != null && !((List<? extends AttributeContent>) dataAttribute.getContent()).isEmpty();
             attributeResource = dataAttribute.getProperties().getResource();
+            strictList = dataAttribute.getProperties().isStrictList();
         }
 
         if (label == null || label.isBlank()) {
@@ -891,6 +894,10 @@ public class AttributeEngine {
             if (list) {
                 throw new AttributeException("Read only attribute cannot be list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
+        }
+
+        if (list && strictList && !hasContent) {
+            throw new AttributeException("Strict list attribute must define its content", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
     }
 
@@ -1164,6 +1171,10 @@ public class AttributeEngine {
 
     private static void validateStrictList(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
         boolean strictList = false;
+        List<AttributeContent> defaultContentItems = attributeDefinition.getDefinition().getContent();
+        if (defaultContentItems == null || defaultContentItems.isEmpty()) {
+            return;
+        }
         if (attributeDefinition.getDefinition() instanceof CustomAttribute customAttribute) {
             strictList = customAttribute.getProperties().isList() && customAttribute.getProperties().isStrictList();
         } else if (attributeDefinition.getDefinition() instanceof DataAttribute dataAttribute) {
@@ -1171,7 +1182,6 @@ public class AttributeEngine {
         }
 
         if (strictList) {
-            List<AttributeContent> defaultContentItems = attributeDefinition.getDefinition().getContent();
             if (defaultContentItems.stream().noneMatch(contentItem::equals)) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
