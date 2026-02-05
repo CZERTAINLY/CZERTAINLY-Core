@@ -257,8 +257,11 @@ class AttributeEngineTest extends BaseSpringBootTest {
         UUID certificateUuid = certificate.getUuid();
         Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, invalidOption), "Content not in predefined options should not be accepted for strict list attribute");
 
-       List<AttributeContent> validContent = List.of(new StringAttributeContentV3("data1"));
-        Assertions.assertDoesNotThrow(() ->  attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, validContent), "Valid content should be accepted for strict list attribute");
+        List<AttributeContent> validContent = List.of(new StringAttributeContentV3("data1"));
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, validContent), "Valid content should be accepted for strict list attribute");
+
+        List<AttributeContent> validContentV2 = List.of(new StringAttributeContentV2("data1"));
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, validContentV2), "Valid content should be accepted for strict list attribute");
     }
 
     @Test
@@ -616,7 +619,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         validAttribute.setAttributeCallback(new AttributeCallback());
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
 
-        DataAttribute dataAttribute = attributeEngine.getDataAttributeDefinition(connectorAuthority.getUuid(),validAttribute.getName());
+        DataAttribute dataAttribute = attributeEngine.getDataAttributeDefinition(connectorAuthority.getUuid(), validAttribute.getName());
         Assertions.assertNotNull(dataAttribute.getAttributeCallback());
         Assertions.assertNull(dataAttribute.getConstraints());
     }

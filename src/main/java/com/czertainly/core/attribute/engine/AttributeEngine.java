@@ -1172,7 +1172,7 @@ public class AttributeEngine {
 
         if (strictList) {
             List<AttributeContent> defaultContentItems = attributeDefinition.getDefinition().getContent();
-            if (defaultContentItems.stream().noneMatch(dci -> dci.equals(contentItem))) {
+            if (defaultContentItems.stream().noneMatch(contentItem::equals)) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
         }
