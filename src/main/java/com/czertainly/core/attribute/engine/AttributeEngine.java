@@ -1181,11 +1181,10 @@ public class AttributeEngine {
             strictList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isStrictList();
         }
 
-        if (strictList) {
-            if (defaultContentItems.stream().noneMatch(contentItem::equals)) {
+        if (strictList && defaultContentItems.stream().noneMatch(contentItem::equals)) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
-        }
+
     }
 
     private static void validateConvertingContentItemsToClasses(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {

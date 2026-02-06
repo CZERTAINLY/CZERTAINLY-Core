@@ -169,7 +169,6 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
 
-
     @Test
     void testMetaContents() {
         var mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
@@ -255,13 +254,44 @@ class AttributeEngineTest extends BaseSpringBootTest {
         strictListAttributeDto.setContent(invalidOption);
 
         UUID certificateUuid = certificate.getUuid();
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, invalidOption), "Content not in predefined options should not be accepted for strict list attribute");
+        UUID finalDefinitionUuid2 = definitionUuid;
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid2, attributeName, invalidOption), "Content not in predefined options should not be accepted for strict list attribute");
 
         List<AttributeContent> validContent = List.of(new StringAttributeContentV3("data1"));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, validContent), "Valid content should be accepted for strict list attribute");
+        UUID finalDefinitionUuid = definitionUuid;
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid, attributeName, validContent), "Valid content should be accepted for strict list attribute");
 
         List<AttributeContent> validContentV2 = List.of(new StringAttributeContentV2("data1"));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, definitionUuid, attributeName, validContentV2), "Valid content should be accepted for strict list attribute");
+        UUID finalDefinitionUuid1 = definitionUuid;
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid1, attributeName, validContentV2), "Valid content should be accepted for strict list attribute");
+
+        strictListAttribute.setContentType(AttributeContentType.CODEBLOCK);
+        CodeBlockAttributeContentV3 attributeContent = new CodeBlockAttributeContentV3();
+        attributeContent.setContentType(AttributeContentType.CODEBLOCK);
+        attributeContent.setData(new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "abc"));
+        strictListAttribute.setContent(List.of(attributeContent));
+        strictListAttribute.setUuid(UUID.randomUUID().toString());
+        attributeEngine.updateCustomAttributeDefinition(strictListAttribute, List.of(Resource.CERTIFICATE));
+
+        definitionUuid = UUID.fromString(strictListAttribute.getUuid());
+        strictListAttributeDto.setUuid(definitionUuid);
+        strictListAttributeDto.setContent(List.of(attributeContent));
+        UUID finalDefinitionUuid3 = definitionUuid;
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for strict list attribute");
+
+        DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
+        dataAttributeV2.setUuid(UUID.randomUUID().toString());
+        dataAttributeV2.setName("dataAttributeV2");
+        dataAttributeV2.setContentType(AttributeContentType.STRING);
+        dataAttributeV2.setContent(List.of(new StringAttributeContentV2("data")));
+        attributeEngine.updateDataAttributeDefinitions(authorityDiscoveryUuid, null, List.of(dataAttributeV2));
+        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
+        requestAttributeV2.setUuid(UUID.fromString(dataAttributeV2.getUuid()));
+        requestAttributeV2.setName(dataAttributeV2.getName());
+        requestAttributeV2.setContent(dataAttributeV2.getContent());
+        UUID finalDefinitionUuid4 = UUID.fromString(dataAttributeV2.getUuid());
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(finalDefinitionUuid4, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for strict list attribute");
+
     }
 
     @Test
