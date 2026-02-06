@@ -46,8 +46,7 @@ public class AttributeVersionHelper {
     public static ResponseAttribute getResponseAttribute(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType, int version) {
         if (version == 2) {
             return getResponseAttributeV2(uuid, name, label, content, contentType, attributeType);
-        }
-        if (version == 3) {
+        } else if (version == 3) {
             return getResponseAttributeV3(uuid, name, label, content, contentType, attributeType);
         }
         return null;
@@ -56,8 +55,7 @@ public class AttributeVersionHelper {
     public static RequestAttribute getRequestAttribute(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType, int version) {
         if (version == 2) {
             return getRequestAttributeV2(uuid, name, content, contentType);
-        }
-        if (version == 3) {
+        } else if (version == 3) {
             return getRequestAttributeV3(uuid, name, content, contentType);
         }
         return null;
@@ -70,8 +68,7 @@ public class AttributeVersionHelper {
         }
         if (objectContent.version() == 2) {
             addRequestAttributeContentV2(requestAttribute, contentItem);
-        }
-        if (objectContent.version() == 3) {
+        } else if (objectContent.version() == 3) {
             addRequestAttributeContentV3(requestAttribute, contentItem);
         }
     }
@@ -83,8 +80,7 @@ public class AttributeVersionHelper {
         }
         if (objectContent.version() == 2) {
             addResponseAttributeContentV2(responseAttribute, contentItem);
-        }
-        if (objectContent.version() == 3) {
+        } else if (objectContent.version() == 3) {
             addResponseAttributeContentV3(responseAttribute, contentItem);
         }
     }
@@ -92,9 +88,7 @@ public class AttributeVersionHelper {
     public static ResponseMetadata getResponseMetadata(int version, List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
         if (version == 2) {
             return getResponseMetadataV2(sourceObjects, uuid, name, label, type, contentType, content);
-        }
-
-        if (version == 3) {
+        } else if (version == 3) {
             return getResponseMetadataV3(sourceObjects, uuid, name, label, type, contentType, content);
         }
         return null;
@@ -112,8 +106,7 @@ public class AttributeVersionHelper {
             contentV2.setReference(content.getReference());
             contentV2.setData(decryptedDataObject);
             return contentV2;
-        }
-        if (version == 3) {
+        } else if (version == 3) {
             BaseAttributeContentV3<Serializable> contentV3 = new BaseAttributeContentV3<>();
             contentV3.setReference(content.getReference());
             contentV3.setData(decryptedDataObject);
@@ -154,8 +147,7 @@ public class AttributeVersionHelper {
     public static void addResponseMetadataContent(int version, ResponseMetadata responseMetadata, AttributeContent contentItem) {
         if (version == 2) {
             addResponseMetadataContentV2(responseMetadata, contentItem);
-        }
-        if (version == 3) {
+        } else if (version == 3) {
             addResponseMetadataContentV3(responseMetadata, contentItem);
         }
     }
@@ -181,8 +173,7 @@ public class AttributeVersionHelper {
             BaseAttributeContentV2<?> contentV2 = new BaseAttributeContentV2<>();
             contentV2.setReference(reference);
             return contentV2;
-        }
-        if (version == 3) {
+        } else if (version == 3) {
             BaseAttributeContentV3<?> contentV3 = new BaseAttributeContentV3<>();
             contentV3.setReference(reference);
             contentV3.setContentType(contentType);
