@@ -35,8 +35,7 @@ import java.util.UUID;
 public class AttributeVersionHelper {
 
 
-    private AttributeVersionHelper() {
-    }
+    private AttributeVersionHelper() { /* Prevent instantiation of utility class */ }
 
     private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = JsonMapper.builder()
             .findAndAddModules()
