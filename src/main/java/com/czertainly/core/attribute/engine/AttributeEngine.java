@@ -882,6 +882,10 @@ public class AttributeEngine {
             throw new AttributeException("Attribute has to be defined as list to be multiselect", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
 
+        if (strictList && !list) {
+            throw new AttributeException("Attribute has to be defined as list to be strict list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
+
         validateResourceAttributeProperties(attribute, connectorUuidStr, attributeResource, hasCallback);
 
         if (readOnly) {
