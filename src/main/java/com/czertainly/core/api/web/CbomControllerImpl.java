@@ -42,7 +42,7 @@ public class CbomControllerImpl implements CbomController {
         module = Module.CORE,
         resource = Resource.CBOM,
         operation = Operation.LIST)
-	public CbomListResponseDto listCboms(SearchRequestDto requestDto) {
+    public CbomListResponseDto listCboms(SearchRequestDto requestDto) {
         return cbomService.listCboms(SecurityFilter.create(), requestDto);
     }
 
