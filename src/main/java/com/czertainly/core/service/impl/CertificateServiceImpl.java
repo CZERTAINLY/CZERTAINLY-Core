@@ -565,7 +565,21 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                 int end = Math.min(i + BULK_DELETE_BATCH_SIZE, totalToDelete);
                 List<String> batchUuids = requestedUuids.subList(i, end);
 
-                deletedCount += bulkDeleteCertificateBatch(batchUuids, loggedUserUuid);
+                TransactionStatus txStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
+                try {
+                    deletedCount += bulkDeleteCertificateBatch(batchUuids, loggedUserUuid);
+                    transactionManager.commit(txStatus);
+                } catch (Exception e) {
+                    transactionManager.rollback(txStatus);
+                    logger.error("Failed to process bulk deletion batch: {}", e.getMessage(), e);
+                    for (String uuid : batchUuids) {
+                        notificationProducer.produceInternalNotificationMessage(Resource.CERTIFICATE,
+                                UUID.fromString(uuid),
+                                NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
+                                "Batch deletion failed for certificate " + uuid,
+                                e.getMessage());
+                    }
+                }
             }
             logger.debug("Bulk deleted {} of {} certificates.", deletedCount, totalToDelete);
         } else {
@@ -574,66 +588,53 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     private int bulkDeleteCertificateBatch(List<String> batchUuids, UUID loggedUserUuid) {
+        // 1. Preparation. Fetch certificates and check permissions.
         List<Certificate> certificates = new ArrayList<>();
-        TransactionStatus txStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        try {
-            // Preparation. Fetch certificates and check permissions.
-            for (String uuidStr : batchUuids) {
-                SecuredUUID securedUuid = SecuredUUID.fromString(uuidStr);
-                try {
-                    permissionEvaluator.certificate(securedUuid);
-                    certificates.add(getCertificateEntity(securedUuid));
-                } catch (Exception e) {
-                    logger.error("Unable to delete the certificate {}: {}", uuidStr, e.getMessage());
-                    notificationProducer.produceInternalNotificationMessage(Resource.CERTIFICATE, securedUuid.getValue(),
-                            NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
-                            "Unable to delete the certificate " + uuidStr, e.getMessage());
-                }
-            }
-
-            List<UUID> effectiveUuids = new ArrayList<>();
-            List<SecuredUUID> effectiveSecuredUuids = new ArrayList<>();
-            certificates.forEach(c -> {
-                effectiveUuids.add(c.getUuid());
-                effectiveSecuredUuids.add(c.getSecuredUuid());
-            });
-
-            if (effectiveUuids.isEmpty()) {
-                return 0;
-            }
-
-            // Do the work.
-            locationService.removeCertificatesFromLocationsOnDelete(effectiveSecuredUuids);
-
-            scepProfileRepository.clearCaCertificateReferenceIn(effectiveUuids);
-            cmpProfileRepository.clearSigningCertificateReferenceIn(effectiveUuids);
-
-            crlService.clearCrlsForCaCertificate(effectiveUuids);
-
-            certificates.forEach(c -> {
-                c.setOwner(null);
-                c.getGroups().clear();
-            });
-            objectAssociationService.bulkRemoveObjectAssociations(Resource.CERTIFICATE, effectiveUuids);
-            attributeEngine.bulkDeleteObjectAttributeContent(Resource.CERTIFICATE, effectiveUuids);
-
-            certificateRepository.deleteAllInBatch(certificates);
-
-            certificateContentRepository.deleteUnusedCertificateContents();
-
-            transactionManager.commit(txStatus);
-            return certificates.size();
-        } catch (Exception e) {
-            transactionManager.rollback(txStatus);
-            logger.error("Failed to process bulk deletion batch: {}", e.getMessage());
-            for (Certificate cert : certificates) {
-                notificationProducer.produceInternalNotificationMessage(Resource.CERTIFICATE, cert.getUuid(),
+        for (String uuidStr : batchUuids) {
+            SecuredUUID securedUuid = SecuredUUID.fromString(uuidStr);
+            try {
+                permissionEvaluator.certificate(securedUuid);
+                certificates.add(getCertificateEntity(securedUuid));
+            } catch (Exception e) {
+                logger.error("Unable to delete the certificate {}: {}", uuidStr, e.getMessage());
+                notificationProducer.produceInternalNotificationMessage(Resource.CERTIFICATE, securedUuid.getValue(),
                         NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
-                        "Batch deletion failed for certificate " + cert.getUuid(), e.getMessage());
+                        "Unable to delete the certificate " + uuidStr, e.getMessage());
             }
+        }
+
+        List<UUID> effectiveUuids = new ArrayList<>();
+        List<SecuredUUID> effectiveSecuredUuids = new ArrayList<>();
+        certificates.forEach(c -> {
+            effectiveUuids.add(c.getUuid());
+            effectiveSecuredUuids.add(c.getSecuredUuid());
+        });
+
+        if (effectiveUuids.isEmpty()) {
             return 0;
         }
+
+        // 2. Do the work.
+        locationService.removeCertificatesFromLocationsOnDelete(effectiveSecuredUuids);
+
+        scepProfileRepository.clearCaCertificateReferenceIn(effectiveUuids);
+        cmpProfileRepository.clearSigningCertificateReferenceIn(effectiveUuids);
+
+        crlService.clearCrlsForCaCertificate(effectiveUuids);
+
+        certificates.forEach(c -> {
+            c.setOwner(null);
+            c.getGroups().clear();
+        });
+        objectAssociationService.bulkRemoveObjectAssociations(Resource.CERTIFICATE, effectiveUuids);
+        attributeEngine.bulkDeleteObjectAttributeContent(Resource.CERTIFICATE, effectiveUuids);
+
+        certificateRepository.deleteAllInBatch(certificates);
+        certificateContentRepository.deleteUnusedCertificateContents();
+
+        return certificates.size();
     }
+
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
