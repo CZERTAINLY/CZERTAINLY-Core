@@ -104,20 +104,29 @@ public class AttributeEngine {
     public List<SearchFieldDataByGroupDto> getResourceSearchableFields(Resource resource, boolean settable) {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
 
-        final List<SearchFieldObject> customAttrSearchFieldObject = settable ? attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentTypeAndReadOnlyFalse(resource, List.of(AttributeType.CUSTOM), Arrays.stream(AttributeContentType.values()).filter(AttributeContentType::isFilterByData).toList())
-                : attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM));
-        if (!customAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), FilterFieldSource.CUSTOM));
-        }
-
-        if (!settable) {
-            final List<SearchFieldObject> dataAttrSearchFieldObject = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.DATA));
-            if (!dataAttrSearchFieldObject.isEmpty()) {
-                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttrSearchFieldObject), FilterFieldSource.DATA));
+        // The following logic is driven by minimizing database operations. So we retrieve everything at once and then do client-side filtering.
+        if (settable) {
+            List<SearchFieldObject> settableAttributes = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(
+                    resource, List.of(AttributeType.CUSTOM), Arrays.stream(AttributeContentType.values()).filter(AttributeContentType::isFilterByData).toList());
+            if (!settableAttributes.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(settableAttributes), FilterFieldSource.CUSTOM));
             }
-            final List<SearchFieldObject> metadataSearchFieldObject = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.META));
-            if (!metadataSearchFieldObject.isEmpty()) {
-                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
+        } else {
+            List<SearchFieldObject> searchableAttributes = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(
+                    resource, List.of(AttributeType.CUSTOM, AttributeType.DATA, AttributeType.META));
+            var customAttributes = searchableAttributes.stream().filter(attr -> attr.getAttributeType().equals(AttributeType.CUSTOM)).toList();
+            if (!customAttributes.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttributes), FilterFieldSource.CUSTOM));
+            }
+
+            var dataAttributes = searchableAttributes.stream().filter(attr -> attr.getAttributeType().equals(AttributeType.DATA)).toList();
+            if (!dataAttributes.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttributes), FilterFieldSource.DATA));
+            }
+
+            var metadataAttributes = searchableAttributes.stream().filter(attr -> attr.getAttributeType().equals(AttributeType.META)).toList();
+            if (!metadataAttributes.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataAttributes), FilterFieldSource.META));
             }
         }
 

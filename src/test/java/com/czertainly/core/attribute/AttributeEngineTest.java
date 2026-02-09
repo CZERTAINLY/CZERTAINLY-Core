@@ -32,6 +32,8 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
@@ -690,5 +692,82 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         // Act & Assert
         Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestDataAttributes(validAttributeList, List.of(requestAttribute), true));
+    }
+
+    @Test
+    void testGetResourceSearchableFields() throws AttributeException {
+        // Arrange
+        DataAttributeV3 dataAttribute = new DataAttributeV3();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("dataAttribute");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Label");
+        dataAttribute.setProperties(dataProps);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
+
+        // Create relation for DATA attribute so it's found by the query
+        AttributeDefinition dataAttrDef = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(), dataAttribute.getName()).orElseThrow();
+        AttributeRelation dataRelation = new AttributeRelation();
+        dataRelation.setAttributeDefinition(dataAttrDef);
+        dataRelation.setResource(Resource.CERTIFICATE);
+        attributeRelationRepository.save(dataRelation);
+
+        // Metadata already loaded in setUp via loadMetadata()
+
+        // Act
+        List<SearchFieldDataByGroupDto> searchableFields = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
+
+        // Assert
+        Assertions.assertNotNull(searchableFields);
+        Assertions.assertFalse(searchableFields.isEmpty());
+
+        var customFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM).toList();
+        var dataFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA).toList();
+        var metaFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.META).toList();
+
+        Assertions.assertFalse(customFields.isEmpty());
+        Assertions.assertEquals(1, customFields.size());
+        Assertions.assertFalse(dataFields.isEmpty());
+        Assertions.assertEquals(1, dataFields.size());
+        Assertions.assertFalse(metaFields.isEmpty());
+        Assertions.assertEquals(1, metaFields.size());
+    }
+
+    @Test
+    void testGetResourceSettableFields() throws AttributeException {
+        // Arrange
+        DataAttributeV3 dataAttribute = new DataAttributeV3();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("dataAttribute");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Label");
+        dataAttribute.setProperties(dataProps);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
+
+        // Create relation for DATA attribute so it's found by the query
+        AttributeDefinition dataAttrDef = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(), dataAttribute.getName()).orElseThrow();
+        AttributeRelation dataRelation = new AttributeRelation();
+        dataRelation.setAttributeDefinition(dataAttrDef);
+        dataRelation.setResource(Resource.CERTIFICATE);
+        attributeRelationRepository.save(dataRelation);
+
+        // Act
+        List<SearchFieldDataByGroupDto> settableFields = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, true);
+
+        // Assert
+        Assertions.assertNotNull(settableFields);
+
+        var customFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM).toList();
+        var dataFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA).toList();
+        var metaFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.META).toList();
+
+        Assertions.assertFalse(customFields.isEmpty());
+        Assertions.assertEquals(1, customFields.size());
+        Assertions.assertTrue(dataFields.isEmpty());
+        Assertions.assertTrue(metaFields.isEmpty());
     }
 }

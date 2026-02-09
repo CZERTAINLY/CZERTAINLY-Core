@@ -27,7 +27,6 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     Optional<AttributeDefinition> findByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid, String attributeName);
     Optional<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType attributeType, UUID connectorUuid, UUID attributeUuid, String attributeName);
     Optional<AttributeDefinition> findByTypeAndName(AttributeType type, String attributeName);
-    List<AttributeDefinition> findByType(AttributeType type);
 
     Boolean existsByTypeAndName(AttributeType type, String attributeName);
     Boolean existsByTypeAndNameAndGlobalTrue(AttributeType type, String attributeName);
@@ -38,27 +37,55 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
 
     Long deleteByTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
+    /* The following SELECT has been carefully optimized for PostgreSQL's query planner,
+     * together with relevant database indices.
+     * The original LEFT JOIN over 4 tables is split into two SELECTS, using a sub-SELECT to optimize further.
+     */
     @Query("""
             SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(
                 ad.name, ad.contentType, ad.type, ad.label, ad.definition)
                 FROM AttributeDefinition ad
                 LEFT JOIN AttributeRelation ar ON ar.attributeDefinitionUuid = ad.uuid
-                LEFT JOIN AttributeContentItem aci ON aci.attributeDefinitionUuid = ad.uuid
-                LEFT JOIN AttributeContent2Object aco ON aco.attributeContentItemUuid = aci.uuid
-                WHERE ad.type IN ?2 AND (ar.resource = ?1 OR aco.objectType = ?1)
+                WHERE ad.type IN ?2 AND ar.resource = ?1
+            UNION
+            SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(
+                ad.name, ad.contentType, ad.type, ad.label, ad.definition)
+                FROM AttributeDefinition ad
+                WHERE ad.type IN ?2 AND ad.uuid IN (
+                    SELECT aci.attributeDefinitionUuid
+                        FROM AttributeContentItem aci
+                        WHERE aci.uuid IN (
+                            SELECT aco.attributeContentItemUuid
+                                FROM AttributeContent2Object aco
+                                WHERE aco.objectType = ?1
+                        )
+                )
             """)
     List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrType(final Resource resourceType, final List<AttributeType> attributeTypes);
 
+    /* The following SELECT has been carefully optimized for PostgreSQL's query planner,
+     * together with relevant database indices.
+     * The original LEFT JOIN over 4 tables is split into two SELECTS, using a sub-SELECT to optimize further.
+     */
     @Query("""
             SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(
                 ad.name, ad.contentType, ad.type, ad.label, ad.definition)
                 FROM AttributeDefinition ad
                 LEFT JOIN AttributeRelation ar ON ar.attributeDefinitionUuid = ad.uuid
-                LEFT JOIN AttributeContentItem aci ON aci.attributeDefinitionUuid = ad.uuid
-                LEFT JOIN AttributeContent2Object aco ON aco.attributeContentItemUuid = aci.uuid
-                WHERE ad.type IN ?2 AND ad.contentType IN ?3 AND (ar.resource = ?1 OR aco.objectType = ?1)
+                WHERE ad.type IN ?2 AND ar.resource = ?1 AND ad.contentType IN ?3
+            UNION
+            SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(
+                ad.name, ad.contentType, ad.type, ad.label, ad.definition)
+                FROM AttributeDefinition ad
+                WHERE ad.type IN ?2 AND ad.contentType IN ?3 AND ad.uuid IN (
+                    SELECT aci.attributeDefinitionUuid
+                        FROM AttributeContentItem aci
+                        WHERE aci.uuid IN (
+                            SELECT aco.attributeContentItemUuid
+                                FROM AttributeContent2Object aco
+                                WHERE aco.objectType = ?1
+                        )
+                )
             """)
-    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentTypeAndReadOnlyFalse(final Resource resourceType, final List<AttributeType> attributeTypes, final List<AttributeContentType> attributeContentTypes);
-
-
+    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(final Resource resourceType, final List<AttributeType> attributeTypes, final List<AttributeContentType> attributeContentTypes);
 }
