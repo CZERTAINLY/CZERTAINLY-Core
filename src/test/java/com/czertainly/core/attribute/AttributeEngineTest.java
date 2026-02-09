@@ -288,6 +288,10 @@ class AttributeEngineTest extends BaseSpringBootTest {
         UUID finalDefinitionUuid3 = definitionUuid;
         Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for strict list attribute");
 
+        customProps.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for strict list attribute");
+
         DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
         dataAttributeV2.setUuid(UUID.randomUUID().toString());
         dataAttributeV2.setName("dataAttributeV2");

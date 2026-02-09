@@ -1277,23 +1277,37 @@ public class AttributeEngine {
 
     private static void validateExtensibleList(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
         boolean extensibleList;
+        ProtectionLevel protectionLevel;
         List<AttributeContent> defaultContentItems = attributeDefinition.getDefinition().getContent();
         if (defaultContentItems == null || defaultContentItems.isEmpty()) {
             return;
         }
         if (attributeDefinition.getDefinition() instanceof CustomAttribute customAttribute) {
             extensibleList = customAttribute.getProperties().isList() && customAttribute.getProperties().isExtensibleList();
+            protectionLevel = customAttribute.getProperties().getProtectionLevel();
         } else if (attributeDefinition.getDefinition() instanceof DataAttribute dataAttribute) {
             extensibleList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isExtensibleList();
+            protectionLevel = dataAttribute.getProperties().getProtectionLevel();
         } else {
             // Other attribute types are not supported for extensible list
             return;
         }
 
-        if (!extensibleList && (defaultContentItems.stream().noneMatch(contentItem::equals))) {
+        if (!extensibleList) {
+            if (protectionLevel == ProtectionLevel.ENCRYPTED) {
+                defaultContentItems = defaultContentItems.stream()
+                        .map(content -> AttributeVersionHelper.decryptContent(
+                                content, 3, attributeDefinition.getContentType(), attributeDefinition.getEncryptedData().get(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).indexOf(content))))
+                        .toList();
+            }
+            if (defaultContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
+        }
+    }
 
+    private static boolean attributeContentEquals(AttributeContent content1, AttributeContent content2) {
+        return Objects.equals(content1.getReference(), content2.getReference()) && Objects.equals(content1.getData(), content2.getData()) && Objects.equals(content1.getContentType(), content2.getContentType());
     }
 
     private static void validateConvertingContentItemsToClasses(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
