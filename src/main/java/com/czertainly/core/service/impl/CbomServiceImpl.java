@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
@@ -10,27 +11,36 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
-import com.czertainly.core.cbom.client.CbomRepositoryException;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.entity.Cbom_;
 import com.czertainly.core.dao.repository.CbomRepository;
+import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.cbom.BomCreateResponseDto;
+import com.czertainly.core.model.cbom.BomResponseDto;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CbomService;
+import com.czertainly.core.util.SearchHelper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
-import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.model.cbom.BomCreateResponseDto;
-import com.czertainly.core.model.cbom.BomResponseDto;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
-import org.apache.commons.lang3.StringUtils;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,10 +49,13 @@ import java.util.stream.Collectors;
 @Service(Resource.Codes.CBOM)
 @Transactional
 public class CbomServiceImpl implements CbomService {
+    private static final Logger logger = LoggerFactory.getLogger(CbomServiceImpl.class);
 
     private CbomRepository cbomRepository;
 
     private CbomRepositoryClient cbomRepositoryClient;
+
+    private AttributeEngine attributeEngine;
 
     @Autowired
     public void setCbomRepository(CbomRepository cbomRepository) {
@@ -52,6 +65,11 @@ public class CbomServiceImpl implements CbomService {
     @Autowired
     public void setCbomRepositoryClient(CbomRepositoryClient cbomRepositoryClient) {
         this.cbomRepositoryClient = cbomRepositoryClient;
+    }
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
     }
 
     @Override
@@ -73,7 +91,7 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DETAIL)
-    public CbomDetailDto getCbomDetail(SecuredUUID uuid) throws NotFoundException, CbomRepositoryException {
+    public CbomDetailDto getCbomDetail(SecuredUUID uuid) throws CbomRepositoryException, NotFoundException{
         Cbom cbom = getEntity(uuid);
 
         BomResponseDto response;
@@ -110,7 +128,7 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.CREATE)
-    public CbomDto createCbom(CbomUploadRequestDto request) throws ValidationException {
+    public CbomDto createCbom(CbomUploadRequestDto request) throws AlreadyExistException, CbomRepositoryException, ValidationException {
         Map<String, Object> content = request.getContent();
         if (content == null) {
             throw new ValidationException(
@@ -143,7 +161,17 @@ public class CbomServiceImpl implements CbomService {
         }
 
         // upload JSON to cbom-respository
-        BomCreateResponseDto response = cbomRepositoryClient.create(request);
+
+        BomCreateResponseDto response;
+        try {
+            response = cbomRepositoryClient.create(request);
+        } catch (CbomRepositoryException ex) {
+            if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 409) {
+                throw new AlreadyExistException(CbomDetailDto.class, "CBOM with given serial number and version already exists");
+            } else {
+                throw ex;
+            }
+        }
 
         // upload stats to database
         Cbom cbom = new Cbom();
@@ -189,6 +217,32 @@ public class CbomServiceImpl implements CbomService {
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getEntity(uuid);
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CBOM, false);
+
+        List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(FilterField.CBOM_SERIAL_NUMBER),
+                SearchHelper.prepareSearch(FilterField.CBOM_VERSION),
+                SearchHelper.prepareSearch(FilterField.CBOM_CREATED_AT),
+                SearchHelper.prepareSearch(FilterField.CBOM_SOURCE),
+                SearchHelper.prepareSearch(FilterField.CBOM_ALGORITHMS_COUNT),
+                SearchHelper.prepareSearch(FilterField.CBOM_CERTIFICATES_COUNT),
+                SearchHelper.prepareSearch(FilterField.CBOM_CERTIFICATES_COUNT),
+                SearchHelper.prepareSearch(FilterField.CBOM_PROTOCOLS_COUNT),
+                SearchHelper.prepareSearch(FilterField.CBOM_CRYPTO_MATERIAL_COUNT),
+                SearchHelper.prepareSearch(FilterField.CBOM_TOTAL_ASSETS_COUNT)
+        );
+
+        fields = new ArrayList<>(fields);
+        fields.sort(new SearchFieldDataComparator());
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
+
+        logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
+        return searchFieldDataByGroupDtos;
     }
 
     private Cbom getEntity(SecuredUUID uuid) throws NotFoundException {

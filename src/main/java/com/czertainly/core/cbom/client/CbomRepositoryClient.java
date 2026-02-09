@@ -9,6 +9,7 @@ import com.czertainly.core.model.cbom.BomResponseDto;
 import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
+import com.czertainly.api.exception.CbomRepositoryException;
 import lombok.Getter;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
@@ -114,7 +115,7 @@ public class CbomRepositoryClient {
         return client.method(method);
     }
 
-    private static <T, R> R processRequest(Function<T, R> func, T request) {
+    private static <T, R> R processRequest(Function<T, R> func, T request) throws CbomRepositoryException {
         try {
             return func.apply(request);
         } catch (Exception e) {

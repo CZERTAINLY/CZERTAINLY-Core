@@ -1,5 +1,6 @@
 package com.czertainly.core.cbom.client;
 
+import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
