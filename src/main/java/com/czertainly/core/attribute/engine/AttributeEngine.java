@@ -425,7 +425,7 @@ public class AttributeEngine {
         attributeDefinition.setReadOnly(dataAttribute.getProperties().isReadOnly());
 
         // we need content only for readonly attribute
-        if (!Boolean.TRUE.equals(attributeDefinition.isReadOnly())) {
+        if (!Boolean.TRUE.equals(attributeDefinition.isReadOnly()) && dataAttribute.getProperties().isExtensibleList()) {
             dataAttribute.setContent(null);
         }
         attributeDefinition.setDefinition(dataAttribute);
@@ -860,7 +860,7 @@ public class AttributeEngine {
             multiSelect = customAttribute.getProperties().isMultiSelect();
             hasCallback = false;
             hasContent = customAttribute.getContent() != null && !customAttribute.getContent().isEmpty();
-            strictList = customAttribute.getProperties().isStrictList();
+            strictList = customAttribute.getProperties().isExtensibleList();
         } else {
             DataAttribute dataAttribute = (DataAttribute) attribute;
 
@@ -871,7 +871,7 @@ public class AttributeEngine {
             hasCallback = dataAttribute.getAttributeCallback() != null;
             hasContent = dataAttribute.getContent() != null && !((List<? extends AttributeContent>) dataAttribute.getContent()).isEmpty();
             attributeResource = dataAttribute.getProperties().getResource();
-            strictList = dataAttribute.getProperties().isStrictList();
+            strictList = dataAttribute.getProperties().isExtensibleList();
         }
 
         if (label == null || label.isBlank()) {
@@ -1157,7 +1157,7 @@ public class AttributeEngine {
                     throw new AttributeException("Attribute content is malformed and does not contain data", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
                 }
 
-                validateStrictList(attributeDefinition, contentItem, connectorUuidStr);
+                validateExtensibleList(attributeDefinition, contentItem, connectorUuidStr);
                 validateContentData(attributeDefinition, contentItem, connectorUuidStr);
 
                 List<ValidationError> constraintsValidationErrors = AttributeDefinitionUtils.validateConstraints(attributeDefinition.getDefinition(), attributeContent);
@@ -1173,19 +1173,22 @@ public class AttributeEngine {
         }
     }
 
-    private static void validateStrictList(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
-        boolean strictList = false;
+    private static void validateExtensibleList(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
+        boolean extensibleList;
         List<AttributeContent> defaultContentItems = attributeDefinition.getDefinition().getContent();
         if (defaultContentItems == null || defaultContentItems.isEmpty()) {
             return;
         }
         if (attributeDefinition.getDefinition() instanceof CustomAttribute customAttribute) {
-            strictList = customAttribute.getProperties().isList() && customAttribute.getProperties().isStrictList();
+            extensibleList = customAttribute.getProperties().isList() && customAttribute.getProperties().isExtensibleList();
         } else if (attributeDefinition.getDefinition() instanceof DataAttribute dataAttribute) {
-            strictList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isStrictList();
+            extensibleList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isExtensibleList();
+        } else {
+            // Other attribute types are not supported for extensible list
+            return;
         }
 
-        if (strictList && defaultContentItems.stream().noneMatch(contentItem::equals)) {
+        if (!extensibleList && (defaultContentItems.stream().noneMatch(contentItem::equals))) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
 
