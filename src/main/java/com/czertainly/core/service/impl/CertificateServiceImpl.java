@@ -120,7 +120,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     // batch size will prevent bloating size of enqueued message and better utilize parallel processing
     // NOTE: improve handling of large batches vs many produced messages to queue
     private static final int VALIDATION_BATCH_SIZE = 10;
-    public static final int BULK_DELETE_BATCH_SIZE = 500;
+    private static final int BULK_DELETE_BATCH_SIZE = 500;
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
