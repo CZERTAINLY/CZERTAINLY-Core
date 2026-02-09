@@ -17,6 +17,7 @@ public interface GroupAssociationRepository extends JpaRepository<GroupAssociati
     Long deleteByGroupUuid(UUID groupUuid);
 
     Long deleteByResourceAndObjectUuid(Resource resource, UUID objectUuid);
+    Long deleteByResourceAndObjectUuidIn(Resource resource, List<UUID> objectUuids);
 
     Long deleteByResourceAndObjectUuidAndGroupUuid(Resource resource, UUID objectUuid, UUID groupUuid);
 

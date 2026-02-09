@@ -24,4 +24,8 @@ public interface CmpProfileRepository extends SecurityFilterRepository<CmpProfil
     @Modifying
     @Query("UPDATE CmpProfile cp SET cp.signingCertificateUuid = NULL WHERE cp.signingCertificateUuid = ?1")
     void clearSigningCertificateReference(UUID signingCertificateUuid);
+
+    @Modifying
+    @Query("UPDATE CmpProfile cp SET cp.signingCertificateUuid = NULL WHERE cp.signingCertificateUuid IN ?1")
+    void clearSigningCertificateReferenceIn(List<UUID> signingCertificateUuids);
 }

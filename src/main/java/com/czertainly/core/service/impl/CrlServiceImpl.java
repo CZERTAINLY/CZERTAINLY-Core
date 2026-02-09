@@ -83,8 +83,10 @@ public class CrlServiceImpl implements CrlService {
     }
 
     @Override
-    public List<Crl> findCrlsForCaCertificate(UUID caCertificateUuid) {
-        return crlRepository.findByCaCertificateUuid(caCertificateUuid);
+    public void clearCrlsForCaCertificate(List<UUID> caCertificateUuids) {
+        for (Crl crl: crlRepository.findByCaCertificateUuidIn(caCertificateUuids)) {
+            crl.setCaCertificateUuid(null);
+        }
     }
 
     private Crl createCrlAndCrlEntries(byte[] crlDistributionPointsEncoded, String issuerDn, String issuerSerialNumber, UUID caCertificateUuid, Crl oldCrl) throws IOException {
