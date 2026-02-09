@@ -32,19 +32,19 @@ jobs:
         run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
       # Upload PR number artifact
       - name: Upload PR number artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: pr-number
           path: pr-number.txt
       # Upload compiled classes
       - name: Upload Compiled Classes
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: compiled-classes
           path: target/classes
       # Upload Jacoco XML report(s)
       - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-reports
           path: target/site/jacoco/jacoco.xml
