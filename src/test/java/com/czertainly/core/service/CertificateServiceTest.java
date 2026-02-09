@@ -521,7 +521,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         List<String> uuids = new ArrayList<>();
         uuids.add(certificate.getUuid().toString());
 
-        IntStream.range(0, 200).forEach(i -> {
+        IntStream.range(0, 1000).forEach(i -> {
             Certificate cert = new Certificate();
             cert.setCommonName("test" + i);
             cert.setSerialNumber(UUID.randomUUID().toString());

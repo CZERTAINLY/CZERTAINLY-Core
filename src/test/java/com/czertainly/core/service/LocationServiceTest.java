@@ -514,12 +514,11 @@ class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testRemoveCertificatesFromLocationsOnDelete() throws NotFoundException {
+    void testRemoveCertificatesFromLocationsOnDelete() {
         SecuredUUID certificateUuid = certificate.getSecuredUuid();
 
-        // Check it is associated with multiple locations
         List<CertificateLocation> associations = certificateLocationRepository.findByCertificateUuidIn(List.of(certificate.getUuid()));
-        Assertions.assertTrue(associations.size() > 1);
+        Assertions.assertEquals(3, associations.size());
 
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove")).willReturn(WireMock.okJson("{}")));
 

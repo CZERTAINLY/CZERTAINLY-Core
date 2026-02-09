@@ -556,13 +556,14 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
 
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getUuids() != null && !request.getUuids().isEmpty())) {
             UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
-            int totalToDelete = request.getUuids().size();
+            List<String> requestedUuids = request.getUuids() != null ? request.getUuids() : Collections.emptyList();
+            int totalToDelete = requestedUuids.size();
             int deletedCount = 0;
 
             // Process bulk deletion in batches. Every batch gets its own transaction.
             for (int i = 0; i < totalToDelete; i += BULK_DELETE_BATCH_SIZE) {
                 int end = Math.min(i + BULK_DELETE_BATCH_SIZE, totalToDelete);
-                List<String> batchUuids = request.getUuids().subList(i, end);
+                List<String> batchUuids = requestedUuids.subList(i, end);
 
                 deletedCount += bulkDeleteCertificateBatch(batchUuids, loggedUserUuid);
             }
