@@ -13,6 +13,8 @@ import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.data.FileAttributeContentData;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.attribute.common.content.data.CodeBlockAttributeContentData;
@@ -24,12 +26,15 @@ import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.*;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
@@ -49,6 +54,8 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,6 +84,8 @@ class AttributeEngineTest extends BaseSpringBootTest {
     private AttributeDefinitionRepository attributeDefinitionRepository;
     @Autowired
     private AttributeRelationRepository attributeRelationRepository;
+    @Autowired
+    private AttributeContentItemRepository attributeContentItemRepository;
 
     private Connector connectorAuthority;
     private Connector connectorDiscovery;
@@ -584,6 +593,73 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testAttributeEncryption() throws AttributeException, NotFoundException {
+        testAttributeEncryption(AttributeContentType.STRING, new StringAttributeContentV3("sensitiveData"), "sensitiveData");
+        testAttributeEncryption(AttributeContentType.INTEGER, new IntegerAttributeContentV3(1), 1);
+        testAttributeEncryption(AttributeContentType.TEXT, new TextAttributeContentV3("text"), "text");
+        testAttributeEncryption(AttributeContentType.DATE, new DateAttributeContentV3(LocalDate.of(2024, 1, 1)), LocalDate.of(2024, 1, 1));
+        testAttributeEncryption(AttributeContentType.TIME, new TimeAttributeContentV3(LocalTime.of(12, 0)), LocalTime.of(12, 0));
+        testAttributeEncryption(AttributeContentType.DATETIME, new DateTimeAttributeContentV3(ZonedDateTime.parse("2024-01-01T12:00:00+00:00")), ZonedDateTime.parse("2024-01-01T12:00:00+00:00"));
+        FileAttributeContentData fileAttributeContentData = new FileAttributeContentData();
+        fileAttributeContentData.setContent("test");
+        fileAttributeContentData.setFileName("filename.txt");
+        fileAttributeContentData.setMimeType("text/plain");
+        testAttributeEncryption(AttributeContentType.FILE, new FileAttributeContentV3("filename.txt", fileAttributeContentData), fileAttributeContentData);
+        testAttributeEncryption(AttributeContentType.FLOAT, new FloatAttributeContentV3(1.5f), 1.5f);
+        testAttributeEncryption(AttributeContentType.OBJECT, new ObjectAttributeContentV3("{\"key\":\"value\"}"), "{\"key\":\"value\"}");
+        CodeBlockAttributeContentData codeBlockAttributeContentData = new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "print('Hello, World!')");
+        testAttributeEncryption(AttributeContentType.CODEBLOCK, new CodeBlockAttributeContentV3("ref", codeBlockAttributeContentData), codeBlockAttributeContentData);
+        testAttributeEncryption(AttributeContentType.BOOLEAN, new BooleanAttributeContentV3(true), true);
+        ResourceObjectContentData resourceObjectContentData = new ResourceObjectContentData();
+        resourceObjectContentData.setAttributes(List.of(new ResponseAttributeV3()));
+        resourceObjectContentData.setResource(AttributeResource.AUTHORITY);
+        resourceObjectContentData.setUuid(UUID.randomUUID().toString());
+        resourceObjectContentData.setContent("content");
+        resourceObjectContentData.setName("name");
+        testAttributeEncryption(AttributeContentType.RESOURCE, new ResourceObjectContent("ref", resourceObjectContentData), resourceObjectContentData);
+    }
+
+
+    private void testAttributeEncryption(AttributeContentType contentType, BaseAttributeContentV3<?> contentV3, Object data) throws AttributeException, NotFoundException {
+        DataAttributeV3 secretAttribute = new DataAttributeV3();
+        secretAttribute.setUuid(UUID.randomUUID().toString());
+        secretAttribute.setName("secretAttribute");
+        secretAttribute.setType(AttributeType.DATA);
+        secretAttribute.setContentType(contentType);
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        properties.setLabel("Secret Attribute");
+        properties.setResource(AttributeResource.AUTHORITY);
+        secretAttribute.setProperties(properties);
+        secretAttribute.setAttributeCallback(new AttributeCallback());
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(secretAttribute));
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(secretAttribute.getUuid()));
+        requestAttribute.setName(secretAttribute.getName());
+        requestAttribute.setContentType(secretAttribute.getContentType());
+        requestAttribute.setContent(List.of(contentV3));
+        List<ResponseAttribute> responseAttributes = attributeEngine.updateObjectDataAttributesContent(
+                connectorAuthority.getUuid(), null,
+                Resource.CERTIFICATE,
+                certificate.getUuid(),
+                List.of(requestAttribute)
+        );
+        Assertions.assertEquals(1, responseAttributes.size());
+        ResponseAttributeV3 responseAttribute = (ResponseAttributeV3) responseAttributes.getFirst();
+        Assertions.assertNotNull(responseAttribute.getContent().getFirst().getData());
+        UUID definitionUuid = attributeDefinitionRepository.findByAttributeUuid(UUID.fromString(secretAttribute.getUuid())).orElseThrow().getUuid();
+        AttributeContentItem attributeContentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definitionUuid).getFirst();
+        Assertions.assertNotEquals(contentV3, attributeContentItem.getJson());
+        Assertions.assertNotNull(attributeContentItem.getEncryptedData());
+
+        // Decrypt check
+        List<RequestAttribute> decryptedAttributes = attributeEngine.getRequestObjectDataAttributesContent(connectorAuthority.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid());
+        List<BaseAttributeContentV3<?>> content1 = decryptedAttributes.getFirst().getContent();
+        Assertions.assertEquals(data, content1.getFirst().getData());
+    }
+
+
+    @Test
     void validateRequestDataAttributesThrowsValidationExceptionForMissingRequiredAttributes() throws AttributeException {
         // Arrange
         DataAttributeV2 requiredAttribute = new DataAttributeV2();
@@ -690,5 +766,82 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         // Act & Assert
         Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestDataAttributes(validAttributeList, List.of(requestAttribute), true));
+    }
+
+    @Test
+    void testGetResourceSearchableFields() throws AttributeException {
+        // Arrange
+        DataAttributeV3 dataAttribute = new DataAttributeV3();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("dataAttribute");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Label");
+        dataAttribute.setProperties(dataProps);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
+
+        // Create relation for DATA attribute so it's found by the query
+        AttributeDefinition dataAttrDef = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(), dataAttribute.getName()).orElseThrow();
+        AttributeRelation dataRelation = new AttributeRelation();
+        dataRelation.setAttributeDefinition(dataAttrDef);
+        dataRelation.setResource(Resource.CERTIFICATE);
+        attributeRelationRepository.save(dataRelation);
+
+        // Metadata already loaded in setUp via loadMetadata()
+
+        // Act
+        List<SearchFieldDataByGroupDto> searchableFields = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
+
+        // Assert
+        Assertions.assertNotNull(searchableFields);
+        Assertions.assertFalse(searchableFields.isEmpty());
+
+        var customFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM).toList();
+        var dataFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA).toList();
+        var metaFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.META).toList();
+
+        Assertions.assertFalse(customFields.isEmpty());
+        Assertions.assertEquals(1, customFields.size());
+        Assertions.assertFalse(dataFields.isEmpty());
+        Assertions.assertEquals(1, dataFields.size());
+        Assertions.assertFalse(metaFields.isEmpty());
+        Assertions.assertEquals(1, metaFields.size());
+    }
+
+    @Test
+    void testGetResourceSettableFields() throws AttributeException {
+        // Arrange
+        DataAttributeV3 dataAttribute = new DataAttributeV3();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("dataAttribute");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Label");
+        dataAttribute.setProperties(dataProps);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
+
+        // Create relation for DATA attribute so it's found by the query
+        AttributeDefinition dataAttrDef = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(), dataAttribute.getName()).orElseThrow();
+        AttributeRelation dataRelation = new AttributeRelation();
+        dataRelation.setAttributeDefinition(dataAttrDef);
+        dataRelation.setResource(Resource.CERTIFICATE);
+        attributeRelationRepository.save(dataRelation);
+
+        // Act
+        List<SearchFieldDataByGroupDto> settableFields = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, true);
+
+        // Assert
+        Assertions.assertNotNull(settableFields);
+
+        var customFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM).toList();
+        var dataFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA).toList();
+        var metaFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.META).toList();
+
+        Assertions.assertFalse(customFields.isEmpty());
+        Assertions.assertEquals(1, customFields.size());
+        Assertions.assertTrue(dataFields.isEmpty());
+        Assertions.assertTrue(metaFields.isEmpty());
     }
 }

@@ -11,15 +11,18 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateReq
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.CustomAttribute;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.dao.entity.AttributeContentItem;
 import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.dao.repository.AttributeContentItemRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -42,6 +45,9 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     private AttributeDefinition definition;
     private CustomAttributeV3 attribute;
     private AttributeDefinition metaDefinition;
+
+    @Autowired
+    private AttributeContentItemRepository attributeContentItemRepository;
 
     @BeforeEach
     void setUp() {
@@ -148,6 +154,16 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         response = attributeService.createCustomAttribute(request);
         Assertions.assertEquals(request.getContent().getFirst().getData().toString(), response.getContent().getFirst().getData().toString());
 
+        request.setName("encryptedAttribute");
+        request.setLabel("EncryptedAttribute");
+        request.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        response = attributeService.createCustomAttribute(request);
+
+        AttributeDefinition encryptedDefinition = attributeDefinitionRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
+        Assertions.assertEquals(ProtectionLevel.ENCRYPTED, encryptedDefinition.getProtectionLevel());
+        Assertions.assertNotNull(response.getContent().getFirst().getData());
+        Assertions.assertNull(((List<StringAttributeContentV3>) encryptedDefinition.getDefinition().getContent()).getFirst().getData());
+        Assertions.assertNotNull(encryptedDefinition.getEncryptedData());
     }
 
     @Test
@@ -185,6 +201,35 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         request.setContent(List.of(new StringAttributeContentV3("new")));
         response = attributeService.editCustomAttribute(definition.getUuid(), request);
         Assertions.assertEquals("new", response.getContent().getFirst().getData());
+
+        AttributeContentItem contentItem = new AttributeContentItem();
+        contentItem.setJson(new StringAttributeContentV3("encrypted"));
+        contentItem.setAttributeDefinitionUuid(UUID.fromString(response.getUuid()));
+        attributeContentItemRepository.save(contentItem);
+
+        request.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        response = attributeService.editCustomAttribute(definition.getUuid(), request);
+        AttributeDefinition encryptedDefinition = attributeDefinitionRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
+        Assertions.assertEquals(ProtectionLevel.ENCRYPTED, encryptedDefinition.getProtectionLevel());
+        Assertions.assertNotNull(response.getContent().getFirst().getData());
+        Assertions.assertNull(((List<StringAttributeContentV3>) encryptedDefinition.getDefinition().getContent()).getFirst().getData());
+        Assertions.assertNotNull(encryptedDefinition.getEncryptedData());
+
+        contentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(UUID.fromString(response.getUuid())).getFirst();
+        Assertions.assertNull(contentItem.getJson().getData());
+        Assertions.assertNotNull(contentItem.getEncryptedData());
+
+        request.setProtectionLevel(ProtectionLevel.NONE);
+        response = attributeService.editCustomAttribute(definition.getUuid(), request);
+        encryptedDefinition = attributeDefinitionRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
+        Assertions.assertEquals(ProtectionLevel.NONE, encryptedDefinition.getProtectionLevel());
+        Assertions.assertEquals("new", response.getContent().getFirst().getData());
+        Assertions.assertNotNull(((List<StringAttributeContentV3>) encryptedDefinition.getDefinition().getContent()).getFirst().getData());
+        Assertions.assertNull(encryptedDefinition.getEncryptedData());
+
+        contentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(UUID.fromString(response.getUuid())).getFirst();
+        Assertions.assertEquals("encrypted", contentItem.getJson().getData());
+        Assertions.assertNull(contentItem.getEncryptedData());
     }
 
     @Test
@@ -267,10 +312,17 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetResourceAttributesWithValue() throws NotFoundException {
+    void testGetResourceAttributesWithValue() throws NotFoundException, AttributeException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
         List<CustomAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
+        CustomAttributeUpdateRequestDto request = new CustomAttributeUpdateRequestDto();
+        request.setLabel(definition.getLabel());
+        request.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        request.setContent(List.of(new StringAttributeContentV3("value")));
+        attributeService.editCustomAttribute(definition.getUuid(), request);
+        attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        Assertions.assertNotNull(((List<BaseAttributeContentV3<?>>)attributes.getFirst().getContent()).getFirst().getData());
     }
 
     @Test

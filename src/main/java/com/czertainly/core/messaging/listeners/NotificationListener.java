@@ -15,7 +15,7 @@ import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
+import com.czertainly.core.attribute.engine.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.notifications.*;
 import com.czertainly.core.dao.repository.GroupRepository;
