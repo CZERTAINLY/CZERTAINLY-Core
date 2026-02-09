@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadata;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.*;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -33,9 +34,8 @@ import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.AuthHelper;
-import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -175,12 +175,28 @@ public class AttributeEngine {
         // filter definitions that are not allowed for user
         if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
             return relations.stream()
-                    .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
-                    .map(r -> (CustomAttribute) r.getAttributeDefinition().getDefinition())
-                    .toList();
+                .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
+                .map(AttributeEngine::getCustomAttributeWithDecryptedContentFromRelation)
+                .toList();
         } else {
-            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> (CustomAttribute) r.getAttributeDefinition().getDefinition()).toList();
+            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(AttributeEngine::getCustomAttributeWithDecryptedContentFromRelation).toList();
         }
+    }
+
+    private static CustomAttribute getCustomAttributeWithDecryptedContentFromRelation(AttributeRelation r) {
+        CustomAttribute attribute = (CustomAttribute) r.getAttributeDefinition().getDefinition();
+        if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED && r.getAttributeDefinition().getEncryptedData() != null) {
+            List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
+            List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
+                .map(contentItem -> AttributeVersionHelper.decryptContent(
+                        contentItem, 3, attribute.getContentType(),
+                        encryptedDataList != null && !encryptedDataList.isEmpty()
+                                ? encryptedDataList.get(((List<AttributeContent>) attribute.getContent()).indexOf(contentItem))
+                                : null))
+                .toList();
+            attribute.setContent(decryptedData);
+        }
+        return attribute;
     }
 
     public DataAttribute getDataAttributeDefinition(UUID connectorUuid, String name) {
@@ -318,8 +334,16 @@ public class AttributeEngine {
         attributeDefinition.setLabel(customAttribute.getProperties().getLabel());
         attributeDefinition.setRequired(customAttribute.getProperties().isRequired());
         attributeDefinition.setReadOnly(customAttribute.getProperties().isReadOnly());
+        attributeDefinition.setVersion(AttributeVersion.V3.getVersion());
+
+        encryptOrDecryptExistingContent(attributeDefinition, customAttribute.getProperties().getProtectionLevel());
+        customAttribute.setContent(encryptDefaultAttributeContent(customAttribute, attributeDefinition, customAttribute.getProperties().getProtectionLevel()));
+        if (customAttribute.getProperties().getProtectionLevel() != ProtectionLevel.ENCRYPTED) {
+            attributeDefinition.setEncryptedData(null);
+        }
+
         attributeDefinition.setDefinition(customAttribute);
-        attributeDefinition.setVersion(AttributeVersion.V3.getVersion()); // ? constant with custom attribute version??
+        attributeDefinition.setProtectionLevel(customAttribute.getProperties().getProtectionLevel());
         attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
 
         // save relations
@@ -346,6 +370,46 @@ public class AttributeEngine {
         }
 
         return attributeDefinition;
+    }
+
+    private void encryptOrDecryptExistingContent(AttributeDefinition attributeDefinition, ProtectionLevel newProtectionLevel) throws AttributeException {
+        if (attributeDefinition.getUuid() != null) {
+            if (newProtectionLevel == ProtectionLevel.ENCRYPTED && attributeDefinition.getProtectionLevel() != ProtectionLevel.ENCRYPTED) {
+                // if changing from NONE to ENCRYPTED, we need to encrypt existing content
+                List<AttributeContentItem> contents = attributeContentItemRepository.findByAttributeDefinitionUuid(attributeDefinition.getUuid());
+                for (AttributeContentItem contentItem : contents) {
+                    String encryptedContent = encryptAttributeContent(attributeDefinition, contentItem.getJson());
+                    contentItem.setEncryptedData(encryptedContent);
+                    contentItem.setJson(AttributeVersionHelper.createEncryptedContent(contentItem.getUuid().toString(), attributeDefinition.getContentType(), AttributeVersion.V3.getVersion()));
+                    attributeContentItemRepository.save(contentItem);
+                }
+            }
+            if (newProtectionLevel != ProtectionLevel.ENCRYPTED && attributeDefinition.getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
+                // if changing from ENCRYPTED to NONE, we need to decrypt existing content
+                List<AttributeContentItem> contents = attributeContentItemRepository.findByAttributeDefinitionUuid(attributeDefinition.getUuid());
+                for (AttributeContentItem contentItem : contents) {
+                    contentItem.setJson(AttributeVersionHelper.decryptContent(contentItem.getJson(), attributeDefinition.getVersion(), attributeDefinition.getContentType(), contentItem.getEncryptedData()));
+                    contentItem.setEncryptedData(null);
+                    attributeContentItemRepository.save(contentItem);
+                }
+            }
+        }
+    }
+
+    private static List<AttributeContent> encryptDefaultAttributeContent(BaseAttribute baseAttribute, AttributeDefinition attributeDefinition, ProtectionLevel protectionLevel) throws AttributeException {
+        if (protectionLevel == ProtectionLevel.ENCRYPTED && baseAttribute.getContent() != null) {
+            List<String> encryptedContents = new ArrayList<>();
+            List<AttributeContent> encryptedContentItems = new ArrayList<>();
+            for (AttributeContent contentItem : (List<AttributeContent>) baseAttribute.getContent()) {
+                encryptedContents.add(encryptAttributeContent(attributeDefinition, contentItem));
+                encryptedContentItems.add(AttributeVersionHelper.createEncryptedContent(contentItem.getReference(), attributeDefinition.getContentType(), attributeDefinition.getVersion()));
+            }
+            attributeDefinition.setEncryptedData(encryptedContents);
+            return encryptedContentItems;
+        }
+        else {
+            return baseAttribute.getContent();
+        }
     }
 
     public void validateUpdateDataAttributes(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes, List<RequestAttribute> requestAttributes) throws AttributeException {
@@ -433,10 +497,14 @@ public class AttributeEngine {
         attributeDefinition.setRequired(dataAttribute.getProperties().isRequired());
         attributeDefinition.setReadOnly(dataAttribute.getProperties().isReadOnly());
 
+        encryptOrDecryptExistingContent(attributeDefinition, dataAttribute.getProperties().getProtectionLevel());
+        attributeDefinition.setProtectionLevel(dataAttribute.getProperties().getProtectionLevel());
+
         // we need content only for readonly attribute
         if (!Boolean.TRUE.equals(attributeDefinition.isReadOnly())) {
             dataAttribute.setContent(null);
-        }
+        } else
+            dataAttribute.setContent(encryptDefaultAttributeContent(dataAttribute, attributeDefinition, dataAttribute.getProperties().getProtectionLevel()));
         attributeDefinition.setDefinition(dataAttribute);
         attributeDefinitionRepository.save(attributeDefinition);
     }
@@ -663,7 +731,6 @@ public class AttributeEngine {
         for (RequestAttribute requestAttribute : requestAttributes) {
             AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName())
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : String.valueOf(requestAttribute.getUuid()), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
-
             validateAttributeContent(definition, requestAttribute.getContent());
             DataAttribute dataAttribute = (DataAttribute) definition.getDefinition();
             dataAttribute.setContent(requestAttribute.getContent());
@@ -698,7 +765,7 @@ public class AttributeEngine {
                 requestAttribute = AttributeVersionHelper.getRequestAttribute(objectContent.uuid(), objectContent.name(), new ArrayList<>(), objectContent.contentType(), objectContent.version());
                 mapping.put(uuid, requestAttribute);
             }
-            AttributeVersionHelper.addRequestAttributeContent(requestAttribute, objectContent.contentItem(), objectContent.version());
+            AttributeVersionHelper.addRequestAttributeContent(requestAttribute, objectContent);
         }
 
         return mapping.values().stream().toList();
@@ -715,7 +782,7 @@ public class AttributeEngine {
             } else {
                 responseAttribute = mapping.get(uuid);
             }
-            AttributeVersionHelper.addResponseAttributeContent(responseAttribute, objectContent.contentItem(), objectContent.version());
+            AttributeVersionHelper.addResponseAttributeContent(responseAttribute, objectContent);
         }
 
         return mapping.values().stream().toList();
@@ -1077,9 +1144,19 @@ public class AttributeEngine {
         logger.debug("Creating the attribute content for attribute {} of type {}. Info: {}", attributeDefinition.getName(), attributeDefinition.getType().getLabel(), objectAttributeContentInfo);
 
         validateAttributeContent(attributeDefinition, attributeContentItems);
+
         for (int i = 0; i < attributeContentItems.size(); i++) {
             AttributeContent attributeContentItem = attributeContentItems.get(i);
-            AttributeContentItem contentItemEntity = attributeContentItemRepository.findByJsonAndAttributeDefinitionUuid(attributeContentItem, attributeDefinition.getUuid());
+            AttributeContentItem contentItemEntity = null;
+            String encryptedData = null;
+            // If attribute is encrypted, set data to null before searching for existing content item, since json for encrypted attribute content will always be the same
+            if (attributeDefinition.getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
+                encryptedData = encryptAttributeContent(attributeDefinition, attributeContentItem);
+                attributeContentItem = AttributeVersionHelper.createEncryptedContent(attributeContentItem.getReference(), attributeDefinition.getContentType(), attributeDefinition.getVersion());
+            } else {
+                // For non-encrypted attributes, try to find existing content item, since json will be different for different content
+                contentItemEntity = attributeContentItemRepository.findByJsonAndAttributeDefinitionUuid(attributeContentItem, attributeDefinition.getUuid());
+            }
 
             // check if content item for this attribute definition exists to don't create duplicate items
             if (contentItemEntity != null) {
@@ -1093,6 +1170,7 @@ public class AttributeEngine {
                 contentItemEntity = new AttributeContentItem();
                 contentItemEntity.setJson(attributeContentItem);
                 contentItemEntity.setAttributeDefinitionUuid(attributeDefinition.getUuid());
+                contentItemEntity.setEncryptedData(encryptedData);
                 contentItemEntity = attributeContentItemRepository.save(contentItemEntity);
             }
 
@@ -1108,6 +1186,21 @@ public class AttributeEngine {
             objectContentItem.setAttributeContentItem(contentItemEntity);
             attributeContent2ObjectRepository.save(objectContentItem);
         }
+    }
+
+    public static String encryptAttributeContent(AttributeDefinition attributeDefinition, AttributeContent attributeContentItem) throws AttributeException {
+        String encryptedData;
+        if ((AttributeContentData.class.isAssignableFrom(attributeDefinition.getContentType().getContentDataClass()))) {
+            try {
+                encryptedData = SecretsUtil.encryptAndEncodeSecretString(ATTRIBUTES_OBJECT_MAPPER.writeValueAsString(attributeContentItem.getData()), SecretEncodingVersion.V1);
+            } catch (JsonProcessingException e) {
+                throw new AttributeException("Error encrypting attribute content data: " + e.getMessage(), Objects.toString(attributeDefinition.getUuid(), null), attributeDefinition.getName(), attributeDefinition.getType(), attributeDefinition.getConnectorUuid() == null ? null : attributeDefinition.getConnectorUuid().toString());
+            }
+
+        } else {
+            encryptedData = SecretsUtil.encryptAndEncodeSecretString(attributeContentItem.getData().toString(), SecretEncodingVersion.V1);
+        }
+        return encryptedData;
     }
 
     private List<ValidationError> validateAttributesContent(Map<String, AttributeDefinition> definitionsMapping, List<RequestAttribute> attributes) {
