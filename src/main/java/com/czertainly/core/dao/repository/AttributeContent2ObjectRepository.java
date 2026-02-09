@@ -37,7 +37,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.operation = ?3 AND aco.purpose = ?4
+                WHERE ad.type = ?1 AND ad.operation = ?3 AND (?4 IS NULL OR aco.purpose = ?4)
                     AND aco.connectorUuid = ?2 AND aco.objectType = ?5 AND aco.objectUuid = ?6
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
