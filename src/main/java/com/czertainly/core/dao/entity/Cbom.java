@@ -23,7 +23,7 @@ import org.hibernate.proxy.HibernateProxy;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "cbom")
-public class Cbom implements DtoMapper<CbomDto> {
+public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
 
     @Id
     @Column(name = "uuid", nullable = false, unique = true, updatable = false)

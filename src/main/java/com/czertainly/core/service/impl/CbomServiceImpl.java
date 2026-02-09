@@ -175,7 +175,6 @@ public class CbomServiceImpl implements CbomService {
 
         // upload stats to database
         Cbom cbom = new Cbom();
-        cbom.setUuid(UUID.randomUUID());
         cbom.setSerialNumber(response.getSerialNumber());
         cbom.setVersion(response.getVersion());
         cbom.setCreatedAt(Instant.now());
