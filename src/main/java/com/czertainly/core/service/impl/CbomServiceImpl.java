@@ -6,10 +6,12 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
+import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -29,14 +31,24 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CbomService;
+import com.czertainly.core.util.FilterPredicatesBuilder;
+import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -74,13 +86,25 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
-    public List<CbomDto> listCboms(SecurityFilter filter) {
-        return cbomRepository.findUsingSecurityFilter(filter)
-        .stream()
-        .map(Cbom::mapToDto)
-        .collect(Collectors.toList());
-    }
+    public CbomListResponseDto listCboms(SecurityFilter filter, SearchRequestDto request) {
 
+        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+
+        final TriFunction<Root<Cbom>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final List<CbomDto> listedKeyDTOs = cbomRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+                .stream()
+                .map(Cbom::mapToDto).toList();
+        final Long maxItems = cbomRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+
+        final CbomListResponseDto responseDto = new CbomListResponseDto();
+        responseDto.setItems(listedKeyDTOs);
+        responseDto.setItemsPerPage(request.getItemsPerPage());
+        responseDto.setPageNumber(request.getPageNumber());
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
+        return responseDto;
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DETAIL)

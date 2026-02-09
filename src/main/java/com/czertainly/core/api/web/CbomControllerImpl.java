@@ -23,6 +23,7 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CbomService;
 
 @RestController
@@ -41,8 +42,8 @@ public class CbomControllerImpl implements CbomController {
         module = Module.CORE,
         resource = Resource.CBOM,
         operation = Operation.LIST)
-	public CbomListResponseDto listCboms(SearchRequestDto request) {
-        return new CbomListResponseDto();
+	public CbomListResponseDto listCboms(SearchRequestDto requestDto) {
+        return cbomService.listCboms(SecurityFilter.create(), requestDto);
     }
 
     @Override

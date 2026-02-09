@@ -6,8 +6,10 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
+import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -18,7 +20,7 @@ public interface CbomService extends ResourceExtensionService {
      * List available CBOMs
      * @return List of available CBOMs
      */
-    List<CbomDto> listCboms(SecurityFilter filter);
+    CbomListResponseDto listCboms(SecurityFilter filter, SearchRequestDto request);
 
     /**
      * Retrieves basic information about a specific CBOM.
