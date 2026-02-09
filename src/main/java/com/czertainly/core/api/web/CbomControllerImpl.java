@@ -59,7 +59,7 @@ public class CbomControllerImpl implements CbomController {
     @AuditLogged(
         module = Module.CORE,
         resource = Resource.CBOM,
-        operation = Operation.LIST)
+        operation = Operation.LIST_VERSIONS)
 	public List<CbomDto> listCbomVersions(String serialNumber) throws NotFoundException {
         return cbomService.getCbomVersions(serialNumber);
     }
