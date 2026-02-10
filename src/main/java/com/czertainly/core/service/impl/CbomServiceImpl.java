@@ -92,7 +92,7 @@ public class CbomServiceImpl implements CbomService {
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<Cbom>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<CbomDto> listedKeyDTOs = cbomRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+        final List<CbomDto> listedKeyDTOs = cbomRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("createdAt")))
                 .stream()
                 .map(Cbom::mapToDto).toList();
         final Long maxItems = cbomRepository.countUsingSecurityFilter(filter, additionalWhereClause);
@@ -125,7 +125,7 @@ public class CbomServiceImpl implements CbomService {
                 cbom.getVersion());
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
-                throw new NotFoundException(CbomDetailDto.class, "Can't find a cbom");
+                throw new NotFoundException(CbomDetailDto.class, "Cbom");
             } else {
                 throw ex;
             }

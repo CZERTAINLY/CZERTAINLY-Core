@@ -123,17 +123,26 @@ public class CbomRepositoryClient {
             if (unwrappedCause instanceof CbomRepositoryException cbomRepositoryException) {
                 throw cbomRepositoryException;
             }
+            if (unwrappedCause instanceof org.springframework.web.reactive.function.client.WebClientResponseException wcre) {
+                throw new CbomRepositoryException(ProblemDetail.forStatus(wcre.getStatusCode()));
+            }
             throw e;
         }
     }
 
-    static Mono<ClientResponse> handleHttpExceptions(final ClientResponse clientResponse) {
+    public static Mono<ClientResponse> handleHttpExceptions(final ClientResponse clientResponse) {
         if (clientResponse.statusCode().isError()) {
-            // parse body as ProblemDetail and create new CbomRepositoryException
             return clientResponse.bodyToMono(ProblemDetail.class)
-                    .flatMap(problemDetail -> Mono.error(new CbomRepositoryException(problemDetail)));
+                    .flatMap(problemDetail -> Mono.<ClientResponse>error(new CbomRepositoryException(problemDetail)))
+                    .switchIfEmpty(Mono.defer(() -> {
+                        ProblemDetail pd = ProblemDetail.forStatus(clientResponse.statusCode());
+                        return Mono.error(new CbomRepositoryException(pd));
+                    }))
+                    .onErrorResume(e -> {
+                        if (e instanceof CbomRepositoryException) return Mono.error(e);
+                        return Mono.error(new CbomRepositoryException(ProblemDetail.forStatus(clientResponse.statusCode())));
+                    });
         }
-
         return Mono.just(clientResponse);
     }
 }
