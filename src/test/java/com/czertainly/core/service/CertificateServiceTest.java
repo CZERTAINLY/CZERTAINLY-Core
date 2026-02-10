@@ -5,7 +5,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
@@ -16,9 +15,11 @@ import com.czertainly.api.model.common.attribute.v3.content.StringAttributeConte
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -88,17 +89,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
     @Autowired
     private GroupRepository groupRepository;
     @Autowired
+    private GroupAssociationRepository groupAssociationRepository;
+    @Autowired
     private ResourceObjectAssociationService associationService;
     @Autowired
     private OwnerAssociationRepository ownerAssociationRepository;
     @Autowired
     private CryptographicKeyRepository cryptographicKeyRepository;
     @Autowired
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+    @Autowired
     private AttributeService attributeService;
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
-    @Autowired
-    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     @Autowired
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
     @Autowired
@@ -174,6 +177,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setValidationStatus(CertificateValidationStatus.VALID);
         certificate.setCertificateContent(certificateContent);
         certificate.setCertificateContentId(certificateContent.getId());
+        certificate.setIssuerCertificateUuid(UUID.randomUUID());
         certificate.setRaProfile(raProfileOld);
         certificate = certificateRepository.save(certificate);
 
@@ -211,6 +215,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         group = new Group();
         group.setName("TestGroup");
+        group.setDescription("Test group description");
+        group.setEmail("rybanoha@iss.com");
         group = groupRepository.save(group);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
@@ -227,11 +233,117 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testListCertificates() {
+        // Prepare
+        GroupAssociation groupAssociation = new GroupAssociation();
+        groupAssociation.setGroup(group);
+        groupAssociation.setGroupUuid(group.getUuid());
+        groupAssociation.setResource(Resource.CERTIFICATE);
+        groupAssociation.setObjectUuid(certificate.getUuid());
+        groupAssociationRepository.saveAndFlush(groupAssociation);
+
+        certificate.setGroups(Set.of(group));
+        certificateRepository.save(certificate);
+
+        // Act
         CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new CertificateSearchRequestDto());
+
+        // Assert
         Assertions.assertNotNull(certificateEntities);
+        Assertions.assertNotNull(certificateEntities.getCertificates());
         Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
         Assertions.assertEquals(1, certificateEntities.getCertificates().size());
-        Assertions.assertEquals(certificate.getUuid().toString(), certificateEntities.getCertificates().get(0).getUuid());
+
+        CertificateDto dto = certificateEntities.getCertificates().getFirst();
+        Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals(CertificateUtil.formatCommonName(certificate.getCommonName()), dto.getCommonName());
+        Assertions.assertEquals(certificate.getSerialNumber(), dto.getSerialNumber());
+        Assertions.assertEquals(certificate.getIssuerCommonName(), dto.getIssuerCommonName());
+        Assertions.assertEquals(certificate.getIssuerDn(), dto.getIssuerDn());
+        Assertions.assertEquals(certificate.getSubjectDn(), dto.getSubjectDn());
+        Assertions.assertEquals(certificate.getNotBefore(), dto.getNotBefore());
+        Assertions.assertEquals(certificate.getNotAfter(), dto.getNotAfter());
+        Assertions.assertEquals(certificate.getPublicKeyAlgorithm(), dto.getPublicKeyAlgorithm());
+        Assertions.assertEquals(certificate.getAltPublicKeyAlgorithm(), dto.getAltPublicKeyAlgorithm());
+        Assertions.assertEquals(certificate.getSignatureAlgorithm(), dto.getSignatureAlgorithm());
+        Assertions.assertEquals(certificate.getAltSignatureAlgorithm(), dto.getAltSignatureAlgorithm());
+        Assertions.assertEquals(certificate.isHybridCertificate(), dto.isHybridCertificate());
+        Assertions.assertEquals(certificate.getKeySize(), dto.getKeySize());
+        Assertions.assertEquals(certificate.getAltKeySize(), dto.getAltKeySize());
+        Assertions.assertEquals(certificate.getState(), dto.getState());
+        Assertions.assertEquals(certificate.getValidationStatus(), dto.getValidationStatus());
+        Assertions.assertEquals(certificate.getFingerprint(), dto.getFingerprint());
+        Assertions.assertEquals(certificate.getOwner().getOwnerUsername(), dto.getOwner());
+        Assertions.assertEquals(certificate.getOwner().getOwnerUuid().toString(), dto.getOwnerUuid());
+        Assertions.assertEquals(certificate.getCertificateType(), dto.getCertificateType());
+        Assertions.assertEquals(certificate.getIssuerSerialNumber(), dto.getIssuerSerialNumber());
+        Assertions.assertEquals(certificate.getComplianceStatus(), dto.getComplianceStatus());
+        Assertions.assertEquals(certificate.getIssuerCertificateUuid().toString(), dto.getIssuerCertificateUuid());
+        Assertions.assertEquals(certificate.getTrustedCa(), dto.getTrustedCa());
+        Assertions.assertEquals(certificate.isArchived(), dto.isArchived());
+        Assertions.assertFalse(dto.isPrivateKeyAvailability());
+        Assertions.assertNotNull(dto.getRaProfile());
+        Assertions.assertEquals(certificate.getRaProfile().getName(), dto.getRaProfile().getName());
+        Assertions.assertNotNull(dto.getGroups());
+        Assertions.assertEquals(1, dto.getGroups().size());
+
+        Group expectedGroup = certificate.getGroups().stream().toList().getFirst();
+        GroupDto actualGroup = dto.getGroups().stream().toList().getFirst();
+        Assertions.assertEquals(expectedGroup.getUuid().toString(), actualGroup.getUuid());
+        Assertions.assertEquals(expectedGroup.getName(), actualGroup.getName());
+        Assertions.assertEquals(expectedGroup.getDescription(), actualGroup.getDescription());
+        Assertions.assertEquals(expectedGroup.getEmail(), actualGroup.getEmail());
+    }
+
+    @Test
+    void testListCertificates_missingFields() {
+        ownerAssociationRepository.delete(certificate.getOwner());
+        certificate.setOwner(null);
+        certificate.setKey(null);
+        certificate.setKeyUuid(null);
+        certificate.setRaProfile(null);
+        certificate.setRaProfileUuid(null);
+        certificateRepository.saveAndFlush(certificate);
+
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new CertificateSearchRequestDto());
+        Assertions.assertNotNull(certificateEntities);
+        Assertions.assertNotNull(certificateEntities.getCertificates());
+        Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
+        CertificateDto dto = certificateEntities.getCertificates().getFirst();
+
+        Assertions.assertNull(dto.getOwner());
+        Assertions.assertNull(dto.getOwnerUuid());
+        Assertions.assertNotNull(dto.getGroups());
+        Assertions.assertNull(dto.getRaProfile());
+        Assertions.assertTrue(dto.getGroups().isEmpty());
+        Assertions.assertFalse(dto.isPrivateKeyAvailability());
+    }
+
+    @Test
+    void testListCertificates_privateKeyAvailable() {
+        CryptographicKey key = new CryptographicKey();
+        key.setName("testKey");
+        cryptographicKeyRepository.save(key);
+
+        CryptographicKeyItem item = new CryptographicKeyItem();
+        item.setKey(key);
+        item.setType(KeyType.PRIVATE_KEY);
+        item.setState(KeyState.ACTIVE);
+        item.setName("testItem");
+        cryptographicKeyItemRepository.save(item);
+
+        key.getItems().add(item);
+        cryptographicKeyRepository.save(key);
+
+        certificate.setKey(key);
+        certificateRepository.saveAndFlush(certificate);
+
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new CertificateSearchRequestDto());
+        Assertions.assertNotNull(certificateEntities);
+        Assertions.assertNotNull(certificateEntities.getCertificates());
+        Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
+        CertificateDto dto = certificateEntities.getCertificates().getFirst();
+
+        Assertions.assertTrue(dto.isPrivateKeyAvailability());
     }
 
     @Test
