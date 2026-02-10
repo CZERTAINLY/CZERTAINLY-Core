@@ -501,7 +501,7 @@ public class AttributeEngine {
         attributeDefinition.setProtectionLevel(dataAttribute.getProperties().getProtectionLevel());
 
         // we need content only for readonly attribute
-        if (!Boolean.TRUE.equals(attributeDefinition.isReadOnly())) {
+        if (!Boolean.TRUE.equals(attributeDefinition.isReadOnly()) && dataAttribute.getProperties().isExtensibleList()) {
             dataAttribute.setContent(null);
         } else
             dataAttribute.setContent(encryptDefaultAttributeContent(dataAttribute, attributeDefinition, dataAttribute.getProperties().getProtectionLevel()));
@@ -925,6 +925,7 @@ public class AttributeEngine {
         boolean multiSelect;
         boolean hasCallback;
         boolean hasContent;
+        boolean extensibleList;
         AttributeResource attributeResource = null;
         if (attribute.getType() == AttributeType.CUSTOM) {
             CustomAttributeV3 customAttribute = (CustomAttributeV3) attribute;
@@ -935,6 +936,7 @@ public class AttributeEngine {
             multiSelect = customAttribute.getProperties().isMultiSelect();
             hasCallback = false;
             hasContent = customAttribute.getContent() != null && !customAttribute.getContent().isEmpty();
+            extensibleList = customAttribute.getProperties().isExtensibleList();
         } else {
             DataAttribute dataAttribute = (DataAttribute) attribute;
 
@@ -945,6 +947,7 @@ public class AttributeEngine {
             hasCallback = dataAttribute.getAttributeCallback() != null;
             hasContent = dataAttribute.getContent() != null && !((List<? extends AttributeContent>) dataAttribute.getContent()).isEmpty();
             attributeResource = dataAttribute.getProperties().getResource();
+            extensibleList = dataAttribute.getProperties().isExtensibleList();
         }
 
         if (label == null || label.isBlank()) {
@@ -955,6 +958,7 @@ public class AttributeEngine {
             throw new AttributeException("Attribute has to be defined as list to be multiselect", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
 
+        validateExtensibleListProperty(attribute, connectorUuidStr, extensibleList, list, hasContent);
         validateResourceAttributeProperties(attribute, connectorUuidStr, attributeResource, hasCallback);
 
         if (readOnly) {
@@ -967,6 +971,17 @@ public class AttributeEngine {
             if (list) {
                 throw new AttributeException("Read only attribute cannot be list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
+        }
+
+
+    }
+
+    private static void validateExtensibleListProperty(BaseAttribute attribute, String connectorUuidStr, boolean extensibleList, boolean list, boolean hasContent) throws AttributeException {
+        if (extensibleList && !list) {
+            throw new AttributeException("Attribute has to be defined as list to be extensible list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
+        if (list && !extensibleList && !hasContent) {
+            throw new AttributeException("Not extensible list attribute must define its content", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
     }
 
@@ -1247,6 +1262,8 @@ public class AttributeEngine {
                 if (contentItem.getData() == null) {
                     throw new AttributeException("Attribute content is malformed and does not contain data", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
                 }
+
+                validateExtensibleList(attributeDefinition, contentItem, connectorUuidStr);
                 validateContentData(attributeDefinition, contentItem, connectorUuidStr);
 
                 List<ValidationError> constraintsValidationErrors = AttributeDefinitionUtils.validateConstraints(attributeDefinition.getDefinition(), attributeContent);
@@ -1260,6 +1277,41 @@ public class AttributeEngine {
                 validateConvertingContentItemsToClasses(attributeDefinition, contentItem, connectorUuidStr);
             }
         }
+    }
+
+    private static void validateExtensibleList(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
+        boolean extensibleList;
+        ProtectionLevel protectionLevel;
+        List<AttributeContent> defaultContentItems = attributeDefinition.getDefinition().getContent();
+        if (defaultContentItems == null || defaultContentItems.isEmpty()) {
+            return;
+        }
+        if (attributeDefinition.getDefinition() instanceof CustomAttribute customAttribute) {
+            extensibleList = customAttribute.getProperties().isList() && customAttribute.getProperties().isExtensibleList();
+            protectionLevel = customAttribute.getProperties().getProtectionLevel();
+        } else if (attributeDefinition.getDefinition() instanceof DataAttribute dataAttribute) {
+            extensibleList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isExtensibleList();
+            protectionLevel = dataAttribute.getProperties().getProtectionLevel();
+        } else {
+            // Other attribute types are not supported for extensible list
+            return;
+        }
+
+        if (!extensibleList) {
+            if (protectionLevel == ProtectionLevel.ENCRYPTED) {
+                defaultContentItems = defaultContentItems.stream()
+                        .map(content -> AttributeVersionHelper.decryptContent(
+                                content, 3, attributeDefinition.getContentType(), attributeDefinition.getEncryptedData().get(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).indexOf(content))))
+                        .toList();
+            }
+            if (defaultContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
+                throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+            }
+        }
+    }
+
+    private static boolean attributeContentEquals(AttributeContent content1, AttributeContent content2) {
+        return Objects.equals(content1.getReference(), content2.getReference()) && Objects.equals(content1.getData(), content2.getData()) && Objects.equals(content1.getContentType(), content2.getContentType());
     }
 
     private static void validateConvertingContentItemsToClasses(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {

@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
@@ -177,7 +178,6 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
 
-
     @Test
     void testMetaContents() {
         var mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
@@ -235,6 +235,91 @@ class AttributeEngineTest extends BaseSpringBootTest {
         // the following should not throw any exception, we cannot update read-only attributes
         UUID certificateUuid = certificate.getUuid();
         Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificateUuid, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
+    }
+
+    @Test
+    void testExtensibleListAttributeContentValidation() throws AttributeException {
+        CustomAttributeV3 extensibleListAttribute = new CustomAttributeV3();
+        extensibleListAttribute.setUuid(UUID.randomUUID().toString());
+        extensibleListAttribute.setName("extensibleListAttribute");
+        extensibleListAttribute.setType(AttributeType.CUSTOM);
+        extensibleListAttribute.setContentType(AttributeContentType.STRING);
+
+        CustomAttributeProperties customProps = new CustomAttributeProperties();
+        customProps.setLabel("Strict List Attribute");
+        customProps.setList(false);
+        customProps.setExtensibleList(true);
+        extensibleListAttribute.setProperties(customProps);
+
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Extensible list attribute should be a list attribute");
+
+        customProps.setList(true);
+        customProps.setExtensibleList(false);
+
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Not extensible list attribute should have predefined options");
+
+        extensibleListAttribute.setContent(List.of(new StringAttributeContentV3("data1"), new StringAttributeContentV3("data2")));
+        attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
+
+        RequestAttributeV3 strictListAttributeDto = new RequestAttributeV3();
+        UUID definitionUuid = UUID.fromString(extensibleListAttribute.getUuid());
+        strictListAttributeDto.setUuid(definitionUuid);
+        String attributeName = extensibleListAttribute.getName();
+        strictListAttributeDto.setName(attributeName);
+        List<BaseAttributeContentV3<?>> invalidOption = List.of(new StringAttributeContentV3("InvalidOption"));
+        strictListAttributeDto.setContent(invalidOption);
+
+        UUID certificateUuid = certificate.getUuid();
+        UUID finalDefinitionUuid2 = definitionUuid;
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid2, attributeName, invalidOption), "Content not in predefined options should not be accepted for not extensible list attribute");
+
+        List<AttributeContent> validContent = List.of(new StringAttributeContentV3("data1"));
+        UUID finalDefinitionUuid = definitionUuid;
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid, attributeName, validContent), "Valid content should be accepted for not extensible list attribute");
+
+        List<AttributeContent> validContentV2 = List.of(new StringAttributeContentV2("data1"));
+        UUID finalDefinitionUuid1 = definitionUuid;
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid1, attributeName, validContentV2), "Valid content in v2 should be accepted for not extensible list attribute");
+
+        extensibleListAttribute.setContentType(AttributeContentType.CODEBLOCK);
+        CodeBlockAttributeContentV3 attributeContent = new CodeBlockAttributeContentV3();
+        attributeContent.setContentType(AttributeContentType.CODEBLOCK);
+        attributeContent.setData(new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "abc"));
+        extensibleListAttribute.setContent(List.of(attributeContent));
+        extensibleListAttribute.setUuid(UUID.randomUUID().toString());
+        attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
+
+        definitionUuid = UUID.fromString(extensibleListAttribute.getUuid());
+        strictListAttributeDto.setUuid(definitionUuid);
+        strictListAttributeDto.setContent(List.of(attributeContent));
+        UUID finalDefinitionUuid3 = definitionUuid;
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for not extensible list attribute");
+
+        customProps.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for not extensible list attribute with encrypted protection level");
+
+        DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
+        dataAttributeV2.setUuid(UUID.randomUUID().toString());
+        dataAttributeV2.setName("dataAttributeV2");
+        dataAttributeV2.setContentType(AttributeContentType.STRING);
+        dataAttributeV2.setContent(List.of(new StringAttributeContentV2("data")));
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Attribute V2");
+        dataProps.setList(true);
+        dataProps.setExtensibleList(false);
+        dataProps.setReadOnly(false);
+        dataAttributeV2.setProperties(dataProps);
+        attributeEngine.updateDataAttributeDefinitions(null, null, List.of(dataAttributeV2));
+        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
+        requestAttributeV2.setUuid(UUID.fromString(dataAttributeV2.getUuid()));
+        requestAttributeV2.setName(dataAttributeV2.getName());
+        // For this test, BaseAttributeContentV2 is used instead of StringAttributeContentV2 because v2 is missing discriminator, and therefore it will not be deserialized to StringAttributeContentV2 from JSON in request
+        BaseAttributeContentV2<String> stringContentV2 = new BaseAttributeContentV2<>();
+        stringContentV2.setReference("data");
+        stringContentV2.setData("data");
+        requestAttributeV2.setContent(List.of(stringContentV2));
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
     }
 
     @Test
@@ -659,7 +744,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         validAttribute.setAttributeCallback(new AttributeCallback());
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
 
-        DataAttribute dataAttribute = attributeEngine.getDataAttributeDefinition(connectorAuthority.getUuid(),validAttribute.getName());
+        DataAttribute dataAttribute = attributeEngine.getDataAttributeDefinition(connectorAuthority.getUuid(), validAttribute.getName());
         Assertions.assertNotNull(dataAttribute.getAttributeCallback());
         Assertions.assertNull(dataAttribute.getConstraints());
     }

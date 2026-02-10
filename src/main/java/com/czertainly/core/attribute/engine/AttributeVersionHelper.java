@@ -109,6 +109,7 @@ public class AttributeVersionHelper {
             BaseAttributeContentV3<Serializable> contentV3 = new BaseAttributeContentV3<>();
             contentV3.setReference(content.getReference());
             contentV3.setData(decryptedDataObject);
+            contentV3.setContentType(contentType);
             return contentV3;
         }
         return content;
