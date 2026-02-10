@@ -925,7 +925,7 @@ public class AttributeEngine {
         boolean multiSelect;
         boolean hasCallback;
         boolean hasContent;
-        boolean strictList;
+        boolean extensibleList;
         AttributeResource attributeResource = null;
         if (attribute.getType() == AttributeType.CUSTOM) {
             CustomAttributeV3 customAttribute = (CustomAttributeV3) attribute;
@@ -936,7 +936,7 @@ public class AttributeEngine {
             multiSelect = customAttribute.getProperties().isMultiSelect();
             hasCallback = false;
             hasContent = customAttribute.getContent() != null && !customAttribute.getContent().isEmpty();
-            strictList = customAttribute.getProperties().isExtensibleList();
+            extensibleList = customAttribute.getProperties().isExtensibleList();
         } else {
             DataAttribute dataAttribute = (DataAttribute) attribute;
 
@@ -947,7 +947,7 @@ public class AttributeEngine {
             hasCallback = dataAttribute.getAttributeCallback() != null;
             hasContent = dataAttribute.getContent() != null && !((List<? extends AttributeContent>) dataAttribute.getContent()).isEmpty();
             attributeResource = dataAttribute.getProperties().getResource();
-            strictList = dataAttribute.getProperties().isExtensibleList();
+            extensibleList = dataAttribute.getProperties().isExtensibleList();
         }
 
         if (label == null || label.isBlank()) {
@@ -958,10 +958,7 @@ public class AttributeEngine {
             throw new AttributeException("Attribute has to be defined as list to be multiselect", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
 
-        if (strictList && !list) {
-            throw new AttributeException("Attribute has to be defined as list to be strict list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-        }
-
+        validateExtensibleListProperty(attribute, connectorUuidStr, extensibleList, list, hasContent);
         validateResourceAttributeProperties(attribute, connectorUuidStr, attributeResource, hasCallback);
 
         if (readOnly) {
@@ -976,8 +973,15 @@ public class AttributeEngine {
             }
         }
 
-        if (list && strictList && !hasContent) {
-            throw new AttributeException("Strict list attribute must define its content", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+
+    }
+
+    private static void validateExtensibleListProperty(BaseAttribute attribute, String connectorUuidStr, boolean extensibleList, boolean list, boolean hasContent) throws AttributeException {
+        if (extensibleList && !list) {
+            throw new AttributeException("Attribute has to be defined as list to be extensible list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
+        if (list && !extensibleList && !hasContent) {
+            throw new AttributeException("Not extensible list attribute must define its content", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
     }
 
