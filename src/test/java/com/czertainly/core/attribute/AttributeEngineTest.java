@@ -247,9 +247,14 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         CustomAttributeProperties customProps = new CustomAttributeProperties();
         customProps.setLabel("Strict List Attribute");
+        customProps.setList(false);
+        customProps.setExtensibleList(true);
+        extensibleListAttribute.setProperties(customProps);
+
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Extensible list attribute should be a list attribute");
+
         customProps.setList(true);
         customProps.setExtensibleList(false);
-        extensibleListAttribute.setProperties(customProps);
 
         Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Not extensible list attribute should have predefined options");
 
@@ -266,15 +271,15 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         UUID certificateUuid = certificate.getUuid();
         UUID finalDefinitionUuid2 = definitionUuid;
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid2, attributeName, invalidOption), "Content not in predefined options should not be accepted for strict list attribute");
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid2, attributeName, invalidOption), "Content not in predefined options should not be accepted for not extensible list attribute");
 
         List<AttributeContent> validContent = List.of(new StringAttributeContentV3("data1"));
         UUID finalDefinitionUuid = definitionUuid;
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid, attributeName, validContent), "Valid content should be accepted for strict list attribute");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid, attributeName, validContent), "Valid content should be accepted for not extensible list attribute");
 
         List<AttributeContent> validContentV2 = List.of(new StringAttributeContentV2("data1"));
         UUID finalDefinitionUuid1 = definitionUuid;
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid1, attributeName, validContentV2), "Valid content should be accepted for strict list attribute");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid1, attributeName, validContentV2), "Valid content in v2 should be accepted for not extensible list attribute");
 
         extensibleListAttribute.setContentType(AttributeContentType.CODEBLOCK);
         CodeBlockAttributeContentV3 attributeContent = new CodeBlockAttributeContentV3();
@@ -288,11 +293,11 @@ class AttributeEngineTest extends BaseSpringBootTest {
         strictListAttributeDto.setUuid(definitionUuid);
         strictListAttributeDto.setContent(List.of(attributeContent));
         UUID finalDefinitionUuid3 = definitionUuid;
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for strict list attribute");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for not extensible list attribute");
 
         customProps.setProtectionLevel(ProtectionLevel.ENCRYPTED);
         attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for strict list attribute");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for not extensible list attribute with encrypted protection level");
 
         DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
         dataAttributeV2.setUuid(UUID.randomUUID().toString());
@@ -314,7 +319,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         stringContentV2.setReference("data");
         stringContentV2.setData("data");
         requestAttributeV2.setContent(List.of(stringContentV2));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for strict list attribute");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
     }
 
     @Test
