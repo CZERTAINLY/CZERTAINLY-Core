@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
@@ -213,4 +214,39 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void updateCertificateIssuerDN(@Param("oid") String oid,
                                    @Param("newCode") String newCode,
                                    @Param("oldCode") String oldCode);
+
+    /** Populates almost all of the {@link CertificateDto} properties.
+     *
+     * <p>Business logic needs to fix up the remaining two items:
+     * <ul><li>Groups need to be retrieved separately and set to the DTO.</li>
+     * <li>RA Profile DTO is always created and set to the DTO, regardless if there is actually any RA Profile associated.
+     *     The business logic needs to clear the RA Profile DTO if it does not contain any useful data.</li>
+     * </ul></p>
+     */
+    @Query("""
+            SELECT new com.czertainly.api.model.core.certificate.CertificateDto(
+                c.uuid, c.commonName, c.serialNumber, c.issuerCommonName, c.issuerDn, c.subjectDn, c.notBefore, c.notAfter,
+                c.publicKeyAlgorithm, c.altPublicKeyAlgorithm, c.signatureAlgorithm, c.altSignatureAlgorithm, c.hybridCertificate,
+                c.keySize, c.altKeySize, c.state, c.validationStatus,
+                new com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto(
+                    ra.uuid, ra.name, ra.enabled, ra.authorityInstanceReferenceUuid
+                ),
+                c.fingerprint, oa.ownerUsername, oa.ownerUuid, c.certificateType, c.issuerSerialNumber, c.complianceStatus,
+                c.issuerCertificateUuid,
+                (CASE WHEN c.keyUuid IS NOT NULL AND EXISTS
+                    (SELECT 1 FROM CryptographicKeyItem i WHERE i.keyUuid = c.keyUuid
+                        AND i.type = ?#{T(com.czertainly.api.model.common.enums.cryptography.KeyType).PRIVATE_KEY}
+                        AND i.state = ?#{T(com.czertainly.api.model.core.cryptography.key.KeyState).ACTIVE}
+                    )
+                    THEN true ELSE false END
+                ),
+                c.trustedCa, c.archived
+            )
+            FROM Certificate c
+            LEFT JOIN OwnerAssociation oa ON oa.objectUuid = c.uuid
+            LEFT JOIN RaProfile ra ON ra.uuid = c.raProfileUuid
+            WHERE c.uuid IN ?1
+            ORDER BY c.created DESC
+            """)
+    List<CertificateDto> findCertificateDtosByUuids(List<UUID> uuids);
 }
