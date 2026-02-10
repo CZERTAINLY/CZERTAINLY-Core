@@ -217,20 +217,14 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     /** Populates almost all of the {@link CertificateDto} properties.
      *
-     * <p>Business logic needs to fix up the remaining two items:
-     * <ul><li>Groups need to be retrieved separately and set to the DTO.</li>
-     * <li>RA Profile DTO is always created and set to the DTO, regardless if there is actually any RA Profile associated.
-     *     The business logic needs to clear the RA Profile DTO if it does not contain any useful data.</li>
-     * </ul></p>
+     * <p>Groups need to be retrieved separately and set to the DTO.</p>
      */
     @Query("""
             SELECT new com.czertainly.api.model.core.certificate.CertificateDto(
                 c.uuid, c.commonName, c.serialNumber, c.issuerCommonName, c.issuerDn, c.subjectDn, c.notBefore, c.notAfter,
                 c.publicKeyAlgorithm, c.altPublicKeyAlgorithm, c.signatureAlgorithm, c.altSignatureAlgorithm, c.hybridCertificate,
                 c.keySize, c.altKeySize, c.state, c.validationStatus,
-                new com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto(
-                    ra.uuid, ra.name, ra.enabled, ra.authorityInstanceReferenceUuid
-                ),
+                ra.uuid, ra.name, ra.enabled, ra.authorityInstanceReferenceUuid,
                 c.fingerprint, oa.ownerUsername, oa.ownerUuid, c.certificateType, c.issuerSerialNumber, c.complianceStatus,
                 c.issuerCertificateUuid,
                 (CASE WHEN c.keyUuid IS NOT NULL AND EXISTS

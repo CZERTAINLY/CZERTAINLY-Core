@@ -344,16 +344,15 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
 
         // We use DTO projection instead of Hibernate entities for performance reasons.
         List<CertificateDto> certificates = certificateRepository.findCertificateDtosByUuids(certificateUuids);
-        List<GroupAssociation> groupAssociations = groupAssociationRepository.findByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
-        Map<String, List<GroupDto>> groupsByCert = groupAssociations.stream().collect(Collectors.groupingBy(ga -> ga.getObjectUuid().toString(),
-                Collectors.mapping(ga -> ga.getGroup().mapToDto(), Collectors.toList())));
-        certificates.forEach(c -> {
-            c.setCommonName(CertificateUtil.formatCommonName(c.getCommonName()));
-            c.setGroups(groupsByCert.getOrDefault(c.getUuid(), List.of()));
-            if (c.getRaProfile().getUuid() == null) {
-                c.setRaProfile(null);
-            }
-        });
+        if (!certificateUuids.isEmpty()) {
+            List<GroupAssociation> groupAssociations = groupAssociationRepository.findByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
+            Map<String, List<GroupDto>> groupsByCert = groupAssociations.stream().collect(Collectors.groupingBy(ga -> ga.getObjectUuid().toString(),
+                    Collectors.mapping(ga -> ga.getGroup().mapToDto(), Collectors.toList())));
+            certificates.forEach(c -> {
+                c.setCommonName(CertificateUtil.formatCommonName(c.getCommonName()));
+                c.setGroups(groupsByCert.getOrDefault(c.getUuid(), List.of()));
+            });
+        }
 
         Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         CertificateResponseDto responseDto = new CertificateResponseDto();

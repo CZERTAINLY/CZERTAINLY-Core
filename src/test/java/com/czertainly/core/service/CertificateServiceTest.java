@@ -216,7 +216,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         group = new Group();
         group.setName("TestGroup");
         group.setDescription("Test group description");
-        group.setEmail("rybanoha@iss.com");
+        group.setEmail("rybanoha@example.com");
         group = groupRepository.save(group);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
