@@ -3,6 +3,7 @@ FROM maven:3.9.11-eclipse-temurin-21 AS build
 
 COPY src /home/app/src
 COPY pom.xml /home/app
+COPY .git /home/app/.git
 COPY settings.xml /root/.m2/settings.xml
 
 RUN apt-get update && \
