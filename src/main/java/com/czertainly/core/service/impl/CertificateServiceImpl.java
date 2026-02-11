@@ -124,7 +124,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
-    @Value("${spring.jpa.properties.hibernate.jdbc.batch_size}")
+    @Value("${spring.jpa.properties.hibernate.jdbc.batch_size:500}")
     private int bulkDeleteBatchSize;
 
     private PlatformTransactionManager transactionManager;
