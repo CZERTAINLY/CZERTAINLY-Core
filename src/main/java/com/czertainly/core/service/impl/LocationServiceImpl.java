@@ -382,7 +382,7 @@ public class LocationServiceImpl implements LocationService {
         List<UUID> certUuids = certificateUuids.stream().map(SecuredUUID::getValue).toList();
         List<CertificateLocation> certLocations = certificateLocationRepository.findByCertificateUuidIn(certUuids);
 
-        for  (CertificateLocation cl : certLocations) {
+        for (CertificateLocation cl : certLocations) {
             try {
                 removeCertificateFromLocation(cl);
                 logger.debug("Removed Certificate {} from Location {}", cl.getCertificate().getUuid(), cl.getLocation().getName());
