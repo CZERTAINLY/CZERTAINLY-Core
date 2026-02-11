@@ -958,7 +958,7 @@ public class AttributeEngine {
             throw new AttributeException("Attribute has to be defined as list to be multiselect", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
 
-        validateExtensibleListProperty(attribute, connectorUuidStr, extensibleList, list, hasContent);
+        validateExtensibleListProperty(attribute, connectorUuidStr, extensibleList, list);
         validateResourceAttributeProperties(attribute, connectorUuidStr, attributeResource, hasCallback);
 
         if (readOnly) {
@@ -976,12 +976,9 @@ public class AttributeEngine {
 
     }
 
-    private static void validateExtensibleListProperty(BaseAttribute attribute, String connectorUuidStr, boolean extensibleList, boolean list, boolean hasContent) throws AttributeException {
+    private static void validateExtensibleListProperty(BaseAttribute attribute, String connectorUuidStr, boolean extensibleList, boolean list) throws AttributeException {
         if (extensibleList && !list) {
             throw new AttributeException("Attribute has to be defined as list to be extensible list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-        }
-        if (list && !extensibleList && !hasContent) {
-            throw new AttributeException("Not extensible list attribute must define its content", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
     }
 

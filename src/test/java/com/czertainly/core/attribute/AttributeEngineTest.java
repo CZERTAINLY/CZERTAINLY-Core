@@ -255,9 +255,6 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         customProps.setList(true);
         customProps.setExtensibleList(false);
-
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Not extensible list attribute should have predefined options");
-
         extensibleListAttribute.setContent(List.of(new StringAttributeContentV3("data1"), new StringAttributeContentV3("data2")));
         attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
 
