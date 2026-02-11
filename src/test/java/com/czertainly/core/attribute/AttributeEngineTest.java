@@ -255,8 +255,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         customProps.setList(true);
         customProps.setExtensibleList(false);
-
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Not extensible list attribute should have predefined options");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Not extensible list attribute does not need to have content");
 
         extensibleListAttribute.setContent(List.of(new StringAttributeContentV3("data1"), new StringAttributeContentV3("data2")));
         attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
@@ -320,6 +319,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
         stringContentV2.setData("data");
         requestAttributeV2.setContent(List.of(stringContentV2));
         Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+
+        dataProps.setList(false);
+        attributeEngine.updateDataAttributeDefinitions(null, null, List.of(dataAttributeV2));
+        stringContentV2.setData("data2");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+
     }
 
     @Test
