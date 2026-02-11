@@ -319,6 +319,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
         stringContentV2.setData("data");
         requestAttributeV2.setContent(List.of(stringContentV2));
         Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+
+        dataProps.setList(false);
+        attributeEngine.updateDataAttributeDefinitions(null, null, List.of(dataAttributeV2));
+        stringContentV2.setData("data2");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+
     }
 
     @Test

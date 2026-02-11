@@ -958,7 +958,9 @@ public class AttributeEngine {
             throw new AttributeException("Attribute has to be defined as list to be multiselect", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
 
-        validateExtensibleListProperty(attribute, connectorUuidStr, extensibleList, list);
+        if (extensibleList && !list) {
+            throw new AttributeException("Attribute has to be defined as list to be extensible list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
         validateResourceAttributeProperties(attribute, connectorUuidStr, attributeResource, hasCallback);
 
         if (readOnly) {
@@ -974,12 +976,6 @@ public class AttributeEngine {
         }
 
 
-    }
-
-    private static void validateExtensibleListProperty(BaseAttribute attribute, String connectorUuidStr, boolean extensibleList, boolean list) throws AttributeException {
-        if (extensibleList && !list) {
-            throw new AttributeException("Attribute has to be defined as list to be extensible list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-        }
     }
 
     private static void validateResourceAttributeProperties(BaseAttribute attribute, String connectorUuidStr, AttributeResource attributeResource, boolean hasCallback) throws AttributeException {
@@ -1284,10 +1280,16 @@ public class AttributeEngine {
             return;
         }
         if (attributeDefinition.getDefinition() instanceof CustomAttribute customAttribute) {
-            extensibleList = customAttribute.getProperties().isList() && customAttribute.getProperties().isExtensibleList();
+            if (!customAttribute.getProperties().isList()) {
+                return;
+            }
+            extensibleList = customAttribute.getProperties().isExtensibleList();
             protectionLevel = customAttribute.getProperties().getProtectionLevel();
         } else if (attributeDefinition.getDefinition() instanceof DataAttribute dataAttribute) {
-            extensibleList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isExtensibleList();
+            if (!dataAttribute.getProperties().isList()) {
+                return;
+            }
+            extensibleList = dataAttribute.getProperties().isExtensibleList();
             protectionLevel = dataAttribute.getProperties().getProtectionLevel();
         } else {
             // Other attribute types are not supported for extensible list
