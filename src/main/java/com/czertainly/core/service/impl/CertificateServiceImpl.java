@@ -345,7 +345,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         // We use DTO projection instead of Hibernate entities for performance reasons.
         List<CertificateDto> certificates = certificateRepository.findCertificateDtosByUuids(certificateUuids);
         if (!certificateUuids.isEmpty()) {
-            List<GroupAssociation> groupAssociations = groupAssociationRepository.findByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
+            List<GroupAssociation> groupAssociations = groupAssociationRepository.findWithAssociationsByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
             Map<String, List<GroupDto>> groupsByCert = groupAssociations.stream().collect(Collectors.groupingBy(ga -> ga.getObjectUuid().toString(),
                     Collectors.mapping(ga -> ga.getGroup().mapToDto(), Collectors.toList())));
             certificates.forEach(c -> {
