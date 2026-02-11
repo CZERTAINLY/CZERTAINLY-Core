@@ -16,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
@@ -23,6 +26,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomListResponseDto;
+import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
@@ -242,5 +246,66 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomRepositoryException cbomException = (CbomRepositoryException) exception;
         assertNotNull(cbomException.getProblemDetail());
         assertEquals(500, cbomException.getProblemDetail().getStatus());
+    }
+
+    void testCreateCbom_Success() throws Exception {
+        // Given
+        String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
+        Integer version = 1;
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("serial_number", serialNumber);
+        content.put("version", version);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // Mock WireMock to return successful response
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {
+                    "total": 5
+                    },
+                    "certificates": {
+                    "total": 3
+                    },
+                    "protocols": {
+                    "total": 2
+                    },
+                    "relatedCryptoMaterials": {
+                    "total": 4
+                    },
+                    "total": 14
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result = cbomService.createCbom(request);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(serialNumber, result.getSerialNumber());
+        assertEquals(version, result.getVersion());
+        assertEquals(5, result.getAlgorithms());
+        assertEquals(3, result.getCertificates());
+        assertEquals(2, result.getProtocols());
+        assertEquals(4, result.getCryptoMaterial());
+        assertEquals(14, result.getTotalAssets());
+
+        // Verify entity was saved to database
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(1, savedCboms.size());
+        assertEquals(serialNumber, savedCboms.get(0).getSerialNumber());
+        assertEquals("CORE", savedCboms.get(0).getSource());
     }
 }
