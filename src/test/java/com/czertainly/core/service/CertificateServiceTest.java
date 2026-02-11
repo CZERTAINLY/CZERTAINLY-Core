@@ -12,14 +12,16 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -48,6 +50,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -63,6 +68,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 class CertificateServiceTest extends BaseSpringBootTest {
 
@@ -1082,6 +1088,195 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         relationsDto = certificateService.getCertificateRelations(notIssued.getUuid());
         Assertions.assertEquals(CertificateRelationType.REPLACEMENT, relationsDto.getPredecessorCertificates().getFirst().getRelationType());
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideScepCaCertificateTestData")
+    public void testListScepCaCertificates(
+            String commonName,
+            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
+            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean intuneEnabled, boolean shouldBeAccepted
+    ) {
+        CryptographicKey key = null;
+        if (publicKeyAlgorithm != null || privateKeyAlgorithm != null) {
+            key = createCryptographicKey(commonName + " Key");
+            if (publicKeyAlgorithm != null) {
+                createCryptographicKeyItem(key, publicKeyType, publicKeyAlgorithm, publicKeyUsages, KeyState.ACTIVE);
+            }
+            if (privateKeyAlgorithm != null) {
+                createCryptographicKeyItem(key, privateKeyType, privateKeyAlgorithm, privateKeyUsages, privateKeyState);
+            }
+        }
+
+        createCertificateEntity(commonName, commonName.toLowerCase().replace(" ", "-") + "-serial",
+                key, certificateState, validationStatus, archived);
+
+        List<CertificateDto> certificates = certificateService.listScepCaCertificates(SecurityFilter.create(), intuneEnabled);
+        boolean isPresent = certificates.stream().anyMatch(c -> c.getCommonName().equals(commonName));
+        Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + commonName + "' acceptance mismatch");
+    }
+
+    private static Stream<Arguments> provideScepCaCertificateTestData() {
+        return Stream.of(
+                // 1. Certificate that should be accepted (RSA)
+                Arguments.of("RSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, true),
+
+                // 2. Certificate that should be accepted (ECDSA)
+                Arguments.of("ECDSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, true),
+
+                // 3. Certificate with no key (should be ignored)
+                Arguments.of("No Key Cert",
+                        null, null, null,
+                        null, null, null, null,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 4. Archived certificate (should be ignored)
+                Arguments.of("Archived Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, true,
+                        false, false),
+
+                // 5. Certificate with wrong state (should be ignored)
+                Arguments.of("Wrong State Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.PENDING_APPROVAL, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 6. Certificate with a deactivated private RSA key
+                Arguments.of("Deactivated RSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.DEACTIVATED,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 7. Certificate with a wrong private RSA key usage
+                Arguments.of("Wrong usage RSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 8. Certificate with an invalid RSA key type
+                Arguments.of("Secret RSA Cert",
+                        KeyType.SECRET_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        null, null, null, null,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 9. Certificate with a non RSA/ECDSA key algorithm
+                Arguments.of("Falcon Cert",
+                        null, null, null,
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 10. Certificate with a wrong key usage for ECDSA public key
+                Arguments.of("Wrong usage public ECDSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 11. Certificate with a deactivated private ECDSA key
+                Arguments.of("Deactivated ECDSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 12. Certificate with a wrong private ECDSA key usage
+                Arguments.of("Wrong usage private Ecdsa Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 13. Certificate with an invalid Ecdsa key type
+                Arguments.of("Secret Ecdsa Cert",
+                        KeyType.SECRET_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        null, null, null, null,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 14. Test with intuneEnabled = true (only RSA acceptable)
+                Arguments.of("RSA Cert Intune",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        true, true),
+
+                // 15. Test with intuneEnabled = true (ECDSA not acceptable)
+                Arguments.of("ECDSA Cert Intune",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        true, false),
+
+                // 16. Certificate with expiring status (should be accepted)
+                Arguments.of("Expiring Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false,
+                        false, true),
+
+                // 17. Certificate with invalid status (should be ignored)
+                Arguments.of("Invalid Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.INVALID, false,
+                        false, false),
+
+                // 18. RSA Certificate with missing usages (should be ignored)
+                Arguments.of("Wrong Usage Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false)
+        );
+    }
+
+    private CryptographicKey createCryptographicKey(String name) {
+        CryptographicKey key = new CryptographicKey();
+        key.setName(name);
+        return cryptographicKeyRepository.save(key);
+    }
+
+    private void createCryptographicKeyItem(CryptographicKey key, KeyType type, KeyAlgorithm algorithm, List<KeyUsage> usages, KeyState state) {
+        CryptographicKeyItem item = new CryptographicKeyItem();
+        item.setKey(key);
+        item.setType(type);
+        item.setKeyAlgorithm(algorithm);
+        item.setUsage(usages);
+        item.setState(state);
+        item.setEnabled(true);
+        item.setName(key.getName() + " " + type.name());
+        key.getItems().add(item);
+        cryptographicKeyRepository.save(key);
+    }
+
+    private void createCertificateEntity(String commonName, String serialNumber, CryptographicKey key, CertificateState state, CertificateValidationStatus validationStatus, boolean archived) {
+        Certificate cert = new Certificate();
+        cert.setCommonName(commonName);
+        cert.setSerialNumber(serialNumber);
+        cert.setKey(key);
+        cert.setKeyUuid(key != null ? key.getUuid() : null);
+        cert.setState(state);
+        cert.setValidationStatus(validationStatus);
+        cert.setArchived(archived);
+        certificateRepository.save(cert);
     }
 
     @NotNull
