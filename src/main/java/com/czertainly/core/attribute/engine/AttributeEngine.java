@@ -41,6 +41,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -184,7 +185,7 @@ public class AttributeEngine {
     }
 
     private static CustomAttribute getCustomAttributeWithDecryptedContentFromRelation(AttributeRelation r) {
-        CustomAttribute attribute = (CustomAttribute) r.getAttributeDefinition().getDefinition();
+        CustomAttribute attribute = SerializationUtils.clone((CustomAttribute) r.getAttributeDefinition().getDefinition());
         if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED && r.getAttributeDefinition().getEncryptedData() != null) {
             List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
             List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
@@ -732,7 +733,7 @@ public class AttributeEngine {
             AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName())
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : String.valueOf(requestAttribute.getUuid()), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
             validateAttributeContent(definition, requestAttribute.getContent());
-            DataAttribute dataAttribute = (DataAttribute) definition.getDefinition();
+            DataAttribute dataAttribute = SerializationUtils.clone((DataAttribute) definition.getDefinition());
             dataAttribute.setContent(requestAttribute.getContent());
             dataAttributes.add(dataAttribute);
         }
@@ -1297,13 +1298,14 @@ public class AttributeEngine {
         }
 
         if (!extensibleList) {
+            List<AttributeContent> decryptedContentItems = new ArrayList<>(defaultContentItems);
             if (protectionLevel == ProtectionLevel.ENCRYPTED) {
-                defaultContentItems = defaultContentItems.stream()
+                decryptedContentItems = defaultContentItems.stream()
                         .map(content -> AttributeVersionHelper.decryptContent(
                                 content, 3, attributeDefinition.getContentType(), attributeDefinition.getEncryptedData().get(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).indexOf(content))))
                         .toList();
             }
-            if (defaultContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
+            if (decryptedContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
         }
