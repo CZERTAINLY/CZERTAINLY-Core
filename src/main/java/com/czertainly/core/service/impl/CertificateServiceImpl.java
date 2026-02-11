@@ -82,6 +82,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
@@ -120,9 +121,11 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     // batch size will prevent bloating size of enqueued message and better utilize parallel processing
     // NOTE: improve handling of large batches vs many produced messages to queue
     private static final int VALIDATION_BATCH_SIZE = 10;
-    private static final int BULK_DELETE_BATCH_SIZE = 500;
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
+
+    @Value("${spring.jpa.properties.hibernate.jdbc.batch_size}")
+    private int bulkDeleteBatchSize;
 
     private PlatformTransactionManager transactionManager;
 
@@ -561,8 +564,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             int deletedCount = 0;
 
             // Process bulk deletion in batches. Every batch gets its own transaction.
-            for (int i = 0; i < totalToDelete; i += BULK_DELETE_BATCH_SIZE) {
-                int end = Math.min(i + BULK_DELETE_BATCH_SIZE, totalToDelete);
+            for (int i = 0; i < totalToDelete; i += bulkDeleteBatchSize) {
+                int end = Math.min(i + bulkDeleteBatchSize, totalToDelete);
                 List<String> batchUuids = requestedUuids.subList(i, end);
 
                 TransactionStatus txStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
