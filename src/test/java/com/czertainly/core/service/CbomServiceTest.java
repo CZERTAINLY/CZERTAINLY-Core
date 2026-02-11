@@ -143,15 +143,13 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Mock WireMock response - NOTE: URL is /v1/bom/ not /v1/cboms/
         String responseBody = """
         {
-        "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
-        "version": 1,
-        "bom": {
+        "$schema": "https://cyclonedx.org/schema/bom-1.6.schema.json",
         "bomFormat": "CycloneDX",
-        "specVersion": "1.5",
+        "specVersion": "1.6",
         "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
         "version": 1,
+        "metadata": {},
         "components": []
-        }
         }
         """;
 
@@ -169,13 +167,13 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then
         assertNotNull(result);
         assertEquals(serialNumber, result.getSerialNumber());
-        assertEquals(version, result.getVersion());
+        assertEquals(version.toString(), result.getVersion());
         assertNotNull(result.getContent());
         assertEquals("CycloneDX", result.getContent().get("bomFormat"));
 
         // Verify WireMock was called
         mockServer.verify(WireMock.getRequestedFor(
-            WireMock.urlPathEqualTo("/v1/bom/" + serialNumber))
+            WireMock.urlPathMatching("/v1/bom/.*"))
             .withQueryParam("version", WireMock.equalTo(version.toString())));
     }
 

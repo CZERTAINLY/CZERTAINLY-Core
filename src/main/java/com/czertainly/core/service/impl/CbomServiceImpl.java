@@ -131,10 +131,7 @@ public class CbomServiceImpl implements CbomService {
             }
         }
 
-        ObjectMapper mapper = new ObjectMapper();
-        CbomDetailDto detailDto = mapper.convertValue(cbom.mapToDto(), CbomDetailDto.class);
-        Map<String, Object> map = mapper.convertValue(response.getBom(), new TypeReference<Map<String, Object>>() {});
-        detailDto.setContent(map);
+        CbomDetailDto detailDto = response.mapToCbomDetailDto();
         return detailDto;
     }
 

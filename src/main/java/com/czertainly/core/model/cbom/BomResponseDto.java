@@ -1,35 +1,132 @@
 package com.czertainly.core.model.cbom;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.czertainly.api.model.core.cbom.CbomDetailDto;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
-import lombok.Getter;
-import lombok.Setter;
 
-@Setter
-@Getter
 @Schema(description = "Response containing (C)BOM")
-public class BomResponseDto {
-
-    @NotNull
-    @Schema(description = "The CBOM document in JSON format", requiredMode = Schema.RequiredMode.REQUIRED)
-    private JsonNode bom;
-
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class BomResponseDto extends HashMap<String, Object> {
     @Override
     public String toString() {
-        JsonNode bom2 = (bom == null) ? JsonNodeFactory.instance.objectNode() : bom;
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("specVersion", bom2.at("/properties/specVersion").asText("N/A"))
-                .append("serialNumber", bom2.at("/properties/serialNumber").asText("N/A"))
-                .append("version", bom2.at("/properties/version").asText("N/A"))
+                .append("specVersion", get("specVersion"))
+                .append("serialNumber", get("serialNumber"))
+                .append("version", get("version"))
                 .toString();
     }
 
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> getComponents() {
+        Object components = this.get("components");
+        if (components instanceof List) {
+            return (List<Map<String, Object>>) components;
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getMetadata() {
+        Object metadata = this.get("metadata");
+        if (metadata instanceof Map) {
+            return (Map<String, Object>) metadata;
+        }
+        return null;
+    }
+
+    public CbomDetailDto mapToCbomDetailDto() {
+
+        CbomDetailDto cbomDetailDto = new CbomDetailDto();
+        
+        // Set raw content
+        cbomDetailDto.setContent(this);
+        
+        // Extract basic fields
+        cbomDetailDto.setSerialNumber((String) this.get("serialNumber"));
+        cbomDetailDto.setVersion(String.valueOf(this.get("version")));
+        cbomDetailDto.setSpecVersion((String) this.get("specVersion"));
+        
+        // Parse timestamp
+        Object timestamp = this.get("timestamp");
+        if (timestamp != null) {
+            cbomDetailDto.setTimestamp(parseTimestamp(timestamp.toString()));
+        }
+        
+        // Extract metadata for source
+        Map<String, Object> metadata = this.getMetadata();
+        if (metadata != null) {
+            List<Map<String, Object>> tools = (List<Map<String, Object>>) metadata.get("tools");
+            if (tools != null && !tools.isEmpty()) {
+                Map<String, Object> tool = tools.get(0);
+                String toolName = (String) tool.get("name");
+                String toolVersion = (String) tool.get("version");
+                cbomDetailDto.setSource(toolName != null ? toolName + (toolVersion != null ? " " + toolVersion : "") : null);
+            }
+        }
+        
+        // Count components by type
+        List<Map<String, Object>> components = this.getComponents();
+        if (components != null) {
+            int algorithms = 0;
+            int certificates = 0;
+            int protocols = 0;
+            int cryptoMaterial = 0;
+            
+            for (Map<String, Object> component : components) {
+                String type = (String) component.get("type");
+                if (type != null) {
+                    switch (type) {
+                        case "cryptographic-asset":
+                            Map<String, Object> cryptoProperties = (Map<String, Object>) component.get("cryptoProperties");
+                            if (cryptoProperties != null) {
+                                String assetType = (String) cryptoProperties.get("assetType");
+                                if ("algorithm".equalsIgnoreCase(assetType)) {
+                                    algorithms++;
+                                } else if ("certificate".equalsIgnoreCase(assetType)) {
+                                    certificates++;
+                                } else if ("protocol".equalsIgnoreCase(assetType)) {
+                                    protocols++;
+                                }
+                            }
+                            cryptoMaterial++;
+                            break;
+                    }
+                }
+            }
+            
+            cbomDetailDto.setAlgorithms(algorithms);
+            cbomDetailDto.setCertificates(certificates);
+            cbomDetailDto.setProtocols(protocols);
+            cbomDetailDto.setCryptoMaterial(cryptoMaterial);
+            cbomDetailDto.setTotalAssets(components.size());
+        } else {
+            cbomDetailDto.setAlgorithms(0);
+            cbomDetailDto.setCertificates(0);
+            cbomDetailDto.setProtocols(0);
+            cbomDetailDto.setCryptoMaterial(0);
+            cbomDetailDto.setTotalAssets(0);
+        }
+        
+        return cbomDetailDto;
+    }
+    
+    private OffsetDateTime parseTimestamp(String timestamp) {
+        try {
+            return OffsetDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }
 
 
