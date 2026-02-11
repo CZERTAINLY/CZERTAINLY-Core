@@ -242,5 +242,5 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             WHERE c.uuid IN ?1
             ORDER BY c.created DESC
             """)
-    List<CertificateDto> findCertificateDtosByUuids(List<UUID> uuids);
+    List<CertificateDto> findCertificateDtosByUuidsIn(List<UUID> uuids);
 }

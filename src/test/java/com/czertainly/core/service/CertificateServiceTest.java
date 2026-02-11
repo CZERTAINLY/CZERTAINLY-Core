@@ -31,6 +31,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.CertificateUtil;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -292,6 +294,24 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(expectedGroup.getName(), actualGroup.getName());
         Assertions.assertEquals(expectedGroup.getDescription(), actualGroup.getDescription());
         Assertions.assertEquals(expectedGroup.getEmail(), actualGroup.getEmail());
+    }
+
+    @Test
+    void testListCertificates_emptyDueToPermission() {
+        OpaObjectAccessResult objectAccessDenied = new OpaObjectAccessResult();
+        objectAccessDenied.setActionAllowedForGroupOfObjects(false);
+        objectAccessDenied.setAllowedObjects(List.of());
+        objectAccessDenied.setForbiddenObjects(List.of());
+
+        Mockito.when(
+                opaClient.checkObjectAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
+        ).thenReturn(objectAccessDenied);
+
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new CertificateSearchRequestDto());
+        Assertions.assertNotNull(certificateEntities);
+        Assertions.assertNotNull(certificateEntities.getCertificates());
+        Assertions.assertTrue(certificateEntities.getCertificates().isEmpty());
+        Assertions.assertEquals(0, certificateEntities.getTotalItems());
     }
 
     @Test

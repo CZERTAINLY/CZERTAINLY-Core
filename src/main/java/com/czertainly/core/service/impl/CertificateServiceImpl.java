@@ -6,7 +6,6 @@ import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
-import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
@@ -343,8 +342,11 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
 
         // We use DTO projection instead of Hibernate entities for performance reasons.
-        List<CertificateDto> certificates = certificateRepository.findCertificateDtosByUuids(certificateUuids);
-        if (!certificateUuids.isEmpty()) {
+        List<CertificateDto> certificates;
+        if (certificateUuids.isEmpty()) {
+            certificates = Collections.emptyList();
+        } else {
+            certificates = certificateRepository.findCertificateDtosByUuidsIn(certificateUuids);
             List<GroupAssociation> groupAssociations = groupAssociationRepository.findWithAssociationsByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
             Map<String, List<GroupDto>> groupsByCert = groupAssociations.stream().collect(Collectors.groupingBy(ga -> ga.getObjectUuid().toString(),
                     Collectors.mapping(ga -> ga.getGroup().mapToDto(), Collectors.toList())));
