@@ -525,7 +525,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         uuids.add(certificate.getUuid().toString());
 
         // Two batches of certificates to delete, based on spring.jpa.properties.hibernate.jdbc.batch_size
-        IntStream.range(0, 100).forEach(i -> {
+        IntStream.range(0, 99).forEach(i -> {
             Certificate cert = new Certificate();
             cert.setCommonName("test" + i);
             cert.setSerialNumber(UUID.randomUUID().toString());
