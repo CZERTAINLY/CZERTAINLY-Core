@@ -28,8 +28,11 @@ import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
+import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.CertificateUtil;
@@ -555,7 +558,47 @@ class CertificateServiceTest extends BaseSpringBootTest {
                 Mockito.eq(Resource.CERTIFICATE),
                 Mockito.eq(nonExistentUuid),
                 Mockito.any(),
-                Mockito.contains("Unable to delete the certificate"),
+                Mockito.contains("Unable to delete certificate"),
+                Mockito.anyString()
+        );
+    }
+
+    @Test
+    void testBulkRemove_evaluatePermissions() throws NotFoundException {
+        UUID forbiddenUuid = UUID.fromString("ed337973-ad11-441f-91c7-6112309e8776");
+        Certificate forbiddenCert = new Certificate();
+        forbiddenCert.setUuid(forbiddenUuid);
+        forbiddenCert.setCommonName("forbiddenCert");
+        certificateRepository.save(forbiddenCert);
+
+        // Reject certificate deletion for the forbidden certificate.
+        OpaObjectAccessResult objectAccessResult = new OpaObjectAccessResult();
+        objectAccessResult.setAllowedObjects(List.of(certificate.getUuid().toString()));
+        objectAccessResult.setForbiddenObjects(List.of(forbiddenUuid.toString()));
+        Mockito.when(
+                opaClient.checkObjectAccess(
+                        Mockito.any(),
+                        Mockito.argThat(resource ->
+                                isObjectAccessRequestForResource(resource, Resource.CERTIFICATE.getCode(), ResourceAction.DELETE.getCode())
+                        ),
+                        Mockito.any(),
+                        Mockito.any()
+                )
+        ).thenReturn(objectAccessResult);
+
+        RemoveCertificateDto request = new RemoveCertificateDto();
+        request.setUuids(List.of(certificate.getUuid().toString(), forbiddenUuid.toString()));
+
+        // Should not throw exception, but log error for the forbidden UUID and send notification
+        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
+
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getSecuredUuid()));
+        Assertions.assertDoesNotThrow(() -> certificateService.getCertificate(SecuredUUID.fromUUID(forbiddenUuid)));
+        Mockito.verify(notificationProducer, Mockito.times(1)).produceInternalNotificationMessage(
+                Mockito.eq(Resource.CERTIFICATE),
+                Mockito.eq(forbiddenUuid),
+                Mockito.any(),
+                Mockito.contains("Unable to delete certificate"),
                 Mockito.anyString()
         );
     }
@@ -950,5 +993,11 @@ class CertificateServiceTest extends BaseSpringBootTest {
         protocolCertificateAssociations.setCustomAttributes(List.of(requestAttribute));
         protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         return protocolCertificateAssociations;
+    }
+
+    private static boolean isObjectAccessRequestForResource(OpaRequestedResource resource, String name, String action) {
+        return resource != null && resource.getProperties() != null &&
+                (resource.getProperties().containsKey("name") && resource.getProperties().get("name").equals(name)) &&
+                (resource.getProperties().containsKey("action") && resource.getProperties().get("action").equals(action));
     }
 }
