@@ -1,17 +1,29 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 class CertificateUtilTest {
 
@@ -84,4 +96,87 @@ class CertificateUtilTest {
         Assertions.assertFalse(CertificateUtil.isValidationEnabled(certificate, null));
     }
 
+    @ParameterizedTest
+    @MethodSource("com.czertainly.core.util.CertificateTestData#provideCmpAcceptableTestData")
+    public void testIsCertificateCmpAcceptable(
+            String testCaseName,
+            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
+            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean expectedResult
+    ) {
+        Certificate certificate = new Certificate();
+        certificate.setState(certificateState);
+        certificate.setValidationStatus(validationStatus);
+        certificate.setArchived(archived);
+
+        if (privateKeyAlgorithm != null || publicKeyAlgorithm != null) {
+            CryptographicKey key = new CryptographicKey();
+            Set<CryptographicKeyItem> items = new HashSet<>();
+            if (privateKeyAlgorithm != null) {
+                CryptographicKeyItem item = new CryptographicKeyItem();
+                item.setType(privateKeyType);
+                item.setKeyAlgorithm(privateKeyAlgorithm);
+                item.setUsage(privateKeyUsages);
+                item.setState(privateKeyState);
+                item.setKey(key);
+                items.add(item);
+            }
+            if (publicKeyAlgorithm != null) {
+                CryptographicKeyItem item = new CryptographicKeyItem();
+                item.setType(publicKeyType);
+                item.setKeyAlgorithm(publicKeyAlgorithm);
+                item.setUsage(publicKeyUsages);
+                item.setState(KeyState.ACTIVE);
+                item.setKey(key);
+                items.add(item);
+            }
+            key.setItems(items);
+            certificate.setKey(key);
+        }
+
+        Assertions.assertEquals(expectedResult, CertificateUtil.isCertificateCmpAcceptable(certificate), "Test case '" + testCaseName + "' failed");
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.czertainly.core.util.CertificateTestData#provideScepCaCertificateTestData")
+    public void testIsCertificateScepCaCertAcceptable(
+            String testCaseName,
+            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
+            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean intuneEnabled, boolean expectedResult
+    ) {
+        Certificate certificate = new Certificate();
+        certificate.setState(certificateState);
+        certificate.setValidationStatus(validationStatus);
+        certificate.setArchived(archived);
+
+        if (privateKeyAlgorithm != null || publicKeyAlgorithm != null) {
+            CryptographicKey key = new CryptographicKey();
+            Set<CryptographicKeyItem> items = new HashSet<>();
+            if (privateKeyAlgorithm != null) {
+                CryptographicKeyItem item = new CryptographicKeyItem();
+                item.setType(privateKeyType);
+                item.setKeyAlgorithm(privateKeyAlgorithm);
+                item.setUsage(privateKeyUsages);
+                item.setState(privateKeyState);
+                item.setKey(key);
+                items.add(item);
+            }
+            if (publicKeyAlgorithm != null) {
+                CryptographicKeyItem item = new CryptographicKeyItem();
+                item.setType(publicKeyType);
+                item.setKeyAlgorithm(publicKeyAlgorithm);
+                item.setUsage(publicKeyUsages);
+                item.setState(KeyState.ACTIVE);
+                item.setKey(key);
+                items.add(item);
+            }
+            key.setItems(items);
+            certificate.setKey(key);
+        }
+
+        Assertions.assertEquals(expectedResult, CertificateUtil.isCertificateScepCaCertAcceptable(certificate, intuneEnabled), "Test case '" + testCaseName + "' failed");
+    }
 }
