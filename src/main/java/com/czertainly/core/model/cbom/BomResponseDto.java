@@ -17,18 +17,36 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Response containing (C)BOM")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BomResponseDto extends HashMap<String, Object> {
+
+    private static final String FIELD_SPEC_VERSION = "specVersion";
+    private static final String FIELD_SERIAL_NUMBER = "serialNumber";
+    private static final String FIELD_VERSION = "version";
+    private static final String FIELD_TIMESTAMP = "timestamp";
+    private static final String FIELD_COMPONENTS = "components";
+    private static final String FIELD_METADATA = "metadata";
+    private static final String FIELD_TOOLS = "tools";
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_TYPE = "type";
+    private static final String FIELD_CRYPTO_PROPERTIES = "cryptoProperties";
+    private static final String FIELD_ASSET_TYPE = "assetType";
+
+    private static final String TYPE_CRYPTOGRAPHIC_ASSET = "cryptographic-asset";
+    private static final String ASSET_TYPE_ALGORITHM = "algorithm";
+    private static final String ASSET_TYPE_CERTIFICATE = "certificate";
+    private static final String ASSET_TYPE_PROTOCOL = "protocol";
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("specVersion", get("specVersion"))
-                .append("serialNumber", get("serialNumber"))
-                .append("version", get("version"))
+                .append(FIELD_SPEC_VERSION, get(FIELD_SPEC_VERSION))
+                .append(FIELD_SERIAL_NUMBER, get(FIELD_SERIAL_NUMBER))
+                .append(FIELD_VERSION, get(FIELD_VERSION))
                 .toString();
     }
 
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getComponents() {
-        Object components = this.get("components");
+        Object components = this.get(FIELD_COMPONENTS);
         if (components instanceof List) {
             return (List<Map<String, Object>>) components;
         }
@@ -37,7 +55,7 @@ public class BomResponseDto extends HashMap<String, Object> {
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> getMetadata() {
-        Object metadata = this.get("metadata");
+        Object metadata = this.get(FIELD_METADATA);
         if (metadata instanceof Map) {
             return (Map<String, Object>) metadata;
         }
@@ -47,29 +65,23 @@ public class BomResponseDto extends HashMap<String, Object> {
     public CbomDetailDto mapToCbomDetailDto() {
 
         CbomDetailDto cbomDetailDto = new CbomDetailDto();
-        
-        // Set raw content
+
         cbomDetailDto.setContent(this);
-        
-        // Extract basic fields
-        cbomDetailDto.setSerialNumber((String) this.get("serialNumber"));
-        cbomDetailDto.setVersion(String.valueOf(this.get("version")));
-        cbomDetailDto.setSpecVersion((String) this.get("specVersion"));
-        
-        // Parse timestamp
-        Object timestamp = this.get("timestamp");
+        cbomDetailDto.setSerialNumber((String) this.get(FIELD_SERIAL_NUMBER));
+        cbomDetailDto.setVersion(String.valueOf(this.get(FIELD_VERSION)));
+        cbomDetailDto.setSpecVersion((String) this.get(FIELD_SPEC_VERSION));
+        Object timestamp = this.get(FIELD_TIMESTAMP);
         if (timestamp != null) {
             cbomDetailDto.setTimestamp(parseTimestamp(timestamp.toString()));
         }
-        
-        // Extract metadata for source
+
         Map<String, Object> metadata = this.getMetadata();
         if (metadata != null) {
-            List<Map<String, Object>> tools = (List<Map<String, Object>>) metadata.get("tools");
+            List<Map<String, Object>> tools = (List<Map<String, Object>>) metadata.get(FIELD_TOOLS);
             if (tools != null && !tools.isEmpty()) {
                 Map<String, Object> tool = tools.get(0);
-                String toolName = (String) tool.get("name");
-                String toolVersion = (String) tool.get("version");
+                String toolName = (String) tool.get(FIELD_NAME);
+                String toolVersion = (String) tool.get(FIELD_VERSION);
                 cbomDetailDto.setSource(toolName != null ? toolName + (toolVersion != null ? " " + toolVersion : "") : null);
             }
         }
@@ -83,18 +95,18 @@ public class BomResponseDto extends HashMap<String, Object> {
             int cryptoMaterial = 0;
             
             for (Map<String, Object> component : components) {
-                String type = (String) component.get("type");
+                String type = (String) component.get(FIELD_TYPE);
                 if (type != null) {
                     switch (type) {
-                        case "cryptographic-asset":
-                            Map<String, Object> cryptoProperties = (Map<String, Object>) component.get("cryptoProperties");
+                        case TYPE_CRYPTOGRAPHIC_ASSET:
+                            Map<String, Object> cryptoProperties = (Map<String, Object>) component.get(FIELD_CRYPTO_PROPERTIES);
                             if (cryptoProperties != null) {
-                                String assetType = (String) cryptoProperties.get("assetType");
-                                if ("algorithm".equalsIgnoreCase(assetType)) {
+                                String assetType = (String) cryptoProperties.get(FIELD_ASSET_TYPE);
+                                if (ASSET_TYPE_ALGORITHM.equalsIgnoreCase(assetType)) {
                                     algorithms++;
-                                } else if ("certificate".equalsIgnoreCase(assetType)) {
+                                } else if (ASSET_TYPE_CERTIFICATE.equalsIgnoreCase(assetType)) {
                                     certificates++;
-                                } else if ("protocol".equalsIgnoreCase(assetType)) {
+                                } else if (ASSET_TYPE_PROTOCOL.equalsIgnoreCase(assetType)) {
                                     protocols++;
                                 }
                             }
@@ -128,5 +140,3 @@ public class BomResponseDto extends HashMap<String, Object> {
         }
     }
 }
-
-
