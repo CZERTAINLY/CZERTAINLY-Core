@@ -280,4 +280,28 @@ class CbomRepositoryClientTest {
         // Assert
         assertEquals(baseUrl, result);
     }
+
+    @Test
+    void testRead_WhenWebClientResponseException_ShouldThrowCbomRepositoryException() throws Exception {
+        // Arrange
+        String urn = "urn:uuid:test-serial";
+
+        wireMock.stubFor(get(WireMock.urlMatching("/v1/bom/.*"))
+            .willReturn(aResponse()
+                .withStatus(400)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": \"Bad Request\"}")));
+
+        // Act & Assert
+        CbomRepositoryException exception = assertThrows(
+            CbomRepositoryException.class,
+        () -> client.read(urn, null)
+        );
+
+        assertNotNull(exception.getProblemDetail());
+        assertEquals(400, exception.getProblemDetail().getStatus());
+
+        wireMock.verify(getRequestedFor(WireMock.urlMatching("/v1/bom/.*"))
+            .withoutQueryParam("version"));
+    }
 }
