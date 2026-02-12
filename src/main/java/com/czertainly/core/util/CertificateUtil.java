@@ -603,44 +603,51 @@ public class CertificateUtil {
      * |-- state == ISSUED
      * |-- validationStatus IN (VALID, EXPIRING)
      * |-- keyUuid IS NOT NULL
-     * |-- key (*JOIN* CryptographicKey)
-     *     |-- items (*JOIN* CryptographicKeyItem)
-     *     |   |-- (RSA Public AND usage & ENCRYPT AND usage & VERIFY)
-     *     |   OR
-     *     |   |-- (ECDSA Public AND usage & VERIFY) [only if intuneEnabled=false]
-     *     |-- ALL items must have valid algorithm (RSA [and ECDSA if intuneEnabled=false])
-     *     |   |-- Subquery invalidAlgoSubquery: count items with invalid algorithm == 0
-     *     |-- AT LEAST ONE valid private key must exist
-     *         |-- Subquery privateKeySubquery: count private keys meeting criteria > 0
-     *             |-- RSA Private AND state=ACTIVE AND usage & DECRYPT AND usage & SIGN
-     *             OR
-     *             |-- ECDSA Private AND state=ACTIVE AND usage & SIGN [only if intuneEnabled=false]
+     * |-- ALL items must have valid algorithm (RSA [and ECDSA if intuneEnabled=false])
+     * |   |-- Subquery invalidAlgoSubquery: NOT EXISTS item with invalid algorithm
+     * |-- AT LEAST ONE valid private key must exist
+     * |   |-- Subquery privateKeySubquery: EXISTS private key meeting criteria
+     * |       |-- RSA Private AND state=ACTIVE AND usage & DECRYPT AND usage & SIGN
+     * |       OR
+     * |       |-- ECDSA Private AND state=ACTIVE AND usage & SIGN [only if intuneEnabled=false]
+     * |-- AT LEAST ONE valid public key must exist
+     *     |-- Subquery publicKeySubquery: EXISTS public key meeting criteria
+     *         |-- RSA Public AND usage & ENCRYPT AND usage & VERIFY
+     *         OR
+     *         |-- ECDSA Public AND usage & VERIFY [only if intuneEnabled=false]
      */
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryScepCaCertAcceptable(boolean intuneEnabled) {
         return (root, cb, cr) -> {
-            Join<Certificate, CryptographicKey> keyJoin = root.join(Certificate_.KEY);
-            Join<CryptographicKey, CryptographicKeyItem> keyItemJoin = keyJoin.join(CryptographicKey_.ITEMS);
-
             // Valid key algorithms based on intuneEnabled
             List<KeyAlgorithm> validAlgorithms = intuneEnabled ? List.of(KeyAlgorithm.RSA) : List.of(KeyAlgorithm.RSA, KeyAlgorithm.ECDSA);
 
             // Subquery to ensure ALL key items have a valid algorithm.
-            Subquery<Long> invalidAlgoSubquery = cr.subquery(Long.class);
+            Subquery<Integer> invalidAlgoSubquery = cr.subquery(Integer.class);
             Root<CryptographicKeyItem> subRoot = invalidAlgoSubquery.from(CryptographicKeyItem.class);
-            invalidAlgoSubquery.select(cb.count(subRoot));
+            invalidAlgoSubquery.select(cb.literal(1));
             invalidAlgoSubquery.where(
-                    cb.equal(subRoot.get(CryptographicKeyItem_.KEY_UUID), keyJoin.get(CryptographicKey_.UUID)),
+                    cb.equal(subRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
                     cb.not(subRoot.get(CryptographicKeyItem_.KEY_ALGORITHM).in(validAlgorithms))
             );
 
             // Subquery to ensure at least one private key meeting criteria is available.
-            Subquery<Long> privateKeySubquery = cr.subquery(Long.class);
+            Subquery<Integer> privateKeySubquery = cr.subquery(Integer.class);
             Root<CryptographicKeyItem> pkSubRoot = privateKeySubquery.from(CryptographicKeyItem.class);
-            privateKeySubquery.select(cb.count(pkSubRoot));
+            privateKeySubquery.select(cb.literal(1));
             privateKeySubquery.where(
-                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), keyJoin.get(CryptographicKey_.UUID)),
+                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
                     intuneEnabled ? constructRsaPrivateKeyPredicate(cb, pkSubRoot) :
                             cb.or(constructRsaPrivateKeyPredicate(cb, pkSubRoot), constructEcdsaPrivateKeyPredicate(cb, pkSubRoot))
+            );
+
+            // Subquery to ensure at least one public key meeting criteria is available.
+            Subquery<Integer> publicKeySubquery = cr.subquery(Integer.class);
+            Root<CryptographicKeyItem> pubSubRoot = publicKeySubquery.from(CryptographicKeyItem.class);
+            publicKeySubquery.select(cb.literal(1));
+            publicKeySubquery.where(
+                    cb.equal(pubSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
+                    intuneEnabled ? constructRsaPublicKeyPredicate(cb, pubSubRoot) :
+                            cb.or(constructRsaPublicKeyPredicate(cb, pubSubRoot), constructEcdsaPublicKeyPredicate(cb, pubSubRoot))
             );
 
             return cb.and(
@@ -648,10 +655,9 @@ public class CertificateUtil {
                     cb.isNotNull(root.get(Certificate_.KEY_UUID)),
                     cb.equal(root.get(Certificate_.STATE), CertificateState.ISSUED),
                     root.get(Certificate_.VALIDATION_STATUS).in(List.of(CertificateValidationStatus.VALID, CertificateValidationStatus.EXPIRING)),
-                    cb.equal(invalidAlgoSubquery, 0L),
-                    cb.greaterThan(privateKeySubquery, 0L),
-                    intuneEnabled ? constructRsaPublicKeyPredicate(cb, keyItemJoin) :
-                            cb.or(constructRsaPublicKeyPredicate(cb, keyItemJoin), constructEcdsaPublicKeyPredicate(cb, keyItemJoin))
+                    cb.not(cb.exists(invalidAlgoSubquery)),
+                    cb.exists(privateKeySubquery),
+                    cb.exists(publicKeySubquery)
             );
         };
     }
@@ -706,21 +712,18 @@ public class CertificateUtil {
      * |-- state == ISSUED
      * |-- validationStatus IN (VALID, EXPIRING)
      * |-- keyUuid IS NOT NULL
-     * |-- key (*JOIN* CryptographicKey)
      * |-- AT LEAST ONE valid private key must exist
-     *     |-- Subquery privateKeySubquery: count private keys meeting criteria > 0
+     *     |-- Subquery privateKeySubquery: EXISTS private key meeting criteria
      *         |-- Private AND state=ACTIVE AND usage & SIGN
      */
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryCmpSigningCertAcceptable() {
         return (root, cb, cr) -> {
-            Join<Certificate, CryptographicKey> keyJoin = root.join(Certificate_.KEY);
-
             // Subquery to ensure at least one private key meeting criteria is available.
-            Subquery<Long> privateKeySubquery = cr.subquery(Long.class);
+            Subquery<Integer> privateKeySubquery = cr.subquery(Integer.class);
             Root<CryptographicKeyItem> pkSubRoot = privateKeySubquery.from(CryptographicKeyItem.class);
-            privateKeySubquery.select(cb.count(pkSubRoot));
+            privateKeySubquery.select(cb.literal(1));
             privateKeySubquery.where(
-                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), keyJoin.get(CryptographicKey_.UUID)),
+                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
                     cb.and(
                             cb.equal(pkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
                             cb.equal(pkSubRoot.get(CryptographicKeyItem_.STATE), KeyState.ACTIVE),
@@ -734,7 +737,7 @@ public class CertificateUtil {
                     cb.isNotNull(root.get(Certificate_.KEY_UUID)),
                     cb.equal(root.get(Certificate_.STATE), CertificateState.ISSUED),
                     root.get(Certificate_.VALIDATION_STATUS).in(List.of(CertificateValidationStatus.VALID, CertificateValidationStatus.EXPIRING)),
-                    cb.greaterThan(privateKeySubquery, 0L)
+                    cb.exists(privateKeySubquery)
             );
         };
     }
