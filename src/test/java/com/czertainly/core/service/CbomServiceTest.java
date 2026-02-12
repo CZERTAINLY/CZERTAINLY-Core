@@ -1,15 +1,5 @@
 package com.czertainly.core.service;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.reactive.function.client.ExchangeStrategies;
-import org.springframework.web.reactive.function.client.WebClient;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,8 +10,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
@@ -35,6 +35,8 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 
 class CbomServiceTest extends BaseSpringBootTest {
 
@@ -79,6 +81,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         ReflectionTestUtils.setField(cbomRepositoryClient, "client", webClient);
 
         ReflectionTestUtils.setField(cbomService, "cbomRepositoryClient", cbomRepositoryClient);
+        ReflectionTestUtils.setField(cbomRepositoryClient, "cbomRepositoryBaseUrl", "");
     }
 
     @AfterEach
@@ -181,7 +184,6 @@ class CbomServiceTest extends BaseSpringBootTest {
             .withQueryParam("version", WireMock.equalTo(version.toString())));
     }
 
-
     @Test
     void testGetCbomDetail_NotFoundInCbomRepository() throws Exception {
         // Given
@@ -248,13 +250,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertEquals(500, cbomException.getProblemDetail().getStatus());
     }
 
+    @Test
     void testCreateCbom_Success() throws Exception {
         // Given
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
         Integer version = 1;
 
         Map<String, Object> content = new HashMap<>();
-        content.put("serial_number", serialNumber);
+        content.put("serialNumber", serialNumber);
         content.put("version", version);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
@@ -295,7 +298,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then
         assertNotNull(result);
         assertEquals(serialNumber, result.getSerialNumber());
-        assertEquals(version, result.getVersion());
+        assertEquals(version.toString(), result.getVersion());
         assertEquals(5, result.getAlgorithms());
         assertEquals(3, result.getCertificates());
         assertEquals(2, result.getProtocols());
@@ -307,5 +310,334 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertEquals(1, savedCboms.size());
         assertEquals(serialNumber, savedCboms.get(0).getSerialNumber());
         assertEquals("CORE", savedCboms.get(0).getSource());
+
+        // Assert
+        mockServer.verify(WireMock.postRequestedFor(
+            WireMock.urlEqualTo("/v1/bom")));
+    }
+
+    @Test
+    void testGetCbomVersions() throws NotFoundException {
+        // Given
+        String serialNumber = "urn:uuid:test-123";
+
+        Cbom cbom1 = new Cbom();
+        cbom1.setSerialNumber(serialNumber);
+        cbom1.setVersion(1);
+        cbom1.setCreatedAt(Instant.now());
+        cbom1 = cbomRepository.save(cbom1);
+
+        Cbom cbom2 = new Cbom();
+        cbom2.setSerialNumber(serialNumber);
+        cbom2.setVersion(2);
+        cbom2.setCreatedAt(Instant.now().plusSeconds(60));
+        cbom2 = cbomRepository.save(cbom2);
+
+        Cbom cbom3 = new Cbom();
+        cbom3.setSerialNumber(serialNumber);
+        cbom3.setVersion(3);
+        cbom3.setCreatedAt(Instant.now().plusSeconds(120));
+        cbom3 = cbomRepository.save(cbom3);
+
+        // When
+        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber);
+
+        // Then
+        assertNotNull(versions);
+        assertEquals(3, versions.size());
+        assertEquals(serialNumber, versions.get(0).getSerialNumber());
+        assertEquals(serialNumber, versions.get(1).getSerialNumber());
+        assertEquals(serialNumber, versions.get(2).getSerialNumber());
+    }
+
+    @Test
+    void testGetCbomVersions_EmptyList() throws NotFoundException {
+        // Given
+        String serialNumber = "urn:uuid:non-existent";
+
+        // When
+        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber);
+
+        // Then
+        assertNotNull(versions);
+        assertEquals(0, versions.size());
+    }
+
+    @Test
+    void testGetCbomVersions_SingleVersion() throws NotFoundException {
+        // Given
+        String serialNumber = "urn:uuid:single-version";
+
+        Cbom cbom = new Cbom();
+        cbom.setSerialNumber(serialNumber);
+        cbom.setVersion(1);
+        cbom.setCreatedAt(Instant.now());
+        cbom = cbomRepository.save(cbom);
+
+        // When
+        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber);
+
+        // Then
+        assertNotNull(versions);
+        assertEquals(1, versions.size());
+        assertEquals(serialNumber, versions.get(0).getSerialNumber());
+        assertEquals("1", versions.get(0).getVersion());
+    }
+
+    @Test
+    void testGetCbomVersions_MultipleSerialNumbers() throws NotFoundException {
+        // Given
+        String serialNumber1 = "urn:uuid:test-456";
+        String serialNumber2 = "urn:uuid:test-789";
+
+        Cbom cbom1 = new Cbom();
+        cbom1.setSerialNumber(serialNumber1);
+        cbom1.setVersion(1);
+        cbom1.setCreatedAt(Instant.now());
+        cbomRepository.save(cbom1);
+
+        Cbom cbom2 = new Cbom();
+        cbom2.setSerialNumber(serialNumber2);
+        cbom2.setVersion(1);
+        cbom2.setCreatedAt(Instant.now());
+        cbomRepository.save(cbom2);
+
+        // When
+        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber1);
+
+        // Then
+        assertNotNull(versions);
+        assertEquals(1, versions.size());
+        assertEquals(serialNumber1, versions.get(0).getSerialNumber());
+    }
+
+    @Test
+    void testUploadCbom_MissingContent() throws CbomRepositoryException {
+        // Given - null content
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+
+        // When / Then
+        assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+    }
+
+    @Test
+    void testUploadCbom_MissingSerialNumber() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        // Missing serialNumber
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", 1);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+    }
+
+    @Test
+    void testUploadCbom_MissingVersion() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        // Missing version
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+    }
+
+
+    @Test
+    void testUploadCbom_VersionNAN() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", "1.5");
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+    }
+
+    @Test
+    void testCreateCbom_AlreadyExists_409Response() throws Exception {
+        // Given
+        String serialNumber = "urn:uuid:test-123";
+        Integer version = 1;
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", serialNumber);
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", version);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // Mock WireMock to return 409 Conflict
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(409)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                    "type": "about:blank",
+                    "title": "Conflict",
+                    "status": 409,
+                    "detail": "CBOM with this serial number and version already exists"
+                    }
+                    """)));
+
+        // When / Then
+        AlreadyExistException exception = assertThrows(AlreadyExistException.class, () ->
+            cbomService.createCbom(request)
+        );
+
+        assertNotNull(exception);
+        assertTrue(exception.getMessage().contains("CBOM with given serial number and version already exists"));
+
+        // Verify entity was NOT saved to database
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(0, savedCboms.size());
+
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+    }
+
+    @Test
+    void testCreateCbom_RepositoryServerError_500() throws Exception {
+        // Given
+        String serialNumber = "urn:uuid:server-error";
+        Integer version = 1;
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", serialNumber);
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", version);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // Mock WireMock to return 500 Server Error
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(500)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                    "type": "about:blank",
+                    "title": "Internal Server Error",
+                    "status": 500,
+                    "detail": "Server error occurred"
+                    }
+                    """)));
+
+        // When / Then
+        assertThrows(CbomRepositoryException.class, () ->
+            cbomService.createCbom(request)
+        );
+
+        // Verify entity was NOT saved to database
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(0, savedCboms.size());
+
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+    }
+
+    @Test
+    void testCreateCbom_BadRequest_400() throws Exception {
+        // Given
+        String serialNumber = "urn:uuid:bad-request";
+        Integer version = 1;
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", serialNumber);
+        content.put("specVersion", "1.5");
+        content.put("version", version);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // Mock WireMock to return 400 Bad Request
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(400)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Unsupported spec version 1.5"
+                    }
+                    """)));
+
+        // When / Then
+        assertThrows(CbomRepositoryException.class, () ->
+            cbomService.createCbom(request)
+        );
+
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+    }
+
+    @Test
+    void testCreateCbom_MultipleCreations() throws Exception {
+        // Given
+        CbomUploadRequestDto request1 = new CbomUploadRequestDto();
+        request1.setContent(Map.of("serialNumber", "urn:uuid:first", "version", 1));
+
+        CbomUploadRequestDto request2 = new CbomUploadRequestDto();
+        request2.setContent(Map.of("serialNumber", "urn:uuid:second", "version", 1));
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:placeholder",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {"total": 1},
+                    "certificates": {"total": 1},
+                    "protocols": {"total": 1},
+                    "relatedCryptoMaterials": {"total": 1},
+                    "total": 4
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result1 = cbomService.createCbom(request1);
+        CbomDto result2 = cbomService.createCbom(request2);
+
+        // Then
+        assertNotNull(result1);
+        assertNotNull(result2);
+
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(2, savedCboms.size());
+
+        mockServer.verify(2, WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
     }
 }

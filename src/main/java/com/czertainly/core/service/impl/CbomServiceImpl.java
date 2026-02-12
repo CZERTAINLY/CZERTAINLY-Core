@@ -34,8 +34,6 @@ import com.czertainly.core.service.CbomService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -47,7 +45,6 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -68,7 +65,6 @@ public class CbomServiceImpl implements CbomService {
 
     private CbomRepositoryClient cbomRepositoryClient;
 
-    @Lazy
     private AttributeEngine attributeEngine;
 
     @Autowired
@@ -144,7 +140,7 @@ public class CbomServiceImpl implements CbomService {
         List<Cbom> versions = cbomRepository.findBySerialNumber(serialNumber);
 
         List<CbomDto> ret = versions.stream()
-        .map(cbom -> {return cbom.mapToDto();})
+        .map(cbom -> cbom.mapToDto())
         .collect(Collectors.toList());
         return ret;
     }
@@ -159,11 +155,11 @@ public class CbomServiceImpl implements CbomService {
             );
         }
 
-        // serial_number (required)
-        Object serialNumber = content.get("serial_number");
+        // serialNumber (required)
+        Object serialNumber = content.get("serialNumber");
         if (serialNumber == null || StringUtils.isBlank(serialNumber.toString())) {
             throw new ValidationException(
-                    ValidationError.create("serial_number must not be empty")
+                    ValidationError.create("serialNumber must not be empty")
             );
         }
 
