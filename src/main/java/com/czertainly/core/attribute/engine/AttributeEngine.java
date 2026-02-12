@@ -51,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Component
 @Transactional
@@ -184,7 +185,7 @@ public class AttributeEngine {
     }
 
     private static CustomAttribute getCustomAttributeWithDecryptedContentFromRelation(AttributeRelation r) {
-        CustomAttribute attribute = (CustomAttribute) r.getAttributeDefinition().getDefinition();
+        CustomAttribute attribute = new CustomAttributeV3((CustomAttributeV3) r.getAttributeDefinition().getDefinition());
         if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED && r.getAttributeDefinition().getEncryptedData() != null) {
             List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
             List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
@@ -732,7 +733,7 @@ public class AttributeEngine {
             AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName())
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : String.valueOf(requestAttribute.getUuid()), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
             validateAttributeContent(definition, requestAttribute.getContent());
-            DataAttribute dataAttribute = (DataAttribute) definition.getDefinition();
+            DataAttribute dataAttribute = AttributeVersionHelper.copyDataAttribute((DataAttribute) definition.getDefinition());
             dataAttribute.setContent(requestAttribute.getContent());
             dataAttributes.add(dataAttribute);
         }
@@ -958,7 +959,9 @@ public class AttributeEngine {
             throw new AttributeException("Attribute has to be defined as list to be multiselect", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
 
-        validateExtensibleListProperty(attribute, connectorUuidStr, extensibleList, list, hasContent);
+        if (extensibleList && !list) {
+            throw new AttributeException("Attribute has to be defined as list to be extensible list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
         validateResourceAttributeProperties(attribute, connectorUuidStr, attributeResource, hasCallback);
 
         if (readOnly) {
@@ -974,15 +977,6 @@ public class AttributeEngine {
         }
 
 
-    }
-
-    private static void validateExtensibleListProperty(BaseAttribute attribute, String connectorUuidStr, boolean extensibleList, boolean list, boolean hasContent) throws AttributeException {
-        if (extensibleList && !list) {
-            throw new AttributeException("Attribute has to be defined as list to be extensible list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-        }
-        if (list && !extensibleList && !hasContent) {
-            throw new AttributeException("Not extensible list attribute must define its content", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-        }
     }
 
     private static void validateResourceAttributeProperties(BaseAttribute attribute, String connectorUuidStr, AttributeResource attributeResource, boolean hasCallback) throws AttributeException {
@@ -1137,6 +1131,12 @@ public class AttributeEngine {
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
     }
 
+    public void bulkDeleteObjectAttributeContent(Resource objectType, List<UUID> objectUuids) {
+        logger.debug("Deleting the attribute content for resource {} with UUIDs: {}", objectType.getLabel(), objectUuids);
+        Long deletedCount = attributeContent2ObjectRepository.deleteByObjectTypeAndObjectUuidIn(objectType, objectUuids);
+        logger.debug("Deleted {} attribute content items for {} with UUIDs {}", deletedCount, objectType.getLabel(), objectUuids);
+    }
+
     public void deleteObjectAttributesContent(AttributeType attributeType, ObjectAttributeContentInfo contentInfo) {
         logger.debug("Deleting the {} attribute content for resource {} with UUID {}. Info: {}", attributeType.getLabel(), contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
         Long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(attributeType, contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
@@ -1287,10 +1287,16 @@ public class AttributeEngine {
             return;
         }
         if (attributeDefinition.getDefinition() instanceof CustomAttribute customAttribute) {
-            extensibleList = customAttribute.getProperties().isList() && customAttribute.getProperties().isExtensibleList();
+            if (!customAttribute.getProperties().isList()) {
+                return;
+            }
+            extensibleList = customAttribute.getProperties().isExtensibleList();
             protectionLevel = customAttribute.getProperties().getProtectionLevel();
         } else if (attributeDefinition.getDefinition() instanceof DataAttribute dataAttribute) {
-            extensibleList = dataAttribute.getProperties().isList() && dataAttribute.getProperties().isExtensibleList();
+            if (!dataAttribute.getProperties().isList()) {
+                return;
+            }
+            extensibleList = dataAttribute.getProperties().isExtensibleList();
             protectionLevel = dataAttribute.getProperties().getProtectionLevel();
         } else {
             // Other attribute types are not supported for extensible list
@@ -1298,13 +1304,18 @@ public class AttributeEngine {
         }
 
         if (!extensibleList) {
+            List<AttributeContent> decryptedContentItems;
             if (protectionLevel == ProtectionLevel.ENCRYPTED) {
-                defaultContentItems = defaultContentItems.stream()
-                        .map(content -> AttributeVersionHelper.decryptContent(
-                                content, 3, attributeDefinition.getContentType(), attributeDefinition.getEncryptedData().get(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).indexOf(content))))
-                        .toList();
+                decryptedContentItems = IntStream.range(0, defaultContentItems.size())
+                        .mapToObj(i -> AttributeVersionHelper.decryptContent(
+                                defaultContentItems.get(i),
+                                attributeDefinition.getVersion(),
+                                attributeDefinition.getContentType(),
+                                attributeDefinition.getEncryptedData().get(i))).toList();
+            } else {
+                decryptedContentItems = new ArrayList<>(defaultContentItems);
             }
-            if (defaultContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
+            if (decryptedContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
         }

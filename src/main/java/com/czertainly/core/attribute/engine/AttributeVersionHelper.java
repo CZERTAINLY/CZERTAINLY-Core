@@ -5,14 +5,13 @@ import com.czertainly.api.model.client.metadata.ResponseMetadata;
 import com.czertainly.api.model.client.metadata.ResponseMetadataV2;
 import com.czertainly.api.model.client.metadata.ResponseMetadataV3;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
-import com.czertainly.api.model.common.attribute.common.AttributeVersion;
-import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.*;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.GroupAttributeV2;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContent;
@@ -178,6 +177,15 @@ public class AttributeVersionHelper {
             contentV3.setReference(reference);
             contentV3.setContentType(contentType);
             return contentV3;
+        }
+        return null;
+    }
+
+    public static DataAttribute copyDataAttribute(DataAttribute source) {
+        if (source.getVersion() == 2) {
+            return new DataAttributeV2((DataAttributeV2) source);
+        } else if (source.getVersion() == 3) {
+            return new DataAttributeV3((DataAttributeV3) source);
         }
         return null;
     }

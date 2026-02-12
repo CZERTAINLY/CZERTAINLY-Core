@@ -16,6 +16,11 @@ public interface CrlRepository extends SecurityFilterRepository<Crl, Long>
     Optional<Crl> findByIssuerDnAndSerialNumber(String issuerDn, String serialNumber);
 
     List<Crl> findByCaCertificateUuid(UUID caCertificateUuid);
+    List<Crl> findByCaCertificateUuidIn(List<UUID> caCertificateUuids);
+
+    @Modifying
+    @Query("UPDATE Crl c SET c.caCertificateUuid = NULL WHERE c.caCertificateUuid IN ?1")
+    void clearCaCertificateReferenceIn(List<UUID> caCertificateUuids);
 
     @Modifying
     @Query(value = """
@@ -29,5 +34,4 @@ public interface CrlRepository extends SecurityFilterRepository<Crl, Long>
             DO NOTHING
             """, nativeQuery = true)
     void insertWithIssuerConflictResolve(@Param("crl") Crl crl);
-
 }
