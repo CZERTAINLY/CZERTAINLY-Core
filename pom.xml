@@ -20,7 +20,7 @@
         <nimbus-jose-jwt.version>10.5</nimbus-jose-jwt.version>
         <mockwebserver.version>5.2.1</mockwebserver.version>
         <commons-beanutils.version>1.11.0</commons-beanutils.version>
-        <testcontainers-postgresql.version>1.21.3</testcontainers-postgresql.version>
+        <testcontainers-postgresql.version>1.21.4</testcontainers-postgresql.version>
         <git-commit-id-maven.version>9.0.2</git-commit-id-maven.version>
         <java.version>21</java.version>
 
