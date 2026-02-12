@@ -1,5 +1,6 @@
 package com.czertainly.core.api;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.info.Info;
 import org.springframework.boot.actuate.info.InfoContributor;
@@ -20,7 +21,7 @@ public class BuildGitInfoContributor implements InfoContributor {
 
     public BuildGitInfoContributor(
             @Value("${app.version}") String version,
-            GitProperties gitProperties) {
+            @Autowired(required = false) GitProperties gitProperties) {
         this.version = version;
         this.gitProperties = gitProperties;
     }
