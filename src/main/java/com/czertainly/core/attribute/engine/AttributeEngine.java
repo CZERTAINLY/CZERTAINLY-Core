@@ -51,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Component
 @Transactional
@@ -184,7 +185,7 @@ public class AttributeEngine {
     }
 
     private static CustomAttribute getCustomAttributeWithDecryptedContentFromRelation(AttributeRelation r) {
-        CustomAttribute attribute = (CustomAttribute) r.getAttributeDefinition().getDefinition();
+        CustomAttribute attribute = new CustomAttributeV3((CustomAttributeV3) r.getAttributeDefinition().getDefinition());
         if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED && r.getAttributeDefinition().getEncryptedData() != null) {
             List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
             List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
@@ -732,7 +733,7 @@ public class AttributeEngine {
             AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName())
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : String.valueOf(requestAttribute.getUuid()), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
             validateAttributeContent(definition, requestAttribute.getContent());
-            DataAttribute dataAttribute = (DataAttribute) definition.getDefinition();
+            DataAttribute dataAttribute = AttributeVersionHelper.copyDataAttribute((DataAttribute) definition.getDefinition());
             dataAttribute.setContent(requestAttribute.getContent());
             dataAttributes.add(dataAttribute);
         }
@@ -1303,13 +1304,18 @@ public class AttributeEngine {
         }
 
         if (!extensibleList) {
+            List<AttributeContent> decryptedContentItems;
             if (protectionLevel == ProtectionLevel.ENCRYPTED) {
-                defaultContentItems = defaultContentItems.stream()
-                        .map(content -> AttributeVersionHelper.decryptContent(
-                                content, 3, attributeDefinition.getContentType(), attributeDefinition.getEncryptedData().get(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).indexOf(content))))
-                        .toList();
+                decryptedContentItems = IntStream.range(0, defaultContentItems.size())
+                        .mapToObj(i -> AttributeVersionHelper.decryptContent(
+                                defaultContentItems.get(i),
+                                attributeDefinition.getVersion(),
+                                attributeDefinition.getContentType(),
+                                attributeDefinition.getEncryptedData().get(i))).toList();
+            } else {
+                decryptedContentItems = new ArrayList<>(defaultContentItems);
             }
-            if (defaultContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
+            if (decryptedContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
         }
