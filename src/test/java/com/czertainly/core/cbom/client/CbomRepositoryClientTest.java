@@ -289,8 +289,15 @@ class CbomRepositoryClientTest {
         wireMock.stubFor(get(WireMock.urlMatching("/v1/bom/.*"))
             .willReturn(aResponse()
                 .withStatus(400)
-                .withHeader("Content-Type", "application/json")
-                .withBody("{\"error\": \"Bad Request\"}")));
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                    "type": "about:blank",
+                    "title": "Bad Request",
+                    "status": 400,
+                    "detail": "Invalid request parameters"
+                    }
+                    """)));
 
         // Act & Assert
         CbomRepositoryException exception = assertThrows(
