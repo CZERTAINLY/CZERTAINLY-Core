@@ -47,6 +47,7 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -67,6 +68,7 @@ public class CbomServiceImpl implements CbomService {
 
     private CbomRepositoryClient cbomRepositoryClient;
 
+    @Lazy
     private AttributeEngine attributeEngine;
 
     @Autowired
