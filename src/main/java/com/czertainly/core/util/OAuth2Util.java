@@ -51,8 +51,7 @@ public class OAuth2Util {
 
     }
 
-    public static void endUserSession(Session session) {
-        SecurityContext securityContext = session.getAttribute("SPRING_SECURITY_CONTEXT");
+    public static void endUserSession(SecurityContext securityContext) {
         if (securityContext != null) {
             if (securityContext.getAuthentication() == null) {
                 logger.warn("No authentication found in security context. User session cannot be ended.");
