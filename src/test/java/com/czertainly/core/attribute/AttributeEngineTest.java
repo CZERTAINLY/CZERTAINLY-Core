@@ -335,17 +335,39 @@ class AttributeEngineTest extends BaseSpringBootTest {
         dataAttributeV2.setContent(List.of(new StringAttributeContentV2("data")));
         dataAttributeV2.setContentType(AttributeContentType.STRING);
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttributeV2));
+
+        DataAttributeV3 dataAttributeV3 = new DataAttributeV3();
+        dataAttributeV3.setUuid(UUID.randomUUID().toString());
+        dataAttributeV3.setName("name3");
+        DataAttributeProperties properties3 = new DataAttributeProperties();
+        properties3.setLabel("label3");
+        dataAttributeV3.setProperties(properties3);
+        dataAttributeV3.setContent(List.of(new StringAttributeContentV3("data3")));
+        dataAttributeV3.setContentType(AttributeContentType.STRING);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttributeV3));
+
         RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
         requestAttributeV2.setUuid(UUID.fromString(dataAttributeV2.getUuid()));
         requestAttributeV2.setName(dataAttributeV2.getName());
         requestAttributeV2.setContent(List.of(new StringAttributeContentV2("data-request")));
-        List<DataAttribute> attributes = attributeEngine.getDataAttributesByContent(connectorAuthority.getUuid(), List.of(requestAttributeV2));
-        Assertions.assertEquals(1, attributes.size());
+
+        RequestAttributeV3 requestAttributeV3 = new RequestAttributeV3();
+        requestAttributeV3.setUuid(UUID.fromString(dataAttributeV3.getUuid()));
+        requestAttributeV3.setName(dataAttributeV3.getName());
+        requestAttributeV3.setContent(List.of(new StringAttributeContentV3("data-request3")));
+
+        List<DataAttribute> attributes = attributeEngine.getDataAttributesByContent(connectorAuthority.getUuid(), List.of(requestAttributeV2, requestAttributeV3));
+        Assertions.assertEquals(2, attributes.size());
         Assertions.assertEquals(dataAttributeV2.getUuid(), attributes.getFirst().getUuid());
         Assertions.assertEquals(requestAttributeV2.getContent(), attributes.getFirst().getContent());
+        Assertions.assertEquals(dataAttributeV3.getUuid(), attributes.getLast().getUuid());
+        Assertions.assertEquals(requestAttributeV3.getContent(), attributes.getLast().getContent());
 
         AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(dataAttributeV2.getUuid())).orElseThrow();
         Assertions.assertEquals(dataAttributeV2.getContent().getFirst().getData(), ((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).getFirst().getData());
+
+        AttributeDefinition attributeDefinition3 = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(dataAttributeV3.getUuid())).orElseThrow();
+        Assertions.assertEquals(dataAttributeV3.getContent().getFirst().getData(), ((List<AttributeContent>) attributeDefinition3.getDefinition().getContent()).getFirst().getData());
     }
 
     @Test
