@@ -1,16 +1,15 @@
 package com.czertainly.core.model.cbom;
 
+import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.czertainly.api.model.core.cbom.CbomDetailDto;
-
-import org.junit.jupiter.api.DisplayName;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.ZoneOffset;
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("BomResponseDto Tests")
 class BomResponseDtoTest {
