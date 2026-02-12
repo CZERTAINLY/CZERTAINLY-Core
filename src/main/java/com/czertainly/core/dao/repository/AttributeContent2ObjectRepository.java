@@ -122,6 +122,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     void removeConnectorByConnectorUuid(UUID connectorUuid);
 
     Long deleteByObjectTypeAndObjectUuid(Resource objectType, UUID objectUuid);
+    Long deleteByObjectTypeAndObjectUuidIn(Resource objectType, List<UUID> objectUuids);
 
     void deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 

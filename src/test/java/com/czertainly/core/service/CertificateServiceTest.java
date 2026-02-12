@@ -5,7 +5,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
@@ -27,9 +26,13 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
+import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.CertificateUtil;
@@ -42,8 +45,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.io.IOException;
@@ -55,6 +60,7 @@ import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.IntStream;
 
 class CertificateServiceTest extends BaseSpringBootTest {
 
@@ -69,6 +75,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     private static final String SAMPLE_PKCS10 = "MIIBUjCBvAIBADATMREwDwYDVQQDDAhuZXdfY2VydDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA52WsWllsOi/XtK8VcKHN63Mhk6awMboP9iuwgtPXzkFLV/wILHH+YPAJcS8dP037SZQlAng9dF+IoLHn7WFYmQqqgkObWoH1+5LxHjkPRRNPJLKPtxfM/V+IafsddK7a5TiVD+PiKjoWQaGHVEieozV1fK2BfqVbenKbYMupGVkCAwEAAaAAMA0GCSqGSIb3DQEBBAUAA4GBALtgmv31dFCSO+KnXWeaGEVr2H8g6O0D/RS8xoTRF4yHIgU84EXL5ZWUxhLF6mAXP1de0IfeEf95gGrU9FQ7tdUnwfsBZCIhHOQ/PdzVhRRhaVaPK8N+/g1GyXM/mC074u8y+VoyhHTqAlnbGwzyJkLnVwJ0/jLiRaTdvn7zFDWr";
 
+    @Autowired
+    private CrlRepository crlRepository;
     @Autowired
     private CertificateService certificateService;
     @Autowired
@@ -103,6 +111,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
     @Autowired
     private CertificateRelationRepository certificateRelationRepository;
+    @MockitoBean
+    private NotificationProducer notificationProducer;
 
     private AttributeEngine attributeEngine;
 
@@ -168,7 +178,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
-        certificate.setIssuerDn("testCercertificatetificate");
+        certificate.setIssuerDn("testCertificateCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setState(CertificateState.ISSUED);
         certificate.setValidationStatus(CertificateValidationStatus.VALID);
@@ -511,12 +521,113 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testBulkRemove() throws NotFoundException {
+        List<String> uuids = new ArrayList<>();
+        uuids.add(certificate.getUuid().toString());
+
+        // Two batches of certificates to delete, based on spring.jpa.properties.hibernate.jdbc.batch_size
+        IntStream.range(0, 99).forEach(i -> {
+            Certificate cert = new Certificate();
+            cert.setCommonName("test" + i);
+            cert.setSerialNumber(UUID.randomUUID().toString());
+            cert.setFingerprint(UUID.randomUUID().toString());
+            certificateRepository.save(cert);
+            uuids.add(cert.getUuid().toString());
+        });
+
         RemoveCertificateDto request = new RemoveCertificateDto();
-        request.setUuids(List.of(certificate.getUuid().toString()));
+        request.setUuids(uuids);
 
         certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
 
+        uuids.forEach(uuid ->
+                Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(SecuredUUID.fromString(uuid)))
+        );
+    }
+
+    @Test
+    void testBulkRemove_PartialFailure() throws NotFoundException {
+        UUID nonExistentUuid = UUID.randomUUID();
+        RemoveCertificateDto request = new RemoveCertificateDto();
+        request.setUuids(List.of(certificate.getUuid().toString(), nonExistentUuid.toString()));
+
+        // Should not throw exception, but log error for the non-existent UUID and send notification
+        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
+
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getSecuredUuid()));
+        Mockito.verify(notificationProducer, Mockito.times(1)).produceInternalNotificationMessage(
+                Mockito.eq(Resource.CERTIFICATE),
+                Mockito.eq(nonExistentUuid),
+                Mockito.any(),
+                Mockito.contains("Unable to delete certificate"),
+                Mockito.anyString()
+        );
+    }
+
+    @Test
+    void testBulkRemove_evaluatePermissions() throws NotFoundException {
+        UUID forbiddenUuid = UUID.fromString("ed337973-ad11-441f-91c7-6112309e8776");
+        Certificate forbiddenCert = new Certificate();
+        forbiddenCert.setUuid(forbiddenUuid);
+        forbiddenCert.setCommonName("forbiddenCert");
+        certificateRepository.save(forbiddenCert);
+
+        // Reject certificate deletion for the forbidden certificate.
+        OpaObjectAccessResult objectAccessResult = new OpaObjectAccessResult();
+        objectAccessResult.setAllowedObjects(List.of(certificate.getUuid().toString()));
+        objectAccessResult.setForbiddenObjects(List.of(forbiddenUuid.toString()));
+        Mockito.when(
+                opaClient.checkObjectAccess(
+                        Mockito.any(),
+                        Mockito.argThat(resource ->
+                                isObjectAccessRequestForResource(resource, Resource.CERTIFICATE.getCode(), ResourceAction.DELETE.getCode())
+                        ),
+                        Mockito.any(),
+                        Mockito.any()
+                )
+        ).thenReturn(objectAccessResult);
+
+        RemoveCertificateDto request = new RemoveCertificateDto();
+        request.setUuids(List.of(certificate.getUuid().toString(), forbiddenUuid.toString()));
+
+        // Should not throw exception, but log error for the forbidden UUID and send notification
+        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
+
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getSecuredUuid()));
+        Assertions.assertDoesNotThrow(() -> certificateService.getCertificate(SecuredUUID.fromUUID(forbiddenUuid)));
+        Mockito.verify(notificationProducer, Mockito.times(1)).produceInternalNotificationMessage(
+                Mockito.eq(Resource.CERTIFICATE),
+                Mockito.eq(forbiddenUuid),
+                Mockito.any(),
+                Mockito.contains("Unable to delete certificate"),
+                Mockito.anyString()
+        );
+    }
+
+    @Test
+    void testBulkRemove_FiltersNotSupported() {
+        RemoveCertificateDto request = new RemoveCertificateDto();
+        request.setFilters(List.of(new SearchFilterRequestDto()));
+
+        Assertions.assertThrows(NotSupportedException.class, () -> certificateService.bulkDeleteCertificate(SecurityFilter.create(), request));
+    }
+
+    @Test
+    void testDeleteCertificate_withCrl() throws NotFoundException {
+        Crl crl = new Crl();
+        crl.setCaCertificateUuid(certificate.getUuid());
+        crl.setIssuerDn(certificate.getIssuerDn());
+        crl.setSerialNumber("1");
+        crl.setCrlIssuerDn(certificate.getIssuerDn());
+        crl.setCrlNumber("1");
+        crl.setNextUpdate(new Date());
+        crlRepository.save(crl);
+
+        certificateService.deleteCertificate(certificate.getSecuredUuid());
+
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getSecuredUuid()));
+        Optional<Crl> updatedCrl = crlRepository.findByUuid(crl.getSecuredUuid());
+        Assertions.assertTrue(updatedCrl.isPresent());
+        Assertions.assertNull(updatedCrl.get().getCaCertificateUuid());
     }
 
     @Test
@@ -882,5 +993,11 @@ class CertificateServiceTest extends BaseSpringBootTest {
         protocolCertificateAssociations.setCustomAttributes(List.of(requestAttribute));
         protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         return protocolCertificateAssociations;
+    }
+
+    private static boolean isObjectAccessRequestForResource(OpaRequestedResource resource, String name, String action) {
+        return resource != null && resource.getProperties() != null &&
+                (resource.getProperties().containsKey("name") && resource.getProperties().get("name").equals(name)) &&
+                (resource.getProperties().containsKey("action") && resource.getProperties().get("action").equals(action));
     }
 }

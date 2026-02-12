@@ -378,48 +378,17 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
-    // TODO List locations using LocationService in CertificateService and then call removeCertificateFromLocations(SecuredUUID locationUUIDs, String certificateUUID) on location service
-    public void removeCertificateFromLocations(SecuredUUID certificateUuid) throws NotFoundException {
-        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
+    public void removeCertificatesFromLocationsOnDelete(List<SecuredUUID> certificateUuids) {
+        List<UUID> certUuids = certificateUuids.stream().map(SecuredUUID::getValue).toList();
+        List<CertificateLocation> certLocations = certificateLocationRepository.findByCertificateUuidIn(certUuids);
 
-        Set<CertificateLocation> certificateLocations = certificate.getLocations();
-        for (CertificateLocation cl : certificateLocations) {
+        for (CertificateLocation cl : certLocations) {
             try {
-                if (Boolean.FALSE.equals(cl.getLocation().getEnabled())) {
-                    throw new NotFoundException(Location.class, cl.getLocation().getUuid());
-                }
-
                 removeCertificateFromLocation(cl);
-                certificateLocations.remove(cl);
-
-                // save record into the certificate history
-                String message = "Removed from Location " + cl.getLocation().getName();
-                HashMap<String, Object> additionalInformation = new HashMap<>();
-                additionalInformation.put("locationUuid", cl.getLocation().getUuid());
-                certificateEventHistoryService.addEventHistory(
-                        certificate.getUuid(),
-                        CertificateEvent.UPDATE_LOCATION,
-                        CertificateEventStatus.SUCCESS,
-                        message,
-                        additionalInformation
-                );
-
-                logger.info("Certificate {} removed from Location {}", certificateUuid, cl.getLocation().getName());
+                logger.debug("Removed Certificate {} from Location {}", cl.getCertificate().getUuid(), cl.getLocation().getName());
             } catch (ConnectorException e) {
-                // record event in the certificate history
-                String message = "Remove from Location " + cl.getLocation().getName();
-                HashMap<String, Object> additionalInformation = new HashMap<>();
-                additionalInformation.put("locationUuid", cl.getLocation().getUuid());
-                additionalInformation.put("cause", message);
-                certificateEventHistoryService.addEventHistory(
-                        certificate.getUuid(),
-                        CertificateEvent.UPDATE_LOCATION,
-                        CertificateEventStatus.FAILED,
-                        message,
-                        additionalInformation
-                );
-                logger.debug("Failed to remove Certificate {} from Location {}, {}: {}", certificate.getUuid(),
-                        cl.getLocation().getName(), cl.getLocation().getUuid(), e.getMessage());
+                logger.debug("Failed to remove Certificate {} from Location {}: {}",
+                        cl.getCertificate().getUuid(), cl.getLocation().getName(), e.getMessage());
             }
         }
     }
