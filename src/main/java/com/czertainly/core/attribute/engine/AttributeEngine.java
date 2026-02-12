@@ -1130,6 +1130,12 @@ public class AttributeEngine {
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
     }
 
+    public void bulkDeleteObjectAttributeContent(Resource objectType, List<UUID> objectUuids) {
+        logger.debug("Deleting the attribute content for resource {} with UUIDs: {}", objectType.getLabel(), objectUuids);
+        Long deletedCount = attributeContent2ObjectRepository.deleteByObjectTypeAndObjectUuidIn(objectType, objectUuids);
+        logger.debug("Deleted {} attribute content items for {} with UUIDs {}", deletedCount, objectType.getLabel(), objectUuids);
+    }
+
     public void deleteObjectAttributesContent(AttributeType attributeType, ObjectAttributeContentInfo contentInfo) {
         logger.debug("Deleting the {} attribute content for resource {} with UUID {}. Info: {}", attributeType.getLabel(), contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
         Long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(attributeType, contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());

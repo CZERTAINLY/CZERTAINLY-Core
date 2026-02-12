@@ -82,6 +82,8 @@ class AttributeEngineTest extends BaseSpringBootTest {
     @Autowired
     private AttributeRelationRepository attributeRelationRepository;
     @Autowired
+    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
+    @Autowired
     private AttributeContentItemRepository attributeContentItemRepository;
 
     private Connector connectorAuthority;
@@ -537,6 +539,134 @@ class AttributeEngineTest extends BaseSpringBootTest {
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
         attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto));
+    }
+
+    @Test
+    void testDeleteConnectorAttributeDefinitionsContent() throws AttributeException, NotFoundException {
+        // Create a DATA attribute definition for connectorDiscovery
+        DataAttributeV3 dataAttribute = new DataAttributeV3();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("data_attr");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Attr");
+        dataAttribute.setProperties(dataProps);
+
+        attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), null, List.of(dataAttribute));
+
+        // Create content for it
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
+        requestAttribute.setName(dataAttribute.getName());
+        requestAttribute.setContent(List.of(new StringAttributeContentV3("data_value")));
+        attributeEngine.updateObjectDataAttributesContent(connectorDiscovery.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid(), List.of(requestAttribute));
+
+        // Verify it exists
+        Assertions.assertFalse(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).isEmpty());
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+
+        // Delete connector attribute definitions content
+        attributeEngine.deleteConnectorAttributeDefinitionsContent(connectorDiscovery.getUuid());
+
+        // Verify it's gone
+        Assertions.assertTrue(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).isEmpty());
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+    }
+
+    @Test
+    void testBulkDeleteObjectAttributeContent() throws AttributeException, NotFoundException {
+        // Use existing certificate and create another one
+        Certificate certificate2 = new Certificate();
+        certificate2.setFingerprint("fingerprint2");
+        certificate2.setSubjectDn("CN=test2");
+        certificate2.setIssuerDn("CN=test2");
+        certificate2.setSerialNumber("2");
+        certificate2 = certificateRepository.save(certificate2);
+
+        // Add some attributes to both
+        RequestAttributeV3 departmentAttributeDto = new RequestAttributeV3();
+        departmentAttributeDto.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
+        departmentAttributeDto.setName(departmentCustomAttribute.getName());
+        departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
+
+        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate2.getUuid(), List.of(departmentAttributeDto));
+
+        // Verify content exists
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(), null, null).isEmpty());
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate2.getUuid(), null, null).isEmpty());
+
+        // Bulk delete
+        attributeEngine.bulkDeleteObjectAttributeContent(Resource.CERTIFICATE, List.of(certificate.getUuid(), certificate2.getUuid()));
+
+        // Verify content is gone
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(), null, null).isEmpty());
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate2.getUuid(), null, null).isEmpty());
+    }
+
+    @Test
+    void testDeleteObjectAttributesContent() throws AttributeException, NotFoundException {
+        // Create content for a data attribute
+        DataAttributeV3 dataAttribute = new DataAttributeV3();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("data_attr_del");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Attr Del");
+        dataAttribute.setProperties(dataProps);
+
+        attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), null, List.of(dataAttribute));
+
+        ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid());
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
+        requestAttribute.setName(dataAttribute.getName());
+        requestAttribute.setContent(List.of(new StringAttributeContentV3("data_value")));
+        attributeEngine.updateObjectDataAttributesContent(connectorDiscovery.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid(), List.of(requestAttribute));
+
+        // Verify content exists
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+
+        // Delete object attributes content
+        attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, contentInfo);
+
+        // Verify content is gone
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+    }
+
+    @Test
+    void testDeleteOperationObjectAttributesContent() throws AttributeException, NotFoundException {
+        // Create content for a data attribute with operation
+        DataAttributeV3 dataAttribute = new DataAttributeV3();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("data_attr_op_purp");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties dataProps = new DataAttributeProperties();
+        dataProps.setLabel("Data Attr Op Purp");
+        dataAttribute.setProperties(dataProps);
+
+        String operation = "testOperation";
+        String purpose = "testPurpose";
+        attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), operation, List.of(dataAttribute));
+
+        ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null, null, null, purpose);
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
+        requestAttribute.setName(dataAttribute.getName());
+        requestAttribute.setContent(List.of(new StringAttributeContentV3("op_purp_value")));
+        attributeEngine.updateObjectDataAttributesContent(connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid(), List.of(requestAttribute));
+
+        // Verify content exists
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+
+        // Delete operation object attributes content with purpose
+        attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, operation, purpose, contentInfo);
+
+        // Verify content is gone
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
     }
 
     @Test
