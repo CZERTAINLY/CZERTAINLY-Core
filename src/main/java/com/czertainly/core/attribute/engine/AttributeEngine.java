@@ -185,7 +185,7 @@ public class AttributeEngine {
     }
 
     private static CustomAttribute getCustomAttributeWithDecryptedContentFromRelation(AttributeRelation r) {
-        CustomAttribute attribute = SerializationUtils.clone((CustomAttribute) r.getAttributeDefinition().getDefinition());
+        CustomAttribute attribute = new CustomAttributeV3((CustomAttributeV3) r.getAttributeDefinition().getDefinition());
         if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED && r.getAttributeDefinition().getEncryptedData() != null) {
             List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
             List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
@@ -733,7 +733,7 @@ public class AttributeEngine {
             AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName())
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : String.valueOf(requestAttribute.getUuid()), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
             validateAttributeContent(definition, requestAttribute.getContent());
-            DataAttribute dataAttribute = SerializationUtils.clone((DataAttribute) definition.getDefinition());
+            DataAttribute dataAttribute = AttributeVersionHelper.copyDataAttribute((DataAttribute) definition.getDefinition());
             dataAttribute.setContent(requestAttribute.getContent());
             dataAttributes.add(dataAttribute);
         }
