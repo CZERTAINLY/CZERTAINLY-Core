@@ -1790,21 +1790,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     public List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter) {
         setupSecurityFilter(filter);
 
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(
-                filter,
-                List.of("groups", "owner"),
-                (root, cb, cr) -> cb.and(
-                        cb.isNotNull(root.get("keyUuid")),
-                        cb.equal(root.get("state"), CertificateState.ISSUED),
-                        cb.or(
-                                cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID),
-                                cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING)
-                        ), cb.not(root.get(Certificate_.ARCHIVED))
-                )
-        );
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"),
+                CertificateUtil.constructQueryCmpSigningCertAcceptable());
 
         return certificates.stream()
-                .filter(CertificateUtil::isCertificateCmpAcceptable)
                 .map(Certificate::mapToListDto).toList();
     }
 

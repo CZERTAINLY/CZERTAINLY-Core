@@ -698,6 +698,47 @@ public class CertificateUtil {
         );
     }
 
+    /*
+     * Constructed Query Graph for CMP Signing Certificate Filtering:
+     *
+     * Certificate (root)
+     * |-- NOT archived
+     * |-- state == ISSUED
+     * |-- validationStatus IN (VALID, EXPIRING)
+     * |-- keyUuid IS NOT NULL
+     * |-- key (*JOIN* CryptographicKey)
+     * |-- AT LEAST ONE valid private key must exist
+     *     |-- Subquery privateKeySubquery: count private keys meeting criteria > 0
+     *         |-- Private AND state=ACTIVE AND usage & SIGN
+     */
+    public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryCmpSigningCertAcceptable() {
+        return (root, cb, cr) -> {
+            Join<Certificate, CryptographicKey> keyJoin = root.join(Certificate_.KEY);
+
+            // Subquery to ensure at least one private key meeting criteria is available.
+            Subquery<Long> privateKeySubquery = cr.subquery(Long.class);
+            Root<CryptographicKeyItem> pkSubRoot = privateKeySubquery.from(CryptographicKeyItem.class);
+            privateKeySubquery.select(cb.count(pkSubRoot));
+            privateKeySubquery.where(
+                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), keyJoin.get(CryptographicKey_.UUID)),
+                    cb.and(
+                            cb.equal(pkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
+                            cb.equal(pkSubRoot.get(CryptographicKeyItem_.STATE), KeyState.ACTIVE),
+                            cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
+                                    pkSubRoot.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.SIGN.getBit())), 0)
+                    )
+            );
+
+            return cb.and(
+                    cb.not(root.get(Certificate_.ARCHIVED)),
+                    cb.isNotNull(root.get(Certificate_.KEY_UUID)),
+                    cb.equal(root.get(Certificate_.STATE), CertificateState.ISSUED),
+                    root.get(Certificate_.VALIDATION_STATUS).in(List.of(CertificateValidationStatus.VALID, CertificateValidationStatus.EXPIRING)),
+                    cb.greaterThan(privateKeySubquery, 0L)
+            );
+        };
+    }
+
     public static boolean isCertificateCmpAcceptable(Certificate certificate) {
         if (certificate.isArchived()) return false;
         if (certificate.getKey() == null ||

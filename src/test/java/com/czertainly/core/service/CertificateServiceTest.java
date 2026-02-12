@@ -1091,6 +1091,108 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @ParameterizedTest
+    @MethodSource("provideCmpSigningCertificateTestData")
+    public void testListCmpSigningCertificates(
+            String commonName,
+            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
+            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean shouldBeAccepted
+    ) {
+        CryptographicKey key = null;
+        if (publicKeyAlgorithm != null || privateKeyAlgorithm != null) {
+            key = createCryptographicKey(commonName + " Key");
+            if (publicKeyAlgorithm != null) {
+                createCryptographicKeyItem(key, publicKeyType, publicKeyAlgorithm, publicKeyUsages, KeyState.ACTIVE);
+            }
+            if (privateKeyAlgorithm != null) {
+                createCryptographicKeyItem(key, privateKeyType, privateKeyAlgorithm, privateKeyUsages, privateKeyState);
+            }
+        }
+
+        createCertificateEntity(commonName, commonName.toLowerCase().replace(" ", "-") + "-serial",
+                key, certificateState, validationStatus, archived);
+
+        List<CertificateDto> certificates = certificateService.listCmpSigningCertificates(SecurityFilter.create());
+        boolean isPresent = certificates.stream().anyMatch(c -> c.getCommonName().equals(commonName));
+        Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + commonName + "' acceptance mismatch");
+    }
+
+    private static Stream<Arguments> provideCmpSigningCertificateTestData() {
+        return Stream.of(
+                // 1. Certificate that should be accepted (RSA)
+                Arguments.of("RSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        true),
+
+                // 2. Certificate that should be accepted (ECDSA)
+                Arguments.of("ECDSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        true),
+
+                // 3. Certificate that should be accepted (EXPIRING)
+                Arguments.of("Expiring Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false,
+                        true),
+
+                // 4. Certificate with no key (should be ignored)
+                Arguments.of("No Key Cert",
+                        null, null, null,
+                        null, null, null, null,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false),
+
+                // 5. Archived certificate (should be ignored)
+                Arguments.of("Archived Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, true,
+                        false),
+
+                // 6. Certificate with wrong state (should be ignored)
+                Arguments.of("Wrong State Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.PENDING_APPROVAL, CertificateValidationStatus.VALID, false,
+                        false),
+
+                // 7. Certificate with wrong validation status (should be ignored)
+                Arguments.of("Invalid Status Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.REVOKED, false,
+                        false),
+
+                // 8. Certificate with no private key (should be ignored)
+                Arguments.of("No Private Key Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        null, null, null, null,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false),
+
+                // 9. Certificate with inactive private key (should be ignored)
+                Arguments.of("Inactive Private Key Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false),
+
+                // 10. Certificate with private key missing SIGN usage (should be ignored)
+                Arguments.of("No Sign Usage Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false)
+        );
+    }
+
+    @ParameterizedTest
     @MethodSource("provideScepCaCertificateTestData")
     public void testListScepCaCertificates(
             String commonName,
