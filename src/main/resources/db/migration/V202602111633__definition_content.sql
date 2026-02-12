@@ -4,7 +4,6 @@ WHERE (
     definition -> 'content' IS NOT NULL
         AND definition -> 'content' <> 'null'::jsonb
     )
-  AND (definition -> 'properties' ->> 'readOnly')::boolean = false
-
+  AND COALESCE((definition -> 'properties' ->> 'readOnly')::boolean, false) = false
   AND type = 'DATA'
   AND connector_uuid IS NOT NULL;
