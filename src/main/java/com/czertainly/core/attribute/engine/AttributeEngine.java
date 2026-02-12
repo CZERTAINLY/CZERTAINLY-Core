@@ -51,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Component
 @Transactional
@@ -1303,12 +1304,16 @@ public class AttributeEngine {
         }
 
         if (!extensibleList) {
-            List<AttributeContent> decryptedContentItems = new ArrayList<>(defaultContentItems);
+            List<AttributeContent> decryptedContentItems;
             if (protectionLevel == ProtectionLevel.ENCRYPTED) {
-                decryptedContentItems = defaultContentItems.stream()
-                        .map(content -> AttributeVersionHelper.decryptContent(
-                                content, 3, attributeDefinition.getContentType(), attributeDefinition.getEncryptedData().get(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).indexOf(content))))
-                        .toList();
+                decryptedContentItems = IntStream.range(0, defaultContentItems.size())
+                        .mapToObj(i -> AttributeVersionHelper.decryptContent(
+                                defaultContentItems.get(i),
+                                attributeDefinition.getVersion(),
+                                attributeDefinition.getContentType(),
+                                attributeDefinition.getEncryptedData().get(i))).toList();
+            } else {
+                decryptedContentItems = new ArrayList<>(defaultContentItems);
             }
             if (decryptedContentItems.stream().noneMatch(aci -> attributeContentEquals(aci, contentItem))) {
                 throw new AttributeException("Attribute content item is not part of predefined list", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
