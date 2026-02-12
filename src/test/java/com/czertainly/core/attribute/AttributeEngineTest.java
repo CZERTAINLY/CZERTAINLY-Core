@@ -5,11 +5,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
-import com.czertainly.api.model.common.attribute.common.AttributeType;
-import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.*;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
-import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -325,6 +322,46 @@ class AttributeEngineTest extends BaseSpringBootTest {
         stringContentV2.setData("data2");
         Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
 
+    }
+
+    @Test
+    void testGetDataAttributesByContent() throws AttributeException {
+        DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
+        dataAttributeV2.setUuid(UUID.randomUUID().toString());
+        dataAttributeV2.setName("name");
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("label");
+        dataAttributeV2.setProperties(properties);
+        dataAttributeV2.setContent(List.of(new StringAttributeContentV2("data")));
+        dataAttributeV2.setContentType(AttributeContentType.STRING);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttributeV2));
+        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
+        requestAttributeV2.setUuid(UUID.fromString(dataAttributeV2.getUuid()));
+        requestAttributeV2.setName(dataAttributeV2.getName());
+        requestAttributeV2.setContent(List.of(new StringAttributeContentV2("data-request")));
+        List<DataAttribute> attributes = attributeEngine.getDataAttributesByContent(connectorAuthority.getUuid(), List.of(requestAttributeV2));
+        Assertions.assertEquals(1, attributes.size());
+        Assertions.assertEquals(dataAttributeV2.getUuid(), attributes.getFirst().getUuid());
+        Assertions.assertEquals(requestAttributeV2.getContent(), attributes.getFirst().getContent());
+
+        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(dataAttributeV2.getUuid())).orElseThrow();
+        Assertions.assertEquals(dataAttributeV2.getContent().getFirst().getData(), ((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).getFirst().getData());
+    }
+
+    @Test
+    void testGetCustomAttributesByResource() throws AttributeException {
+        CustomAttributeProperties properties = expirationDateCustomAttribute.getProperties();
+        properties.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        attributeEngine.updateCustomAttributeDefinition(expirationDateCustomAttribute, List.of(Resource.CERTIFICATE));
+
+        List<CustomAttribute> customAttributes = attributeEngine.getCustomAttributesByResource(Resource.CERTIFICATE, SecurityResourceFilter.create());
+        Assertions.assertEquals(3, customAttributes.size());
+        Assertions.assertTrue(customAttributes.stream().anyMatch(attr -> attr.getUuid().equals(departmentCustomAttribute.getUuid())));
+        Assertions.assertTrue(customAttributes.stream().anyMatch(attr -> attr.getUuid().equals(orderNoCustomAttribute.getUuid())));
+        Assertions.assertTrue(customAttributes.stream().anyMatch(attr -> attr.getUuid().equals(expirationDateCustomAttribute.getUuid())));
+
+        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(null, UUID.fromString(expirationDateCustomAttribute.getUuid())).orElseThrow();
+        Assertions.assertNull(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).getFirst().getData());
     }
 
     @Test
