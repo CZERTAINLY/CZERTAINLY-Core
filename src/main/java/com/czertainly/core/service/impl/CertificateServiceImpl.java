@@ -15,6 +15,7 @@ import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDt
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
@@ -134,6 +135,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     private RaProfileRepository raProfileRepository;
     private RaProfileService raProfileService;
     private GroupRepository groupRepository;
+    private GroupAssociationRepository groupAssociationRepository;
     private LocationRepository locationRepository;
     private CertificateContentRepository certificateContentRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
@@ -174,6 +176,11 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     @Autowired
     public void setAcmeAccountRepository(AcmeAccountRepository acmeAccountRepository) {
         this.acmeAccountRepository = acmeAccountRepository;
+    }
+
+    @Autowired
+    public void setGroupAssociationRepository(GroupAssociationRepository groupAssociationRepository) {
+        this.groupAssociationRepository = groupAssociationRepository;
     }
 
     @Autowired
@@ -333,19 +340,33 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     public CertificateResponseDto listCertificates(SecurityFilter filter, CertificateSearchRequestDto request) {
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
-        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(request.getFilters(), request.isIncludeArchived());
-        final List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
-        final List<Certificate> certificates = certificateRepository.findWithAssociationsByUuidInOrderByCreatedDesc(certificateUuids);
-        final List<CertificateDto> listedKeyDTOs = certificates.stream().map(Certificate::mapToListDto).toList();
-        final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(request.getFilters(), request.isIncludeArchived());
+        List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
 
-        final CertificateResponseDto responseDto = new CertificateResponseDto();
-        responseDto.setCertificates(listedKeyDTOs);
+        // We use DTO projection instead of Hibernate entities for performance reasons.
+        List<CertificateDto> certificates;
+        if (certificateUuids.isEmpty()) {
+            certificates = Collections.emptyList();
+        } else {
+            certificates = certificateRepository.findCertificateDtosByUuidsIn(certificateUuids);
+            List<GroupAssociation> groupAssociations = groupAssociationRepository.findWithAssociationsByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
+            Map<String, List<GroupDto>> groupsByCert = groupAssociations.stream().collect(Collectors.groupingBy(ga -> ga.getObjectUuid().toString(),
+                    Collectors.mapping(ga -> ga.getGroup().mapToDto(), Collectors.toList())));
+            certificates.forEach(c -> {
+                c.setCommonName(CertificateUtil.formatCommonName(c.getCommonName()));
+                c.setGroups(groupsByCert.getOrDefault(c.getUuid(), List.of()));
+            });
+        }
+
+        Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        CertificateResponseDto responseDto = new CertificateResponseDto();
+        responseDto.setCertificates(certificates);
         responseDto.setItemsPerPage(request.getItemsPerPage());
         responseDto.setPageNumber(request.getPageNumber());
         responseDto.setTotalItems(maxItems);
         responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
+
         return responseDto;
     }
 
