@@ -8,7 +8,7 @@ set DOCKERFILE_PATH=Dockerfile
 REM Maven directory that will be mounted to the container to cache dependencies
 REM If not set, the container will download dependencies on every build
 REM e.g. C:\Users\username\.m2, make sure to use the correct path for your system
-set MAVEN_DIR=C:\Users\%USERNAME%\.m2
+set MAVEN_DIR="C:\Users\%USERNAME%\.m2"
 REM true to skip tests, default is false
 set SKIP_TESTS=false
 
@@ -43,7 +43,6 @@ if "%SKIP_TESTS%"=="true" (
   echo Running tests as SKIP_TESTS is not true or unset (default: false)
 )
 
-REM Windows uses named pipe for Docker socket
 docker run -v //var/run/docker.sock:/var/run/docker.sock ^
   %MAVEN_VOLUME_ARG% ^
   --name czertainlycont -i prebuild ^
