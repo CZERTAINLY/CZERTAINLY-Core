@@ -25,6 +25,8 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Build
         env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          TESTCONTAINERS_RYUK_DISABLED: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
         run: mvn -B -U verify
       # Write PR number to file
