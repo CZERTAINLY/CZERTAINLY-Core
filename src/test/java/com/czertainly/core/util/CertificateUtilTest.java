@@ -94,7 +94,7 @@ class CertificateUtilTest {
 
     @ParameterizedTest
     @MethodSource("com.czertainly.core.util.CertificateTestData#provideCmpAcceptableTestData")
-    public void testIsCertificateCmpAcceptable(
+    void testIsCertificateCmpAcceptable(
             String testCaseName,
             List<CertificateTestData.KeyItemData> publicKeys,
             List<CertificateTestData.KeyItemData> privateKeys,
@@ -136,7 +136,7 @@ class CertificateUtilTest {
 
     @ParameterizedTest
     @MethodSource("com.czertainly.core.util.CertificateTestData#provideScepCaCertificateTestData")
-    public void testIsCertificateScepCaCertAcceptable(
+    void testIsCertificateScepCaCertAcceptable(
             String testCaseName,
             List<CertificateTestData.KeyItemData> publicKeys,
             List<CertificateTestData.KeyItemData> privateKeys,
