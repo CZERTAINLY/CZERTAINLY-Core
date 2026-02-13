@@ -14,7 +14,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Rollback;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -27,6 +30,7 @@ import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
+import com.czertainly.core.Application;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
@@ -38,13 +42,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
+@SpringBootTest(classes = Application.class)
+@Transactional
+@Rollback
 class CbomServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private CbomService cbomService;
-
-    @Autowired
-    private AttributeEngine attributeEngine;
 
     @Autowired
     private CbomRepository cbomRepository;
