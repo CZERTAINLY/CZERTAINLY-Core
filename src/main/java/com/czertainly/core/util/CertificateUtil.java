@@ -686,30 +686,25 @@ public class CertificateUtil {
     }
 
     private static Predicate constructKeyItemPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath, @Nullable KeyAlgorithm algorithm,
-                                                       @Nullable KeyState state, int usageMask, boolean allUsages) {
+                                                       @Nullable KeyState state, int usageMask) {
         List<Predicate> predicates = new ArrayList<>();
         if (algorithm != null) predicates.add(cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), algorithm));
         if (state != null) predicates.add(cb.equal(itemPath.get(CryptographicKeyItem_.STATE), state));
-        if (allUsages) {
-            predicates.add(cb.equal(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                    itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), usageMask));
-        } else {
-            predicates.add(cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                    itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), 0));
-        }
+        predicates.add(cb.equal(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
+                itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), usageMask));
         return cb.and(predicates.toArray(new Predicate[0]));
     }
 
     private static Predicate constructPrivateKeyItemValidPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath, boolean intuneEnabled) {
-        return intuneEnabled ? constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, KeyState.ACTIVE, KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit(), true) :
-                cb.or(constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, KeyState.ACTIVE, KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit(), true),
-                        constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.ECDSA, KeyState.ACTIVE, KeyUsage.SIGN.getBit(), false));
+        return intuneEnabled ? constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, KeyState.ACTIVE, KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit()) :
+                cb.or(constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, KeyState.ACTIVE, KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit()),
+                        constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.ECDSA, KeyState.ACTIVE, KeyUsage.SIGN.getBit()));
     }
 
     private static Predicate constructPublicKeyItemValidPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath, boolean intuneEnabled) {
-        return intuneEnabled ? constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, null, KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit(), true) :
-                cb.or(constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, null, KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit(), true),
-                        constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.ECDSA, null, KeyUsage.VERIFY.getBit(), false));
+        return intuneEnabled ? constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, null, KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit()) :
+                cb.or(constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, null, KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit()),
+                        constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.ECDSA, null, KeyUsage.VERIFY.getBit()));
     }
 
     /*
@@ -742,7 +737,7 @@ public class CertificateUtil {
             invalidPrivateKeySubquery.where(
                     cb.equal(invPkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
                     cb.equal(invPkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
-                    cb.not(constructKeyItemPredicate(cb, invPkSubRoot, null, KeyState.ACTIVE, KeyUsage.SIGN.getBit(), false))
+                    cb.not(constructKeyItemPredicate(cb, invPkSubRoot, null, KeyState.ACTIVE, KeyUsage.SIGN.getBit()))
             );
 
             return cb.and(

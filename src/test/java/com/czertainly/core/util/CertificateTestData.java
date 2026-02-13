@@ -194,14 +194,14 @@ public class CertificateTestData {
                         false, false),
 
                 // 7. Certificate with a wrong private RSA key usage
-                Arguments.of("Wrong usage RSA Cert",
+                Arguments.of("Wrong private key usage RSA Cert",
                         List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 8. Certificate with a wrong public RSA key usage
-                Arguments.of("Wrong usage RSA Cert",
+                Arguments.of("Wrong public key usage RSA Cert",
                         List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP), KeyState.ACTIVE)),
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
@@ -278,7 +278,7 @@ public class CertificateTestData {
                         false, false),
 
                 // 19. RSA Certificate with missing usages (should be ignored)
-                Arguments.of("Wrong Usage Cert",
+                Arguments.of("Wrong private and public key usage RSA Cert",
                         List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
