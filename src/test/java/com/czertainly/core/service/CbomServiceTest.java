@@ -40,6 +40,10 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 
 class CbomServiceTest extends BaseSpringBootTest {
 
+    static {
+        System.setProperty("testcontainers.docker.client.strategy", "org.testcontainers.dockerclient.UnixSocketClientProviderStrategy");
+    }
+
     @Autowired
     private CbomService cbomService;
 
