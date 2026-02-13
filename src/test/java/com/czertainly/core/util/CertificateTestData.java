@@ -13,91 +13,139 @@ import java.util.stream.Stream;
 
 public class CertificateTestData {
 
+    public record KeyItemData(
+            KeyType type,
+            KeyAlgorithm algorithm,
+            List<KeyUsage> usage,
+            KeyState state
+    ) {
+    }
+
     public static Stream<Arguments> provideCmpAcceptableTestData() {
         return Stream.of(
                 // 1. Certificate that should be accepted (RSA)
                 Arguments.of("RSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true),
 
                 // 2. Certificate that should be accepted (ECDSA)
                 Arguments.of("ECDSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true),
 
                 // 3. Certificate that should be accepted (EXPIRING)
                 Arguments.of("Expiring Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false,
                         true),
 
                 // 4. Certificate with no key (should be ignored)
                 Arguments.of("No Key Cert",
-                        null, null, null,
-                        null, null, null, null,
+                        List.of(),
+                        List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false),
 
                 // 5. Archived certificate (should be ignored)
                 Arguments.of("Archived Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, true,
                         false),
 
                 // 6. Certificate with wrong state (should be ignored)
                 Arguments.of("Wrong State Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.PENDING_APPROVAL, CertificateValidationStatus.VALID, false,
                         false),
 
                 // 7. Certificate with wrong validation status (should be ignored)
                 Arguments.of("Invalid Status Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.REVOKED, false,
                         false),
 
                 // 8. Certificate with no private key (should be ignored)
                 Arguments.of("No Private Key Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        null, null, null, null,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false),
 
                 // 9. Certificate with inactive private key (should be ignored)
                 Arguments.of("Inactive Private Key Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false),
 
                 // 10. Certificate with private key missing SIGN usage (should be ignored)
                 Arguments.of("No Sign Usage Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false),
 
                 // 11. Certificate with a Falcon key (should be accepted)
                 Arguments.of("Falcon Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true),
 
                 // 12. Public key only (should be rejected)
                 Arguments.of("Public Key Only",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        null, null, null, null,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
-                        false)
+                        false),
+
+                // 13. Multiple private keys, all valid (should be accepted)
+                Arguments.of("Multiple Valid Private Keys",
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)
+                        ),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        true),
+
+                // 14. Multiple private keys, one invalid state (should be rejected)
+                Arguments.of("Multiple Private Keys, One Inactive",
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED)
+                        ),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false),
+
+                // 15. Multiple private keys, one missing SIGN usage (should be rejected)
+                Arguments.of("Multiple Private Keys, One Missing Sign",
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT), KeyState.ACTIVE)
+                        ),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false),
+
+                // 16. Multiple public keys, one private key (should be accepted)
+                Arguments.of("Multiple Public Keys",
+                        List.of(
+                                new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)
+                        ),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        true)
         );
     }
 
@@ -105,136 +153,177 @@ public class CertificateTestData {
         return Stream.of(
                 // 1. Certificate that should be accepted (RSA)
                 Arguments.of("RSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, true),
 
                 // 2. Certificate that should be accepted (ECDSA)
                 Arguments.of("ECDSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, true),
 
                 // 3. Certificate with no key (should be ignored)
                 Arguments.of("No Key Cert",
-                        null, null, null,
-                        null, null, null, null,
+                        List.of(),
+                        List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 4. Archived certificate (should be ignored)
                 Arguments.of("Archived Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, true,
                         false, false),
 
                 // 5. Certificate with wrong state (should be ignored)
                 Arguments.of("Wrong State Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.PENDING_APPROVAL, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 6. Certificate with a deactivated private RSA key
                 Arguments.of("Deactivated RSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.DEACTIVATED,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.DEACTIVATED)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 7. Certificate with a wrong private RSA key usage
                 Arguments.of("Wrong usage RSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 8. Certificate with a wrong public RSA key usage
                 Arguments.of("Wrong usage RSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 9. Certificate with an invalid RSA key type
                 Arguments.of("Secret RSA Cert",
-                        KeyType.SECRET_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        null, null, null, null,
+                        List.of(new KeyItemData(KeyType.SECRET_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 10. Certificate with a non RSA/ECDSA key algorithm
                 Arguments.of("Falcon Cert",
-                        null, null, null,
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE,
+                        List.of(),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 11. Certificate with a wrong key usage for ECDSA public key
                 Arguments.of("Wrong usage public ECDSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 12. Certificate with a deactivated private ECDSA key
                 Arguments.of("Deactivated ECDSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 13. Certificate with a wrong private ECDSA key usage
                 Arguments.of("Wrong usage private ECDSA Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 14. Certificate with an invalid ECDSA key type
                 Arguments.of("Secret ECDSA Cert",
-                        KeyType.SECRET_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        null, null, null, null,
+                        List.of(new KeyItemData(KeyType.SECRET_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
                 // 15. Test with intuneEnabled = true (only RSA acceptable)
                 Arguments.of("RSA Cert Intune",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, true),
 
                 // 16. Test with intuneEnabled = true (ECDSA not acceptable)
                 Arguments.of("ECDSA Cert Intune",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, false),
 
                 // 17. Certificate with expiring status (should be accepted)
                 Arguments.of("Expiring Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false,
                         false, true),
 
                 // 18. Certificate with invalid status (should be ignored)
                 Arguments.of("Invalid Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.INVALID, false,
                         false, false),
 
                 // 19. RSA Certificate with missing usages (should be ignored)
                 Arguments.of("Wrong Usage Cert",
-                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
-                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
-                        false, false)
+                        false, false),
+
+                // 20. Multiple private keys, all valid (should be accepted)
+                Arguments.of("Multiple Valid Private Keys",
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)
+                        ),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, true),
+
+                // 21. Multiple private keys, one invalid state (should be rejected)
+                Arguments.of("Multiple Private Keys, One Inactive",
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.DEACTIVATED)
+                        ),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 22. Multiple private keys, one missing SIGN usage (should be rejected)
+                Arguments.of("Multiple Private Keys, One Missing Sign",
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT), KeyState.ACTIVE)
+                        ),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 23. Multiple public keys, one private key (should be accepted)
+                Arguments.of("Multiple Public Keys",
+                        List.of(
+                                new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE),
+                                new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE)
+                        ),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE)),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, true)
+
         );
     }
 }

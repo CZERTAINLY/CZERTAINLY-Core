@@ -38,6 +38,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateTestData;
 import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -1085,19 +1086,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
     @MethodSource("com.czertainly.core.util.CertificateTestData#provideCmpAcceptableTestData")
     public void testListCmpSigningCertificates(
             String commonName,
-            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
-            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
             boolean shouldBeAccepted
     ) {
         CryptographicKey key = null;
-        if (publicKeyAlgorithm != null || privateKeyAlgorithm != null) {
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
             key = createCryptographicKey(commonName + " Key");
-            if (publicKeyAlgorithm != null) {
-                createCryptographicKeyItem(key, publicKeyType, publicKeyAlgorithm, publicKeyUsages, KeyState.ACTIVE);
+            for (CertificateTestData.KeyItemData keyItemData : publicKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
             }
-            if (privateKeyAlgorithm != null) {
-                createCryptographicKeyItem(key, privateKeyType, privateKeyAlgorithm, privateKeyUsages, privateKeyState);
+            for (CertificateTestData.KeyItemData keyItemData : privateKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
             }
         }
 
@@ -1113,19 +1114,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
     @MethodSource("com.czertainly.core.util.CertificateTestData#provideScepCaCertificateTestData")
     public void testListScepCaCertificates(
             String commonName,
-            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
-            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
             boolean intuneEnabled, boolean shouldBeAccepted
     ) {
         CryptographicKey key = null;
-        if (publicKeyAlgorithm != null || privateKeyAlgorithm != null) {
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
             key = createCryptographicKey(commonName + " Key");
-            if (publicKeyAlgorithm != null) {
-                createCryptographicKeyItem(key, publicKeyType, publicKeyAlgorithm, publicKeyUsages, KeyState.ACTIVE);
+            for (CertificateTestData.KeyItemData keyItemData : publicKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
             }
-            if (privateKeyAlgorithm != null) {
-                createCryptographicKeyItem(key, privateKeyType, privateKeyAlgorithm, privateKeyUsages, privateKeyState);
+            for (CertificateTestData.KeyItemData keyItemData : privateKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
             }
         }
 

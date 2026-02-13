@@ -1,11 +1,7 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
-import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import com.czertainly.api.model.core.cryptography.key.KeyState;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -100,8 +96,8 @@ class CertificateUtilTest {
     @MethodSource("com.czertainly.core.util.CertificateTestData#provideCmpAcceptableTestData")
     public void testIsCertificateCmpAcceptable(
             String testCaseName,
-            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
-            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
             boolean expectedResult
     ) {
@@ -110,24 +106,24 @@ class CertificateUtilTest {
         certificate.setValidationStatus(validationStatus);
         certificate.setArchived(archived);
 
-        if (privateKeyAlgorithm != null || publicKeyAlgorithm != null) {
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
             CryptographicKey key = new CryptographicKey();
             Set<CryptographicKeyItem> items = new HashSet<>();
-            if (privateKeyAlgorithm != null) {
+            for (CertificateTestData.KeyItemData keyData : publicKeys) {
                 CryptographicKeyItem item = new CryptographicKeyItem();
-                item.setType(privateKeyType);
-                item.setKeyAlgorithm(privateKeyAlgorithm);
-                item.setUsage(privateKeyUsages);
-                item.setState(privateKeyState);
+                item.setType(keyData.type());
+                item.setKeyAlgorithm(keyData.algorithm());
+                item.setUsage(keyData.usage());
+                item.setState(keyData.state());
                 item.setKey(key);
                 items.add(item);
             }
-            if (publicKeyAlgorithm != null) {
+            for (CertificateTestData.KeyItemData keyData : privateKeys) {
                 CryptographicKeyItem item = new CryptographicKeyItem();
-                item.setType(publicKeyType);
-                item.setKeyAlgorithm(publicKeyAlgorithm);
-                item.setUsage(publicKeyUsages);
-                item.setState(KeyState.ACTIVE);
+                item.setType(keyData.type());
+                item.setKeyAlgorithm(keyData.algorithm());
+                item.setUsage(keyData.usage());
+                item.setState(keyData.state());
                 item.setKey(key);
                 items.add(item);
             }
@@ -142,8 +138,8 @@ class CertificateUtilTest {
     @MethodSource("com.czertainly.core.util.CertificateTestData#provideScepCaCertificateTestData")
     public void testIsCertificateScepCaCertAcceptable(
             String testCaseName,
-            KeyType publicKeyType, KeyAlgorithm publicKeyAlgorithm, List<KeyUsage> publicKeyUsages,
-            KeyType privateKeyType, KeyAlgorithm privateKeyAlgorithm, List<KeyUsage> privateKeyUsages, KeyState privateKeyState,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
             boolean intuneEnabled, boolean expectedResult
     ) {
@@ -152,24 +148,24 @@ class CertificateUtilTest {
         certificate.setValidationStatus(validationStatus);
         certificate.setArchived(archived);
 
-        if (privateKeyAlgorithm != null || publicKeyAlgorithm != null) {
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
             CryptographicKey key = new CryptographicKey();
             Set<CryptographicKeyItem> items = new HashSet<>();
-            if (privateKeyAlgorithm != null) {
+            for (CertificateTestData.KeyItemData keyData : publicKeys) {
                 CryptographicKeyItem item = new CryptographicKeyItem();
-                item.setType(privateKeyType);
-                item.setKeyAlgorithm(privateKeyAlgorithm);
-                item.setUsage(privateKeyUsages);
-                item.setState(privateKeyState);
+                item.setType(keyData.type());
+                item.setKeyAlgorithm(keyData.algorithm());
+                item.setUsage(keyData.usage());
+                item.setState(keyData.state());
                 item.setKey(key);
                 items.add(item);
             }
-            if (publicKeyAlgorithm != null) {
+            for (CertificateTestData.KeyItemData keyData : privateKeys) {
                 CryptographicKeyItem item = new CryptographicKeyItem();
-                item.setType(publicKeyType);
-                item.setKeyAlgorithm(publicKeyAlgorithm);
-                item.setUsage(publicKeyUsages);
-                item.setState(KeyState.ACTIVE);
+                item.setType(keyData.type());
+                item.setKeyAlgorithm(keyData.algorithm());
+                item.setUsage(keyData.usage());
+                item.setState(keyData.state());
                 item.setKey(key);
                 items.add(item);
             }

@@ -15,8 +15,6 @@ import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Certificate_;
-import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.CryptographicKey_;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.CryptographicKeyItem_;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
@@ -32,7 +30,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.annotation.Nullable;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -607,11 +604,15 @@ public class CertificateUtil {
      * |   |-- Subquery invalidAlgoSubquery: NOT EXISTS item with invalid algorithm
      * |-- AT LEAST ONE valid private key must exist
      * |   |-- Subquery privateKeySubquery: EXISTS private key meeting criteria
+     * |-- ALL private keys must meet criteria
+     * |   |-- Subquery invalidPrivateKeySubquery: NOT EXISTS private key NOT meeting criteria
      * |       |-- RSA Private AND state=ACTIVE AND usage & (DECRYPT | SIGN) == (DECRYPT | SIGN)
      * |       OR
      * |       |-- ECDSA Private AND state=ACTIVE AND usage & SIGN [only if intuneEnabled=false]
      * |-- AT LEAST ONE valid public key must exist
-     *     |-- Subquery publicKeySubquery: EXISTS public key meeting criteria
+     * |   |-- Subquery publicKeySubquery: EXISTS public key meeting criteria
+     * |-- ALL public keys must meet criteria
+     *     |-- Subquery invalidPublicKeySubquery: NOT EXISTS public key NOT meeting criteria
      *         |-- RSA Public AND usage & (ENCRYPT | VERIFY) == (ENCRYPT | VERIFY)
      *         OR
      *         |-- ECDSA Public AND usage & VERIFY [only if intuneEnabled=false]
@@ -636,8 +637,18 @@ public class CertificateUtil {
             privateKeySubquery.select(cb.literal(1));
             privateKeySubquery.where(
                     cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
-                    intuneEnabled ? constructRsaPrivateKeyPredicate(cb, pkSubRoot) :
-                            cb.or(constructRsaPrivateKeyPredicate(cb, pkSubRoot), constructEcdsaPrivateKeyPredicate(cb, pkSubRoot))
+                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
+                    constructPrivateKeyItemValidPredicate(cb, pkSubRoot, intuneEnabled)
+            );
+
+            // Subquery to check if there are any private keys that DO NOT meet criteria.
+            Subquery<Integer> invalidPrivateKeySubquery = cr.subquery(Integer.class);
+            Root<CryptographicKeyItem> invPkSubRoot = invalidPrivateKeySubquery.from(CryptographicKeyItem.class);
+            invalidPrivateKeySubquery.select(cb.literal(1));
+            invalidPrivateKeySubquery.where(
+                    cb.equal(invPkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
+                    cb.equal(invPkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
+                    cb.not(constructPrivateKeyItemValidPredicate(cb, invPkSubRoot, intuneEnabled))
             );
 
             // Subquery to ensure at least one public key meeting criteria is available.
@@ -646,8 +657,18 @@ public class CertificateUtil {
             publicKeySubquery.select(cb.literal(1));
             publicKeySubquery.where(
                     cb.equal(pubSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
-                    intuneEnabled ? constructRsaPublicKeyPredicate(cb, pubSubRoot) :
-                            cb.or(constructRsaPublicKeyPredicate(cb, pubSubRoot), constructEcdsaPublicKeyPredicate(cb, pubSubRoot))
+                    cb.equal(pubSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PUBLIC_KEY),
+                    constructPublicKeyItemValidPredicate(cb, pubSubRoot, intuneEnabled)
+            );
+
+            // Subquery to check if there are any public keys that DO NOT meet criteria.
+            Subquery<Integer> invalidPublicKeySubquery = cr.subquery(Integer.class);
+            Root<CryptographicKeyItem> invPubSubRoot = invalidPublicKeySubquery.from(CryptographicKeyItem.class);
+            invalidPublicKeySubquery.select(cb.literal(1));
+            invalidPublicKeySubquery.where(
+                    cb.equal(invPubSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
+                    cb.equal(invPubSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PUBLIC_KEY),
+                    cb.not(constructPublicKeyItemValidPredicate(cb, invPubSubRoot, intuneEnabled))
             );
 
             return cb.and(
@@ -657,49 +678,38 @@ public class CertificateUtil {
                     root.get(Certificate_.VALIDATION_STATUS).in(List.of(CertificateValidationStatus.VALID, CertificateValidationStatus.EXPIRING)),
                     cb.not(cb.exists(invalidAlgoSubquery)),
                     cb.exists(privateKeySubquery),
-                    cb.exists(publicKeySubquery)
+                    cb.not(cb.exists(invalidPrivateKeySubquery)),
+                    cb.exists(publicKeySubquery),
+                    cb.not(cb.exists(invalidPublicKeySubquery))
             );
         };
     }
 
-    private static Predicate constructRsaPublicKeyPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath) {
-        int usageMask = KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit();
-        return cb.and(
-                cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), KeyAlgorithm.RSA),
-                cb.equal(itemPath.get(CryptographicKeyItem_.TYPE), KeyType.PUBLIC_KEY),
-                cb.equal(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), usageMask)
-        );
+    private static Predicate constructKeyItemPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath, @Nullable KeyAlgorithm algorithm,
+                                                       @Nullable KeyState state, int usageMask, boolean allUsages) {
+        List<Predicate> predicates = new ArrayList<>();
+        if (algorithm != null) predicates.add(cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), algorithm));
+        if (state != null) predicates.add(cb.equal(itemPath.get(CryptographicKeyItem_.STATE), state));
+        if (allUsages) {
+            predicates.add(cb.equal(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
+                    itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), usageMask));
+        } else {
+            predicates.add(cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
+                    itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), 0));
+        }
+        return cb.and(predicates.toArray(new Predicate[0]));
     }
 
-    private static Predicate constructEcdsaPublicKeyPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath) {
-        return cb.and(
-                cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), KeyAlgorithm.ECDSA),
-                cb.equal(itemPath.get(CryptographicKeyItem_.TYPE), KeyType.PUBLIC_KEY),
-                cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.VERIFY.getBit())), 0)
-        );
+    private static Predicate constructPrivateKeyItemValidPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath, boolean intuneEnabled) {
+        return intuneEnabled ? constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, KeyState.ACTIVE, KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit(), true) :
+                cb.or(constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, KeyState.ACTIVE, KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit(), true),
+                        constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.ECDSA, KeyState.ACTIVE, KeyUsage.SIGN.getBit(), false));
     }
 
-    private static Predicate constructRsaPrivateKeyPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath) {
-        int usageMask = KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit();
-        return cb.and(
-                cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), KeyAlgorithm.RSA),
-                cb.equal(itemPath.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
-                cb.equal(itemPath.get(CryptographicKeyItem_.STATE), KeyState.ACTIVE),
-                cb.equal(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), usageMask)
-        );
-    }
-
-    private static Predicate constructEcdsaPrivateKeyPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath) {
-        return cb.and(
-                cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), KeyAlgorithm.ECDSA),
-                cb.equal(itemPath.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
-                cb.equal(itemPath.get(CryptographicKeyItem_.STATE), KeyState.ACTIVE),
-                cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.SIGN.getBit())), 0)
-        );
+    private static Predicate constructPublicKeyItemValidPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath, boolean intuneEnabled) {
+        return intuneEnabled ? constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, null, KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit(), true) :
+                cb.or(constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.RSA, null, KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit(), true),
+                        constructKeyItemPredicate(cb, itemPath, KeyAlgorithm.ECDSA, null, KeyUsage.VERIFY.getBit(), false));
     }
 
     /*
@@ -707,27 +717,32 @@ public class CertificateUtil {
      *
      * Certificate (root)
      * |-- NOT archived
+     * |-- keyUuid IS NOT NULL
      * |-- state == ISSUED
      * |-- validationStatus IN (VALID, EXPIRING)
-     * |-- keyUuid IS NOT NULL
-     * |-- AT LEAST ONE valid private key must exist
-     *     |-- Subquery privateKeySubquery: EXISTS private key meeting criteria
-     *         |-- Private AND state=ACTIVE AND usage & SIGN
+     * |-- AT LEAST ONE private key must exist
+     * |-- ALL private keys must meet criteria
+     *     |-- state=ACTIVE AND usage & SIGN
      */
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryCmpSigningCertAcceptable() {
         return (root, cb, cr) -> {
-            // Subquery to ensure at least one private key meeting criteria is available.
+            // Subquery to ensure at least one private key exists.
             Subquery<Integer> privateKeySubquery = cr.subquery(Integer.class);
             Root<CryptographicKeyItem> pkSubRoot = privateKeySubquery.from(CryptographicKeyItem.class);
             privateKeySubquery.select(cb.literal(1));
             privateKeySubquery.where(
                     cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
-                    cb.and(
-                            cb.equal(pkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
-                            cb.equal(pkSubRoot.get(CryptographicKeyItem_.STATE), KeyState.ACTIVE),
-                            cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                                    pkSubRoot.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.SIGN.getBit())), 0)
-                    )
+                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY)
+            );
+
+            // Subquery to check if there are any private keys that DO NOT meet criteria.
+            Subquery<Integer> invalidPrivateKeySubquery = cr.subquery(Integer.class);
+            Root<CryptographicKeyItem> invPkSubRoot = invalidPrivateKeySubquery.from(CryptographicKeyItem.class);
+            invalidPrivateKeySubquery.select(cb.literal(1));
+            invalidPrivateKeySubquery.where(
+                    cb.equal(invPkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
+                    cb.equal(invPkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
+                    cb.not(constructKeyItemPredicate(cb, invPkSubRoot, null, KeyState.ACTIVE, KeyUsage.SIGN.getBit(), false))
             );
 
             return cb.and(
@@ -735,7 +750,8 @@ public class CertificateUtil {
                     cb.isNotNull(root.get(Certificate_.KEY_UUID)),
                     cb.equal(root.get(Certificate_.STATE), CertificateState.ISSUED),
                     root.get(Certificate_.VALIDATION_STATUS).in(List.of(CertificateValidationStatus.VALID, CertificateValidationStatus.EXPIRING)),
-                    cb.exists(privateKeySubquery)
+                    cb.exists(privateKeySubquery),
+                    cb.not(cb.exists(invalidPrivateKeySubquery))
             );
         };
     }
