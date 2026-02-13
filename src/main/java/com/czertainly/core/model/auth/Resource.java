@@ -64,6 +64,9 @@ public enum Resource {
     RULE("rules"),
     ACTION("actions"),
     TRIGGER("triggers"),
+
+    // CBOMS
+    CBOM("cboms"),
     ;
 
     @Schema(description = "Resource Name",

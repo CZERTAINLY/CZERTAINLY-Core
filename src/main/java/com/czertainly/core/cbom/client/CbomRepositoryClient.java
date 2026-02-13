@@ -9,6 +9,7 @@ import com.czertainly.core.model.cbom.BomResponseDto;
 import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
+import com.czertainly.api.exception.CbomRepositoryException;
 import lombok.Getter;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
@@ -114,7 +115,7 @@ public class CbomRepositoryClient {
         return client.method(method);
     }
 
-    private static <T, R> R processRequest(Function<T, R> func, T request) {
+    private static <T, R> R processRequest(Function<T, R> func, T request) throws CbomRepositoryException {
         try {
             return func.apply(request);
         } catch (Exception e) {
@@ -122,17 +123,26 @@ public class CbomRepositoryClient {
             if (unwrappedCause instanceof CbomRepositoryException cbomRepositoryException) {
                 throw cbomRepositoryException;
             }
+            if (unwrappedCause instanceof org.springframework.web.reactive.function.client.WebClientResponseException wcre) {
+                throw new CbomRepositoryException(ProblemDetail.forStatus(wcre.getStatusCode()));
+            }
             throw e;
         }
     }
 
-    static Mono<ClientResponse> handleHttpExceptions(final ClientResponse clientResponse) {
+    public static Mono<ClientResponse> handleHttpExceptions(final ClientResponse clientResponse) {
         if (clientResponse.statusCode().isError()) {
-            // parse body as ProblemDetail and create new CbomRepositoryException
             return clientResponse.bodyToMono(ProblemDetail.class)
-                    .flatMap(problemDetail -> Mono.error(new CbomRepositoryException(problemDetail)));
+                    .flatMap(problemDetail -> Mono.<ClientResponse>error(new CbomRepositoryException(problemDetail)))
+                    .switchIfEmpty(Mono.defer(() -> {
+                        ProblemDetail pd = ProblemDetail.forStatus(clientResponse.statusCode());
+                        return Mono.error(new CbomRepositoryException(pd));
+                    }))
+                    .onErrorResume(e -> {
+                        if (e instanceof CbomRepositoryException) return Mono.error(e);
+                        return Mono.error(new CbomRepositoryException(ProblemDetail.forStatus(clientResponse.statusCode())));
+                    });
         }
-
         return Mono.just(clientResponse);
     }
 }

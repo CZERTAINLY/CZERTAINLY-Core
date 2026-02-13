@@ -160,7 +160,19 @@ public enum FilterField {
     OID_ENTRY_OID(Resource.OID, null, null, CustomOidEntry_.oid, "OID", SearchFieldTypeEnum.STRING),
     OID_ENTRY_DISPLAY_NAME(Resource.OID, null, null, CustomOidEntry_.displayName, "Display Name", SearchFieldTypeEnum.STRING),
     OID_ENTRY_CATEGORY(Resource.OID, null, null, CustomOidEntry_.category, "Category", SearchFieldTypeEnum.LIST, OidCategory.class),
-    OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.code, "Code", SearchFieldTypeEnum.STRING);
+    OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.code, "Code", SearchFieldTypeEnum.STRING),
+
+
+    // CBOM
+    CBOM_SERIAL_NUMBER(Resource.CBOM, null, null, Cbom_.serialNumber, "Serial Number", SearchFieldTypeEnum.STRING),
+    CBOM_VERSION(Resource.CBOM, null, null, Cbom_.version, "Version", SearchFieldTypeEnum.NUMBER),
+    CBOM_CREATED_AT(Resource.CBOM, null, null, Cbom_.createdAt, "Created At", SearchFieldTypeEnum.DATE),
+    CBOM_SOURCE(Resource.CBOM, null, null, Cbom_.source, "Source", SearchFieldTypeEnum.STRING),
+    CBOM_ALGORITHMS_COUNT(Resource.CBOM, null, null, Cbom_.algorithmsCount, "Algorithms Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_CERTIFICATES_COUNT(Resource.CBOM, null, null, Cbom_.certificatesCount, "Certificates Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_PROTOCOLS_COUNT(Resource.CBOM, null, null, Cbom_.protocolsCount, "Protocols Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_CRYPTO_MATERIAL_COUNT(Resource.CBOM, null, null, Cbom_.cryptoMaterialCount, "Crypto Material Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_TOTAL_ASSETS_COUNT(Resource.CBOM, null, null, Cbom_.totalAssetsCount, "Total Assets Count", SearchFieldTypeEnum.NUMBER);
 
     private static final FilterField[] VALUES;
 
