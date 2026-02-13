@@ -31,6 +31,7 @@ public class BomResponseDto extends HashMap<String, Object> {
     private static final String FIELD_ASSET_TYPE = "assetType";
 
     private static final String TYPE_CRYPTOGRAPHIC_ASSET = "cryptographic-asset";
+    private static final String ASSET_TYPE_TOTAL = "total";
     private static final String ASSET_TYPE_ALGORITHM = "algorithm";
     private static final String ASSET_TYPE_CERTIFICATE = "certificate";
     private static final String ASSET_TYPE_PROTOCOL = "protocol";
@@ -93,6 +94,7 @@ public class BomResponseDto extends HashMap<String, Object> {
             int certificates = 0;
             int protocols = 0;
             int cryptoMaterial = 0;
+            int totalAssetsCount = 0;
             
             for (Map<String, Object> component : components) {
                 String type = (String) component.get(FIELD_TYPE);
@@ -100,6 +102,9 @@ public class BomResponseDto extends HashMap<String, Object> {
                     switch (type) {
                         case TYPE_CRYPTOGRAPHIC_ASSET:
                             Map<String, Object> cryptoProperties = (Map<String, Object>) component.get(FIELD_CRYPTO_PROPERTIES);
+                            if (cryptoProperties.get(ASSET_TYPE_TOTAL) != null) {
+                                totalAssetsCount = (int) cryptoProperties.get(ASSET_TYPE_TOTAL);
+                            }
                             if (cryptoProperties != null) {
                                 String assetType = (String) cryptoProperties.get(FIELD_ASSET_TYPE);
                                 if (ASSET_TYPE_ALGORITHM.equalsIgnoreCase(assetType)) {
@@ -120,7 +125,7 @@ public class BomResponseDto extends HashMap<String, Object> {
             cbomDetailDto.setCertificates(certificates);
             cbomDetailDto.setProtocols(protocols);
             cbomDetailDto.setCryptoMaterial(cryptoMaterial);
-            cbomDetailDto.setTotalAssets(components.size());
+            cbomDetailDto.setTotalAssets(totalAssetsCount);
         } else {
             cbomDetailDto.setAlgorithms(0);
             cbomDetailDto.setCertificates(0);
