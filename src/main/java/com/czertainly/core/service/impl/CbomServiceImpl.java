@@ -134,7 +134,7 @@ public class CbomServiceImpl implements CbomService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST_VERSIONS)
     public List<CbomDto> getCbomVersions(String serialNumber) throws NotFoundException {
 
         List<Cbom> versions = cbomRepository.findBySerialNumber(serialNumber);
