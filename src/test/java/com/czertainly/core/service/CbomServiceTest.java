@@ -48,9 +48,6 @@ class CbomServiceTest extends BaseSpringBootTest {
     private CbomService cbomService;
 
     @Autowired
-    private AttributeEngine attributeEngine;
-
-    @Autowired
     private CbomRepository cbomRepository;
 
     private WireMockServer mockServer;
