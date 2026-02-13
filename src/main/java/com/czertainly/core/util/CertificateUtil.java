@@ -607,12 +607,12 @@ public class CertificateUtil {
      * |   |-- Subquery invalidAlgoSubquery: NOT EXISTS item with invalid algorithm
      * |-- AT LEAST ONE valid private key must exist
      * |   |-- Subquery privateKeySubquery: EXISTS private key meeting criteria
-     * |       |-- RSA Private AND state=ACTIVE AND usage & DECRYPT AND usage & SIGN
+     * |       |-- RSA Private AND state=ACTIVE AND usage & (DECRYPT | SIGN) == (DECRYPT | SIGN)
      * |       OR
      * |       |-- ECDSA Private AND state=ACTIVE AND usage & SIGN [only if intuneEnabled=false]
      * |-- AT LEAST ONE valid public key must exist
      *     |-- Subquery publicKeySubquery: EXISTS public key meeting criteria
-     *         |-- RSA Public AND usage & ENCRYPT AND usage & VERIFY
+     *         |-- RSA Public AND usage & (ENCRYPT | VERIFY) == (ENCRYPT | VERIFY)
      *         OR
      *         |-- ECDSA Public AND usage & VERIFY [only if intuneEnabled=false]
      */
@@ -663,13 +663,12 @@ public class CertificateUtil {
     }
 
     private static Predicate constructRsaPublicKeyPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath) {
+        int usageMask = KeyUsage.ENCRYPT.getBit() | KeyUsage.VERIFY.getBit();
         return cb.and(
                 cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), KeyAlgorithm.RSA),
                 cb.equal(itemPath.get(CryptographicKeyItem_.TYPE), KeyType.PUBLIC_KEY),
-                cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.ENCRYPT.getBit())), 0),
-                cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.VERIFY.getBit())), 0)
+                cb.equal(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
+                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), usageMask)
         );
     }
 
@@ -683,14 +682,13 @@ public class CertificateUtil {
     }
 
     private static Predicate constructRsaPrivateKeyPredicate(CriteriaBuilder cb, Path<CryptographicKeyItem> itemPath) {
+        int usageMask = KeyUsage.DECRYPT.getBit() | KeyUsage.SIGN.getBit();
         return cb.and(
                 cb.equal(itemPath.get(CryptographicKeyItem_.KEY_ALGORITHM), KeyAlgorithm.RSA),
                 cb.equal(itemPath.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
                 cb.equal(itemPath.get(CryptographicKeyItem_.STATE), KeyState.ACTIVE),
-                cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.DECRYPT.getBit())), 0),
-                cb.notEqual(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(KeyUsage.SIGN.getBit())), 0)
+                cb.equal(cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
+                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)), usageMask)
         );
     }
 

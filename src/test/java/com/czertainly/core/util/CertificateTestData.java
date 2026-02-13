@@ -152,77 +152,84 @@ public class CertificateTestData {
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
-                // 8. Certificate with an invalid RSA key type
+                // 8. Certificate with a wrong public RSA key usage
+                Arguments.of("Wrong usage RSA Cert",
+                        KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.WRAP, KeyUsage.UNWRAP),
+                        KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        false, false),
+
+                // 9. Certificate with an invalid RSA key type
                 Arguments.of("Secret RSA Cert",
                         KeyType.SECRET_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
                         null, null, null, null,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
-                // 9. Certificate with a non RSA/ECDSA key algorithm
+                // 10. Certificate with a non RSA/ECDSA key algorithm
                 Arguments.of("Falcon Cert",
                         null, null, null,
                         KeyType.PRIVATE_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyState.ACTIVE,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
-                // 10. Certificate with a wrong key usage for ECDSA public key
+                // 11. Certificate with a wrong key usage for ECDSA public key
                 Arguments.of("Wrong usage public ECDSA Cert",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
-                // 11. Certificate with a deactivated private ECDSA key
+                // 12. Certificate with a deactivated private ECDSA key
                 Arguments.of("Deactivated ECDSA Cert",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
-                // 12. Certificate with a wrong private ECDSA key usage
-                Arguments.of("Wrong usage private Ecdsa Cert",
+                // 13. Certificate with a wrong private ECDSA key usage
+                Arguments.of("Wrong usage private ECDSA Cert",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.WRAP), KeyState.ACTIVE,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
-                // 13. Certificate with an invalid Ecdsa key type
-                Arguments.of("Secret Ecdsa Cert",
+                // 14. Certificate with an invalid ECDSA key type
+                Arguments.of("Secret ECDSA Cert",
                         KeyType.SECRET_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
                         null, null, null, null,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, false),
 
-                // 14. Test with intuneEnabled = true (only RSA acceptable)
+                // 15. Test with intuneEnabled = true (only RSA acceptable)
                 Arguments.of("RSA Cert Intune",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, true),
 
-                // 15. Test with intuneEnabled = true (ECDSA not acceptable)
+                // 16. Test with intuneEnabled = true (ECDSA not acceptable)
                 Arguments.of("ECDSA Cert Intune",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, false),
 
-                // 16. Certificate with expiring status (should be accepted)
+                // 17. Certificate with expiring status (should be accepted)
                 Arguments.of("Expiring Cert",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
                         CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false,
                         false, true),
 
-                // 17. Certificate with invalid status (should be ignored)
+                // 18. Certificate with invalid status (should be ignored)
                 Arguments.of("Invalid Cert",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyState.ACTIVE,
                         CertificateState.ISSUED, CertificateValidationStatus.INVALID, false,
                         false, false),
 
-                // 18. RSA Certificate with missing usages (should be ignored)
+                // 19. RSA Certificate with missing usages (should be ignored)
                 Arguments.of("Wrong Usage Cert",
                         KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY),
                         KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE,
