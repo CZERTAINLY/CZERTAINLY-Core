@@ -13,10 +13,11 @@ public class V202601271114__CbomEntityMigration extends BaseJavaMigration {
 
     private static final String CREATE_CBOM_ENTITY_TABLE = """
     CREATE TABLE cbom (
-        uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        uuid UUID PRIMARY KEY DEFAULT,
         serial_number TEXT NOT NULL,
         version INT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        cbom_timestamp TIMESTAMPTZ NOT NULL,
         source TEXT,
         algorithms_count INT NOT NULL,
         certificates_count INT NOT NULL,
