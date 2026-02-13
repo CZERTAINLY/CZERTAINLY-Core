@@ -36,8 +36,6 @@ import java.util.concurrent.TimeUnit;
 @Table(name = "certificate")
 public class Certificate extends UniquelyIdentifiedAndAudited implements ComplianceSubject, DtoMapper<CertificateDetailDto> {
 
-    private static final String EMPTY_COMMON_NAME = "<empty>";
-
     @Serial
     private static final long serialVersionUID = -3048734620156664554L;
 
@@ -235,7 +233,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
-        dto.setCommonName(commonName != null ? commonName : EMPTY_COMMON_NAME);
+        dto.setCommonName(CertificateUtil.formatCommonName(this.commonName));
         dto.setIssuerCommonName(getIssuerCommonNameToDto());
         if (certificateContent != null) {
             dto.setCertificateContent(certificateContent.getContent());
@@ -300,8 +298,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
             certificateRequestDto.setUuid(this.certificateRequestEntity.getUuid());
             certificateRequestDto.setContent(this.certificateRequestEntity.getContent());
             certificateRequestDto.setCertificateType(this.certificateRequestEntity.getCertificateType());
-            certificateRequestDto.setCommonName(this.certificateRequestEntity.getCommonName());
-            certificateRequestDto.setCommonName(this.certificateRequestEntity.getCommonName() != null ? this.certificateRequestEntity.getCommonName() : EMPTY_COMMON_NAME);
+            certificateRequestDto.setCommonName(CertificateUtil.formatCommonName(this.certificateRequestEntity.getCommonName()));
             certificateRequestDto.setSubjectDn(this.certificateRequestEntity.getSubjectDn());
             certificateRequestDto.setSignatureAlgorithm(this.certificateRequestEntity.getSignatureAlgorithm());
             certificateRequestDto.setAltSignatureAlgorithm(this.certificateRequestEntity.getAltSignatureAlgorithm());
@@ -334,7 +331,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
 
     public CertificateDto mapToListDto() {
         CertificateDto dto = new CertificateDto();
-        dto.setCommonName(commonName != null ? commonName : EMPTY_COMMON_NAME);
+        dto.setCommonName(CertificateUtil.formatCommonName(commonName));
         dto.setIssuerCommonName(getIssuerCommonNameToDto());
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
@@ -468,7 +465,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
         if (issuerCommonName != null) {
             return issuerCommonName;
         } else if (issuerCertificateUuid != null) {
-            return EMPTY_COMMON_NAME;
+            return CertificateUtil.EMPTY_COMMON_NAME_PLACEHOLDER;
         }
         return null;
     }

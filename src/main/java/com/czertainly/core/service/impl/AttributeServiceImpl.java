@@ -25,7 +25,7 @@ import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContent
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
+import com.czertainly.core.attribute.engine.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -129,6 +129,7 @@ public class AttributeServiceImpl implements AttributeService {
         properties.setMultiSelect(request.isMultiSelect());
         properties.setReadOnly(request.isReadOnly());
         properties.setRequired(request.isRequired());
+        properties.setProtectionLevel(request.getProtectionLevel());
         attribute.setProperties(properties);
 
         return attributeEngine.updateCustomAttributeDefinition(attribute, request.getResources()).mapToCustomAttributeDefinitionDetailDto();
@@ -185,6 +186,7 @@ public class AttributeServiceImpl implements AttributeService {
         attribute.getProperties().setMultiSelect(request.isMultiSelect());
         attribute.getProperties().setReadOnly(request.isReadOnly());
         attribute.getProperties().setRequired(request.isRequired());
+        attribute.getProperties().setProtectionLevel(request.getProtectionLevel());
 
         return attributeEngine.updateCustomAttributeDefinition(attribute, request.getResources()).mapToCustomAttributeDefinitionDetailDto();
     }

@@ -62,6 +62,8 @@ spring:
       ddl-auto: create-drop
     properties:
       hibernate:
+        jdbc:
+          batch_size: 50
         type:
           preferred_duration_jdbc_type: INTERVAL_SECOND
   profiles:
