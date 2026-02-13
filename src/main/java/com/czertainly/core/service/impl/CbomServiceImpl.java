@@ -179,7 +179,7 @@ public class CbomServiceImpl implements CbomService {
             }
         }
 
-        // upload JSON to cbom-respository
+        // upload JSON to cbom-repository
 
         BomCreateResponseDto response;
         try {
