@@ -6,11 +6,13 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.*;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.core.attribute.engine.AttributeVersionHelper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -101,6 +103,13 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     @ToString.Exclude
     private List<AttributeRelation> relations = new ArrayList<>();
 
+    @Column(name = "protection_level")
+    @Enumerated(EnumType.STRING)
+    private ProtectionLevel protectionLevel;
+
+    @Column(name = "encrypted_data", length = Integer.MAX_VALUE)
+    private List<String> encryptedData;
+
     public void setConnector(Connector connector) {
         this.connector = connector;
         if (connector != null) this.connectorUuid = connector.getUuid();
@@ -123,6 +132,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     public NameAndUuidDto mapToAccessControlObjects() {
         return new NameAndUuidDto(uuid.toString(), name);
     }
+
 
     public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
         CustomAttributeDefinitionDto dto = new CustomAttributeDefinitionDto();
@@ -153,7 +163,15 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setName(attribute.getName());
         dto.setType(AttributeType.CUSTOM);
         dto.setContentType(attribute.getContentType());
-        dto.setContent(attribute.getContent());
+        if (Objects.equals(protectionLevel, ProtectionLevel.ENCRYPTED) && encryptedData != null) {
+            List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
+                    .map(contentItem -> AttributeVersionHelper.decryptContent(
+                            contentItem, 3, attribute.getContentType(), encryptedData.get(((List<AttributeContent>) attribute.getContent()).indexOf(contentItem))))
+                    .toList();
+            dto.setContent(decryptedData);
+        } else {
+            dto.setContent(attribute.getContent());
+        }
         dto.setDescription(attribute.getDescription());
         dto.setEnabled(enabled);
         dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
@@ -166,6 +184,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
             dto.setMultiSelect(properties.isMultiSelect());
             dto.setReadOnly(properties.isReadOnly());
             dto.setVisible(properties.isVisible());
+            dto.setProtectionLevel(properties.getProtectionLevel());
         }
         return dto;
     }
@@ -184,6 +203,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
             dto.setGroup(properties.getGroup());
             dto.setLabel(properties.getLabel());
             dto.setVisible(properties.isVisible());
+            dto.setProtectionLevel(properties.getProtectionLevel());
         }
         return dto;
     }

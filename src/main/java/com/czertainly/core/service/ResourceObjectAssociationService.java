@@ -24,6 +24,8 @@ public interface ResourceObjectAssociationService {
 
     void removeObjectAssociations(Resource resource, UUID objectUuid);
 
+    void bulkRemoveObjectAssociations(Resource resource, List<UUID> objectUuids);
+
 
     /**
      * Retrieves information (UUID and name) about object defined by its type and UUID
