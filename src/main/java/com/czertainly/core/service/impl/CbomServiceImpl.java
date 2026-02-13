@@ -180,7 +180,6 @@ public class CbomServiceImpl implements CbomService {
         }
 
         // upload JSON to cbom-repository
-
         BomCreateResponseDto response;
         try {
             response = cbomRepositoryClient.create(request);
@@ -237,7 +236,6 @@ public class CbomServiceImpl implements CbomService {
         return  cbom.mapToDto();
     }
 
-    // ResourceExtenstionService
     @Override
     public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
         return cbomRepository.findResourceObject(objectUuid, Cbom_.serialNumber);
