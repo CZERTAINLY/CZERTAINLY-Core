@@ -663,7 +663,7 @@ class AuthServiceTest extends BaseSpringBootTest {
                      {
                         "uuid": "84388678-2bc8-422d-b374-fdbc3cc91115",
                         "name": "cboms",
-                        "displayName": "UUIDs",
+                        "displayName": "CBOMs",
                         "objectAccess": false,
                         "actions": [
                             {
