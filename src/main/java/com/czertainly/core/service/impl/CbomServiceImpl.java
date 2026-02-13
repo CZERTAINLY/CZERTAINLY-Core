@@ -264,7 +264,6 @@ public class CbomServiceImpl implements CbomService {
                 SearchHelper.prepareSearch(FilterField.CBOM_SOURCE),
                 SearchHelper.prepareSearch(FilterField.CBOM_ALGORITHMS_COUNT),
                 SearchHelper.prepareSearch(FilterField.CBOM_CERTIFICATES_COUNT),
-                SearchHelper.prepareSearch(FilterField.CBOM_CERTIFICATES_COUNT),
                 SearchHelper.prepareSearch(FilterField.CBOM_PROTOCOLS_COUNT),
                 SearchHelper.prepareSearch(FilterField.CBOM_CRYPTO_MATERIAL_COUNT),
                 SearchHelper.prepareSearch(FilterField.CBOM_TOTAL_ASSETS_COUNT)
