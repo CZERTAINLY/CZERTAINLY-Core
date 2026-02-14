@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -86,6 +87,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         tokenInstanceReference.setName("Token");
         tokenInstanceReference.setTokenInstanceUuid("1l");
         tokenInstanceReference.setConnector(connector);
+        tokenInstanceReference.setStatus(TokenInstanceStatus.CONNECTED);
         tokenInstanceReferenceRepository.saveAndFlush(tokenInstanceReference);
 
         // Create and Save TokenProfiles
@@ -233,7 +235,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{\"type\":\"Private\", \"algorithm\":\"RSA\", \"format\":\"Custom\", \"value\":{\"securityCategory\":\"5\"}}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\",  \"keyData\":{\"type\":\"Public\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something priv\"}}}")));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret"))
-                .willReturn(WireMock.okJson("{\"name\":\"secretkeyitem\", \"uuid\":\"149db149-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{\"type\":\"Secret\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something secret\"}}}")));
+                .willReturn(WireMock.okJson("{\"name\":\"secretkeyitem\", \"uuid\":\"149db149-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{\"type\":\"Secret\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something secret\"}}")));
 
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testKeyPairKey");
@@ -736,5 +738,76 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         cryptographicKeyService.deleteKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
         Assertions.assertThrows(NotFoundException.class, () -> cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid));
+    }
+    @Test
+    void testDeleteKeyItems() throws ConnectorException, NotFoundException {
+        // Prepare 3 keys with different scenarios
+
+        // 1. Key with multiple items. One key item will be deleted, one key item should remain.
+        // This key is prepared done in `setUp`.
+
+        // 2. Key with one item. The key item will be deleted, and the whole key should be deleted as well.
+        CryptographicKey keyToDelete = new CryptographicKey();
+        keyToDelete.setName("keyToDelete");
+        keyToDelete.setTokenProfile(tokenProfile);
+        keyToDelete.setTokenInstanceReference(tokenInstanceReference);
+        keyToDelete = cryptographicKeyRepository.saveAndFlush(keyToDelete);
+
+        CryptographicKeyItem itemToDelete = new CryptographicKeyItem();
+        itemToDelete.setKey(keyToDelete);
+        itemToDelete.setKeyUuid(keyToDelete.getUuid());
+        itemToDelete.setType(KeyType.SECRET_KEY);
+        itemToDelete.setState(KeyState.ACTIVE);
+        itemToDelete.setEnabled(true);
+        itemToDelete = cryptographicKeyItemRepository.saveAndFlush(itemToDelete);
+        itemToDelete.setKeyReferenceUuid(itemToDelete.getUuid());
+        itemToDelete = cryptographicKeyItemRepository.saveAndFlush(itemToDelete);
+        keyToDelete.setItems(Set.of(itemToDelete));
+        cryptographicKeyRepository.saveAndFlush(keyToDelete);
+
+        // 3. Key without token instance reference
+        CryptographicKey keyNoToken = new CryptographicKey();
+        keyNoToken.setName("keyNoToken");
+        keyNoToken = cryptographicKeyRepository.saveAndFlush(keyNoToken);
+
+        CryptographicKeyItem itemNoToken = new CryptographicKeyItem();
+        itemNoToken.setKey(keyNoToken);
+        itemNoToken.setKeyUuid(keyNoToken.getUuid());
+        itemNoToken.setType(KeyType.SECRET_KEY);
+        itemNoToken.setState(KeyState.ACTIVE);
+        itemNoToken.setEnabled(true);
+        itemNoToken = cryptographicKeyItemRepository.saveAndFlush(itemNoToken);
+        keyNoToken.setItems(Set.of(itemNoToken));
+        cryptographicKeyRepository.saveAndFlush(keyNoToken);
+
+        // Stub connector for destroing the keys.
+        mockServer.stubFor(WireMock
+                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
+                .willReturn(WireMock.ok()));
+
+        // UUIDs to delete: publicKeyItem.uuid (from 'key'), itemToDelete.uuid, itemNoToken.uuid, and a random one
+        List<String> uuidsToDelete = new ArrayList<>();
+        uuidsToDelete.add(publicKeyItem.getUuid().toString());
+        uuidsToDelete.add(itemToDelete.getUuid().toString());
+        uuidsToDelete.add(itemNoToken.getUuid().toString());
+        uuidsToDelete.add(UUID.randomUUID().toString());
+
+        // Perform deletion
+        cryptographicKeyService.deleteKeyItems(uuidsToDelete);
+
+        // Assertions
+        // 1. 'key' should still exist but only with privateKeyItem
+        Assertions.assertTrue(cryptographicKeyRepository.findById(key.getUuid()).isPresent());
+        List<CryptographicKeyItem> remainingItems = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(key.getUuid()));
+        Assertions.assertEquals(1, remainingItems.size());
+        Assertions.assertEquals(privateKeyItem.getUuid(), remainingItems.get(0).getUuid());
+
+        // 2. 'keyToDelete' should be deleted because its only item was deleted
+        Assertions.assertTrue(cryptographicKeyRepository.findById(keyToDelete.getUuid()).isEmpty());
+        Assertions.assertTrue(cryptographicKeyItemRepository.findById(itemToDelete.getUuid()).isEmpty());
+
+        // 3. 'keyNoToken' should be deleted, and it should have worked even without token
+        Assertions.assertTrue(cryptographicKeyRepository.findById(keyNoToken.getUuid()).isEmpty());
+        Assertions.assertTrue(cryptographicKeyItemRepository.findById(itemNoToken.getUuid()).isEmpty());
     }
 }
