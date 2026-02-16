@@ -12,36 +12,55 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           java-version: 21
           distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          cache: maven
+
+      - name: Prepare data dir
+        run: |
+          rm -rf data
+          mkdir -p data
+
       - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-        run: mvn -B -U verify
+        run: mvn -f pom.xml -U -B -ntp -T 1C clean verify
+
+      - name: Collect artifacts into data/
+        run: |
+          mkdir -p data/target
+          cp -a target/*.jar data/target/
+          cp -a docker data/docker
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: app-data
+          path: data/
+          if-no-files-found: error
+
       # Write PR number to file
       - name: Write PR number to file
         run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
+
       # Upload PR number artifact
       - name: Upload PR number artifact
         uses: actions/upload-artifact@v6
         with:
           name: pr-number
           path: pr-number.txt
+
       # Upload compiled classes
       - name: Upload Compiled Classes
         uses: actions/upload-artifact@v6
         with:
           name: compiled-classes
           path: target/classes
+
       # Upload Jacoco XML report(s)
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v6
