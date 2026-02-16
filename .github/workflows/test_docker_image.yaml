@@ -5,6 +5,10 @@ on:
     branches: [ main*, feat/*, hotfix/* ]
   workflow_dispatch:
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: harbor.3key.company
   IMAGE: harbor.3key.company/czertainly/czertainly-core
@@ -33,7 +37,7 @@ jobs:
 
       - name: Maven package
         run: |
-          mvn -f pom.xml -U clean package
+          mvn -f pom.xml -U -B -ntp -T 1C clean package
 
       - name: Collect artifacts into data/
         run: |
@@ -57,7 +61,7 @@ jobs:
 
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -78,8 +82,16 @@ jobs:
           push: false
           load: true
           tags: ${{ env.IMAGE }}:ci
-          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
-          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}-amd64
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}-amd64
+
+      - name: Cache Trivy
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-${{ runner.os }}-v1
+          restore-keys: |
+            trivy-${{ runner.os }}-
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.31.0
@@ -110,7 +122,7 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -131,8 +143,16 @@ jobs:
           push: false
           load: true
           tags: ${{ env.IMAGE }}:ci
-          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
-          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}-arm64
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}-arm64
+
+      - name: Cache Trivy
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-${{ runner.os }}-v1
+          restore-keys: |
+            trivy-${{ runner.os }}-
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.31.0
