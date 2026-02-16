@@ -744,7 +744,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         // Prepare 3 keys with different scenarios
 
         // 1. Key with multiple items. One key item will be deleted, one key item should remain.
-        // This key is prepared done in `setUp`.
+        // This key is prepared in `setUp`.
 
         // 2. Key with one item. The key item will be deleted, and the whole key should be deleted as well.
         CryptographicKey keyToDelete = new CryptographicKey();
@@ -780,7 +780,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         keyNoToken.setItems(Set.of(itemNoToken));
         cryptographicKeyRepository.saveAndFlush(keyNoToken);
 
-        // Stub connector for destroing the keys.
+        // Stub connector for destroying the keys.
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
                 .willReturn(WireMock.ok()));
