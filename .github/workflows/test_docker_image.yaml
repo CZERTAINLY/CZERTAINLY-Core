@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number || github.ref }}
+  group: pr-${{ github.event.pull_request.number || github.ref }}-docker-test
   cancel-in-progress: true
 
 env:

@@ -4,7 +4,7 @@ on:
     branches: [ main*, feat/*, hotfix/* ]
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number || github.ref }}
+  group: pr-${{ github.event.pull_request.number || github.ref }}-build-pr
   cancel-in-progress: true
 
 jobs:
