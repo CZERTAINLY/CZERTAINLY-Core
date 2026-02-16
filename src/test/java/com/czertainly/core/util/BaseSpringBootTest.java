@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -57,11 +58,11 @@ public class BaseSpringBootTest {
 
         try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
             if (truncateTablesSql == null) {
-                var tables = connection.getMetaData().getTables(connection.getCatalog(), connection.getSchema(), null, new String[]{"TABLE"});
+                var tables = connection.getMetaData().getTables(connection.getCatalog(),"core", null, new String[]{"TABLE"});
                 int counter = 0;
                 StringBuilder stringBuilder = new StringBuilder("TRUNCATE ");
                 while (tables.next()) {
-                    String tableName = "\"%s\"".formatted(tables.getString("TABLE_NAME"));
+                    String tableName = "core.\"%s\"".formatted(tables.getString("TABLE_NAME"));
 
                     if (counter == 0) {
                         stringBuilder.append(tableName);

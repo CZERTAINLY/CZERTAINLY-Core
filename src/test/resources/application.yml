@@ -52,7 +52,7 @@ spring:
       minimum-idle: 1
       maximumPoolSize: 10
     password: test
-    url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test
+    url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test;?currentSchema=core
     username: test
   flyway:
     enabled: false
@@ -66,6 +66,7 @@ spring:
           batch_size: 50
         type:
           preferred_duration_jdbc_type: INTERVAL_SECOND
+        default_schema: core
   profiles:
     active: test
   session:
@@ -74,3 +75,6 @@ spring:
   threads:
     virtual:
       enabled: true
+  sql:
+    init:
+      mode: always

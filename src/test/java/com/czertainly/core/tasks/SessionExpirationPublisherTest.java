@@ -5,17 +5,14 @@ import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
-import org.springframework.test.context.TestPropertySource;
 
 import java.time.Duration;
 
-@TestPropertySource(properties = "DB_SCHEMA=") // Sets DB_SCHEMA to empty (null equivalent)
 class SessionExpirationPublisherTest extends BaseSpringBootTest {
 
     @Autowired
@@ -32,7 +29,13 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         setupSessionTables();
         Session s = sessionRepository.createSession();
         s.setMaxInactiveInterval(Duration.ZERO);
-        SecurityContext securityContext = SecurityContextHolder.getContext();
+        sessionRepository.save(s);
+
+        sessionExpirationPublisher.processExpiredSessions();
+
+        Assertions.assertNull(sessionRepository.findById(s.getId()));
+
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         s.setAttribute("SPRING_SECURITY_CONTEXT", securityContext);
         sessionRepository.save(s);
 
