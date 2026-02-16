@@ -3,6 +3,10 @@ on:
   pull_request:
     branches: [ main*, feat/*, hotfix/* ]
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     if: github.event_name != 'push'
@@ -20,28 +24,10 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Prepare data dir
-        run: |
-          rm -rf data
-          mkdir -p data
-
       - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-        run: mvn -f pom.xml -U -B -ntp -T 1C clean verify
-
-      - name: Collect artifacts into data/
-        run: |
-          mkdir -p data/target
-          cp -a target/*.jar data/target/
-          cp -a docker data/docker
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: app-data
-          path: data/
-          if-no-files-found: error
+        run: mvn -f pom.xml -U -B -ntp -T 1C clean package
 
       # Write PR number to file
       - name: Write PR number to file
