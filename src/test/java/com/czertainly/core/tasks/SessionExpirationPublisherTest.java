@@ -35,7 +35,10 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
 
         Assertions.assertNull(sessionRepository.findById(s.getId()));
 
+
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        s = sessionRepository.createSession();
+        s.setMaxInactiveInterval(Duration.ZERO);
         s.setAttribute("SPRING_SECURITY_CONTEXT", securityContext);
         sessionRepository.save(s);
 
