@@ -13,14 +13,14 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.session.FindByIndexNameSessionRepository;
-import org.springframework.session.Session;
+import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -56,7 +56,10 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
 
     // Since Session Config is excluded, this repository has to mocked, otherwise it will not get injected
     @MockitoBean
-    private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+    private JdbcIndexedSessionRepository sessionRepository;
+
+    @MockitoBean
+    private GenericConversionService springSessionConversionService;
 
 
     @DynamicPropertySource

@@ -10,8 +10,8 @@ public class ScheduledLoggingFilter extends Filter<ILoggingEvent> {
     @Override
     public FilterReply decide(ILoggingEvent iLoggingEvent) {
         String threadName = Thread.currentThread().getName();
-        if(threadName.startsWith("scheduling-")) {
-            return !iLoggingEvent.getMarkerList().isEmpty() ? FilterReply.ACCEPT : FilterReply.DENY;
+        if (threadName.startsWith("scheduling-")) {
+            return iLoggingEvent.getMarkerList() == null || !iLoggingEvent.getMarkerList().isEmpty() ? FilterReply.ACCEPT : FilterReply.DENY;
         }
         return FilterReply.ACCEPT;
     }
