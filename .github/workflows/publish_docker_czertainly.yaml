@@ -34,7 +34,7 @@ jobs:
     name: Build app artifacts (once)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up Java 21 + Maven cache
         uses: actions/setup-java@v4
@@ -59,7 +59,7 @@ jobs:
           cp -a docker data/docker
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: app-data
           path: data/
@@ -74,13 +74,13 @@ jobs:
 
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: app-data
           path: data
@@ -117,7 +117,7 @@ jobs:
           exit-code: 0
 
       - name: Upload vulnerability report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: trivy-report-amd64
           path: trivy-report-amd64.json
@@ -140,13 +140,13 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: app-data
           path: data
@@ -183,7 +183,7 @@ jobs:
           exit-code: 0
 
       - name: Upload vulnerability report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: trivy-report-arm64
           path: trivy-report-arm64.json
@@ -204,7 +204,7 @@ jobs:
     needs: [build_amd64, build_arm64]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
