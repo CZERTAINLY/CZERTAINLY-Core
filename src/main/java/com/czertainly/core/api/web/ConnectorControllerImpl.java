@@ -59,7 +59,6 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR)
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.LIST)
     public List<ConnectorDto> listConnectors(
             @RequestParam Optional<FunctionGroupCode> functionGroup,

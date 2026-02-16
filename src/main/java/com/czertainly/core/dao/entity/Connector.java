@@ -3,9 +3,9 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
@@ -37,6 +37,9 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "name")
     private String name;
 
+    @Column(name = "version")
+    private String version;
+
     @Column(name = "url")
     private String url;
 
@@ -55,6 +58,10 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @ToString.Exclude
     @JsonManagedReference
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
+
+    @ToString.Exclude
+    @OneToMany(mappedBy = "connector", fetch = FetchType.LAZY)
+    private Set<ConnectorInterfaceEntity> interfaces = new HashSet<>();
 
     @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
     @JsonIgnore
@@ -79,6 +86,15 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Override
     public ConnectorDto mapToDto() {
         ConnectorDto dto = new ConnectorDto();
+        dto.setUuid(this.uuid.toString());
+        dto.setName(this.name);
+        dto.setUrl(this.url);
+        dto.setStatus(this.status);
+        return dto;
+    }
+
+    public com.czertainly.api.model.core.connector.ConnectorDto mapToDtoV1() {
+        var dto = new com.czertainly.api.model.core.connector.ConnectorDto();
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setUrl(this.url);

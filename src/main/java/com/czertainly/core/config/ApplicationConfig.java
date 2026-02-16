@@ -17,6 +17,8 @@ import com.czertainly.api.clients.SchedulerApiClient;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
+import com.czertainly.api.clients.v2.InfoApiClient;
+import com.czertainly.api.clients.v2.MetricsApiClient;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -42,6 +44,24 @@ public class ApplicationConfig {
 
     public static final String EXTERNAL_PROPERTY_SOURCE =
             "file:${czertainly-backend.config.dir:/etc/czertainly-backend}/czertainly-backend.properties";
+
+
+    // Connectors v2 API Clients
+
+    @Bean(name = "HealthApiClientV2")
+    public com.czertainly.api.clients.v2.HealthApiClient healthApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new com.czertainly.api.clients.v2.HealthApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public InfoApiClient infoApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new InfoApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public MetricsApiClient metricsApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new MetricsApiClient(webClient, defaultTrustManagers);
+    }
 
     @Bean
     public AuditorAware<String> auditorAware() {

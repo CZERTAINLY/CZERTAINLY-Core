@@ -36,7 +36,7 @@ import reactor.core.Exceptions;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service(Resource.Codes.CONNECTOR)
+@Service("connectorServiceV1")
 @Transactional
 public class ConnectorServiceImpl implements ConnectorService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
