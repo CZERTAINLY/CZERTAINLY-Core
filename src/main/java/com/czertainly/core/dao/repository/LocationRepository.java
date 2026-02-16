@@ -22,5 +22,4 @@ public interface LocationRepository extends SecurityFilterRepository<Location, L
 
     @Query("SELECT DISTINCT entityInstanceName FROM Location")
     List<String> findDistinctEntityInstanceName();
-
 }

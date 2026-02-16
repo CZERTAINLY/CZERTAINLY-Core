@@ -22,7 +22,7 @@ hibernate:
 
 info:
   app:
-    name: CZERTAINLY Core Version
+    name: ILM Core
     version: '@version@'
 
 logging:
@@ -48,6 +48,8 @@ management:
   info:
     env:
       enabled: true
+    git:
+      enabled: false
 
 # OpenTelemetry settings
 otel:
