@@ -1780,9 +1780,9 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled) {
         setupSecurityFilter(filter);
-
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"), (root, cb, cr) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.equal(root.get("state"), CertificateState.ISSUED), cb.or(cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID), cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING))));
-        return certificates.stream().filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled)).map(Certificate::mapToListDto).toList();
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"),
+                CertificateUtil.constructQueryScepCaCertAcceptable(intuneEnabled));
+        return certificates.stream().map(Certificate::mapToListDto).toList();
     }
 
     @Override
@@ -1790,21 +1790,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     public List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter) {
         setupSecurityFilter(filter);
 
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(
-                filter,
-                List.of("groups", "owner"),
-                (root, cb, cr) -> cb.and(
-                        cb.isNotNull(root.get("keyUuid")),
-                        cb.equal(root.get("state"), CertificateState.ISSUED),
-                        cb.or(
-                                cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID),
-                                cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING)
-                        ), cb.not(root.get(Certificate_.ARCHIVED))
-                )
-        );
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"),
+                CertificateUtil.constructQueryCmpSigningCertAcceptable());
 
         return certificates.stream()
-                .filter(CertificateUtil::isCertificateCmpAcceptable)
                 .map(Certificate::mapToListDto).toList();
     }
 

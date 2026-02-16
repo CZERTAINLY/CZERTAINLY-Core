@@ -12,14 +12,16 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -36,6 +38,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateTestData;
 import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -48,6 +51,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -863,13 +868,6 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificate.isArchived());
     }
 
-    @Test
-    void testListCmpCertificates() {
-        certificate.setArchived(true);
-        certificateRepository.save(certificate);
-        Assertions.assertTrue(certificateService.listCmpSigningCertificates(new SecurityFilter()).isEmpty());
-    }
-
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
         CertificateDownloadResponseDto certificateDownloadResponseDto = certificateService.downloadCertificate(certificate.getUuid(), format, encoding);
         Assertions.assertDoesNotThrow(() -> (certificateService.createCertificate(certificateDownloadResponseDto.getContent(), CertificateType.X509)));
@@ -1082,6 +1080,94 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         relationsDto = certificateService.getCertificateRelations(notIssued.getUuid());
         Assertions.assertEquals(CertificateRelationType.REPLACEMENT, relationsDto.getPredecessorCertificates().getFirst().getRelationType());
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.czertainly.core.util.CertificateTestData#provideCmpAcceptableTestData")
+    public void testListCmpSigningCertificates(
+            String commonName,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean shouldBeAccepted
+    ) {
+        CryptographicKey key = null;
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
+            key = createCryptographicKey(commonName + " Key");
+            for (CertificateTestData.KeyItemData keyItemData : publicKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
+            }
+            for (CertificateTestData.KeyItemData keyItemData : privateKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
+            }
+        }
+
+        createCertificateEntity(commonName, key, certificateState, validationStatus, archived);
+
+        List<CertificateDto> certificates = certificateService.listCmpSigningCertificates(SecurityFilter.create());
+        boolean isPresent = certificates.stream().anyMatch(c -> c.getCommonName().equals(commonName));
+        Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + commonName + "' acceptance mismatch");
+    }
+
+
+    @ParameterizedTest
+    @MethodSource("com.czertainly.core.util.CertificateTestData#provideScepCaCertificateTestData")
+    public void testListScepCaCertificates(
+            String commonName,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean intuneEnabled, boolean shouldBeAccepted
+    ) {
+        CryptographicKey key = null;
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
+            key = createCryptographicKey(commonName + " Key");
+            for (CertificateTestData.KeyItemData keyItemData : publicKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
+            }
+            for (CertificateTestData.KeyItemData keyItemData : privateKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
+            }
+        }
+
+        createCertificateEntity(commonName, key, certificateState, validationStatus, archived);
+
+        List<CertificateDto> certificates = certificateService.listScepCaCertificates(SecurityFilter.create(), intuneEnabled);
+        boolean isPresent = certificates.stream().anyMatch(c -> c.getCommonName().equals(commonName));
+        Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + commonName + "' acceptance mismatch");
+    }
+
+
+    private CryptographicKey createCryptographicKey(String name) {
+        CryptographicKey key = new CryptographicKey();
+        key.setName(name);
+        return cryptographicKeyRepository.save(key);
+    }
+
+    private void createCryptographicKeyItem(CryptographicKey key, KeyType type, KeyAlgorithm algorithm, List<KeyUsage> usages, KeyState state) {
+        CryptographicKeyItem item = new CryptographicKeyItem();
+        item.setKey(key);
+        item.setType(type);
+        item.setKeyAlgorithm(algorithm);
+        item.setUsage(usages);
+        item.setState(state);
+        item.setEnabled(true);
+        item.setName(key.getName() + " " + type.name());
+        key.getItems().add(item);
+        cryptographicKeyRepository.save(key);
+    }
+
+    private void createCertificateEntity(String commonName, CryptographicKey key, CertificateState state, CertificateValidationStatus validationStatus, boolean archived) {
+        Certificate cert = new Certificate();
+        cert.setCommonName(commonName);
+        String serialNumber = commonName.toLowerCase().replace(" ", "-") + "-serial" + UUID.randomUUID();
+        cert.setSerialNumber(serialNumber);
+        cert.setKey(key);
+        cert.setKeyUuid(key != null ? key.getUuid() : null);
+        cert.setState(state);
+        cert.setValidationStatus(validationStatus);
+        cert.setArchived(archived);
+        certificateRepository.save(cert);
     }
 
     @NotNull
