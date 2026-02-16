@@ -13,6 +13,40 @@ env:
   CACHE_SCOPE: czertainly-core
 
 jobs:
+  build_artifacts:
+    name: Build app artifacts (once)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java 21 + Maven cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Prepare data dir
+        run: |
+          rm -rf data
+          mkdir -p data
+
+      - name: Maven package
+        run: |
+          mvn -f pom.xml -U clean package
+
+      - name: Collect artifacts into data/
+        run: |
+          mkdir -p data/target
+          cp -a target/*.jar data/target/
+          cp -a docker data/docker
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-data
+          path: data/
+
   build_amd64:
     name: Build amd64
     runs-on: ubuntu-latest
@@ -26,9 +60,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Run pre-build
-        run: |
-          ./prebuild_image_script
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-data
+          path: data
 
       - name: Build (amd64) - local only (no push)
         id: build
@@ -76,9 +112,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Run pre-build
-        run: |
-          ./prebuild_image_script
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-data
+          path: data
 
       - name: Build (arm64) - local only (no push)
         id: build
