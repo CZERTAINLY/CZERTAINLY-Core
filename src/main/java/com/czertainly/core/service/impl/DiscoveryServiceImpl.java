@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.DiscoveryApiClient;
+import com.czertainly.api.interfaces.client.v1.DiscoverySyncApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
@@ -35,9 +36,9 @@ import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.czertainly.core.events.handlers.DiscoveryFinishedEventHandler;
+import com.czertainly.core.messaging.jms.producers.EventProducer;
+import com.czertainly.core.messaging.jms.producers.NotificationProducer;
 import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.messaging.producers.EventProducer;
-import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.discovery.DiscoveryContext;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -91,7 +92,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private TriggerService triggerService;
     private DiscoveryRepository discoveryRepository;
     private CertificateRepository certificateRepository;
-    private DiscoveryApiClient discoveryApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private ConnectorService connectorService;
     private CredentialService credentialService;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
@@ -130,8 +131,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Autowired
-    public void setDiscoveryApiClient(DiscoveryApiClient discoveryApiClient) {
-        this.discoveryApiClient = discoveryApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -253,7 +254,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
-                discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
+                connectorApiFactory.getDiscoveryApiClient(connector.mapToDto()).removeDiscovery(connector.mapToDto(), referenceUuid);
             }
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -454,6 +455,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         dtoRequest.setKind(discovery.getKind());
         dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(context.getDataAttributes()));
 
+        DiscoverySyncApiClient discoveryApiClient = connectorApiFactory.getDiscoveryApiClient(context.getConnectorDto());
+
         // start discovery at provider
         DiscoveryProviderDto response;
         try {
@@ -536,6 +539,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         List<Future<?>> futures = new ArrayList<>();
         Set<String> uniqueCertificateContents = new HashSet<>();
+        DiscoverySyncApiClient discoveryApiClient = connectorApiFactory.getDiscoveryApiClient(context.getConnectorDto());
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);
