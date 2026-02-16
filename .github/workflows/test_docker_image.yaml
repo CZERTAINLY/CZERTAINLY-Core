@@ -5,16 +5,23 @@ on:
     branches: [ main*, feat/*, hotfix/* ]
   workflow_dispatch:
 
+env:
+  REGISTRY: harbor.3key.company
+  IMAGE: harbor.3key.company/czertainly/czertainly-core
+  DOCKERFILE: ./Dockerfile
+  # cache scope so both jobs share the same cache namespace
+  CACHE_SCOPE: czertainly-core
+
 jobs:
-  push_to_registry:
-    name: Build Docker images
+  build_amd64:
+    name: Build amd64
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v5
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -23,67 +30,86 @@ jobs:
         run: |
           ./prebuild_image_script
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            czertainly/czertainly-core
-            3keycompany/czertainly-core
-            harbor.3key.company/czertainly/czertainly-core
-          tags: |
-            type=ref,event=tag
-            type=raw,value=develop-latest
-            type=sha,prefix=develop-,format=long
-
-      - name: Test build Docker image
-        id: build-and-load
+      - name: Build (amd64) - local only (no push)
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ${{ env.DOCKERFILE }}
           platforms: linux/amd64
-          file: ./Dockerfile
-          # Build only the host architecture for the pre-scan build;
-          # --load works only when a single platform is produced.
+          push: false
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Select tag for scanning
-        id: tag
-        run: |
-          FIRST_TAG="$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)"
-          echo "value=$FIRST_TAG" >> "$GITHUB_OUTPUT"
+          tags: ${{ env.IMAGE }}:ci
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.31.0
         with:
-          image-ref: ${{ steps.tag.outputs.value }}
+          image-ref: ${{ env.IMAGE }}:ci
           format: json
-          output: trivy-report.json
+          output: trivy-report-amd64.json
           exit-code: 0
 
       - name: Upload vulnerability report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
-          name: trivy-report
-          path: trivy-report.json
+          name: trivy-report-amd64
+          path: trivy-report-amd64.json
 
       - name: Fail build on vulnerabilities
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.31.0
         with:
-          image-ref: ${{ steps.tag.outputs.value }}
+          image-ref: ${{ env.IMAGE }}:ci
           trivy-config: config/trivy.yaml
           skip-setup-trivy: true
 
-      - name: Build Docker image
+  build_arm64:
+    name: Build arm64
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run pre-build
+        run: |
+          ./prebuild_image_script
+
+      - name: Build (arm64) - local only (no push)
+        id: build
         uses: docker/build-push-action@v6
-        id: build-docker-image
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          file: ./Dockerfile
-          provenance: mode=max
-          sbom: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          file: ${{ env.DOCKERFILE }}
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: ${{ env.IMAGE }}:ci
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: ${{ env.IMAGE }}:ci
+          format: json
+          output: trivy-report-arm64.json
+          exit-code: 0
+
+      - name: Upload vulnerability report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report-arm64
+          path: trivy-report-arm64.json
+
+      - name: Fail build on vulnerabilities
+        uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: ${{ env.IMAGE }}:ci
+          trivy-config: config/trivy.yaml
+          skip-setup-trivy: true
