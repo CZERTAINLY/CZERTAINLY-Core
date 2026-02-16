@@ -220,8 +220,8 @@ jobs:
       - name: Push README to registry
         uses: christian-korneck/update-container-description-action@v1
         env:
-          DOCKER_USER: ${{ secrets.HARBOR_USERNAME }}
-          DOCKER_PASS: ${{ secrets.HARBOR_PASSWORD }}
+          DOCKER_USER: ${{ env.REGISTRY_USERNAME }}
+          DOCKER_PASS: ${{ env.REGISTRY_PASSWORD }}
         with:
           destination_container_repo: ${{ env.IMAGE }}
           provider: ${{ env.REGISTRY_PROVIDER }}
