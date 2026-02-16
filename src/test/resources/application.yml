@@ -50,7 +50,7 @@ spring:
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     hikari:
       minimum-idle: 1
-      maximumPoolSize: 2
+      maximumPoolSize: 10
     password: test
     url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test
     username: test
