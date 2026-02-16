@@ -65,6 +65,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.service.handler.ValidationHandler;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.*;
@@ -163,10 +164,17 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     private ApplicationEventPublisher applicationEventPublisher;
     private ValidationProducer validationProducer;
 
+    private ValidationHandler validationHandler;
+
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
      */
     private Map<String, ICertificateValidator> certificateValidatorMap;
+
+    @Autowired
+    public void setValidationHandler(ValidationHandler validationHandler) {
+        this.validationHandler = validationHandler;
+    }
 
     @Autowired
     public void setValidationProducer(ValidationProducer validationProducer) {
@@ -942,9 +950,16 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void validate(Certificate certificate) {
-        List<Certificate> certificateChain = getCertificateChainInternal(certificate, true);
-        boolean isCompleteChain = !certificateChain.isEmpty() && completeCertificateChain(certificateChain.getLast(), certificateChain);
+        List<Certificate> certificateChain = validationHandler.getCertificateChainFromInventory(certificate, true);
+        boolean isCompleteChain = !certificateChain.isEmpty() && certificateChain.getLast().getSubjectType().isSelfSigned();
+
+        if (!isCompleteChain) {
+
+        }
+
+        !certificateChain.isEmpty() && completeCertificateChain(certificateChain.getLast(), certificateChain);
 
         CertificateValidationStatus newStatus;
         CertificateValidationStatus oldStatus = certificate.getValidationStatus();

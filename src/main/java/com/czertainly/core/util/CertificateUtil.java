@@ -328,8 +328,7 @@ public class CertificateUtil {
     }
 
     public static X509Certificate parseCertificate(String cert) throws CertificateException {
-        cert = cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", "")
-                .replace("\r", "").replace("\n", "");
+        cert = normalizeCertificateContent(cert);
         byte[] decoded = Base64.getDecoder().decode(cert);
         return getX509Certificate(decoded);
     }

@@ -95,7 +95,11 @@ public class CrlServiceImpl implements CrlService {
         for (String crlUrl : crlUrls) {
             X509CRL x509CRL;
             try {
+                logger.debug("Downloading CRL from URL: {}", crlUrl);
+                long startTime = System.currentTimeMillis();
                 x509CRL = CrlUtil.getX509Crl(crlUrl);
+                long endTime = System.currentTimeMillis();
+                logger.debug("Downloaded CRL from URL: {} in {} ms", crlUrl, (endTime - startTime));
             } catch (Exception e) {
                 // Failed to read content from URL, continue to next URL
                 logger.error("Failed to read CRL content from URL: {}, {}", crlUrl, e.getMessage());
@@ -104,6 +108,9 @@ public class CrlServiceImpl implements CrlService {
             }
 
             String crlNumber = JcaX509ExtensionUtils.parseExtensionValue(x509CRL.getExtensionValue(Extension.cRLNumber.getId())).toString();
+
+            logger.debug("Creating CRL entity for CRL Number: {}", crlNumber);
+            long startTime = System.currentTimeMillis();
 
             boolean isNewCrl = oldCrl == null;
             if (!isNewCrl) {
@@ -133,7 +140,14 @@ public class CrlServiceImpl implements CrlService {
                 crlRepository.save(crl);
             }
 
+            long endTime = System.currentTimeMillis();
+            logger.debug("Created CRL entity for CRL Number: {} in {} ms", crlNumber, (endTime - startTime));
+
+            logger.debug("Adding CRL entries for CRL Number: {}", crlNumber);
+            startTime = System.currentTimeMillis();
             crl = addCrlEntries(caCertificateUuid, x509CRL, crl);
+            endTime = System.currentTimeMillis();
+            logger.debug("Added CRL entries for CRL Number: {} in {} ms", crlNumber, (endTime - startTime));
 
             // Managed to process a CRL url and do not need to try other URLs
             return crl;
