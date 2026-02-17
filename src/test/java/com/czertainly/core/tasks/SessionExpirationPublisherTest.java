@@ -1,6 +1,7 @@
 package com.czertainly.core.tasks;
 
 import com.czertainly.core.messaging.scheduler.SessionExpirationPublisher;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
 import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
@@ -32,10 +33,14 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
     @Autowired
     private SessionExpirationPublisher sessionExpirationPublisher;
 
+    @BeforeEach
+    void setUp() {
+        // Ensure the session tables are created before each test
+        setupSessionTables();
+    }
+
     @Test
     void testSessionExpiration() {
-
-        setupSessionTables();
 
         Assertions.assertDoesNotThrow(() -> sessionExpirationPublisher.processExpiredSessions());
 
@@ -65,12 +70,18 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         JdbcIndexedSessionRepository mocked = Mockito.mock(JdbcIndexedSessionRepository.class);
         DataSource dataSource = Mockito.mock(DataSource.class);
         GenericConversionService conversionService = Mockito.mock(GenericConversionService.class);
-        Mockito.when(dataSource.getConnection()).thenThrow(new SQLException("DB error"));
         SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
 
-        Mockito.reset(dataSource);
-        Mockito.when(conversionService.convert(Mockito.any(), Mockito.eq(SecurityContext.class))).thenThrow(new RuntimeException("Conversion error"));
+        Session s = sessionRepository.createSession();
+        s.setMaxInactiveInterval(Duration.ZERO);
+        s.setLastAccessedTime(Instant.now().minus(Duration.of(10, ChronoUnit.MINUTES)));
+        s.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.createEmptyContext());
+        sessionRepository.save(s);
+
+        Mockito.when(dataSource.getConnection()).thenReturn(jdbcTemplate.getDataSource().getConnection());
+        Mockito.when(conversionService.convert(Mockito.any(), Mockito.eq(Object.class))).thenThrow(new RuntimeException("Conversion error"));
+        publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
     }
 
