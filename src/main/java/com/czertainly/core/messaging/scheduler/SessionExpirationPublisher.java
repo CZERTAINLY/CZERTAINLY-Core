@@ -57,13 +57,13 @@ public class SessionExpirationPublisher {
             logger.error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to query expired sessions: {}", e.getMessage(), e);
             return;
         }
-        logger.debug("Found {} expired sessions to process.", expiredSessionIds.size());
+        if (!expiredSessionIds.isEmpty()) logger.debug("Found {} expired sessions to process.", expiredSessionIds.size());
         for (String sessionId : expiredSessionIds) {
             logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION), "Processing expired session ID: {}", sessionId);
             SecurityContext securityContext = loadSecurityContext(sessionId);
             OAuth2Util.endUserSession(securityContext);
             sessionRepository.deleteById(sessionId);
-            logger.debug("Session {} deleted.", sessionId);
+            logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION), "Session {} deleted.", sessionId);
         }
     }
 
