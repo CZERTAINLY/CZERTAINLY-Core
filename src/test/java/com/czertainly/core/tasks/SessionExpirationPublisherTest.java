@@ -68,6 +68,10 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         Mockito.when(dataSource.getConnection()).thenThrow(new SQLException("DB error"));
         SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
+
+        Mockito.reset(dataSource);
+        Mockito.when(conversionService.convert(Mockito.any(), Mockito.eq(SecurityContext.class))).thenThrow(new RuntimeException("Conversion error"));
+        Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
     }
 
 
