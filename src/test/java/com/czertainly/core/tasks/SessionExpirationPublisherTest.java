@@ -7,6 +7,8 @@ import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +41,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
 
         Session s = sessionRepository.createSession();
         s.setMaxInactiveInterval(Duration.ZERO);
+        s.setLastAccessedTime(Instant.now().minus(Duration.of(10, ChronoUnit.MINUTES)));
         sessionRepository.save(s);
 
         sessionExpirationPublisher.processExpiredSessions();
@@ -49,6 +52,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         s = sessionRepository.createSession();
         s.setMaxInactiveInterval(Duration.ZERO);
+        s.setLastAccessedTime(Instant.now().minus(Duration.of(10, ChronoUnit.MINUTES)));
         s.setAttribute("SPRING_SECURITY_CONTEXT", securityContext);
         sessionRepository.save(s);
 
@@ -87,7 +91,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
                     CREATE TABLE IF NOT EXISTS spring_session_attributes (
                         SESSION_PRIMARY_ID CHAR(36) NOT NULL,
                         ATTRIBUTE_NAME VARCHAR(200) NOT NULL,
-                        ATTRIBUTE_BYTES TEXT,
+                        ATTRIBUTE_BYTES JSONB,
                         CONSTRAINT spring_session_attributes_pkey PRIMARY KEY(SESSION_PRIMARY_ID, ATTRIBUTE_NAME),
                         CONSTRAINT fk_session FOREIGN KEY(SESSION_PRIMARY_ID) REFERENCES spring_session(PRIMARY_ID) ON DELETE CASCADE
                     );

@@ -52,7 +52,7 @@ spring:
       minimum-idle: 1
       maximumPoolSize: 10
     password: test
-    url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test;?currentSchema=core
+    url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test?currentSchema=core
     username: test
   flyway:
     enabled: false

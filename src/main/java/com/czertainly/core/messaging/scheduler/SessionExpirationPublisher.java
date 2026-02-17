@@ -18,8 +18,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 
 @Component
 public class SessionExpirationPublisher {
@@ -42,50 +40,53 @@ public class SessionExpirationPublisher {
 
     @Scheduled(fixedDelay = 60000) // every 60 seconds
     public void processExpiredSessions() {
-       long now = Instant.now().toEpochMilli();
-        List<String> expiredSessionIds = new ArrayList<>();
-        String sql = "SELECT SESSION_ID FROM SPRING_SESSION WHERE EXPIRY_TIME < ?";
+        long now = Instant.now().toEpochMilli();
+        String sql = """
+                SELECT s.SESSION_ID, a.ATTRIBUTE_BYTES
+                FROM SPRING_SESSION s
+                LEFT JOIN SPRING_SESSION_ATTRIBUTES a
+                  ON a.SESSION_PRIMARY_ID = s.PRIMARY_ID
+                  AND a.ATTRIBUTE_NAME = ?
+                WHERE s.EXPIRY_TIME < ?
+                """;
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setLong(1, now);
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        expiredSessionIds.add(rs.getString("SESSION_ID"));
-                    }
-            }
-        } catch (Exception e) {
-            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to query expired sessions: {}", e.getMessage(), e);
-            return;
-        }
-        if (!expiredSessionIds.isEmpty()) logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION), "Found {} expired sessions to process.", expiredSessionIds.size());
-        for (String sessionId : expiredSessionIds) {
-            logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION), "Processing expired session ID: {}", sessionId);
-            SecurityContext securityContext = loadSecurityContext(sessionId);
-            OAuth2Util.endUserSession(securityContext);
-            sessionRepository.deleteById(sessionId);
-            logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION), "Session {} deleted.", sessionId);
-        }
-    }
-
-    private SecurityContext loadSecurityContext(String sessionId) {
-        String sql = "SELECT ATTRIBUTE_BYTES FROM SPRING_SESSION_ATTRIBUTES WHERE SESSION_PRIMARY_ID = (SELECT PRIMARY_ID FROM SPRING_SESSION WHERE SESSION_ID = ?) AND ATTRIBUTE_NAME = ?";
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, sessionId);
-            ps.setString(2, "SPRING_SECURITY_CONTEXT");
+            ps.setString(1, "SPRING_SECURITY_CONTEXT");
+            ps.setLong(2, now);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
+                while (rs.next()) {
+                    String sessionId = rs.getString("SESSION_ID");
+                    SecurityContext securityContext = null;
                     byte[] attributeBytes = rs.getBytes("ATTRIBUTE_BYTES");
-                    Object obj = conversionService.convert(attributeBytes, Object.class);
-                    if (obj instanceof SecurityContext sc) {
-                        return sc;
+                    if (attributeBytes != null) {
+                        securityContext = getSecurityContext(attributeBytes, securityContext, sessionId);
                     }
-                    logger.error(MarkerFactory.getMarker(EXPIRED_SESSION), "Deserialized object is not a SecurityContext for session {}.", sessionId);
+                    logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION),
+                            "Processing expired session ID: {}", sessionId);
+                    OAuth2Util.endUserSession(securityContext);
+                    sessionRepository.deleteById(sessionId);
                 }
             }
         } catch (Exception e) {
-            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to load or deserialize SPRING_SECURITY_CONTEXT for session {}: {}", sessionId, e.getMessage(), e);
+            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),
+                    "Failed to query expired sessions: {}", e.getMessage(), e);
         }
-        return null;
+    }
+
+    private SecurityContext getSecurityContext(byte[] attributeBytes, SecurityContext securityContext, String sessionId) {
+        try {
+            Object obj = conversionService.convert(attributeBytes, Object.class);
+            if (obj instanceof SecurityContext sc) {
+                securityContext = sc;
+            } else {
+                logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),
+                        "Deserialized object is not a SecurityContext for session {}.", sessionId);
+            }
+        } catch (Exception ex) {
+            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),
+                    "Failed to deserialize SPRING_SECURITY_CONTEXT for session {}: {}",
+                    sessionId, ex.getMessage(), ex);
+        }
+        return securityContext;
     }
 }
