@@ -17,9 +17,12 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
+import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -27,6 +30,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
@@ -108,36 +112,23 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         tokenProfileRepository.saveAndFlush(tokenProfile2);
 
         // Create and Save CryptographicKey
-        key = new CryptographicKey();
-        key.setName(KEY_NAME);
-        key.setTokenProfile(tokenProfile);
-        key.setTokenInstanceReference(tokenInstanceReference);
+        key = createKey(KEY_NAME, tokenProfile, tokenInstanceReference);
         key.setDescription("initial description");
         key = cryptographicKeyRepository.saveAndFlush(key);
 
         // Create and Save CryptographicKeyItem - Private Key
-        privateKeyItem = new CryptographicKeyItem();
+        privateKeyItem = createKeyItem(key, KeyType.PRIVATE_KEY, KeyState.ACTIVE, true);
         privateKeyItem.setLength(1024);
-        privateKeyItem.setKey(key);
-        privateKeyItem.setKeyUuid(key.getUuid());
-        privateKeyItem.setType(KeyType.PRIVATE_KEY);
         privateKeyItem.setKeyData("some/encrypted/data");
         privateKeyItem.setFormat(KeyFormat.PRKI);
-        privateKeyItem.setState(KeyState.ACTIVE);
-        privateKeyItem.setEnabled(true);
         privateKeyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
         privateKeyItem = cryptographicKeyItemRepository.saveAndFlush(privateKeyItem);
 
         // Create and Save CryptographicKeyItem - Public Key
-        publicKeyItem = new CryptographicKeyItem();
+        publicKeyItem = createKeyItem(key, KeyType.PUBLIC_KEY, KeyState.ACTIVE, true);
         publicKeyItem.setLength(1024);
-        publicKeyItem.setKey(key);
-        publicKeyItem.setKeyUuid(key.getUuid());
-        publicKeyItem.setType(KeyType.PUBLIC_KEY);
         publicKeyItem.setKeyData("some/encrypted/data");
         publicKeyItem.setFormat(KeyFormat.SPKI);
-        publicKeyItem.setState(KeyState.ACTIVE);
-        publicKeyItem.setEnabled(true);
         publicKeyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
         publicKeyItem = cryptographicKeyItemRepository.saveAndFlush(publicKeyItem);
 
@@ -161,15 +152,10 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         keyWithoutToken = cryptographicKeyRepository.saveAndFlush(keyWithoutToken);
 
         // Create and Save CryptographicKeyItem - Public Key
-        CryptographicKeyItem pk = new CryptographicKeyItem();
+        CryptographicKeyItem pk = createKeyItem(keyWithoutToken, KeyType.PUBLIC_KEY, KeyState.ACTIVE, true);
         pk.setLength(1024);
-        pk.setKey(keyWithoutToken);
-        pk.setKeyUuid(keyWithoutToken.getUuid());
-        pk.setType(KeyType.PUBLIC_KEY);
         pk.setKeyData("some/encrypted/data");
         pk.setFormat(KeyFormat.SPKI);
-        pk.setState(KeyState.ACTIVE);
-        pk.setEnabled(true);
         pk.setKeyAlgorithm(KeyAlgorithm.ECDSA);
         cryptographicKeyItemRepository.saveAndFlush(pk);
 
@@ -739,44 +725,23 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         cryptographicKeyService.deleteKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
         Assertions.assertThrows(NotFoundException.class, () -> cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid));
     }
+
     @Test
-    void testDeleteKeyItems() throws ConnectorException, NotFoundException {
+    void testDeleteKeyItems() throws ConnectorException {
         // Prepare 3 keys with different scenarios
 
         // 1. Key with multiple items. One key item will be deleted, one key item should remain.
         // This key is prepared in `setUp`.
 
         // 2. Key with one item. The key item will be deleted, and the whole key should be deleted as well.
-        CryptographicKey keyToDelete = new CryptographicKey();
-        keyToDelete.setName("keyToDelete");
-        keyToDelete.setTokenProfile(tokenProfile);
-        keyToDelete.setTokenInstanceReference(tokenInstanceReference);
-        keyToDelete = cryptographicKeyRepository.saveAndFlush(keyToDelete);
-
-        CryptographicKeyItem itemToDelete = new CryptographicKeyItem();
-        itemToDelete.setKey(keyToDelete);
-        itemToDelete.setKeyUuid(keyToDelete.getUuid());
-        itemToDelete.setType(KeyType.SECRET_KEY);
-        itemToDelete.setState(KeyState.ACTIVE);
-        itemToDelete.setEnabled(true);
-        itemToDelete = cryptographicKeyItemRepository.saveAndFlush(itemToDelete);
-        itemToDelete.setKeyReferenceUuid(itemToDelete.getUuid());
-        itemToDelete = cryptographicKeyItemRepository.saveAndFlush(itemToDelete);
+        CryptographicKey keyToDelete = createKey("keyToDelete", tokenProfile, tokenInstanceReference);
+        CryptographicKeyItem itemToDelete = createKeyItem(keyToDelete, KeyType.SECRET_KEY, KeyState.ACTIVE, true);
         keyToDelete.setItems(Set.of(itemToDelete));
         cryptographicKeyRepository.saveAndFlush(keyToDelete);
 
         // 3. Key without token instance reference
-        CryptographicKey keyNoToken = new CryptographicKey();
-        keyNoToken.setName("keyNoToken");
-        keyNoToken = cryptographicKeyRepository.saveAndFlush(keyNoToken);
-
-        CryptographicKeyItem itemNoToken = new CryptographicKeyItem();
-        itemNoToken.setKey(keyNoToken);
-        itemNoToken.setKeyUuid(keyNoToken.getUuid());
-        itemNoToken.setType(KeyType.SECRET_KEY);
-        itemNoToken.setState(KeyState.ACTIVE);
-        itemNoToken.setEnabled(true);
-        itemNoToken = cryptographicKeyItemRepository.saveAndFlush(itemNoToken);
+        CryptographicKey keyNoToken = createKey("keyNoToken", null, null);
+        CryptographicKeyItem itemNoToken = createKeyItem(keyNoToken, KeyType.SECRET_KEY, KeyState.ACTIVE, true);
         keyNoToken.setItems(Set.of(itemNoToken));
         cryptographicKeyRepository.saveAndFlush(keyNoToken);
 
@@ -793,14 +758,14 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         uuidsToDelete.add(UUID.randomUUID().toString());
 
         // Perform deletion
-        cryptographicKeyService.deleteKeyItems(uuidsToDelete);
+        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), uuidsToDelete);
 
         // Assertions
         // 1. 'key' should still exist but only with privateKeyItem
         Assertions.assertTrue(cryptographicKeyRepository.findById(key.getUuid()).isPresent());
         List<CryptographicKeyItem> remainingItems = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(key.getUuid()));
         Assertions.assertEquals(1, remainingItems.size());
-        Assertions.assertEquals(privateKeyItem.getUuid(), remainingItems.get(0).getUuid());
+        Assertions.assertEquals(privateKeyItem.getUuid(), remainingItems.getFirst().getUuid());
 
         // 2. 'keyToDelete' should be deleted because its only item was deleted
         Assertions.assertTrue(cryptographicKeyRepository.findById(keyToDelete.getUuid()).isEmpty());
@@ -810,4 +775,123 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(cryptographicKeyRepository.findById(keyNoToken.getUuid()).isEmpty());
         Assertions.assertTrue(cryptographicKeyItemRepository.findById(itemNoToken.getUuid()).isEmpty());
     }
+
+    @Test
+    void testDeleteKeyItems_bulk() throws ConnectorException {
+        // Prepare 100 key items for deletion. Two batches will be processed based on bulkDeleteBatchSize (50 in test)
+        List<UUID> uuidsToDelete = new ArrayList<>();
+        List<UUID> keyUuids = new ArrayList<>();
+
+        for (int i = 0; i < 100; i++) {
+            CryptographicKey key = createKey("bulkKey" + i, tokenProfile, tokenInstanceReference);
+            CryptographicKeyItem item = createKeyItem(key, KeyType.SECRET_KEY, KeyState.ACTIVE, true);
+            key.setItems(Set.of(item));
+            cryptographicKeyRepository.saveAndFlush(key);
+            uuidsToDelete.add(item.getUuid());
+            keyUuids.add(key.getUuid());
+        }
+
+        // Perform deletion
+        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), uuidsToDelete.stream().map(UUID::toString).toList());
+
+        // Assertions
+        Assertions.assertTrue(cryptographicKeyItemRepository.findByUuidIn(uuidsToDelete).isEmpty());
+        Assertions.assertTrue(cryptographicKeyRepository.findByUuidIn(keyUuids).isEmpty());
+    }
+
+    @Test
+    void testDeleteKeyItems_evaluatePermissionsWithNoParent() throws ConnectorException {
+        UUID forbiddenKeyUuid = UUID.fromString("ed337973-ad11-441f-91c7-6112309e8776");
+        CryptographicKey forbiddenKey = createKey("forbiddenKey", tokenProfile, tokenInstanceReference);
+        forbiddenKey.setUuid(forbiddenKeyUuid);
+        cryptographicKeyRepository.saveAndFlush(forbiddenKey);
+
+        UUID forbiddenKeyItemUuid = UUID.fromString("7374a824-b163-49e1-a7e7-8be48d24ed52");
+        CryptographicKeyItem forbiddenKeyItem = createKeyItem(forbiddenKey, KeyType.SECRET_KEY, KeyState.ACTIVE, true);
+        forbiddenKeyItem.setUuid(forbiddenKeyItemUuid);
+        forbiddenKeyItem = cryptographicKeyItemRepository.saveAndFlush(forbiddenKeyItem);
+        forbiddenKey.setItems(Set.of(forbiddenKeyItem));
+        cryptographicKeyRepository.saveAndFlush(forbiddenKey);
+
+        // Reject key item deletion for the forbidden key.
+        mockOpaAccess(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.DELETE, List.of(key.getUuid().toString()), List.of(forbiddenKeyUuid.toString()));
+
+        // Should not throw exception, but log error for the forbidden UUID
+        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
+                List.of(publicKeyItem.getUuid().toString(), forbiddenKeyItem.getUuid().toString()));
+
+        Assertions.assertThrows(NotFoundException.class,
+                () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), publicKeyItem.getUuid().toString()));
+        Assertions.assertDoesNotThrow(
+                () -> cryptographicKeyService.getKeyItem(SecuredUUID.fromUUID(forbiddenKeyUuid), forbiddenKeyItemUuid.toString()));
+    }
+
+    @Test
+    void testDeleteKeyItems_evaluatePermissionsWithTokenInstanceParent() throws ConnectorException {
+        // Reject key item deletion for the parent token instance.
+        mockOpaAccess(Resource.TOKEN, ResourceAction.MEMBERS, List.of(), List.of(tokenInstanceReference.getUuid().toString()));
+
+        // Should not throw exception, but log error for the forbidden UUID
+        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
+                List.of(privateKeyItem.getUuid().toString()));
+
+        Assertions.assertDoesNotThrow(
+                () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
+    }
+
+    @Test
+    void testDeleteKeyItems_evaluatePermissionsWithTokenProfileParent() throws ConnectorException {
+        // Reject key item deletion for the parent token profile.
+        mockOpaAccess(Resource.TOKEN_PROFILE, ResourceAction.MEMBERS, List.of(), List.of(tokenProfile.getUuid().toString()));
+
+        // Should not throw exception, but log error for the forbidden UUID
+        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
+                List.of(privateKeyItem.getUuid().toString()));
+
+        Assertions.assertDoesNotThrow(
+                () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
+    }
+
+    private CryptographicKey createKey(String name, TokenProfile tokenProfile, TokenInstanceReference tokenInstanceReference) {
+        CryptographicKey key = new CryptographicKey();
+        key.setName(name);
+        key.setTokenProfile(tokenProfile);
+        key.setTokenInstanceReference(tokenInstanceReference);
+        return cryptographicKeyRepository.saveAndFlush(key);
+    }
+
+    private CryptographicKeyItem createKeyItem(CryptographicKey key, KeyType type, KeyState state, boolean enabled) {
+        CryptographicKeyItem item = new CryptographicKeyItem();
+        item.setKey(key);
+        item.setKeyUuid(key.getUuid());
+        item.setType(type);
+        item.setState(state);
+        item.setEnabled(enabled);
+        item = cryptographicKeyItemRepository.saveAndFlush(item);
+        item.setKeyReferenceUuid(item.getUuid());
+        return cryptographicKeyItemRepository.saveAndFlush(item);
+    }
+
+    private void mockOpaAccess(Resource resource, ResourceAction action, List<String> allowed, List<String> forbidden) {
+        OpaObjectAccessResult objectAccessResult = new OpaObjectAccessResult();
+        objectAccessResult.setAllowedObjects(allowed);
+        objectAccessResult.setForbiddenObjects(forbidden);
+        Mockito.when(
+                opaClient.checkObjectAccess(
+                        Mockito.any(),
+                        Mockito.argThat(requestedResource ->
+                                isObjectAccessRequestForResource(requestedResource, resource.getCode(), action.getCode())
+                        ),
+                        Mockito.any(),
+                        Mockito.any()
+                )
+        ).thenReturn(objectAccessResult);
+    }
+
+    private static boolean isObjectAccessRequestForResource(OpaRequestedResource resource, String name, String action) {
+        return resource != null && resource.getProperties() != null &&
+                (resource.getProperties().containsKey("name") && resource.getProperties().get("name").equals(name)) &&
+                (resource.getProperties().containsKey("action") && resource.getProperties().get("action").equals(action));
+    }
+
 }

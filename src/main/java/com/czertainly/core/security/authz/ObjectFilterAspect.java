@@ -52,42 +52,52 @@ public class ObjectFilterAspect {
             return joinPoint.proceed();
         } else {
             logger.trace("ObjectFilter has been found. Going to obtain list of allowed objects.");
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (!(auth instanceof CzertainlyAuthenticationToken))
-                throw new RuntimeException("Unsupported authentication type.");
-
             Collection<ExternalAuthorizationConfigAttribute> attributes = createAttributesFromAnnotation(joinPoint);
 
             Map<String, String> properties = attributes
                     .stream()
                     .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::attributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
-
-            if (!properties.get("parentName").equals(Resource.NONE.getCode())) {
-                SecurityResourceFilter parentResourceFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, true);
-                secFilter.setParentResourceFilter(parentResourceFilter);
-            }
-            SecurityResourceFilter resourceFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, false);
-            secFilter.setResourceFilter(resourceFilter);
-
-            try {
-                Resource resource = Resource.findByCode(properties.get("name"));
-                ResourceAction resourceAction = ResourceAction.findByCode(properties.get("action"));
-
-                // if resource has groups and action is list or detail (only allowed through group membership), load user group members permissions
-                if (resource.hasGroups() && (resourceAction == ResourceAction.LIST || resourceAction == ResourceAction.DETAIL)) {
-                    properties.put("name", Resource.GROUP.getCode());
-                    properties.put("action", ResourceAction.MEMBERS.getCode());
-
-                    SecurityResourceFilter groupMembersFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, false);
-                    secFilter.setGroupMembersFilter(groupMembersFilter);
-                }
-            } catch (ValidationException e) {
-                logger.trace("Unsupported resource or action: " + e.getMessage());
-            } catch (Exception e) {
-                logger.trace("Cannot load user group members permissions: " + e.getMessage());
-            }
+            populateSecurityFilter(properties, secFilter);
 
             return joinPoint.proceed(arguments);
+        }
+    }
+
+    /**
+     * Populates the security filter with the result of OPA object access invocation.
+     * Use this method directly only in very specific scenarios, such as when a resource has two parents.
+     *
+     * @param properties mandatory properties: <it>name</it>, <it>action</it>; optional properties: <it>parentName</it>, <it>parentAction</it>
+     * @param secFilter security filter to populate
+     */
+    public void populateSecurityFilter(Map<String, String> properties, SecurityFilter secFilter) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (!(auth instanceof CzertainlyAuthenticationToken authToken))
+            throw new RuntimeException("Unsupported authentication type.");
+
+        if (!properties.get("parentName").equals(Resource.NONE.getCode())) {
+            SecurityResourceFilter parentResourceFilter = getResourceFilter(authToken, properties, true);
+            secFilter.setParentResourceFilter(parentResourceFilter);
+        }
+        SecurityResourceFilter resourceFilter = getResourceFilter(authToken, properties, false);
+        secFilter.setResourceFilter(resourceFilter);
+
+        try {
+            Resource resource = Resource.findByCode(properties.get("name"));
+            ResourceAction resourceAction = ResourceAction.findByCode(properties.get("action"));
+
+            // if resource has groups and action is list or detail (only allowed through group membership), load user group members permissions
+            if (resource.hasGroups() && (resourceAction == ResourceAction.LIST || resourceAction == ResourceAction.DETAIL)) {
+                properties.put("name", Resource.GROUP.getCode());
+                properties.put("action", ResourceAction.MEMBERS.getCode());
+
+                SecurityResourceFilter groupMembersFilter = getResourceFilter(authToken, properties, false);
+                secFilter.setGroupMembersFilter(groupMembersFilter);
+            }
+        } catch (ValidationException e) {
+            logger.trace("Unsupported resource or action: " + e.getMessage());
+        } catch (Exception e) {
+            logger.trace("Cannot load user group members permissions: " + e.getMessage());
         }
     }
 
