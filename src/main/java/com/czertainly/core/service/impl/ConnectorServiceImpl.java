@@ -41,6 +41,8 @@ import java.util.stream.Collectors;
 public class ConnectorServiceImpl implements ConnectorService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
 
+    private com.czertainly.core.service.v2.ConnectorService connectorServiceV2;
+
     private ConnectorRepository connectorRepository;
     private FunctionGroupRepository functionGroupRepository;
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
@@ -55,6 +57,11 @@ public class ConnectorServiceImpl implements ConnectorService {
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
     private ConnectorAuthService connectorAuthService;
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setConnectorServiceV2(com.czertainly.core.service.v2.ConnectorService connectorServiceV2) {
+        this.connectorServiceV2 = connectorServiceV2;
+    }
 
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
@@ -129,7 +136,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) {
-        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDto).toList();
+        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDtoV1).toList();
         if (functionGroup.isPresent()) {
             connectors = filterByFunctionGroup(connectors, functionGroup.get());
         }
@@ -362,12 +369,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
     public void deleteConnector(SecuredUUID uuid) throws NotFoundException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-        deleteConnector(connector);
-
+        connectorServiceV2.deleteConnector(uuid);
     }
 
     @Override
@@ -382,23 +385,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.APPROVE)
     public void approve(List<SecuredUUID> uuids) throws NotFoundException, ValidationException {
-        for (SecuredUUID uuid : uuids) {
-            try {
-                Connector connector = connectorRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-                if (ConnectorStatus.WAITING_FOR_APPROVAL.equals(connector.getStatus())) {
-                    connector.setStatus(ConnectorStatus.CONNECTED);
-                    connectorRepository.save(connector);
-                } else {
-                    logger.warn("Connector {} has unexpected status {}", connector.getName(), connector.getStatus());
-                }
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find the connector with uuid {}", uuid);
-            }
-        }
+        connectorServiceV2.bulkApprove(uuids);
     }
 
 
@@ -510,17 +498,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.APPROVE)
     public void approve(SecuredUUID uuid) throws NotFoundException, ValidationException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        if (ConnectorStatus.WAITING_FOR_APPROVAL.equals(connector.getStatus())) {
-            connector.setStatus(ConnectorStatus.CONNECTED);
-            connectorRepository.save(connector);
-        } else {
-            throw new ValidationException(ValidationError.create("Connector {} has unexpected status {}", connector.getName(), connector.getStatus()));
-        }
+        connectorServiceV2.approve(uuid);
     }
 
     @Override
@@ -528,7 +507,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        return healthApiClient.checkHealth(connector.mapToDto());
+        return healthApiClient.checkHealth(connector.mapToDtoV1());
     }
 
     @Override
@@ -670,20 +649,17 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
-        return connectorRepository.findResourceObject(objectUuid, Connector_.name);
+        return connectorServiceV2.getResourceObject(objectUuid);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        return connectorRepository.listResourceObjects(filter, Connector_.name);
+        return connectorServiceV2.listResourceObjects(filter, filters, pagination);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
-        getConnectorEntity(uuid);
-        // Since there are is no parent to the Connector, exclusive parent permission evaluation need not be done
+        connectorServiceV2.evaluatePermissionChain(uuid);
     }
 
     private void deleteConnector(Connector connector) {

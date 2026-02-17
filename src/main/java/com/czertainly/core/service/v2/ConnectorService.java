@@ -1,5 +1,6 @@
 package com.czertainly.core.service.v2;
 
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
@@ -19,19 +20,19 @@ public interface ConnectorService extends ResourceExtensionService {
 
     PaginationResponseDto<ConnectorDto> listConnectors(SecurityFilter filter, SearchRequestDto request);
 
-    ConnectorDetailDto getConnector(SecuredUUID uuid);
+    ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException;
 
     ConnectorDetailDto createConnector(ConnectorRequestDto request);
 
     ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request);
 
-    void deleteConnector(SecuredUUID uuid);
+    void deleteConnector(SecuredUUID uuid) throws NotFoundException;
 
     List<ConnectInfo> connect(ConnectRequestDto request);
 
     ConnectInfo reconnect(SecuredUUID uuid);
 
-    void approve(SecuredUUID uuid);
+    void approve(SecuredUUID uuid) throws NotFoundException;
 
     void bulkApprove(List<SecuredUUID> uuids);
 
@@ -41,8 +42,8 @@ public interface ConnectorService extends ResourceExtensionService {
 
     List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids);
 
-    HealthInfo checkHealth(SecuredUUID uuid) throws NotFoundException;
+    HealthInfo checkHealth(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    ConnectorInfo getInfo(SecuredUUID uuid);
+    ConnectorInfo getInfo(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
 }

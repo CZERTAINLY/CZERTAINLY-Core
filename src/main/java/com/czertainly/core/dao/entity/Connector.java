@@ -5,6 +5,7 @@ import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -88,8 +89,28 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         ConnectorDto dto = new ConnectorDto();
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
+        dto.setVersion(this.version);
         dto.setUrl(this.url);
         dto.setStatus(this.status);
+        return dto;
+    }
+
+    public ConnectorDetailDto mapToDetailDto() {
+        ConnectorDetailDto dto = new ConnectorDetailDto();
+        dto.setUuid(this.uuid.toString());
+        dto.setName(this.name);
+        dto.setVersion(this.version);
+        dto.setUrl(this.url);
+        dto.setStatus(this.status);
+        dto.setAuthType(authType);
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        dto.setInterfaces(this.interfaces.stream().map(ConnectorInterfaceEntity::mapToDto).toList());
+        dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
+            FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();
+            functionGroupDto.setKinds(MetaDefinitions.deserializeArrayString(f.getKinds()));
+            return functionGroupDto;
+        }).toList());
+
         return dto;
     }
 
@@ -118,8 +139,8 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         Connector connector = (Connector) o;
         return getUuid() != null && Objects.equals(getUuid(), connector.getUuid());
@@ -127,6 +148,6 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

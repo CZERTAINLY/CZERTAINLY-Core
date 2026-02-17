@@ -134,7 +134,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
             return entityInstanceDto;
         }
 
-        com.czertainly.api.model.connector.entity.EntityInstanceDto entityProviderInstanceDto = entityInstanceApiClient.getEntityInstance(entityInstanceReference.getConnector().mapToDto(),
+        com.czertainly.api.model.connector.entity.EntityInstanceDto entityProviderInstanceDto = entityInstanceApiClient.getEntityInstance(entityInstanceReference.getConnector().mapToDtoV1(),
                 entityInstanceReference.getEntityInstanceUuid());
 
         if (attributes.isEmpty() && entityProviderInstanceDto.getAttributes() != null && !entityProviderInstanceDto.getAttributes().isEmpty()) {
@@ -178,7 +178,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         entityInstanceDto.setKind(request.getKind());
         entityInstanceDto.setName(request.getName());
 
-        com.czertainly.api.model.connector.entity.EntityInstanceDto response = entityInstanceApiClient.createEntityInstance(connector.mapToDto(), entityInstanceDto);
+        com.czertainly.api.model.connector.entity.EntityInstanceDto response = entityInstanceApiClient.createEntityInstance(connector.mapToDtoV1(), entityInstanceDto);
 
         EntityInstanceReference entityInstanceRef = new EntityInstanceReference();
         entityInstanceRef.setEntityInstanceUuid((response.getUuid()));
@@ -218,7 +218,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
         entityInstanceDto.setKind(entityInstanceRef.getKind());
         entityInstanceDto.setName(entityInstanceRef.getName());
-        entityInstanceApiClient.updateEntityInstance(connector.mapToDto(), entityInstanceRef.getEntityInstanceUuid(), entityInstanceDto);
+        entityInstanceApiClient.updateEntityInstance(connector.mapToDtoV1(), entityInstanceRef.getEntityInstanceUuid(), entityInstanceDto);
         entityInstanceReferenceRepository.save(entityInstanceRef);
 
         EntityInstanceDto dto = entityInstanceRef.mapToDto();
@@ -243,7 +243,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
             throw new ValidationException("Could not delete Entity instance", errors);
         }
 
-        entityInstanceApiClient.removeEntityInstance(entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid());
+        entityInstanceApiClient.removeEntityInstance(entityInstanceRef.getConnector().mapToDtoV1(), entityInstanceRef.getEntityInstanceUuid());
         attributeEngine.deleteAllObjectAttributeContent(Resource.ENTITY, entityInstanceRef.getUuid());
         entityInstanceReferenceRepository.delete(entityInstanceRef);
 
@@ -255,7 +255,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         final EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
         final Connector connector = entityInstance.getConnector();
-        return entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
+        return entityInstanceApiClient.listLocationAttributes(connector.mapToDtoV1(), entityInstance.getEntityInstanceUuid());
     }
 
     @Override
@@ -265,7 +265,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         Connector connector = entityInstance.getConnector();
 
-        entityInstanceApiClient.validateLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid(),
+        entityInstanceApiClient.validateLocationAttributes(connector.mapToDtoV1(), entityInstance.getEntityInstanceUuid(),
                 attributes);
     }
 
