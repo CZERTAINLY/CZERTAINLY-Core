@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.vault.VaultInstanceDetailDto;
+import com.czertainly.api.model.core.vault.VaultInstanceDto;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -31,10 +32,20 @@ public class VaultInstance extends UniquelyIdentifiedAndAudited {
 
     public VaultInstanceDetailDto mapToDetailDto() {
         VaultInstanceDetailDto dto = new VaultInstanceDetailDto();
+        setVaultInstanceDto(dto);
+        return dto;
+    }
+
+    public VaultInstanceDto mapToDto() {
+        VaultInstanceDto dto = new VaultInstanceDto();
+        setVaultInstanceDto(dto);
+        return dto;
+    }
+
+    private void setVaultInstanceDto(VaultInstanceDto dto) {
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(description);
         dto.setConnectorUuid(connectorUuid);
-        return dto;
     }
 }

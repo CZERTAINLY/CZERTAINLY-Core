@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.vault.VaultInstanceListResponseDto;
 import com.czertainly.api.model.core.vault.VaultInstanceRequestDto;
 import com.czertainly.api.model.core.vault.VaultInstanceUpdateRequestDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.VaultInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,7 +25,6 @@ import java.util.UUID;
 
 @RestController
 public class VaultInstanceControllerImpl implements VaultInstanceController {
-
 
     private final VaultInstanceService vaultInstanceService;
 
@@ -39,18 +39,21 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
     }
 
     @Override
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.DETAIL)
     public VaultInstanceDetailDto getVaultInstanceDetails(UUID uuid) throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.getVaultInstance(uuid);
     }
 
     @Override
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.LIST)
     public VaultInstanceListResponseDto listVaultInstances(SearchRequestDto searchRequest) {
-        return null;
+        return vaultInstanceService.listVaultInstances(searchRequest, SecurityFilter.create());
     }
 
     @Override
-    public void deleteVaultInstance(UUID uuid) {
-
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.DELETE)
+    public void deleteVaultInstance(UUID uuid) throws NotFoundException {
+        vaultInstanceService.deleteVaultInstance(uuid);
     }
 
     @Override
@@ -60,12 +63,14 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
     }
 
     @Override
-    public VaultInstanceDetailDto updateVaultInstance(UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws ConnectorException, NotFoundException {
-        return null;
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.UPDATE)
+    public VaultInstanceDetailDto updateVaultInstance(UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException {
+        return vaultInstanceService.updateVaultInstance(uuid, vaultInstanceRequest);
     }
 
     @Override
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-        return List.of();
+        return vaultInstanceService.getSearchableFieldInformation();
     }
 }
