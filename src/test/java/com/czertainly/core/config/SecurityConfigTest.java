@@ -8,13 +8,12 @@ import com.czertainly.core.util.*;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.JOSEException;
+import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,10 +22,8 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.session.FindByIndexNameSessionRepository;
-import org.springframework.session.Session;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.session.web.http.SessionRepositoryFilter;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -34,6 +31,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+
+import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -48,8 +50,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 
 @AutoConfigureMockMvc
-@SpringBootTest(properties = {"spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.session.SessionAutoConfiguration", "settings.cache.refresh-interval=60000"})
-@Disabled
+@SpringBootTest
 class SecurityConfigTest extends BaseSpringBootTestNoAuth {
 
     @Autowired
@@ -64,13 +65,14 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    // Since Session Config is excluded, this repository has to mocked, otherwise it will not get injected
     @MockitoBean
     private JdbcIndexedSessionRepository sessionRepository;
 
     @MockitoBean
     private GenericConversionService springSessionConversionService;
 
+    @MockitoBean
+    public SessionRepositoryFilter springSessionRepositoryFilter;
 
 
     @DynamicPropertySource
@@ -90,7 +92,15 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     PrivateKey privateKey;
 
     @BeforeEach
-    void setUp() throws NoSuchAlgorithmException, JOSEException {
+    void setUp() throws NoSuchAlgorithmException, JOSEException, ServletException, IOException {
+        Mockito.doAnswer(invocation -> {
+            ServletRequest request = invocation.getArgument(0);
+            ServletResponse response = invocation.getArgument(1);
+            FilterChain filterChain = invocation.getArgument(2);
+            filterChain.doFilter(request, response);
+            return null;
+        }).when(springSessionRepositoryFilter).doFilter(Mockito.any(), Mockito.any(), Mockito.any());
+
         mockServer = new WireMockServer(10003);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
@@ -106,7 +116,7 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
         KeyPair keyPair = generator.generateKeyPair();
         privateKey = keyPair.getPrivate();
         tokenValue = OAuth2TestUtil.createJwtTokenValue(privateKey, null, "http://issuer", null, TOKEN_USER_USERNAME);
-        tokenHeaderValue =  "Bearer " + tokenValue;
+        tokenHeaderValue = "Bearer " + tokenValue;
         mockJwt = Jwt.withTokenValue(tokenValue)
                 .header("alg", "RS256")
                 .claim("username", TOKEN_USER_USERNAME)
@@ -164,7 +174,6 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
 
     @Test
     void testOauth2Login() throws Exception {
-//        setupSessionTables();
         String userUuid = UUID.randomUUID().toString();
         String username = "login-user";
         addAuthPostStub("{\"sub\":\"user\",\"username\":\"%s\"}".formatted(username), userUuid, username);
@@ -173,7 +182,6 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
         String oauth2Token = OAuth2TestUtil.createJwtTokenValue(privateKey, null, null, null, username);
         cacheProviderSettings(null);
         MockHttpSession mockHttpSession = new MockHttpSession();
-        mockHttpSession.setAttribute("test",  "test");
         OAuth2AccessToken oauth2AccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, oauth2Token, Instant.now(), Instant.MAX);
         mockHttpSession.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, oauth2AccessToken);
         MvcResult result = mvc.perform(get(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/auth/profile").with(oidcLogin()).session(mockHttpSession)).andReturn();
@@ -276,33 +284,6 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
                                 }
                                 """.formatted(userInfoUsername))
         ));
-    }
-
-    private void setupSessionTables() {
-        // Create spring_session table
-        jdbcTemplate.execute("""
-                    CREATE TABLE IF NOT EXISTS spring_session (
-                        PRIMARY_ID CHAR(36) NOT NULL,
-                        SESSION_ID CHAR(36) NOT NULL,
-                        CREATION_TIME BIGINT NOT NULL,
-                        LAST_ACCESS_TIME BIGINT NOT NULL,
-                        MAX_INACTIVE_INTERVAL INT NOT NULL,
-                        EXPIRY_TIME BIGINT NOT NULL,
-                        PRINCIPAL_NAME VARCHAR(100),
-                        CONSTRAINT spring_session_pkey PRIMARY KEY(PRIMARY_ID)
-                    );
-                """);
-
-        // Create spring_session_attributes table (your JSON setup)
-        jdbcTemplate.execute("""
-                    CREATE TABLE IF NOT EXISTS spring_session_attributes (
-                        SESSION_PRIMARY_ID CHAR(36) NOT NULL,
-                        ATTRIBUTE_NAME VARCHAR(200) NOT NULL,
-                        ATTRIBUTE_BYTES TEXT,
-                        CONSTRAINT spring_session_attributes_pkey PRIMARY KEY(SESSION_PRIMARY_ID, ATTRIBUTE_NAME),
-                        CONSTRAINT fk_session FOREIGN KEY(SESSION_PRIMARY_ID) REFERENCES spring_session(PRIMARY_ID) ON DELETE CASCADE
-                    );
-                """);
     }
 
 }
