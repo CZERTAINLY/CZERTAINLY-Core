@@ -1,6 +1,13 @@
 package com.czertainly.core.tasks;
 
 import com.czertainly.core.messaging.scheduler.SessionExpirationPublisher;
+import org.mockito.Mockito;
+import org.springframework.core.convert.support.GenericConversionService;
+import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
+import javax.sql.DataSource;
+import java.sql.SQLException;
+import java.time.Duration;
+
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -11,7 +18,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 
-import java.time.Duration;
 
 class SessionExpirationPublisherTest extends BaseSpringBootTest {
 
@@ -26,7 +32,11 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
 
     @Test
     void testSessionExpiration() {
+
         setupSessionTables();
+
+        Assertions.assertDoesNotThrow(() -> sessionExpirationPublisher.processExpiredSessions());
+
         Session s = sessionRepository.createSession();
         s.setMaxInactiveInterval(Duration.ZERO);
         sessionRepository.save(s);
@@ -43,11 +53,18 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         sessionRepository.save(s);
 
         sessionExpirationPublisher.processExpiredSessions();
-
         Assertions.assertNull(sessionRepository.findById(s.getId()));
-
     }
 
+    @Test
+    void testProcessExpiredSessions_handlesDatabaseException() throws Exception {
+        JdbcIndexedSessionRepository mocked = Mockito.mock(JdbcIndexedSessionRepository.class);
+        DataSource dataSource = Mockito.mock(DataSource.class);
+        GenericConversionService conversionService = Mockito.mock(GenericConversionService.class);
+        Mockito.when(dataSource.getConnection()).thenThrow(new SQLException("DB error"));
+        SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
+        Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
+    }
 
 
     private void setupSessionTables() {
