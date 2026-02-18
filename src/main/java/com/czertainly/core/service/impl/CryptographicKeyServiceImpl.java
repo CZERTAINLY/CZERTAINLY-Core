@@ -31,6 +31,8 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -107,6 +109,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private PermissionEvaluator permissionEvaluator;
     private CertificateService certificateService;
     private ResourceObjectAssociationService objectAssociationService;
+    private NotificationProducer notificationProducer;
 
     private UserManagementApiClient userManagementApiClient;
     // --------------------------------------------------------------------------------
@@ -166,6 +169,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Autowired
     public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
         this.permissionEvaluator = permissionEvaluator;
+    }
+
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
     }
 
     @Autowired
@@ -566,6 +574,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         SecurityFilter filterForTokenProfile = createSecurityFilterFor(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.DELETE, Resource.TOKEN_PROFILE, ResourceAction.MEMBERS,
                 CryptographicKey_.tokenProfileUuid.getName());
 
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
         int totalToDelete = keyItemUuids.size();
         int deletedCount = 0;
 
@@ -576,22 +585,28 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
             TransactionStatus txStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
             try {
-                deletedCount += deleteKeyItemsBatch(List.of(filterForTokenInstance, filterForTokenProfile), batchUuids);
+                deletedCount += deleteKeyItemsBatch(List.of(filterForTokenInstance, filterForTokenProfile), batchUuids, loggedUserUuid);
                 transactionManager.commit(txStatus);
             } catch (Exception e) {
                 transactionManager.rollback(txStatus);
                 logger.error("Failed to process key item bulk deletion batch: {}", e.getMessage(), e);
+                notificationProducer.produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM,
+                        batchUuids.getFirst(),
+                        NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
+                        "Batch key deletion failed for " + batchUuids.size() + " key items",
+                        e.getMessage());
+
             }
         }
         logger.debug("Bulk deleted {} of {} key items.", deletedCount, totalToDelete);
     }
 
-    private int deleteKeyItemsBatch(List<SecurityFilter> filters, List<UUID> batchUuids) throws ConnectorException {
+    private int deleteKeyItemsBatch(List<SecurityFilter> filters, List<UUID> batchUuids, UUID loggedUserUuid) throws ConnectorException {
         // 1. Check permissions for two parents: TokenInstance/MEMBERS and TokenProfile/MEMBERS
         List<UUID> permittedUuids = batchUuids;
         for (SecurityFilter filter : filters) {
             List<UUID> inputUuids = permittedUuids;
-            permittedUuids = filterKeyItemsBySecurityFilter(filter, inputUuids);
+            permittedUuids = filterKeyItemsBySecurityFilter(filter, inputUuids, loggedUserUuid);
         }
 
         if (permittedUuids.isEmpty()) {
@@ -645,7 +660,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         });
     }
 
-    private List<UUID> filterKeyItemsBySecurityFilter(SecurityFilter filter, List<UUID> inputUuids) {
+    private List<UUID> filterKeyItemsBySecurityFilter(SecurityFilter filter, List<UUID> inputUuids, UUID loggedUserUuid) {
         TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = createAdditionalWhereClauseForBulkDeleteBatch(inputUuids);
         List<UUID> permittedUuids = cryptographicKeyItemRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, null, null);
         List<UUID> nonPermittedUuids = new ArrayList<>(inputUuids);
@@ -653,6 +668,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
         for (UUID nonPermittedUuid : nonPermittedUuids) {
             logger.error("Unable to delete cryptographic key item {}. The cryptographic key item cannot be found or cannot be authorized for deletion.", nonPermittedUuid);
+            notificationProducer.produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM, nonPermittedUuid,
+                    NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
+                    "Unable to delete cryptographic key item " + nonPermittedUuid,
+                    "The cryptographic key item cannot be found or cannot be authorized for deletion.");
         }
         return permittedUuids;
     }
@@ -661,11 +680,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private SecurityFilter createSecurityFilterFor(@NonNull Resource resource, @NonNull ResourceAction action,
                                                    @Nullable Resource parentResource, @Nullable ResourceAction parentAction, @Nullable String parentRefProperty) {
         SecurityFilter filter = SecurityFilter.create();
-        Map<String, String> properties = new HashMap<>(Map.of("name", resource.getCode(), "action", action.getCode()));
-        if (parentResource != null && parentAction != null) {
-            properties.put("parentName", parentResource.getCode());
-            properties.put("parentAction", parentAction.getCode());
-        }
+        Map<String, String> properties = new HashMap<>(Map.of(
+                "name", resource.getCode(),
+                "action", action.getCode(),
+                "parentName", parentResource != null ? parentResource.getCode() : Resource.NONE.getCode(),
+                "parentAction", parentAction != null ? parentAction.getCode() : ResourceAction.NONE.getCode()
+        ));
         objectFilterAspect.populateSecurityFilter(properties, filter);
 
         if (parentRefProperty != null) {

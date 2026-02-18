@@ -66,8 +66,9 @@ public class ObjectFilterAspect {
     /**
      * Populates the security filter with the result of OPA object access invocation.
      * Use this method directly only in very specific scenarios, such as when a resource has two parents.
+     * Prefer {@code ExternalAuthorization} annotation instead.
      *
-     * @param properties mandatory properties: <it>name</it>, <it>action</it>; optional properties: <it>parentName</it>, <it>parentAction</it>
+     * @param properties mandatory properties: {@code name}, {@code action}, {@code parentName}, {@code parentAction}
      * @param secFilter security filter to populate
      */
     public void populateSecurityFilter(Map<String, String> properties, SecurityFilter secFilter) {

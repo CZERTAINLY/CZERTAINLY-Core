@@ -17,6 +17,7 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.*;
 
@@ -55,6 +57,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     @Autowired
     private OwnerAssociationRepository ownerAssociationRepository;
+    @MockitoBean
+    private NotificationProducer notificationProducer;
 
     private Group group;
     private Connector connector;
@@ -752,10 +756,11 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         // UUIDs to delete: publicKeyItem.uuid (from 'key'), itemToDelete.uuid, itemNoToken.uuid, and a random one
         List<String> uuidsToDelete = new ArrayList<>();
+        UUID nonExistingUuid = UUID.randomUUID();
         uuidsToDelete.add(publicKeyItem.getUuid().toString());
         uuidsToDelete.add(itemToDelete.getUuid().toString());
         uuidsToDelete.add(itemNoToken.getUuid().toString());
-        uuidsToDelete.add(UUID.randomUUID().toString());
+        uuidsToDelete.add(nonExistingUuid.toString());
 
         // Perform deletion
         cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), uuidsToDelete);
@@ -774,6 +779,15 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         // 3. 'keyNoToken' should be deleted, and it should have worked even without token
         Assertions.assertTrue(cryptographicKeyRepository.findById(keyNoToken.getUuid()).isEmpty());
         Assertions.assertTrue(cryptographicKeyItemRepository.findById(itemNoToken.getUuid()).isEmpty());
+
+        Mockito.verify(notificationProducer, Mockito.times(1)).produceInternalNotificationMessage(
+                Mockito.eq(Resource.CRYPTOGRAPHIC_KEY_ITEM),
+                Mockito.eq(nonExistingUuid),
+                Mockito.any(),
+                Mockito.contains("Unable to delete cryptographic key item"),
+                Mockito.anyString()
+        );
+
     }
 
     @Test

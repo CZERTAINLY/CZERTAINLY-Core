@@ -27,7 +27,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
     @EntityGraph(attributePaths = {"key", "key.tokenProfile", "key.groups", "key.owner"})
     List<CryptographicKeyItem> findFullByUuidInOrderByCreatedAtDesc(List<UUID> uuids);
 
-    @EntityGraph(attributePaths = {"key"})
+    @EntityGraph(attributePaths = {"key", "key.items"})
     List<CryptographicKeyItem> findWithKeyByUuidIn(List<UUID> uuids);
 
     List<CryptographicKeyItem> findByKeyUuidIn(List<UUID> keyUuids);
