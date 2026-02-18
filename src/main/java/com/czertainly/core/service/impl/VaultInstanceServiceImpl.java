@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -119,7 +120,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     @Override
     @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.LIST)
     public VaultInstanceListResponseDto listVaultInstances(SearchRequestDto request, SecurityFilter securityFilter) {
-        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
         List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(), predicate, p,  (root, cb) -> cb.desc(root.get(VaultInstance_.CREATED))).stream().map(VaultInstance::mapToDto).toList();
         VaultInstanceListResponseDto response = new VaultInstanceListResponseDto();
@@ -180,5 +181,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         return searchFieldDataByGroupDtos;
     }
 
+    @Override
+    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) {
+        // TODO: Get the attributes from connector API based on the connector UUID
+        return List.of();
+    }
 
 }

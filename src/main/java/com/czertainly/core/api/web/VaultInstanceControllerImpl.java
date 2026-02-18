@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.vault.VaultInstanceListResponseDto;
 import com.czertainly.api.model.core.vault.VaultInstanceRequestDto;
 import com.czertainly.api.model.core.vault.VaultInstanceUpdateRequestDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.VaultInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,13 +35,14 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
     }
 
     @Override
-    public List<BaseAttribute> listVaultInstanceAttributes() {
-        return List.of();
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) {
+        return vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.DETAIL)
-    public VaultInstanceDetailDto getVaultInstanceDetails(UUID uuid) throws ConnectorException, NotFoundException, AttributeException {
+    public VaultInstanceDetailDto getVaultInstanceDetails(@LogResource(uuid = true) UUID uuid) throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.getVaultInstance(uuid);
     }
 
@@ -52,7 +54,7 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.DELETE)
-    public void deleteVaultInstance(UUID uuid) throws NotFoundException {
+    public void deleteVaultInstance(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         vaultInstanceService.deleteVaultInstance(uuid);
     }
 
@@ -64,7 +66,7 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.UPDATE)
-    public VaultInstanceDetailDto updateVaultInstance(UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException {
+    public VaultInstanceDetailDto updateVaultInstance(@LogResource(uuid = true) UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException {
         return vaultInstanceService.updateVaultInstance(uuid, vaultInstanceRequest);
     }
 
