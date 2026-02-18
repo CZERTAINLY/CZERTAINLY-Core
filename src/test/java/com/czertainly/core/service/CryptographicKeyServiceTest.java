@@ -749,10 +749,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         keyNoToken.setItems(Set.of(itemNoToken));
         cryptographicKeyRepository.saveAndFlush(keyNoToken);
 
-        // Stub connector for destroying the keys.
-        mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockConnectorDeleteKey();
 
         // UUIDs to delete: publicKeyItem.uuid (from 'key'), itemToDelete.uuid, itemNoToken.uuid, and a random one
         List<String> uuidsToDelete = new ArrayList<>();
@@ -787,7 +784,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 Mockito.contains("Unable to delete cryptographic key item"),
                 Mockito.anyString()
         );
-
     }
 
     @Test
@@ -804,6 +800,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
             uuidsToDelete.add(item.getUuid());
             keyUuids.add(key.getUuid());
         }
+
+        mockConnectorDeleteKey();
 
         // Perform deletion
         cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), uuidsToDelete.stream().map(UUID::toString).toList());
@@ -827,6 +825,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         forbiddenKey.setItems(Set.of(forbiddenKeyItem));
         cryptographicKeyRepository.saveAndFlush(forbiddenKey);
 
+        mockConnectorDeleteKey();
+
         // Reject key item deletion for the forbidden key.
         mockOpaAccess(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.DELETE, List.of(key.getUuid().toString()), List.of(forbiddenKeyUuid.toString()));
 
@@ -845,6 +845,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         // Reject key item deletion for the parent token instance.
         mockOpaAccess(Resource.TOKEN, ResourceAction.MEMBERS, List.of(), List.of(tokenInstanceReference.getUuid().toString()));
 
+        mockConnectorDeleteKey();
+
         // Should not throw exception, but log error for the forbidden UUID
         cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
                 List.of(privateKeyItem.getUuid().toString()));
@@ -858,12 +860,20 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         // Reject key item deletion for the parent token profile.
         mockOpaAccess(Resource.TOKEN_PROFILE, ResourceAction.MEMBERS, List.of(), List.of(tokenProfile.getUuid().toString()));
 
+        mockConnectorDeleteKey();
+
         // Should not throw exception, but log error for the forbidden UUID
         cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
                 List.of(privateKeyItem.getUuid().toString()));
 
         Assertions.assertDoesNotThrow(
                 () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
+    }
+
+    private void mockConnectorDeleteKey() {
+        mockServer.stubFor(WireMock
+                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
+                .willReturn(WireMock.ok()));
     }
 
     private CryptographicKey createKey(String name, TokenProfile tokenProfile, TokenInstanceReference tokenInstanceReference) {

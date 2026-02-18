@@ -577,6 +577,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
         int totalToDelete = keyItemUuids.size();
         int deletedCount = 0;
+        List<SecurityFilter> filters = List.of(filterForTokenInstance, filterForTokenProfile);
 
         // Process bulk deletion in batches. Every batch gets its own transaction.
         for (int i = 0; i < totalToDelete; i += bulkDeleteBatchSize) {
@@ -585,7 +586,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
             TransactionStatus txStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
             try {
-                deletedCount += deleteKeyItemsBatch(List.of(filterForTokenInstance, filterForTokenProfile), batchUuids, loggedUserUuid);
+                deletedCount += deleteKeyItemsBatch(filters, batchUuids, loggedUserUuid);
                 transactionManager.commit(txStatus);
             } catch (Exception e) {
                 transactionManager.rollback(txStatus);
@@ -605,8 +606,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         // 1. Check permissions for two parents: TokenInstance/MEMBERS and TokenProfile/MEMBERS
         List<UUID> permittedUuids = batchUuids;
         for (SecurityFilter filter : filters) {
-            List<UUID> inputUuids = permittedUuids;
-            permittedUuids = filterKeyItemsBySecurityFilter(filter, inputUuids, loggedUserUuid);
+            permittedUuids = filterKeyItemsBySecurityFilter(filter, permittedUuids, loggedUserUuid);
         }
 
         if (permittedUuids.isEmpty()) {
@@ -649,7 +649,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             objectAssociationService.bulkRemoveObjectAssociations(Resource.CRYPTOGRAPHIC_KEY, keyUuidsToDelete);
             cryptographicKeyRepository.deleteAllById(keyUuidsToDelete);
         }
-        return keyItems.size();
+
+        return permittedUuids.size();
     }
 
     private static TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> createAdditionalWhereClauseForBulkDeleteBatch(List<UUID> batchUuids) {
