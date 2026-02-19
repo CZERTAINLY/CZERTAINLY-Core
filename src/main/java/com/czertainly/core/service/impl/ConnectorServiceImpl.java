@@ -14,6 +14,8 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.*;
+import com.czertainly.api.model.core.connector.v2.ConnectInfo;
+import com.czertainly.api.model.core.connector.v2.ConnectInfoV1;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -250,6 +252,22 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
     public List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException {
+        var connectInfos = connectorServiceV2.connect(request);
+
+        List<ConnectDto> connectDtos = new ArrayList<>();
+        for (ConnectInfo connectInfo : connectInfos) {
+            if (connectInfo.getVersion() != ConnectorVersion.V1) {
+                continue;
+            }
+
+            ConnectInfoV1 connectInfoV1 = (ConnectInfoV1) connectInfo;
+            for ( : connectInfoV1.getFunctionGroups())
+
+            ConnectDto connectDto = new ConnectDto();
+            connectDto.setFunctionGroup(connectInfo.getFunctionGroup());
+            connectDtos.add(connectDto);
+        }
+
         ConnectorDto dto = new ConnectorDto();
         dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         dto.setAuthType(request.getAuthType());

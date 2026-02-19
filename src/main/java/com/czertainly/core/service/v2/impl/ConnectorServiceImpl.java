@@ -207,6 +207,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
     public List<ConnectInfo> connect(ConnectRequestDto request) {
         List<ConnectInfo> connectInfos = new ArrayList<>();
         for (ConnectorAdapter connectorAdapter : connectorAdapters.values()) {
