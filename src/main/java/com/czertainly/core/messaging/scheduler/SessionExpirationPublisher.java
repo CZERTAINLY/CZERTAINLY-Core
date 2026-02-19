@@ -17,6 +17,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 
 @Component
@@ -53,23 +54,32 @@ public class SessionExpirationPublisher {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, "SPRING_SECURITY_CONTEXT");
             ps.setLong(2, now);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String sessionId = rs.getString("SESSION_ID");
-                    SecurityContext securityContext = null;
-                    byte[] attributeBytes = rs.getBytes("ATTRIBUTE_BYTES");
-                    if (attributeBytes != null) {
-                        securityContext = getSecurityContext(attributeBytes, securityContext, sessionId);
-                    }
-                    logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION),
-                            "Processing expired session ID: {}", sessionId);
-                    OAuth2Util.endUserSession(securityContext);
-                    sessionRepository.deleteById(sessionId);
-                }
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                processExpiredSession(rs);
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),"Failed to process expired sessions: {}", e.getMessage(), e);
+        }
+    }
+
+    private void processExpiredSession(ResultSet rs) {
+        String sessionId = null;
+        try {
+            sessionId = rs.getString("SESSION_ID");
+            SecurityContext securityContext = null;
+            byte[] attributeBytes = rs.getBytes("ATTRIBUTE_BYTES");
+            if (attributeBytes != null) {
+                securityContext = getSecurityContext(attributeBytes, securityContext, sessionId);
+            }
+            logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION),
+                    "Processing expired session ID: {}", sessionId);
+            OAuth2Util.endUserSession(securityContext);
+            sessionRepository.deleteById(sessionId);
+        } catch (Exception ex) {
             logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),
-                    "Failed to query expired sessions: {}", e.getMessage(), e);
+                    "Failed to process expired session {}: {}",
+                    sessionId, ex.getMessage(), ex);
         }
     }
 

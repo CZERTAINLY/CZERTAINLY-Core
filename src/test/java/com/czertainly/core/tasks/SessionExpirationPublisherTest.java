@@ -6,7 +6,6 @@ import org.mockito.Mockito;
 import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import javax.sql.DataSource;
-import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

@@ -71,7 +71,7 @@ spring:
     active: test
   session:
     jdbc:
-      initialize-schema: always
+      initialize-schema: never
   threads:
     virtual:
       enabled: true
