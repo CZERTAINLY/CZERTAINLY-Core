@@ -31,9 +31,12 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.ObjectFilterAspect;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -47,10 +50,17 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
@@ -83,6 +93,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         return result.stream().toList();
     }
 
+    @Value("${spring.jpa.properties.hibernate.jdbc.batch_size:500}")
+    private int bulkDeleteBatchSize;
+
+    private PlatformTransactionManager transactionManager;
+    private ObjectFilterAspect objectFilterAspect;
+
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
@@ -93,6 +109,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private PermissionEvaluator permissionEvaluator;
     private CertificateService certificateService;
     private ResourceObjectAssociationService objectAssociationService;
+    private NotificationProducer notificationProducer;
 
     private UserManagementApiClient userManagementApiClient;
     // --------------------------------------------------------------------------------
@@ -103,6 +120,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private GroupRepository groupRepository;
+
+    @Autowired
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
+
+    @Autowired
+    public void setObjectFilterAspect(ObjectFilterAspect objectFilterAspect) {
+        this.objectFilterAspect = objectFilterAspect;
+    }
 
     @Autowired
     public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
@@ -145,6 +172,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
+    }
+
+    @Autowired
     public void setCryptographicKeyItemRepository(CryptographicKeyItemRepository cryptographicKeyItemRepository) {
         this.cryptographicKeyItemRepository = cryptographicKeyItemRepository;
     }
@@ -176,7 +208,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
     public CryptographicKeyResponseDto listCryptographicKeys(SecurityFilter filter, SearchRequestDto request) {
-        filter.setParentRefProperty("tokenInstanceReferenceUuid");
+        filter.setParentRefProperty(CryptographicKey_.tokenInstanceReferenceUuid.getName());
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
@@ -223,7 +255,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST)
     public List<KeyDto> listKeyPairs(Optional<String> tokenProfileUuid, SecurityFilter filter) {
         logger.debug("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
-        filter.setParentRefProperty("tokenInstanceReferenceUuid");
+        filter.setParentRefProperty(CryptographicKey_.tokenInstanceReferenceUuid.getName());
 
         TriFunction<Root<CryptographicKey>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = null;
         if (tokenProfileUuid.isPresent() && !tokenProfileUuid.get().isEmpty()) {
@@ -535,30 +567,132 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
-    public void deleteKeyItems(List<String> keyItemUuids) throws ConnectorException {
-        logger.debug("Request to deleted the key items with UUIDs {}", keyItemUuids);
-        for (String uuid : keyItemUuids) {
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void deleteKeyItems(SecurityFilter filterForTokenInstance, List<String> keyItemUuids) throws ConnectorException {
+        filterForTokenInstance.setParentRefProperty(CryptographicKey_.tokenInstanceReferenceUuid.getName());
+        SecurityFilter filterForTokenProfile = createSecurityFilterFor(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.DELETE, Resource.TOKEN_PROFILE, ResourceAction.MEMBERS,
+                CryptographicKey_.tokenProfileUuid.getName());
+
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+        int totalToDelete = keyItemUuids.size();
+        int deletedCount = 0;
+        List<SecurityFilter> filters = List.of(filterForTokenInstance, filterForTokenProfile);
+
+        // Process bulk deletion in batches. Every batch gets its own transaction.
+        for (int i = 0; i < totalToDelete; i += bulkDeleteBatchSize) {
+            int end = Math.min(i + bulkDeleteBatchSize, totalToDelete);
+            List<UUID> batchUuids = keyItemUuids.subList(i, end).stream().map(UUID::fromString).toList();
+
+            TransactionStatus txStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
             try {
-                CryptographicKeyItem keyItem = getCryptographicKeyItem(UUID.fromString(uuid));
-                CryptographicKey key = keyItem.getKey();
-                if (keyItem.getKey().getTokenProfile() != null) {
-                    permissionEvaluator.tokenProfile(keyItem.getKey().getTokenProfile().getSecuredUuid());
-                }
-                if (key.getTokenInstanceReference() != null) {
-                    permissionEvaluator.tokenInstance(keyItem.getKey().getTokenInstanceReference().getSecuredUuid());
-                    destroyKeyFromConnector(key.getTokenInstanceReference(), keyItem.getKeyReferenceUuid());
-                }
-                attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
-                cryptographicKeyItemRepository.delete(keyItem);
-                key.getItems().remove(keyItem);
-                if (key.getItems().isEmpty()) {
-                    deleteKeyWithAssociations(key);
-                }
-            } catch (NotFoundException e) {
-                logger.warn(e.getMessage());
+                deletedCount += deleteKeyItemsBatch(filters, batchUuids, loggedUserUuid);
+                transactionManager.commit(txStatus);
+            } catch (Exception e) {
+                transactionManager.rollback(txStatus);
+                logger.error("Failed to process key item bulk deletion batch: {}", e.getMessage(), e);
+                notificationProducer.produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM,
+                        batchUuids.getFirst(),
+                        NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
+                        "Batch key deletion failed for " + batchUuids.size() + " key items",
+                        e.getMessage());
+
             }
         }
-        logger.info("Key Items deleted: {}", keyItemUuids);
+        logger.debug("Bulk deleted {} of {} key items.", deletedCount, totalToDelete);
+    }
+
+    private int deleteKeyItemsBatch(List<SecurityFilter> filters, List<UUID> batchUuids, UUID loggedUserUuid) throws ConnectorException {
+        // 1. Check permissions for two parents: TokenInstance/MEMBERS and TokenProfile/MEMBERS
+        List<UUID> permittedUuids = batchUuids;
+        for (SecurityFilter filter : filters) {
+            permittedUuids = filterKeyItemsBySecurityFilter(filter, permittedUuids, loggedUserUuid);
+        }
+
+        if (permittedUuids.isEmpty()) {
+            return 0;
+        }
+
+        // 2. Fetch cryptographic key items and the associated keys.
+        List<CryptographicKeyItem> keyItems = cryptographicKeyItemRepository.findWithKeyByUuidIn(permittedUuids);
+
+        // 3. Destroy the keys from the connector.
+        logger.debug("Going to delete key items with UUIDs {}", permittedUuids);
+        for (CryptographicKeyItem keyItem : keyItems) {
+            CryptographicKey key = keyItem.getKey();
+            if (key.getTokenInstanceReferenceUuid() != null) {
+                destroyKeyFromConnector(key.getTokenInstanceReference(), keyItem.getKeyReferenceUuid());
+            }
+        }
+
+        // 4. First work on the cryptographic keys.
+        List<CryptographicKey> keysToDelete = new ArrayList<>();
+        for (CryptographicKeyItem keyItem : keyItems) {
+            CryptographicKey key = keyItem.getKey();
+            key.getItems().remove(keyItem);
+            if (key.getItems().isEmpty()) {
+                key.setOwner(null);
+                key.getGroups().clear();
+                keysToDelete.add(key);
+            }
+        }
+
+        // 5. Get rid of cryptographic key items.
+        attributeEngine.bulkDeleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, permittedUuids);
+        cryptographicKeyItemRepository.deleteAllById(permittedUuids);
+
+        // 6. Finally, delete empty keys.
+        if (!keysToDelete.isEmpty()) {
+            List<UUID> keyUuidsToDelete = keysToDelete.stream().map(CryptographicKey::getUuid).toList();
+            certificateService.bulkClearKeyAssociations(keyUuidsToDelete);
+            attributeEngine.bulkDeleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyUuidsToDelete);
+            objectAssociationService.bulkRemoveObjectAssociations(Resource.CRYPTOGRAPHIC_KEY, keyUuidsToDelete);
+            cryptographicKeyRepository.deleteAllById(keyUuidsToDelete);
+        }
+
+        return permittedUuids.size();
+    }
+
+    private static TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> createAdditionalWhereClauseForBulkDeleteBatch(List<UUID> batchUuids) {
+        return ((root, cb, cr) -> {
+            var in = cb.in(root.get(CryptographicKeyItem_.uuid.getName()));
+            batchUuids.forEach(in::value);
+            return in;
+        });
+    }
+
+    private List<UUID> filterKeyItemsBySecurityFilter(SecurityFilter filter, List<UUID> inputUuids, UUID loggedUserUuid) {
+        TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = createAdditionalWhereClauseForBulkDeleteBatch(inputUuids);
+        List<UUID> permittedUuids = cryptographicKeyItemRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, null, null);
+        List<UUID> nonPermittedUuids = new ArrayList<>(inputUuids);
+        nonPermittedUuids.removeAll(permittedUuids);
+
+        for (UUID nonPermittedUuid : nonPermittedUuids) {
+            logger.error("Unable to delete cryptographic key item {}. The cryptographic key item cannot be found or cannot be authorized for deletion.", nonPermittedUuid);
+            notificationProducer.produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM, nonPermittedUuid,
+                    NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
+                    "Unable to delete cryptographic key item " + nonPermittedUuid,
+                    "The cryptographic key item cannot be found or cannot be authorized for deletion.");
+        }
+        return permittedUuids;
+    }
+
+
+    private SecurityFilter createSecurityFilterFor(@NonNull Resource resource, @NonNull ResourceAction action,
+                                                   @Nullable Resource parentResource, @Nullable ResourceAction parentAction, @Nullable String parentRefProperty) {
+        SecurityFilter filter = SecurityFilter.create();
+        Map<String, String> properties = new HashMap<>(Map.of(
+                "name", resource.getCode(),
+                "action", action.getCode(),
+                "parentName", parentResource != null ? parentResource.getCode() : Resource.NONE.getCode(),
+                "parentAction", parentAction != null ? parentAction.getCode() : ResourceAction.NONE.getCode()
+        ));
+        objectFilterAspect.populateSecurityFilter(properties, filter);
+
+        if (parentRefProperty != null) {
+            filter.setParentRefProperty(parentRefProperty);
+        }
+        return filter;
     }
 
     @Override
@@ -1274,5 +1408,4 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.debug("Request to {} the key with UUID {}{}", operation, keyUuid, tokenInstanceMessage);
         return key;
     }
-
 }

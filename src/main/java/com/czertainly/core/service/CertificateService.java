@@ -231,10 +231,16 @@ public interface CertificateService extends ResourceExtensionService  {
     List<BaseAttribute> getCsrGenerationAttributes();
 
     /**
-     * Unassociate the given key from all the certificate
-     * @param keyUuid UUID of the key object to be unassociated
+     * Unassociate the given key from all the certificates.
+     * @param keyUuid UUID of the key object or alternative key object to be unassociated
      */
     void clearKeyAssociations(UUID keyUuid);
+
+    /**
+     * Unassociate the given keys from all the certificates.
+     * @param keyUuids list of UUID of the key objects or alternative key objects to be unassociated
+     */
+    void bulkClearKeyAssociations(List<UUID> keyUuids);
 
     /**
      * Function to update the certificate with the keys if known

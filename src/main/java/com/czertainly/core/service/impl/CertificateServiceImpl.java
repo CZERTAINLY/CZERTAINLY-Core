@@ -1460,19 +1460,17 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
+    @Transactional
     public void clearKeyAssociations(UUID keyUuid) {
-        List<Certificate> certificates = certificateRepository.findByKeyUuid(keyUuid);
-        for (Certificate certificate : certificates) {
-            certificate.setKey(null);
-            certificate.setKeyUuid(null);
-            certificateRepository.save(certificate);
-        }
-        List<Certificate> altCertificates = certificateRepository.findByAltKeyUuid(keyUuid);
-        for (Certificate certificate : altCertificates) {
-            certificate.setAltKey(null);
-            certificate.setAltKeyUuid(null);
-            certificateRepository.save(certificate);
-        }
+        certificateRepository.clearKeyAssociations(keyUuid);
+        certificateRepository.clearAltKeyAssociations(keyUuid);
+    }
+
+    @Override
+    @Transactional
+    public void bulkClearKeyAssociations(List<UUID> keyUuids) {
+        certificateRepository.clearKeyAssociationsIn(keyUuids);
+        certificateRepository.clearAltKeyAssociationsIn(keyUuids);
     }
 
     @Override
