@@ -16,6 +16,8 @@ import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.oid.OidCategory;
+import com.czertainly.api.model.core.secret.SecretState;
+import com.czertainly.api.model.core.secret.SecretType;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeAccount_;
 import com.czertainly.core.dao.entity.acme.AcmeProfile_;
@@ -164,7 +166,14 @@ public enum FilterField {
 
     // Vault Instance
     VAULT_INSTANCE_NAME(Resource.VAULT, null, null, VaultInstance_.name, "Name", SearchFieldTypeEnum.STRING),
-    VAULT_INSTANCE_CONNECTOR_NAME(Resource.VAULT, Resource.CONNECTOR, List.of(VaultInstance_.connector), Connector_.name, "Connector Name", SearchFieldTypeEnum.LIST)
+    VAULT_INSTANCE_CONNECTOR_NAME(Resource.VAULT, Resource.CONNECTOR, List.of(VaultInstance_.connector), Connector_.name, "Connector Name", SearchFieldTypeEnum.LIST),
+
+    // Secret
+    SECRET_NAME(Resource.SECRET, null, null, Secret_.name, "Name", SearchFieldTypeEnum.STRING),
+    SECRET_TYPE(Resource.SECRET, null, null, Secret_.type, "Type", SearchFieldTypeEnum.LIST, SecretType.class),
+    SECRET_STATE(Resource.SECRET, null, null, Secret_.state, "State", SearchFieldTypeEnum.LIST, SecretState.class),
+    SECRET_ENABLED(Resource.SECRET, null, null, Secret_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
+    SECRET_SOURCE_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.sourceVaultProfile), VaultProfile_.name, "Source Vault Profile", SearchFieldTypeEnum.LIST)
 
     ;
 

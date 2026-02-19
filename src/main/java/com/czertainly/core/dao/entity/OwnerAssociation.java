@@ -35,6 +35,12 @@ public class OwnerAssociation extends ResourceObjectAssociation {
     @SQLRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
     private CryptographicKey key;
 
+    @JsonIgnore
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "object_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @SQLRestriction("resource = 'SECRET'")
+    private Secret secret;
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
