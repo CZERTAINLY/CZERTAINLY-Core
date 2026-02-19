@@ -7,12 +7,14 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.connector.*;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.*;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
@@ -150,162 +152,34 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
     public ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException {
-        Connector connector = getConnectorEntity(uuid);
-        ConnectorDto dto = connector.mapToDto();
-
-        try {
-            List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(dto);
-            for (FunctionGroupDto i : dto.getFunctionGroups()) {
-                for (InfoResponse j : functions) {
-                    if (i.getFunctionGroupCode() == j.getFunctionGroupCode()) {
-                        i.setEndPoints(j.getEndPoints());
-                    }
-                }
-            }
-            if (!connector.getStatus().equals(ConnectorStatus.WAITING_FOR_APPROVAL)) {
-                connector.setStatus(ConnectorStatus.CONNECTED);
-            }
-            connectorRepository.save(connector);
-        } catch (ConnectorCommunicationException e) {
-            connector.setStatus(ConnectorStatus.OFFLINE);
-            connectorRepository.save(connector);
-            dto.setStatus(ConnectorStatus.OFFLINE);
-            dto.setFunctionGroups(new ArrayList<>());
-
-            logger.error("Unable to fetch list of supported functions of connector " + dto.getName(), Exceptions.unwrap(e));
-        }
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CONNECTOR, uuid.getValue()));
-        return dto;
+        var connectorDetailDto = connectorServiceV2.getConnector(uuid);
+        return convertToDtoV1(connectorDetailDto);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
-    public Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException {
-        return connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-    }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
     public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
-        return createNewConnector(request, ConnectorStatus.CONNECTED);
-    }
+        var requestV2 = new com.czertainly.api.model.core.connector.v2.ConnectorRequestDto();
+        requestV2.setName(request.getName());
+        requestV2.setUrl(request.getUrl());
+        requestV2.setVersion(ConnectorVersion.V1);
+        requestV2.setAuthType(request.getAuthType());
+        requestV2.setAuthAttributes(request.getAuthAttributes());
+        requestV2.setCustomAttributes(request.getCustomAttributes());
 
-    //Internal and anonymous user only - Not exposed through service
-    public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
-        return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
-    }
-
-    private ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException(ValidationError.create("name must not be empty"));
-        }
-        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
-
-        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
-        if (connectorRepository.findByName(request.getName()).isPresent()) {
-            throw new AlreadyExistException(Connector.class, request.getName());
-        }
-
-        ConnectorDto connectorDto = new ConnectorDto();
-        connectorDto.setName(request.getName());
-        connectorDto.setUrl(request.getUrl());
-        connectorDto.setAuthType(request.getAuthType());
-        connectorDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
-
-        List<ConnectDto> connectResponse = validateConnector(connectorDto);
-        List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
-        for (ConnectDto dto : connectResponse) {
-            functionGroupDtos.add(dto.getFunctionGroup());
-        }
-
-        Connector connector = new Connector();
-        connector.setName(request.getName());
-        connector.setUrl(request.getUrl());
-        connector.setAuthType(request.getAuthType());
-        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
-        connector.setStatus(connectorStatus);
-        connectorRepository.save(connector);
-
-        setFunctionGroups(functionGroupDtos, connector);
-
-        ConnectorDto dto = connector.mapToDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
-        return dto;
-    }
-
-
-    @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
-    public ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException {
-
-        if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException(ValidationError.create("name must not be empty"));
-        }
-
-        if (request.getFunctionGroups() == null) {
-            throw new ValidationException(ValidationError.create("function groups must not be empty"));
-        }
-
-        if (connectorRepository.findByName(request.getName()).isPresent()) {
-            throw new AlreadyExistException(Connector.class, request.getName());
-        }
-
-        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), request.getAuthAttributes());
-
-        Connector connector = new Connector();
-        connector.setName(request.getName());
-        connector.setUrl(request.getUrl());
-        connector.setAuthType(request.getAuthType());
-        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
-        connector.setStatus(connectorStatus);
-        connectorRepository.save(connector);
-
-        setFunctionGroups(request.getFunctionGroups(), connector);
-
-        return connector.mapToDto();
+        return convertToDtoV1(connectorServiceV2.createConnector(requestV2));
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
     public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
-        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
-        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
-                request.getAuthType(),
-                AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        var requestV2 = new com.czertainly.api.model.core.connector.v2.ConnectorUpdateRequestDto();
+        requestV2.setUrl(request.getUrl());
+        requestV2.setVersion(ConnectorVersion.V1);
+        requestV2.setAuthType(request.getAuthType());
+        requestV2.setAuthAttributes(request.getAuthAttributes());
+        requestV2.setCustomAttributes(request.getCustomAttributes());
 
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        if (request.getUrl() != null) {
-            connector.setUrl(request.getUrl());
-        }
-        if (request.getAuthType() != null) {
-            connector.setAuthType(request.getAuthType());
-            connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
-        }
-
-        connectorRepository.save(connector);
-
-        List<ConnectDto> connectResponse = validateConnector(connector.mapToDto());
-        List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
-        for (ConnectDto dto : connectResponse) {
-            functionGroupDtos.add(dto.getFunctionGroup());
-        }
-        if (!connector.getStatus().equals(ConnectorStatus.WAITING_FOR_APPROVAL)) {
-            connector.setStatus(ConnectorStatus.CONNECTED);
-        }
-        setFunctionGroups(functionGroupDtos, connector);
-        connectorRepository.save(connector);
-
-        ConnectorDto dto = connector.mapToDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
-
-        return dto;
+        return convertToDtoV1(connectorServiceV2.editConnector(uuid, requestV2));
     }
 
     private Set<Connector2FunctionGroup> setFunctionGroups(List<FunctionGroupDto> functionGroups, Connector connector) throws NotFoundException {
@@ -326,7 +200,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
             } else {
                 addFunctionGroupToConnector(functionGroup, dto.getKinds(), connector);
-                logger.info("Added function group {} to connector {}", functionGroup.getName(), connector.getName());
+                logger.debug("Added function group {} to connector {}", functionGroup.getName(), connector.getName());
             }
         }
 
@@ -340,7 +214,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 logger.debug("Connector {} still has function group {} - not removed", connector.getName(), dto.get().getName());
             } else {
                 removeFunctionGroupFromConnector(c2fg.getFunctionGroup(), connector);
-                logger.info("Removed function group {} from connector {}", c2fg.getFunctionGroup().getName(), connector.getName());
+                logger.debug("Removed function group {} from connector {}", c2fg.getFunctionGroup().getName(), connector.getName());
             }
         }
 
@@ -802,6 +676,19 @@ public class ConnectorServiceImpl implements ConnectorService {
             }
         }
         return connectorDtos;
+    }
+
+    private ConnectorDto convertToDtoV1(ConnectorDetailDto connectorDetailDto) {
+        ConnectorDto dto = new ConnectorDto();
+        dto.setUuid(connectorDetailDto.getUuid());
+        dto.setName(connectorDetailDto.getName());
+        dto.setUrl(connectorDetailDto.getUrl());
+        dto.setAuthType(connectorDetailDto.getAuthType());
+        dto.setAuthAttributes(connectorDetailDto.getAuthAttributes());
+        dto.setFunctionGroups(connectorDetailDto.getFunctionGroups());
+        dto.setCustomAttributes(connectorDetailDto.getCustomAttributes());
+
+        return dto;
     }
 
 }

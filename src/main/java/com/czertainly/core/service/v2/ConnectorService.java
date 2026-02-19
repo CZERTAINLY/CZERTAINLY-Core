@@ -1,5 +1,7 @@
 package com.czertainly.core.service.v2;
 
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -14,23 +16,34 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ResourceExtensionService;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface ConnectorService extends ResourceExtensionService {
 
     PaginationResponseDto<ConnectorDto> listConnectors(SecurityFilter filter, SearchRequestDto request);
 
-    ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException;
+    ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    ConnectorDetailDto createConnector(ConnectorRequestDto request);
+    ConnectorDetailDto createConnector(ConnectorRequestDto request) throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException;
 
-    ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request);
+    /**
+     * This method is used to create a new Connector with status WAITING_FOR_APPROVAL. It is used by the ConnectorRegistrationService when a new Connector is registered by itself.
+     * **WARNING:** Should not use as replacement for createConnector method, as it will create connector without any authorization check
+     * @param request ConnectorRequestDto containing the details of the Connector to be created. The status of the Connector will be set to WAITING_FOR_APPROVAL.
+     * @return ConnectorDetailDto containing the details of the created Connector.
+     * @throws ConnectorException if there is an error while creating the Connector.
+     * @throws AlreadyExistException if a Connector with the same name already exists.
+     * @throws AttributeException if there is an error with the attributes of the Connector.
+     * @throws NotFoundException if the required resources for creating the Connector are not found.
+     */
+    ConnectorDetailDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException;
+
+    ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException;
 
     void deleteConnector(SecuredUUID uuid) throws NotFoundException;
 
     List<ConnectInfo> connect(ConnectRequestDto request);
 
-    ConnectInfo reconnect(SecuredUUID uuid);
+    ConnectInfo reconnect(SecuredUUID uuid) throws NotFoundException;
 
     void approve(SecuredUUID uuid) throws NotFoundException;
 

@@ -1,10 +1,12 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorApiClientDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -39,7 +41,8 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     private String name;
 
     @Column(name = "version")
-    private String version;
+    @Enumerated(EnumType.STRING)
+    private ConnectorVersion version;
 
     @Column(name = "url")
     private String url;
@@ -110,6 +113,18 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
             functionGroupDto.setKinds(MetaDefinitions.deserializeArrayString(f.getKinds()));
             return functionGroupDto;
         }).toList());
+
+        return dto;
+    }
+
+    public ConnectorApiClientDto mapToApiClientDto() {
+        ConnectorApiClientDto dto = new ConnectorApiClientDto();
+        dto.setUuid(this.uuid);
+        dto.setName(this.name);
+        dto.setUrl(this.url);
+        dto.setStatus(this.status);
+        dto.setAuthType(authType);
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
 
         return dto;
     }

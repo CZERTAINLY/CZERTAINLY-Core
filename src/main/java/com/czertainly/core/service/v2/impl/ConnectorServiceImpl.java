@@ -1,11 +1,9 @@
 package com.czertainly.core.service.v2.impl;
 
+import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.clients.v2.HealthApiClient;
 import com.czertainly.api.clients.v2.InfoApiClient;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
@@ -14,6 +12,7 @@ import com.czertainly.api.model.client.connector.v2.HealthInfo;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.v2.*;
@@ -28,7 +27,10 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.ConnectorAuthService;
+import com.czertainly.core.service.handler.ConnectorAdapter;
 import com.czertainly.core.service.v2.ConnectorService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -36,6 +38,7 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,11 +46,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import reactor.core.Exceptions;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.CONNECTOR)
@@ -56,18 +57,34 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
 
-    private InfoApiClient infoApiClient;
-    private HealthApiClient healthApiClient;
-    private ConnectorRepository connectorRepository;
+    private Map<String, ConnectorAdapter> connectorAdapters;
 
-    private AttributeEngine attributeEngine;
+    private InfoApiClient infoApiClient;
+    private ConnectorApiClient infoApiClientV1;
+    private HealthApiClient healthApiClient;
+
+    private ConnectorRepository connectorRepository;
     private ComplianceProfileRepository complianceProfileRepository;
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
     private ConnectorInterfaceRepository connectorInterfaceRepository;
 
+    private ConnectorAuthService connectorAuthService;
+
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setConnectorAdapters(Map<String, ConnectorAdapter> connectorAdapters) {
+        this.connectorAdapters = connectorAdapters;
+    }
+
     @Autowired
     public void setInfoApiClient(InfoApiClient infoApiClient) {
         this.infoApiClient = infoApiClient;
+    }
+
+    @Autowired
+    public void setInfoApiClientV1(ConnectorApiClient infoApiClientV1) {
+        this.infoApiClientV1 = infoApiClientV1;
     }
 
     @Autowired
@@ -100,6 +117,11 @@ public class ConnectorServiceImpl implements ConnectorService {
         this.connectorInterfaceRepository = connectorInterfaceRepository;
     }
 
+    @Autowired
+    public void setConnectorAuthService(ConnectorAuthService connectorAuthService) {
+        this.connectorAuthService = connectorAuthService;
+    }
+
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public PaginationResponseDto<ConnectorDto> listConnectors(SecurityFilter filter, SearchRequestDto request) {
@@ -123,19 +145,58 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
-    public ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException {
+    public ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException {
         Connector connector = getConnectorEntity(uuid);
+
         ConnectorDetailDto dto = connector.mapToDetailDto();
+        ConnectorAdapter connectorAdapter = connectorAdapters.get(connector.getVersion().getCode());
+        try {
+            connectorAdapter.checkConnection(dto);
+        } catch (ConnectorCommunicationException e) {
+            connector.setStatus(ConnectorStatus.OFFLINE);
+            dto.setStatus(ConnectorStatus.OFFLINE);
+            connectorRepository.save(connector);
+
+            logger.warn("Connector is offline! Unable to fetch list of supported functions of connector " + dto.getName(), Exceptions.unwrap(e));
+        }
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CONNECTOR, uuid.getValue()));
+        return dto;
     }
 
     @Override
-    public ConnectorDetailDto createConnector(ConnectorRequestDto request) {
-        return null;
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
+    public ConnectorDetailDto createConnector(ConnectorRequestDto request) throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException {
+        return createNewConnector(request, ConnectorStatus.CONNECTED);
+    }
+
+    //Internal and anonymous user only - Should not use as replacement for createConnector method, as it will create connector in waiting for approval status without any authorization check
+    @Override
+    public ConnectorDetailDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
     }
 
     @Override
-    public ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) {
-        return null;
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
+    public ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
+        Connector connector = getConnectorEntity(uuid);
+
+        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
+        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
+                request.getAuthType(),
+                AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+
+        connector.setUrl(request.getUrl());
+        connector.setAuthType(request.getAuthType());
+        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        connectorRepository.save(connector);
+
+        ConnectorAdapter connectorAdapter = connectorAdapters.get(request.getVersion().getCode());
+        ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
+        connectorAdapter.updateConnectorFunctions(connector, connectInfo);
+
+        ConnectorDetailDto dto = connector.mapToDetailDto();
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
+        return dto;
     }
 
     @Override
@@ -147,12 +208,42 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     public List<ConnectInfo> connect(ConnectRequestDto request) {
-        return List.of();
+        List<ConnectInfo> connectInfos = new ArrayList<>();
+        for (ConnectorAdapter connectorAdapter : connectorAdapters.values()) {
+            ConnectInfo connectInfo;
+            try {
+                ConnectorApiClientDto apiClientDto = new ConnectorApiClientDto();
+                apiClientDto.setUrl(request.getUrl());
+                apiClientDto.setAuthType(request.getAuthType());
+                apiClientDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+
+                connectInfo = connectorAdapter.validateConnection(apiClientDto);
+            } catch (ConnectorException e) {
+                if (e instanceof ConnectorCommunicationException) {
+                    logger.debug("No connector of version {} is running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
+                    continue;
+                }
+                logger.warn("Unable to connect to connector of version {} running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
+                connectInfo = ConnectInfo.fromError(connectorAdapter.getVersion(), e.getMessage());
+            }
+
+            Connector connector = connectorRepository.findByUrlAndVersion(request.getUrl(), connectorAdapter.getVersion());
+            if (connector != null) {
+                connectInfo.setConnectorUuid(connector.getUuid());
+            }
+            connectInfos.add(connectInfo);
+        }
+
+        connectInfos.sort(Comparator.comparing(ConnectInfo::getVersion));
+        return connectInfos;
     }
 
     @Override
-    public ConnectInfo reconnect(SecuredUUID uuid) {
-        return null;
+    public ConnectInfo reconnect(SecuredUUID uuid) throws NotFoundException {
+        Connector connector = getConnectorEntity(uuid);
+        ConnectorAdapter connectorAdapter = connectorAdapters.get(connector.getVersion().getCode());
+
+
     }
 
     @Override
@@ -226,6 +317,41 @@ public class ConnectorServiceImpl implements ConnectorService {
     private Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException {
         return connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+    }
+
+    private ConnectorDetailDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        if (StringUtils.isBlank(request.getName())) {
+            throw new ValidationException(ValidationError.create("Connector name must not be empty"));
+        }
+        if (connectorRepository.findByName(request.getName()).isPresent()) {
+            throw new AlreadyExistException(Connector.class, request.getName());
+        }
+        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
+
+        ConnectorApiClientDto connectorApiDto = new ConnectorApiClientDto();
+        connectorApiDto.setName(request.getName());
+        connectorApiDto.setUrl(request.getUrl());
+        connectorApiDto.setAuthType(request.getAuthType());
+        connectorApiDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
+
+        ConnectorAdapter connectorAdapter = connectorAdapters.get(request.getVersion().getCode());
+        ConnectInfo connectInfo = connectorAdapter.validateConnection(connectorApiDto);
+
+        Connector connector = new Connector();
+        connector.setName(request.getName());
+        connector.setVersion(request.getVersion());
+        connector.setUrl(request.getUrl());
+        connector.setAuthType(request.getAuthType());
+        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        connector.setStatus(connectorStatus);
+        connectorRepository.save(connector);
+
+        connectorAdapter.updateConnectorFunctions(connector, connectInfo);
+
+        ConnectorDetailDto dto = connector.mapToDetailDto();
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
+        return dto;
     }
 
     private void deleteConnector(Connector connector) {
