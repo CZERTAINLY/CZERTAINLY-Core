@@ -26,7 +26,7 @@ env:
     type=sha,prefix=develop-,format=long,enable=${{ startsWith(github.ref, 'refs/heads/') }}
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: publish-${{ github.ref }}-harbor
   cancel-in-progress: true
 
 jobs:
