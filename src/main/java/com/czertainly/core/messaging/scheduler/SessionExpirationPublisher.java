@@ -17,7 +17,6 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.Instant;
 
 @Component
@@ -58,8 +57,8 @@ public class SessionExpirationPublisher {
             while (rs.next()) {
                 processExpiredSession(rs);
             }
-        } catch (SQLException e) {
-            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),"Failed to process expired sessions: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to process expired sessions: {}", e.getMessage(), e);
         }
     }
 
