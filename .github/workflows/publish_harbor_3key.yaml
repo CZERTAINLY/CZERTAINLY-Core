@@ -9,8 +9,8 @@ on:
 
 env:
   REGISTRY: harbor.3key.company
-  REGISTRY_USERNAME: ${{ secrets.HARBOR_USERNAME }}
-  REGISTRY_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+  REGISTRY_USERNAME: ${{ secrets.HARBOR_3KEY_USERNAME }}
+  REGISTRY_PASSWORD: ${{ secrets.HARBOR_3KEY_PASSWORD }}
   REGISTRY_PROVIDER: harbor2
   IMAGE: harbor.3key.company/czertainly/czertainly-core
   DOCKERFILE: ./Dockerfile
