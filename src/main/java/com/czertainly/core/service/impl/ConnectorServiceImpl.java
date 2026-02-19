@@ -1,8 +1,5 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.AttributeApiClient;
-import com.czertainly.api.clients.ConnectorApiClient;
-import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
@@ -15,6 +12,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.*;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -23,13 +21,14 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.service.ProxyService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 
@@ -38,93 +37,23 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.CONNECTOR)
 @Transactional
+@RequiredArgsConstructor
 public class ConnectorServiceImpl implements ConnectorService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
 
-    private ConnectorRepository connectorRepository;
-    private FunctionGroupRepository functionGroupRepository;
-    private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
-    private ConnectorApiClient connectorApiClient;
-    private AttributeApiClient attributeApiClient;
-    private HealthApiClient healthApiClient;
-    private CredentialRepository credentialRepository;
-    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
-    private ComplianceProfileRepository complianceProfileRepository;
-    private ComplianceProfileRuleRepository complianceProfileRuleRepository;
-    private ConnectorAuthService connectorAuthService;
-    private AttributeEngine attributeEngine;
-
-    @Autowired
-    public void setConnectorRepository(ConnectorRepository connectorRepository) {
-        this.connectorRepository = connectorRepository;
-    }
-
-    @Autowired
-    public void setFunctionGroupRepository(FunctionGroupRepository functionGroupRepository) {
-        this.functionGroupRepository = functionGroupRepository;
-    }
-
-    @Autowired
-    public void setConnector2FunctionGroupRepository(Connector2FunctionGroupRepository connector2FunctionGroupRepository) {
-        this.connector2FunctionGroupRepository = connector2FunctionGroupRepository;
-    }
-
-    @Autowired
-    public void setConnectorApiClient(ConnectorApiClient connectorApiClient) {
-        this.connectorApiClient = connectorApiClient;
-    }
-
-    @Autowired
-    public void setAttributeApiClient(AttributeApiClient attributeApiClient) {
-        this.attributeApiClient = attributeApiClient;
-    }
-
-    @Autowired
-    public void setHealthApiClient(HealthApiClient healthApiClient) {
-        this.healthApiClient = healthApiClient;
-    }
-
-    @Autowired
-    public void setCredentialRepository(CredentialRepository credentialRepository) {
-        this.credentialRepository = credentialRepository;
-    }
-
-    @Autowired
-    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
-        this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
-        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository tokenInstanceReferenceRepository) {
-        this.tokenInstanceReferenceRepository = tokenInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setConnectorAuthService(ConnectorAuthService connectorAuthService) {
-        this.connectorAuthService = connectorAuthService;
-    }
-
-    @Autowired
-    public void setComplianceProfileRepository(ComplianceProfileRepository complianceProfileRepository) {
-        this.complianceProfileRepository = complianceProfileRepository;
-    }
-
-    @Autowired
-    public void setComplianceProfileRuleRepository(ComplianceProfileRuleRepository complianceProfileRuleRepository) {
-        this.complianceProfileRuleRepository = complianceProfileRuleRepository;
-    }
-
-    @Autowired
-    public void setAttributeEngine(AttributeEngine attributeEngine) {
-        this.attributeEngine = attributeEngine;
-    }
+    private final ConnectorRepository connectorRepository;
+    private final FunctionGroupRepository functionGroupRepository;
+    private final Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+    private final ConnectorApiFactory connectorApiFactory;
+    private final CredentialRepository credentialRepository;
+    private final AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    private final EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    private final TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    private final ComplianceProfileRepository complianceProfileRepository;
+    private final ComplianceProfileRuleRepository complianceProfileRuleRepository;
+    private final ConnectorAuthService connectorAuthService;
+    private final AttributeEngine attributeEngine;
+    private final ProxyService proxyService;
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
@@ -149,7 +78,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         ConnectorDto dto = connector.mapToDto();
 
         try {
-            List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(dto);
+            List<InfoResponse> functions = connectorApiFactory.getConnectorApiClient(dto).listSupportedFunctions(dto);
             for (FunctionGroupDto i : dto.getFunctionGroups()) {
                 for (InfoResponse j : functions) {
                     if (i.getFunctionGroupCode() == j.getFunctionGroupCode()) {
@@ -222,6 +151,12 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connector.setStatus(connectorStatus);
+
+        if (StringUtils.isNotBlank(request.getProxyUuid())) {
+            Proxy proxy = proxyService.getProxyEntity(SecuredUUID.fromString(request.getProxyUuid()));
+            connector.setProxy(proxy);
+        }
+
         connectorRepository.save(connector);
 
         setFunctionGroups(functionGroupDtos, connector);
@@ -256,6 +191,12 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connector.setStatus(connectorStatus);
+
+        if (request.getProxy() != null) {
+            Proxy proxy = proxyService.getProxyEntity(SecuredUUID.fromString(request.getProxy().getUuid()));
+            connector.setProxy(proxy);
+        }
+
         connectorRepository.save(connector);
 
         setFunctionGroups(request.getFunctionGroups(), connector);
@@ -280,6 +221,12 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (request.getAuthType() != null) {
             connector.setAuthType(request.getAuthType());
             connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        }
+        if (StringUtils.isNotBlank(request.getProxyUuid())) {
+            Proxy proxy = proxyService.getProxyEntity(SecuredUUID.fromString(request.getProxyUuid()));
+            connector.setProxy(proxy);
+        } else {
+            connector.setProxy(null);
         }
 
         connectorRepository.save(connector);
@@ -378,6 +325,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         dto.setAuthType(request.getAuthType());
         dto.setUrl(request.getUrl());
         dto.setUuid(request.getUuid());
+        dto.setProxy(request.getProxy());
         return validateConnector(dto);
     }
 
@@ -440,7 +388,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     private List<ConnectDto> validateConnector(ConnectorDto request) throws ConnectorException {
-        List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
+        List<InfoResponse> functions = connectorApiFactory.getConnectorApiClient(request).listSupportedFunctions(request);
         return validateConnector(functions, SecuredUUID.fromString(request.getUuid()));
     }
 
@@ -528,7 +476,8 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        return healthApiClient.checkHealth(connector.mapToDto());
+        ConnectorDto connectorDto = connector.mapToDto();
+        return connectorApiFactory.getHealthApiClient(connectorDto).checkHealth(connectorDto);
     }
 
     @Override
@@ -539,7 +488,8 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         validateFunctionGroup(connector, functionGroup);
 
-        return attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
+        ConnectorDto connectorDto = connector.mapToDto();
+        return connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
     }
 
     @Override
@@ -553,7 +503,8 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException {
         validateFunctionGroup(connector, functionGroup);
-        attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
+        ConnectorDto connectorDto = connector.mapToDto();
+        connectorApiFactory.getAttributeApiClient(connectorDto).validateAttributes(connectorDto, functionGroup, attributes, functionGroupType);
     }
 
     @Override
@@ -566,7 +517,8 @@ public class ConnectorServiceImpl implements ConnectorService {
         validateAttributes(connector, functionGroup, requestAttributes, functionGroupType);
 
         // get definitions from connector
-        List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
+        ConnectorDto connectorDto = connector.mapToDto();
+        List<BaseAttribute> definitions = connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(connector.getUuid(), null, definitions, requestAttributes);
@@ -578,11 +530,12 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
+        ConnectorDto connectorDto = connector.mapToDto();
         Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> attributes = new EnumMap<>(FunctionGroupCode.class);
-        for (FunctionGroupDto fg : connector.mapToDto().getFunctionGroups()) {
+        for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
             Map<String, List<BaseAttribute>> kindsAttribute = new HashMap<>();
             for (String kind : fg.getKinds()) {
-                kindsAttribute.put(kind, attributeApiClient.listAttributeDefinitions(connector.mapToDto(), fg.getFunctionGroupCode(), kind));
+                kindsAttribute.put(kind, connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, fg.getFunctionGroupCode(), kind));
             }
             attributes.put(fg.getFunctionGroupCode(), kindsAttribute);
         }
@@ -723,7 +676,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     private List<ConnectDto> reValidateConnector(ConnectorDto request) throws ConnectorException {
-        List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
+        List<InfoResponse> functions = connectorApiFactory.getConnectorApiClient(request).listSupportedFunctions(request);
         return reValidateConnector(functions);
     }
 

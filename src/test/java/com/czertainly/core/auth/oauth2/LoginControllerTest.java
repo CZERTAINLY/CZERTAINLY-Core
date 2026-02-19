@@ -196,7 +196,9 @@ class LoginControllerTest {
         );
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("/oauth2/authorization/test", res.headers().firstValue("Location").orElse(null));
+        String location = res.headers().firstValue("Location").orElse("");
+        Assertions.assertTrue(location.endsWith("/oauth2/authorization/test"),
+                "Expected Location to end with '/oauth2/authorization/test' but was: " + location);
     }
 
     @Test

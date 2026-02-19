@@ -5,10 +5,11 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Endpoint;
 import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.client.ConnectorApiFactory;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.impl.ConnectorServiceImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,8 +33,41 @@ public class ConnectorServiceMockTest {
     @Mock
     private FunctionGroupRepository functionGroupRepository;
 
+    @Mock
+    private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+
+    @Mock
+    private ConnectorApiFactory connectorApiFactory;
+
+    @Mock
+    private CredentialRepository credentialRepository;
+
+    @Mock
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+
+    @Mock
+    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+
+    @Mock
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+
+    @Mock
+    private ComplianceProfileRepository complianceProfileRepository;
+
+    @Mock
+    private ComplianceProfileRuleRepository complianceProfileRuleRepository;
+
+    @Mock
+    private ConnectorAuthService connectorAuthService;
+
+    @Mock
+    private AttributeEngine attributeEngine;
+
+    @Mock
+    private ProxyService proxyService;
+
     @InjectMocks
-    private ConnectorService connectorService = new ConnectorServiceImpl();
+    private ConnectorServiceImpl connectorService;
 
     private Endpoint endpoint1, endpoint2, endpoint3;
 
@@ -69,6 +103,8 @@ public class ConnectorServiceMockTest {
 
         Mockito.when(functionGroupRepository.findByCode(Mockito.any())).thenReturn(Optional.empty());
         Mockito.when(functionGroupRepository.findByCode(Mockito.eq(FunctionGroupCode.CREDENTIAL_PROVIDER))).thenReturn(Optional.of(functionGroup));
+
+        Mockito.when(connectorApiFactory.getConnectorApiClient(Mockito.any())).thenReturn(connectorApiClient);
     }
 
     @Test

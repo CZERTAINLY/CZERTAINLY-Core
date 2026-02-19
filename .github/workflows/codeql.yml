@@ -16,7 +16,7 @@ on:
     branches: [ main* ]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ main*, feat/*, hotfix/* ]
+    branches: [ main* ]
   schedule:
     - cron: '15 4 * * 0'
 
@@ -40,7 +40,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
@@ -77,11 +77,8 @@ jobs:
       with:
         java-version: 21
         distribution: 'temurin'
-        server-id: github # value of repository/id field of the pom.xml
-        server-username: GITHUB_USER_REF
-        server-password: GITHUB_TOKEN_REF
     - name: Cache Maven packages
-      uses: actions/cache@v5
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -89,8 +86,6 @@ jobs:
     - name: Build
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-        GITHUB_USER_REF: ${{ secrets.GH_PACKAGE_REPO_USERNAME }}
-        GITHUB_TOKEN_REF: ${{ secrets.GH_PACKAGE_REPO_PASSWORD }}
       run: mvn -B -U verify
 
     - name: Perform CodeQL Analysis

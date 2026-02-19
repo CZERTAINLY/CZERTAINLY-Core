@@ -129,6 +129,21 @@ public class ApplicationConfig {
     }
 
     @Bean
+    public com.czertainly.api.clients.v2.HealthApiClient healthApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new com.czertainly.api.clients.v2.HealthApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public com.czertainly.api.clients.v2.InfoApiClient infoApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new com.czertainly.api.clients.v2.InfoApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public com.czertainly.api.clients.v2.MetricsApiClient metricsApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new com.czertainly.api.clients.v2.MetricsApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
     public UserManagementApiClient userManagementApiClient() {
         return new UserManagementApiClient();
     }

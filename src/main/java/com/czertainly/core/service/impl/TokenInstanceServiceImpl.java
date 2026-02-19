@@ -1,6 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
@@ -49,7 +49,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
-    private TokenInstanceApiClient tokenInstanceApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private ConnectorServiceImpl connectorService;
     private CredentialService credentialService;
     private AttributeEngine attributeEngine;
@@ -71,8 +71,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Autowired
-    public void setTokenInstanceApiClient(TokenInstanceApiClient tokenInstanceApiClient) {
-        this.tokenInstanceApiClient = tokenInstanceApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -121,7 +121,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         TokenInstanceStatusDto status;
         TokenInstanceStatusDetailDto statusDetail = new TokenInstanceStatusDetailDto();
         try {
-            status = tokenInstanceApiClient.getTokenInstanceStatus(
+            status = connectorApiFactory.getTokenInstanceApiClient(tokenInstanceReference.getConnector().mapToDto()).getTokenInstanceStatus(
                     tokenInstanceReference.getConnector().mapToDto(),
                     tokenInstanceReference.getTokenInstanceUuid()
             );
@@ -176,8 +176,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         tokenInstanceRequestDto.setName(request.getName());
         logger.debug("Token Instance Request to the connector: {}", tokenInstanceRequestDto);
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto response =
-                tokenInstanceApiClient.createTokenInstance(connector.mapToDto(), tokenInstanceRequestDto);
-        TokenInstanceStatusDto status = tokenInstanceApiClient.getTokenInstanceStatus(connector.mapToDto(), response.getUuid());
+                connectorApiFactory.getTokenInstanceApiClient(connector.mapToDto()).createTokenInstance(connector.mapToDto(), tokenInstanceRequestDto);
+        TokenInstanceStatusDto status = connectorApiFactory.getTokenInstanceApiClient(connector.mapToDto()).getTokenInstanceStatus(connector.mapToDto(), response.getUuid());
         logger.debug("Token Instance Response from the connector: {}", response);
         TokenInstanceReference tokenInstanceReference = new TokenInstanceReference();
         tokenInstanceReference.setTokenInstanceUuid(response.getUuid());
@@ -215,7 +215,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         TokenInstanceStatusDto status;
         TokenInstanceStatusDetailDto statusDetail = new TokenInstanceStatusDetailDto();
         try {
-            status = tokenInstanceApiClient.getTokenInstanceStatus(connectorDto, tokenInstanceReference.getTokenInstanceUuid());
+            status = connectorApiFactory.getTokenInstanceApiClient(connectorDto).getTokenInstanceStatus(connectorDto, tokenInstanceReference.getTokenInstanceUuid());
             tokenInstanceReference.setStatus(status.getStatus());
             tokenInstanceReferenceRepository.save(tokenInstanceReference);
             statusDetail.setStatus(status.getStatus());
@@ -237,7 +237,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         tokenInstanceRequestDto.setName(request.getName());
         logger.debug("Token Instance Request to the connector: {}", tokenInstanceRequestDto);
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto response =
-                tokenInstanceApiClient.updateTokenInstance(connectorDto, tokenInstanceReference.getTokenInstanceUuid(), tokenInstanceRequestDto);
+                connectorApiFactory.getTokenInstanceApiClient(connectorDto).updateTokenInstance(connectorDto, tokenInstanceReference.getTokenInstanceUuid(), tokenInstanceRequestDto);
 
         attributeEngine.updateMetadataAttributes(response.getMetadata(), new ObjectAttributeContentInfo(connector.getUuid(), Resource.TOKEN, tokenInstanceReference.getUuid()));
 
@@ -264,7 +264,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     public void activateTokenInstance(SecuredUUID uuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         logger.info("Activating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
-        tokenInstanceApiClient.activateTokenInstance(
+        connectorApiFactory.getTokenInstanceApiClient(tokenInstanceReference.getConnector().mapToDto()).activateTokenInstance(
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid(),
                 attributes
@@ -278,7 +278,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     public void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Deactivating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
-        tokenInstanceApiClient.deactivateTokenInstance(
+        connectorApiFactory.getTokenInstanceApiClient(tokenInstanceReference.getConnector().mapToDto()).deactivateTokenInstance(
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid()
         );
@@ -310,7 +310,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     public TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Reloading status of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
-        TokenInstanceStatusDto status = tokenInstanceApiClient.getTokenInstanceStatus(
+        TokenInstanceStatusDto status = connectorApiFactory.getTokenInstanceApiClient(tokenInstanceReference.getConnector().mapToDto()).getTokenInstanceStatus(
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid()
         );
@@ -327,7 +327,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         logger.info("Listing token profile attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);
-        return tokenInstanceApiClient.listTokenProfileAttributes(
+        return connectorApiFactory.getTokenInstanceApiClient(tokenInstanceReference.getConnector().mapToDto()).listTokenProfileAttributes(
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid()
         );
@@ -340,7 +340,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);
         Connector connector = tokenInstanceReference.getConnector();
-        tokenInstanceApiClient.validateTokenProfileAttributes(connector.mapToDto(), tokenInstanceReference.getTokenInstanceUuid(),
+        connectorApiFactory.getTokenInstanceApiClient(connector.mapToDto()).validateTokenProfileAttributes(connector.mapToDto(), tokenInstanceReference.getTokenInstanceUuid(),
                 attributes);
     }
 
@@ -350,7 +350,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         logger.info("Listing token instance activation attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);
-        return tokenInstanceApiClient.listTokenInstanceActivationAttributes(
+        return connectorApiFactory.getTokenInstanceApiClient(tokenInstanceReference.getConnector().mapToDto()).listTokenInstanceActivationAttributes(
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid()
         );
@@ -402,7 +402,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         if (tokenInstanceReference.getConnector() != null) {
             try {
                 logger.debug("Deleting token instance with connector: {}", tokenInstanceReference);
-                tokenInstanceApiClient.removeTokenInstance(tokenInstanceReference.getConnector().mapToDto(), tokenInstanceReference.getTokenInstanceUuid());
+                connectorApiFactory.getTokenInstanceApiClient(tokenInstanceReference.getConnector().mapToDto()).removeTokenInstance(tokenInstanceReference.getConnector().mapToDto(), tokenInstanceReference.getTokenInstanceUuid());
             } catch (Exception e) {
                 logger.error(e.getMessage());
                 throw new ValidationException(e.getMessage());
