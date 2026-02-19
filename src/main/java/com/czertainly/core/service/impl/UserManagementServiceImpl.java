@@ -192,7 +192,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                 sessionRepository.findByPrincipalName(userUuid);
 
         for (Map.Entry<String, ? extends Session> entry : userSessions.entrySet()) {
-            OAuth2Util.endUserSession(entry.getValue());
+            OAuth2Util.endUserSession(entry.getValue().getAttribute("SPRING_SECURITY_CONTEXT"));
             sessionRepository.deleteById(entry.getKey());
         }
         if (!userSessions.isEmpty() && !logger.isLogFiltered(true, Module.AUTH, Resource.USER, OperationResult.SUCCESS)) {

@@ -9,6 +9,7 @@ import org.springframework.core.serializer.Deserializer;
 import org.springframework.core.serializer.Serializer;
 import org.springframework.core.serializer.support.DeserializingConverter;
 import org.springframework.core.serializer.support.SerializingConverter;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
 import org.springframework.session.config.SessionRepositoryCustomizer;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
@@ -19,7 +20,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 @Configuration
-@EnableJdbcHttpSession(tableName = "${DB_SCHEMA:core}.spring_session")
+@EnableJdbcHttpSession(tableName = "${DB_SCHEMA:core}.spring_session", cleanupCron = Scheduled.CRON_DISABLED)
 public class SessionConfig implements BeanClassLoaderAware {
 
     private ClassLoader classLoader;

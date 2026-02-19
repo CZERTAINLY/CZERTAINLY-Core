@@ -8,19 +8,21 @@ import com.czertainly.core.util.*;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.JOSEException;
+import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.session.FindByIndexNameSessionRepository;
-import org.springframework.session.Session;
+import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
+import org.springframework.session.web.http.SessionRepositoryFilter;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -28,6 +30,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+
+import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -42,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 
 @AutoConfigureMockMvc
-@SpringBootTest(properties = "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.session.SessionAutoConfiguration")
+@SpringBootTest
 class SecurityConfigTest extends BaseSpringBootTestNoAuth {
 
     @Autowired
@@ -54,9 +61,14 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     @Autowired
     SettingsCache settingsCache;
 
-    // Since Session Config is excluded, this repository has to mocked, otherwise it will not get injected
     @MockitoBean
-    private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+    private JdbcIndexedSessionRepository sessionRepository;
+
+    @MockitoBean
+    private GenericConversionService springSessionConversionService;
+
+    @MockitoBean
+    public SessionRepositoryFilter springSessionRepositoryFilter;
 
 
     @DynamicPropertySource
@@ -76,7 +88,15 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     PrivateKey privateKey;
 
     @BeforeEach
-    void setUp() throws NoSuchAlgorithmException, JOSEException {
+    void setUp() throws NoSuchAlgorithmException, JOSEException, ServletException, IOException {
+        Mockito.doAnswer(invocation -> {
+            ServletRequest request = invocation.getArgument(0);
+            ServletResponse response = invocation.getArgument(1);
+            FilterChain filterChain = invocation.getArgument(2);
+            filterChain.doFilter(request, response);
+            return null;
+        }).when(springSessionRepositoryFilter).doFilter(Mockito.any(), Mockito.any(), Mockito.any());
+
         mockServer = new WireMockServer(10003);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
@@ -92,7 +112,7 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
         KeyPair keyPair = generator.generateKeyPair();
         privateKey = keyPair.getPrivate();
         tokenValue = OAuth2TestUtil.createJwtTokenValue(privateKey, null, "http://issuer", null, TOKEN_USER_USERNAME);
-        tokenHeaderValue =  "Bearer " + tokenValue;
+        tokenHeaderValue = "Bearer " + tokenValue;
         mockJwt = Jwt.withTokenValue(tokenValue)
                 .header("alg", "RS256")
                 .claim("username", TOKEN_USER_USERNAME)
