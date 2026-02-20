@@ -64,6 +64,12 @@ public enum Resource {
     RULE("rules"),
     ACTION("actions"),
     TRIGGER("triggers"),
+
+    // SECRETS
+    VAULT("vaults"),
+    VAULT_PROFILE("vaultProfiles"),
+    SECRET("secrets")
+
     ;
 
     @Schema(description = "Resource Name",
