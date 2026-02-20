@@ -119,12 +119,16 @@ public interface LocationService extends ResourceExtensionService {
     LocationDto removeCertificateFromLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException;
 
     /**
-     * Remove existing Certificate from all associated Locations.
+     * Removes existing Certificate from all associated Locations when the certificates are going to be deleted.
      *
-     * @param certificateUuid UUID of existing Certificate.
-     * @throws NotFoundException when the Certificate with the given UUID is not found.
+     * <p>
+     * <b>WARNING:</b> Call this method only when the associated certificate is going to be deleted.
+     * Do not call this method from any other context!
+     * </p>
+     *
+     * @param certificateUuids UUIDs of existing Certificates to be removed from locations managed by a connector
      */
-    void removeCertificateFromLocations(SecuredUUID certificateUuid) throws NotFoundException;
+    void removeCertificatesFromLocationsOnDelete(List<SecuredUUID> certificateUuids);
 
     /**
      * Remove rejected new Certificate from location as result of async issue approval reject process.

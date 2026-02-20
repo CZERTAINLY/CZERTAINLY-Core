@@ -5,6 +5,9 @@ COPY src /home/app/src
 COPY pom.xml /home/app
 COPY settings.xml /root/.m2/settings.xml
 
+# Include .git directory for version information. Glob [t] is used to avoid error when .git dir is not present
+COPY .gi[t] /home/app/.git
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg && \
     mkdir -p /etc/apt/keyrings && \

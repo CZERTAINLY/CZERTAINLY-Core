@@ -1,6 +1,5 @@
 package com.czertainly.core.service;
 
-import com.czertainly.core.dao.entity.Crl;
 import com.czertainly.core.dao.entity.CrlEntry;
 
 import java.io.IOException;
@@ -14,5 +13,5 @@ public interface CrlService {
 
     CrlEntry findCrlEntryForCertificate(String serialNumber, UUID crlUuid);
 
-    List<Crl> findCrlsForCaCertificate(UUID caCertificateUuid);
+    void clearCrlsForCaCertificate(List<UUID> caCertificateUuids);
 }

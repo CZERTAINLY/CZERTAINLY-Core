@@ -172,6 +172,13 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     @Override
+    @Transactional
+    public void bulkRemoveObjectAssociations(Resource resource, List<UUID> objectUuids) {
+        removeOwner(resource, objectUuids);
+        removeGroups(resource, objectUuids);
+    }
+
+    @Override
     public NameAndUuidDto getRecipientObjectInfo(RecipientType recipientType, UUID recipientUuid) throws NotFoundException {
         String name = switch (recipientType) {
             case USER -> getUserUsername(recipientUuid);
@@ -189,6 +196,11 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     private void removeGroups(Resource resource, UUID objectUuid) {
         Long associationsDeleted = groupAssociationRepository.deleteByResourceAndObjectUuid(resource, objectUuid);
         logger.debug("Removed {} groups from {} with UUID {}", associationsDeleted, resource.getLabel(), objectUuid);
+    }
+
+    private void removeGroups(Resource resource, List<UUID> objectUuids) {
+        Long associationsDeleted = groupAssociationRepository.deleteByResourceAndObjectUuidIn(resource, objectUuids);
+        logger.debug("Removed {} groups from {} with UUIDs {}", associationsDeleted, resource.getLabel(), objectUuids);
     }
 
     private void setOwner(Resource resource, UUID objectUuid, UUID ownerUuid, String ownerUsername) {
@@ -218,6 +230,15 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
             logger.debug("Owner not associated to {} with UUID {}", resource.getLabel(), objectUuid);
         } else {
             logger.debug("Removed owner from {} with UUID {}", resource.getLabel(), objectUuid);
+        }
+    }
+
+    private void removeOwner(Resource resource, List<UUID> objectUuids) {
+        Long associationsDeleted = ownerAssociationRepository.deleteByResourceAndObjectUuidInAndOwnerUuidNotNull(resource, objectUuids);
+        if (associationsDeleted == 0) {
+            logger.debug("Owner not associated to {} for any of the UUIDs {}", resource.getLabel(), objectUuids);
+        } else {
+            logger.debug("Removed owner from {} with UUIDs {}", resource.getLabel(), objectUuids);
         }
     }
 

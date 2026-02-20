@@ -26,4 +26,8 @@ public interface ScepProfileRepository extends SecurityFilterRepository<ScepProf
     @Modifying
     @Query("UPDATE ScepProfile sp SET sp.caCertificateUuid = NULL WHERE sp.caCertificateUuid = ?1")
     void clearCaCertificateReference(UUID caCertificateUuid);
+
+    @Modifying
+    @Query("UPDATE ScepProfile sp SET sp.caCertificateUuid = NULL WHERE sp.caCertificateUuid IN ?1")
+    void clearCaCertificateReferenceIn(List<UUID> caCertificateUuids);
 }

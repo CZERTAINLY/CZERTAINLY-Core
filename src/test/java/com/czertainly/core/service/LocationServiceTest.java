@@ -71,6 +71,8 @@ class LocationServiceTest extends BaseSpringBootTest {
     private RaProfileRepository raProfileRepository;
     @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @Autowired
+    private CertificateLocationRepository certificateLocationRepository;
     @MockitoBean
     private ClientOperationService clientOperationService;
 
@@ -509,6 +511,23 @@ class LocationServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(locationDto.getCertificates().stream()
                 .filter(cl ->  cl.getCertificateUuid().equals(renewedCertificate.getUuid().toString()))
                 .findFirst().orElse(null));
+    }
+
+    @Test
+    void testRemoveCertificatesFromLocationsOnDelete() {
+        SecuredUUID certificateUuid = certificate.getSecuredUuid();
+
+        List<CertificateLocation> associations = certificateLocationRepository.findByCertificateUuidIn(List.of(certificate.getUuid()));
+        Assertions.assertEquals(3, associations.size());
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove")).willReturn(WireMock.okJson("{}")));
+
+        locationService.removeCertificatesFromLocationsOnDelete(List.of(certificateUuid));
+
+        mockServer.verify(WireMock.moreThanOrExactly(1), WireMock.postRequestedFor(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove")));
+
+        associations = certificateLocationRepository.findByCertificateUuidIn(List.of(certificate.getUuid()));
+        Assertions.assertEquals(0, associations.size());
     }
 
     private RaProfile getRaProfile() {
