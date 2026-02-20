@@ -66,7 +66,9 @@ public enum Resource {
     TRIGGER("triggers"),
 
     // SECRETS
-    VAULT("vaults")
+    VAULT("vaults"),
+    VAULT_PROFILE("vaultProfiles"),
+    SECRET("secrets")
 
     ;
 

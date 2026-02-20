@@ -21,7 +21,7 @@ public class VaultInstance extends UniquelyIdentifiedAndAudited {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "connector_uuid", nullable = false)
+    @Column(name = "connector_uuid")
     private UUID connectorUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)

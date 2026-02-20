@@ -5,7 +5,6 @@ import com.czertainly.api.model.core.secret.SecretDetailDto;
 import com.czertainly.api.model.core.secret.SecretDto;
 import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.secret.SecretType;
-import com.czertainly.core.dao.entity.workflows.Rule;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -14,7 +13,6 @@ import lombok.ToString;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -34,10 +32,15 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     private UUID sourceVaultProfileUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "source_vault_profile_uuid", nullable = false)
+    @JoinColumn(name = "source_vault_profile_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
     @JsonBackReference
     private VaultProfile sourceVaultProfile;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "latest_version_uuid", nullable = false, insertable = false, updatable = false)
+    @ToString.Exclude
+    private SecretVersion latestVersion;
 
     @Column(name = "latest_version_uuid", nullable = false)
     private UUID latestVersionUuid;
