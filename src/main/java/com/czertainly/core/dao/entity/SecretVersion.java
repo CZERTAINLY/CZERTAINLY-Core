@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.secret.SecretVersionDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -41,4 +42,11 @@ public class SecretVersion extends UniquelyIdentified {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    public SecretVersionDto mapToDto() {
+        SecretVersionDto dto = new SecretVersionDto();
+        dto.setVersion(version);
+        dto.setFingerprint(fingerprint);
+        dto.setCreatedAt(createdAt);
+        return dto;
+    }
 }

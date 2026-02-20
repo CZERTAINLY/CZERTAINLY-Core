@@ -9,7 +9,7 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.secret.*;
-import com.czertainly.api.model.core.secret.content.SecretContentDto;
+import com.czertainly.api.model.core.secret.content.SecretContent;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -46,18 +46,21 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
     }
 
     @Override
-    public SecretDetailDto getSecretDetails(UUID uuid) {
-        return null;
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.DETAIL)
+    public SecretDetailDto getSecretDetails(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        return secretService.getSecretDetails(uuid);
     }
 
     @Override
-    public List<SecretVersionDto> getSecretVersions(UUID uuid) {
-        return List.of();
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.LIST_VERSIONS)
+    public List<SecretVersionDto> getSecretVersions(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        return secretService.getSecretVersions(uuid);
     }
 
     @Override
-    public SecretContentDto getSecretContent(UUID uuid) {
-        return null;
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.GET_CONTENT)
+    public SecretContent getSecretContent(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        return secretService.getSecretContent(uuid);
     }
 
     @Override
@@ -98,7 +101,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.DISASSOCIATE)
-    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) {
+    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException {
         secretService.removeVaultProfileFromSecret(uuid, vaultProfileUuid);
     }
 }

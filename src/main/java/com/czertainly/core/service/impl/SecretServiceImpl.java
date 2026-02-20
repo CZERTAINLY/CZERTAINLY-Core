@@ -9,6 +9,7 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.secret.*;
+import com.czertainly.api.model.core.secret.content.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
@@ -23,12 +24,12 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.PermissionEvaluator;
-import com.czertainly.core.service.ResourceObjectAssociationService;
-import com.czertainly.core.service.SecretService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -49,7 +50,7 @@ import java.util.UUID;
 
 @Service
 @Transactional
-public class SecretServiceImpl implements SecretService {
+public class SecretServiceImpl implements SecretService, AttributeResourceService {
 
     private AttributeEngine attributeEngine;
     private VaultProfileRepository vaultProfileRepository;
@@ -58,6 +59,8 @@ public class SecretServiceImpl implements SecretService {
     private ResourceObjectAssociationService objectAssociationService;
     private SecretVersionRepository secretVersionRepository;
     private PermissionEvaluator permissionEvaluator;
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public void setSecretVersionRepository(SecretVersionRepository secretVersionRepository) {
@@ -168,6 +171,7 @@ public class SecretServiceImpl implements SecretService {
         secretVersionRepository.save(secretVersion);
 
         secret.setLatestVersionUuid(secretVersion.getUuid());
+        secret.getVersions().add(secretVersion);
 
         // TODO: create secret in vault
 
@@ -227,6 +231,7 @@ public class SecretServiceImpl implements SecretService {
             newVersion.setFingerprint(newFingerprint);
             secretVersionRepository.save(newVersion);
             secret.setLatestVersionUuid(newVersion.getUuid());
+            secret.getVersions().add(newVersion);
         }
 
         // TODO: update secret in vault and other vaults, if there are other
@@ -243,9 +248,7 @@ public class SecretServiceImpl implements SecretService {
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
     public void deleteSecret(UUID uuid) throws NotFoundException {
-        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
-                .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
-        permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
+        Secret secret = getSecretEntity(uuid);
         // TODO: delete secret from vault and other vaults, if there are other
         secretRepository.delete(secret);
     }
@@ -253,9 +256,7 @@ public class SecretServiceImpl implements SecretService {
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.ENABLE)
     public void enableSecret(UUID uuid) throws NotFoundException {
-        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
-                .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
-        permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
+        Secret secret = getSecretEntity(uuid);
         secret.setEnabled(true);
         secretRepository.save(secret);
     }
@@ -263,9 +264,7 @@ public class SecretServiceImpl implements SecretService {
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.ENABLE)
     public void disableSecret(UUID uuid) throws NotFoundException {
-        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
-                .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
-        permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
+        Secret secret = getSecretEntity(uuid);
         secret.setEnabled(false);
         secretRepository.save(secret);
     }
@@ -303,4 +302,70 @@ public class SecretServiceImpl implements SecretService {
         secretRepository.save(secret);
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DETAIL)
+    public SecretDetailDto getSecretDetails(UUID uuid) throws NotFoundException {
+        Secret secret = getSecretEntity(uuid);
+        SecretDetailDto secretDetailDto = secret.mapToDetailDto();
+        secretDetailDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.SECRET, secret.getUuid()));
+        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
+        return secretDetailDto;
+    }
+
+    private Secret getSecretEntity(UUID uuid) throws NotFoundException {
+        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
+                .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
+        permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
+        return secret;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DETAIL)
+    public List<SecretVersionDto> getSecretVersions(UUID uuid) throws NotFoundException {
+        Secret secret = getSecretEntity(uuid);
+        return secret.getVersions().stream().map(SecretVersion::mapToDto).toList();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
+    public SecretContent getSecretContent(UUID uuid) throws NotFoundException {
+        Secret secret = getSecretEntity(uuid);
+        // TODO: get content from vault
+        return null;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
+    public String getResourceObjectContent(UUID uuid) throws NotFoundException {
+        getSecretEntity(uuid);
+        SecretContent contentDto = null;
+        // TODO: get content from vault
+        switch (contentDto.getType()) {
+            case BASIC_AUTH, KEY_STORE, KEY_VALUE -> {
+                try {
+                    return objectMapper.writeValueAsString((contentDto));
+                } catch (JsonProcessingException e) {
+                    throw new IllegalArgumentException("Cannot serialize secret content of type %s. Secret UUID: %s. Error: %s".formatted(contentDto.getType(), uuid, e.getMessage()));
+                }
+            }
+            case API_KEY -> {
+                return ((ApiKeySecretContent) contentDto).getContent();
+            }
+            case JWT_TOKEN -> {
+                return ((JwtTokenSecretContent) contentDto).getContent();
+            }
+            case SECRET_KEY -> {
+                return ((SecretKeySecretContent) contentDto).getContent();
+            }
+            case PRIVATE_KEY -> {
+                return ((PrivateKeySecretContent) contentDto).getContent();
+            }
+            case GENERIC -> {
+                return ((GenericSecretContent) contentDto).getContent();
+            }
+        }
+
+        return "";
+    }
 }

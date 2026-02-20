@@ -4,10 +4,8 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.secret.SecretDetailDto;
-import com.czertainly.api.model.core.secret.SecretListResponseDto;
-import com.czertainly.api.model.core.secret.SecretRequestDto;
-import com.czertainly.api.model.core.secret.SecretUpdateRequestDto;
+import com.czertainly.api.model.core.secret.*;
+import com.czertainly.api.model.core.secret.content.SecretContent;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -34,4 +32,10 @@ public interface SecretService {
     void addVaultProfileToSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException;
 
     void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException;
+
+    SecretDetailDto getSecretDetails(UUID uuid) throws NotFoundException;
+
+    List<SecretVersionDto> getSecretVersions(UUID uuid) throws NotFoundException;
+
+    SecretContent getSecretContent(UUID uuid) throws NotFoundException;
 }

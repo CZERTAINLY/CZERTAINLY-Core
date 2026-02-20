@@ -9,9 +9,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.secret.SecretType;
 import com.czertainly.api.model.core.vaultprofile.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.VaultInstance;
-import com.czertainly.core.dao.entity.VaultInstance_;
-import com.czertainly.core.dao.entity.VaultProfile;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.VaultInstanceRepository;
 import com.czertainly.core.dao.repository.VaultProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -33,7 +31,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @Transactional
@@ -61,11 +58,11 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST, parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
     public VaultProfileListResponseDto listVaultProfiles(SearchRequestDto request, SecurityFilter securityFilter) {
-//        securityFilter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
+        securityFilter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
 
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
-        List<VaultProfileDto> vaultProfiles = vaultProfileRepository.findUsingSecurityFilter(securityFilter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get("createdAt")))
+        List<VaultProfileDto> vaultProfiles = vaultProfileRepository.findUsingSecurityFilter(securityFilter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream()
                 .map(VaultProfile::mapToDto)
                 .toList();
@@ -149,6 +146,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, SecretType secretType) {
         // TODO: call API client to get attributes
         return List.of();
