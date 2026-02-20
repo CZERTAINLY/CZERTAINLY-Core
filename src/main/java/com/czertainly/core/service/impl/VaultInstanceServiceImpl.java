@@ -1,9 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
@@ -18,6 +15,7 @@ import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.VaultInstance;
 import com.czertainly.core.dao.entity.VaultInstance_;
 import com.czertainly.core.dao.repository.VaultInstanceRepository;
+import com.czertainly.core.dao.repository.VaultProfileRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -48,12 +46,18 @@ import java.util.UUID;
 public class VaultInstanceServiceImpl implements VaultInstanceService {
 
 
+    private VaultProfileRepository vaultProfileRepository;
     private final VaultInstanceRepository vaultInstanceRepository;
 
     private ConnectorService connectorService;
     private ResourceService resourceService;
 
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setVaultProfileRepository(VaultProfileRepository vaultProfileRepository) {
+        this.vaultProfileRepository = vaultProfileRepository;
+    }
 
     @Autowired
     public void setResourceService(ResourceService resourceService) {
@@ -140,7 +144,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     public void deleteVaultInstance(UUID uuid) throws NotFoundException {
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(SecuredUUID.fromUUID(uuid))
                 .orElseThrow(() -> new NotFoundException(Resource.VAULT.getLabel(), uuid.toString()));
-        //TODO: check for existing profiles
+        List<String> allByVaultInstanceUuid = vaultProfileRepository.findAllNamesByVaultInstanceUuid(vaultInstance.getUuid());
+        if (!allByVaultInstanceUuid.isEmpty()) {
+            throw new ValidationException("Vault Instance %s is used in Vault Profiles %s".formatted(uuid, allByVaultInstanceUuid));
+        }
         vaultInstanceRepository.delete(vaultInstance);
     }
 

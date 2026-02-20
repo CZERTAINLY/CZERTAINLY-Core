@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
@@ -22,8 +19,10 @@ import com.czertainly.api.model.core.vault.VaultInstanceRequestDto;
 import com.czertainly.api.model.core.vault.VaultInstanceUpdateRequestDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.VaultInstance;
+import com.czertainly.core.dao.entity.VaultProfile;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.VaultInstanceRepository;
+import com.czertainly.core.dao.repository.VaultProfileRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -34,15 +33,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 class VaultInstanceServiceTest extends BaseSpringBootTest {
 
+    public static final String TEST_CUSTOM_ATTRIBUTE = "testCustomAttribute";
     @Autowired
     private VaultInstanceService vaultInstanceService;
     @Autowired
     private VaultInstanceRepository vaultInstanceRepository;
+    @Autowired
+    private VaultProfileRepository vaultProfileRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
@@ -54,17 +55,23 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException {
         connector = new Connector();
-        connector.setName("test");
+        connector.setName("testConnector");
         connectorRepository.save(connector);
 
         vaultInstance = new VaultInstance();
         vaultInstance.setConnector(connector);
         vaultInstance.setConnectorUuid(connector.getUuid());
-        vaultInstance.setName("test");
+        vaultInstance.setName("testVaultInstance");
         vaultInstanceRepository.save(vaultInstance);
 
+        VaultProfile profile = new VaultProfile();
+        profile.setVaultInstance(vaultInstance);
+        profile.setVaultInstanceUuid(vaultInstance.getUuid());
+        profile.setName("testProfile");
+        vaultProfileRepository.save(profile);
+
         CustomAttributeCreateRequestDto dto = new CustomAttributeCreateRequestDto();
-        dto.setName("test");
+        dto.setName(TEST_CUSTOM_ATTRIBUTE);
         dto.setLabel("Test Attribute");
         dto.setContentType(AttributeContentType.STRING);
         dto.setResources(List.of(Resource.VAULT));
@@ -74,7 +81,7 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
     @Test
     void testCreateVaultInstance() throws ConnectorException, NotFoundException, AttributeException, AlreadyExistException {
         VaultInstanceRequestDto requestDto = new VaultInstanceRequestDto();
-        requestDto.setName("test");
+        requestDto.setName(TEST_CUSTOM_ATTRIBUTE);
         requestDto.setConnectorUuid(connector.getUuid());
         RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setName("test");
@@ -122,8 +129,11 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteVaultInstance() throws NotFoundException {
-        vaultInstanceService.deleteVaultInstance(vaultInstance.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.getVaultInstance(vaultInstance.getUuid()));
+        UUID vaultInstanceUuid = vaultInstance.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> vaultInstanceService.deleteVaultInstance(vaultInstanceUuid));
+        vaultProfileRepository.deleteAll();
+        vaultInstanceService.deleteVaultInstance(vaultInstanceUuid);
+        Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.getVaultInstance(vaultInstanceUuid));
     }
 
     @Test
@@ -158,6 +168,5 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(vaultInstance.getName(), ((List<String>) nameSearchData.getValue()).getFirst());
         Assertions.assertEquals(1, searchableFieldInformation.stream().filter(s -> s.getFilterFieldSource() == FilterFieldSource.PROPERTY).count());
     }
-
 
 }

@@ -12,4 +12,7 @@ public interface VaultProfileRepository extends SecurityFilterRepository<VaultPr
 
     @Query("SELECT vp.name FROM VaultProfile vp")
     List<String> findAllNames();
+
+    @Query("SELECT vp.name FROM VaultProfile vp WHERE vp.vaultInstance.uuid = ?1")
+    List<String> findAllNamesByVaultInstanceUuid(UUID uuid);
 }
