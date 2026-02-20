@@ -13,7 +13,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.util.List;
 import java.util.UUID;
 
-public interface SecretService {
+public interface SecretService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 

@@ -3,8 +3,11 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -48,7 +51,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-@Service
+@Service(value = Resource.Codes.SECRET)
 @Transactional
 public class SecretServiceImpl implements SecretService, AttributeResourceService {
 
@@ -115,20 +118,22 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
-    // source profile?? all profiles??
     public SecretListResponseDto listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter) {
-        securityFilter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
-        Pageable p = PageRequest.of(searchRequest.getPageNumber() - 1, searchRequest.getItemsPerPage());
         TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, searchRequest.getFilters());
-        // Or maybe projection here?
-        List<SecretDto> secrets = secretRepository.findUsingSecurityFilter(securityFilter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(Secret_.CREATED)))
-                .stream().map(Secret::mapToDto).toList();
+        List<Secret> secrets = getSecrets(securityFilter, searchRequest.getPageNumber(), searchRequest.getItemsPerPage(), additionalWhereClause);
+        List<SecretDto> secretDtos = secrets.stream().map(Secret::mapToDto).toList();
         SecretListResponseDto response = new SecretListResponseDto();
-        response.setSecrets(secrets);
+        response.setSecrets(secretDtos);
         response.setPageNumber(searchRequest.getPageNumber());
         response.setItemsPerPage(searchRequest.getItemsPerPage());
         response.setTotalItems(secretRepository.countUsingSecurityFilter(securityFilter, additionalWhereClause));
         return response;
+    }
+
+    private List<Secret> getSecrets(SecurityFilter securityFilter, int pageNumber, int itemsPerPage, TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+        securityFilter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
+        Pageable p = PageRequest.of(pageNumber - 1, itemsPerPage);
+        return secretRepository.findUsingSecurityFilter(securityFilter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED))).stream().toList();
     }
 
     @Override
@@ -367,5 +372,27 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
 
         return "";
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        Secret secret = getSecretEntity(objectUuid);
+        return new NameAndUuidDto(secret.getUuid(), secret.getName());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST)
+    // Or maybe just some projection would be more efficient here
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        return getSecrets(filter, pagination.getPageNumber(), pagination.getItemsPerPage(), (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters))
+                .stream()
+                .map(secret -> new NameAndUuidDto(secret.getUuid(), secret.getName()))
+                .toList();
+    }
+
+    @Override
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getSecretEntity(uuid.getValue());
     }
 }
