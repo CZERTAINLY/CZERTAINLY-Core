@@ -205,7 +205,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(currentSourceVaultProfileUuid));
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
 
-        if (secretRequest.getSourceVaultProfileUuid() != currentSourceVaultProfileUuid) {
+        boolean sourceVaultProfileChanged = secretRequest.getSourceVaultProfileUuid() != currentSourceVaultProfileUuid;
+        if (sourceVaultProfileChanged) {
             VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(secretRequest.getSourceVaultProfileUuid()))
                     .orElseThrow(() -> new NotFoundException(VaultProfile.class, secretRequest.getSourceVaultProfileUuid()));
             // Or detail here?
@@ -229,11 +230,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
 
         boolean contentChanged = !newFingerprint.equals(latestVersion.getFingerprint());
-        if (contentChanged) {
+        if (contentChanged || sourceVaultProfileChanged) {
             SecretVersion newVersion = new SecretVersion();
             newVersion.setSecret(secret);
             newVersion.setVersion(latestVersion.getVersion() + 1);
-            newVersion.setFingerprint(newFingerprint);
+            if (contentChanged) newVersion.setFingerprint(newFingerprint);
+            if (sourceVaultProfileChanged) newVersion.setVaultInstance(currentSourceVaultProfile.getVaultInstance());
             secretVersionRepository.save(newVersion);
             secret.setLatestVersionUuid(newVersion.getUuid());
             secret.getVersions().add(newVersion);

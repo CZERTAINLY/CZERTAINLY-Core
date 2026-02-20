@@ -29,7 +29,6 @@ public class VaultInstance extends UniquelyIdentifiedAndAudited {
     @ToString.Exclude
     private Connector connector;
 
-
     public VaultInstanceDetailDto mapToDetailDto() {
         VaultInstanceDetailDto dto = new VaultInstanceDetailDto();
         setVaultInstanceDto(dto);

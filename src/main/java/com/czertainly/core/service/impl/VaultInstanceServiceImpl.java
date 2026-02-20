@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
@@ -13,7 +14,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.vault.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
-import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.VaultInstance;
 import com.czertainly.core.dao.entity.VaultInstance_;
 import com.czertainly.core.dao.repository.VaultInstanceRepository;
@@ -76,13 +77,14 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.CREATE)
-    public VaultInstanceDetailDto createVaultInstance(VaultInstanceRequestDto request) throws ConnectorException, NotFoundException, AttributeException {
+    public VaultInstanceDetailDto createVaultInstance(VaultInstanceRequestDto request) throws ConnectorException, NotFoundException, AttributeException, AlreadyExistException {
 
         if (vaultInstanceRepository.existsByName(request.getName())) {
-            throw new IllegalArgumentException("Vault Instance with the same name already exists");
+            throw new AlreadyExistException("Vault Instance with the same name already exists");
         }
 
         ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromUUID(request.getConnectorUuid()));
+        // TODO: interface
 
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
 
@@ -97,6 +99,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         VaultInstance vaultInstance = new VaultInstance();
         vaultInstance.setName(request.getName());
         vaultInstance.setConnectorUuid(request.getConnectorUuid());
+        vaultInstance.setDescription(request.getDescription());
         vaultInstanceRepository.save(vaultInstance);
 
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
@@ -122,7 +125,8 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     public VaultInstanceListResponseDto listVaultInstances(SearchRequestDto request, SecurityFilter securityFilter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
-        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(), predicate, p,  (root, cb) -> cb.desc(root.get(VaultInstance_.CREATED))).stream().map(VaultInstance::mapToDto).toList();
+        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR), predicate, p,  (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+                .stream().map(VaultInstance::mapToDto).toList();
         VaultInstanceListResponseDto response = new VaultInstanceListResponseDto();
         response.setVaultInstances(vaultInstances);
         response.setPageNumber(request.getPageNumber());
@@ -150,7 +154,6 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
 
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
-        detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));
 
         // Load complete credential data and resource data
         var dataAttributes = attributeEngine.getDataAttributesByContent(vaultInstance.getConnectorUuid(), request.getAttributes());
@@ -161,6 +164,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         // TODO: Create the vault instance in connector using API
 
         detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
+        detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));
 
         return detailDto;
     }
@@ -170,8 +174,8 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.VAULT, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(FilterField.VAULT_INSTANCE_NAME),
-                SearchHelper.prepareSearch(FilterField.VAULT_INSTANCE_CONNECTOR_NAME)
+                SearchHelper.prepareSearch(FilterField.VAULT_INSTANCE_NAME, vaultInstanceRepository.findAllNames()),
+                SearchHelper.prepareSearch(FilterField.VAULT_INSTANCE_CONNECTOR_NAME, vaultInstanceRepository.findAllConnectorNames())
         );
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());

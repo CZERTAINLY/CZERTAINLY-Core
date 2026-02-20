@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
@@ -60,7 +61,7 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.CREATE)
-    public VaultInstanceDetailDto createVaultInstance(VaultInstanceRequestDto vaultInstanceRequest) throws ConnectorException, NotFoundException, AttributeException {
+    public VaultInstanceDetailDto createVaultInstance(VaultInstanceRequestDto vaultInstanceRequest) throws ConnectorException, NotFoundException, AttributeException, AlreadyExistException {
         return vaultInstanceService.createVaultInstance(vaultInstanceRequest);
     }
 
