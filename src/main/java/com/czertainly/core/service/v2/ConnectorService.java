@@ -43,13 +43,13 @@ public interface ConnectorService extends ResourceExtensionService {
 
     List<ConnectInfo> connect(ConnectRequestDto request);
 
-    ConnectInfo reconnect(SecuredUUID uuid) throws NotFoundException;
+    ConnectInfo reconnect(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
     void approve(SecuredUUID uuid) throws NotFoundException;
 
-    void bulkApprove(List<SecuredUUID> uuids);
+    List<BulkActionMessageDto> bulkApprove(List<SecuredUUID> uuids);
 
-    void bulkReconnect(List<SecuredUUID> uuids);
+    List<BulkActionMessageDto> bulkReconnect(List<SecuredUUID> uuids);
 
     List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids);
 

@@ -1,13 +1,11 @@
 package com.czertainly.core.service.v2.impl;
 
-import com.czertainly.api.clients.ConnectorApiClient;
-import com.czertainly.api.clients.v2.HealthApiClient;
-import com.czertainly.api.clients.v2.InfoApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.v2.ConnectorInfo;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.connector.v2.HealthInfo;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -19,10 +17,8 @@ import com.czertainly.api.model.core.connector.v2.*;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.ComplianceProfileRepository;
-import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
-import com.czertainly.core.dao.repository.ConnectorInterfaceRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.events.transaction.TransactionHandler;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -59,37 +55,23 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private Map<String, ConnectorAdapter> connectorAdapters;
 
-    private InfoApiClient infoApiClient;
-    private ConnectorApiClient infoApiClientV1;
-    private HealthApiClient healthApiClient;
-
     private ConnectorRepository connectorRepository;
-    private ComplianceProfileRepository complianceProfileRepository;
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
-    private ConnectorInterfaceRepository connectorInterfaceRepository;
+    private CredentialRepository credentialRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    private ComplianceProfileRepository complianceProfileRepository;
+    private ComplianceProfileRuleRepository complianceProfileRuleRepository;
 
     private ConnectorAuthService connectorAuthService;
 
     private AttributeEngine attributeEngine;
+    private TransactionHandler transactionHandler;
 
     @Autowired
     public void setConnectorAdapters(Map<String, ConnectorAdapter> connectorAdapters) {
         this.connectorAdapters = connectorAdapters;
-    }
-
-    @Autowired
-    public void setInfoApiClient(InfoApiClient infoApiClient) {
-        this.infoApiClient = infoApiClient;
-    }
-
-    @Autowired
-    public void setInfoApiClientV1(ConnectorApiClient infoApiClientV1) {
-        this.infoApiClientV1 = infoApiClientV1;
-    }
-
-    @Autowired
-    public void setHealthApiClient(HealthApiClient healthApiClient) {
-        this.healthApiClient = healthApiClient;
     }
 
     @Autowired
@@ -103,18 +85,43 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Autowired
+    public void setTransactionHandler(TransactionHandler transactionHandler) {
+        this.transactionHandler = transactionHandler;
+    }
+
+    @Autowired
+    public void setCredentialRepository(CredentialRepository credentialRepository) {
+        this.credentialRepository = credentialRepository;
+    }
+
+    @Autowired
+    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
+        this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository tokenInstanceReferenceRepository) {
+        this.tokenInstanceReferenceRepository = tokenInstanceReferenceRepository;
+    }
+
+    @Autowired
     public void setComplianceProfileRepository(ComplianceProfileRepository complianceProfileRepository) {
         this.complianceProfileRepository = complianceProfileRepository;
     }
 
     @Autowired
-    public void setConnector2FunctionGroupRepository(Connector2FunctionGroupRepository connector2FunctionGroupRepository) {
-        this.connector2FunctionGroupRepository = connector2FunctionGroupRepository;
+    public void setComplianceProfileRuleRepository(ComplianceProfileRuleRepository complianceProfileRuleRepository) {
+        this.complianceProfileRuleRepository = complianceProfileRuleRepository;
     }
 
     @Autowired
-    public void setConnectorInterfaceRepository(ConnectorInterfaceRepository connectorInterfaceRepository) {
-        this.connectorInterfaceRepository = connectorInterfaceRepository;
+    public void setConnector2FunctionGroupRepository(Connector2FunctionGroupRepository connector2FunctionGroupRepository) {
+        this.connector2FunctionGroupRepository = connector2FunctionGroupRepository;
     }
 
     @Autowired
@@ -149,7 +156,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = getConnectorEntity(uuid);
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
-        ConnectorAdapter connectorAdapter = connectorAdapters.get(connector.getVersion().getCode());
+        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
         try {
             connectorAdapter.checkConnection(dto);
         } catch (ConnectorCommunicationException e) {
@@ -190,7 +197,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connectorRepository.save(connector);
 
-        ConnectorAdapter connectorAdapter = connectorAdapters.get(request.getVersion().getCode());
+        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
         ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
         connectorAdapter.updateConnectorFunctions(connector, connectInfo);
 
@@ -204,6 +211,41 @@ public class ConnectorServiceImpl implements ConnectorService {
     public void deleteConnector(SecuredUUID uuid) throws NotFoundException {
         Connector connector = getConnectorEntity(uuid);
         deleteConnector(connector);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            Connector connector = null;
+            try {
+                connector = getConnectorEntity(uuid);
+                deleteConnector(connector);
+            } catch (Exception e) {
+                logger.error("Unable to delete Connector", e);
+                messages.add(new BulkActionMessageDto(uuid.toString(), connector != null ? connector.getName() : "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            Connector connector = null;
+            try {
+                connector = getConnectorEntity(uuid);
+                removeConnectorAssociations(connector);
+                deleteConnector(connector);
+            } catch (Exception e) {
+                logger.error("Unable to force delete Connector", e);
+                messages.add(new BulkActionMessageDto(uuid.toString(), connector != null ? connector.getName() : "", e.getMessage()));
+            }
+        }
+        return messages;
     }
 
     @Override
@@ -224,13 +266,13 @@ public class ConnectorServiceImpl implements ConnectorService {
                     logger.debug("No connector of version {} is running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
                     continue;
                 }
-                logger.warn("Unable to connect to connector of version {} running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
+                logger.error("Unable to connect to connector of version {} running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
                 connectInfo = ConnectInfo.fromError(connectorAdapter.getVersion(), e.getMessage());
             }
 
-            Connector connector = connectorRepository.findByUrlAndVersion(request.getUrl(), connectorAdapter.getVersion());
-            if (connector != null) {
-                connectInfo.setConnectorUuid(connector.getUuid());
+            var connector = connectorRepository.findByUrlAndVersion(request.getUrl(), connectorAdapter.getVersion());
+            if (connector.isPresent()) {
+                connectInfo.setConnectorUuid(connector.get().getUuid());
             }
             connectInfos.add(connectInfo);
         }
@@ -240,62 +282,65 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    public ConnectInfo reconnect(SecuredUUID uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
+    public ConnectInfo reconnect(SecuredUUID uuid) throws NotFoundException, ConnectorException {
         Connector connector = getConnectorEntity(uuid);
-        ConnectorAdapter connectorAdapter = connectorAdapters.get(connector.getVersion().getCode());
+        return reconnect(connector);
+    }
 
-
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
+    public List<BulkActionMessageDto> bulkReconnect(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            Connector connector = null;
+            try {
+                connector = getConnectorEntity(uuid);
+                reconnect(connector);
+            } catch (Exception e) {
+                logger.error("Unable to reconnect connector", e);
+                messages.add(new BulkActionMessageDto(uuid.toString(), connector != null ? connector.getName() : "", e.getMessage()));
+            }
+        }
+        return messages;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.APPROVE)
     public void approve(SecuredUUID uuid) throws NotFoundException {
         Connector connector = getConnectorEntity(uuid);
-
-        if (connector.getStatus() == ConnectorStatus.WAITING_FOR_APPROVAL) {
-            connector.setStatus(ConnectorStatus.CONNECTED);
-            connectorRepository.save(connector);
-        } else {
-            throw new ValidationException(ValidationError.create("Connector '{}' has unexpected status {}", connector.getName(), connector.getStatus().getLabel()));
-        }
+        approve(connector);
     }
 
     @Override
-    public void bulkApprove(List<SecuredUUID> uuids) {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.APPROVE)
+    public List<BulkActionMessageDto> bulkApprove(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
+            Connector connector = null;
             try {
-                approve(uuid);
-            } catch (ValidationException e) {
-                logger.warn(e.getMessage());
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find the connector with uuid {}", uuid);
+                connector = getConnectorEntity(uuid);
+                approve(connector);
+            } catch (Exception e) {
+                logger.error("Unable to approve connector", e);
+                messages.add(new BulkActionMessageDto(uuid.toString(), connector != null ? connector.getName() : "", e.getMessage()));
             }
         }
-    }
-
-    @Override
-    public void bulkReconnect(List<SecuredUUID> uuids) {
-
-    }
-
-    @Override
-    public List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) {
-        return List.of();
-    }
-
-    @Override
-    public List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids) {
-        return List.of();
+        return messages;
     }
 
     @Override
     public HealthInfo checkHealth(SecuredUUID uuid) throws NotFoundException, ConnectorException {
-        return healthApiClient.checkHealth(getConnectorEntity(uuid).mapToDetailDto());
+        Connector connector = getConnectorEntity(uuid);
+        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
+        return connectorAdapter.checkHealth(connector.mapToApiClientDto());
     }
 
     @Override
     public ConnectorInfo getInfo(SecuredUUID uuid) throws NotFoundException, ConnectorException {
-        return infoApiClient.getConnectorInfo(getConnectorEntity(uuid).mapToDetailDto()).getConnector();
+        Connector connector = getConnectorEntity(uuid);
+        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
+        return connectorAdapter.getInfo(connector.mapToApiClientDto());
     }
 
     @Override
@@ -327,6 +372,10 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (connectorRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
+        if (connectorRepository.findByUrlAndVersion(request.getUrl(), request.getVersion()).isPresent()) {
+            throw new AlreadyExistException(Connector.class, "URL %s with version %s".formatted(request.getUrl(), request.getVersion().getLabel()));
+        }
+
         List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
 
@@ -336,7 +385,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorApiDto.setAuthType(request.getAuthType());
         connectorApiDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
 
-        ConnectorAdapter connectorAdapter = connectorAdapters.get(request.getVersion().getCode());
+        ConnectorAdapter connectorAdapter = getAdapter(request.getVersion());
         ConnectInfo connectInfo = connectorAdapter.validateConnection(connectorApiDto);
 
         Connector connector = new Connector();
@@ -353,6 +402,78 @@ public class ConnectorServiceImpl implements ConnectorService {
         ConnectorDetailDto dto = connector.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
         return dto;
+    }
+
+    private void removeConnectorAssociations(Connector connector) {
+        if (!connector.getCredentials().isEmpty()) {
+            for (Credential credential : connector.getCredentials()) {
+                credential.setConnectorUuid(null);
+                credentialRepository.save(credential);
+            }
+            connector.getCredentials().removeAll(connector.getCredentials());
+            connectorRepository.save(connector);
+        }
+
+        if (!connector.getAuthorityInstanceReferences().isEmpty()) {
+            for (AuthorityInstanceReference ref : connector.getAuthorityInstanceReferences()) {
+                ref.setConnector(null);
+                ref.setConnectorUuid(null);
+                authorityInstanceReferenceRepository.save(ref);
+            }
+            connector.getAuthorityInstanceReferences().removeAll(connector.getAuthorityInstanceReferences());
+            connectorRepository.save(connector);
+        }
+
+        if (!connector.getEntityInstanceReferences().isEmpty()) {
+            for (EntityInstanceReference ref : connector.getEntityInstanceReferences()) {
+                ref.setConnector(null);
+                ref.setConnectorUuid(null);
+                entityInstanceReferenceRepository.save(ref);
+            }
+            connector.getEntityInstanceReferences().removeAll(connector.getEntityInstanceReferences());
+            connectorRepository.save(connector);
+        }
+
+        if (!connector.getTokenInstanceReferences().isEmpty()) {
+            for (TokenInstanceReference ref : connector.getTokenInstanceReferences()) {
+                ref.setConnector(null);
+                ref.setConnectorUuid(null);
+                tokenInstanceReferenceRepository.save(ref);
+            }
+            connector.getTokenInstanceReferences().removeAll(connector.getTokenInstanceReferences());
+            connectorRepository.save(connector);
+        }
+
+        // delete connector associations to compliance profiles rules
+        complianceProfileRuleRepository.deleteByConnectorUuid(connector.getUuid());
+    }
+
+    private ConnectInfo reconnect(Connector connector) throws ConnectorException {
+        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
+
+        try {
+            ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
+            connectorAdapter.updateConnectorFunctions(connector, connectInfo);
+            return connectInfo;
+        } catch (ConnectorCommunicationException | NotFoundException e) {
+            String message = String.format("Unable to reconnect to connector %s. Error in communication or no connector of version %s is running on the provided URL '%s'.", connector.getName(), connectorAdapter.getVersion().getLabel(), connector.getUrl());
+            logger.error(message, Exceptions.unwrap(e));
+            transactionHandler.runInNewTransaction(() -> {
+                connector.setStatus(ConnectorStatus.OFFLINE);
+                connectorRepository.save(connector);
+            });
+
+            throw new ConnectorException(message);
+        }
+    }
+
+    private void approve(Connector connector) {
+        if (connector.getStatus() == ConnectorStatus.WAITING_FOR_APPROVAL) {
+            connector.setStatus(ConnectorStatus.CONNECTED);
+            connectorRepository.save(connector);
+        } else {
+            throw new ValidationException(ValidationError.create("Connector '{}' has unexpected status {}", connector.getName(), connector.getStatus().getLabel()));
+        }
     }
 
     private void deleteConnector(Connector connector) {
@@ -390,6 +511,14 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         attributeEngine.deleteAllObjectAttributeContent(Resource.CONNECTOR, connector.getUuid());
         connectorRepository.delete(connector);
+    }
+
+    private ConnectorAdapter getAdapter(ConnectorVersion version) {
+        ConnectorAdapter adapter = connectorAdapters.get(version.getCode());
+        if (adapter == null) {
+            throw new IllegalStateException("No adapter registered for connector version: " + version);
+        }
+        return adapter;
     }
 
 }

@@ -85,14 +85,14 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.APPROVE)
-    public void bulkApprove(List<UUID> uuids) throws NotFoundException, ValidationException {
-        connectorService.bulkApprove(SecuredUUID.fromUuidList(uuids));
+    public List<BulkActionMessageDto> bulkApprove(List<UUID> uuids) throws NotFoundException, ValidationException {
+        return connectorService.bulkApprove(SecuredUUID.fromUuidList(uuids));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.RECONNECT)
-    public void bulkReconnect(List<UUID> uuids) throws ValidationException, NotFoundException, ConnectException, ConnectorException {
-        connectorService.bulkReconnect(SecuredUUID.fromUuidList(uuids));
+    public List<BulkActionMessageDto> bulkReconnect(List<UUID> uuids) throws ValidationException, NotFoundException, ConnectException, ConnectorException {
+        return connectorService.bulkReconnect(SecuredUUID.fromUuidList(uuids));
     }
 
     @Override

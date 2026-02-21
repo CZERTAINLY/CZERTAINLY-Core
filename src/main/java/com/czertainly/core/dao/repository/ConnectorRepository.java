@@ -20,9 +20,7 @@ public interface ConnectorRepository extends SecurityFilterRepository<Connector,
 
     Optional<Connector> findByName(String name);
 
-    List<Connector> findByStatus(ConnectorStatus status);
-
-    Connector findByUrlAndVersion(String url, ConnectorVersion version);
+    Optional<Connector> findByUrlAndVersion(String url, ConnectorVersion version);
 
     @Query(value =
             " select c from Connector c " +

@@ -8,10 +8,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.InfoResponse;
-import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
-import com.czertainly.api.model.client.connector.v2.HealthInfo;
-import com.czertainly.api.model.client.connector.v2.HealthInfoComponent;
-import com.czertainly.api.model.client.connector.v2.HealthStatus;
+import com.czertainly.api.model.client.connector.v2.*;
 import com.czertainly.api.model.core.connector.*;
 import com.czertainly.api.model.core.connector.v2.ConnectInfo;
 import com.czertainly.api.model.core.connector.v2.ConnectInfoV1;
@@ -71,6 +68,11 @@ public class ConnectorV1Adapter implements ConnectorAdapter {
     @Override
     public ConnectorVersion getVersion() {
         return ConnectorVersion.V1;
+    }
+
+    @Override
+    public ConnectorInfo getInfo(ApiClientConnectorInfo connectorInfo) {
+        throw new UnsupportedOperationException("Getting connector info is not supported for connector version " + getVersion());
     }
 
     @Override
