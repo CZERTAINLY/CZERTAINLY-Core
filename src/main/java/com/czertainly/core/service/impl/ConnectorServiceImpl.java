@@ -70,7 +70,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) {
-        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDtoV1).toList();
+        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDto).toList();
         if (functionGroup.isPresent()) {
             connectors = filterByFunctionGroup(connectors, functionGroup.get());
         }
@@ -155,7 +155,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         if (connector.getVersion() != ConnectorVersion.V1) {
-            throw new ConnectorException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got " + connectInfo.getVersion());
+            throw new ConnectorException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got " + connector.getVersion());
         }
 
         var connectInfo = connectorServiceV2.reconnect(uuid);
@@ -190,7 +190,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        return healthApiClient.checkHealth(connector.mapToDtoV1());
+        return healthApiClient.checkHealth(connector.mapToDto());
     }
 
     @Override
@@ -201,7 +201,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         validateFunctionGroup(connector, functionGroup);
 
-        return attributeApiClient.listAttributeDefinitions(connector.mapToDtoV1(), functionGroup, functionGroupType);
+        return attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
     }
 
     @Override
@@ -215,7 +215,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException {
         validateFunctionGroup(connector, functionGroup);
-        attributeApiClient.validateAttributes(connector.mapToDtoV1(), functionGroup, attributes, functionGroupType);
+        attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
     }
 
     @Override
@@ -228,7 +228,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         validateAttributes(connector, functionGroup, requestAttributes, functionGroupType);
 
         // get definitions from connector
-        List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDtoV1(), functionGroup, functionGroupType);
+        List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(connector.getUuid(), null, definitions, requestAttributes);
@@ -241,10 +241,10 @@ public class ConnectorServiceImpl implements ConnectorService {
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> attributes = new EnumMap<>(FunctionGroupCode.class);
-        for (FunctionGroupDto fg : connector.mapToDtoV1().getFunctionGroups()) {
+        for (FunctionGroupDto fg : connector.mapToDto().getFunctionGroups()) {
             Map<String, List<BaseAttribute>> kindsAttribute = new HashMap<>();
             for (String kind : fg.getKinds()) {
-                kindsAttribute.put(kind, attributeApiClient.listAttributeDefinitions(connector.mapToDtoV1(), fg.getFunctionGroupCode(), kind));
+                kindsAttribute.put(kind, attributeApiClient.listAttributeDefinitions(connector.mapToDto(), fg.getFunctionGroupCode(), kind));
             }
             attributes.put(fg.getFunctionGroupCode(), kindsAttribute);
         }

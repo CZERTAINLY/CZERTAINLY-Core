@@ -32,7 +32,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "connector")
-public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ConnectorDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<com.czertainly.api.model.core.connector.ConnectorDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Serial
     private static final long serialVersionUID = -4057975339123024975L;
@@ -87,8 +87,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @ToString.Exclude
     private Set<TokenInstanceReference> tokenInstanceReferences = new HashSet<>();
 
-    @Override
-    public ConnectorDto mapToDto() {
+    public ConnectorDto mapToListDto() {
         ConnectorDto dto = new ConnectorDto();
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
@@ -119,7 +118,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     public ConnectorApiClientDto mapToApiClientDto() {
         ConnectorApiClientDto dto = new ConnectorApiClientDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setUrl(this.url);
         dto.setStatus(this.status);
@@ -129,7 +128,8 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         return dto;
     }
 
-    public com.czertainly.api.model.core.connector.ConnectorDto mapToDtoV1() {
+    @Override
+    public com.czertainly.api.model.core.connector.ConnectorDto mapToDto() {
         var dto = new com.czertainly.api.model.core.connector.ConnectorDto();
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);

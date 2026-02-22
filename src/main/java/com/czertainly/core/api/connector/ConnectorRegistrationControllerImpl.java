@@ -8,6 +8,7 @@ import com.czertainly.api.interfaces.core.connector.ConnectorRegistrationControl
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.core.aop.AuditLogged;
@@ -30,5 +31,10 @@ public class ConnectorRegistrationControllerImpl implements ConnectorRegistratio
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.REGISTER)
     public UuidDto register(@RequestBody ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         return connectorRegistrationService.registerConnector(request);
+    }
+
+    @Override
+    public ConnectorDetailDto register(com.czertainly.api.model.core.connector.v2.ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        return connectorRegistrationService.registerConnectorV2(request);
     }
 }

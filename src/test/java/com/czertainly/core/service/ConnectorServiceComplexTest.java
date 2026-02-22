@@ -99,7 +99,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateConnector() throws AlreadyExistException, NotFoundException {
+    void testCreateConnector() throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -111,11 +111,12 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
         FunctionGroupDto fgDto = functionGroup.mapToDto();
         fgDto.setKinds(Collections.singletonList(kindName));
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");
-        request.setFunctionGroups(List.of(fgDto));
+        // TODO: add function groups and mock connector response
+//        request.setFunctionGroups(List.of(fgDto));
 
-        ConnectorDto dto = connectorService.createConnector(request, ConnectorStatus.CONNECTED);
+        ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getUuid());
         Assertions.assertNotNull(dto.getFunctionGroups());

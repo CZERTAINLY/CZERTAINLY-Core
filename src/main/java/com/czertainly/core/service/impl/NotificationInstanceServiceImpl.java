@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.notification.AttributeMappingDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
@@ -148,7 +149,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
             throw new AlreadyExistException(NotificationInstanceReference.class, request.getName());
         }
 
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
+        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromString(request.getConnectorUuid()));
 
         NotificationProviderInstanceDto response = saveNotificationProviderInstance(null,
                 request,
@@ -160,10 +161,9 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         notificationInstanceRef.setNotificationInstanceUuid(UUID.fromString(response.getUuid()));
         notificationInstanceRef.setName(request.getName());
         notificationInstanceRef.setDescription(request.getDescription());
-        notificationInstanceRef.setConnector(connector);
         notificationInstanceRef.setKind(request.getKind());
         notificationInstanceRef.setConnectorName(connector.getName());
-        notificationInstanceRef.setConnectorUuid(connector.getUuid());
+        notificationInstanceRef.setConnectorUuid(UUID.fromString(connector.getUuid()));
         notificationInstanceReferenceRepository.save(notificationInstanceRef);
 
         updateMappedAttributes(notificationInstanceRef, request.getAttributeMappings());
@@ -179,13 +179,12 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.UPDATE)
     public NotificationInstanceDto editNotificationInstance(UUID uuid, NotificationInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         NotificationInstanceReference notificationInstanceRef = getNotificationInstanceReferenceEntity(uuid);
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(notificationInstanceRef.getConnectorUuid()));
 
         saveNotificationProviderInstance(notificationInstanceRef.getNotificationInstanceUuid(),
                 request,
                 notificationInstanceRef.getKind(),
                 notificationInstanceRef.getName(),
-                connector);
+                notificationInstanceRef.getConnector().mapToDto());
 
         notificationInstanceRef.setDescription(request.getDescription());
 
@@ -211,8 +210,8 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Override
     public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(connectorUuid));
-        return notificationInstanceApiClient.listMappingAttributes(connector.mapToDto(), kind);
+        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromString(connectorUuid));
+        return notificationInstanceApiClient.listMappingAttributes(connector, kind);
     }
 
     private NotificationInstanceReference getNotificationInstanceReferenceEntity(UUID uuid) throws NotFoundException {
@@ -220,11 +219,11 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
                 .orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, uuid));
     }
 
-    private NotificationProviderInstanceDto saveNotificationProviderInstance(UUID uuid, NotificationInstanceUpdateRequestDto request, String kind, String name, Connector connector) throws ConnectorException, AttributeException, NotFoundException {
-        connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), FunctionGroupCode.NOTIFICATION_PROVIDER, request.getAttributes(), kind);
+    private NotificationProviderInstanceDto saveNotificationProviderInstance(UUID uuid, NotificationInstanceUpdateRequestDto request, String kind, String name, ConnectorDto connector) throws ConnectorException, AttributeException, NotFoundException {
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromString(connector.getUuid()), FunctionGroupCode.NOTIFICATION_PROVIDER, request.getAttributes(), kind);
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesByContent(UUID.fromString(connector.getUuid()), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
         resourceService.loadResourceObjectContentData(dataAttributes);
 
@@ -233,8 +232,8 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         notificationInstanceDto.setKind(kind);
         notificationInstanceDto.setName(name);
 
-        return uuid == null ? notificationInstanceApiClient.createNotificationInstance(connector.mapToDto(),
-                notificationInstanceDto) : notificationInstanceApiClient.updateNotificationInstance(connector.mapToDto(),
+        return uuid == null ? notificationInstanceApiClient.createNotificationInstance(connector,
+                notificationInstanceDto) : notificationInstanceApiClient.updateNotificationInstance(connector,
                 uuid.toString(),
                 notificationInstanceDto);
     }

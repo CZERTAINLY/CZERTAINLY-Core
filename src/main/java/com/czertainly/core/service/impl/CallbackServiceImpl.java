@@ -14,6 +14,7 @@ import com.czertainly.api.model.common.attribute.common.callback.RequestAttribut
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeVersionHelper;
@@ -118,13 +119,14 @@ public class CallbackServiceImpl implements CallbackService {
 
     @Override
     public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException, AttributeException {
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
-        List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
+        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromString(uuid));
+        List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector, functionGroup, kind);
         return getCallbackObject(callback, definitions, connector);
     }
 
-    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, Connector connector) throws NotFoundException, ConnectorException, AttributeException {
-        BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connector.getUuid());
+    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, ConnectorDto connector) throws NotFoundException, ConnectorException, AttributeException {
+        UUID connectorUuid = UUID.fromString(connector.getUuid());
+        BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connectorUuid);
         AttributeCallback attributeCallback = getAttributeCallback(attribute);
 
         AttributeResource attributeResource = getAttributeResource(attribute);
@@ -136,7 +138,7 @@ public class CallbackServiceImpl implements CallbackService {
         }
 
 
-        if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE)  {
+        if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE) {
             return coreCallbackService.coreGetResources(callback, attributeResource);
         }
 
@@ -148,16 +150,16 @@ public class CallbackServiceImpl implements CallbackService {
                 AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
                 if (callbackMapping != null && callbackMapping.getFrom() != null) {
                     String fromAttributeName = callbackMapping.getFrom().split("\\.", 2)[0];
-                    DataAttribute fromAttribute =  (DataAttribute) getAttributeByName(fromAttributeName, definitions, connector.getUuid());
+                    DataAttribute fromAttribute = (DataAttribute) getAttributeByName(fromAttributeName, definitions, connectorUuid);
                     toResource.put(to, fromAttribute.getProperties().getResource());
                 }
             }
             resourceService.loadResourceObjectContentData(attributeCallback, callback, toResource);
         }
 
-        Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
+        Object response = attributeApiClient.attributeCallback(connector, attributeCallback, callback);
         if (attribute.getType().equals(AttributeType.GROUP)) {
-            processGroupAttributes(connector.getUuid(), response);
+            processGroupAttributes(connectorUuid, response);
         }
         return response;
     }
@@ -206,11 +208,11 @@ public class CallbackServiceImpl implements CallbackService {
             case LOCATION:
                 EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(UUID.fromString(resourceUuid))
                         .orElseThrow(
-                        () -> new NotFoundException(
-                                EntityInstanceReference.class,
-                                resourceUuid
-                        )
-                );
+                                () -> new NotFoundException(
+                                        EntityInstanceReference.class,
+                                        resourceUuid
+                                )
+                        );
                 connector = entityInstance.getConnector();
                 definitions = entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
                 break;
@@ -224,7 +226,7 @@ public class CallbackServiceImpl implements CallbackService {
         }
 
         LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid().toString(), connector.getName());
-        return getCallbackObject(callback, definitions, connector);
+        return getCallbackObject(callback, definitions, connector.mapToDto());
     }
 
     private AttributeCallback getAttributeCallback(BaseAttribute attribute) {

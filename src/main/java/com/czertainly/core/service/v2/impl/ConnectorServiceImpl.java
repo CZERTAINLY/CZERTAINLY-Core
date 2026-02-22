@@ -138,7 +138,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         final TriFunction<Root<Connector>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<ConnectorDto> connectorDtos = connectorRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
-                .map(Connector::mapToDto).toList();
+                .map(Connector::mapToListDto).toList();
         final Long maxItems = connectorRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         PaginationResponseDto<ConnectorDto> response = new PaginationResponseDto<>();

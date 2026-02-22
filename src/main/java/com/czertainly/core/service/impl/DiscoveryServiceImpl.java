@@ -19,6 +19,7 @@ import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificate
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -252,8 +253,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
-                Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
-                discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
+                ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
+                discoveryApiClient.removeDiscovery(connector, referenceUuid);
             }
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -289,10 +290,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         if (request.getConnectorUuid() == null) {
             throw new ValidationException(ValidationError.create("Connector UUID is empty"));
         }
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
+
+        UUID connectorUuid = UUID.fromString(request.getConnectorUuid());
+        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
 
         attributeEngine.validateCustomAttributesContent(Resource.DISCOVERY, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connectorUuid), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setName(request.getName());
@@ -300,13 +303,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discovery.setStartTime(new Date());
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
-        discovery.setConnectorUuid(connector.getUuid());
+        discovery.setConnectorUuid(connectorUuid);
         discovery.setKind(request.getKind());
 
         if (saveEntity) {
             discovery = discoveryRepository.save(discovery);
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(), request.getCustomAttributes());
-            attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
+            attributeEngine.updateObjectDataAttributesContent(connectorUuid, null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
             if (request.getTriggers() != null) {
                 triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid(), request.getTriggers(), false);
                 discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
@@ -378,7 +381,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (existingCertificate == null) {
                     logger.warn("Could not update metadata for duplicate discovery certificate. Certificate with fingerprint {} not found.", fingerprint);
                 } else {
-                    attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(context.getConnector().getUuid(), Resource.CERTIFICATE, existingCertificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
+                    attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(UUID.fromString(context.getConnectorDto().getUuid()), Resource.CERTIFICATE, existingCertificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
                 }
             } catch (AttributeException e) {
                 logger.error("Could not update metadata for duplicate discovery certificate {}.", certificate.getUuid());
@@ -418,13 +421,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         // reload discovery modal with all association since it could be in separate transaction/session due to async
         String message = null;
-        Connector connector = null;
+        ConnectorDto connector = null;
         List<DataAttribute> dataAttributes = null;
         DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         try {
             logger.info("Loading discovery context: name={}, uuid={}", discovery.getName(), discovery.getUuid());
-            connector = connectorService.getConnectorEntity(SecuredUUID.fromString(discovery.getConnectorUuid().toString()));
-            dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
+            connector = connectorService.getConnector(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
+            dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, discovery.getConnectorUuid(), null, Resource.DISCOVERY, discovery.getUuid());
 
             credentialService.loadFullCredentialData(dataAttributes);
             resourceService.loadResourceObjectContentData(dataAttributes);
@@ -562,7 +565,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     throw new DiscoveryException(discovery.getName(), context.getMessage());
                 }
 
-                futures.add(downloadDiscoveredCertificatesBatchAsync(discovery, response, context.getConnector(), uniqueCertificateContents, duplicateCertificates, executor, currentPage));
+                futures.add(downloadDiscoveredCertificatesBatchAsync(discovery, response, context.getConnectorDto(), uniqueCertificateContents, duplicateCertificates, executor, currentPage));
 
                 ++currentPage;
                 currentTotal += response.getCertificateData().size();
@@ -579,7 +582,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
     }
 
-    private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final Connector connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
+    private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final ConnectorDto connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
         // categorize certs and collect metadata definitions
         List<MetadataAttribute> metadataDefinitions = new ArrayList<>();
         Map<String, Set<AttributeContent>> metadataContentsMapping = new HashMap<>();
@@ -605,7 +608,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         });
 
         // add/update certificate metadata to prevent creating duplicate definitions in parallel processing
-        certificateHandler.updateMetadataDefinition(metadataDefinitions, metadataContentsMapping, connector.getUuid(), connector.getName());
+        certificateHandler.updateMetadataDefinition(metadataDefinitions, metadataContentsMapping, UUID.fromString(connector.getUuid()), connector.getName());
 
         // run in separate virtual thread and continue
         return executor.submit(() -> {

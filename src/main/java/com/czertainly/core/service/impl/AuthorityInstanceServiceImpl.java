@@ -16,7 +16,9 @@ import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
@@ -143,21 +145,20 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
             throw new AlreadyExistException(AuthorityInstanceReference.class, request.getName());
         }
 
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
-
+        SecuredUUID connectorUuid = SecuredUUID.fromString(request.getConnectorUuid());
+        ConnectorDto connector = connectorService.getConnector(connectorUuid);
         FunctionGroupCode codeToSearch = FunctionGroupCode.AUTHORITY_PROVIDER;
-
-        for (Connector2FunctionGroup function : connector.getFunctionGroups()) {
-            if (function.getFunctionGroup().getCode() == FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER) {
+        for (FunctionGroupDto function : connector.getFunctionGroups()) {
+            if (function.getFunctionGroupCode() == FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER) {
                 codeToSearch = FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER;
                 break;
             }
         }
         attributeEngine.validateCustomAttributesContent(Resource.AUTHORITY, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch, request.getAttributes(), request.getKind());
+        connectorService.mergeAndValidateAttributes(connectorUuid, codeToSearch, request.getAttributes(), request.getKind());
 
         // Load complete credential data and resource data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesByContent(connectorUuid.getValue(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
         resourceService.loadResourceObjectContentData(dataAttributes);
 
@@ -166,13 +167,13 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setName(request.getName());
 
-        AuthorityProviderInstanceDto response = authorityInstanceApiClient.createAuthorityInstance(connector.mapToDto(), authorityInstanceDto);
+        AuthorityProviderInstanceDto response = authorityInstanceApiClient.createAuthorityInstance(connector, authorityInstanceDto);
 
         AuthorityInstanceReference authorityInstanceRef = new AuthorityInstanceReference();
         authorityInstanceRef.setAuthorityInstanceUuid(response.getUuid());
         authorityInstanceRef.setName(request.getName());
         authorityInstanceRef.setStatus("connected");
-        authorityInstanceRef.setConnector(connector);
+        authorityInstanceRef.setConnectorUuid(connectorUuid.getValue());
         authorityInstanceRef.setKind(request.getKind());
         authorityInstanceRef.setConnectorName(connector.getName());
         authorityInstanceReferenceRepository.save(authorityInstanceRef);
@@ -187,22 +188,22 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.UPDATE)
     public AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
-        AuthorityInstanceDto ref = getAuthorityInstance(uuid);
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
+        AuthorityInstanceDto ref = authorityInstanceRef.mapToDto();
+        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromString(ref.getConnectorUuid()));
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.AUTHORITY_PROVIDER;
 
-        for (Connector2FunctionGroup function : connector.getFunctionGroups()) {
-            if (function.getFunctionGroup().getCode() == FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER) {
+        for (FunctionGroupDto function : connector.getFunctionGroups()) {
+            if (function.getFunctionGroupCode() == FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER) {
                 codeToSearch = FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER;
                 break;
             }
         }
         attributeEngine.validateCustomAttributesContent(Resource.AUTHORITY, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch, request.getAttributes(), ref.getKind());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(authorityInstanceRef.getConnectorUuid()), codeToSearch, request.getAttributes(), ref.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesByContent(authorityInstanceRef.getConnectorUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
         resourceService.loadResourceObjectContentData(dataAttributes);
 
@@ -210,8 +211,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         authorityInstanceDto.setKind(ref.getKind());
         authorityInstanceDto.setName(ref.getName());
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
-        authorityInstanceApiClient.updateAuthorityInstance(connector.mapToDto(),
-                authorityInstanceRef.getAuthorityInstanceUuid(), authorityInstanceDto);
+        authorityInstanceApiClient.updateAuthorityInstance(connector, authorityInstanceRef.getAuthorityInstanceUuid(), authorityInstanceDto);
         authorityInstanceReferenceRepository.save(authorityInstanceRef);
 
         AuthorityInstanceDto dto = authorityInstanceRef.mapToDto();
