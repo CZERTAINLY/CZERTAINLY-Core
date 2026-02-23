@@ -9,6 +9,7 @@ import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -69,8 +70,9 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         JdbcIndexedSessionRepository mocked = Mockito.mock(JdbcIndexedSessionRepository.class);
         DataSource dataSource = Mockito.mock(DataSource.class);
         GenericConversionService conversionService = Mockito.mock(GenericConversionService.class);
-        SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
+        final SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
+        Assertions.assertDoesNotThrow(() -> publisher.processExpiredSessionBySessionId(UUID.randomUUID().toString()));
 
         Session s = sessionRepository.createSession();
         s.setMaxInactiveInterval(Duration.ZERO);
@@ -80,8 +82,26 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
 
         Mockito.when(dataSource.getConnection()).thenReturn(jdbcTemplate.getDataSource().getConnection());
         Mockito.when(conversionService.convert(Mockito.any(), Mockito.eq(Object.class))).thenThrow(new RuntimeException("Conversion error"));
-        publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
-        Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
+        final SessionExpirationPublisher publisher2 = new SessionExpirationPublisher(mocked, dataSource, conversionService);
+        Assertions.assertDoesNotThrow(publisher2::processExpiredSessions);
+    }
+
+    @Test
+    void testProcessExpiredSessionById() {
+        Session s = sessionRepository.createSession();
+        s.setMaxInactiveInterval(Duration.ofDays(1));
+        s.setLastAccessedTime(Instant.now().minus(Duration.of(10, ChronoUnit.MINUTES)));
+        sessionRepository.save(s);
+        sessionExpirationPublisher.processExpiredSessions();
+        Assertions.assertNotNull(sessionRepository.findById(s.getId()));
+
+        Session s2 = sessionRepository.createSession();
+        s2.setMaxInactiveInterval(Duration.ZERO);
+        s2.setLastAccessedTime(Instant.now().minus(Duration.of(10, ChronoUnit.MINUTES)));
+        sessionRepository.save(s2);
+        sessionExpirationPublisher.processExpiredSessionBySessionId(s2.getId());
+        Assertions.assertNull(sessionRepository.findById(s2.getId()));
+
     }
 
 
