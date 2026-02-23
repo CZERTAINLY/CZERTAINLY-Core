@@ -15,7 +15,6 @@ import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceUpdateRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceMappedAttributes;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceMappedAttributeRepository;

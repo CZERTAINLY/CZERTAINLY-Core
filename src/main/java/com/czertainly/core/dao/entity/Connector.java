@@ -64,7 +64,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
 
     @ToString.Exclude
-    @OneToMany(mappedBy = "connector", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "connector", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private Set<ConnectorInterfaceEntity> interfaces = new HashSet<>();
 
     @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)

@@ -310,7 +310,9 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(ConnectorProblemException.class)
     public ResponseEntity<ErrorMessageDto> handleConnectorProblemException(ConnectorProblemException ex) {
         String errorMessage = ex.getFullMessage(false);
-        LOG.error("HTTP %d: %s %s".formatted(ex.getHttpStatus().value(), errorMessage, ex.getProblemDetail().toString()));
+        if (LOG.isErrorEnabled()) {
+            LOG.error("HTTP %d: %s %s".formatted(ex.getHttpStatus().value(), errorMessage, ex.getProblemDetail().toString()));
+        }
 
         ErrorMessageDto errorMessageDto = ErrorMessageDto.getInstance(errorMessage);
         return ResponseEntity.status(ex.getProblemDetail().getStatus()).body(errorMessageDto);
