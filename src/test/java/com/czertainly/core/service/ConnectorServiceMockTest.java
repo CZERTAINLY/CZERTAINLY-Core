@@ -25,7 +25,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.*;
 
 @SpringBootTest
-public class ConnectorServiceMockTest {
+class ConnectorServiceMockTest {
 
     @Mock
     private ConnectorApiClient connectorApiClient;
@@ -122,6 +122,6 @@ public class ConnectorServiceMockTest {
         ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
 
-        connectorService.connect(request);
+        Assertions.assertDoesNotThrow(() -> connectorService.connect(request));
     }
 }
