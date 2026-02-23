@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.logging.LoggingHelper;
+import com.czertainly.core.messaging.scheduler.SessionExpirationPublisher;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
@@ -25,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.ClientAuthorizationException;
 import org.springframework.security.oauth2.client.OAuth2AuthorizationContext;
@@ -35,6 +37,8 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.session.web.http.CookieHttpSessionIdResolver;
+import org.springframework.session.web.http.HttpSessionIdResolver;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -42,6 +46,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 public class OAuth2LoginFilter extends OncePerRequestFilter {
@@ -51,6 +56,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     private CzertainlyAuthenticationClient authenticationClient;
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
     private OAuth2AuthorizedClientProvider authorizedClientProvider;
+    private SessionExpirationPublisher sessionExpirationPublisher;
 
     private AuditLogService auditLogService;
 
@@ -74,9 +80,24 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         this.clientRegistrationRepository = clientRegistrationRepository;
     }
 
+    @Autowired
+    public void setSessionExpirationPublisher(SessionExpirationPublisher sessionExpirationPublisher) {
+        this.sessionExpirationPublisher = sessionExpirationPublisher;
+    }
+
+    private HttpSessionIdResolver httpSessionIdResolver;
+
+    @Autowired
+    public void setHttpSessionIdResolver(HttpSessionIdResolver httpSessionIdResolver) {
+        this.httpSessionIdResolver = httpSessionIdResolver;
+    }
+
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws IOException {
-
+        // Check if the session is expired, must extract session id from cookie, since every call to getSession() removes an expired session, and it is not possible to extract context to log out from the provider
+        String sessionId = httpSessionIdResolver.resolveSessionIds(request).stream().filter(Objects::nonNull).findFirst().orElse(null);
+        sessionExpirationPublisher.processExpiredSessionBySessionId(sessionId);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
             LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);

@@ -62,6 +62,30 @@ public class SessionExpirationPublisher {
         }
     }
 
+    public void processExpiredSessionBySessionId(String sessionId) {
+        long now = Instant.now().toEpochMilli();
+        String sql = """
+                SELECT s.SESSION_ID, a.ATTRIBUTE_BYTES
+                FROM SPRING_SESSION s
+                LEFT JOIN SPRING_SESSION_ATTRIBUTES a
+                  ON a.SESSION_PRIMARY_ID = s.PRIMARY_ID
+                  AND a.ATTRIBUTE_NAME = ?
+                WHERE s.SESSION_ID = ? AND s.EXPIRY_TIME < ?
+                """;
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, "SPRING_SECURITY_CONTEXT");
+            ps.setString(2, sessionId);
+            ps.setLong(3, now);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                processExpiredSession(rs);
+            }
+        } catch (Exception e) {
+            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to process expired sessions: {}", e.getMessage(), e);
+        }
+    }
+
     private void processExpiredSession(ResultSet rs) {
         String sessionId = null;
         try {
