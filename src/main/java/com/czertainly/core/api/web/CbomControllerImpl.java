@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -50,7 +51,7 @@ public class CbomControllerImpl implements CbomController {
         module = Module.CORE,
         resource = Resource.CBOM,
         operation = Operation.DETAIL)
-    public CbomDetailDto getCbomDetail(String uuid, String version) throws NotFoundException, CbomRepositoryException {
+    public CbomDetailDto getCbomDetail(@LogResource(uuid = true) String uuid, String version) throws NotFoundException, CbomRepositoryException {
         return cbomService.getCbomDetail(SecuredUUID.fromString(uuid));
     }
 

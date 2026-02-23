@@ -15,6 +15,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.proxy.HibernateProxy;
 
 @Getter
@@ -38,6 +40,7 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
     @Column(name = "timestamp", nullable = false, updatable = false)
     private OffsetDateTime timestamp;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

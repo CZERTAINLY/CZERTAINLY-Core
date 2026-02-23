@@ -50,6 +50,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -134,7 +136,7 @@ public class CbomServiceImpl implements CbomService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST_VERSIONS)
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
     public List<CbomDto> getCbomVersions(String serialNumber) throws NotFoundException {
 
         List<Cbom> versions = cbomRepository.findBySerialNumber(serialNumber);
@@ -179,6 +181,20 @@ public class CbomServiceImpl implements CbomService {
             }
         }
 
+        OffsetDateTime timestamp = null;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> metadata = (Map<String, Object>) content.get("metadata");
+            String timestampStr = (String) metadata.get("timestamp");
+            timestamp = OffsetDateTime.parse(timestampStr);
+        } catch (ClassCastException e) {
+            throw new ValidationException("metadata must be a JSON object");
+        } catch (NullPointerException npe) {
+            throw new ValidationException("metadata or metadata.timestamp must be present");
+        } catch (DateTimeParseException e) {
+            throw new ValidationException("metadata.timestamp must be valid ISO-8601 timestamp");
+        }
+
         // upload JSON to cbom-repository
         BomCreateResponseDto response;
         try {
@@ -195,7 +211,7 @@ public class CbomServiceImpl implements CbomService {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(response.getSerialNumber());
         cbom.setVersion(response.getVersion());
-        cbom.setCreatedAt(Instant.now());
+        cbom.setTimestamp(timestamp);
         cbom.setSource("CORE");
 
         // Defensive handling of potentially null nested response objects

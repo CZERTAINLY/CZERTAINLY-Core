@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,6 @@ import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
-import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.repository.CbomRepository;
@@ -95,7 +94,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         Cbom cbom = new Cbom();
         cbom.setSerialNumber("testing");
-        cbom.setCreatedAt(Instant.now());
+        cbom.setTimestamp(OffsetDateTime.now());
         cbom = cbomRepository.save(cbom);
 
         // When
@@ -114,7 +113,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         Cbom cbom = new Cbom();
         cbom.setSerialNumber("testing");
-        cbom.setCreatedAt(Instant.now());
+        cbom.setTimestamp(OffsetDateTime.now());
         cbom = cbomRepository.save(cbom);
 
         // When
@@ -145,7 +144,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setUuid(uuid.getValue());
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(version);
-        cbom.setCreatedAt(Instant.now());
+        cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
         // Mock WireMock response - NOTE: URL is /v1/bom/ not /v1/cboms/
@@ -197,7 +196,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setUuid(uuid.getValue());
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(version);
-        cbom.setCreatedAt(Instant.now());
+        cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
         // Mock WireMock to return 404 - Fix URL path
@@ -223,7 +222,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setUuid(uuid.getValue());
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(version);
-        cbom.setCreatedAt(Instant.now());
+        cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
         // Mock WireMock to return 500 error - Fix URL path
@@ -256,10 +255,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
         Integer version = 1;
+        OffsetDateTime timestamp = OffsetDateTime.now();
 
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("version", version);
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("timestamp", timestamp.toString());
+        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -325,19 +328,19 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom1 = new Cbom();
         cbom1.setSerialNumber(serialNumber);
         cbom1.setVersion(1);
-        cbom1.setCreatedAt(Instant.now());
+        cbom1.setTimestamp(OffsetDateTime.now());
         cbom1 = cbomRepository.save(cbom1);
 
         Cbom cbom2 = new Cbom();
         cbom2.setSerialNumber(serialNumber);
         cbom2.setVersion(2);
-        cbom2.setCreatedAt(Instant.now().plusSeconds(60));
+        cbom2.setTimestamp(OffsetDateTime.now());
         cbom2 = cbomRepository.save(cbom2);
 
         Cbom cbom3 = new Cbom();
         cbom3.setSerialNumber(serialNumber);
         cbom3.setVersion(3);
-        cbom3.setCreatedAt(Instant.now().plusSeconds(120));
+        cbom3.setTimestamp(OffsetDateTime.now());
         cbom3 = cbomRepository.save(cbom3);
 
         // When
@@ -372,7 +375,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(1);
-        cbom.setCreatedAt(Instant.now());
+        cbom.setTimestamp(OffsetDateTime.now());
         cbom = cbomRepository.save(cbom);
 
         // When
@@ -394,13 +397,13 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom1 = new Cbom();
         cbom1.setSerialNumber(serialNumber1);
         cbom1.setVersion(1);
-        cbom1.setCreatedAt(Instant.now());
+        cbom1.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom1);
 
         Cbom cbom2 = new Cbom();
         cbom2.setSerialNumber(serialNumber2);
         cbom2.setVersion(1);
-        cbom2.setCreatedAt(Instant.now());
+        cbom2.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom2);
 
         // When
@@ -483,12 +486,16 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:test-123";
         Integer version = 1;
+        OffsetDateTime timestamp = OffsetDateTime.now();
 
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
         content.put("version", version);
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("timestamp", timestamp.toString());
+        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -527,12 +534,16 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:server-error";
         Integer version = 1;
+        OffsetDateTime timestamp = OffsetDateTime.now();
 
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
         content.put("version", version);
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("timestamp", timestamp.toString());
+        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -568,11 +579,15 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:bad-request";
         Integer version = 1;
+        OffsetDateTime timestamp = OffsetDateTime.now();
 
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("specVersion", "1.5");
         content.put("version", version);
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("timestamp", timestamp.toString());
+        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -603,10 +618,12 @@ class CbomServiceTest extends BaseSpringBootTest {
     void testCreateCbom_MultipleCreations() throws Exception {
         // Given
         CbomUploadRequestDto request1 = new CbomUploadRequestDto();
-        request1.setContent(Map.of("serialNumber", "urn:uuid:first", "version", 1));
+        OffsetDateTime timestamp = OffsetDateTime.now();
+
+        request1.setContent(Map.of("serialNumber", "urn:uuid:first", "version", 1, "metadata", Map.of("timestamp", timestamp.toString())));
 
         CbomUploadRequestDto request2 = new CbomUploadRequestDto();
-        request2.setContent(Map.of("serialNumber", "urn:uuid:second", "version", 1));
+        request2.setContent(Map.of("serialNumber", "urn:uuid:second", "version", 1, "metadata", Map.of("timestamp", timestamp.toString())));
 
         mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
             .willReturn(WireMock.aResponse()
