@@ -17,7 +17,7 @@ public class V202601271114__CbomEntityMigration extends BaseJavaMigration {
         serial_number TEXT NOT NULL,
         version INT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        cbom_timestamp TIMESTAMPTZ NOT NULL,
+        timestamp TIMESTAMPTZ NOT NULL,
         source TEXT,
         algorithms_count INT NOT NULL,
         certificates_count INT NOT NULL,

@@ -35,6 +35,9 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
     @Column(name = "version", nullable = false)
     private int version;
 
+    @Column(name = "timestamp", nullable = false, updatable = false)
+    private OffsetDateTime timestamp;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -62,8 +65,8 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
 
         dto.setSerialNumber(this.serialNumber);
         dto.setVersion(String.valueOf(this.version));
-        dto.setTimestamp(this.createdAt);
-        // TODO: add dto.setCbomCreatedAt
+        dto.setTimestamp(this.timestamp);
+        dto.setCreatedAt(this.createdAt);
         dto.setSource(this.source);
         dto.setAlgorithms(this.algorithmsCount);
         dto.setCertificates(this.certificatesCount);
