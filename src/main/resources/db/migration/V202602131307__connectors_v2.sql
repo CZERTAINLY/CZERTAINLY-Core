@@ -9,8 +9,6 @@ UPDATE connector SET version = 'V1';
 ALTER TABLE connector
     ALTER COLUMN version SET NOT NULL;
 
--- Add index for foreign key lookups
-CREATE INDEX IF NOT EXISTS idx_connector_interface_connector_uuid ON connector_interface(connector_uuid);
 -- Add unique constraint on (url, version) to prevent duplicate connectors
 CREATE UNIQUE INDEX IF NOT EXISTS uq_connector_url_version ON connector(url, version);
 
@@ -24,3 +22,6 @@ CREATE TABLE IF NOT EXISTS connector_interface (
     CONSTRAINT fk_connector_interface_connector FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON DELETE CASCADE,
     CONSTRAINT uq_connector_interface UNIQUE (connector_uuid, interface, version)
 );
+
+-- Add index for foreign key lookups
+CREATE INDEX IF NOT EXISTS idx_connector_interface_connector_uuid ON connector_interface(connector_uuid);
