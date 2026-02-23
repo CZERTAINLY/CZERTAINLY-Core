@@ -15,9 +15,14 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.v2.*;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.transaction.TransactionHandler;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -29,6 +34,7 @@ import com.czertainly.core.service.v2.ConnectorService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
+import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -331,6 +337,28 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = getConnectorEntity(uuid);
         ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
         return connectorAdapter.getInfo(connector.mapToApiClientDto());
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CONNECTOR, false);
+
+        List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(FilterField.CONNECTOR_NAME),
+                SearchHelper.prepareSearch(FilterField.CONNECTOR_URL),
+                SearchHelper.prepareSearch(FilterField.CONNECTOR_VERSION),
+                SearchHelper.prepareSearch(FilterField.CONNECTOR_STATUS),
+                SearchHelper.prepareSearch(FilterField.CONNECTOR_AUTH_TYPE),
+                SearchHelper.prepareSearch(FilterField.CONNECTOR_INTERFACE),
+                SearchHelper.prepareSearch(FilterField.CONNECTOR_FUNCTION_GROUP)
+        );
+
+        fields = new ArrayList<>(fields);
+        fields.sort(new SearchFieldDataComparator());
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
+
+        return searchFieldDataByGroupDtos;
     }
 
     @Override

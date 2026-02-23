@@ -1,18 +1,16 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.v2.*;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
-import com.czertainly.api.model.core.connector.v2.ConnectInfo;
-import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
-import com.czertainly.api.model.core.connector.v2.ConnectorRequestDto;
-import com.czertainly.api.model.core.connector.v2.ConnectorUpdateRequestDto;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.ConnectorInterfaceEntity;
-import com.czertainly.core.dao.repository.ConnectorInterfaceRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.api.model.core.connector.v2.*;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.v2.ConnectorService;
@@ -42,6 +40,15 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
 
     @Autowired
     private ConnectorInterfaceRepository connectorInterfaceRepository;
+
+    @Autowired
+    private CredentialRepository credentialRepository;
+
+    @Autowired
+    private EntityInstanceReferenceRepository entityInstanceRepository;
+
+    @Autowired
+    private TokenInstanceReferenceRepository tokenInstanceRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -75,6 +82,19 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
     @AfterEach
     void tearDown() {
         mockServer.stop();
+    }
+
+    @Test
+    void testListConnectors() {
+        SearchRequestDto request = new SearchRequestDto();
+        request.setPageNumber(1);
+        request.setItemsPerPage(10);
+        request.setFilters(List.of());
+
+        PaginationResponseDto<ConnectorDto> response = connectorService.listConnectors(SecurityFilter.create(), request);
+        Assertions.assertNotNull(response);
+        Assertions.assertFalse(response.getItems().isEmpty());
+        Assertions.assertTrue(response.getItems().stream().anyMatch(c -> c.getName().equals(CONNECTOR_NAME)));
     }
 
     @Test
@@ -168,12 +188,64 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
+    void testForceDeleteConnector() {
+        SecuredUUID connectorUUID = connector.getSecuredUuid();
+
+        // create dependent entities to test force delete
+        Credential credential = new Credential();
+        credential.setName("test");
+        credential.setConnectorUuid(connectorUUID.getValue());
+        credential.setConnectorName(CONNECTOR_NAME);
+        credential.setKind("TST");
+        credentialRepository.save(credential);
+
+        EntityInstanceReference entity = new EntityInstanceReference();
+        entity.setName("test");
+        entity.setKind("Test");
+        entity.setConnectorUuid(connectorUUID.getValue());
+        entityInstanceRepository.save(entity);
+
+        TokenInstanceReference token = new TokenInstanceReference();
+        token.setName("test");
+        token.setKind("TST");
+        token.setConnectorUuid(connectorUUID.getValue());
+        tokenInstanceRepository.save(token);
+
+        Assertions.assertThrows(ValidationException.class, () -> connectorService.deleteConnector(connectorUUID));
+
+        List<BulkActionMessageDto> messages = connectorService.forceDeleteConnector(List.of(connector.getSecuredUuid()));
+        Assertions.assertNotNull(messages);
+        Assertions.assertTrue(messages.isEmpty());
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
+    }
+
+    @Test
     void testReconnectConnector() throws NotFoundException, ConnectorException, JsonProcessingException {
         mockInfoEndpoint();
 
         ConnectInfo connectInfo = connectorService.reconnect(connector.getSecuredUuid());
         Assertions.assertNotNull(connectInfo);
         Assertions.assertEquals(ConnectorVersion.V2, connectInfo.getVersion());
+    }
+
+    @Test
+    void testBulkReconnect() throws JsonProcessingException {
+        mockInfoEndpoint();
+
+        List<BulkActionMessageDto> messages = connectorService.bulkReconnect(List.of(connector.getSecuredUuid()));
+        Assertions.assertNotNull(messages);
+        Assertions.assertTrue(messages.isEmpty());
+    }
+
+    @Test
+    void testBulkReconnect_withError() {
+        mockServer.stubFor(WireMock.get("/v2/info")
+                .willReturn(WireMock.aResponse().withStatus(500).withBody("Internal Server Error")));
+
+        List<BulkActionMessageDto> messages = connectorService.bulkReconnect(List.of(connector.getSecuredUuid()));
+        Assertions.assertNotNull(messages);
+        Assertions.assertFalse(messages.isEmpty());
+        Assertions.assertEquals(connector.getUuid().toString(), messages.get(0).getUuid());
     }
 
     @Test
@@ -231,6 +303,23 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
+    void testBulkApprove() {
+        Connector waitingConnector = new Connector();
+        waitingConnector.setName("waitingConnector");
+        waitingConnector.setUrl("http://localhost:" + mockServer.port() + "/waiting");
+        waitingConnector.setVersion(ConnectorVersion.V2);
+        waitingConnector.setStatus(ConnectorStatus.WAITING_FOR_APPROVAL);
+        waitingConnector = connectorRepository.save(waitingConnector);
+
+        List<BulkActionMessageDto> messages = connectorService.bulkApprove(List.of(waitingConnector.getSecuredUuid()));
+        Assertions.assertNotNull(messages);
+        Assertions.assertTrue(messages.isEmpty());
+
+        Connector approvedConnector = connectorRepository.findByUuid(waitingConnector.getUuid()).orElseThrow();
+        Assertions.assertEquals(ConnectorStatus.CONNECTED, approvedConnector.getStatus());
+    }
+
+    @Test
     void testApproveConnector_validationFail() {
         // Connector is already CONNECTED, not WAITING_FOR_APPROVAL
         SecuredUUID connectorUuid = connector.getSecuredUuid();
@@ -258,6 +347,25 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
         List<ConnectInfo> connectInfos = connectorService.connect(request);
         Assertions.assertNotNull(connectInfos);
         Assertions.assertFalse(connectInfos.isEmpty());
+    }
+
+    @Test
+    void testCheckHealth_v1Connector() throws ConnectorException, NotFoundException {
+        // Create a V1 connector
+        Connector v1Connector = new Connector();
+        v1Connector.setName("v1HealthConnector");
+        v1Connector.setUrl("http://localhost:" + mockServer.port());
+        v1Connector.setVersion(ConnectorVersion.V1);
+        v1Connector.setStatus(ConnectorStatus.CONNECTED);
+        v1Connector.setAuthType(AuthType.NONE);
+        v1Connector = connectorRepository.save(v1Connector);
+
+        mockServer.stubFor(WireMock.get("/v1/health")
+                .willReturn(WireMock.okJson("{ \"status\": \"ok\" }")));
+
+        HealthInfo health = connectorService.checkHealth(v1Connector.getSecuredUuid());
+        Assertions.assertNotNull(health);
+        Assertions.assertEquals(HealthStatus.UP, health.getStatus());
     }
 
     @Test
@@ -301,5 +409,13 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
             connectorInterfaceInfos.add(info);
         }
         return connectorInterfaceInfos;
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto dto = connectorService.getResourceObject(connector.getUuid());
+        Assertions.assertNotNull(dto);
+        Assertions.assertEquals(connector.getName(), dto.getName());
+        Assertions.assertEquals(connector.getUuid().toString(), dto.getUuid());
     }
 }

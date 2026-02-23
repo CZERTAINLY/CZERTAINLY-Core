@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.connector.v2.HealthInfo;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.connector.v2.*;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ResourceExtensionService;
@@ -59,4 +60,5 @@ public interface ConnectorService extends ResourceExtensionService {
 
     ConnectorInfo getInfo(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 }

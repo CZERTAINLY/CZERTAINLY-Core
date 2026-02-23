@@ -1,9 +1,11 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.connector.ConnectorRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
-import com.czertainly.api.model.client.connector.v2.*;
+import com.czertainly.api.model.client.connector.*;
+import com.czertainly.api.model.client.connector.v2.ConnectorInfo;
+import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
+import com.czertainly.api.model.client.connector.v2.ConnectorInterfaceInfo;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.HealthStatus;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -60,7 +62,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -89,7 +91,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
@@ -206,7 +208,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
             connectorInterfaceInfos.add(info);
         }
 
-        InfoResponse infoResponse = new InfoResponse();
+        var infoResponse = new com.czertainly.api.model.client.connector.v2.InfoResponse();
         infoResponse.setConnector(new ConnectorInfo());
         infoResponse.setInterfaces(connectorInterfaceInfos);
         String jsonBody = objectMapper.writeValueAsString(infoResponse);
@@ -228,6 +230,38 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     @Test
     void testAddConnector_validationFail() {
         ConnectorRequestDto request = new ConnectorRequestDto();
+        Assertions.assertThrows(ValidationException.class, () -> connectorService.createConnector(request));
+    }
+
+    @Test
+    void testAddConnector_duplicateFunctionGroupAndKind() throws JsonProcessingException {
+        // Mock V1 endpoint to return function groups with same kind as existing connector
+        List<InfoResponse> infoResponses = new ArrayList<>();
+        InfoResponse infoResponse = new InfoResponse();
+        infoResponse.setFunctionGroupCode(FunctionGroupCode.CREDENTIAL_PROVIDER);
+        infoResponse.setKinds(List.of("ApiKey")); // Same kind as setUp connector
+        infoResponses.add(infoResponse);
+
+        String jsonBody = objectMapper.writeValueAsString(infoResponses);
+
+        mockServer.stop();
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+        mockServer.stubFor(WireMock
+                .get("/v1")
+                .willReturn(WireMock.okJson(jsonBody)));
+
+        // Mock V2 info endpoint to return 404 (no V2 support)
+        mockServer.stubFor(WireMock
+                .get("/v2/info")
+                .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
+
+        ConnectorRequestDto request = new ConnectorRequestDto();
+        request.setName("duplicateConnector");
+        request.setUrl("http://localhost:" + mockServer.port());
+        request.setAuthType(AuthType.NONE);
+
+        // Connector with same function group (CREDENTIAL_PROVIDER) and kind (ApiKey) already exists
         Assertions.assertThrows(ValidationException.class, () -> connectorService.createConnector(request));
     }
 
@@ -271,6 +305,47 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     void testBulkRemove() throws NotFoundException {
         connectorService.bulkDeleteConnector(List.of(connector.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
+    }
+
+    @Test
+    void testConnect() throws ValidationException, ConnectorException, JsonProcessingException {
+        List<InfoResponse> infoResponses = new ArrayList<>();
+        InfoResponse infoResponse = new InfoResponse();
+        infoResponse.setFunctionGroupCode(FunctionGroupCode.CREDENTIAL_PROVIDER);
+        infoResponse.setKinds(List.of("Test")); // Same kind as setUp connector
+        infoResponses.add(infoResponse);
+
+        String jsonBody = objectMapper.writeValueAsString(infoResponses);
+
+        mockServer.stubFor(WireMock
+                .get("/v1")
+                .willReturn(WireMock.okJson(jsonBody)));
+
+        // Mock v2 info endpoint to return 404 (no v2 support)
+        mockServer.stubFor(WireMock
+                .get("/v2/info")
+                .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
+
+        ConnectRequestDto request = new ConnectRequestDto();
+        request.setUrl("http://localhost:" + mockServer.port());
+        request.setAuthType(AuthType.NONE);
+
+        List<ConnectDto> connectDtos = connectorService.connect(request);
+        Assertions.assertNotNull(connectDtos);
+        Assertions.assertFalse(connectDtos.isEmpty());
+    }
+
+    @Test
+    void testReconnect_withV2Connector_throws() {
+        Connector v2Connector = new Connector();
+        v2Connector.setName("v2Connector");
+        v2Connector.setUrl("http://localhost:" + mockServer.port());
+        v2Connector.setVersion(ConnectorVersion.V2);
+        v2Connector.setStatus(ConnectorStatus.CONNECTED);
+        v2Connector = connectorRepository.save(v2Connector);
+
+        SecuredUUID v2ConnectorUuid = v2Connector.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> connectorService.reconnect(v2ConnectorUuid));
     }
 
     @Test

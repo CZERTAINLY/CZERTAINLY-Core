@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.v2.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -39,6 +40,12 @@ public class ConnectorControllerImpl implements ConnectorController {
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.LIST)
     public PaginationResponseDto<ConnectorDto> listConnectors(SearchRequestDto request) throws NotFoundException {
         return connectorService.listConnectors(SecurityFilter.create(), request);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST)
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return connectorService.getSearchableFieldInformationByGroup();
     }
 
     @Override
