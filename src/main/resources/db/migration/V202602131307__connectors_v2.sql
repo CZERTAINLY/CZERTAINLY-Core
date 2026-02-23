@@ -5,9 +5,9 @@ ALTER TABLE connector
     ADD COLUMN version TEXT NULL;
 
 -- Set default version to 'v1' for existing records
-UPDATE connector SET version = 'v1';
+UPDATE connector SET version = 'V1';
 ALTER TABLE connector
-    ALTER COLUMN version TEXT NOT NULL;
+    ALTER COLUMN version SET NOT NULL;
 
 -- Create connector_function_group table for v2
 CREATE TABLE IF NOT EXISTS connector_interface (

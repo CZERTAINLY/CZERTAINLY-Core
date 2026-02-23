@@ -104,6 +104,7 @@ public class ConnectorV1Adapter implements ConnectorAdapter {
         ConnectInfoV1 connectInfo = new ConnectInfoV1();
         functions.forEach(function -> {
             FunctionGroupDto functionGroupDto = new FunctionGroupDto();
+            functionGroupDto.setName(function.getFunctionGroupCode().getLabel());
             functionGroupDto.setFunctionGroupCode(function.getFunctionGroupCode());
             functionGroupDto.setKinds(function.getKinds());
             functionGroupDto.setEndPoints(function.getEndPoints());
