@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
@@ -149,6 +150,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

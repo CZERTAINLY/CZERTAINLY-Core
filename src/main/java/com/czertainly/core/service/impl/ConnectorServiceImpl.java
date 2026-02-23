@@ -326,6 +326,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         dto.setUuid(connectorDetailDto.getUuid());
         dto.setName(connectorDetailDto.getName());
         dto.setUrl(connectorDetailDto.getUrl());
+        dto.setStatus(connectorDetailDto.getStatus());
         dto.setAuthType(connectorDetailDto.getAuthType());
         dto.setAuthAttributes(connectorDetailDto.getAuthAttributes());
         dto.setFunctionGroups(connectorDetailDto.getFunctionGroups());

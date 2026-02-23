@@ -3,13 +3,16 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
+import com.czertainly.api.model.client.connector.v2.*;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.HealthStatus;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.FunctionGroup;
@@ -20,6 +23,8 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -28,9 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 class ConnectorServiceTest extends BaseSpringBootTest {
 
@@ -40,11 +43,17 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     private ConnectorService connectorService;
 
     @Autowired
+    private com.czertainly.core.service.v2.ConnectorService connectorServiceV2;
+
+    @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
     private FunctionGroupRepository functionGroupRepository;
     @Autowired
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     private Connector connector;
 
@@ -60,6 +69,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName(CONNECTOR_NAME);
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -185,16 +195,32 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson("[]")));
+    void testAddConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException, JsonProcessingException {
+        List<ConnectorInterfaceInfo> connectorInterfaceInfos = new ArrayList<>();
+        List<ConnectorInterface> connectorInterfaces = List.of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.HEALTH, ConnectorInterface.METRICS, ConnectorInterface.AUTHORITY);
+        for (ConnectorInterface connectorInterface : connectorInterfaces) {
+            ConnectorInterfaceInfo info = new ConnectorInterfaceInfo();
+            info.setCode(connectorInterface);
+            info.setVersion("v2");
+            info.setFeatures(List.of());
+            connectorInterfaceInfos.add(info);
+        }
 
-        ConnectorRequestDto request = new ConnectorRequestDto();
+        InfoResponse infoResponse = new InfoResponse();
+        infoResponse.setConnector(new ConnectorInfo());
+        infoResponse.setInterfaces(connectorInterfaceInfos);
+        String jsonBody = objectMapper.writeValueAsString(infoResponse);
+        mockServer.stubFor(WireMock
+                .get("/v2/info")
+                .willReturn(WireMock.okJson(jsonBody)));
+
+        var request = new com.czertainly.api.model.core.connector.v2.ConnectorRequestDto();
         request.setName("testConnector2");
         request.setUrl("http://localhost:" + mockServer.port());
+        request.setVersion(ConnectorVersion.V2);
+        request.setAuthType(AuthType.NONE);
 
-        ConnectorDto dto = connectorService.createConnector(request);
+        ConnectorDetailDto dto = connectorServiceV2.createConnector(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }

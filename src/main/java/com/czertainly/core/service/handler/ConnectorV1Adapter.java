@@ -163,9 +163,11 @@ public class ConnectorV1Adapter implements ConnectorAdapter {
 
         // adding phase
         for (FunctionGroupDto dto : connectInfoV1.getFunctionGroups()) {
-            FunctionGroup functionGroup = functionGroupRepository.findByUuid(UUID.fromString(dto.getUuid()))
+            FunctionGroup functionGroup = functionGroupRepository.findByCode(dto.getFunctionGroupCode())
                     .orElseThrow(() -> new NotFoundException(FunctionGroup.class, dto.getUuid()));
 
+            dto.setUuid(functionGroup.getUuid().toString());
+            dto.setName(functionGroup.getName());
             Connector2FunctionGroup c2fg = connector2FunctionGroupRepository.findByConnectorAndFunctionGroup(connector, functionGroup).orElse(null);
 
             if (c2fg != null) {

@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
@@ -81,6 +82,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         // Create and Save Connector
         connector = new Connector();
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.saveAndFlush(connector); // Ensure immediate persistence
 

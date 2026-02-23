@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -95,6 +96,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

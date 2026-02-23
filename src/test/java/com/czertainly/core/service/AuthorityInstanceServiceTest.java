@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -62,6 +63,7 @@ class AuthorityInstanceServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

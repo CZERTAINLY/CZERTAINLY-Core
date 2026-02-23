@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -54,6 +55,7 @@ class EntityInstanceServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName("entityInstanceConnector");
         connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
