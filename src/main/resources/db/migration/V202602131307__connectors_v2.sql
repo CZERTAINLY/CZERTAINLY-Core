@@ -15,6 +15,6 @@ CREATE TABLE IF NOT EXISTS connector_interface (
     connector_uuid UUID NOT NULL,
     interface TEXT NOT NULL,
     version TEXT NOT NULL,
-    features TEXT[] NOT NULL,
+    features TEXT[] NULL,
     CONSTRAINT fk_connector_interface_connector FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON DELETE CASCADE
 );

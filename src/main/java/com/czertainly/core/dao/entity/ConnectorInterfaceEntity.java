@@ -27,13 +27,14 @@ public class ConnectorInterfaceEntity extends UniquelyIdentified implements Seri
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 
-    @Column(name = "connector_uuid")
+    @Column(name = "connector_uuid", nullable = false)
     private UUID connectorUuid;
 
-    @Column(name = "interface")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "interface", nullable = false)
     private ConnectorInterface interfaceCode;
 
-    @Column(name = "version")
+    @Column(name = "version", nullable = false)
     private String version;
 
     @Column(name = "features")
