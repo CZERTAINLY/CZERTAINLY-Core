@@ -156,16 +156,6 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = getConnectorEntity(uuid);
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
-//        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
-//        try {
-//            connectorAdapter.checkConnection(dto);
-//        } catch (ConnectorCommunicationException e) {
-//            connector.setStatus(ConnectorStatus.OFFLINE);
-//            dto.setStatus(ConnectorStatus.OFFLINE);
-//            connectorRepository.save(connector);
-//
-//            logger.warn("Connector is offline! Unable to fetch list of supported functions of connector " + dto.getName(), Exceptions.unwrap(e));
-//        }
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CONNECTOR, uuid.getValue()));
         return dto;
     }

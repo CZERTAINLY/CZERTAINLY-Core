@@ -48,7 +48,7 @@ public class ApplicationConfig {
 
     // Connectors v2 API Clients
 
-    @Bean(name = "HealthApiClientV2")
+    @Bean(name = "healthApiClientV2")
     public com.czertainly.api.clients.v2.HealthApiClient healthApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
         return new com.czertainly.api.clients.v2.HealthApiClient(webClient, defaultTrustManagers);
     }

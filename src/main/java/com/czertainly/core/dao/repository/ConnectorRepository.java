@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
-import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.FunctionGroup;

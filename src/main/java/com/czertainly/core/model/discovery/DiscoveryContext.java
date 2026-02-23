@@ -4,7 +4,6 @@ import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import lombok.Getter;
 import lombok.Setter;

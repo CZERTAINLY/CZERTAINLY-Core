@@ -131,13 +131,18 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
             }
         }
 
-        // Remove interfaces that are no longer present in ConnectInfoV2
-        for (ConnectorInterfaceEntity existing : existingInterfaces) {
-            String key = existing.getInterfaceCode().getCode() + ":" + existing.getVersion();
-            if (!newInterfaceKeys.contains(key)) {
-                connectorInterfaceRepository.delete(existing);
-                connector.getInterfaces().remove(existing);
+        // Collect interfaces to remove first, then remove them
+        List<ConnectorInterfaceEntity> toRemove = existingInterfaces.stream()
+                .filter(existing -> !newInterfaceKeys.contains(existing.getInterfaceCode().getCode() + ":" + existing.getVersion()))
+                .toList();
+
+        if (!toRemove.isEmpty()) {
+            // Remove interfaces that are no longer present in ConnectInfoV2
+            for (ConnectorInterfaceEntity interfaceToRemove : toRemove) {
+                connectorInterfaceRepository.delete(interfaceToRemove);
+                connector.getInterfaces().remove(interfaceToRemove);
             }
+            logger.debug("Removed {} interfaces", toRemove.size());
         }
     }
 }
