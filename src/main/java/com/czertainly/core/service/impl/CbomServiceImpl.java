@@ -189,6 +189,7 @@ public class CbomServiceImpl implements CbomService {
             );
         }
 
+        // metadata.timestamp (required)
         OffsetDateTime timestamp = null;
         try {
             @SuppressWarnings("unchecked")
