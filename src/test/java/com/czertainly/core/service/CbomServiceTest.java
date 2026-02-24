@@ -489,7 +489,6 @@ class CbomServiceTest extends BaseSpringBootTest {
         );
     }
 
-
     @Test
     void testUploadCbom_VersionNAN() throws CbomRepositoryException {
         // Given
@@ -506,6 +505,110 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertThrows(ValidationException.class, () -> 
             cbomService.createCbom(request)
         );
+    }
+
+    @Test
+    void testUploadCbom_MissingSpecVersion() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        // Missing specVersion
+        content.put("version", "1");
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+    }
+
+    @Test
+    void testUploadCbom_MissingMetadata() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", "1");
+        // Missing metadata
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        ValidationException exception = assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+        assertEquals("metadata or metadata.timestamp must be present", exception.getMessage());
+    }
+
+    @Test
+    void testUploadCbom_MetadataNotObject() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", "1");
+        content.put("metadata", "not an object"); // String instead of Map
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        ValidationException exception = assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+        assertEquals("metadata must be a JSON object", exception.getMessage());
+    }
+
+    @Test
+    void testUploadCbom_MissingTimestamp() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", "1");
+
+        Map<String, Object> metadata = new HashMap<>();
+        // Missing timestamp
+        content.put("metadata", metadata);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        ValidationException exception = assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+        assertEquals("metadata or metadata.timestamp must be present", exception.getMessage());
+    }
+
+    @Test
+    void testUploadCbom_InvalidTimestampFormat() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", "1");
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("timestamp", "not-a-valid-timestamp");
+        content.put("metadata", metadata);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        ValidationException exception = assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+        assertEquals("metadata.timestamp must be valid ISO-8601 timestamp", exception.getMessage());
     }
 
     @Test
