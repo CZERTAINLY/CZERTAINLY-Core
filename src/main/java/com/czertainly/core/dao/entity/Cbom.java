@@ -1,8 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.util.Objects;
 import java.util.UUID;
 
 import com.czertainly.api.model.core.cbom.CbomDto;
@@ -82,6 +81,17 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
         dto.setCryptoMaterial(this.cryptoMaterialCount);
         dto.setTotalAssets(this.totalAssetsCount);
         return dto;
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        EntityInstanceReference that = (EntityInstanceReference) o;
+        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
