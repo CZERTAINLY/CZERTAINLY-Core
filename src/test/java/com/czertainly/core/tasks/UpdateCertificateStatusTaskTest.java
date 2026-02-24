@@ -1,5 +1,6 @@
 package com.czertainly.core.tasks;
 
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.certificate.CertificateRelationType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -300,6 +301,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
         authorityInstanceReference.setStatus("connected");
         Connector connector = new Connector();
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connectorRepository.save(connector);
         authorityInstanceReference.setConnector(connector);

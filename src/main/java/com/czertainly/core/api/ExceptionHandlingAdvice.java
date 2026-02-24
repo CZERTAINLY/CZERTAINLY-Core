@@ -302,6 +302,21 @@ public class ExceptionHandlingAdvice {
         return ErrorMessageDto.getInstance(messageBuilder.toString());
     }
 
+    /**
+     * Handler for {@link ConnectorProblemException}.
+     *
+     * @return ResponseEntity with status code from the exception and body containing error message.
+     */
+    @ExceptionHandler(ConnectorProblemException.class)
+    public ResponseEntity<ErrorMessageDto> handleConnectorProblemException(ConnectorProblemException ex) {
+        String errorMessage = ex.getFullMessage(false);
+        if (LOG.isErrorEnabled()) {
+            LOG.error("HTTP %d: %s %s".formatted(ex.getHttpStatus().value(), errorMessage, ex.getProblemDetail().toString()));
+        }
+
+        ErrorMessageDto errorMessageDto = ErrorMessageDto.getInstance(errorMessage);
+        return ResponseEntity.status(ex.getProblemDetail().getStatus()).body(errorMessageDto);
+    }
 
     /**
      * Handler for {@link HttpMessageNotReadableException}.

@@ -4,11 +4,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorRequestDto;
 import com.czertainly.core.service.ConnectorRegistrationService;
-import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.service.v2.ConnectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,11 +30,25 @@ public class ConnectorRegistrationServiceImpl implements ConnectorRegistrationSe
     }
 
     @Override
-    public UuidDto registerConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
-        ConnectorDto connectorDto = connectorService.createNewWaitingConnector(request);
+    public UuidDto registerConnector(com.czertainly.api.model.client.connector.ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        ConnectorRequestDto requestV2 = new ConnectorRequestDto();
+        requestV2.setName(request.getName());
+        requestV2.setUrl(request.getUrl());
+        requestV2.setVersion(ConnectorVersion.V1);
+        requestV2.setAuthType(request.getAuthType());
+        requestV2.setAuthAttributes(request.getAuthAttributes());
+        requestV2.setCustomAttributes(request.getCustomAttributes());
+
+        ConnectorDetailDto connectorDto = connectorService.createNewWaitingConnector(requestV2);
         logger.info("Connector {} registered and is waiting for approval.", request.getName());
+
         UuidDto dto = new UuidDto();
         dto.setUuid(connectorDto.getUuid());
         return dto;
+    }
+
+    @Override
+    public ConnectorDetailDto registerConnectorV2(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        return connectorService.createNewWaitingConnector(request);
     }
 }

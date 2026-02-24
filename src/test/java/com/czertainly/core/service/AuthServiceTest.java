@@ -48,7 +48,7 @@ class AuthServiceTest extends BaseSpringBootTest {
     private ContextRefreshListener contextRefreshListener;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());

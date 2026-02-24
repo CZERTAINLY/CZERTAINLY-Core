@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeVersion;
@@ -92,6 +93,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
         connector.setUuid(UUID.randomUUID());
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

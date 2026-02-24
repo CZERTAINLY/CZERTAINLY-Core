@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
@@ -186,6 +187,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connector.setName("discoveryProviderConnector");
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

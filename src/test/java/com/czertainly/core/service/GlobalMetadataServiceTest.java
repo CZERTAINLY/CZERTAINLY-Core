@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
@@ -53,6 +54,7 @@ class GlobalMetadataServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName("test");
         connector.setUrl("http://localhost:3665");
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

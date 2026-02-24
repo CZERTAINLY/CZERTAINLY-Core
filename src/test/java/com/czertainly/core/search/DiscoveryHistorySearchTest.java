@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -78,6 +79,7 @@ class DiscoveryHistorySearchTest extends BaseSpringBootTest {
             connector = new Connector();
             connector.setName("discoveryProviderConnector");
             connector.setUrl("http://localhost:3665");
+            connector.setVersion(ConnectorVersion.V1);
             connector.setStatus(ConnectorStatus.CONNECTED);
             connector = connectorRepository.save(connector);
 

@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.*;
@@ -278,6 +279,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
         authorityInstanceReference.setStatus("connected");
         Connector connector = new Connector();
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connectorRepository.save(connector);
         authorityInstanceReference.setConnector(connector);

@@ -5,6 +5,8 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -62,6 +64,7 @@ class AuthorityInstanceServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -168,6 +171,28 @@ class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     @Test
     void testEditAuthorityInstance_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
+    }
+
+    @Test
+    void testEditAuthorityInstance() throws ConnectorException, AttributeException, NotFoundException {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
+                .willReturn(WireMock.okJson("{}")));
+
+        AuthorityInstanceUpdateRequestDto request = new AuthorityInstanceUpdateRequestDto();
+        request.setAttributes(List.of());
+        request.setCustomAttributes(List.of());
+
+        AuthorityInstanceDto dto = authorityInstanceService.editAuthorityInstance(authorityInstance.getSecuredUuid(), request);
+        Assertions.assertNotNull(dto);
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals(authorityInstance.getName(), dto.getName());
     }
 
     @Test
