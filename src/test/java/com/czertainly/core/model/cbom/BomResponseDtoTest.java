@@ -60,7 +60,8 @@ class BomResponseDtoTest {
     void testGetComponents_WhenMissing() {
         List<Map<String, Object>> components = bomResponseDto.getComponents();
 
-        assertNull(components);
+        assertNotNull(components);
+        assertTrue(components.isEmpty());
     }
 
     @Test
@@ -70,7 +71,8 @@ class BomResponseDtoTest {
 
         List<Map<String, Object>> components = bomResponseDto.getComponents();
 
-        assertNull(components);
+        assertNotNull(components);
+        assertTrue(components.isEmpty());
     }
 
     @Test
@@ -95,7 +97,8 @@ class BomResponseDtoTest {
     void testGetMetadata_WhenMissing() {
         Map<String, Object> metadata = bomResponseDto.getMetadata();
 
-        assertNull(metadata);
+        assertNotNull(metadata);
+        assertTrue(metadata.isEmpty());
     }
 
     @Test
@@ -105,7 +108,8 @@ class BomResponseDtoTest {
 
         Map<String, Object> metadata = bomResponseDto.getMetadata();
 
-        assertNull(metadata);
+        assertNotNull(metadata);
+        assertTrue(metadata.isEmpty());
     }
 
     @Test
@@ -374,7 +378,7 @@ class BomResponseDtoTest {
         bomResponseDto.put("specVersion", "1.6");
 
         List<Map<String, Object>> components = new ArrayList<>();
-        
+
         Map<String, Object> component = new HashMap<>();
         component.put("type", "cryptographic-asset");
         components.add(component);
