@@ -49,10 +49,10 @@ spring:
   datasource:
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     hikari:
-      minimum-idle: 5
-      maximumPoolSize: 40
+      minimum-idle: 1
+      maximumPoolSize: 10
     password: test
-    url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test
+    url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test?currentSchema=core
     username: test
   flyway:
     enabled: false
@@ -66,11 +66,15 @@ spring:
           batch_size: 50
         type:
           preferred_duration_jdbc_type: INTERVAL_SECOND
+        default_schema: core
   profiles:
     active: test
   session:
     jdbc:
-      initialize-schema: always
+      initialize-schema: never
   threads:
     virtual:
       enabled: true
+  sql:
+    init:
+      mode: always

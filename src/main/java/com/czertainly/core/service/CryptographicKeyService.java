@@ -168,10 +168,11 @@ public interface CryptographicKeyService extends ResourceExtensionService {
     /**
      * Function to delete multiple key items
      *
+     * @param filter security filter for object-level access filtering
      * @param keyItemUuids Key Item UUIDs
      * @throws ConnectorException
      */
-    void deleteKeyItems(List<String> keyItemUuids) throws ConnectorException;
+    void deleteKeyItems(SecurityFilter filter, List<String> keyItemUuids) throws ConnectorException;
 
     /**
      * Destroy a key

@@ -18,7 +18,6 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -41,7 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@RestController
+@RestController("connectorControllerV1")
 public class ConnectorControllerImpl implements ConnectorController {
 
     private ConnectorService connectorService;
@@ -59,7 +58,6 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR)
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.LIST)
     public List<ConnectorDto> listConnectors(
             @RequestParam Optional<FunctionGroupCode> functionGroup,

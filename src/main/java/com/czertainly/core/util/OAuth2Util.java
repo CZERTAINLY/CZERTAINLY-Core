@@ -17,7 +17,6 @@ import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorH
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
-import org.springframework.session.Session;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -51,8 +50,7 @@ public class OAuth2Util {
 
     }
 
-    public static void endUserSession(Session session) {
-        SecurityContext securityContext = session.getAttribute("SPRING_SECURITY_CONTEXT");
+    public static void endUserSession(SecurityContext securityContext) {
         if (securityContext != null) {
             if (securityContext.getAuthentication() == null) {
                 logger.warn("No authentication found in security context. User session cannot be ended.");

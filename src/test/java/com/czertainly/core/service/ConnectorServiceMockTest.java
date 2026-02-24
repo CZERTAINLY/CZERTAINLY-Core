@@ -4,12 +4,16 @@ import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Endpoint;
 import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
-import com.czertainly.core.service.impl.ConnectorServiceImpl;
+import com.czertainly.core.service.handler.ConnectorAdapter;
+import com.czertainly.core.service.handler.ConnectorV1Adapter;
+import com.czertainly.core.service.v2.ConnectorService;
+import com.czertainly.core.service.v2.impl.ConnectorServiceImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +25,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.*;
 
 @SpringBootTest
-public class ConnectorServiceMockTest {
+class ConnectorServiceMockTest {
 
     @Mock
     private ConnectorApiClient connectorApiClient;
@@ -35,11 +39,14 @@ public class ConnectorServiceMockTest {
     @InjectMocks
     private ConnectorService connectorService = new ConnectorServiceImpl();
 
+    @InjectMocks
+    private ConnectorAdapter connectorAdapter = new ConnectorV1Adapter();
+
     private Endpoint endpoint1, endpoint2, endpoint3;
 
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         endpoint1 = new Endpoint();
         endpoint1.setUuid(UUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"));
         endpoint1.setName("endpoint1");
@@ -67,12 +74,14 @@ public class ConnectorServiceMockTest {
         functionGroup.getEndpoints().add(endpoint2);
         functionGroup.getEndpoints().add(endpoint3);
 
+        ((ConnectorServiceImpl) connectorService).setConnectorAdapters(Map.of(ConnectorVersion.V1.getCode(), connectorAdapter, ConnectorVersion.V2.getCode(), connectorAdapter));
+
         Mockito.when(functionGroupRepository.findByCode(Mockito.any())).thenReturn(Optional.empty());
         Mockito.when(functionGroupRepository.findByCode(Mockito.eq(FunctionGroupCode.CREDENTIAL_PROVIDER))).thenReturn(Optional.of(functionGroup));
     }
 
     @Test
-    public void testConnect_UnknownFunctionGroup() throws Exception {
+    void testConnect_UnknownFunctionGroup() throws Exception {
 
         List<InfoResponse> connectorFunctions = new ArrayList<>();
         List<String> types = List.of("default");
@@ -88,7 +97,7 @@ public class ConnectorServiceMockTest {
     }
 
     @Test
-    public void testConnect_RequiredEndpointNotSupported() throws Exception {
+    void testConnect_RequiredEndpointNotSupported() throws Exception {
 
         List<InfoResponse> connectorFunctions = new ArrayList<>();
         List<String> types = List.of("default");
@@ -103,7 +112,7 @@ public class ConnectorServiceMockTest {
     }
 
     @Test
-    public void testConnect_Successful() throws Exception {
+    void testConnect_Successful() throws Exception {
 
         List<InfoResponse> connectorFunctions = new ArrayList<>();
         List<String> types = List.of("default");
@@ -113,6 +122,6 @@ public class ConnectorServiceMockTest {
         ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
 
-        connectorService.connect(request);
+        Assertions.assertDoesNotThrow(() -> connectorService.connect(request));
     }
 }

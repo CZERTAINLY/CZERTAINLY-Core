@@ -94,7 +94,8 @@ class OAuth2UtilTest {
             settingsCacheMock.when(() -> SettingsCache.getSettings(SettingsSection.AUTHENTICATION))
                     .thenReturn(authSettings);
             // Not mocked endpoint
-            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
+            SecurityContext springSecurityContext = session.getAttribute("SPRING_SECURITY_CONTEXT");
+            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
 
             WireMock.configureFor("localhost", mockServer.port());
             mockServer.stubFor(
@@ -103,7 +104,7 @@ class OAuth2UtilTest {
                             .willReturn(WireMock.aResponse().withStatus(200))
             );
             // Mocked endpoint
-            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
+            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
 
             mockServer.stubFor(
                     WireMock.get(WireMock.urlPathEqualTo("/"))
@@ -111,7 +112,7 @@ class OAuth2UtilTest {
                             .willReturn(WireMock.aResponse().withStatus(500))
             );
             // Mocked endpoint 500
-            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
+            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
 
             mockServer.stubFor(
                     WireMock.get(WireMock.urlPathEqualTo("/"))
@@ -119,7 +120,7 @@ class OAuth2UtilTest {
                             .willReturn(WireMock.aResponse().withStatus(404))
             );
             // Mocked endpoint 404
-            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
+            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
         }
         mockServer.stop();
     }
