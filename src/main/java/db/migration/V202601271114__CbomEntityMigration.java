@@ -24,7 +24,8 @@ public class V202601271114__CbomEntityMigration extends BaseJavaMigration {
         certificates_count INT NOT NULL,
         protocols_count INT NOT NULL,
         crypto_material_count INT NOT NULL,
-        total_assets_count INT NOT NULL
+        total_assets_count INT NOT NULL,
+        CONSTRAINT cbom_serial_version_unique UNIQUE (serial_number, version)
     );
     """;
 
