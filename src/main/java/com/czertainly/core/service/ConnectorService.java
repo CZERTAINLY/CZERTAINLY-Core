@@ -12,7 +12,6 @@ import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -28,13 +27,7 @@ public interface ConnectorService extends ResourceExtensionService {
 
     ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException;
-
     ConnectorDto createConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
-
-    ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
-
-    ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException;
 
     ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 

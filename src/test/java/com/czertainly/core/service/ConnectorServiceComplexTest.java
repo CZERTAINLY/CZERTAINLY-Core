@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -51,7 +52,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -59,7 +60,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
@@ -89,7 +90,8 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setName("testConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -99,7 +101,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateConnector() throws AlreadyExistException, NotFoundException {
+    void testCreateConnector() throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException, JsonProcessingException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -111,24 +113,33 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
         FunctionGroupDto fgDto = functionGroup.mapToDto();
         fgDto.setKinds(Collections.singletonList(kindName));
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");
-        request.setFunctionGroups(List.of(fgDto));
+        request.setAuthType(AuthType.NONE);
+        request.setUrl("http://localhost:" + mockServer.port());
 
-        ConnectorDto dto = connectorService.createConnector(request, ConnectorStatus.CONNECTED);
+        InfoResponse infoResponse = new InfoResponse();
+        infoResponse.setFunctionGroupCode(FunctionGroupCode.CREDENTIAL_PROVIDER);
+        infoResponse.setEndPoints(Collections.emptyList());
+        infoResponse.setKinds(Collections.singletonList(kindName));
+        String jsonBody = objectMapper.writeValueAsString(Collections.singletonList(infoResponse));
+        mockServer.stubFor(WireMock.get("/v1")
+                .willReturn(WireMock.okJson(jsonBody)));
+
+        ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getUuid());
         Assertions.assertNotNull(dto.getFunctionGroups());
         Assertions.assertFalse(dto.getFunctionGroups().isEmpty());
         Assertions.assertEquals(1, dto.getFunctionGroups().size());
 
-        FunctionGroupDto loaded = dto.getFunctionGroups().get(0);
+        FunctionGroupDto loaded = dto.getFunctionGroups().getFirst();
         Assertions.assertEquals(FunctionGroupCode.CREDENTIAL_PROVIDER, loaded.getFunctionGroupCode());
 
         Assertions.assertNotNull(loaded.getKinds());
         Assertions.assertFalse(loaded.getKinds().isEmpty());
         Assertions.assertEquals(1, loaded.getKinds().size());
-        Assertions.assertEquals(kindName, loaded.getKinds().get(0));
+        Assertions.assertEquals(kindName, loaded.getKinds().getFirst());
 
         // check database
         List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -154,7 +165,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");
         request.setAuthType(AuthType.NONE);
-        request.setUrl("http://localhost:"+mockServer.port());
+        request.setUrl("http://localhost:" + mockServer.port());
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -183,6 +194,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setName("testConnector");
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -194,7 +206,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setAuthType(AuthType.NONE);
-        request.setUrl("http://localhost:"+mockServer.port());
+        request.setUrl("http://localhost:" + mockServer.port());
 
         ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
@@ -239,7 +251,8 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setName("testConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector = connectorRepository.save(connector);
 
         addFunctionGroupToConnector(caFunctionGroup, Collections.singletonList(kindName), connector);

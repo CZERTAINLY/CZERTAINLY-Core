@@ -23,7 +23,6 @@ public class EnumControllerImpl implements EnumController {
         this.enumService = enumService;
     }
 
-
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.PLATFORM_ENUM, operation = Operation.LIST)
     public Map<PlatformEnum, Map<String, EnumItemDto>> getPlatformEnums() {

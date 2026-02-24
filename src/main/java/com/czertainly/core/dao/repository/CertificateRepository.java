@@ -125,6 +125,22 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void setKeyUuid(UUID keyUuid, List<UUID> uuids);
 
     @Modifying
+    @Query("UPDATE Certificate c SET c.keyUuid = NULL WHERE c.keyUuid = ?1")
+    void clearKeyAssociations(UUID keyUuid);
+
+    @Modifying
+    @Query("UPDATE Certificate c SET c.keyUuid = NULL WHERE c.keyUuid IN ?1")
+    void clearKeyAssociationsIn(List<UUID> keyUuids);
+
+    @Modifying
+    @Query("UPDATE Certificate c SET c.altKeyUuid = NULL WHERE c.altKeyUuid = ?1")
+    void clearAltKeyAssociations(UUID altKeyUuid);
+
+    @Modifying
+    @Query("UPDATE Certificate c SET c.altKeyUuid = NULL WHERE c.altKeyUuid IN ?1")
+    void clearAltKeyAssociationsIn(List<UUID> altKeyUuids);
+
+    @Modifying
     @Query("UPDATE Certificate c SET c.archived = ?1 WHERE c.uuid IN ?2")
     void archiveCertificates(boolean archive, List<UUID> uuids);
 

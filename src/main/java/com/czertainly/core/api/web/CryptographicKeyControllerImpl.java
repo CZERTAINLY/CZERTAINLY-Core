@@ -224,6 +224,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.DELETE)
     public void deleteKeyItems(@LogResource(uuid = true) List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.deleteKeyItems(
+                SecurityFilter.create(),
                 keyItemUuids
         );
     }

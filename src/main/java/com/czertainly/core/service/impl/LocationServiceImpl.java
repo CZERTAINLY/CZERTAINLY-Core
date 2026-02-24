@@ -1123,6 +1123,7 @@ public class LocationServiceImpl implements LocationService {
                 throw new ValidationException(ValidationError.create("Location with same attributes already exists"));
             }
         }
+        
     }
 
     @Override

@@ -1,6 +1,8 @@
 package com.czertainly.core.enums;
 
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
+import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
@@ -8,6 +10,9 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.connector.AuthType;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
@@ -122,6 +127,14 @@ public enum FilterField {
     LOCATION_SUPPORT_MULTIPLE_ENTRIES(Resource.LOCATION, null, null, Location_.supportMultipleEntries, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_KEY_MANAGEMENT(Resource.LOCATION, null, null, Location_.supportKeyManagement, "Support key management", SearchFieldTypeEnum.BOOLEAN),
 
+    // Connector
+    CONNECTOR_NAME(Resource.CONNECTOR, null, null, Connector_.name, "Name", SearchFieldTypeEnum.STRING),
+    CONNECTOR_VERSION(Resource.CONNECTOR, null, null, Connector_.version, "Version", SearchFieldTypeEnum.LIST, ConnectorVersion.class),
+    CONNECTOR_URL(Resource.CONNECTOR, null, null, Connector_.url, "URL", SearchFieldTypeEnum.STRING),
+    CONNECTOR_AUTH_TYPE(Resource.CONNECTOR, null, null, Connector_.authType, "Auth type", SearchFieldTypeEnum.LIST, AuthType.class),
+    CONNECTOR_STATUS(Resource.CONNECTOR, null, null, Connector_.status, "Status", SearchFieldTypeEnum.LIST, ConnectorStatus.class),
+    CONNECTOR_INTERFACE(Resource.CONNECTOR, null, List.of(Connector_.interfaces), ConnectorInterfaceEntity_.interfaceCode, "Interface", SearchFieldTypeEnum.LIST, ConnectorInterface.class),
+    CONNECTOR_FUNCTION_GROUP(Resource.CONNECTOR, null, List.of(Connector_.functionGroups, Connector2FunctionGroup_.functionGroup), FunctionGroup_.code, "Function group", SearchFieldTypeEnum.LIST, FunctionGroupCode.class),
 
     // Audit Logs
     AUDIT_LOG_TIMESTAMP(Resource.AUDIT_LOG, null, null, AuditLog_.timestamp, "Timestamp", SearchFieldTypeEnum.DATETIME),
