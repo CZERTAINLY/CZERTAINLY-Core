@@ -7,9 +7,9 @@ import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
-import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -20,7 +20,7 @@ public interface CbomService extends ResourceExtensionService {
      * List available CBOMs
      * @return List of available CBOMs
      */
-    CbomListResponseDto listCboms(SecurityFilter filter, SearchRequestDto request);
+    PaginationResponseDto<CbomDto> listCboms(SecurityFilter filter, SearchRequestDto request);
 
     /**
      * Retrieves basic information about a specific CBOM.
@@ -44,11 +44,11 @@ public interface CbomService extends ResourceExtensionService {
 
     /**
      * Return versions of CBOM with same serial number from DB
-     * @param serialNumber a serial number
+     * @param uuid Secured unique identifier of the CBOM to retrieve
      * @return List of uuid/urn/version
      * @throws NotFoundException if exception not found
      */
-    List<CbomDto> getCbomVersions(String serialNumber) throws NotFoundException;
+    List<CbomDto> getCbomVersions(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Upload CBOM into cbom-repository and store cbom statistics in database.

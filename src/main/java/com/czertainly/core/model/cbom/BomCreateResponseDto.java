@@ -30,6 +30,14 @@ public class BomCreateResponseDto {
 
     @NotNull
     @Schema(
+            description = "CycloneDX spec version",
+            example = "1.6",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    private String specVersion;
+
+    @NotNull
+    @Schema(
             description = "CBOM statistics",
             requiredMode = Schema.RequiredMode.REQUIRED
     )

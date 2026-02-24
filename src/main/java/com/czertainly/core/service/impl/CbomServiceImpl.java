@@ -8,10 +8,10 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
-import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -86,7 +86,7 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
-    public CbomListResponseDto listCboms(SecurityFilter filter, SearchRequestDto request) {
+    public PaginationResponseDto<CbomDto> listCboms(SecurityFilter filter, SearchRequestDto request) {
 
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
@@ -97,7 +97,7 @@ public class CbomServiceImpl implements CbomService {
                 .map(Cbom::mapToDto).toList();
         final Long maxItems = cbomRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
-        final CbomListResponseDto responseDto = new CbomListResponseDto();
+        final PaginationResponseDto<CbomDto> responseDto = new PaginationResponseDto<>();
         responseDto.setItems(listedKeyDTOs);
         responseDto.setItemsPerPage(request.getItemsPerPage());
         responseDto.setPageNumber(request.getPageNumber());
@@ -137,11 +137,11 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
-    public List<CbomDto> getCbomVersions(String serialNumber) throws NotFoundException {
+    public List<CbomDto> getCbomVersions(SecuredUUID uuid) throws NotFoundException {
 
-        List<Cbom> versions = cbomRepository.findBySerialNumber(serialNumber);
+        List<Cbom> cboms = cbomRepository.findVersionsByUuid(uuid.getValue());
 
-        List<CbomDto> ret = versions.stream()
+        List<CbomDto> ret = cboms.stream()
         .map(cbom -> cbom.mapToDto())
         .collect(Collectors.toList());
         return ret;
@@ -181,6 +181,14 @@ public class CbomServiceImpl implements CbomService {
             }
         }
 
+        // specVersion (required)
+        Object specVersion = content.get("specVersion");
+        if (specVersion == null || StringUtils.isBlank(specVersion.toString())) {
+            throw new ValidationException(
+                    ValidationError.create("specVersion must not be empty")
+            );
+        }
+
         OffsetDateTime timestamp = null;
         try {
             @SuppressWarnings("unchecked")
@@ -211,6 +219,7 @@ public class CbomServiceImpl implements CbomService {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(response.getSerialNumber());
         cbom.setVersion(response.getVersion());
+        cbom.setSpecVersion(specVersion.toString());
         cbom.setTimestamp(timestamp);
         cbom.setSource("CORE");
 

@@ -9,6 +9,7 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,9 +24,9 @@ import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
-import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
@@ -95,12 +96,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber("testing");
         cbom.setTimestamp(OffsetDateTime.now());
+        cbom.setVersion(1);
+        cbom.setSpecVersion("1.6");
         cbom = cbomRepository.save(cbom);
 
         // When
         SecurityFilter filter = new SecurityFilter();
         SearchRequestDto search = new SearchRequestDto();
-        CbomListResponseDto response = cbomService.listCboms(filter, search);
+        PaginationResponseDto<CbomDto> response = cbomService.listCboms(filter, search);
 
         // Then
         assertNotNull(response);
@@ -114,6 +117,8 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber("testing");
         cbom.setTimestamp(OffsetDateTime.now());
+        cbom.setVersion(1);
+        cbom.setSpecVersion("1.6");
         cbom = cbomRepository.save(cbom);
 
         // When
@@ -144,6 +149,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setUuid(uuid.getValue());
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(version);
+        cbom.setSpecVersion("1.6");
         cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
@@ -196,6 +202,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setUuid(uuid.getValue());
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(version);
+        cbom.setSpecVersion("1.6");
         cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
@@ -222,6 +229,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setUuid(uuid.getValue());
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(version);
+        cbom.setSpecVersion("1.6");
         cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
@@ -260,6 +268,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("version", version);
+        content.put("specVersion", "1.6");
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("timestamp", timestamp.toString());
         content.put("metadata", metadata);
@@ -276,6 +285,7 @@ class CbomServiceTest extends BaseSpringBootTest {
                     {
                     "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
                     "version": 1,
+                    "specVersion": "1.6",
                     "cryptoStats": {
                     "cryptoAssets": {
                     "algorithms": {
@@ -303,6 +313,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertNotNull(result);
         assertEquals(serialNumber, result.getSerialNumber());
         assertEquals(version.toString(), result.getVersion());
+        assertEquals("1.6", result.getSpecVersion());
         assertEquals(5, result.getAlgorithms());
         assertEquals(3, result.getCertificates());
         assertEquals(2, result.getProtocols());
@@ -320,6 +331,9 @@ class CbomServiceTest extends BaseSpringBootTest {
             WireMock.urlEqualTo("/v1/bom")));
     }
 
+    /**
+     * @throws NotFoundException
+     */
     @Test
     void testGetCbomVersions() throws NotFoundException {
         // Given
@@ -328,6 +342,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom1 = new Cbom();
         cbom1.setSerialNumber(serialNumber);
         cbom1.setVersion(1);
+        cbom1.setSpecVersion("1.6");
         cbom1.setTimestamp(OffsetDateTime.now());
         cbom1 = cbomRepository.save(cbom1);
 
@@ -335,32 +350,41 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom2.setSerialNumber(serialNumber);
         cbom2.setVersion(2);
         cbom2.setTimestamp(OffsetDateTime.now());
+        cbom2.setSpecVersion("1.6");
         cbom2 = cbomRepository.save(cbom2);
 
         Cbom cbom3 = new Cbom();
         cbom3.setSerialNumber(serialNumber);
         cbom3.setVersion(3);
         cbom3.setTimestamp(OffsetDateTime.now());
+        cbom3.setSpecVersion("1.6");
         cbom3 = cbomRepository.save(cbom3);
 
-        // When
-        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber);
+        List<UUID> uuids = List.of(cbom1, cbom2, cbom3)
+            .stream()
+            .map(Cbom::getUuid)
+            .toList();
 
-        // Then
-        assertNotNull(versions);
-        assertEquals(3, versions.size());
-        assertEquals(serialNumber, versions.get(0).getSerialNumber());
-        assertEquals(serialNumber, versions.get(1).getSerialNumber());
-        assertEquals(serialNumber, versions.get(2).getSerialNumber());
+        for (UUID uuid: uuids) {
+            // When
+            List<CbomDto> versions = cbomService.getCbomVersions(SecuredUUID.fromUUID(uuid));
+
+            // Then
+            assertNotNull(versions);
+            assertEquals(3, versions.size());
+            assertEquals(serialNumber, versions.get(0).getSerialNumber());
+            assertEquals(serialNumber, versions.get(1).getSerialNumber());
+            assertEquals(serialNumber, versions.get(2).getSerialNumber());
+        }
     }
 
     @Test
     void testGetCbomVersions_EmptyList() throws NotFoundException {
         // Given
-        String serialNumber = "urn:uuid:non-existent";
+        SecuredUUID uuid = SecuredUUID.fromString("100a1949-cdf9-49bb-a580-d34aa2f39225");
 
         // When
-        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber);
+        List<CbomDto> versions = cbomService.getCbomVersions(uuid);
 
         // Then
         assertNotNull(versions);
@@ -375,11 +399,12 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(serialNumber);
         cbom.setVersion(1);
+        cbom.setSpecVersion("1.6");
         cbom.setTimestamp(OffsetDateTime.now());
         cbom = cbomRepository.save(cbom);
 
         // When
-        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber);
+        List<CbomDto> versions = cbomService.getCbomVersions(cbom.getSecuredUuid());
 
         // Then
         assertNotNull(versions);
@@ -397,17 +422,19 @@ class CbomServiceTest extends BaseSpringBootTest {
         Cbom cbom1 = new Cbom();
         cbom1.setSerialNumber(serialNumber1);
         cbom1.setVersion(1);
+        cbom1.setSpecVersion("1.6");
         cbom1.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom1);
 
         Cbom cbom2 = new Cbom();
         cbom2.setSerialNumber(serialNumber2);
         cbom2.setVersion(1);
+        cbom2.setSpecVersion("1.6");
         cbom2.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom2);
 
         // When
-        List<CbomDto> versions = cbomService.getCbomVersions(serialNumber1);
+        List<CbomDto> versions = cbomService.getCbomVersions(cbom1.getSecuredUuid());
 
         // Then
         assertNotNull(versions);
@@ -620,10 +647,20 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request1 = new CbomUploadRequestDto();
         OffsetDateTime timestamp = OffsetDateTime.now();
 
-        request1.setContent(Map.of("serialNumber", "urn:uuid:first", "version", 1, "metadata", Map.of("timestamp", timestamp.toString())));
+        request1.setContent(Map.of(
+            "serialNumber", "urn:uuid:first",
+            "version", 1,
+            "specVersion", "1.6",
+            "metadata", Map.of("timestamp", timestamp.toString()
+        )));
 
         CbomUploadRequestDto request2 = new CbomUploadRequestDto();
-        request2.setContent(Map.of("serialNumber", "urn:uuid:second", "version", 1, "metadata", Map.of("timestamp", timestamp.toString())));
+        request2.setContent(Map.of(
+            "serialNumber", "urn:uuid:second",
+            "version", 1,
+            "specVersion", "1.6",
+            "metadata", Map.of("timestamp", timestamp.toString()
+        )));
 
         mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
             .willReturn(WireMock.aResponse()
@@ -633,6 +670,7 @@ class CbomServiceTest extends BaseSpringBootTest {
                     {
                     "serialNumber": "urn:uuid:placeholder",
                     "version": 1,
+                    "specVersion": "1.6",
                     "cryptoStats": {
                     "cryptoAssets": {
                     "algorithms": {"total": 1},

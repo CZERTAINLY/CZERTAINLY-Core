@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,10 +11,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CbomController;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
-import com.czertainly.api.model.core.cbom.CbomListResponseDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -42,7 +43,7 @@ public class CbomControllerImpl implements CbomController {
         module = Module.CORE,
         resource = Resource.CBOM,
         operation = Operation.LIST)
-    public CbomListResponseDto listCboms(SearchRequestDto requestDto) {
+	public PaginationResponseDto<CbomDto> listCboms(SearchRequestDto requestDto) {
         return cbomService.listCboms(SecurityFilter.create(), requestDto);
     }
 
@@ -51,8 +52,8 @@ public class CbomControllerImpl implements CbomController {
         module = Module.CORE,
         resource = Resource.CBOM,
         operation = Operation.DETAIL)
-    public CbomDetailDto getCbomDetail(@LogResource(uuid = true) String uuid, String version) throws NotFoundException, CbomRepositoryException {
-        return cbomService.getCbomDetail(SecuredUUID.fromString(uuid));
+    public CbomDetailDto getCbomDetail(@LogResource(uuid = true) UUID uuid) throws NotFoundException, CbomRepositoryException {
+        return cbomService.getCbomDetail(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
@@ -60,8 +61,8 @@ public class CbomControllerImpl implements CbomController {
         module = Module.CORE,
         resource = Resource.CBOM,
         operation = Operation.LIST_VERSIONS)
-    public List<CbomDto> listCbomVersions(String serialNumber) throws NotFoundException {
-        return cbomService.getCbomVersions(serialNumber);
+    public List<CbomDto> listCbomVersions(UUID uuid) throws NotFoundException {
+        return cbomService.getCbomVersions(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
