@@ -71,8 +71,7 @@ public class CbomControllerImpl implements CbomController {
         resource = Resource.CBOM,
         operation = Operation.CREATE)
     public CbomDto uploadCbom(CbomUploadRequestDto request) throws ValidationException, AlreadyExistException, CbomRepositoryException {
-        CbomDto cbomDto = cbomService.createCbom(request);
-        return cbomDto;
+        return cbomService.createCbom(request);
     }
 
     @Override

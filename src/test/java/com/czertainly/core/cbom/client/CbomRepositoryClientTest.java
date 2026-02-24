@@ -282,7 +282,7 @@ class CbomRepositoryClientTest {
     }
 
     @Test
-    void testRead_WhenWebClientResponseException_ShouldThrowCbomRepositoryException() throws Exception {
+    void testRead_WhenWebClientResponseException_ShouldThrowCbomRepositoryException() {
         // Arrange
         String urn = "urn:uuid:test-serial";
 

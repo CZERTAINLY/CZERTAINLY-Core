@@ -67,7 +67,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         webClient = WebClient.builder()
             .baseUrl("http://localhost:" + mockServer.port())
             .filter((request, next) -> next.exchange(request)
-                .flatMap(response -> CbomRepositoryClient.handleHttpExceptions(response)))
+                .flatMap(CbomRepositoryClient::handleHttpExceptions))
             .exchangeStrategies(ExchangeStrategies.builder()
                 .codecs(configurer -> {
                     configurer.defaultCodecs().maxInMemorySize(1024 * 1024);
@@ -98,7 +98,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setTimestamp(OffsetDateTime.now());
         cbom.setVersion(1);
         cbom.setSpecVersion("1.6");
-        cbom = cbomRepository.save(cbom);
+        cbomRepository.save(cbom);
 
         // When
         SecurityFilter filter = new SecurityFilter();
@@ -107,7 +107,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         // Then
         assertNotNull(response);
-        assertEquals(response.getItems().size(), 1);
+        assertEquals(1, response.getItems().size());
         assertEquals("testing", response.getItems().get(0).getSerialNumber());
     }
 

@@ -51,7 +51,7 @@ public class BomResponseDto extends HashMap<String, Object> {
         if (components instanceof List) {
             return (List<Map<String, Object>>) components;
         }
-        return null;
+        return List.of();
     }
 
     @SuppressWarnings("unchecked")
@@ -60,7 +60,7 @@ public class BomResponseDto extends HashMap<String, Object> {
         if (metadata instanceof Map) {
             return (Map<String, Object>) metadata;
         }
-        return null;
+        return Map.of();
     }
 
     public CbomDetailDto mapToCbomDetailDto() {

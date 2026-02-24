@@ -49,7 +49,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -109,8 +108,7 @@ public class CbomServiceImpl implements CbomService {
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DETAIL)
     public CbomDto getCbom(SecuredUUID uuid) throws NotFoundException {
-        CbomDto dto = getEntity(uuid).mapToDto();
-        return dto;
+        return getEntity(uuid).mapToDto();
     }
 
     @Override
@@ -131,20 +129,18 @@ public class CbomServiceImpl implements CbomService {
             }
         }
 
-        CbomDetailDto detailDto = response.mapToCbomDetailDto();
-        return detailDto;
+        return response.mapToCbomDetailDto();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.LIST)
     public List<CbomDto> getCbomVersions(SecuredUUID uuid) throws NotFoundException {
-
         List<Cbom> cboms = cbomRepository.findVersionsByUuid(uuid.getValue());
 
-        List<CbomDto> ret = cboms.stream()
-        .map(cbom -> cbom.mapToDto())
-        .collect(Collectors.toList());
-        return ret;
+        return cboms
+            .stream()
+            .map(Cbom::mapToDto)
+            .toList();
     }
 
     @Override

@@ -2,21 +2,20 @@ package com.czertainly.core.dao.entity;
 
 import java.time.OffsetDateTime;
 import java.util.Objects;
-import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.proxy.HibernateProxy;
 
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.core.util.DtoMapper;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -25,11 +24,6 @@ import org.hibernate.proxy.HibernateProxy;
 @Entity
 @Table(name = "cbom")
 public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
-
-    @Id
-    @Column(name = "uuid", nullable = false, unique = true, updatable = false)
-    private UUID uuid;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -87,10 +81,14 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy hibernateProxy 
+        ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass() 
+        : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy hibernateProxy 
+        ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass() 
+        : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        EntityInstanceReference that = (EntityInstanceReference) o;
+        Cbom that = (Cbom) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
