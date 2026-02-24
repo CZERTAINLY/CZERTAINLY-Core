@@ -102,7 +102,7 @@ public class BomResponseDto extends HashMap<String, Object> {
                     switch (type) {
                         case TYPE_CRYPTOGRAPHIC_ASSET:
                             Map<String, Object> cryptoProperties = (Map<String, Object>) component.get(FIELD_CRYPTO_PROPERTIES);
-                            if (cryptoProperties.get(ASSET_TYPE_TOTAL) != null) {
+                            if (cryptoProperties != null && cryptoProperties.get(ASSET_TYPE_TOTAL) != null) {
                                 totalAssetsCount = (int) cryptoProperties.get(ASSET_TYPE_TOTAL);
                             }
                             if (cryptoProperties != null) {

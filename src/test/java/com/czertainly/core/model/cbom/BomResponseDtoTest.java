@@ -371,6 +371,7 @@ class BomResponseDtoTest {
     void testMapToCbomDetailDto_WithoutCryptoProperties() {
         bomResponseDto.put("serialNumber", "urn:uuid:test-123");
         bomResponseDto.put("version", 1);
+        bomResponseDto.put("specVersion", "1.6");
 
         List<Map<String, Object>> components = new ArrayList<>();
         
