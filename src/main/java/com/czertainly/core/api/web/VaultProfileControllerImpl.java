@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.VaultProfileController;
@@ -8,6 +9,7 @@ import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.secret.SecretType;
 import com.czertainly.api.model.core.vaultprofile.VaultProfileDetailDto;
 import com.czertainly.api.model.core.vaultprofile.VaultProfileListResponseDto;
@@ -61,7 +63,7 @@ public class VaultProfileControllerImpl implements VaultProfileController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.CREATE)
-    public VaultProfileDetailDto createVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, VaultProfileRequestDto vaultProfileDetail) throws NotFoundException, AttributeException {
+    public VaultProfileDetailDto createVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, VaultProfileRequestDto vaultProfileDetail) throws NotFoundException, AttributeException, AlreadyExistException {
         return vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(vaultUuid), vaultProfileDetail);
     }
 
@@ -81,5 +83,11 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> getAttributesForCreatingSecret(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, @LogResource(uuid = true) UUID vaultProfileUuid, SecretType secretType) {
         return vaultProfileService.getAttributesForCreatingSecret(SecuredParentUUID.fromUUID(vaultUuid), SecuredUUID.fromUUID(vaultProfileUuid), secretType);
+    }
+
+    @Override
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.SEARCH_FILTER, operation = Operation.LIST)
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return vaultProfileService.getSearchableFieldInformation();
     }
 }

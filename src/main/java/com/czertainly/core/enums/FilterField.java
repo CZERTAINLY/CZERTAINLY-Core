@@ -168,6 +168,10 @@ public enum FilterField {
     VAULT_INSTANCE_NAME(Resource.VAULT, null, null, VaultInstance_.name, "Name", SearchFieldTypeEnum.STRING),
     VAULT_INSTANCE_CONNECTOR_NAME(Resource.VAULT, Resource.CONNECTOR, List.of(VaultInstance_.connector), Connector_.name, "Connector Name", SearchFieldTypeEnum.LIST),
 
+    // Vault Profile
+    VAULT_PROFILE_NAME(Resource.VAULT_PROFILE, null, null, VaultProfile_.name, "Name", SearchFieldTypeEnum.STRING),
+    VAULT_PROFILE_VAULT_INSTANCE(Resource.VAULT_PROFILE, Resource.VAULT, List.of(VaultProfile_.vaultInstance), VaultInstance_.name, "Vault Instance", SearchFieldTypeEnum.LIST),
+
     // Secret
     SECRET_NAME(Resource.SECRET, null, null, Secret_.name, "Name", SearchFieldTypeEnum.STRING),
     SECRET_TYPE(Resource.SECRET, null, null, Secret_.type, "Type", SearchFieldTypeEnum.LIST, SecretType.class),

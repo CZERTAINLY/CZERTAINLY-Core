@@ -7,19 +7,20 @@ import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.secret.SecretType;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 import org.hibernate.annotations.SQLJoinTableRestriction;
+import org.hibernate.proxy.HibernateProxy;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "secret")
-@Data
+@Getter
+@Setter
 public class Secret extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "name", nullable = false)
@@ -38,11 +39,11 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     private VaultProfile sourceVaultProfile;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "latest_version_uuid", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "latest_version_uuid", insertable = false, updatable = false)
     @ToString.Exclude
     private SecretVersion latestVersion;
 
-    @Column(name = "latest_version_uuid", nullable = false)
+    @Column(name = "latest_version_uuid")
     private UUID latestVersionUuid;
 
     @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
@@ -70,7 +71,7 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
-    @OneToOne(fetch = FetchType.LAZY, mappedBy = "secret")
+    @OneToOne(mappedBy = "secret")
     @ToString.Exclude
     private OwnerAssociation owner;
 
@@ -108,5 +109,17 @@ public class Secret extends UniquelyIdentifiedAndAudited {
         secretDto.setSourceVaultProfile(new NameAndUuidDto(sourceVaultProfile.getUuid().toString(), sourceVaultProfile.getName()));
         secretDto.setOwner(new NameAndUuidDto(owner.getOwnerUuid().toString(), owner.getOwnerUsername()));
         secretDto.setGroups(groups.stream().map(g -> new NameAndUuidDto(g.getUuid().toString(), g.getName())).toList());
+    }
+
+    @Override
+    public final boolean equals(final Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Secret that)) return false;
+        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
+    }
+
+    @Override
+    public final int hashCode() {
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

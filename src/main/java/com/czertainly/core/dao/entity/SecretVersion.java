@@ -3,15 +3,19 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.core.secret.SecretVersionDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.proxy.HibernateProxy;
 
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
-@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "secret_version")
-@Data
+@Getter
+@Setter
 public class SecretVersion extends UniquelyIdentified {
 
     @Column(name = "secret_uuid", nullable = false)
@@ -28,18 +32,19 @@ public class SecretVersion extends UniquelyIdentified {
     @Column(name = "fingerprint", nullable = false)
     private String fingerprint;
 
-    @Column(name = "vaultInstanceUuid", nullable = false)
+    @Column(name = "vault_instance_uuid", nullable = false)
     private UUID vaultInstanceUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vaultInstanceUuid", insertable = false, updatable = false)
+    @JoinColumn(name = "vault_instance_uuid", insertable = false, updatable = false)
     @JsonBackReference
     private VaultInstance vaultInstance;
 
     @Column(name = "vault_version", nullable = false)
     private int vaultVersion;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "i_cre", nullable = false, updatable = false)
+    @CreationTimestamp
     private OffsetDateTime createdAt;
 
     public SecretVersionDto mapToDto() {
@@ -49,4 +54,17 @@ public class SecretVersion extends UniquelyIdentified {
         dto.setCreatedAt(createdAt);
         return dto;
     }
+
+    @Override
+    public final boolean equals(final Object o) {
+        if (this == o) return true;
+        if (!(o instanceof SecretVersion that)) return false;
+        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
+    }
+
+    @Override
+    public final int hashCode() {
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    }
+
 }

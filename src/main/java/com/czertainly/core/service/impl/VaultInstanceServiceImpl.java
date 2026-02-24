@@ -181,7 +181,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.VAULT, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(FilterField.VAULT_INSTANCE_NAME, vaultInstanceRepository.findAllNames()),
+                SearchHelper.prepareSearch(FilterField.VAULT_INSTANCE_NAME),
                 SearchHelper.prepareSearch(FilterField.VAULT_INSTANCE_CONNECTOR_NAME, vaultInstanceRepository.findAllConnectorNames())
         );
         fields = new ArrayList<>(fields);

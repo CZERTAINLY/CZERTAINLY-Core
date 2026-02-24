@@ -1,17 +1,24 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.secret.SecretType;
 import com.czertainly.api.model.core.vaultprofile.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.SecretRepository;
 import com.czertainly.core.dao.repository.VaultInstanceRepository;
 import com.czertainly.core.dao.repository.VaultProfileRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -19,6 +26,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.VaultProfileService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
+import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -30,6 +38,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -39,6 +48,12 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     private VaultProfileRepository vaultProfileRepository;
     private VaultInstanceRepository vaultInstanceRepository;
     private AttributeEngine attributeEngine;
+    private SecretRepository secretRepository;
+
+    @Autowired
+    public void setSecretRepository(SecretRepository secretRepository) {
+        this.secretRepository = secretRepository;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -88,6 +103,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public VaultProfileDetailDto updateVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, VaultProfileUpdateRequestDto request) throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(securedUUID).orElseThrow(() -> new NotFoundException(VaultProfile.class, securedUUID));
+        // check that the vault profile is associated with the same vault instance?
         vaultProfile.setDescription(request.getDescription());
         attributeEngine.validateCustomAttributesContent(Resource.VAULT_PROFILE, request.getCustomAttributes());
 
@@ -103,16 +119,23 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public void deleteVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(securedUUID).orElseThrow(() -> new NotFoundException(VaultProfile.class, securedUUID));
-        // TODO: handle secrets which have profile as source
+        List<String> secretsSource = secretRepository.findAllNamesBySourceVaultProfileUuid(securedUUID.getValue());
+        if (!secretsSource.isEmpty()) {
+            throw new ValidationException("Cannot delete vault profile %s set as source for secrets %s.".formatted(vaultProfile.getName(), secretsSource));
+        }
+        List<String> secretsSync = secretRepository.findAllNamesBySyncVaultProfileUuid(securedUUID.getValue());
+        if (!secretsSync.isEmpty()) {
+            throw new ValidationException("Cannot delete vault profile %s set as sync for secrets %s.".formatted(vaultProfile.getName(), secretsSync));
+        }
         attributeEngine.deleteAllObjectAttributeContent(Resource.VAULT_PROFILE, securedUUID.getValue());
         vaultProfileRepository.delete(vaultProfile);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public VaultProfileDetailDto createVaultProfile(SecuredParentUUID securedParentUUID, VaultProfileRequestDto request) throws NotFoundException, ValidationException, AttributeException {
+    public VaultProfileDetailDto createVaultProfile(SecuredParentUUID securedParentUUID, VaultProfileRequestDto request) throws NotFoundException, ValidationException, AttributeException, AlreadyExistException {
         if (Boolean.TRUE.equals(vaultProfileRepository.existsByName(request.getName()))) {
-            throw new ValidationException("Vault Profile with name " + request.getName() + " already exists");
+            throw new AlreadyExistException("Vault Profile with name " + request.getName() + " already exists");
         }
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(securedParentUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, securedParentUUID));
         attributeEngine.validateCustomAttributesContent(Resource.VAULT_PROFILE, request.getCustomAttributes());
@@ -150,6 +173,18 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, SecretType secretType) {
         // TODO: call API client to get attributes
         return List.of();
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
+        List<SearchFieldDataDto> fields = new ArrayList<>(List.of(
+                SearchHelper.prepareSearch(FilterField.VAULT_PROFILE_NAME),
+                SearchHelper.prepareSearch(FilterField.VAULT_PROFILE_VAULT_INSTANCE, vaultInstanceRepository.findAllNames())
+        ));
+        fields.sort(new SearchFieldDataComparator());
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
+        return searchFieldDataByGroupDtos;
     }
 
 
