@@ -53,7 +53,7 @@ public interface CbomService extends ResourceExtensionService {
     /**
      * Upload CBOM into cbom-repository and store cbom statistics in database.
      * @param request is upload request, see {@link CbomUploadRequestDto}
-     * @return Stats of created insntance
+     * @return Stats of created instance
      * @throws AlreadyExistException if a CBOM with given serial number exists
      * @throws CbomRepositoryException for a unspecified problem with accessing cbom-repository (like HTTP 502)
      * @throws ValidationException if CBOM does not pass the cbom-repository validation
