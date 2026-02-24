@@ -54,6 +54,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -186,16 +187,20 @@ public class CbomServiceImpl implements CbomService {
         }
 
         // metadata.timestamp (required)
+        @SuppressWarnings("unchecked")
+        Map<String, Object> metadata = (Map<String, Object>) content.get("metadata");
+        if (metadata == null) {
+            throw new ValidationException("metadata must be present");
+        }
+
         OffsetDateTime timestamp = null;
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> metadata = (Map<String, Object>) content.get("metadata");
             String timestampStr = (String) metadata.get("timestamp");
             timestamp = OffsetDateTime.parse(timestampStr);
         } catch (ClassCastException e) {
             throw new ValidationException("metadata must be a JSON object");
         } catch (NullPointerException npe) {
-            throw new ValidationException("metadata or metadata.timestamp must be present");
+            throw new ValidationException("metadata.timestamp must be present");
         } catch (DateTimeParseException e) {
             throw new ValidationException("metadata.timestamp must be valid ISO-8601 timestamp");
         }
@@ -218,7 +223,13 @@ public class CbomServiceImpl implements CbomService {
         cbom.setVersion(response.getVersion());
         cbom.setSpecVersion(specVersion.toString());
         cbom.setTimestamp(timestamp);
-        cbom.setSource("CORE");
+        String source = Optional.ofNullable(metadata.get("component"))
+            .filter(Map.class::isInstance)
+            .map(Map.class::cast)
+            .map(m -> m.get("name"))
+            .map(String::valueOf)
+            .orElse("");
+        cbom.setSource(source);
 
         // Defensive handling of potentially null nested response objects
         Integer algorithmsCount = 0;
