@@ -142,6 +142,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setDescription(attribute.getDescription());
         dto.setContentType(attribute.getContentType());
         dto.setEnabled(enabled);
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
         return dto;
     }
@@ -153,6 +154,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setName(attribute.getName());
         dto.setContentType(attribute.getContentType());
         dto.setDescription(attribute.getDescription());
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         return dto;
     }
 
@@ -174,6 +176,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         }
         dto.setDescription(attribute.getDescription());
         dto.setEnabled(enabled);
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
         if (attribute.getProperties() != null) {
             CustomAttributeProperties properties = attribute.getProperties();
@@ -184,6 +187,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
             dto.setMultiSelect(properties.isMultiSelect());
             dto.setReadOnly(properties.isReadOnly());
             dto.setVisible(properties.isVisible());
+            dto.setExtensibleList(properties.isExtensibleList());
             dto.setProtectionLevel(properties.getProtectionLevel());
         }
         return dto;
@@ -197,6 +201,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setType(AttributeType.META);
         dto.setContentType(attribute.getContentType());
         dto.setDescription(attribute.getDescription());
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         dto.setEnabled(null);
         if (attribute.getProperties() != null) {
             MetadataAttributeProperties properties = attribute.getProperties();
