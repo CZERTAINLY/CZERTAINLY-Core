@@ -179,7 +179,7 @@ public enum FilterField {
     // CBOM
     CBOM_SERIAL_NUMBER(Resource.CBOM, null, null, Cbom_.serialNumber, "Serial Number", SearchFieldTypeEnum.STRING),
     CBOM_VERSION(Resource.CBOM, null, null, Cbom_.version, "Version", SearchFieldTypeEnum.NUMBER),
-    CBOM_TIMESTAMP(Resource.CBOM, null, null, Cbom_.timestamp, "Timestamp", SearchFieldTypeEnum.DATE),
+    CBOM_TIMESTAMP(Resource.CBOM, null, null, Cbom_.timestamp, "Timestamp", SearchFieldTypeEnum.DATETIME),
     CBOM_SOURCE(Resource.CBOM, null, null, Cbom_.source, "Source", SearchFieldTypeEnum.STRING),
     CBOM_ALGORITHMS_COUNT(Resource.CBOM, null, null, Cbom_.algorithmsCount, "Algorithms Count", SearchFieldTypeEnum.NUMBER),
     CBOM_CERTIFICATES_COUNT(Resource.CBOM, null, null, Cbom_.certificatesCount, "Certificates Count", SearchFieldTypeEnum.NUMBER),
