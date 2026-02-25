@@ -38,7 +38,6 @@ public class CbomControllerImpl implements CbomController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CBOM)
     @AuditLogged(
         module = Module.CORE,
         resource = Resource.CBOM,
