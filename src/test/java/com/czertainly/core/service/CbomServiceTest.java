@@ -1,11 +1,13 @@
 package com.czertainly.core.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +16,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -25,12 +29,18 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.repository.CbomRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -39,16 +49,14 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
 class CbomServiceTest extends BaseSpringBootTest {
-
-    static {
-        System.setProperty("testcontainers.docker.client.strategy", "org.testcontainers.dockerclient.UnixSocketClientProviderStrategy");
-    }
-
     @Autowired
     private CbomService cbomService;
 
     @Autowired
     private CbomRepository cbomRepository;
+
+    @MockBean
+    private AttributeEngine attributeEngine;
 
     private WireMockServer mockServer;
     private WebClient webClient;
@@ -796,5 +804,44 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertEquals(2, savedCboms.size());
 
         mockServer.verify(2, WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+    }
+
+    @Test
+    public void testGetSearchableFieldInformationByGroup() {
+        // given
+        List<SearchFieldDataByGroupDto> attributeFields = new ArrayList<>();
+        Mockito.when(attributeEngine.getResourceSearchableFields(Resource.CBOM, false))
+                .thenReturn(attributeFields);
+
+        // when
+        List<SearchFieldDataByGroupDto> result = cbomService.getSearchableFieldInformationByGroup();
+
+        // then
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+
+        // Verify attributeEngine was called
+        Mockito.verify(attributeEngine).getResourceSearchableFields(Resource.CBOM, false);
+
+        // Get the last group (which should be the property group we added)
+        SearchFieldDataByGroupDto propertyGroup = result.get(result.size() - 1);
+
+        assertNotNull(propertyGroup);
+        assertEquals(9, propertyGroup.getSearchFieldData().size());
+        
+        // Verify all expected fields are present
+        List<String> fieldNames = propertyGroup.getSearchFieldData().stream()
+                .map(SearchFieldDataDto::getFieldIdentifier)
+                .toList();
+        
+        assertTrue(fieldNames.contains(FilterField.CBOM_SERIAL_NUMBER.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_VERSION.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_TIMESTAMP.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_SOURCE.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_ALGORITHMS_COUNT.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_CERTIFICATES_COUNT.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_PROTOCOLS_COUNT.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_CRYPTO_MATERIAL_COUNT.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_TOTAL_ASSETS_COUNT.name()));
     }
 }
