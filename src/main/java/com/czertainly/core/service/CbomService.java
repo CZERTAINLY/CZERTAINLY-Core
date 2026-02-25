@@ -23,15 +23,6 @@ public interface CbomService extends ResourceExtensionService {
     PaginationResponseDto<CbomDto> listCboms(SecurityFilter filter, SearchRequestDto request);
 
     /**
-     * Retrieves basic information about a specific CBOM.
-     *
-     * @param uuid Secured unique identifier of the CBOM to retrieve
-     * @return {@link CbomDto} containing the basic CBOM information
-     * @throws NotFoundException if the CBOM with the specified UUID does not exist
-     */
-    CbomDto getCbom(SecuredUUID uuid) throws NotFoundException;
-
-    /**
      * Retrieves detailed information about a specific CBOM
      * from cbom-repository.
      *

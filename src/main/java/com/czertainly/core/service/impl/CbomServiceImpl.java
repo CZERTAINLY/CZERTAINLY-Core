@@ -44,7 +44,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -104,12 +103,6 @@ public class CbomServiceImpl implements CbomService {
         responseDto.setTotalItems(maxItems);
         responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
         return responseDto;
-    }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DETAIL)
-    public CbomDto getCbom(SecuredUUID uuid) throws NotFoundException {
-        return getEntity(uuid).mapToDto();
     }
 
     @Override
@@ -220,7 +213,7 @@ public class CbomServiceImpl implements CbomService {
             String timestampStr = (String) metadata.get("timestamp");
             timestamp = OffsetDateTime.parse(timestampStr);
         } catch (ClassCastException e) {
-            throw new ValidationException("metadata must be a JSON object");
+            throw new ValidationException("timestamp must be String");
         } catch (NullPointerException npe) {
             throw new ValidationException("metadata.timestamp must be present");
         } catch (DateTimeParseException e) {
@@ -315,7 +308,7 @@ public class CbomServiceImpl implements CbomService {
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(FilterField.CBOM_SERIAL_NUMBER),
                 SearchHelper.prepareSearch(FilterField.CBOM_VERSION),
-                SearchHelper.prepareSearch(FilterField.CBOM_CREATED_AT),
+                SearchHelper.prepareSearch(FilterField.CBOM_TIMESTAMP),
                 SearchHelper.prepareSearch(FilterField.CBOM_SOURCE),
                 SearchHelper.prepareSearch(FilterField.CBOM_ALGORITHMS_COUNT),
                 SearchHelper.prepareSearch(FilterField.CBOM_CERTIFICATES_COUNT),

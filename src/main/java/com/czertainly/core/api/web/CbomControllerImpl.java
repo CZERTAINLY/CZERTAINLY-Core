@@ -61,7 +61,7 @@ public class CbomControllerImpl implements CbomController {
         module = Module.CORE,
         resource = Resource.CBOM,
         operation = Operation.LIST_VERSIONS)
-    public List<CbomDto> listCbomVersions(UUID uuid) throws NotFoundException {
+    public List<CbomDto> listCbomVersions(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         return cbomService.getCbomVersions(SecuredUUID.fromUUID(uuid));
     }
 

@@ -112,32 +112,6 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testgetCbom() throws NotFoundException {
-        // Given
-        Cbom cbom = new Cbom();
-        cbom.setSerialNumber("testing");
-        cbom.setTimestamp(OffsetDateTime.now());
-        cbom.setVersion(1);
-        cbom.setSpecVersion("1.6");
-        cbom = cbomRepository.save(cbom);
-
-        // When
-        CbomDto cbomDto = cbomService.getCbom(cbom.getSecuredUuid());
-
-        // Then
-        assertNotNull(cbomDto);
-        assertEquals(cbom.getSerialNumber(), cbomDto.getSerialNumber());
-    }
-
-    @Test
-    void testGetCbom_NotFound() {
-        SecuredUUID uuid = SecuredUUID.fromString("807d4ff9-8bcf-4dd4-9239-3a8f2a177710");
-
-        // When/Then
-        assertThrows(NotFoundException.class, () -> cbomService.getCbom(uuid));
-    }
-
-    @Test
     void testGetCbomDetail_Success() throws Exception {
         // Given
         SecuredUUID uuid = SecuredUUID.fromString("807d4ff9-8bcf-4dd4-9239-3a8f2a177710");
@@ -610,6 +584,29 @@ class CbomServiceTest extends BaseSpringBootTest {
             cbomService.createCbom(request)
         );
         assertEquals("metadata.timestamp must be valid ISO-8601 timestamp", exception.getMessage());
+    }
+
+    @Test
+    void testUploadCbom_TimestampNotAString() throws CbomRepositoryException {
+        // Given
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.5");
+        content.put("version", "1");
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("timestamp", 42);
+        content.put("metadata", metadata);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // When / Then
+        ValidationException exception = assertThrows(ValidationException.class, () -> 
+            cbomService.createCbom(request)
+        );
+        assertEquals("timestamp must be String", exception.getMessage());
     }
 
     @Test

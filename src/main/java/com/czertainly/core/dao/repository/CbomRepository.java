@@ -18,6 +18,7 @@ public interface CbomRepository extends SecurityFilterRepository<Cbom, UUID> {
     JOIN Cbom c2
         ON c1.serialNumber = c2.serialNumber
     WHERE c1.uuid = :uuid
+    ORDER BY c2.version DESC
     """)
     List<Cbom> findVersionsByUuid(@Param("uuid") UUID uuid);
 }
