@@ -24,8 +24,8 @@ class BomResponseDtoTest {
     @Test
     @DisplayName("Should inherit from HashMap")
     void testInheritance() {
-        assertTrue(bomResponseDto instanceof HashMap);
-        assertTrue(bomResponseDto instanceof Map);
+        assertTrue(HashMap.class.isAssignableFrom(BomResponseDto.class));
+        assertTrue(Map.class.isAssignableFrom(BomResponseDto.class));
     }
 
     @Test
