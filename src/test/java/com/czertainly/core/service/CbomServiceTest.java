@@ -843,4 +843,41 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertTrue(fieldNames.contains(FilterField.CBOM_CRYPTO_MATERIAL_COUNT.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_TOTAL_ASSETS_COUNT.name()));
     }
+
+    @Test
+    public void testGetResourceObject() {
+        // given
+        SecuredUUID securedUuid = SecuredUUID.fromString(UUID.randomUUID().toString());
+
+        // when
+        Object resourceObject = cbomService.getResourceObject(securedUuid);
+
+        // then
+        assertNotNull(resourceObject);
+    }
+
+    @Test
+    public void testListResourceObjects() {
+        // given
+        SecurityFilter securityFilter = Mockito.mock(SecurityFilter.class);
+        Map<String, Object> filterMap = new HashMap<>();
+
+        // when
+        Object result = cbomService.listResourceObjects(securityFilter, filterMap, 1, 10, new ArrayList<>());
+
+        // then
+        assertNotNull(result);
+    }
+
+    @Test
+    public void testEvaluatePermissionChain() {
+        // given
+        SecuredUUID securedUuid = SecuredUUID.fromString(UUID.randomUUID().toString());
+
+        // when
+        Object result = cbomService.evaluatePermissionChain(Resource.CBOM, securedUuid);
+
+        // then
+        assertNotNull(result);
+    }
 }
