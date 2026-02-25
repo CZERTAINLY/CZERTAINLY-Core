@@ -66,6 +66,9 @@ public class SearchFieldObject {
                     contentItems = content.stream().map(item -> item.getData().toString()).toList();
                 }
             }
+        } else if (attributeType == AttributeType.META) {
+            MetadataAttribute metadataAttribute = (MetadataAttribute) attributeDefinition;
+            protectionLevel = metadataAttribute.getProperties().getProtectionLevel();
         }
     }
 
