@@ -180,12 +180,10 @@ public class CbomServiceImpl implements CbomService {
             );
         }
 
-        if (!(version instanceof Number)) {
-            try {
-                Integer.parseInt(version.toString());
-            } catch (NumberFormatException e) {
-                throw new ValidationException("version must be integer");
-            }
+        try {
+            Integer.parseInt(version.toString());
+        } catch (NumberFormatException e) {
+            throw new ValidationException("version must be integer");
         }
 
         // specVersion (required)
