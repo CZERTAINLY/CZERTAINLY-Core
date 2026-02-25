@@ -1,13 +1,10 @@
 package com.czertainly.core.model.cbom;
 
-import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
-
-import java.time.ZoneOffset;
 import java.util.*;
 
 
