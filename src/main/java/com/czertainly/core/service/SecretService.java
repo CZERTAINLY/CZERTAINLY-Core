@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -19,7 +20,7 @@ public interface SecretService extends ResourceExtensionService {
 
     SecretListResponseDto listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter);
 
-    SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException, AttributeException;
+    SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException, AttributeException, AlreadyExistException;
 
     SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException;
 
@@ -38,4 +39,6 @@ public interface SecretService extends ResourceExtensionService {
     List<SecretVersionDto> getSecretVersions(UUID uuid) throws NotFoundException;
 
     SecretContent getSecretContent(UUID uuid) throws NotFoundException;
+
+    void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException;
 }

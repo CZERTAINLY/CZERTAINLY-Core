@@ -107,7 +107,9 @@ public class Secret extends UniquelyIdentifiedAndAudited {
         secretDto.setEnabled(enabled);
         secretDto.setVersion(versions.stream().filter(v -> v.getUuid().equals(latestVersionUuid)).findFirst().map(SecretVersion::getVersion).orElse(0));
         secretDto.setSourceVaultProfile(new NameAndUuidDto(sourceVaultProfile.getUuid().toString(), sourceVaultProfile.getName()));
-        secretDto.setOwner(new NameAndUuidDto(owner.getOwnerUuid().toString(), owner.getOwnerUsername()));
+        if (owner != null) {
+            secretDto.setOwner(new NameAndUuidDto(owner.getOwnerUuid().toString(), owner.getOwnerUsername()));
+        }
         secretDto.setGroups(groups.stream().map(g -> new NameAndUuidDto(g.getUuid().toString(), g.getName())).toList());
     }
 
@@ -121,5 +123,15 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @Override
     public final int hashCode() {
         return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    }
+
+    public void setSourceVaultProfile(VaultProfile sourceVaultProfile) {
+        this.sourceVaultProfile = sourceVaultProfile;
+        this.sourceVaultProfileUuid = sourceVaultProfile.getUuid();
+    }
+
+    public void setLatestVersion(SecretVersion latestVersion) {
+        this.latestVersion = latestVersion;
+        this.latestVersionUuid = latestVersion.getUuid();
     }
 }

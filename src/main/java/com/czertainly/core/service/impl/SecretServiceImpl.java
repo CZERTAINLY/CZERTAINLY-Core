@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -46,10 +47,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service(value = Resource.Codes.SECRET)
 @Transactional
@@ -138,16 +137,16 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException, AttributeException {
+    public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID sourceVaultProfileUuid, SecuredUUID vaultInstanceUuid) throws NotFoundException, AttributeException, AlreadyExistException {
         if (Boolean.TRUE.equals(secretRepository.existsByName(secretRequest.getName()))) {
-            throw new ValidationException("Secret with name '" + secretRequest.getName() + "' already exists");
+            throw new AlreadyExistException("Secret with name '" + secretRequest.getName() + "' already exists");
         }
 
-        VaultProfile vaultProfile = vaultProfileRepository.findByUuid(securedParentUUID)
-                .orElseThrow(() -> new NotFoundException(VaultProfile.class, securedParentUUID.toString()));
+        VaultProfile vaultProfile = vaultProfileRepository.findByUuid(sourceVaultProfileUuid)
+                .orElseThrow(() -> new NotFoundException(VaultProfile.class, sourceVaultProfileUuid.toString()));
 
-        VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(securedUUID)
-                .orElseThrow(() -> new NotFoundException(VaultInstance.class, securedUUID.toString()));
+        VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultInstanceUuid)
+                .orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultInstanceUuid.toString()));
 
         attributeEngine.validateCustomAttributesContent(Resource.SECRET, secretRequest.getCustomAttributes());
 
@@ -155,6 +154,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setName(secretRequest.getName());
         secret.setDescription(secretRequest.getDescription());
         secret.setSourceVaultProfile(vaultProfile);
+        secret.setState(SecretState.ACTIVE); // State from connector?
+        secret.setType(secretRequest.getSecret().getType());
         secretRepository.save(secret);
 
         SecretVersion secretVersion = new SecretVersion();
@@ -171,18 +172,18 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         // if exists - throw exception only?
 
         secretVersion.setFingerprint(fingerprint);
-//        secretVersion.setVaultVersion();
+        secretVersion.setVaultInstance(vaultInstance);
+//        secretVersion.setVaultVersion(); from connector
         secretVersion.setSecret(secret);
         secretVersionRepository.save(secretVersion);
 
-        secret.setLatestVersionUuid(secretVersion.getUuid());
+        secret.setLatestVersion(secretVersion);
         secret.getVersions().add(secretVersion);
+        secretRepository.save(secret);
 
         // TODO: create secret in vault
 
         objectAssociationService.setOwnerFromProfile(Resource.SECRET, secret.getUuid());
-
-        // groups??
 
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
         secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
@@ -195,53 +196,38 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
     public SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException {
-        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
-                .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
+        Secret secret = getSecretEntity(uuid);
 
         attributeEngine.validateCustomAttributesContent(Resource.SECRET, secretRequest.getCustomAttributes());
 
-        UUID currentSourceVaultProfileUuid = secret.getSourceVaultProfile().getUuid();
-        // Evaluate vault profile membership for current source profile
-        permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(currentSourceVaultProfileUuid));
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
-
-        boolean sourceVaultProfileChanged = secretRequest.getSourceVaultProfileUuid() != currentSourceVaultProfileUuid;
-        if (sourceVaultProfileChanged) {
-            VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(secretRequest.getSourceVaultProfileUuid()))
-                    .orElseThrow(() -> new NotFoundException(VaultProfile.class, secretRequest.getSourceVaultProfileUuid()));
-            // Or detail here?
-            permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secretRequest.getSourceVaultProfileUuid()));
-            secret.getSyncVaultProfiles().add(currentSourceVaultProfile);
-            secret.setSourceVaultProfile(updatedSourceVaultProfile);
-            currentSourceVaultProfile = updatedSourceVaultProfile;
-        }
 
         secret.setDescription(secretRequest.getDescription());
 
-        SecretVersion latestVersion = secretVersionRepository.findByUuid(SecuredUUID.fromUUID(secret.getLatestVersionUuid())).orElseThrow(
-                () -> new NotFoundException("Secret version with UUID '" + secret.getLatestVersionUuid() + "' not found")
-        );
+        if (secretRequest.getSecret() != null) {
+            SecretVersion latestVersion = secret.getLatestVersion();
+            String newFingerprint;
+            try {
+                newFingerprint = CertificateUtil.getThumbprint(SerializationUtils.serialize(secretRequest.getSecret()));
+            } catch (NoSuchAlgorithmException e) {
+                throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
+            }
 
-        String newFingerprint;
-        try {
-            newFingerprint = CertificateUtil.getThumbprint(SerializationUtils.serialize(secretRequest.getSecret()));
-        } catch (NoSuchAlgorithmException e) {
-            throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
+            boolean contentChanged = !newFingerprint.equals(latestVersion.getFingerprint());
+            if (contentChanged) {
+                SecretVersion newVersion = new SecretVersion();
+                newVersion.setSecret(secret);
+                newVersion.setVersion(latestVersion.getVersion() + 1);
+                newVersion.setFingerprint(newFingerprint);
+                newVersion.setVaultInstance(currentSourceVaultProfile.getVaultInstance());
+                newVersion.setVaultVersion(latestVersion.getVaultVersion());
+                secretVersionRepository.save(newVersion);
+                secret.setLatestVersionUuid(newVersion.getUuid());
+                secret.getVersions().add(newVersion);
+            }
+
+            // TODO: update secret in vault and other vaults, if there are other
         }
-
-        boolean contentChanged = !newFingerprint.equals(latestVersion.getFingerprint());
-        if (contentChanged || sourceVaultProfileChanged) {
-            SecretVersion newVersion = new SecretVersion();
-            newVersion.setSecret(secret);
-            newVersion.setVersion(latestVersion.getVersion() + 1);
-            if (contentChanged) newVersion.setFingerprint(newFingerprint);
-            if (sourceVaultProfileChanged) newVersion.setVaultInstance(currentSourceVaultProfile.getVaultInstance());
-            secretVersionRepository.save(newVersion);
-            secret.setLatestVersionUuid(newVersion.getUuid());
-            secret.getVersions().add(newVersion);
-        }
-
-        // TODO: update secret in vault and other vaults, if there are other
 
 
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
@@ -279,10 +265,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
     public void addVaultProfileToSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException {
-        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
-                .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
+        Secret secret = getSecretEntity(uuid);
         if (secret.getSourceVaultProfile().getUuid().equals(vaultProfileUuid)) {
-            throw new ValidationException("Vault Profile with UUID %s is already the source vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
+            throw new ValidationException("Vault Profile with UUID %s is the source vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
         }
         if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getUuid().equals(vaultProfileUuid))) {
             throw new ValidationException("Vault Profile with UUID %s is already a sync vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
@@ -299,8 +284,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
     public void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException {
-        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
-                .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
+        Secret secret = getSecretEntity(uuid);
         if (secret.getSyncVaultProfiles().stream().noneMatch(profile -> profile.getUuid().equals(vaultProfileUuid))) {
             throw new ValidationException("Vault Profile with UUID %s is not a sync vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
         }
@@ -343,11 +327,60 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
+    public void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException {
+        Secret secret = getSecretEntity(uuid);
+        if (request.getSourceVaultProfileUuid() != null) {
+            updateSourceVaultProfile(request, secret);
+        }
+        if (request.getGroupUuids() != null) {
+            // check if there is change in groups compared to the current state
+            Set<UUID> currentGroups = secret.getGroups().stream().map(Group::getUuid).collect(Collectors.toSet());
+            if (currentGroups.equals(request.getGroupUuids())) {
+                return;
+            }
+            objectAssociationService.setGroups(Resource.SECRET, secret.getUuid(), request.getGroupUuids());
+        }
+        if (request.getOwnerUuid() != null) {
+            if (secret.getOwner() != null && request.getOwnerUuid().equals(secret.getOwner().getUuid())) {
+                return;
+            }
+            objectAssociationService.setOwner(Resource.SECRET, secret.getUuid(), request.getOwnerUuid());
+        }
+    }
+
+    private void updateSourceVaultProfile(SecretUpdateObjectsDto request, Secret secret) throws NotFoundException {
+        UUID currentSourceVaultProfileUuid = secret.getSourceVaultProfile().getUuid();
+        // Evaluate vault profile membership for current source profile
+        permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(currentSourceVaultProfileUuid));
+        VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
+
+        boolean sourceVaultProfileChanged = request.getSourceVaultProfileUuid() != currentSourceVaultProfileUuid;
+        if (sourceVaultProfileChanged) {
+            VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()))
+                    .orElseThrow(() -> new NotFoundException(VaultProfile.class, request.getSourceVaultProfileUuid()));
+            // Or detail permission here?
+            permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()));
+            secret.getSyncVaultProfiles().add(currentSourceVaultProfile);
+            secret.setSourceVaultProfile(updatedSourceVaultProfile);
+            if (updatedSourceVaultProfile.getVaultInstance() != currentSourceVaultProfile.getVaultInstance()) {
+                SecretVersion newVersion = new SecretVersion();
+                newVersion.setSecret(secret);
+                newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);
+                newVersion.setVaultInstance(currentSourceVaultProfile.getVaultInstance());
+                // TODO: get version from new vault instance
+                secretVersionRepository.save(newVersion);
+                secret.setLatestVersion(newVersion);
+                secret.getVersions().add(newVersion);
+                secretRepository.save(secret);
+            }
+        }
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
     public String getResourceObjectContent(UUID uuid) throws NotFoundException {
-        getSecretEntity(uuid);
-        SecretContent contentDto = null;
-        // TODO: get content from vault
+        SecretContent contentDto = getSecretContent(uuid);
         switch (contentDto.getType()) {
             case BASIC_AUTH, KEY_STORE, KEY_VALUE -> {
                 try {

@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.SecretManagementController;
@@ -65,7 +66,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.CREATE, affiliatedResource = Resource.VAULT)
-    public SecretDetailDto createSecret(SecretRequestDto secretRequest, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, @LogResource(uuid = true) UUID vaultUuid) throws NotFoundException, AttributeException {
+    public SecretDetailDto createSecret(SecretRequestDto secretRequest, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, @LogResource(uuid = true) UUID vaultUuid) throws NotFoundException, AttributeException, AlreadyExistException {
         return secretService.createSecret(secretRequest, SecuredParentUUID.fromUUID(vaultProfileUuid), SecuredUUID.fromUUID(vaultUuid));
     }
 
@@ -103,5 +104,11 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.DISASSOCIATE)
     public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException {
         secretService.removeVaultProfileFromSecret(uuid, vaultProfileUuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.UPDATE)
+    public void updateSecretObjects(@LogResource(uuid = true) UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException {
+        secretService.updateSecretObjects(uuid, request);
     }
 }

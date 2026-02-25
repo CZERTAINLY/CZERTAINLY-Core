@@ -54,4 +54,9 @@ public class VaultProfile extends UniquelyIdentifiedAndAudited {
         detailDto.setEnabled(enabled);
         return detailDto;
     }
+
+    public void setVaultInstance(VaultInstance vaultInstance) {
+        this.vaultInstance = vaultInstance;
+        this.vaultInstanceUuid = vaultInstance.getUuid();
+    }
 }

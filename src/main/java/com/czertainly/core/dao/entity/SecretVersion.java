@@ -40,7 +40,7 @@ public class SecretVersion extends UniquelyIdentified {
     @JsonBackReference
     private VaultInstance vaultInstance;
 
-    @Column(name = "vault_version", nullable = false)
+    @Column(name = "vault_version")
     private int vaultVersion;
 
     @Column(name = "i_cre", nullable = false, updatable = false)
@@ -65,6 +65,16 @@ public class SecretVersion extends UniquelyIdentified {
     @Override
     public final int hashCode() {
         return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    }
+
+    public void setSecret(Secret secret) {
+        this.secret = secret;
+        this.secretUuid = secret.getUuid();
+    }
+
+    public void setVaultInstance(VaultInstance vaultInstance) {
+        this.vaultInstance = vaultInstance;
+        this.vaultInstanceUuid = vaultInstance.getUuid();
     }
 
 }
