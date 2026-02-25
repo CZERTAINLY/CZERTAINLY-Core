@@ -18,7 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -54,7 +54,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Autowired
     private CbomRepository cbomRepository;
 
-    @MockBean
+    @MockitoBean
     private AttributeEngine attributeEngine;
 
     private WireMockServer mockServer;
@@ -63,7 +63,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         cbomRepository.deleteAll();
 
         mockServer = new WireMockServer(0);
@@ -93,12 +93,12 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    void testListCboms() throws NotFoundException {
+    void testListCboms() {
         // Given
         Cbom cbom = new Cbom();
         cbom.setSerialNumber("testing");
@@ -170,7 +170,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetCbomDetail_NotFoundInCbomRepository() throws Exception {
+    void testGetCbomDetail_NotFoundInCbomRepository() {
         // Given
         SecuredUUID uuid = SecuredUUID.fromString("807d4ff9-8bcf-4dd4-9239-3a8f2a177710");
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
@@ -197,7 +197,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetCbomDetail_CbomRepositoryError() throws Exception {
+    void testGetCbomDetail_CbomRepositoryError() {
         // Given
         SecuredUUID uuid = SecuredUUID.fromString("807d4ff9-8bcf-4dd4-9239-3a8f2a177710");
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
@@ -230,7 +230,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // When/Then
         // When/Then - Use assertThrows with Throwable cast
         Exception exception = assertThrows(Exception.class, () -> cbomService.getCbomDetail(uuid));
-        assertTrue(exception instanceof CbomRepositoryException, 
+        assertTrue(exception instanceof CbomRepositoryException,
         "Expected CbomRepositoryException but got: " + exception.getClass().getName());
         CbomRepositoryException cbomException = (CbomRepositoryException) exception;
         assertNotNull(cbomException.getProblemDetail());
@@ -267,7 +267,6 @@ class CbomServiceTest extends BaseSpringBootTest {
                     {
                     "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
                     "version": 1,
-                    "specVersion": "1.6",
                     "cryptoStats": {
                     "cryptoAssets": {
                     "algorithms": {
@@ -425,18 +424,18 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUploadCbom_MissingContent() throws CbomRepositoryException {
+    void testUploadCbom_MissingContent() {
         // Given - null content
         CbomUploadRequestDto request = new CbomUploadRequestDto();
 
         // When / Then
-        assertThrows(ValidationException.class, () -> 
+        assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
     }
 
     @Test
-    void testUploadCbom_MissingSerialNumber() throws CbomRepositoryException {
+    void testUploadCbom_MissingSerialNumber() {
         // Given
         Map<String, Object> content = new HashMap<>();
         // Missing serialNumber
@@ -448,13 +447,13 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        assertThrows(ValidationException.class, () -> 
+        assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
     }
 
     @Test
-    void testUploadCbom_MissingVersion() throws CbomRepositoryException {
+    void testUploadCbom_MissingVersion() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -466,13 +465,13 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        assertThrows(ValidationException.class, () -> 
+        assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
     }
 
     @Test
-    void testUploadCbom_VersionNotAnInteger() throws CbomRepositoryException {
+    void testUploadCbom_VersionNotAnInteger() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -484,13 +483,13 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        assertThrows(ValidationException.class, () -> 
+        assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
     }
 
     @Test
-    void testUploadCbom_MissingSpecVersion() throws CbomRepositoryException {
+    void testUploadCbom_MissingSpecVersion() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -502,13 +501,13 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        assertThrows(ValidationException.class, () -> 
+        assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
     }
 
     @Test
-    void testUploadCbom_MissingMetadata() throws CbomRepositoryException {
+    void testUploadCbom_MissingMetadata() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -521,14 +520,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () -> 
+        ValidationException exception = assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
         assertEquals("metadata must be present", exception.getMessage());
     }
 
     @Test
-    void testUploadCbom_MetadataNotObject() throws CbomRepositoryException {
+    void testUploadCbom_MetadataNotObject() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -541,14 +540,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () -> 
+        ValidationException exception = assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
         assertEquals("metadata must be JSON object", exception.getMessage());
     }
 
     @Test
-    void testUploadCbom_MissingTimestamp() throws CbomRepositoryException {
+    void testUploadCbom_MissingTimestamp() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -564,14 +563,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () -> 
+        ValidationException exception = assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
         assertEquals("metadata.timestamp must be present", exception.getMessage());
     }
 
     @Test
-    void testUploadCbom_InvalidTimestampFormat() throws CbomRepositoryException {
+    void testUploadCbom_InvalidTimestampFormat() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -587,14 +586,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () -> 
+        ValidationException exception = assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
         assertEquals("metadata.timestamp must be valid ISO-8601 timestamp", exception.getMessage());
     }
 
     @Test
-    void testUploadCbom_TimestampNotAString() throws CbomRepositoryException {
+    void testUploadCbom_TimestampNotAString() {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -610,14 +609,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () -> 
+        ValidationException exception = assertThrows(ValidationException.class, () ->
             cbomService.createCbom(request)
         );
         assertEquals("timestamp must be String", exception.getMessage());
     }
 
     @Test
-    void testCreateCbom_AlreadyExists_409Response() throws Exception {
+    void testCreateCbom_AlreadyExists_409Response() {
         // Given
         String serialNumber = "urn:uuid:test-123";
         Integer version = 1;
@@ -665,7 +664,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateCbom_RepositoryServerError_500() throws Exception {
+    void testCreateCbom_RepositoryServerError_500() {
         // Given
         String serialNumber = "urn:uuid:server-error";
         Integer version = 1;
@@ -710,7 +709,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateCbom_BadRequest_400() throws Exception {
+    void testCreateCbom_BadRequest_400() {
         // Given
         String serialNumber = "urn:uuid:bad-request";
         Integer version = 1;
@@ -778,7 +777,6 @@ class CbomServiceTest extends BaseSpringBootTest {
                     {
                     "serialNumber": "urn:uuid:placeholder",
                     "version": 1,
-                    "specVersion": "1.6",
                     "cryptoStats": {
                     "cryptoAssets": {
                     "algorithms": {"total": 1},
@@ -806,7 +804,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetSearchableFieldInformationByGroup() {
+    void testGetSearchableFieldInformationByGroup() {
         // given
         List<SearchFieldDataByGroupDto> attributeFields = new ArrayList<>();
         Mockito.when(attributeEngine.getResourceSearchableFields(Resource.CBOM, false))
@@ -827,12 +825,12 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         assertNotNull(propertyGroup);
         assertEquals(9, propertyGroup.getSearchFieldData().size());
-        
+
         // Verify all expected fields are present
         List<String> fieldNames = propertyGroup.getSearchFieldData().stream()
                 .map(SearchFieldDataDto::getFieldIdentifier)
                 .toList();
-        
+
         assertTrue(fieldNames.contains(FilterField.CBOM_SERIAL_NUMBER.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_VERSION.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_TIMESTAMP.name()));

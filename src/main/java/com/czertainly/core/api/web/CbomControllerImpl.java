@@ -20,7 +20,6 @@ import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.core.security.authz.SecuredUUID;
