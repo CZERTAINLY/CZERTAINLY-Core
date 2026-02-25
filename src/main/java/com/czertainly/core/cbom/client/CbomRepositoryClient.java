@@ -25,6 +25,7 @@ import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 
@@ -50,7 +51,7 @@ public class CbomRepositoryClient {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
         return processRequest(r -> r
                         .uri(cbomRepositoryBaseUrl + CBOM_CREATE)
-                        .body(Mono.just(data), CbomUploadRequestDto.class)
+                        .body(Mono.just(data.getContent()), Map.class)
                         .header(HttpHeaders.CONTENT_TYPE, "application/vnd.cyclonedx+json")
                         .retrieve()
                         .toEntity(BomCreateResponseDto.class)

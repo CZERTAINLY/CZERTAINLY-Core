@@ -234,7 +234,7 @@ public class CbomServiceImpl implements CbomService {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(response.getSerialNumber());
         cbom.setVersion(response.getVersion());
-        cbom.setSpecVersion(response.getSpecVersion());
+        cbom.setSpecVersion(specVersion.toString());
         cbom.setTimestamp(timestamp);
         String source = Optional.ofNullable(metadata.get("component"))
             .filter(Map.class::isInstance)
@@ -244,40 +244,8 @@ public class CbomServiceImpl implements CbomService {
             .orElse("");
         cbom.setSource(source);
 
-        // Defensive handling of potentially null nested response objects
-        Integer algorithmsCount = 0;
-        Integer certificatesCount = 0;
-        Integer protocolsCount = 0;
-        Integer cryptoMaterialCount = 0;
-        Integer totalAssetsCount = 0;
+        setCryptoStats(cbom, response);
 
-        if (response != null && response.getCryptoStats() != null && response.getCryptoStats().getCryptoAssets() != null) {
-            if (response.getCryptoStats().getCryptoAssets().getAlgorithms() != null
-                    && response.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal() != null) {
-                algorithmsCount = response.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal();
-            }
-            if (response.getCryptoStats().getCryptoAssets().getCertificates() != null
-                    && response.getCryptoStats().getCryptoAssets().getCertificates().getTotal() != null) {
-                certificatesCount = response.getCryptoStats().getCryptoAssets().getCertificates().getTotal();
-            }
-            if (response.getCryptoStats().getCryptoAssets().getProtocols() != null
-                    && response.getCryptoStats().getCryptoAssets().getProtocols().getTotal() != null) {
-                protocolsCount = response.getCryptoStats().getCryptoAssets().getProtocols().getTotal();
-            }
-            if (response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials() != null
-                    && response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal() != null) {
-                cryptoMaterialCount = response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal();
-            }
-            if (response.getCryptoStats().getCryptoAssets().getTotal() != null) {
-                totalAssetsCount = response.getCryptoStats().getCryptoAssets().getTotal();
-            }
-        }
-
-        cbom.setAlgorithmsCount(algorithmsCount);
-        cbom.setCertificatesCount(certificatesCount);
-        cbom.setProtocolsCount(protocolsCount);
-        cbom.setCryptoMaterialCount(cryptoMaterialCount);
-        cbom.setTotalAssetsCount(totalAssetsCount);
         cbomRepository.save(cbom);
         return cbom.mapToDto();
     }
@@ -326,6 +294,42 @@ public class CbomServiceImpl implements CbomService {
 
     private Cbom getEntity(SecuredUUID uuid) throws NotFoundException {
         return cbomRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Cbom.class, uuid));
+    }
+
+    private void setCryptoStats(Cbom cbom, BomCreateResponseDto response) {
+        // Defensive handling of potentially null nested response objects
+        int algorithmsCount = 0;
+        int certificatesCount = 0;
+        int protocolsCount = 0;
+        int cryptoMaterialCount = 0;
+        int totalAssetsCount = 0;
+        if (response != null && response.getCryptoStats() != null && response.getCryptoStats().getCryptoAssets() != null) {
+            if (response.getCryptoStats().getCryptoAssets().getAlgorithms() != null
+                    && response.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal() != null) {
+                algorithmsCount = response.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal();
+            }
+            if (response.getCryptoStats().getCryptoAssets().getCertificates() != null
+                    && response.getCryptoStats().getCryptoAssets().getCertificates().getTotal() != null) {
+                certificatesCount = response.getCryptoStats().getCryptoAssets().getCertificates().getTotal();
+            }
+            if (response.getCryptoStats().getCryptoAssets().getProtocols() != null
+                    && response.getCryptoStats().getCryptoAssets().getProtocols().getTotal() != null) {
+                protocolsCount = response.getCryptoStats().getCryptoAssets().getProtocols().getTotal();
+            }
+            if (response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials() != null
+                    && response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal() != null) {
+                cryptoMaterialCount = response.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal();
+            }
+            if (response.getCryptoStats().getCryptoAssets().getTotal() != null) {
+                totalAssetsCount = response.getCryptoStats().getCryptoAssets().getTotal();
+            }
+        }
+
+        cbom.setAlgorithmsCount(algorithmsCount);
+        cbom.setCertificatesCount(certificatesCount);
+        cbom.setProtocolsCount(protocolsCount);
+        cbom.setCryptoMaterialCount(cryptoMaterialCount);
+        cbom.setTotalAssetsCount(totalAssetsCount);
     }
 
 }
