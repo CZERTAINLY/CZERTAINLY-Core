@@ -1,34 +1,28 @@
 package com.czertainly.core.model.cbom;
 
+import java.util.HashMap;
+
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
-import lombok.Getter;
-import lombok.Setter;
 
-@Setter
-@Getter
 @Schema(description = "Response containing (C)BOM")
-public class BomResponseDto {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class BomResponseDto extends HashMap<String, Object> {
 
-    @NotNull
-    @Schema(description = "The CBOM document in JSON format", requiredMode = Schema.RequiredMode.REQUIRED)
-    private JsonNode bom;
+    private static final String FIELD_SPEC_VERSION = "specVersion";
+    private static final String FIELD_SERIAL_NUMBER = "serialNumber";
+    private static final String FIELD_VERSION = "version";
 
     @Override
     public String toString() {
-        JsonNode bom2 = (bom == null) ? JsonNodeFactory.instance.objectNode() : bom;
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("specVersion", bom2.at("/properties/specVersion").asText("N/A"))
-                .append("serialNumber", bom2.at("/properties/serialNumber").asText("N/A"))
-                .append("version", bom2.at("/properties/version").asText("N/A"))
+                .append(FIELD_SPEC_VERSION, get(FIELD_SPEC_VERSION))
+                .append(FIELD_SERIAL_NUMBER, get(FIELD_SERIAL_NUMBER))
+                .append(FIELD_VERSION, get(FIELD_VERSION))
                 .toString();
     }
 }
-
-

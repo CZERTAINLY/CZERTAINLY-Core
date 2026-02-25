@@ -5,7 +5,6 @@ import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.core.cbom.client.CbomRepositoryException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.AuthHelper;
