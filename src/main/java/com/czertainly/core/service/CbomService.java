@@ -37,7 +37,7 @@ public interface CbomService extends ResourceExtensionService {
      * Return versions of CBOM with same serial number from DB
      * @param uuid Secured unique identifier of the CBOM to retrieve
      * @return List of uuid/urn/version
-     * @throws NotFoundException if exception not found
+     * @throws NotFoundException if the CBOM with the specified UUID does not exist
      */
     List<CbomDto> getCbomVersions(SecuredUUID uuid) throws NotFoundException;
 

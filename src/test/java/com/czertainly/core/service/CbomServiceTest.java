@@ -123,7 +123,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         SecuredUUID uuid = SecuredUUID.fromString("807d4ff9-8bcf-4dd4-9239-3a8f2a177710");
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
-        Integer version = 1;
+        int version = 1;
 
         // Create and save Cbom entity
         Cbom cbom = new Cbom();
@@ -147,7 +147,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         """;
 
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/.*"))
-            .withQueryParam("version", WireMock.equalTo(version.toString()))
+            .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
             .willReturn(WireMock.aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -159,14 +159,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then
         assertNotNull(result);
         assertEquals(serialNumber, result.getSerialNumber());
-        assertEquals(version.toString(), result.getVersion());
+        assertEquals(Integer.toString(version), result.getVersion());
         assertNotNull(result.getContent());
         assertEquals("CycloneDX", result.getContent().get("bomFormat"));
 
         // Verify WireMock was called
         mockServer.verify(WireMock.getRequestedFor(
             WireMock.urlPathMatching("/v1/bom/.*"))
-            .withQueryParam("version", WireMock.equalTo(version.toString())));
+            .withQueryParam("version", WireMock.equalTo(Integer.toString(version))));
     }
 
     @Test
@@ -174,7 +174,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         SecuredUUID uuid = SecuredUUID.fromString("807d4ff9-8bcf-4dd4-9239-3a8f2a177710");
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
-        Integer version = 1;
+        int version = 1;
 
         // Create and save Cbom entity
         Cbom cbom = new Cbom();
@@ -185,7 +185,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
-        // Mock WireMock to return 404 - Fix URL path
+        // Mock WireMock to return 404 for the requested BOM
         mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom/" + serialNumber))
             .willReturn(WireMock.aResponse()
                 .withStatus(404)
@@ -201,7 +201,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         SecuredUUID uuid = SecuredUUID.fromString("807d4ff9-8bcf-4dd4-9239-3a8f2a177710");
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
-        Integer version = 1;
+        int version = 1;
 
         // Create and save Cbom entity
         Cbom cbom = new Cbom();
@@ -214,7 +214,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         // Mock WireMock to return 500 error - Fix URL path
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/.*"))
-            .withQueryParam("version", WireMock.equalTo(version.toString()))
+            .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
             .willReturn(WireMock.aResponse()
                 .withStatus(500)
                 .withHeader("Content-Type", "application/problem+json")
@@ -241,7 +241,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     void testCreateCbom_Success() throws Exception {
         // Given
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
-        Integer version = 1;
+        int version = 1;
         OffsetDateTime timestamp = OffsetDateTime.now();
 
         Map<String, Object> content = new HashMap<>();
@@ -293,7 +293,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then
         assertNotNull(result);
         assertEquals(serialNumber, result.getSerialNumber());
-        assertEquals(version.toString(), result.getVersion());
+        assertEquals(Integer.toString(version), result.getVersion());
         assertEquals("1.6", result.getSpecVersion());
         assertEquals(5, result.getAlgorithms());
         assertEquals(3, result.getCertificates());
