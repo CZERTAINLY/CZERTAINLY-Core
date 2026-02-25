@@ -98,7 +98,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testlistCboms() throws NotFoundException {
+    void testListCboms() throws NotFoundException {
         // Given
         Cbom cbom = new Cbom();
         cbom.setSerialNumber("testing");
@@ -472,7 +472,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUploadCbom_VersionNAN() throws CbomRepositoryException {
+    void testUploadCbom_VersionNotAnInteger() throws CbomRepositoryException {
         // Given
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
