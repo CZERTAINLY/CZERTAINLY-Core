@@ -196,7 +196,7 @@ class CbomRepositoryClientTest {
         BomResponseDto response = new BomResponseDto();
         response.put("specVersion", "1.0");
         response.put("serialNumber", urn);
-        response.put("version", "1");
+        response.put("version", "2");
 
         wireMock.stubFor(get(WireMock.urlMatching("/v1/bom/.*"))
                 .withQueryParam("version", equalTo("2"))
@@ -211,7 +211,7 @@ class CbomRepositoryClientTest {
         // Assert
         assertNotNull(result);
         assertEquals(urn, result.get("serialNumber"));
-        assertEquals("1", result.get("version"));
+        assertEquals("2", result.get("version"));
         assertEquals("1.0", result.get("specVersion"));
 
         wireMock.verify(getRequestedFor(WireMock.urlMatching("/v1/bom/.*"))
