@@ -44,6 +44,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -56,7 +57,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service(Resource.Codes.CBOM)
 @Transactional
@@ -130,7 +130,24 @@ public class CbomServiceImpl implements CbomService {
             }
         }
 
-        return response.mapToCbomDetailDto();
+        CbomDto cbomDto = cbom.mapToDto();
+        CbomDetailDto detailDto = new CbomDetailDto();
+        detailDto.setContent(response);
+        // cbom dto
+        detailDto.setUuid(cbomDto.getUuid());
+        detailDto.setCreatedAt(cbomDto.getCreatedAt());
+        detailDto.setSerialNumber(cbomDto.getSerialNumber());
+        detailDto.setVersion(cbomDto.getVersion());
+        detailDto.setSpecVersion(cbomDto.getSpecVersion());
+        detailDto.setTimestamp(cbomDto.getTimestamp());
+        detailDto.setSource(cbomDto.getSource());
+        detailDto.setAlgorithms(cbomDto.getAlgorithms());
+        detailDto.setCertificates(cbomDto.getCertificates());
+        detailDto.setProtocols(cbomDto.getProtocols());
+        detailDto.setCryptoMaterial(cbomDto.getCryptoMaterial());
+        detailDto.setTotalAssets(cbomDto.getTotalAssets());
+
+        return detailDto;
     }
 
     @Override
@@ -186,13 +203,18 @@ public class CbomServiceImpl implements CbomService {
             );
         }
 
-        // metadata.timestamp (required)
-        @SuppressWarnings("unchecked")
-        Map<String, Object> metadata = (Map<String, Object>) content.get("metadata");
-        if (metadata == null) {
+        // metadata (required)
+        Object metadataObj = content.get("metadata");
+        if (metadataObj == null) {
             throw new ValidationException("metadata must be present");
         }
+        if (!(metadataObj instanceof Map)) {
+            throw new ValidationException("metadata must be JSON object");
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> metadata = (Map<String, Object>) metadataObj;
 
+        // metadata.timestamp (required)
         OffsetDateTime timestamp = null;
         try {
             String timestampStr = (String) metadata.get("timestamp");

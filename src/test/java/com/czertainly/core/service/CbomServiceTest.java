@@ -153,7 +153,6 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
-        // Mock WireMock response - NOTE: URL is /v1/bom/ not /v1/cboms/
         String responseBody = """
         {
         "$schema": "https://cyclonedx.org/schema/bom-1.6.schema.json",
@@ -166,7 +165,6 @@ class CbomServiceTest extends BaseSpringBootTest {
         }
         """;
 
-        // Fix: Change URL path from /v1/cboms/ to /v1/bom/
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/.*"))
             .withQueryParam("version", WireMock.equalTo(version.toString()))
             .willReturn(WireMock.aResponse()
@@ -271,6 +269,9 @@ class CbomServiceTest extends BaseSpringBootTest {
         content.put("specVersion", "1.6");
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("timestamp", timestamp.toString());
+        Map<String, Object> component = new HashMap<>();
+        component.put("name", "CORE");
+        metadata.put("component", component);
         content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
@@ -542,7 +543,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         ValidationException exception = assertThrows(ValidationException.class, () -> 
             cbomService.createCbom(request)
         );
-        assertEquals("metadata or metadata.timestamp must be present", exception.getMessage());
+        assertEquals("metadata must be present", exception.getMessage());
     }
 
     @Test
@@ -562,7 +563,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         ValidationException exception = assertThrows(ValidationException.class, () -> 
             cbomService.createCbom(request)
         );
-        assertEquals("metadata must be a JSON object", exception.getMessage());
+        assertEquals("metadata must be JSON object", exception.getMessage());
     }
 
     @Test
@@ -585,7 +586,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         ValidationException exception = assertThrows(ValidationException.class, () -> 
             cbomService.createCbom(request)
         );
-        assertEquals("metadata or metadata.timestamp must be present", exception.getMessage());
+        assertEquals("metadata.timestamp must be present", exception.getMessage());
     }
 
     @Test
