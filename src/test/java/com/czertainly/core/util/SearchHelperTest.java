@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
@@ -29,6 +30,10 @@ class SearchHelperTest extends BaseSpringBootTest {
         Assertions.assertFalse(searchFieldDataDto.getConditions().isEmpty());
         Assertions.assertFalse(searchFieldDataDto.getConditions().contains(FilterConditionOperator.IN_NEXT), "Condition should not contain IN_NEXT operator");
         Assertions.assertFalse(searchFieldDataDto.getConditions().contains(FilterConditionOperator.IN_PAST), "Condition should not contain IN_PAST operator");
+
+        attributeSearchInfo.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        searchFieldDataDto = SearchHelper.prepareSearchForJSON(attributeSearchInfo, false);
+        Assertions.assertEquals(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY), searchFieldDataDto.getConditions());
     }
 
     @Test
@@ -49,6 +54,11 @@ class SearchHelperTest extends BaseSpringBootTest {
         searchFieldObject = new SearchFieldObject(attributeV3.getName(), attributeV3.getContentType(), AttributeType.DATA, "label", attributeV3);
         Assertions.assertNull(searchFieldObject.getContentItems());
 
+        dataAttributeProperties.setList(true);
+        dataAttributeProperties.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        attributeV3.setProperties(dataAttributeProperties);
+        searchFieldObject = new SearchFieldObject(attributeV3.getName(), attributeV3.getContentType(), AttributeType.DATA, "label", attributeV3);
+        Assertions.assertNull(searchFieldObject.getContentItems());
 
         CustomAttributeV3 customAttributeV3 = new CustomAttributeV3();
         customAttributeV3.setName("name");
@@ -61,6 +71,11 @@ class SearchHelperTest extends BaseSpringBootTest {
         Assertions.assertEquals(List.of("string"), searchFieldObject.getContentItems());
 
         customAttributeProperties.setList(false);
+        customAttributeV3.setProperties(customAttributeProperties);
+        searchFieldObject = new SearchFieldObject(customAttributeV3.getName(), customAttributeV3.getContentType(), AttributeType.CUSTOM, "label", customAttributeV3);
+        Assertions.assertNull(searchFieldObject.getContentItems());
+        customAttributeProperties.setList(true);
+        customAttributeProperties.setProtectionLevel(ProtectionLevel.ENCRYPTED);
         customAttributeV3.setProperties(customAttributeProperties);
         searchFieldObject = new SearchFieldObject(customAttributeV3.getName(), customAttributeV3.getContentType(), AttributeType.CUSTOM, "label", customAttributeV3);
         Assertions.assertNull(searchFieldObject.getContentItems());

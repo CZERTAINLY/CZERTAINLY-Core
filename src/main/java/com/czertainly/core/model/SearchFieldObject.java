@@ -2,6 +2,7 @@ package com.czertainly.core.model;
 
 import com.czertainly.api.model.common.attribute.common.*;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -24,6 +25,8 @@ public class SearchFieldObject {
     private boolean list;
 
     private boolean multiSelect;
+
+    private ProtectionLevel protectionLevel;
 
     private List<String> contentItems;
 
@@ -48,7 +51,8 @@ public class SearchFieldObject {
             if (attributeDefinition instanceof CustomAttribute customAttribute) {
                 list = customAttribute.getProperties().isList();
                 multiSelect = customAttribute.getProperties().isMultiSelect();
-                if (list && customAttribute.getContent() != null) {
+                protectionLevel = customAttribute.getProperties().getProtectionLevel();
+                if (list && customAttribute.getContent() != null && protectionLevel != ProtectionLevel.ENCRYPTED) {
                     contentItems = ((List<? extends AttributeContent>) customAttribute.getContent()).stream().map(item -> item.getData().toString()).toList();
                 }
             } else {
@@ -57,10 +61,14 @@ public class SearchFieldObject {
                 List<? extends AttributeContent> content = dataAttribute.getContent();
                 list = dataAttribute.getProperties().isList() && content != null && !content.isEmpty();
                 multiSelect = dataAttribute.getProperties().isMultiSelect();
-                if (list) {
+                protectionLevel = dataAttribute.getProperties().getProtectionLevel();
+                if (list && protectionLevel != ProtectionLevel.ENCRYPTED) {
                     contentItems = content.stream().map(item -> item.getData().toString()).toList();
                 }
             }
+        } else if (attributeType == AttributeType.META) {
+            MetadataAttribute metadataAttribute = (MetadataAttribute) attributeDefinition;
+            protectionLevel = metadataAttribute.getProperties().getProtectionLevel();
         }
     }
 
