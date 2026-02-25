@@ -115,7 +115,7 @@ public class CredentialServiceImpl implements CredentialService {
         }
 
         SecuredUUID connectorUuid = SecuredUUID.fromString(request.getConnectorUuid());
-        ConnectorDto connector = connectorService.getConnectorEntity(connectorUuid).mapToDto();
+        ConnectorDto connector = connectorService.getConnector(connectorUuid);
 
         attributeEngine.validateCustomAttributesContent(Resource.CREDENTIAL, request.getCustomAttributes());
         connectorService.mergeAndValidateAttributes(connectorUuid, FunctionGroupCode.CREDENTIAL_PROVIDER, request.getAttributes(), request.getKind());

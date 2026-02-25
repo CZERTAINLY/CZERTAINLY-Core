@@ -159,13 +159,14 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
             throw new AlreadyExistException(TokenInstanceReference.class, request.getName());
         }
 
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
+        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromString(request.getConnectorUuid()));
+        UUID connectorUuid =  UUID.fromString(connector.getUuid());
 
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), FunctionGroupCode.CRYPTOGRAPHY_PROVIDER, request.getAttributes(), request.getKind());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connectorUuid), FunctionGroupCode.CRYPTOGRAPHY_PROVIDER, request.getAttributes(), request.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesByContent(connectorUuid, request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
         resourceService.loadResourceObjectContentData(dataAttributes);
 
@@ -176,24 +177,24 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         tokenInstanceRequestDto.setName(request.getName());
         logger.debug("Token Instance Request to the connector: {}", tokenInstanceRequestDto);
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto response =
-                tokenInstanceApiClient.createTokenInstance(connector.mapToDto(), tokenInstanceRequestDto);
-        TokenInstanceStatusDto status = tokenInstanceApiClient.getTokenInstanceStatus(connector.mapToDto(), response.getUuid());
+                tokenInstanceApiClient.createTokenInstance(connector, tokenInstanceRequestDto);
+        TokenInstanceStatusDto status = tokenInstanceApiClient.getTokenInstanceStatus(connector, response.getUuid());
         logger.debug("Token Instance Response from the connector: {}", response);
         TokenInstanceReference tokenInstanceReference = new TokenInstanceReference();
         tokenInstanceReference.setTokenInstanceUuid(response.getUuid());
         tokenInstanceReference.setName(request.getName());
-        tokenInstanceReference.setConnector(connector);
+        tokenInstanceReference.setConnectorUuid(connectorUuid);
         tokenInstanceReference.setKind(request.getKind());
         tokenInstanceReference.setConnectorName(connector.getName());
         tokenInstanceReference.setStatus(status.getStatus());
         logger.debug("Token Instance Reference: {}", tokenInstanceReference);
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
-        attributeEngine.updateMetadataAttributes(response.getMetadata(), new ObjectAttributeContentInfo(connector.getUuid(), Resource.TOKEN, tokenInstanceReference.getUuid()));
+        attributeEngine.updateMetadataAttributes(response.getMetadata(), new ObjectAttributeContentInfo(connectorUuid, Resource.TOKEN, tokenInstanceReference.getUuid()));
         logger.debug("Metadata and Custom attributes created");
         TokenInstanceDetailDto dto = tokenInstanceReference.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN, tokenInstanceReference.getUuid(), request.getCustomAttributes()));
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.TOKEN, tokenInstanceReference.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(connectorUuid, null, Resource.TOKEN, tokenInstanceReference.getUuid(), request.getAttributes()));
         dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.TOKEN, tokenInstanceReference.getUuid())));
 
         logger.debug("Token Instance detail: {}", dto);
@@ -206,11 +207,10 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         logger.info("Updating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token Instance Reference: {}", tokenInstanceReference);
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(tokenInstanceReference.getConnectorUuid()));
-        ConnectorDto connectorDto = connector.mapToDto();
+        ConnectorDto connectorDto = tokenInstanceReference.getConnector().mapToDto();
 
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), FunctionGroupCode.CRYPTOGRAPHY_PROVIDER, request.getAttributes(), request.getKind());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(tokenInstanceReference.getConnectorUuid()), FunctionGroupCode.CRYPTOGRAPHY_PROVIDER, request.getAttributes(), request.getKind());
 
         TokenInstanceStatusDto status;
         TokenInstanceStatusDetailDto statusDetail = new TokenInstanceStatusDetailDto();
@@ -226,7 +226,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         }
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesByContent(tokenInstanceReference.getConnectorUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
         resourceService.loadResourceObjectContentData(dataAttributes);
 
@@ -239,13 +239,13 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto response =
                 tokenInstanceApiClient.updateTokenInstance(connectorDto, tokenInstanceReference.getTokenInstanceUuid(), tokenInstanceRequestDto);
 
-        attributeEngine.updateMetadataAttributes(response.getMetadata(), new ObjectAttributeContentInfo(connector.getUuid(), Resource.TOKEN, tokenInstanceReference.getUuid()));
+        attributeEngine.updateMetadataAttributes(response.getMetadata(), new ObjectAttributeContentInfo(tokenInstanceReference.getConnectorUuid(), Resource.TOKEN, tokenInstanceReference.getUuid()));
 
         logger.debug("Metadata and Custom attributes updated");
         TokenInstanceDetailDto dto = tokenInstanceReference.mapToDetailDto();
         dto.setStatus(statusDetail);
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN, tokenInstanceReference.getUuid(), request.getCustomAttributes()));
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.TOKEN, tokenInstanceReference.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(tokenInstanceReference.getConnectorUuid(), null, Resource.TOKEN, tokenInstanceReference.getUuid(), request.getAttributes()));
         dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.TOKEN, tokenInstanceReference.getUuid())));
         logger.debug("Token Instance detail: {}", dto);
         return dto;

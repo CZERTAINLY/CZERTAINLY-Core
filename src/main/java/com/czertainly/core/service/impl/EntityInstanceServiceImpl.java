@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
@@ -162,14 +163,16 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
             throw new ValidationException(ValidationError.create("Connector UUID is empty"));
         }
 
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
+        UUID connectorUuid = UUID.fromString(request.getConnectorUuid());
+        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
+
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
         attributeEngine.validateCustomAttributesContent(Resource.ENTITY, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch, request.getAttributes(), request.getKind());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connectorUuid), codeToSearch, request.getAttributes(), request.getKind());
 
         // Load complete credential and resource data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesByContent(connectorUuid, request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
         resourceService.loadResourceObjectContentData(dataAttributes);
 
@@ -178,13 +181,13 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         entityInstanceDto.setKind(request.getKind());
         entityInstanceDto.setName(request.getName());
 
-        com.czertainly.api.model.connector.entity.EntityInstanceDto response = entityInstanceApiClient.createEntityInstance(connector.mapToDto(), entityInstanceDto);
+        com.czertainly.api.model.connector.entity.EntityInstanceDto response = entityInstanceApiClient.createEntityInstance(connector, entityInstanceDto);
 
         EntityInstanceReference entityInstanceRef = new EntityInstanceReference();
         entityInstanceRef.setEntityInstanceUuid((response.getUuid()));
         entityInstanceRef.setName(request.getName());
         //entityInstanceRef.setStatus("connected"); // TODO: status of the Entity
-        entityInstanceRef.setConnector(connector);
+        entityInstanceRef.setConnectorUuid(connectorUuid);
         entityInstanceRef.setKind(request.getKind());
         entityInstanceRef.setConnectorName(connector.getName());
         entityInstanceReferenceRepository.save(entityInstanceRef);
@@ -203,7 +206,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         EntityInstanceReference entityInstanceRef = getEntityInstanceReferenceEntity(entityUuid);
 
         EntityInstanceDto ref = getEntityInstance(entityUuid);
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
+        Connector connector = entityInstanceRef.getConnector();
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
         attributeEngine.validateCustomAttributesContent(Resource.ENTITY, request.getCustomAttributes());

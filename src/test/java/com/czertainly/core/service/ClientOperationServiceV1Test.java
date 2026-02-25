@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.LegacyClientCertificateRevocationDto;
 import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
@@ -85,6 +86,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

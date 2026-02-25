@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeValueTarget;
@@ -63,6 +64,7 @@ class CallbackServiceTest extends BaseSpringBootTest {
 
         connector = new Connector();
         connector.setUrl(mockServer.baseUrl());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connectorRepository.save(connector);
     }
