@@ -130,6 +130,7 @@ public class AttributeServiceImpl implements AttributeService {
         properties.setReadOnly(request.isReadOnly());
         properties.setRequired(request.isRequired());
         properties.setProtectionLevel(request.getProtectionLevel());
+        properties.setExtensibleList(request.isExtensibleList());
         attribute.setProperties(properties);
 
         return attributeEngine.updateCustomAttributeDefinition(attribute, request.getResources()).mapToCustomAttributeDefinitionDetailDto();
@@ -187,6 +188,7 @@ public class AttributeServiceImpl implements AttributeService {
         attribute.getProperties().setReadOnly(request.isReadOnly());
         attribute.getProperties().setRequired(request.isRequired());
         attribute.getProperties().setProtectionLevel(request.getProtectionLevel());
+        attribute.getProperties().setExtensibleList(request.isExtensibleList());
 
         return attributeEngine.updateCustomAttributeDefinition(attribute, request.getResources()).mapToCustomAttributeDefinitionDetailDto();
     }
