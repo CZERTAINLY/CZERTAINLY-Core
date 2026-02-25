@@ -279,7 +279,7 @@ public class CbomServiceImpl implements CbomService {
         cbom.setCryptoMaterialCount(cryptoMaterialCount);
         cbom.setTotalAssetsCount(totalAssetsCount);
         cbomRepository.save(cbom);
-        return  cbom.mapToDto();
+        return cbom.mapToDto();
     }
 
     @Override
