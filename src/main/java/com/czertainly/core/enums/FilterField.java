@@ -177,7 +177,8 @@ public enum FilterField {
     SECRET_TYPE(Resource.SECRET, null, null, Secret_.type, "Type", SearchFieldTypeEnum.LIST, SecretType.class),
     SECRET_STATE(Resource.SECRET, null, null, Secret_.state, "State", SearchFieldTypeEnum.LIST, SecretState.class),
     SECRET_ENABLED(Resource.SECRET, null, null, Secret_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
-    SECRET_SOURCE_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.sourceVaultProfile), VaultProfile_.name, "Source Vault Profile", SearchFieldTypeEnum.LIST)
+    SECRET_SOURCE_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.sourceVaultProfile), VaultProfile_.name, "Source Vault Profile", SearchFieldTypeEnum.LIST),
+    SECRET_SYNC_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.syncVaultProfiles, VaultProfile_.name), VaultProfile_.name, "Sync Vault Profile", SearchFieldTypeEnum.LIST),
 
     ;
 

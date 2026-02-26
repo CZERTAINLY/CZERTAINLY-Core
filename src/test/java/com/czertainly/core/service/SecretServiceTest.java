@@ -6,21 +6,30 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.secret.*;
 import com.czertainly.api.model.core.secret.content.BasicAuthSecretContent;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.SearchHelper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.transaction.Transactional;
+import org.assertj.core.api.filter.FilterOperator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +38,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.SerializationUtils;
 
+import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
 import java.util.List;
@@ -312,11 +322,20 @@ class SecretServiceTest extends BaseSpringBootTest {
         mockServerUpdateUser.stop();
     }
 
-
-
-
-
-
+    @Test
+    void testListSecrets() {
+        SearchRequestDto searchRequest = new SearchRequestDto();
+        searchRequest.setFilters(List.of(
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_NAME.name(), FilterConditionOperator.CONTAINS, secret.getName()),
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_TYPE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getType().name())),
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getState().name())),
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_ENABLED.name(), FilterConditionOperator.EQUALS, secret.isEnabled()),
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_SOURCE_VAULT_PROFILE.name(), FilterConditionOperator.CONTAINS, (Serializable) List.of(secret.getSourceVaultProfile().getName()))
+        ));
+        PaginationResponseDto<SecretDto> secrets = secretService.listSecrets(searchRequest, SecurityFilter.create());
+        Assertions.assertEquals(1, secrets.getTotalItems());
+        Assertions.assertEquals(secret.getName(), secrets.getItems().getFirst().getName());
+    }
 
 
 }
