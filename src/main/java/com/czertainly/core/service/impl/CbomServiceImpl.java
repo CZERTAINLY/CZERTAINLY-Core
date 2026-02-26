@@ -242,7 +242,7 @@ public class CbomServiceImpl implements CbomService {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(response.getSerialNumber());
         cbom.setVersion(response.getVersion());
-        cbom.setSpecVersion(specVersion.toString());
+        cbom.setSpecVersion(specVersion);
         cbom.setTimestamp(timestamp);
         String source = Optional.ofNullable(metadata.get("component"))
                 .filter(Map.class::isInstance)
