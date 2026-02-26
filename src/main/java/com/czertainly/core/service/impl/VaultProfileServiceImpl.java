@@ -1,13 +1,12 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.clients.secret.SecretApiClient;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -26,6 +25,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.VaultProfileService;
+import com.czertainly.core.service.v2.ConnectorService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -48,8 +48,22 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     private VaultProfileRepository vaultProfileRepository;
     private VaultInstanceRepository vaultInstanceRepository;
-    private AttributeEngine attributeEngine;
     private SecretRepository secretRepository;
+
+    private ConnectorService connectorService;
+    private AttributeEngine attributeEngine;
+
+    private SecretApiClient secretApiClient;
+
+    @Autowired
+    public void setSecretApiClient(SecretApiClient secretApiClient) {
+        this.secretApiClient = secretApiClient;
+    }
+
+    @Autowired
+    public void setConnectorService(ConnectorService connectorService) {
+        this.connectorService = connectorService;
+    }
 
     @Autowired
     public void setSecretRepository(SecretRepository secretRepository) {
@@ -172,9 +186,10 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, SecretType secretType) {
-        // TODO: call API client to get attributes
-        return List.of();
+    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfiledUUID, SecretType secretType) throws NotFoundException, ConnectorException {
+        VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultUUID));
+        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
+        return secretApiClient.getSecretAttributes(connectorDetailDto, secretType);
     }
 
     @Override
