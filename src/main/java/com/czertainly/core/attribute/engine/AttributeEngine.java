@@ -188,13 +188,13 @@ public class AttributeEngine {
         CustomAttribute attribute = new CustomAttributeV3((CustomAttributeV3) r.getAttributeDefinition().getDefinition());
         if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED && r.getAttributeDefinition().getEncryptedData() != null) {
             List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
-            List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
-                .map(contentItem -> AttributeVersionHelper.decryptContent(
-                        contentItem, 3, attribute.getContentType(),
-                        encryptedDataList != null && !encryptedDataList.isEmpty()
-                                ? encryptedDataList.get(((List<AttributeContent>) attribute.getContent()).indexOf(contentItem))
-                                : null))
-                .toList();
+            List<AttributeContent> content = attribute.getContent();
+            List<AttributeContent> decryptedData = new ArrayList<>();
+            for (int i = 0; i < content.size(); i++) {
+                AttributeContent decryptedItem = i < encryptedDataList.size() ? AttributeVersionHelper.decryptContent(
+                        content.get(i), 3, attribute.getContentType(), encryptedDataList.get(i)) : content.get(i);
+                decryptedData.add(decryptedItem);
+            }
             attribute.setContent(decryptedData);
         }
         return attribute;
