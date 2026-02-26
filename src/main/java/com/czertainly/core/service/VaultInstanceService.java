@@ -26,9 +26,9 @@ public interface VaultInstanceService {
 
     void deleteVaultInstance(UUID uuid) throws NotFoundException;
 
-    VaultInstanceDetailDto updateVaultInstance(UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException;
+    VaultInstanceDetailDto updateVaultInstance(UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException, ConnectorException;
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
-    List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid);
+    List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException;
 }

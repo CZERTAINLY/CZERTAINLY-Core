@@ -1,11 +1,13 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.clients.secret.VaultApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -22,9 +24,11 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.service.VaultInstanceService;
+import com.czertainly.core.service.v2.ConnectorService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -50,14 +54,28 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     private VaultProfileRepository vaultProfileRepository;
     private final VaultInstanceRepository vaultInstanceRepository;
 
+    private VaultApiClient vaultApiClient;
+
     private ConnectorService connectorService;
     private ResourceService resourceService;
+    private CredentialService credentialService;
 
     private AttributeEngine attributeEngine;
+
+
+    @Autowired
+    public void setVaultApiClient(VaultApiClient vaultApiClient) {
+        this.vaultApiClient = vaultApiClient;
+    }
 
     @Autowired
     public void setVaultProfileRepository(VaultProfileRepository vaultProfileRepository) {
         this.vaultProfileRepository = vaultProfileRepository;
+    }
+
+    @Autowired
+    public void setCredentialService(CredentialService credentialService) {
+        this.credentialService = credentialService;
     }
 
     @Autowired
@@ -88,18 +106,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
             throw new AlreadyExistException("Vault Instance with the same name already exists");
         }
 
-        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromUUID(request.getConnectorUuid()));
-        // TODO: interface
+
+        checkConnectionToVaultInConnector(request.getConnectorUuid(), request.getAttributes());
 
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
-
-        // Load complete credential data and resource data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(UUID.fromString(connector.getUuid()), request.getAttributes());
-//        credentialService.loadFullCredentialData(dataAttributes); Credential data??
-        resourceService.loadResourceObjectContentData(dataAttributes);
-        // TODO: Merge and validate the attributes with the connector attributes for new connector version
-
-        // TODO: Create the vault instance in connector using API
 
         VaultInstance vaultInstance = new VaultInstance();
         vaultInstance.setName(request.getName());
@@ -112,6 +122,17 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
 
         return detailDto;
+    }
+
+    private void checkConnectionToVaultInConnector(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
+        List<BaseAttribute> attributes = listVaultInstanceAttributes(connectorUuid);
+        attributeEngine.validateUpdateDataAttributes(UUID.fromString(connector.getUuid()), null, attributes, requestAttributes);
+        // Load complete credential data and resource data
+        var dataAttributes = attributeEngine.getDataAttributesByContent(UUID.fromString(connector.getUuid()), requestAttributes);
+        credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
+        vaultApiClient.checkVaultConnection(connector, AttributeDefinitionUtils.getClientAttributes(dataAttributes));
     }
 
     @Override
@@ -156,7 +177,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.UPDATE)
-    public VaultInstanceDetailDto updateVaultInstance(UUID uuid, VaultInstanceUpdateRequestDto request) throws NotFoundException, AttributeException {
+    public VaultInstanceDetailDto updateVaultInstance(UUID uuid, VaultInstanceUpdateRequestDto request) throws NotFoundException, AttributeException, ConnectorException {
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(SecuredUUID.fromUUID(uuid))
                 .orElseThrow(() -> new NotFoundException(Resource.VAULT.getLabel(), uuid.toString()));
         vaultInstance.setDescription(request.getDescription());
@@ -165,13 +186,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
 
-        // Load complete credential data and resource data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(vaultInstance.getConnectorUuid(), request.getAttributes());
-//        credentialService.loadFullCredentialData(dataAttributes); Credential data??
-        resourceService.loadResourceObjectContentData(dataAttributes);
-        // TODO: Merge and validate the attributes with the connector attributes for new connector version
-
-        // TODO: Create the vault instance in connector using API
+        checkConnectionToVaultInConnector(vaultInstance.getConnectorUuid(), request.getAttributes());
 
         detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));
@@ -196,9 +211,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     }
 
     @Override
-    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) {
-        // TODO: Get the attributes from connector API based on the connector UUID
-        return List.of();
+    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException {
+        return vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
     }
-
 }
