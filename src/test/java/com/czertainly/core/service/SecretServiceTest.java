@@ -25,11 +25,9 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.SearchHelper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.transaction.Transactional;
-import org.assertj.core.api.filter.FilterOperator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -154,7 +152,7 @@ class SecretServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateSecret() throws NotFoundException, AttributeException, AlreadyExistException {
+    void testUpdateSecret() throws NotFoundException, AttributeException {
         Assertions.assertThrows(NotFoundException.class, () -> secretService.updateSecret(UUID.randomUUID(), new SecretUpdateRequestDto()));
         SecretUpdateRequestDto request = new SecretUpdateRequestDto();
         request.setDescription("Test secret new description");
@@ -327,10 +325,11 @@ class SecretServiceTest extends BaseSpringBootTest {
         SearchRequestDto searchRequest = new SearchRequestDto();
         searchRequest.setFilters(List.of(
                 new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_NAME.name(), FilterConditionOperator.CONTAINS, secret.getName()),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_TYPE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getType().name())),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getState().name())),
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_TYPE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getType().getCode())),
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getState().getCode())),
                 new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_ENABLED.name(), FilterConditionOperator.EQUALS, secret.isEnabled()),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_SOURCE_VAULT_PROFILE.name(), FilterConditionOperator.CONTAINS, (Serializable) List.of(secret.getSourceVaultProfile().getName()))
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_SOURCE_VAULT_PROFILE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getSourceVaultProfile().getName())),
+                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_SYNC_VAULT_PROFILE.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of(secret.getSourceVaultProfile().getName()))
         ));
         PaginationResponseDto<SecretDto> secrets = secretService.listSecrets(searchRequest, SecurityFilter.create());
         Assertions.assertEquals(1, secrets.getTotalItems());
