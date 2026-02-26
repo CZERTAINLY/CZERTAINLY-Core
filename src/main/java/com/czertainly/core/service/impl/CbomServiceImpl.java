@@ -115,6 +115,7 @@ public class CbomServiceImpl implements CbomService {
             response = cbomRepositoryClient.read(
                 cbom.getSerialNumber(),
                 cbom.getVersion());
+            logger.debug("CBOM document retrieved from repository for serialNumber {} and version {}: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
                 throw new NotFoundException(CbomDetailDto.class, "Cbom");
@@ -222,6 +223,7 @@ public class CbomServiceImpl implements CbomService {
         BomCreateResponseDto response;
         try {
             response = cbomRepositoryClient.create(request);
+            logger.info("CBOM document created in repository with serialNumber {} and version {}", response.getSerialNumber(), response.getVersion());
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 409) {
                 throw new AlreadyExistException(CbomDetailDto.class, "CBOM with given serial number and version already exists");
