@@ -91,13 +91,15 @@ public class CbomServiceImpl implements CbomService {
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<Cbom>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<CbomDto> listedKeyDTOs = cbomRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("createdAt")))
+        final List<CbomDto> cbomDtos = cbomRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("createdAt")))
                 .stream()
                 .map(Cbom::mapToDto).toList();
         final Long maxItems = cbomRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
+        logger.debug("Found {} CBOMs out of {} total", cbomDtos.size(), maxItems);
+
         final PaginationResponseDto<CbomDto> responseDto = new PaginationResponseDto<>();
-        responseDto.setItems(listedKeyDTOs);
+        responseDto.setItems(cbomDtos);
         responseDto.setItemsPerPage(request.getItemsPerPage());
         responseDto.setPageNumber(request.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -223,7 +225,7 @@ public class CbomServiceImpl implements CbomService {
         BomCreateResponseDto response;
         try {
             response = cbomRepositoryClient.create(request);
-            logger.info("CBOM document created in repository with serialNumber {} and version {}", response.getSerialNumber(), response.getVersion());
+            logger.debug("CBOM document created in repository with serialNumber {} and version {}", response.getSerialNumber(), response.getVersion());
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 409) {
                 throw new AlreadyExistException(CbomDetailDto.class, "CBOM with given serial number and version already exists");
@@ -249,6 +251,7 @@ public class CbomServiceImpl implements CbomService {
         setCryptoStats(cbom, response);
 
         cbomRepository.save(cbom);
+        logger.info("CBOM record created with serialNumber {} and version {}", cbom.getSerialNumber(), cbom.getVersion());
         return cbom.mapToDto();
     }
 
@@ -325,6 +328,8 @@ public class CbomServiceImpl implements CbomService {
             if (response.getCryptoStats().getCryptoAssets().getTotal() != null) {
                 totalAssetsCount = response.getCryptoStats().getCryptoAssets().getTotal();
             }
+        } else {
+            logger.debug("CBOM document retrieved from repository for serialNumber {} and version {} does not contain crypto stats: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
         }
 
         cbom.setAlgorithmsCount(algorithmsCount);
