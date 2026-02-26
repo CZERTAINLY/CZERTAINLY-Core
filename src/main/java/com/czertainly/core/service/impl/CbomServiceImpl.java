@@ -113,14 +113,14 @@ public class CbomServiceImpl implements CbomService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DETAIL)
-    public CbomDetailDto getCbomDetail(SecuredUUID uuid) throws CbomRepositoryException, NotFoundException{
+    public CbomDetailDto getCbomDetail(SecuredUUID uuid) throws CbomRepositoryException, NotFoundException {
         Cbom cbom = getEntity(uuid);
 
         BomResponseDto response;
         try {
             response = cbomRepositoryClient.read(
-                cbom.getSerialNumber(),
-                cbom.getVersion());
+                    cbom.getSerialNumber(),
+                    cbom.getVersion());
             logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {}: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
@@ -156,9 +156,9 @@ public class CbomServiceImpl implements CbomService {
         List<Cbom> cboms = cbomRepository.findVersionsByUuid(uuid.getValue());
 
         return cboms
-            .stream()
-            .map(Cbom::mapToDto)
-            .toList();
+                .stream()
+                .map(Cbom::mapToDto)
+                .toList();
     }
 
     @Override
@@ -172,30 +172,30 @@ public class CbomServiceImpl implements CbomService {
         }
 
         // serialNumber (required)
-        Object serialNumber = content.get("serialNumber");
-        if (serialNumber == null || StringUtils.isBlank(serialNumber.toString())) {
+        String serialNumber = Optional.ofNullable(content.get("serialNumber")).map(Object::toString).orElse(null);
+        if (StringUtils.isBlank(serialNumber)) {
             throw new ValidationException(
                     ValidationError.create("serialNumber must not be empty")
             );
         }
 
         // version (required)
-        Object version = content.get("version");
-        if (version == null || StringUtils.isBlank(version.toString())) {
+        String version = Optional.ofNullable(content.get("version")).map(Object::toString).orElse(null);
+        if (StringUtils.isBlank(version)) {
             throw new ValidationException(
                     ValidationError.create("version must not be empty")
             );
         }
 
         try {
-            Integer.parseInt(version.toString());
+            Integer.parseInt(version);
         } catch (NumberFormatException e) {
             throw new ValidationException("version must be integer");
         }
 
         // specVersion (required)
-        Object specVersion = content.get("specVersion");
-        if (specVersion == null || StringUtils.isBlank(specVersion.toString())) {
+        String specVersion = Optional.ofNullable(content.get("specVersion")).map(Object::toString).orElse(null);
+        if (StringUtils.isBlank(specVersion)) {
             throw new ValidationException(
                     ValidationError.create("specVersion must not be empty")
             );
@@ -245,11 +245,11 @@ public class CbomServiceImpl implements CbomService {
         cbom.setSpecVersion(specVersion.toString());
         cbom.setTimestamp(timestamp);
         String source = Optional.ofNullable(metadata.get("component"))
-            .filter(Map.class::isInstance)
-            .map(Map.class::cast)
-            .map(m -> m.get("name"))
-            .map(String::valueOf)
-            .orElse("");
+                .filter(Map.class::isInstance)
+                .map(Map.class::cast)
+                .map(m -> m.get("name"))
+                .map(String::valueOf)
+                .orElse("");
         cbom.setSource(source);
 
         setCryptoStats(cbom, response);
