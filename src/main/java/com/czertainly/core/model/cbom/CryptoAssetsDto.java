@@ -9,9 +9,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.Serializable;
+
 @Setter
 @Getter
-public class CryptoAssetsDto {
+public class CryptoAssetsDto implements Serializable {
 
     @Schema(
             description = "Total number of cryptographic assets",

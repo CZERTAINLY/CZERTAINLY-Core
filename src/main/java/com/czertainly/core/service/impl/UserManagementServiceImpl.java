@@ -156,7 +156,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         response.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(response.getUuid()), request.getCustomAttributes()));
 
-        logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, response.toLogData(), null);
+        logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, response.toLogData(), null, null);
         return response;
     }
 

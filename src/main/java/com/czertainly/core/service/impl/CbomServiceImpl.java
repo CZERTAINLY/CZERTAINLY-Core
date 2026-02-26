@@ -13,6 +13,10 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
 import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -24,6 +28,8 @@ import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.entity.Cbom_;
 import com.czertainly.core.dao.repository.CbomRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.logging.LoggerWrapper;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.cbom.BomCreateResponseDto;
 import com.czertainly.core.model.cbom.BomResponseDto;
@@ -42,8 +48,6 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -60,7 +64,7 @@ import java.util.UUID;
 @Service(Resource.Codes.CBOM)
 @Transactional
 public class CbomServiceImpl implements CbomService {
-    private static final Logger logger = LoggerFactory.getLogger(CbomServiceImpl.class);
+    private static final LoggerWrapper logger = new LoggerWrapper(CbomServiceImpl.class, Module.CORE, Resource.CBOM);
 
     private CbomRepository cbomRepository;
 
@@ -96,7 +100,7 @@ public class CbomServiceImpl implements CbomService {
                 .map(Cbom::mapToDto).toList();
         final Long maxItems = cbomRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
-        logger.debug("Found {} CBOMs out of {} total", cbomDtos.size(), maxItems);
+        logger.getLogger().debug("Found {} CBOMs out of {} total", cbomDtos.size(), maxItems);
 
         final PaginationResponseDto<CbomDto> responseDto = new PaginationResponseDto<>();
         responseDto.setItems(cbomDtos);
@@ -117,7 +121,7 @@ public class CbomServiceImpl implements CbomService {
             response = cbomRepositoryClient.read(
                 cbom.getSerialNumber(),
                 cbom.getVersion());
-            logger.debug("CBOM document retrieved from repository for serialNumber {} and version {}: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
+            logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {}: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
                 throw new NotFoundException(CbomDetailDto.class, "Cbom");
@@ -225,7 +229,7 @@ public class CbomServiceImpl implements CbomService {
         BomCreateResponseDto response;
         try {
             response = cbomRepositoryClient.create(request);
-            logger.debug("CBOM document created in repository with serialNumber {} and version {}", response.getSerialNumber(), response.getVersion());
+            logger.logEventDebug(Operation.CREATE, OperationResult.SUCCESS, response, List.of(new ResourceObjectIdentity(response.getSerialNumber(), null)), "CBOM document created in repository with serialNumber %s and version %s".formatted(response.getSerialNumber(), response.getVersion()));
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 409) {
                 throw new AlreadyExistException(CbomDetailDto.class, "CBOM with given serial number and version already exists");
@@ -251,7 +255,8 @@ public class CbomServiceImpl implements CbomService {
         setCryptoStats(cbom, response);
 
         cbomRepository.save(cbom);
-        logger.info("CBOM record created with serialNumber {} and version {}", cbom.getSerialNumber(), cbom.getVersion());
+        LoggingHelper.putLogResourceInfo(Resource.CBOM, false, cbom.getUuid().toString(), cbom.getSerialNumber());
+        logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, null, List.of(new ResourceObjectIdentity(cbom.getSerialNumber(), cbom.getUuid())), "CBOM record created with serialNumber %s and version %s".formatted(cbom.getSerialNumber(), cbom.getVersion()));
         return cbom.mapToDto();
     }
 
@@ -293,7 +298,7 @@ public class CbomServiceImpl implements CbomService {
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
 
-        logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
+        logger.getLogger().debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
     }
 
@@ -329,7 +334,7 @@ public class CbomServiceImpl implements CbomService {
                 totalAssetsCount = response.getCryptoStats().getCryptoAssets().getTotal();
             }
         } else {
-            logger.debug("CBOM document retrieved from repository for serialNumber {} and version {} does not contain crypto stats: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
+            logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {} does not contain crypto stats: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
         }
 
         cbom.setAlgorithmsCount(algorithmsCount);

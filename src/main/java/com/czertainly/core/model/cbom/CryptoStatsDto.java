@@ -8,9 +8,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.Serializable;
+
 @Setter
 @Getter
-public class CryptoStatsDto {
+public class CryptoStatsDto implements Serializable {
 
     @NotNull
     @Valid

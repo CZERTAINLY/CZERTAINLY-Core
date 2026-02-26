@@ -7,10 +7,12 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.Serializable;
+
 @Setter
 @Getter
 @Schema(description = "Response returned after uploading a BOM")
-public class BomCreateResponseDto {
+public class BomCreateResponseDto implements Serializable {
 
     @NotNull
     @Schema(

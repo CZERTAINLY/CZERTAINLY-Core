@@ -7,9 +7,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serializable;
+
 @Setter
 @Getter
-public class CryptoAssetCountDto {
+public class CryptoAssetCountDto implements Serializable {
 
     @Schema(
             description = "Total number of crypto components",
