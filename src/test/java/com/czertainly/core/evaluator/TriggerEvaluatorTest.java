@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -655,6 +656,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connectorRepository.save(connector);
 

@@ -2,6 +2,7 @@ package com.czertainly.core.service.compliance;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.*;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -81,6 +82,7 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName("Sample Connector");
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

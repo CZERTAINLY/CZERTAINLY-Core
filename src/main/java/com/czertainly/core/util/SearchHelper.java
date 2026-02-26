@@ -1,6 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.PlatformEnum;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -63,15 +64,18 @@ public class SearchHelper {
         return filterField.getType().getFieldType() == FilterFieldType.BOOLEAN && filterField.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : filterField.getType().getConditions();
     }
 
-    public static SearchFieldDataDto prepareSearchForJSON(final SearchFieldObject attributeSearchInfo, final boolean hasDupliciteInList) {
+    public static SearchFieldDataDto prepareSearchForJSON(final SearchFieldObject attributeSearchInfo, final boolean hasDuplicateInList) {
         final SearchFieldTypeEnum searchFieldTypeEnum = retrieveSearchFieldTypeEnumByContentType(attributeSearchInfo.getAttributeContentType(), attributeSearchInfo.isList());
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
         fieldDataDto.setFieldIdentifier(attributeSearchInfo.getAttributeName() + "|" + attributeSearchInfo.getAttributeContentType().name());
-        fieldDataDto.setFieldLabel(hasDupliciteInList ? String.format(SEARCH_LABEL_TEMPLATE, attributeSearchInfo.getLabel(), attributeSearchInfo.getAttributeContentType().getCode()) : attributeSearchInfo.getLabel());
+        fieldDataDto.setFieldLabel(hasDuplicateInList ? String.format(SEARCH_LABEL_TEMPLATE, attributeSearchInfo.getLabel(), attributeSearchInfo.getAttributeContentType().getCode()) : attributeSearchInfo.getLabel());
         fieldDataDto.setMultiValue(attributeSearchInfo.isMultiSelect());
         List<FilterConditionOperator> conditionOperators = new ArrayList<>(searchFieldTypeEnum.getConditions());
         if (attributeSearchInfo.getAttributeContentType() == AttributeContentType.TIME)
             conditionOperators.removeAll(List.of(FilterConditionOperator.IN_NEXT, FilterConditionOperator.IN_PAST));
+        if (attributeSearchInfo.getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
+            conditionOperators = List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY);
+        }
         fieldDataDto.setConditions(conditionOperators);
         fieldDataDto.setType(searchFieldTypeEnum.getFieldType());
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());
@@ -96,8 +100,7 @@ public class SearchHelper {
 
     public static List<SearchFieldDataDto> prepareSearchForJSON(final List<SearchFieldObject> searchFieldObjectList) {
         final List<String> duplicatesOfNames = filterDuplicity(searchFieldObjectList);
-        final List<SearchFieldDataDto> searchFieldDataDtoList = searchFieldObjectList.stream().map(attribute -> prepareSearchForJSON(attribute, duplicatesOfNames.contains(attribute.getAttributeName()))).sorted(new SearchFieldDataComparator()).toList();
-        return searchFieldDataDtoList;
+        return searchFieldObjectList.stream().map(attribute -> prepareSearchForJSON(attribute, duplicatesOfNames.contains(attribute.getAttributeName()))).sorted(new SearchFieldDataComparator()).toList();
     }
 
     private static List<String> filterDuplicity(final List<SearchFieldObject> searchFieldObjectList) {

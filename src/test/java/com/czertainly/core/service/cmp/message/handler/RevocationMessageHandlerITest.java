@@ -1,5 +1,6 @@
 package com.czertainly.core.service.cmp.message.handler;
 
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -84,6 +85,7 @@ class RevocationMessageHandlerITest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -275,6 +277,7 @@ class RevocationMessageHandlerITest extends BaseSpringBootTest {
     private Certificate createSigningCertificateEntity(WireMockServer mockServer) {
         Connector connector = new Connector();
         connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

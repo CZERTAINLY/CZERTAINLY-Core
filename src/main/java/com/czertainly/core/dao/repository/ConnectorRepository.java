@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.FunctionGroup;
@@ -19,7 +19,7 @@ public interface ConnectorRepository extends SecurityFilterRepository<Connector,
 
     Optional<Connector> findByName(String name);
 
-    List<Connector> findByStatus(ConnectorStatus status);
+    Optional<Connector> findByUrlAndVersion(String url, ConnectorVersion version);
 
     @Query(value =
             " select c from Connector c " +

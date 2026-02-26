@@ -157,11 +157,14 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         request.setName("encryptedAttribute");
         request.setLabel("EncryptedAttribute");
         request.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        request.setContent(List.of(new StringAttributeContentV3("content"), new StringAttributeContentV3("content2")));
         response = attributeService.createCustomAttribute(request);
 
         AttributeDefinition encryptedDefinition = attributeDefinitionRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
         Assertions.assertEquals(ProtectionLevel.ENCRYPTED, encryptedDefinition.getProtectionLevel());
         Assertions.assertNotNull(response.getContent().getFirst().getData());
+        Assertions.assertEquals("content", response.getContent().getFirst().getData().toString());
+        Assertions.assertEquals("content2", response.getContent().getLast().getData().toString());
         Assertions.assertNull(((List<StringAttributeContentV3>) encryptedDefinition.getDefinition().getContent()).getFirst().getData());
         Assertions.assertNotNull(encryptedDefinition.getEncryptedData());
     }

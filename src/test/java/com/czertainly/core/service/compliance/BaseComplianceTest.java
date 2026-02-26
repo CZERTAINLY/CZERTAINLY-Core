@@ -2,6 +2,7 @@ package com.czertainly.core.service.compliance;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.v2.*;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
@@ -137,6 +138,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connector.setName(name);
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

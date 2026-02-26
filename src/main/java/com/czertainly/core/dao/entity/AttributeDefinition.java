@@ -142,6 +142,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setDescription(attribute.getDescription());
         dto.setContentType(attribute.getContentType());
         dto.setEnabled(enabled);
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
         return dto;
     }
@@ -153,6 +154,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setName(attribute.getName());
         dto.setContentType(attribute.getContentType());
         dto.setDescription(attribute.getDescription());
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         return dto;
     }
 
@@ -164,16 +166,20 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setType(AttributeType.CUSTOM);
         dto.setContentType(attribute.getContentType());
         if (Objects.equals(protectionLevel, ProtectionLevel.ENCRYPTED) && encryptedData != null) {
-            List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
-                    .map(contentItem -> AttributeVersionHelper.decryptContent(
-                            contentItem, 3, attribute.getContentType(), encryptedData.get(((List<AttributeContent>) attribute.getContent()).indexOf(contentItem))))
-                    .toList();
+            List<AttributeContent> content = attribute.getContent();
+            List<AttributeContent> decryptedData = new ArrayList<>();
+            for (int i = 0; i < content.size(); i++) {
+                AttributeContent decryptedItem = i < encryptedData.size() ? AttributeVersionHelper.decryptContent(
+                        content.get(i), 3, attribute.getContentType(), encryptedData.get(i)) : content.get(i);
+                decryptedData.add(decryptedItem);
+            }
             dto.setContent(decryptedData);
         } else {
             dto.setContent(attribute.getContent());
         }
         dto.setDescription(attribute.getDescription());
         dto.setEnabled(enabled);
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
         if (attribute.getProperties() != null) {
             CustomAttributeProperties properties = attribute.getProperties();
@@ -184,6 +190,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
             dto.setMultiSelect(properties.isMultiSelect());
             dto.setReadOnly(properties.isReadOnly());
             dto.setVisible(properties.isVisible());
+            dto.setExtensibleList(properties.isExtensibleList());
             dto.setProtectionLevel(properties.getProtectionLevel());
         }
         return dto;
@@ -197,6 +204,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setType(AttributeType.META);
         dto.setContentType(attribute.getContentType());
         dto.setDescription(attribute.getDescription());
+        dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         dto.setEnabled(null);
         if (attribute.getProperties() != null) {
             MetadataAttributeProperties properties = attribute.getProperties();
