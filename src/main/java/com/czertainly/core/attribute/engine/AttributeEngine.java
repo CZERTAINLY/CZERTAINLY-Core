@@ -191,8 +191,9 @@ public class AttributeEngine {
             List<AttributeContent> content = attribute.getContent();
             List<AttributeContent> decryptedData = new ArrayList<>();
             for (int i = 0; i < content.size(); i++) {
-                decryptedData.add(AttributeVersionHelper.decryptContent(
-                        content.get(i), 3, attribute.getContentType(), encryptedDataList.get(i)));
+                AttributeContent decryptedItem = i < encryptedDataList.size() ? AttributeVersionHelper.decryptContent(
+                        content.get(i), 3, attribute.getContentType(), encryptedDataList.get(i)) : content.get(i);
+                decryptedData.add(decryptedItem);
             }
             attribute.setContent(decryptedData);
         }
