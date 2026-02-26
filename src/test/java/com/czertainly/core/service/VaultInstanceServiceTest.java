@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
@@ -13,10 +14,7 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.vault.VaultInstanceDetailDto;
-import com.czertainly.api.model.core.vault.VaultInstanceListResponseDto;
-import com.czertainly.api.model.core.vault.VaultInstanceRequestDto;
-import com.czertainly.api.model.core.vault.VaultInstanceUpdateRequestDto;
+import com.czertainly.api.model.core.vault.*;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.VaultInstance;
 import com.czertainly.core.dao.entity.VaultProfile;
@@ -120,11 +118,11 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
                 new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_INSTANCE_CONNECTOR_NAME.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(connector.getName())),
                 new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_INSTANCE_NAME.name(), FilterConditionOperator.EQUALS, vaultInstance.getName())
         ));
-        VaultInstanceListResponseDto vaultInstanceListResponseDto = vaultInstanceService.listVaultInstances(searchRequestDto, SecurityFilter.create());
+        PaginationResponseDto<VaultInstanceDto> vaultInstanceListResponseDto = vaultInstanceService.listVaultInstances(searchRequestDto, SecurityFilter.create());
         Assertions.assertNotNull(vaultInstanceListResponseDto);
         Assertions.assertEquals(1, vaultInstanceListResponseDto.getTotalItems());
-        Assertions.assertEquals(1, vaultInstanceListResponseDto.getVaultInstances().size());
-        Assertions.assertEquals(vaultInstance.getName(), vaultInstanceListResponseDto.getVaultInstances().getFirst().getName());
+        Assertions.assertEquals(1, vaultInstanceListResponseDto.getItems().size());
+        Assertions.assertEquals(vaultInstance.getName(), vaultInstanceListResponseDto.getItems().getFirst().getName());
     }
 
     @Test

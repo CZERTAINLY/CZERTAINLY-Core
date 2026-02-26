@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -126,16 +127,18 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.LIST)
-    public VaultInstanceListResponseDto listVaultInstances(SearchRequestDto request, SecurityFilter securityFilter) {
+    public PaginationResponseDto<VaultInstanceDto> listVaultInstances(SearchRequestDto request, SecurityFilter securityFilter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
         List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR), predicate, p,  (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream().map(VaultInstance::mapToDto).toList();
-        VaultInstanceListResponseDto response = new VaultInstanceListResponseDto();
-        response.setVaultInstances(vaultInstances);
+        PaginationResponseDto<VaultInstanceDto> response = new PaginationResponseDto<>();
+        response.setItems(vaultInstances);
         response.setPageNumber(request.getPageNumber());
         response.setItemsPerPage(request.getItemsPerPage());
-        response.setTotalItems(vaultInstanceRepository.countUsingSecurityFilter(securityFilter, predicate));
+        Long totalItems = vaultInstanceRepository.countUsingSecurityFilter(securityFilter, predicate);
+        response.setTotalPages((int) Math.ceil((double) totalItems / request.getItemsPerPage()));
+        response.setTotalItems(totalItems);
         return response;
     }
 

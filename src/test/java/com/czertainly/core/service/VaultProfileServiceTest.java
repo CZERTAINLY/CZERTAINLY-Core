@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
@@ -16,10 +17,7 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.secret.SecretType;
-import com.czertainly.api.model.core.vaultprofile.VaultProfileDetailDto;
-import com.czertainly.api.model.core.vaultprofile.VaultProfileListResponseDto;
-import com.czertainly.api.model.core.vaultprofile.VaultProfileRequestDto;
-import com.czertainly.api.model.core.vaultprofile.VaultProfileUpdateRequestDto;
+import com.czertainly.api.model.core.vaultprofile.*;
 import com.czertainly.core.dao.entity.Secret;
 import com.czertainly.core.dao.entity.SecretVersion;
 import com.czertainly.core.dao.entity.VaultInstance;
@@ -191,9 +189,9 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
                 new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_PROFILE_NAME.name(), FilterConditionOperator.CONTAINS, vaultProfile.getName()),
                 new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_PROFILE_VAULT_INSTANCE.name(), FilterConditionOperator.EQUALS, (java.io.Serializable) List.of(vaultInstance.getName()))
         ));
-        VaultProfileListResponseDto profiles = vaultProfileService.listVaultProfiles(searchRequestDto, SecurityFilter.create());
-        Assertions.assertEquals(1, profiles.getVaultProfiles().size());
-        Assertions.assertEquals(vaultProfile.getUuid().toString(), profiles.getVaultProfiles().getFirst().getUuid());
+        PaginationResponseDto<VaultProfileDto> profiles = vaultProfileService.listVaultProfiles(searchRequestDto, SecurityFilter.create());
+        Assertions.assertEquals(1, profiles.getItems().size());
+        Assertions.assertEquals(vaultProfile.getUuid().toString(), profiles.getItems().getFirst().getUuid());
     }
 
     @Test

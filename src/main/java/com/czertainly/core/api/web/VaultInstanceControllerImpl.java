@@ -6,15 +6,13 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.VaultInstanceController;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.vault.VaultInstanceDetailDto;
-import com.czertainly.api.model.core.vault.VaultInstanceListResponseDto;
-import com.czertainly.api.model.core.vault.VaultInstanceRequestDto;
-import com.czertainly.api.model.core.vault.VaultInstanceUpdateRequestDto;
+import com.czertainly.api.model.core.vault.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -49,7 +47,7 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.LIST)
-    public VaultInstanceListResponseDto listVaultInstances(SearchRequestDto searchRequest) {
+    public PaginationResponseDto<VaultInstanceDto> listVaultInstances(SearchRequestDto searchRequest) {
         return vaultInstanceService.listVaultInstances(searchRequest, SecurityFilter.create());
     }
 

@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -72,7 +73,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST, parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
-    public VaultProfileListResponseDto listVaultProfiles(SearchRequestDto request, SecurityFilter securityFilter) {
+    public PaginationResponseDto<VaultProfileDto> listVaultProfiles(SearchRequestDto request, SecurityFilter securityFilter) {
         securityFilter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
 
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
@@ -81,11 +82,12 @@ public class VaultProfileServiceImpl implements VaultProfileService {
                 .stream()
                 .map(VaultProfile::mapToDto)
                 .toList();
-        VaultProfileListResponseDto response = new VaultProfileListResponseDto();
-        response.setVaultProfiles(vaultProfiles);
+        PaginationResponseDto<VaultProfileDto> response = new PaginationResponseDto<>();
+        response.setItems(vaultProfiles);
         response.setPageNumber(request.getPageNumber());
         response.setItemsPerPage(request.getItemsPerPage());
         response.setTotalItems(vaultProfileRepository.countUsingSecurityFilter(securityFilter,predicate));
+        response.setTotalPages((int) Math.ceil((double) response.getTotalItems() / request.getItemsPerPage()));
         return response;
     }
 

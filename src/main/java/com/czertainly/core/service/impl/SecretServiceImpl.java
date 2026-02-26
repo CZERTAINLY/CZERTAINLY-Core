@@ -7,6 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -117,15 +118,16 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
-    public SecretListResponseDto listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter) {
+    public PaginationResponseDto<SecretDto> listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter) {
         TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, searchRequest.getFilters());
         List<Secret> secrets = getSecrets(securityFilter, searchRequest.getPageNumber(), searchRequest.getItemsPerPage(), additionalWhereClause);
         List<SecretDto> secretDtos = secrets.stream().map(Secret::mapToDto).toList();
-        SecretListResponseDto response = new SecretListResponseDto();
-        response.setSecrets(secretDtos);
+        PaginationResponseDto<SecretDto> response = new PaginationResponseDto<>();
+        response.setItems(secretDtos);
         response.setPageNumber(searchRequest.getPageNumber());
         response.setItemsPerPage(searchRequest.getItemsPerPage());
         response.setTotalItems(secretRepository.countUsingSecurityFilter(securityFilter, additionalWhereClause));
+        response.setTotalPages((int) Math.ceil((double) response.getTotalItems() / searchRequest.getItemsPerPage()));
         return response;
     }
 

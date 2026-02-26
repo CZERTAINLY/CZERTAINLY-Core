@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.VaultProfileController;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -12,7 +13,7 @@ import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.secret.SecretType;
 import com.czertainly.api.model.core.vaultprofile.VaultProfileDetailDto;
-import com.czertainly.api.model.core.vaultprofile.VaultProfileListResponseDto;
+import com.czertainly.api.model.core.vaultprofile.VaultProfileDto;
 import com.czertainly.api.model.core.vaultprofile.VaultProfileRequestDto;
 import com.czertainly.api.model.core.vaultprofile.VaultProfileUpdateRequestDto;
 import com.czertainly.core.aop.AuditLogged;
@@ -39,7 +40,7 @@ public class VaultProfileControllerImpl implements VaultProfileController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, operation = Operation.LIST)
-    public VaultProfileListResponseDto listVaultProfiles(SearchRequestDto searchRequest) {
+    public PaginationResponseDto<VaultProfileDto> listVaultProfiles(SearchRequestDto searchRequest) {
         return vaultProfileService.listVaultProfiles(searchRequest, SecurityFilter.create());
     }
 
