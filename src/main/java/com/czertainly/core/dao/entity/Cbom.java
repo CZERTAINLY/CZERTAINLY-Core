@@ -65,8 +65,8 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
         dto.setUuid(this.uuid);
         dto.setCreatedAt(this.createdAt);
         dto.setSerialNumber(this.serialNumber);
-        dto.setVersion(String.valueOf(this.version));
-        dto.setSpecVersion(String.valueOf(this.specVersion));
+        dto.setVersion(this.version);
+        dto.setSpecVersion(this.specVersion);
         dto.setTimestamp(this.timestamp);
         dto.setSource(this.source);
         dto.setAlgorithms(this.algorithmsCount);

@@ -159,7 +159,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then
         assertNotNull(result);
         assertEquals(serialNumber, result.getSerialNumber());
-        assertEquals(Integer.toString(version), result.getVersion());
+        assertEquals(version, result.getVersion());
         assertNotNull(result.getContent());
         assertEquals("CycloneDX", result.getContent().get("bomFormat"));
 
@@ -212,7 +212,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbom.setTimestamp(OffsetDateTime.now());
         cbomRepository.save(cbom);
 
-        // Mock WireMock to return 500 error - Fix URL path
+        // Mock WireMock to return 500 error for the CBOM repository endpoint
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/.*"))
             .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
             .willReturn(WireMock.aResponse()
@@ -227,7 +227,6 @@ class CbomServiceTest extends BaseSpringBootTest {
                     }
                     """)));
 
-        // When/Then
         // When/Then - Use assertThrows with Throwable cast
         Exception exception = assertThrows(Exception.class, () -> cbomService.getCbomDetail(uuid));
         assertTrue(exception instanceof CbomRepositoryException,
@@ -293,7 +292,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then
         assertNotNull(result);
         assertEquals(serialNumber, result.getSerialNumber());
-        assertEquals(Integer.toString(version), result.getVersion());
+        assertEquals(version, result.getVersion());
         assertEquals("1.6", result.getSpecVersion());
         assertEquals(5, result.getAlgorithms());
         assertEquals(3, result.getCertificates());
@@ -304,17 +303,14 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Verify entity was saved to database
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(1, savedCboms.size());
-        assertEquals(serialNumber, savedCboms.get(0).getSerialNumber());
-        assertEquals("CORE", savedCboms.get(0).getSource());
+        assertEquals(serialNumber, savedCboms.getFirst().getSerialNumber());
+        assertEquals("CORE", savedCboms.getFirst().getSource());
 
         // Assert
         mockServer.verify(WireMock.postRequestedFor(
             WireMock.urlEqualTo("/v1/bom")));
     }
 
-    /**
-     * @throws NotFoundException
-     */
     @Test
     void testGetCbomVersions() throws NotFoundException {
         // Given
@@ -390,8 +386,8 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then
         assertNotNull(versions);
         assertEquals(1, versions.size());
-        assertEquals(serialNumber, versions.get(0).getSerialNumber());
-        assertEquals("1", versions.get(0).getVersion());
+        assertEquals(serialNumber, versions.getFirst().getSerialNumber());
+        assertEquals(1, versions.getFirst().getVersion());
     }
 
     @Test

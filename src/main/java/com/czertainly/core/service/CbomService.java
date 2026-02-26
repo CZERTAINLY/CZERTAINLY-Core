@@ -53,7 +53,7 @@ public interface CbomService extends ResourceExtensionService {
 
 
     /**
-     * Get all possible field to be able to search by customer
+     * Get all searchable fields for CBOM filtering
      * @return List of {@link SearchFieldDataByGroupDto} object with definition the possible fields
      */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
