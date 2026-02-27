@@ -155,7 +155,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         if (connector.getVersion() != ConnectorVersion.V1) {
-            throw new ValidationException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got " + connector.getVersion());
+            throw new ValidationException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got " + connector.getVersion().getLabel());
         }
 
         var connectInfo = connectorServiceV2.reconnect(uuid);
