@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
@@ -12,11 +9,11 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.secret.*;
-import com.czertainly.api.model.core.secret.content.BasicAuthSecretContent;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
@@ -87,7 +84,7 @@ class SecretServiceTest extends BaseSpringBootTest {
 
         secret = new Secret();
         secret.setName("testSecret");
-        secret.setType(SecretType.BASIC_AUTH);
+        secret.setType(com.czertainly.api.model.connector.secrets.SecretType.BASIC_AUTH);
         secret.setState(SecretState.ACTIVE);
         secret.setSourceVaultProfile(vaultProfile);
         secret.setSourceVaultProfileUuid(vaultProfile.getUuid());
@@ -118,7 +115,7 @@ class SecretServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateSecret() throws NotFoundException, AttributeException, AlreadyExistException {
+    void testCreateSecret() throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
         SecretRequestDto request = new SecretRequestDto();
         request.setName(secret.getName());
         Assertions.assertThrows(AlreadyExistException.class, () -> secretService.createSecret(request, vaultInstance.getSecuredParentUuid(), vaultProfile.getSecuredUuid()));
@@ -142,7 +139,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getName(), secretDetailDto.getName());
         Assertions.assertNotNull(secretDetailDto.getUuid());
         Assertions.assertEquals(request.getDescription(), secretDetailDto.getDescription());
-        Assertions.assertEquals(SecretType.BASIC_AUTH, secretDetailDto.getType());
+        Assertions.assertEquals(com.czertainly.api.model.connector.secrets.SecretType.BASIC_AUTH, secretDetailDto.getType());
         Assertions.assertEquals(1, secretDetailDto.getVersion());
 
         Assertions.assertNotNull(secretDetailDto.getCustomAttributes());
@@ -152,7 +149,7 @@ class SecretServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateSecret() throws NotFoundException, AttributeException {
+    void testUpdateSecret() throws NotFoundException, AttributeException, ConnectorException {
         Assertions.assertThrows(NotFoundException.class, () -> secretService.updateSecret(UUID.randomUUID(), new SecretUpdateRequestDto()));
         SecretUpdateRequestDto request = new SecretUpdateRequestDto();
         request.setDescription("Test secret new description");
@@ -183,7 +180,7 @@ class SecretServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDeleteSecret() throws NotFoundException {
+    void testDeleteSecret() throws NotFoundException, ConnectorException {
         secretService.deleteSecret(secret.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> secretRepository.findById(secret.getUuid()));
     }

@@ -15,7 +15,6 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.vault.*;
-import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.VaultInstance;
 import com.czertainly.core.dao.entity.VaultProfile;
 import com.czertainly.core.dao.repository.ConnectorRepository;

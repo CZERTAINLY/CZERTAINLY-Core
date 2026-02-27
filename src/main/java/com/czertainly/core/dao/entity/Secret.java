@@ -1,10 +1,10 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.secret.SecretDetailDto;
 import com.czertainly.api.model.core.secret.SecretDto;
 import com.czertainly.api.model.core.secret.SecretState;
-import com.czertainly.api.model.core.secret.SecretType;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -16,7 +16,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-@EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "secret")
 @Getter

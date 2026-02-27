@@ -41,7 +41,7 @@ public class SecretVersion extends UniquelyIdentified {
     private VaultInstance vaultInstance;
 
     @Column(name = "vault_version")
-    private int vaultVersion;
+    private String vaultVersion;
 
     @Column(name = "i_cre", nullable = false, updatable = false)
     @CreationTimestamp

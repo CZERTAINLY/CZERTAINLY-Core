@@ -22,7 +22,6 @@ import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.api.model.core.secret.SecretState;
-import com.czertainly.api.model.core.secret.SecretType;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeAccount_;
 import com.czertainly.core.dao.entity.acme.AcmeProfile_;
