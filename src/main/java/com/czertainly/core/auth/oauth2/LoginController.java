@@ -69,19 +69,20 @@ public class LoginController {
                 : List.of();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
-            String redirectPath = "oauth2/authorization/" + oauth2Providers.getFirst().getName();
+            String redirectPath = "oauth2/authorization/" + oauth2Providers.getFirst().getName() + "?redirect=" + redirectUrl;
             HttpHeaders headers = new HttpHeaders();
             headers.setLocation(java.net.URI.create(redirectPath));
             return new ResponseEntity<>(null, headers, HttpStatus.FOUND);
         }
 
         String contextPath = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath();
+        final String finalRedirectUrl = redirectUrl;
 
         List<LoginProviderDto> loginProviders = oauth2Providers.stream()
                 .map(provider -> {
                     LoginProviderDto loginProvider = new LoginProviderDto();
                     loginProvider.setName(provider.getName());
-                    loginProvider.setLoginUrl(contextPath + "/oauth2/authorization/" + provider.getName() + "/prepare");
+                    loginProvider.setLoginUrl(contextPath + "/oauth2/authorization/" + provider.getName() + "/prepare?redirect=" + finalRedirectUrl);
                     return loginProvider;
                 })
                 .toList();
@@ -90,7 +91,16 @@ public class LoginController {
     }
 
     @GetMapping("/oauth2/authorization/{provider}/prepare")
-    public void loginWithProvider(@PathVariable String provider, HttpServletResponse response, HttpServletRequest request) throws IOException {
+    public void loginWithProvider(@PathVariable String provider, @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response, HttpServletRequest request) throws IOException {
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
+                .replacePath(null)
+                .build()
+                .toUriString();
+
+        if (redirect != null && !redirect.isEmpty()) {
+            request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + redirect);
+        }
+
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers() != null 
                 ? authenticationSettings.getOAuth2Providers().get(provider)
@@ -108,6 +118,10 @@ public class LoginController {
             String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(provider);
             auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, accessToken);
             throw new CzertainlyAuthenticationException(message);
+        }
+
+        if (request.getSession(false) == null || request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE) == null) {
+            throw new CzertainlyAuthenticationException("Missing redirect URL. Please start the login from the beginning.");
         }
 
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());

@@ -189,7 +189,7 @@ class LoginControllerTest {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/oauth2/authorization/test/prepare"))
+                HttpRequest.newBuilder(uri("/oauth2/authorization/test/prepare?redirect=/test-redirect"))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString()
