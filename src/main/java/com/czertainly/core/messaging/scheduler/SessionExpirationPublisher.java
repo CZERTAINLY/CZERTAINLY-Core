@@ -3,6 +3,7 @@ package com.czertainly.core.messaging.scheduler;
 import com.czertainly.core.util.OAuth2Util;
 import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -29,6 +30,9 @@ public class SessionExpirationPublisher {
     private final DataSource dataSource;
     private final GenericConversionService conversionService;
 
+    @Value("${DB_SCHEMA:core}.spring_session")
+    private String tableName;
+
     @Autowired
     public SessionExpirationPublisher(JdbcIndexedSessionRepository sessionRepository,
                                       DataSource dataSource,
@@ -41,14 +45,14 @@ public class SessionExpirationPublisher {
     @Scheduled(fixedDelay = 60000) // every 60 seconds
     public void processExpiredSessions() {
         long now = Instant.now().toEpochMilli();
-        String sql = """
+        String sql = String.format("""
                 SELECT s.SESSION_ID, a.ATTRIBUTE_BYTES
-                FROM SPRING_SESSION s
-                LEFT JOIN SPRING_SESSION_ATTRIBUTES a
+                FROM %s s
+                LEFT JOIN %s_ATTRIBUTES a
                   ON a.SESSION_PRIMARY_ID = s.PRIMARY_ID
                   AND a.ATTRIBUTE_NAME = ?
                 WHERE s.EXPIRY_TIME < ?
-                """;
+                """, tableName, tableName);
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, "SPRING_SECURITY_CONTEXT");

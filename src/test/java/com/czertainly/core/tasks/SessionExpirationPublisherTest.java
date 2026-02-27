@@ -18,6 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.session.Session;
 
 
@@ -70,6 +71,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         DataSource dataSource = Mockito.mock(DataSource.class);
         GenericConversionService conversionService = Mockito.mock(GenericConversionService.class);
         SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
+        ReflectionTestUtils.setField(publisher, "tableName", "SPRING_SESSION");
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
 
         Session s = sessionRepository.createSession();
@@ -81,6 +83,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         Mockito.when(dataSource.getConnection()).thenReturn(jdbcTemplate.getDataSource().getConnection());
         Mockito.when(conversionService.convert(Mockito.any(), Mockito.eq(Object.class))).thenThrow(new RuntimeException("Conversion error"));
         publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
+        ReflectionTestUtils.setField(publisher, "tableName", "SPRING_SESSION");
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
     }
 
