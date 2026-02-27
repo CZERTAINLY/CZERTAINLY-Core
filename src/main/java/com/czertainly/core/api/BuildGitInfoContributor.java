@@ -28,10 +28,8 @@ public class BuildGitInfoContributor implements InfoContributor {
 
     @Override
     public void contribute(Info.Builder builder) {
-        if (version != null && version.contains("SNAPSHOT") && gitProperties != null) {
+        if (version != null && gitProperties != null) {
             Map<String, Object> gitInfo = new HashMap<>();
-            gitInfo.put("commit", gitProperties.getShortCommitId());
-            gitInfo.put("branch", gitProperties.getBranch());
 
             String buildEpoch = gitProperties.get("build.time");
             if (buildEpoch != null) {
@@ -41,6 +39,12 @@ public class BuildGitInfoContributor implements InfoContributor {
                     // Ignore invalid build time format
                 }
             }
+
+            if (version.contains("SNAPSHOT")) {
+                gitInfo.put("commit", gitProperties.getShortCommitId());
+                gitInfo.put("branch", gitProperties.getBranch());
+            }
+
             builder.withDetail("build", gitInfo);
         }
     }
