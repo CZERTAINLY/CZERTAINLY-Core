@@ -138,6 +138,10 @@ public class ConnectorServiceImpl implements ConnectorService {
                 continue;
             }
 
+            if (connectInfo.getErrorMessage() != null) {
+                throw new ValidationException(connectInfo.getErrorMessage());
+            }
+
             ConnectInfoV1 connectInfoV1 = (ConnectInfoV1) connectInfo;
             for (FunctionGroupDto functionGroupDto : connectInfoV1.getFunctionGroups()) {
                 ConnectDto connectDto = new ConnectDto();
