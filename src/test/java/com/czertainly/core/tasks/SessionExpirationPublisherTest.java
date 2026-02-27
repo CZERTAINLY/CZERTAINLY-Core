@@ -71,7 +71,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         DataSource dataSource = Mockito.mock(DataSource.class);
         GenericConversionService conversionService = Mockito.mock(GenericConversionService.class);
         SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
-        ReflectionTestUtils.setField(publisher, "tableName", "spring_session");
+        ReflectionTestUtils.setField(publisher, "dbSchema", "core");
         publisher.init();
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
 
@@ -84,7 +84,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         Mockito.when(dataSource.getConnection()).thenReturn(jdbcTemplate.getDataSource().getConnection());
         Mockito.when(conversionService.convert(Mockito.any(), Mockito.eq(Object.class))).thenThrow(new RuntimeException("Conversion error"));
         publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
-        ReflectionTestUtils.setField(publisher, "tableName", "spring_session");
+        ReflectionTestUtils.setField(publisher, "dbSchema", "core");
         publisher.init();
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
     }
@@ -96,7 +96,7 @@ class SessionExpirationPublisherTest extends BaseSpringBootTest {
         DataSource dataSource = Mockito.mock(DataSource.class);
         GenericConversionService conversionService = Mockito.mock(GenericConversionService.class);
         SessionExpirationPublisher publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
-        ReflectionTestUtils.setField(publisher, "tableName", "invalid table; drop table users;");
+        ReflectionTestUtils.setField(publisher, "dbSchema", "invalid table; drop table users;");
         Assertions.assertThrows(IllegalArgumentException.class, publisher::init);
     }
 

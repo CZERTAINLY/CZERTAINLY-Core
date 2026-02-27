@@ -31,11 +31,14 @@ public class SessionExpirationPublisher {
     private final DataSource dataSource;
     private final GenericConversionService conversionService;
 
-    @Value("${DB_SCHEMA:core}.spring_session")
+    @Value("${DB_SCHEMA:core}")
+    private String dbSchema;
+
     private String tableName;
 
     @PostConstruct
     public void init() {
+        this.tableName = dbSchema + ".spring_session";
         if (!tableName.matches("^[a-zA-Z0-9_.]+$")) {
             throw new IllegalArgumentException("Invalid table name for session expiration publisher: " + tableName);
         }
