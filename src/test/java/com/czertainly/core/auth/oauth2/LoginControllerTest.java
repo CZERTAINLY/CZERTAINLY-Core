@@ -212,7 +212,7 @@ class LoginControllerTest {
 
         // controller does sendRedirect("oauth2/authorization/{provider}") => 302
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only?redirect=/ui", res.headers().firstValue("Location").orElse(null));
+        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
 
         // We can’t directly introspect server-side session here; instead, verify session cookie exists.
         Assertions.assertNotNull(extractSessionCookie(res.headers()));
@@ -226,6 +226,7 @@ class LoginControllerTest {
         settings.setOAuth2Providers(providers);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
+        // 1) Hit /prepare with redirect parameter - it should set the session and redirect
         HttpResponse<String> res = http.send(
                 HttpRequest.newBuilder(uri("/oauth2/authorization/test/prepare?redirect=/test-redirect"))
                         .GET()
@@ -254,8 +255,8 @@ class LoginControllerTest {
         );
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        // The Location should contain the decoded and normalized redirect
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only?redirect=/administrator/", res.headers().firstValue("Location").orElse(null));
+        // The Location should NOT contain the redirect anymore
+        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
     }
 
     @Test
@@ -276,8 +277,7 @@ class LoginControllerTest {
         );
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        // ServletUriComponentsBuilder encodes query parameters
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only?redirect=/administrator/?foo%3Dbar%23baz", res.headers().firstValue("Location").orElse(null));
+        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
     }
 
     @Test

@@ -75,7 +75,6 @@ public class LoginController {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
             String redirectPath = ServletUriComponentsBuilder.fromCurrentContextPath()
                     .path("/oauth2/authorization/{provider}")
-                    .queryParam("redirect", validatedRedirectUrl)
                     .buildAndExpand(oauth2Providers.getFirst().getName())
                     .encode()
                     .toUriString();
@@ -90,7 +89,6 @@ public class LoginController {
                     loginProvider.setName(provider.getName());
                     String loginUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                             .path("/oauth2/authorization/{provider}/prepare")
-                            .queryParam("redirect", validatedRedirectUrl)
                             .buildAndExpand(provider.getName())
                             .encode()
                             .toUriString();
