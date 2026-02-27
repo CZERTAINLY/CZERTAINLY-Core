@@ -84,8 +84,6 @@ public class LoginController {
             return new ResponseEntity<>(null, headers, HttpStatus.FOUND);
         }
 
-        String contextPath = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath();
-
         List<LoginProviderDto> loginProviders = oauth2Providers.stream()
                 .map(provider -> {
                     LoginProviderDto loginProvider = new LoginProviderDto();

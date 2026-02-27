@@ -12,6 +12,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -114,34 +116,12 @@ class LoginControllerTest {
         }
     }
 
-    @Test
-    void loginShouldFailWhenRedirectMissing() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"", "http://malicious.com", "//malicious.com"})
+    void loginShouldFailWhenRedirectInvalid(String redirect) throws Exception {
+        String url = redirect.isEmpty() ? "/login" : "/login?redirect=" + redirect;
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        Assertions.assertTrue(res.statusCode() >= 400);
-    }
-
-    @Test
-    void loginShouldFailWhenRedirectIsAbsolute() throws Exception {
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=http://malicious.com"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        Assertions.assertTrue(res.statusCode() >= 400);
-    }
-
-    @Test
-    void loginShouldFailWhenRedirectIsProtocolRelative() throws Exception {
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=//malicious.com"))
+                HttpRequest.newBuilder(uri(url))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString()
