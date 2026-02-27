@@ -5,6 +5,7 @@ import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
+import jakarta.annotation.PostConstruct;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.convert.support.GenericConversionService;
@@ -32,6 +33,13 @@ public class SessionExpirationPublisher {
 
     @Value("${DB_SCHEMA:core}.spring_session")
     private String tableName;
+
+    @PostConstruct
+    public void init() {
+        if (!tableName.matches("^[a-zA-Z0-9_.]+$")) {
+            throw new IllegalArgumentException("Invalid table name for session expiration publisher: " + tableName);
+        }
+    }
 
     @Autowired
     public SessionExpirationPublisher(JdbcIndexedSessionRepository sessionRepository,
