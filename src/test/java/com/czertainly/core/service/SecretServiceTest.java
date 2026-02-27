@@ -209,7 +209,7 @@ class SecretServiceTest extends BaseSpringBootTest {
     void testAddAndRemoveVaultProfileToSecret() throws NotFoundException {
         UUID secretUuid = secret.getUuid();
         UUID sourceVaultProfileUuid = vaultProfile.getUuid();
-        Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, sourceVaultProfileUuid));
+        Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, sourceVaultProfileUuid, ));
 
         VaultProfile newVaultProfile = new VaultProfile();
         newVaultProfile.setName("newVaultProfile");
@@ -220,12 +220,12 @@ class SecretServiceTest extends BaseSpringBootTest {
         secretRepository.save(secret);
 
         UUID newVaultProfileUuid = newVaultProfile.getUuid();
-        Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid));
+        Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, ));
 
         secret.setSyncVaultProfiles(new HashSet<>());
         secretRepository.save(secret);
 
-        secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid);
+        secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, );
 
         Secret reloadedSecret = secretRepository.findById(secretUuid).orElseThrow();
         Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().contains(newVaultProfile));

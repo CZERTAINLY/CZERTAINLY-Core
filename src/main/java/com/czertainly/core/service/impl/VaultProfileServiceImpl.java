@@ -186,7 +186,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfiledUUID, SecretType secretType) throws NotFoundException, ConnectorException {
+    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException {
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultUUID));
         ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
         return secretApiClient.getSecretAttributes(connectorDetailDto, secretType);

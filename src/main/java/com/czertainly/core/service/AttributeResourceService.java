@@ -4,10 +4,11 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 
 public interface AttributeResourceService {
 
-    String getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException, ConnectorException;
+    String getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException, ConnectorException, NoSuchAlgorithmException;
 
 }

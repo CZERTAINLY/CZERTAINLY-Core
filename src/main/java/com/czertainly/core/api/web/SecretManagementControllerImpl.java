@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.SecretManagementController;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.connector.secrets.content.SecretContent;
@@ -98,8 +99,8 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.ASSOCIATE)
-    public void addVaultProfileToSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException {
-        secretService.addVaultProfileToSecret(uuid, vaultProfileUuid);
+    public void addVaultProfileToSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws NotFoundException {
+        secretService.addVaultProfileToSecret(uuid, vaultProfileUuid, createSecretAttributes);
     }
 
     @Override

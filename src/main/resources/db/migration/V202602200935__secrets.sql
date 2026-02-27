@@ -48,3 +48,12 @@ CREATE TABLE secret_version (
 ALTER TABLE secret
 ADD CONSTRAINT fk_secret_latest_version
 FOREIGN KEY (latest_version_uuid) REFERENCES secret_version(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+CREATE TABLE secret_2_sync_vault_profile (
+    secret_uuid UUID NOT NULL,
+    sync_vault_profile_uuid UUID NOT NULL,
+    secret_attributes jsonb,
+    PRIMARY KEY (secret_uuid, sync_vault_profile_uuid),
+    FOREIGN KEY (secret_uuid) REFERENCES secret(uuid) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (sync_vault_profile_uuid) REFERENCES vault_profile(uuid) ON UPDATE CASCADE ON DELETE CASCADE
+);

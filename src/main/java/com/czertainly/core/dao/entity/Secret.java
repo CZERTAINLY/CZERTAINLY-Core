@@ -74,12 +74,8 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @ToString.Exclude
     private OwnerAssociation owner;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "secret_2_sync_vault_profile",
-            joinColumns = @JoinColumn(name = "secret_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "vault_profile_uuid"))
-    @ToString.Exclude
+    @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonBackReference
     private Set<VaultProfile> syncVaultProfiles = new HashSet<>();
 
     public SecretDetailDto mapToDetailDto() {

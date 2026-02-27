@@ -32,7 +32,7 @@ public interface VaultProfileService {
 
     void disableVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException;
 
-    List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, SecretType secretType) throws NotFoundException, ConnectorException;
+    List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException;
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 }

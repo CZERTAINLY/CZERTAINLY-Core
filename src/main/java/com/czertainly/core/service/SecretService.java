@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.connector.secrets.content.SecretContent;
@@ -13,6 +14,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,15 +34,15 @@ public interface SecretService extends ResourceExtensionService {
 
     void disableSecret(UUID uuid) throws NotFoundException;
 
-    void addVaultProfileToSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException;
+    void addVaultProfileToSecret(UUID uuid, UUID vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws NotFoundException, ConnectorException, AttributeException, NoSuchAlgorithmException;
 
-    void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException;
+    void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException, ConnectorException;
 
     SecretDetailDto getSecretDetails(UUID uuid) throws NotFoundException;
 
     List<SecretVersionDto> getSecretVersions(UUID uuid) throws NotFoundException;
 
-    SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException;
+    SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, NoSuchAlgorithmException;
 
-    void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException;
+    void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException, NoSuchAlgorithmException;
 }
