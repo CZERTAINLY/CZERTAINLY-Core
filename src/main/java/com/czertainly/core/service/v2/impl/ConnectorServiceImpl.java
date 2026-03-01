@@ -135,6 +135,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         this.connectorAuthService = connectorAuthService;
     }
 
+
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public PaginationResponseDto<ConnectorDto> listConnectors(SecurityFilter filter, SearchRequestDto request) {
@@ -385,6 +386,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         return connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
+
 
     private ConnectorDetailDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         if (StringUtils.isBlank(request.getName())) {

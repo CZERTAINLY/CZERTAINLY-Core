@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.DiscoveryApiClient;
+import com.czertainly.api.interfaces.client.v1.DiscoverySyncApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
@@ -36,9 +37,9 @@ import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.czertainly.core.events.handlers.DiscoveryFinishedEventHandler;
+import com.czertainly.core.messaging.jms.producers.EventProducer;
+import com.czertainly.core.messaging.jms.producers.NotificationProducer;
 import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.messaging.producers.EventProducer;
-import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.discovery.DiscoveryContext;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -92,13 +93,19 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private TriggerService triggerService;
     private DiscoveryRepository discoveryRepository;
     private CertificateRepository certificateRepository;
-    private DiscoveryApiClient discoveryApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private ConnectorService connectorService;
     private CredentialService credentialService;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private CertificateContentRepository certificateContentRepository;
 
     private ResourceService resourceService;
+    private ConnectorRepository connectorRepository;
+
+    @Autowired
+    public void setConnectorRepository(ConnectorRepository connectorRepository) {
+        this.connectorRepository = connectorRepository;
+    }
 
     @Autowired
     public void setResourceService(ResourceService resourceService) {
@@ -131,8 +138,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Autowired
-    public void setDiscoveryApiClient(DiscoveryApiClient discoveryApiClient) {
-        this.discoveryApiClient = discoveryApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -253,8 +260,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
-                ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
-                discoveryApiClient.removeDiscovery(connector, referenceUuid);
+                Connector connector = connectorRepository.findByUuid(discovery.getConnectorUuid())
+                        .orElseThrow(() -> new NotFoundException(Connector.class, discovery.getConnectorUuid()));
+                connectorApiFactory.getDiscoveryApiClient(connector.mapToDto()).removeDiscovery(connector.mapToDto(), referenceUuid);
             }
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -290,12 +298,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         if (request.getConnectorUuid() == null) {
             throw new ValidationException(ValidationError.create("Connector UUID is empty"));
         }
-
-        UUID connectorUuid = UUID.fromString(request.getConnectorUuid());
-        ConnectorDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
+        Connector connector = connectorRepository.findByUuid(UUID.fromString(request.getConnectorUuid()))
+                .orElseThrow(() -> new NotFoundException(Connector.class, request.getConnectorUuid()));
 
         attributeEngine.validateCustomAttributesContent(Resource.DISCOVERY, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connectorUuid), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setName(request.getName());
@@ -303,13 +310,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discovery.setStartTime(new Date());
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
-        discovery.setConnectorUuid(connectorUuid);
+        discovery.setConnectorUuid(connector.getUuid());
         discovery.setKind(request.getKind());
 
         if (saveEntity) {
             discovery = discoveryRepository.save(discovery);
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(), request.getCustomAttributes());
-            attributeEngine.updateObjectDataAttributesContent(connectorUuid, null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
+            attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
             if (request.getTriggers() != null) {
                 triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid(), request.getTriggers(), false);
                 discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
@@ -421,13 +428,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         // reload discovery modal with all association since it could be in separate transaction/session due to async
         String message = null;
-        ConnectorDto connector = null;
+        Connector connector = null;
         List<DataAttribute> dataAttributes = null;
         DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         try {
             logger.info("Loading discovery context: name={}, uuid={}", discovery.getName(), discovery.getUuid());
-            connector = connectorService.getConnector(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
-            dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, discovery.getConnectorUuid(), null, Resource.DISCOVERY, discovery.getUuid());
+            connector = connectorRepository.findByUuid(discovery.getConnectorUuid())
+                    .orElseThrow(() -> new NotFoundException(Connector.class, discovery.getConnectorUuid()));
+            dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
 
             credentialService.loadFullCredentialData(dataAttributes);
             resourceService.loadResourceObjectContentData(dataAttributes);
@@ -436,7 +444,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             message = e.getMessage();
         }
 
-        DiscoveryContext discoveryContext = new DiscoveryContext(loggedUserUuid, connector, discovery, dataAttributes);
+        ConnectorDto connectorDto = connector != null ? connector.mapToDto() : null;
+        DiscoveryContext discoveryContext = new DiscoveryContext(loggedUserUuid, connectorDto, discovery, dataAttributes);
 
         if (message != null) {
             discoveryContext.setMessage(message);
@@ -456,6 +465,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         dtoRequest.setName(discovery.getName());
         dtoRequest.setKind(discovery.getKind());
         dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(context.getDataAttributes()));
+
+        DiscoverySyncApiClient discoveryApiClient = connectorApiFactory.getDiscoveryApiClient(context.getConnectorDto());
 
         // start discovery at provider
         DiscoveryProviderDto response;
@@ -539,6 +550,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         List<Future<?>> futures = new ArrayList<>();
         Set<String> uniqueCertificateContents = new HashSet<>();
+        DiscoverySyncApiClient discoveryApiClient = connectorApiFactory.getDiscoveryApiClient(context.getConnectorDto());
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);

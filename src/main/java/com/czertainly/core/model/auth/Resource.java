@@ -20,6 +20,7 @@ public enum Resource {
     ATTRIBUTE("attributes"),
     SCHEDULED_JOB("jobs"),
     OID("oids"),
+    PROXY("proxies"),
 
     // AUTH
     USER("users"),
@@ -65,8 +66,11 @@ public enum Resource {
     ACTION("actions"),
     TRIGGER("triggers"),
 
+    // SAAS
+    TRUSTED_CERTIFICATE("trustedCertificates"),
+
     // CBOMS
-    CBOM("cboms"),
+    CBOM("cboms")
     ;
 
     @Schema(description = "Resource Name",

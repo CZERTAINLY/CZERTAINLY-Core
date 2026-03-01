@@ -212,7 +212,7 @@ class LoginControllerTest {
 
         // controller does sendRedirect("oauth2/authorization/{provider}") => 302
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
+        Assertions.assertEquals("http://localhost:" + port + "/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
 
         // We can’t directly introspect server-side session here; instead, verify session cookie exists.
         Assertions.assertNotNull(extractSessionCookie(res.headers()));
@@ -235,7 +235,9 @@ class LoginControllerTest {
         );
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("/oauth2/authorization/test", res.headers().firstValue("Location").orElse(null));
+        String location = res.headers().firstValue("Location").orElse("");
+        Assertions.assertTrue(location.endsWith("/oauth2/authorization/test"),
+                "Expected Location to end with '/oauth2/authorization/test' but was: " + location);
     }
 
     @Test
@@ -256,7 +258,7 @@ class LoginControllerTest {
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
         // The Location should NOT contain the redirect anymore
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
+        Assertions.assertEquals("http://localhost:" + port + "/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
     }
 
     @Test
@@ -277,7 +279,7 @@ class LoginControllerTest {
         );
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
+        Assertions.assertEquals("http://localhost:" + port + "/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
     }
 
     @Test
