@@ -101,12 +101,4 @@ public record ProxyProperties(
         }
         return "coremessage." + proxyId;
     }
-
-    /**
-     * Get the response routing key pattern.
-     * @return Pattern for matching all responses "response%"
-     */
-    public String getResponseRoutingKeyPattern() {
-        return "response%";
-    }
 }
