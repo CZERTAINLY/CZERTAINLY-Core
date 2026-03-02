@@ -65,6 +65,8 @@ class SecretServiceTest extends BaseSpringBootTest {
     private AttributeService attributeService;
     @Autowired
     private GroupRepository groupRepository;
+    @Autowired
+    private ConnectorRepository connectorRepository;
 
     private Secret secret;
     private VaultProfile vaultProfile;
@@ -72,8 +74,19 @@ class SecretServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException {
+        WireMockServer mockServer = new WireMockServer(0);
+        mockServer.start();
+
+        WireMock.configureFor("localhost", mockServer.port());
+
+        Connector connector = new Connector();
+        connector.setName("testConnector");
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connectorRepository.save(connector);
+
         vaultInstance = new VaultInstance();
         vaultInstance.setName("testInstance");
+        vaultInstance.setConnector(connector);
         vaultInstanceRepository.save(vaultInstance);
 
         vaultProfile = new VaultProfile();

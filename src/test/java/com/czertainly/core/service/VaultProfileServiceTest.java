@@ -94,7 +94,7 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(requestDto.getName(), createdProfile.getName());
         Assertions.assertNotNull(createdProfile.getUuid());
         Assertions.assertEquals(requestDto.getDescription(), createdProfile.getDescription());
-        Assertions.assertEquals(vaultInstance.getUuid(), createdProfile.getVaultInstanceUuid());
+        Assertions.assertEquals(vaultInstance.getUuid().toString(), createdProfile.getVaultInstance().getUuid());
         Assertions.assertNotNull(createdProfile.getCustomAttributes());
         Assertions.assertEquals(1, createdProfile.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), createdProfile.getCustomAttributes().getFirst().getName());
@@ -114,7 +114,7 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
 
         Assertions.assertNotNull(detailDto);
         Assertions.assertEquals(requestDto.getDescription(), detailDto.getDescription());
-        Assertions.assertEquals(vaultInstance.getUuid(), detailDto.getVaultInstanceUuid());
+        Assertions.assertEquals(vaultInstance.getUuid().toString(), detailDto.getVaultInstance().getUuid());
         Assertions.assertNotNull(detailDto.getCustomAttributes());
         Assertions.assertEquals(1, detailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), detailDto.getCustomAttributes().getFirst().getName());
@@ -183,7 +183,7 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(detailDto);
         Assertions.assertEquals(vaultProfile.getName(), detailDto.getName());
         Assertions.assertEquals(vaultProfile.getDescription(), detailDto.getDescription());
-        Assertions.assertEquals(vaultInstance.getUuid(), detailDto.getVaultInstanceUuid());
+        Assertions.assertEquals(vaultInstance.getUuid().toString(), detailDto.getVaultInstance().getUuid());
     }
 
     @Test

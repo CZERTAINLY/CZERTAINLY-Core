@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.vaultprofile.VaultProfileDetailDto;
 import com.czertainly.api.model.core.vaultprofile.VaultProfileDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -39,7 +40,7 @@ public class VaultProfile extends UniquelyIdentifiedAndAudited {
         dto.setUuid(String.valueOf(uuid));
         dto.setName(name);
         dto.setDescription(description);
-        dto.setVaultInstanceUuid(vaultInstanceUuid);
+        dto.setVaultInstance(new NameAndUuidDto(vaultInstanceUuid, vaultInstance.getName()));
         dto.setEnabled(enabled);
         return dto;
     }
@@ -50,7 +51,7 @@ public class VaultProfile extends UniquelyIdentifiedAndAudited {
         detailDto.setUuid(String.valueOf(uuid));
         detailDto.setName(name);
         detailDto.setDescription(description);
-        detailDto.setVaultInstanceUuid(vaultInstanceUuid);
+        detailDto.setVaultInstance(new NameAndUuidDto(vaultInstanceUuid, vaultInstance.getName()));
         detailDto.setEnabled(enabled);
         return detailDto;
     }

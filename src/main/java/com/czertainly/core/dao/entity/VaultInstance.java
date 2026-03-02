@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.vault.VaultInstanceDetailDto;
 import com.czertainly.api.model.core.vault.VaultInstanceDto;
 import jakarta.persistence.*;
@@ -45,6 +46,11 @@ public class VaultInstance extends UniquelyIdentifiedAndAudited {
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(description);
-        dto.setConnectorUuid(connectorUuid);
+        dto.setConnector(new NameAndUuidDto(connectorUuid, connector.getName()));
+    }
+
+    public void setConnector(Connector connector) {
+        this.connector = connector;
+        this.connectorUuid = connector.getUuid();
     }
 }

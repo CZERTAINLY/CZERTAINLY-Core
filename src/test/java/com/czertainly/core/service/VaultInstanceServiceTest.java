@@ -25,6 +25,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,11 +52,12 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
 
     private Connector connector;
     private VaultInstance vaultInstance;
+    private WireMockServer mockServer;
 
 
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException {
-        WireMockServer mockServer = new WireMockServer(0);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
@@ -110,12 +112,17 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(requestDto.getName(), vaultInstanceDetailDto.getName());
         Assertions.assertNotNull(vaultInstanceDetailDto.getUuid());
         Assertions.assertEquals(requestDto.getDescription(), vaultInstanceDetailDto.getDescription());
-        Assertions.assertNotNull(vaultInstanceDetailDto.getConnectorUuid());
-        Assertions.assertEquals(requestDto.getConnectorUuid(), vaultInstanceDetailDto.getConnectorUuid());
+        Assertions.assertNotNull(vaultInstanceDetailDto.getConnector());
+        Assertions.assertEquals(requestDto.getConnectorUuid().toString(), vaultInstanceDetailDto.getConnector().getUuid());
         Assertions.assertNotNull(vaultInstanceDetailDto.getCustomAttributes());
         Assertions.assertEquals(1, vaultInstanceDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), vaultInstanceDetailDto.getCustomAttributes().getFirst().getName());
         Assertions.assertEquals("data", ((List<AttributeContent>) vaultInstanceDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+    }
+
+    @AfterEach
+    void tearDown() {
+        mockServer.stop();
     }
 
     @Test
@@ -125,7 +132,7 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(vaultInstanceDetailDto);
         Assertions.assertEquals(vaultInstance.getName(), vaultInstanceDetailDto.getName());
         Assertions.assertEquals(vaultInstance.getDescription(), vaultInstanceDetailDto.getDescription());
-        Assertions.assertEquals(vaultInstance.getConnectorUuid(), vaultInstanceDetailDto.getConnectorUuid());
+        Assertions.assertEquals(vaultInstance.getConnectorUuid().toString(), vaultInstanceDetailDto.getConnector().getUuid());
     }
 
     @Test

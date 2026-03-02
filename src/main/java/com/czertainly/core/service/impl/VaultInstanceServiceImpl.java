@@ -58,8 +58,6 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     private VaultApiClient vaultApiClient;
 
     private ConnectorService connectorService;
-    private ResourceService resourceService;
-    private CredentialService credentialService;
 
     private AttributeEngine attributeEngine;
     private ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder;
@@ -79,16 +77,6 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     @Autowired
     public void setVaultProfileRepository(VaultProfileRepository vaultProfileRepository) {
         this.vaultProfileRepository = vaultProfileRepository;
-    }
-
-    @Autowired
-    public void setCredentialService(CredentialService credentialService) {
-        this.credentialService = credentialService;
-    }
-
-    @Autowired
-    public void setResourceService(ResourceService resourceService) {
-        this.resourceService = resourceService;
     }
 
     @Autowired

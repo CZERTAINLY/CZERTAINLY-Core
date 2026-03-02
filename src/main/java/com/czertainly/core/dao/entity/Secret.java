@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.secret.SecretDetailDto;
 import com.czertainly.api.model.core.secret.SecretDto;
 import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.secret.SyncVaultProfileDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -84,7 +85,7 @@ public class Secret extends UniquelyIdentifiedAndAudited {
         setCommonFields(dto);
         dto.setSyncVaultProfiles(syncVaultProfiles.stream().map(p -> {
             SyncVaultProfileDto vaultProfileDto = new SyncVaultProfileDto();
-            vaultProfileDto.setSecretAttributes(p.getSecretAttributes());
+            vaultProfileDto.setSecretAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(p.getSecretAttributes()));
             vaultProfileDto.setName(p.getSyncProfile().getName());
             vaultProfileDto.setUuid(p.getSyncProfile().getUuid().toString());
             return vaultProfileDto;

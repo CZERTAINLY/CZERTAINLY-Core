@@ -356,7 +356,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
     public void addVaultProfileToSecret(UUID uuid, UUID
             vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws
-            NotFoundException, ConnectorException, AttributeException, NoSuchAlgorithmException {
+            NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(uuid);
         if (secret.getSourceVaultProfile().getUuid().equals(vaultProfileUuid)) {
             throw new ValidationException("Vault Profile with UUID %s is the source vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
@@ -471,7 +471,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
     public void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws
-            NotFoundException, ConnectorException, AttributeException, NoSuchAlgorithmException {
+            NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(uuid);
         if (request.getSourceVaultProfileUuid() != null) {
             updateSourceVaultProfile(request, secret);
@@ -488,12 +488,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             if (secret.getOwner() != null && request.getOwnerUuid().equals(secret.getOwner().getUuid())) {
                 return;
             }
-            objectAssociationService.setOwner(Resource.SECRET, secret.getUuid(), request.getOwnerUuid());
+            objectAssociationService.setOwner(Resource.SECRET, secret.getUuid(), request.getOwnerUuid().isEmpty() ? null : UUID.fromString(request.getOwnerUuid()));
         }
     }
 
     private void updateSourceVaultProfile(SecretUpdateObjectsDto request, Secret secret) throws
-            NotFoundException, ConnectorException, AttributeException, NoSuchAlgorithmException {
+            NotFoundException, ConnectorException, AttributeException {
         UUID currentSourceVaultProfileUuid = secret.getSourceVaultProfile().getUuid();
         // Evaluate vault profile membership for current source profile
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(currentSourceVaultProfileUuid));
