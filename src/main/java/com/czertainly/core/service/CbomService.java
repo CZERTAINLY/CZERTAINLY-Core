@@ -57,4 +57,10 @@ public interface CbomService extends ResourceExtensionService {
      * @return List of {@link SearchFieldDataByGroupDto} object with definition the possible fields
      */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
+
+    /**
+     * Sync the CBOMs from cbom-repository
+     * @throws CbomRepositoryException for a problems accessing cbom-repository
+     */
+    void sync() throws CbomRepositoryException;
 }

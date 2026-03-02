@@ -1,5 +1,20 @@
 package com.czertainly.core.service.impl;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.function.TriFunction;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
@@ -21,18 +36,23 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.entity.Cbom_;
+import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.CbomRepository;
+import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.cbom.BomCreateResponseDto;
+import com.czertainly.core.model.cbom.BomEntryDto;
 import com.czertainly.core.model.cbom.BomResponseDto;
+import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -43,27 +63,16 @@ import com.czertainly.core.util.SearchHelper;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.function.TriFunction;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 @Service(Resource.Codes.CBOM)
 @Transactional
 public class CbomServiceImpl implements CbomService {
+
+    private static final String CBOM_SYNC_JOB_NAME = "CbomSyncTask";
+
     private static final LoggerWrapper logger = new LoggerWrapper(CbomServiceImpl.class, Module.CORE, Resource.CBOM);
 
     private CbomRepository cbomRepository;
@@ -71,6 +80,8 @@ public class CbomServiceImpl implements CbomService {
     private CbomRepositoryClient cbomRepositoryClient;
 
     private AttributeEngine attributeEngine;
+
+    private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
 
     @Autowired
     public void setCbomRepository(CbomRepository cbomRepository) {
@@ -85,6 +96,11 @@ public class CbomServiceImpl implements CbomService {
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setScheduledJobHistoryRepository(ScheduledJobHistoryRepository scheduledJobHistoryRepository) {
+        this.scheduledJobHistoryRepository = scheduledJobHistoryRepository;
     }
 
     @Override
@@ -116,19 +132,10 @@ public class CbomServiceImpl implements CbomService {
     public CbomDetailDto getCbomDetail(SecuredUUID uuid) throws CbomRepositoryException, NotFoundException {
         Cbom cbom = getEntity(uuid);
 
-        BomResponseDto response;
-        try {
-            response = cbomRepositoryClient.read(
-                    cbom.getSerialNumber(),
-                    cbom.getVersion());
-            logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {}: {}", cbom.getSerialNumber(), cbom.getVersion(), response);
-        } catch (CbomRepositoryException ex) {
-            if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
-                throw new NotFoundException(CbomDetailDto.class, "Cbom");
-            } else {
-                throw ex;
-            }
-        }
+        BomResponseDto response = read(
+            cbom.getSerialNumber(),
+            cbom.getVersion()
+        );
 
         CbomDto cbomDto = cbom.mapToDto();
         CbomDetailDto detailDto = new CbomDetailDto();
@@ -344,4 +351,94 @@ public class CbomServiceImpl implements CbomService {
         cbom.setTotalAssetsCount(totalAssetsCount);
     }
 
+    public void sync() throws CbomRepositoryException {
+        Optional<ScheduledJobHistory> lastSync;
+
+        try {
+            lastSync = scheduledJobHistoryRepository.findLastStartedOrSucceededByJobName(CBOM_SYNC_JOB_NAME);
+        } catch (Exception e) {
+            logger.getLogger().error("CBOM sync failed: unable to read last sync status: {}", e.getMessage());
+            return;
+        }
+
+        Long timestamp = Long.valueOf(0);
+        if (lastSync.isEmpty()) {
+            logger.getLogger().debug("CBOM sync: there is no last scheduled run: using timestamp: 0");
+        }
+
+        // prevents sync tasks run in a parallel
+        try {
+            timestamp = (lastSync.get().getJobEndTime().getTime() / 1000);
+        } catch (NullPointerException e) {
+            logger.getLogger().debug("CBOM sync: there is sync job in progress run. Skipping sync.");
+            return;
+        }
+
+        BomSearchRequestDto query = new BomSearchRequestDto();
+        query.setAfter(timestamp);
+        List<BomEntryDto> cboms = cbomRepositoryClient.search(query);
+        logger.getLogger().debug("CBOM sync: {} CBOM entries retrieved from repository for after: {}", cboms.size(), query.getAfter());
+
+        int skipped = 0;
+        int duplicates = 0;
+        int stored = 0;
+        for (BomEntryDto entry: cboms) {
+            int version;
+            try {
+                version = Integer.parseInt(entry.getVersion());
+            } catch (NumberFormatException e) {
+                logger.getLogger().warn("CBOM Sync: CBOM document serialNumber {} and version {}: has invalid version. Skipping the sync", entry.getSerialNumber(), entry.getVersion());
+                skipped ++;
+                continue;
+            }
+
+            BomResponseDto response;
+            try {
+                response = read(entry.getSerialNumber(), version);
+            } catch(NotFoundException e) {
+                logger.getLogger().warn("CBOM Sync: CBOM document serialNumber {} and version {}: not found in cbom-repository. Skipping the sync", entry.getSerialNumber(), version);
+                skipped ++;
+                continue;
+            }
+
+            CbomUploadRequestDto request = new CbomUploadRequestDto();
+            request.setContent(response);
+
+            try {
+                createCbom(request);
+            } catch(ValidationException e) {
+                logger.getLogger().error("CBOM Sync: CBOM serialNumber {} and version {}: validation failed: {}. Skipping the sync", entry.getSerialNumber(), version, e.getMessage());
+                skipped ++;
+                continue;
+            } catch(AlreadyExistException e) {
+                logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {}: already exists. Skipping the sync", entry.getSerialNumber(), version);
+                duplicates ++;
+                continue;
+            }
+            stored ++;
+        }
+        logger.getLogger().info("CBOM Sync: finished, read {} entries, skipped due an error {}, skipped duplicates {}, stored {} new entries",
+            cboms.size(),
+            skipped,
+            duplicates,
+            stored
+        );
+    }
+
+    private BomResponseDto read(String serialNumber, int version) throws CbomRepositoryException, NotFoundException {
+        BomResponseDto response;
+        try {
+            response = cbomRepositoryClient.read(
+                    serialNumber,
+                    version);
+            logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {}: {}", serialNumber, version, response);
+        } catch (CbomRepositoryException ex) {
+            if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
+                throw new NotFoundException(CbomDetailDto.class, "Cbom");
+            } else {
+                throw ex;
+            }
+        }
+        return response;
+    }
 }
