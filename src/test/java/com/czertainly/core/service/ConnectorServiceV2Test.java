@@ -333,7 +333,7 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testConnect() throws JsonProcessingException {
+    void testConnect() throws JsonProcessingException, ConnectorException {
         mockInfoEndpoint();
 
         // Mock V1 endpoint to return error (no V1 connector)
