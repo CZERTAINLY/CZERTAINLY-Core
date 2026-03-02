@@ -55,12 +55,6 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     private AttributeEngine attributeEngine;
 
     private SecretApiClient secretApiClient;
-    private LocationApiClient locationApiClient;
-
-    @Autowired
-    public void setLocationApiClient(LocationApiClient locationApiClient) {
-        this.locationApiClient = locationApiClient;
-    }
 
     @Autowired
     public void setSecretApiClient(SecretApiClient secretApiClient) {

@@ -80,6 +80,7 @@ public class Secret extends UniquelyIdentifiedAndAudited {
 
     @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonBackReference
+    @ToString.Exclude
     private Set<Secret2SyncVaultProfile> syncVaultProfiles = new HashSet<>();
 
     public SecretDetailDto mapToDetailDto() {

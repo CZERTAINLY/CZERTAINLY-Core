@@ -7,13 +7,14 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Entity
 @Table(name = "secret_2_sync_vault_profile")
 @Getter
 @Setter
-public class Secret2SyncVaultProfile {
+public class Secret2SyncVaultProfile implements Serializable {
 
     @EmbeddedId
     private Secret2SyncVaultProfileId id = new Secret2SyncVaultProfileId();

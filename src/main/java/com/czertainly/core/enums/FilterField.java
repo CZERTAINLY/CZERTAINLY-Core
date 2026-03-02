@@ -45,7 +45,7 @@ public enum FilterField {
     SERIAL_NUMBER(Resource.CERTIFICATE, null, null, Certificate_.serialNumber, "Serial Number", SearchFieldTypeEnum.STRING),
     RA_PROFILE_NAME(Resource.CERTIFICATE, Resource.RA_PROFILE, List.of(Certificate_.raProfile), RaProfile_.name, "RA Profile", SearchFieldTypeEnum.LIST, null, null, true, null),
     CERTIFICATE_TYPE(Resource.CERTIFICATE, null, null, Certificate_.certificateType, "Type", SearchFieldTypeEnum.LIST, CertificateType.class),
-    CERTIFICATE_STATE(Resource.CERTIFICATE, null, null, Certificate_.state, "State", SearchFieldTypeEnum.LIST, CertificateState.class),
+    CERTIFICATE_STATE(Resource.CERTIFICATE, null, null, Certificate_.state, Constants.STATE, SearchFieldTypeEnum.LIST, CertificateState.class),
     CERTIFICATE_VALIDATION_STATUS(Resource.CERTIFICATE, null, null, Certificate_.validationStatus, "Validation status", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     COMPLIANCE_STATUS(Resource.CERTIFICATE, null, null, Certificate_.complianceStatus, "Compliance Status", SearchFieldTypeEnum.LIST, ComplianceStatus.class),
     GROUP_NAME(Resource.CERTIFICATE, Resource.GROUP, List.of(Certificate_.groups), Group_.name, "Groups", SearchFieldTypeEnum.LIST, null, null, true, null),
@@ -99,7 +99,7 @@ public enum FilterField {
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),
     CKI_TYPE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.type, "Key type", SearchFieldTypeEnum.LIST, KeyType.class, null, false, null),
     CKI_FORMAT(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.format, "Key format", SearchFieldTypeEnum.LIST, KeyFormat.class, null, false, null),
-    CKI_STATE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.state, "State", SearchFieldTypeEnum.LIST, KeyState.class, null, false, null),
+    CKI_STATE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.state, Constants.STATE, SearchFieldTypeEnum.LIST, KeyState.class, null, false, null),
     CKI_CRYPTOGRAPHIC_ALGORITHM(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.keyAlgorithm, "Cryptographic algorithm", SearchFieldTypeEnum.LIST, KeyAlgorithm.class, null, false, null),
     CKI_USAGE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.usage, "Key Usage", SearchFieldTypeEnum.LIST, KeyUsage.class, null, false, null),
     CKI_LENGTH(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.length, "Key Size", SearchFieldTypeEnum.NUMBER),
@@ -188,7 +188,7 @@ public enum FilterField {
     // Secret
     SECRET_NAME(Resource.SECRET, null, null, Secret_.name, "Name", SearchFieldTypeEnum.STRING),
     SECRET_TYPE(Resource.SECRET, null, null, Secret_.type, "Type", SearchFieldTypeEnum.LIST, SecretType.class),
-    SECRET_STATE(Resource.SECRET, null, null, Secret_.state, "State", SearchFieldTypeEnum.LIST, SecretState.class),
+    SECRET_STATE(Resource.SECRET, null, null, Secret_.state, Constants.STATE, SearchFieldTypeEnum.LIST, SecretState.class),
     SECRET_ENABLED(Resource.SECRET, null, null, Secret_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
     SECRET_SOURCE_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.sourceVaultProfile), VaultProfile_.name, "Source Vault Profile", SearchFieldTypeEnum.LIST),
     SECRET_SYNC_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.syncVaultProfiles, Secret2SyncVaultProfile_.syncProfile), VaultProfile_.name, "Sync Vault Profile", SearchFieldTypeEnum.LIST),
@@ -253,6 +253,7 @@ public enum FilterField {
 
     private static class Constants {
         private static final String RESOURCE_OBJECTS_ARRAY = "objects[*]";
+        public static final String STATE = "State";
     }
 
 }
