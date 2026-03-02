@@ -81,12 +81,6 @@ spring:
   sql:
     init:
       mode: always
-  # testcontainers configuration
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
   messaging:
     broker-type: RABBITMQ
     broker-url: amqp://localhost:5672
