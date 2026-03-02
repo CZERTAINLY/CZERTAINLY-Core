@@ -23,7 +23,6 @@ public class SecretVersion extends UniquelyIdentified {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "secret_uuid", insertable = false, updatable = false)
-    @JsonBackReference
     private Secret secret;
 
     @Column(name = "version", nullable = false)
@@ -37,7 +36,6 @@ public class SecretVersion extends UniquelyIdentified {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vault_instance_uuid", insertable = false, updatable = false)
-    @JsonBackReference
     private VaultInstance vaultInstance;
 
     @Column(name = "vault_version")

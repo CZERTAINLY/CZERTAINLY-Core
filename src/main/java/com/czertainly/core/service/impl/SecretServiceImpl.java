@@ -187,7 +187,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultInstanceUuid.toString()));
 
-        SecretResponseDto secretResponseDto = createSecretInVault(vaultInstance.getConnectorUuid(), vaultInstance.getUuid(), secretRequest.getSecret().getType(), vaultProfile.getUuid(), secretRequest);
+        SecretResponseDto secretResponseDto = createSecretInVault(vaultInstance.getConnectorUuid(), vaultProfile.getVaultInstanceUuid(), secretRequest.getSecret().getType(), vaultProfile.getUuid(), secretRequest);
 
         attributeEngine.validateCustomAttributesContent(Resource.SECRET, secretRequest.getCustomAttributes());
 
@@ -326,6 +326,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 vaultInstanceUuids.add(profile.getSyncProfile().getVaultInstance().getUuid());
             }
         }
+        secret.setLatestVersion(null);
+        secretRepository.saveAndFlush(secret);
         secretRepository.delete(secret);
     }
 
@@ -377,12 +379,14 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         createSecretRequestDto.setAttributes(requestAttributes);
         SecretContent secretContent = getSecretContent(uuid);
         createSecretRequestDto.setSecret(secretContent);
-        createSecretInVault(vaultProfile.getVaultInstance().getConnectorUuid(), vaultProfile.getUuid(), secret.getType(), vaultProfile.getUuid(), createSecretRequestDto);
+        createSecretInVault(vaultProfile.getVaultInstance().getConnectorUuid(), vaultProfile.getVaultInstanceUuid(), secret.getType(), vaultProfile.getUuid(), createSecretRequestDto);
 
         Secret2SyncVaultProfileId secret2SyncVaultProfileId = new Secret2SyncVaultProfileId(secret.getUuid(), vaultProfile.getUuid());
         Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
         secret2SyncVaultProfile.setId(secret2SyncVaultProfileId);
         secret2SyncVaultProfile.setSecretAttributes(requestAttributes);
+        secret2SyncVaultProfile.setSyncProfile(vaultProfile);
+        secret2SyncVaultProfile.setSecret(secret);
         secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
     }
 
@@ -415,7 +419,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     private Secret getSecretEntity(UUID uuid) throws NotFoundException {
-        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
+        Secret secret = secretRepository.findWithAssociationsByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
         return secret;
@@ -499,7 +503,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(currentSourceVaultProfileUuid));
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
 
-        boolean sourceVaultProfileChanged = request.getSourceVaultProfileUuid() != currentSourceVaultProfileUuid;
+        boolean sourceVaultProfileChanged = !request.getSourceVaultProfileUuid().equals(currentSourceVaultProfileUuid);
         if (sourceVaultProfileChanged) {
             VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()))
                     .orElseThrow(() -> new NotFoundException(VaultProfile.class, request.getSourceVaultProfileUuid()));
@@ -513,7 +517,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
             attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
 
-            secret.getSyncVaultProfiles().add(secret2SyncVaultProfile);
             secret.setSourceVaultProfile(updatedSourceVaultProfile);
             if (updatedSourceVaultProfile.getVaultInstance() != currentSourceVaultProfile.getVaultInstance()) {
                 SecretVersion newVersion = new SecretVersion();
@@ -524,10 +527,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 secretRequest.setName(secret.getName());
                 secretRequest.setAttributes(request.getSecretAttributes());
                 secretRequest.setSecret(getSecretContent(secret.getUuid()));
-                SecretResponseDto secretResponseDto = createSecretInVault(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), updatedSourceVaultProfile.getUuid(), secret.getType(), updatedSourceVaultProfile.getUuid(), secretRequest);
+                SecretResponseDto secretResponseDto = createSecretInVault(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), updatedSourceVaultProfile.getVaultInstanceUuid(), secret.getType(), updatedSourceVaultProfile.getUuid(), secretRequest);
                 attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
                 attributeEngine.updateObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), request.getSecretAttributes());
                 newVersion.setVaultVersion(secretResponseDto.getVersion());
+                newVersion.setFingerprint(secret.getLatestVersion().getFingerprint());
                 secretVersionRepository.save(newVersion);
                 secret.setLatestVersion(newVersion);
                 secret.getVersions().add(newVersion);

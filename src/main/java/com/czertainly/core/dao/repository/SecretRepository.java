@@ -18,6 +18,6 @@ public interface SecretRepository extends SecurityFilterRepository<Secret, UUID>
     @Query("SELECT s.name FROM Secret s JOIN s.syncVaultProfiles svp JOIN svp.syncProfile vp WHERE vp.uuid = :syncVaultProfileUuid")
     List<String> findAllNamesBySyncVaultProfileUuid(UUID syncVaultProfileUuid);
 
-    @EntityGraph(attributePaths = {"groups", "owner"})
+    @EntityGraph(attributePaths = {"groups", "owner", "sourceVaultProfile", "latestVersion", "syncVaultProfiles"})
     Optional<Secret> findWithAssociationsByUuid(UUID uuid);
 }

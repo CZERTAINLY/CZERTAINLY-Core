@@ -42,13 +42,15 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "latest_version_uuid", insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private SecretVersion latestVersion;
 
     @Column(name = "latest_version_uuid")
     private UUID latestVersionUuid;
 
-    @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE, orphanRemoval = true)
     @ToString.Exclude
+    @JsonBackReference
     private Set<SecretVersion> versions = new HashSet<>();
 
     @Column(name = "type", nullable = false)
@@ -135,6 +137,6 @@ public class Secret extends UniquelyIdentifiedAndAudited {
 
     public void setLatestVersion(SecretVersion latestVersion) {
         this.latestVersion = latestVersion;
-        this.latestVersionUuid = latestVersion.getUuid();
+        this.latestVersionUuid = latestVersion == null ? null : latestVersion.getUuid();
     }
 }

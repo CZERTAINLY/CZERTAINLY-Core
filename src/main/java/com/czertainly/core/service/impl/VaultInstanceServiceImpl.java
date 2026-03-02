@@ -25,11 +25,8 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.service.VaultInstanceService;
 import com.czertainly.core.service.v2.ConnectorService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -103,7 +100,8 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         }
 
 
-        checkConnectionToVaultInConnector(request.getConnectorUuid(), request.getAttributes());
+        ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(request.getConnectorUuid()));
+        checkConnectionToVaultInConnector(request.getConnectorUuid(), request.getAttributes(), connector);
 
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
 
@@ -114,14 +112,14 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         vaultInstanceRepository.save(vaultInstance);
 
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
+        detailDto.getConnector().setName(connector.getName());
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));
         detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
 
         return detailDto;
     }
 
-    private void checkConnectionToVaultInConnector(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws ConnectorException, NotFoundException, AttributeException {
-        ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
+    private void checkConnectionToVaultInConnector(UUID connectorUuid, List<RequestAttribute> requestAttributes, ConnectorDetailDto connector) throws ConnectorException, NotFoundException, AttributeException {
         List<BaseAttribute> attributes = listVaultInstanceAttributes(connectorUuid);
         List<RequestAttribute> connectorRequestAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, attributes, requestAttributes);
         vaultApiClient.checkVaultConnection(connector, connectorRequestAttributes);
@@ -178,7 +176,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
 
-        checkConnectionToVaultInConnector(vaultInstance.getConnectorUuid(), request.getAttributes());
+        checkConnectionToVaultInConnector(vaultInstance.getConnectorUuid(), request.getAttributes(), connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid())));
 
         detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));
