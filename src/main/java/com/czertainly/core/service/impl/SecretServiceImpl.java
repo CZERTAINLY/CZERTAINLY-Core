@@ -485,7 +485,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             objectAssociationService.setGroups(Resource.SECRET, secret.getUuid(), request.getGroupUuids());
         }
         if (request.getOwnerUuid() != null) {
-            if (secret.getOwner() != null && request.getOwnerUuid().equals(secret.getOwner().getUuid())) {
+            if (secret.getOwner() != null && request.getOwnerUuid().equals(secret.getOwner().getUuid().toString())) {
                 return;
             }
             objectAssociationService.setOwner(Resource.SECRET, secret.getUuid(), request.getOwnerUuid().isEmpty() ? null : UUID.fromString(request.getOwnerUuid()));
@@ -508,6 +508,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
             secret2SyncVaultProfile.setSecretAttributes(attributeEngine.getRequestObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
             secret2SyncVaultProfile.setId(new Secret2SyncVaultProfileId(secret.getUuid(), currentSourceVaultProfile.getUuid()));
+            secret2SyncVaultProfile.setSyncProfile(currentSourceVaultProfile);
+            secret2SyncVaultProfile.setSecret(secret);
             secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
             attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
 

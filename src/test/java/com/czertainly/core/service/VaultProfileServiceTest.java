@@ -214,6 +214,4 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertFalse(updatedProfile.isEnabled());
     }
 
-
-
 }

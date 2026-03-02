@@ -9,6 +9,7 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.connector.secrets.SecretResponseDto;
 import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -32,10 +33,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.SerializationUtils;
+import org.testcontainers.shaded.com.fasterxml.jackson.core.JsonProcessingException;
+import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -73,11 +75,22 @@ class SecretServiceTest extends BaseSpringBootTest {
     private VaultInstance vaultInstance;
 
     @BeforeEach
-    void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException {
+    void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException, JsonProcessingException {
         WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
+        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/secrets/basicAuth/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        SecretResponseDto secretResponseDto = new SecretResponseDto();
+        secretResponseDto.setName("testSecret");
+        secretResponseDto.setVersion("1.2");
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretResponseDto))));
+        WireMock.stubFor(WireMock.put(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretResponseDto))));
+        WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.ok()));
 
         Connector connector = new Connector();
         connector.setName("testConnector");
@@ -323,7 +336,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         ));
 
         SecretUpdateObjectsDto updateObjectsDto = new SecretUpdateObjectsDto();
-        updateObjectsDto.setOwnerUuid(UUID.randomUUID());
+        updateObjectsDto.setOwnerUuid(String.valueOf(UUID.randomUUID()));
         secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto);
         Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
         Assertions.assertEquals("newOwner", reloadedSecret.getOwner().getOwnerUsername());
