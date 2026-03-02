@@ -44,7 +44,7 @@ public class AadTokenProvider implements BiFunction<Connection, URI, Object> {
     public Object apply(Connection connection, URI uri) {
         logger.debug("AAD PASSWORD_OVERRIDE called for URI: {}", uri);
         String token = getToken();
-        logger.debug("Returning AAD token (length: {}, prefix: {}...)", token.length(), token.substring(0, Math.min(10, token.length())));
+        logger.debug("Returning AAD token (length: {})", token.length());
         return token;
     }
 
