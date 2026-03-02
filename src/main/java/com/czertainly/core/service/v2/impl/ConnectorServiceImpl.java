@@ -247,19 +247,20 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
-    public List<ConnectInfo> connect(ConnectRequestDto request) {
+    public List<ConnectInfo> connect(ConnectRequestDto request) throws ConnectorException {
         List<ConnectInfo> connectInfos = new ArrayList<>();
+
+        ConnectorApiClientDto apiClientDto = new ConnectorApiClientDto();
+        apiClientDto.setUuid(request.getUuid());
+        apiClientDto.setUrl(request.getUrl());
+        apiClientDto.setAuthType(request.getAuthType());
+        apiClientDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         for (ConnectorAdapter connectorAdapter : connectorAdapters.values()) {
             ConnectInfo connectInfo;
             try {
-                ConnectorApiClientDto apiClientDto = new ConnectorApiClientDto();
-                apiClientDto.setUrl(request.getUrl());
-                apiClientDto.setAuthType(request.getAuthType());
-                apiClientDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
-
                 connectInfo = connectorAdapter.validateConnection(apiClientDto);
             } catch (ConnectorException e) {
-                if (e instanceof ConnectorCommunicationException) {
+                if (e instanceof ConnectorCommunicationException || e instanceof ConnectorEntityNotFoundException) {
                     logger.debug("No connector of version {} is running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
                     continue;
                 }
@@ -275,6 +276,10 @@ public class ConnectorServiceImpl implements ConnectorService {
                 connectInfo.setConnectorUuid(connector.get().getUuid());
             }
             connectInfos.add(connectInfo);
+        }
+
+        if (connectInfos.isEmpty()) {
+            throw new ConnectorCommunicationException("Unable to connect to any connector on the provided URL '%s' with the provided credentials.".formatted(request.getUrl()), null);
         }
 
         connectInfos.sort(Comparator.comparing(ConnectInfo::getVersion));
