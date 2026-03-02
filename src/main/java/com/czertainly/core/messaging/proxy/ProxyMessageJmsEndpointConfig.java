@@ -26,7 +26,7 @@ public class ProxyMessageJmsEndpointConfig extends AbstractJmsEndpointConfig<Pro
                 () -> "proxyMessageListener",
                 proxyProperties::exchange,
                 proxyProperties::responseQueue,
-                () -> "1",
+                proxyProperties::concurrency,
                 ProxyMessage.class
         );
     }

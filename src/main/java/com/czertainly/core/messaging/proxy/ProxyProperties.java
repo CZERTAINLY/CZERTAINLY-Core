@@ -39,6 +39,12 @@ public record ProxyProperties(
         Integer maxPendingRequests,
 
         /**
+         * JMS listener concurrency for proxy response messages.
+         * Default: 1
+         */
+        String concurrency,
+
+        /**
          * Redis configuration for distributed response coordination.
          */
         RedisProperties redis
@@ -84,6 +90,9 @@ public record ProxyProperties(
         }
         if (maxPendingRequests == null) {
             maxPendingRequests = 1000;
+        }
+        if (concurrency == null) {
+            concurrency = "1";
         }
         if (redis == null) {
             redis = new RedisProperties(null, null);
