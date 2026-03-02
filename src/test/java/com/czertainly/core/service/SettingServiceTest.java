@@ -55,9 +55,11 @@ class SettingServiceTest extends BaseSpringBootTest {
     @Test
     void updatePlatformSettings() {
         String utilsServiceUrl = "http://util-service:8080";
+        String cbomRepositoryUrl = "http://cbom-repository:8080";
 
         PlatformSettingsDto platformSettings = settingService.getPlatformSettings();
         Assertions.assertNull(platformSettings.getUtils().getUtilsServiceUrl());
+        Assertions.assertNull(platformSettings.getUtils().getCbomRepositoryUrl());
         Assertions.assertNotNull(platformSettings.getCertificates());
         Assertions.assertTrue(platformSettings.getCertificates().getValidation().getEnabled());
         Assertions.assertEquals(1, platformSettings.getCertificates().getValidation().getFrequency());
@@ -65,6 +67,7 @@ class SettingServiceTest extends BaseSpringBootTest {
         PlatformSettingsUpdateDto platformSettingsUpdateDto = new PlatformSettingsUpdateDto();
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
         utilsSettingsDto.setUtilsServiceUrl(utilsServiceUrl);
+        utilsSettingsDto.setCbomRepositoryUrl(cbomRepositoryUrl);
         platformSettingsUpdateDto.setUtils(utilsSettingsDto);
         CertificateSettingsUpdateDto certificateSettingsUpdateDto = new CertificateSettingsUpdateDto();
         CertificateValidationSettingsUpdateDto certificateValidationSettingsUpdateDto = new CertificateValidationSettingsUpdateDto();
@@ -75,6 +78,7 @@ class SettingServiceTest extends BaseSpringBootTest {
 
         platformSettings = settingService.getPlatformSettings();
         Assertions.assertEquals(utilsServiceUrl, platformSettings.getUtils().getUtilsServiceUrl());
+        Assertions.assertEquals(cbomRepositoryUrl, platformSettings.getUtils().getCbomRepositoryUrl());
         Assertions.assertEquals(5, platformSettings.getCertificates().getValidation().getFrequency());
     }
 

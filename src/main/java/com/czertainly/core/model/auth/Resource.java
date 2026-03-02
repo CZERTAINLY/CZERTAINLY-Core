@@ -68,8 +68,10 @@ public enum Resource {
     // SECRETS
     VAULT("vaults"),
     VAULT_PROFILE("vaultProfiles"),
-    SECRET("secrets")
+    SECRET("secrets"),
 
+    // CBOMS
+    CBOM("cboms")
     ;
 
     @Schema(description = "Resource Name",

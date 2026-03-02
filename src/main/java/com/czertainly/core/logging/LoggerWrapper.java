@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -52,13 +54,13 @@ public class LoggerWrapper {
         }
     }
 
-    public void logEvent(Operation operation, OperationResult operationResult, Serializable operationData, String message) {
+    public void logEvent(Operation operation, OperationResult operationResult, Serializable operationData, List<ResourceObjectIdentity> resourceObjects, String message) {
         if (isLogFiltered(false, this.module, this.resource, operationResult)) {
             return;
         }
 
         try {
-            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message, null);
+            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, resourceObjects, operation, operationResult, operationData, message, null);
             if (operationResult == OperationResult.SUCCESS) {
                 logger.info(OBJECT_MAPPER.writeValueAsString(logRecord));
             } else {
@@ -71,13 +73,13 @@ public class LoggerWrapper {
         }
     }
 
-    public void logEventDebug(Operation operation, OperationResult operationResult, Serializable operationData, String message) {
+    public void logEventDebug(Operation operation, OperationResult operationResult, Serializable operationData, List<ResourceObjectIdentity> resourceObjects, String message) {
         if (!logger.isDebugEnabled() || isLogFiltered(false, this.module, this.resource, operationResult)) {
             return;
         }
 
         try {
-            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message, null);
+            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, resourceObjects, operation, operationResult, operationData, message, null);
             logger.debug(OBJECT_MAPPER.writeValueAsString(logRecord));
         } catch (JsonProcessingException e) {
             logger.warn("Cannot serialize debug event LogRecord to JSON: {}", e.getMessage());
@@ -91,11 +93,11 @@ public class LoggerWrapper {
         return LoggingHelper.isLogFilteredBasedOnModuleAndResource(audited, module, resource);
     }
 
-    public LogRecord buildLogRecord(boolean audited, Module module, Resource resource, Operation operation, OperationResult operationResult, Serializable operationData, String message, Map<String, Object> additionalData) {
+    public LogRecord buildLogRecord(boolean audited, Module module, Resource resource, List<ResourceObjectIdentity> resourceObjects, Operation operation, OperationResult operationResult, Serializable operationData, String message, Map<String, Object> additionalData) {
         if (module == null) module = this.module;
         if (resource == null) resource = this.resource;
 
-        var logBuilder = prepareLogRecord(audited, module, resource);
+        var logBuilder = prepareLogRecord(audited, module, resource, resourceObjects);
         return logBuilder
                 .timestamp(OffsetDateTime.now())
                 .operation(operation)
@@ -106,14 +108,14 @@ public class LoggerWrapper {
                 .build();
     }
 
-    private LogRecord.LogRecordBuilder prepareLogRecord(boolean audited, Module module, Resource resource) {
+    private LogRecord.LogRecordBuilder prepareLogRecord(boolean audited, Module module, Resource resource, List<ResourceObjectIdentity> resourceObjects) {
         return LogRecord.builder()
                 .version("1.1")
                 .audited(audited)
                 .module(module)
                 .actor(LoggingHelper.getActorInfo())
                 .source(LoggingHelper.getSourceInfo())
-                .resource(new ResourceRecord(resource, null));
+                .resource(new ResourceRecord(resource, resourceObjects));
     }
 
 }

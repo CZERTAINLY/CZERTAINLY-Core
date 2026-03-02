@@ -198,7 +198,7 @@ public class AuditLogServiceImpl implements AuditLogService {
             additionalData.put("authData", authData);
         }
 
-        LogRecord logRecord = logger.buildLogRecord(true, module, resource, operation, operationResult, null, message, additionalData);
+        LogRecord logRecord = logger.buildLogRecord(true, module, resource, null, operation, operationResult, null, message, additionalData);
         if (LoggingHelper.isLogFilteredBasedOnModuleAndResource(true, logRecord.module(), logRecord.resource().type())) {
             return;
         }

@@ -264,6 +264,9 @@ public class ConnectorServiceImpl implements ConnectorService {
                 }
                 logger.error("Unable to connect to connector of version {} running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
                 connectInfo = ConnectInfo.fromError(connectorAdapter.getVersion(), e.getMessage());
+            } catch (ValidationException e) {
+                logger.error("Validation error when connecting to connector of version {} with the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage());
+                connectInfo = ConnectInfo.fromError(connectorAdapter.getVersion(), e.getMessage());
             }
 
             var connector = connectorRepository.findByUrlAndVersion(request.getUrl(), connectorAdapter.getVersion());

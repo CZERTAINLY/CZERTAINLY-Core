@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -80,6 +81,11 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         String redirectUrl = (String) request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
         request.getSession().removeAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
         request.getSession().removeAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE);
+
+        if (redirectUrl == null || redirectUrl.isEmpty()) {
+            logger.warn("Authentication of user {} via OAuth2 successful, but redirect URL is missing in session. Redirecting to default.", username);
+            redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        }
 
         try {
             response.sendRedirect(redirectUrl);

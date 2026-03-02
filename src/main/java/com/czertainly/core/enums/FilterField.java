@@ -193,6 +193,16 @@ public enum FilterField {
     SECRET_SOURCE_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.sourceVaultProfile), VaultProfile_.name, "Source Vault Profile", SearchFieldTypeEnum.LIST),
     SECRET_SYNC_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.syncVaultProfiles), VaultProfile_.name, "Sync Vault Profile", SearchFieldTypeEnum.LIST),
 
+    // CBOM
+    CBOM_SERIAL_NUMBER(Resource.CBOM, null, null, Cbom_.serialNumber, "Serial Number", SearchFieldTypeEnum.STRING),
+    CBOM_VERSION(Resource.CBOM, null, null, Cbom_.version, "Version", SearchFieldTypeEnum.NUMBER),
+    CBOM_TIMESTAMP(Resource.CBOM, null, null, Cbom_.timestamp, "Timestamp", SearchFieldTypeEnum.DATETIME),
+    CBOM_SOURCE(Resource.CBOM, null, null, Cbom_.source, "Source", SearchFieldTypeEnum.STRING),
+    CBOM_ALGORITHMS_COUNT(Resource.CBOM, null, null, Cbom_.algorithmsCount, "Algorithms Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_CERTIFICATES_COUNT(Resource.CBOM, null, null, Cbom_.certificatesCount, "Certificates Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_PROTOCOLS_COUNT(Resource.CBOM, null, null, Cbom_.protocolsCount, "Protocols Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_CRYPTO_MATERIAL_COUNT(Resource.CBOM, null, null, Cbom_.cryptoMaterialCount, "Crypto Material Count", SearchFieldTypeEnum.NUMBER),
+    CBOM_TOTAL_ASSETS_COUNT(Resource.CBOM, null, null, Cbom_.totalAssetsCount, "Total Assets Count", SearchFieldTypeEnum.NUMBER)
     ;
 
     private static final FilterField[] VALUES;

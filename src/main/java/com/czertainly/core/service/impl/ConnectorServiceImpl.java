@@ -138,6 +138,10 @@ public class ConnectorServiceImpl implements ConnectorService {
                 continue;
             }
 
+            if (connectInfo.getErrorMessage() != null) {
+                throw new ValidationException(connectInfo.getErrorMessage());
+            }
+
             ConnectInfoV1 connectInfoV1 = (ConnectInfoV1) connectInfo;
             for (FunctionGroupDto functionGroupDto : connectInfoV1.getFunctionGroups()) {
                 ConnectDto connectDto = new ConnectDto();
@@ -155,7 +159,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         if (connector.getVersion() != ConnectorVersion.V1) {
-            throw new ValidationException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got " + connector.getVersion());
+            throw new ValidationException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got " + connector.getVersion().getLabel());
         }
 
         var connectInfo = connectorServiceV2.reconnect(uuid);

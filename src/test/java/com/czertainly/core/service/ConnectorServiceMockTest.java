@@ -1,7 +1,6 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.clients.ConnectorApiClient;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
@@ -77,7 +76,7 @@ class ConnectorServiceMockTest {
         ((ConnectorServiceImpl) connectorService).setConnectorAdapters(Map.of(ConnectorVersion.V1.getCode(), connectorAdapter, ConnectorVersion.V2.getCode(), connectorAdapter));
 
         Mockito.when(functionGroupRepository.findByCode(Mockito.any())).thenReturn(Optional.empty());
-        Mockito.when(functionGroupRepository.findByCode(Mockito.eq(FunctionGroupCode.CREDENTIAL_PROVIDER))).thenReturn(Optional.of(functionGroup));
+        Mockito.when(functionGroupRepository.findByCode(FunctionGroupCode.CREDENTIAL_PROVIDER)).thenReturn(Optional.of(functionGroup));
     }
 
     @Test
@@ -91,9 +90,7 @@ class ConnectorServiceMockTest {
         ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
 
-        Assertions.assertThrows(ValidationException.class, () ->
-                connectorService.connect(request)
-        );
+        Assertions.assertNotNull(connectorService.connect(request).getFirst().getErrorMessage());
     }
 
     @Test
@@ -106,9 +103,8 @@ class ConnectorServiceMockTest {
 
         ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
-        Assertions.assertThrows(ValidationException.class, () ->
-                connectorService.connect(request)
-        );
+
+        Assertions.assertNotNull(connectorService.connect(request).getFirst().getErrorMessage());
     }
 
     @Test
