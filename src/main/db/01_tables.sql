@@ -359,8 +359,8 @@ CREATE TABLE "discovery_certificate" (
        references authority_instance_reference;
 
     alter table if exists connector
-        add constraint FK1qvna5rijfjsxr9t892wv59
-        foreign key (proxy_id)
+        add constraint connector_to_proxy_key
+        foreign key (proxy_uuid)
         references proxy;
 
 ALTER TABLE if exists client
