@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,7 +37,6 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
@@ -392,24 +392,8 @@ public class CbomServiceImpl implements CbomService {
                 continue;
             }
 
-            BomResponseDto response;
             try {
-                response = read(entry.getSerialNumber(), version);
-            } catch(NotFoundException e) {
-                logger.getLogger().warn("CBOM Sync: CBOM document serialNumber {} and version {}: not found in cbom-repository. Skipping the sync", entry.getSerialNumber(), version);
-                skipped ++;
-                continue;
-            }
-
-            CbomUploadRequestDto request = new CbomUploadRequestDto();
-            request.setContent(response);
-
-            try {
-                createCbom(request);
-            } catch(ValidationException e) {
-                logger.getLogger().error("CBOM Sync: CBOM serialNumber {} and version {}: validation failed: {}. Skipping the sync", entry.getSerialNumber(), version, e.getMessage());
-                skipped ++;
-                continue;
+                createCbomEntry(entry, version);
             } catch(AlreadyExistException e) {
                 logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {}: already exists. Skipping the sync", entry.getSerialNumber(), version);
                 duplicates ++;
@@ -440,5 +424,31 @@ public class CbomServiceImpl implements CbomService {
             }
         }
         return response;
+    }
+
+    private void createCbomEntry(BomEntryDto entry, int version) throws AlreadyExistException {
+        Cbom cbom = new Cbom();
+        cbom.setSerialNumber(entry.getSerialNumber());
+        cbom.setVersion(version);
+        // FIXME: this is not returned by cbom-repository
+        // cbom.setSpecVersion(entry.getSpecVersion());
+        cbom.setTimestamp(entry.getTimestamp());
+        // FIXME: this is not returned by cbom-repository
+        // cbom.setSource(entry.getSource());
+        cbom.setAlgorithmsCount(entry.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal());
+        cbom.setCertificatesCount(entry.getCryptoStats().getCryptoAssets().getCertificates().getTotal());
+        cbom.setProtocolsCount(entry.getCryptoStats().getCryptoAssets().getProtocols().getTotal());
+        cbom.setCryptoMaterialCount(entry.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal());
+        cbom.setTotalAssetsCount(entry.getCryptoStats().getCryptoAssets().getTotal());
+
+        try {
+            cbomRepository.save(cbom);
+        } catch (ConstraintViolationException e) {
+            if (e.getMessage() != null && e.getMessage().contains("cbom_serial_version_unique")) {
+                throw new AlreadyExistException(Cbom.class, 
+                    "serialNumber: " + cbom.getSerialNumber() + ", version: " + cbom.getVersion());
+            }
+            throw e;
+        }
     }
 }
