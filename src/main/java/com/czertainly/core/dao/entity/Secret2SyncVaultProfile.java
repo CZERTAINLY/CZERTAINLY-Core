@@ -23,7 +23,7 @@ public class Secret2SyncVaultProfile {
     private Secret secret;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("syncProfileUuid")
+    @MapsId("syncVaultProfileUuid")
     private VaultProfile syncProfile;
 
     @Column(name = "secret_attributes", columnDefinition = "jsonb")

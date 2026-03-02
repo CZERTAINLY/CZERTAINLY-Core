@@ -18,10 +18,7 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.vaultprofile.*;
-import com.czertainly.core.dao.entity.Secret;
-import com.czertainly.core.dao.entity.SecretVersion;
-import com.czertainly.core.dao.entity.VaultInstance;
-import com.czertainly.core.dao.entity.VaultProfile;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -33,9 +30,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+
 
 class VaultProfileServiceTest extends BaseSpringBootTest {
 
@@ -54,6 +51,8 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
     private SecretRepository secretRepository;
     @Autowired
     private SecretVersionRepository secretVersionRepository;
+    @Autowired
+    private Secret2SyncVaultProfileRepository secret2SyncVaultProfileRepository;
 
     private VaultProfile vaultProfile;
     private VaultInstance vaultInstance;
@@ -86,7 +85,7 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         requestDto.setName("testProfile2");
         requestDto.setDescription("test description");
         RequestAttributeV3 attribute = new RequestAttributeV3();
-        attribute.setName("test");
+        attribute.setName(TEST_CUSTOM_ATTRIBUTE);
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         requestDto.setCustomAttributes(List.of(attribute));
         Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(UUID.randomUUID()), requestDto));
@@ -103,12 +102,12 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateVaultProfile() throws NotFoundException {
+    void testUpdateVaultProfile() throws NotFoundException, AttributeException {
         Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(UUID.randomUUID()), new VaultProfileUpdateRequestDto()));
         VaultProfileUpdateRequestDto requestDto = new VaultProfileUpdateRequestDto();
         requestDto.setDescription("new description");
         RequestAttributeV3 attribute = new RequestAttributeV3();
-        attribute.setName("test");
+        attribute.setName(TEST_CUSTOM_ATTRIBUTE);
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         requestDto.setCustomAttributes(List.of(attribute));
         VaultProfileDetailDto detailDto = vaultProfileService.updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), requestDto);
@@ -159,13 +158,18 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         secret.setSourceVaultProfileUuid(vaultProfile2.getUuid());
         secretRepository.save(secret);
 
-        secret.getSyncVaultProfiles().add(vaultProfile);
-        secretRepository.save(secret);
+        Secret2SyncVaultProfileId secret2SyncVaultProfileId = new Secret2SyncVaultProfileId();
+        secret2SyncVaultProfileId.setSecretUuid(secret.getUuid());
+        secret2SyncVaultProfileId.setSyncVaultProfileUuid(vaultProfile.getUuid());
+        Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
+        secret2SyncVaultProfile.setId(secret2SyncVaultProfileId);
+        secret2SyncVaultProfile.setSecret(secret);
+        secret2SyncVaultProfile.setSyncProfile(vaultProfile);
+        secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
 
         Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid));
 
-        secret.setSyncVaultProfiles(new HashSet<>());
-        secretRepository.save(secret);
+        secret2SyncVaultProfileRepository.delete(secret2SyncVaultProfile);
 
         vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid);
         Assertions.assertNull(vaultProfileRepository.findByUuid(profileUuid).orElse(null));

@@ -17,6 +17,8 @@ import com.czertainly.api.clients.SchedulerApiClient;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
+import com.czertainly.api.clients.secret.SecretApiClient;
+import com.czertainly.api.clients.secret.VaultApiClient;
 import com.czertainly.api.clients.v2.InfoApiClient;
 import com.czertainly.api.clients.v2.MetricsApiClient;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
@@ -177,6 +179,16 @@ public class ApplicationConfig {
     @Bean
     public CryptographicOperationsApiClient cryptographicOperationsApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
         return new CryptographicOperationsApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public VaultApiClient vaultApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new VaultApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public SecretApiClient secretApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new SecretApiClient(webClient, defaultTrustManagers);
     }
 
     @Bean

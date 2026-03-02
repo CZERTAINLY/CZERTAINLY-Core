@@ -5,6 +5,7 @@ import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.secret.SecretDetailDto;
 import com.czertainly.api.model.core.secret.SecretDto;
 import com.czertainly.api.model.core.secret.SecretState;
+import com.czertainly.api.model.core.secret.SyncVaultProfileDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -76,12 +77,18 @@ public class Secret extends UniquelyIdentifiedAndAudited {
 
     @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonBackReference
-    private Set<VaultProfile> syncVaultProfiles = new HashSet<>();
+    private Set<Secret2SyncVaultProfile> syncVaultProfiles = new HashSet<>();
 
     public SecretDetailDto mapToDetailDto() {
         SecretDetailDto dto = new SecretDetailDto();
         setCommonFields(dto);
-        dto.setSyncVaultProfiles(syncVaultProfiles.stream().map(p -> new NameAndUuidDto(p.getUuid().toString(), p.getName())).toList());
+        dto.setSyncVaultProfiles(syncVaultProfiles.stream().map(p -> {
+            SyncVaultProfileDto vaultProfileDto = new SyncVaultProfileDto();
+            vaultProfileDto.setSecretAttributes(p.getSecretAttributes());
+            vaultProfileDto.setName(p.getSyncProfile().getName());
+            vaultProfileDto.setUuid(p.getSyncProfile().getUuid().toString());
+            return vaultProfileDto;
+        }).toList());
         dto.setCreatedAt(created);
         dto.setUpdatedAt(updated);
         return dto;

@@ -10,6 +10,8 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateFormat;
+import com.czertainly.api.model.core.certificate.CertificateFormatEncoding;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -23,7 +25,12 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.VaultProfileService;
+import com.czertainly.core.util.converter.CertificateFormatConverter;
+import com.czertainly.core.util.converter.CertificateFormatEncodingConverter;
+import com.czertainly.core.util.converter.SecretTypeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -33,6 +40,11 @@ import java.util.UUID;
 public class VaultProfileControllerImpl implements VaultProfileController {
 
     private VaultProfileService vaultProfileService;
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(SecretType.class, new SecretTypeConverter());
+    }
 
     @Autowired
     public void setVaultProfileService(VaultProfileService vaultProfileService) {
@@ -53,7 +65,7 @@ public class VaultProfileControllerImpl implements VaultProfileController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.UPDATE)
-    public VaultProfileDetailDto updateVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, @LogResource(uuid = true) UUID vaultProfileUuid, VaultProfileUpdateRequestDto vaultProfileUpdateRequest) throws NotFoundException {
+    public VaultProfileDetailDto updateVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, @LogResource(uuid = true) UUID vaultProfileUuid, VaultProfileUpdateRequestDto vaultProfileUpdateRequest) throws NotFoundException, AttributeException {
         return vaultProfileService.updateVaultProfile(SecuredParentUUID.fromUUID(vaultUuid), SecuredUUID.fromUUID(vaultProfileUuid), vaultProfileUpdateRequest);
     }
 

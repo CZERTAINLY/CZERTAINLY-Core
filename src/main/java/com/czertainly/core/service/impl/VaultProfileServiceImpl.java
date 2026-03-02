@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.clients.LocationApiClient;
 import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -54,6 +55,12 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     private AttributeEngine attributeEngine;
 
     private SecretApiClient secretApiClient;
+    private LocationApiClient locationApiClient;
+
+    @Autowired
+    public void setLocationApiClient(LocationApiClient locationApiClient) {
+        this.locationApiClient = locationApiClient;
+    }
 
     @Autowired
     public void setSecretApiClient(SecretApiClient secretApiClient) {
@@ -110,14 +117,13 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     public VaultProfileDetailDto getVaultProfileDetails(SecuredParentUUID vaultUuid, SecuredUUID vaultProfileUuid) throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(vaultProfileUuid).orElseThrow(() -> new NotFoundException(VaultProfile.class, vaultProfileUuid));
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
-        detailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.VAULT_PROFILE, vaultProfile.getUuid()));
         detailDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfileUuid.getValue()));
         return detailDto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public VaultProfileDetailDto updateVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, VaultProfileUpdateRequestDto request) throws NotFoundException {
+    public VaultProfileDetailDto updateVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, VaultProfileUpdateRequestDto request) throws NotFoundException, AttributeException {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(securedUUID).orElseThrow(() -> new NotFoundException(VaultProfile.class, securedUUID));
         // check that the vault profile is associated with the same vault instance?
         vaultProfile.setDescription(request.getDescription());
@@ -125,9 +131,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
         vaultProfileRepository.save(vaultProfile);
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
-        detailDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.VAULT_PROFILE, securedUUID.getValue()));
-        detailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.VAULT_PROFILE, securedUUID.getValue()));
-
+        detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getCustomAttributes()));
         return detailDto;
     }
 

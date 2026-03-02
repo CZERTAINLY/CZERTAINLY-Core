@@ -23,6 +23,7 @@ import com.czertainly.core.service.SecretService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,7 +64,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.GET_CONTENT)
-    public SecretContent getSecretContent(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException {
+    public SecretContent getSecretContent(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException, NoSuchAlgorithmException {
         return secretService.getSecretContent(uuid);
     }
 
@@ -99,19 +100,19 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.ASSOCIATE)
-    public void addVaultProfileToSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws NotFoundException {
+    public void addVaultProfileToSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws NotFoundException, ConnectorException, NoSuchAlgorithmException, AttributeException {
         secretService.addVaultProfileToSecret(uuid, vaultProfileUuid, createSecretAttributes);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.DISASSOCIATE)
-    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException {
+    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException, ConnectorException {
         secretService.removeVaultProfileFromSecret(uuid, vaultProfileUuid);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.UPDATE)
-    public void updateSecretObjects(@LogResource(uuid = true) UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException {
+    public void updateSecretObjects(@LogResource(uuid = true) UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, NoSuchAlgorithmException, AttributeException {
         secretService.updateSecretObjects(uuid, request);
     }
 }

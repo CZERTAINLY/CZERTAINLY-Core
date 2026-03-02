@@ -35,7 +35,7 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) {
+    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException {
         return vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
     }
 
@@ -65,7 +65,7 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.UPDATE)
-    public VaultInstanceDetailDto updateVaultInstance(@LogResource(uuid = true) UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException {
+    public VaultInstanceDetailDto updateVaultInstance(@LogResource(uuid = true) UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException, ConnectorException {
         return vaultInstanceService.updateVaultInstance(uuid, vaultInstanceRequest);
     }
 

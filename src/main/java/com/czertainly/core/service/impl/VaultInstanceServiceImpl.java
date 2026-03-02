@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.vault.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.ConnectorRequestAttributesBuilder;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.VaultInstance;
@@ -61,6 +62,13 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     private CredentialService credentialService;
 
     private AttributeEngine attributeEngine;
+    private ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder;
+
+
+    @Autowired
+    public void setConnectorRequestAttributesBuilder(ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder) {
+        this.connectorRequestAttributesBuilder = connectorRequestAttributesBuilder;
+    }
 
 
     @Autowired
@@ -127,12 +135,8 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     private void checkConnectionToVaultInConnector(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws ConnectorException, NotFoundException, AttributeException {
         ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
         List<BaseAttribute> attributes = listVaultInstanceAttributes(connectorUuid);
-        attributeEngine.validateUpdateDataAttributes(UUID.fromString(connector.getUuid()), null, attributes, requestAttributes);
-        // Load complete credential data and resource data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(UUID.fromString(connector.getUuid()), requestAttributes);
-        credentialService.loadFullCredentialData(dataAttributes);
-        resourceService.loadResourceObjectContentData(dataAttributes);
-        vaultApiClient.checkVaultConnection(connector, AttributeDefinitionUtils.getClientAttributes(dataAttributes));
+        List<RequestAttribute> connectorRequestAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, attributes, requestAttributes);
+        vaultApiClient.checkVaultConnection(connector, connectorRequestAttributes);
     }
 
     @Override

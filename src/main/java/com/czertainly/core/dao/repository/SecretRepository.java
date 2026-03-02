@@ -15,7 +15,7 @@ public interface SecretRepository extends SecurityFilterRepository<Secret, UUID>
     @Query("SELECT s.name FROM Secret s WHERE s.sourceVaultProfileUuid = :sourceVaultProfileUuid")
     List<String> findAllNamesBySourceVaultProfileUuid(UUID sourceVaultProfileUuid);
 
-    @Query("SELECT s.name FROM Secret s JOIN s.syncVaultProfiles vp WHERE vp.uuid = :syncVaultProfileUuid")
+    @Query("SELECT s.name FROM Secret s JOIN s.syncVaultProfiles svp JOIN svp.syncProfile vp WHERE vp.uuid = :syncVaultProfileUuid")
     List<String> findAllNamesBySyncVaultProfileUuid(UUID syncVaultProfileUuid);
 
     @EntityGraph(attributePaths = {"groups", "owner"})
