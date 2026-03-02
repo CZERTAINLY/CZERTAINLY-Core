@@ -47,7 +47,7 @@ public class ProxyControllerImpl implements ProxyController {
     @Override
     @AuthEndpoint(resourceName = Resource.PROXY)
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.LIST)
-    public List<ProxyListDto> listProxys(
+    public List<ProxyListDto> listProxies(
         @RequestParam(required = false) ProxyStatus status) {
         return proxyService.listProxies(SecurityFilter.create(), Optional.ofNullable(status));
     }
