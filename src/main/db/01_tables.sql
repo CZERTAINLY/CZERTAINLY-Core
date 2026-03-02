@@ -164,7 +164,7 @@ CREATE TABLE "certificate_group" (
         name            varchar(255),
         status          varchar(255),
         url             varchar(255),
-        proxy_id        int8
+        proxy_uuid      uuid,
         primary key (id)
     );
 
