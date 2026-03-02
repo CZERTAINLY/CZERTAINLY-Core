@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
  * Response DTO for trusted certificate from provisioning service.
  *
  * @param uuid               UUID of the trusted certificate
- * @param certificateContent Base64 encoded certificate content
+ * @param certificateContent Raw certificate content serialized as Base64 String in JSON
  * @param issuer             Certificate issuer DN
  * @param san                Subject alternative names
  * @param serialNumber       Certificate serial number
