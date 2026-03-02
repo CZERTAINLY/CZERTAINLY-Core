@@ -49,6 +49,7 @@ public class ActionsListener implements MessageProcessor<ActionMessage> {
 
     private MessagingProperties messagingProperties;
 
+    @Override
     public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
         boolean hasApproval = actionMessage.getApprovalUuid() != null;
         boolean isApproved = hasApproval && actionMessage.getApprovalStatus().equals(ApprovalStatusEnum.APPROVED);
