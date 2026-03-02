@@ -53,6 +53,7 @@ class CoreMessageProducerTest {
                 "core",              // responseQueue
                 Duration.ofSeconds(30),
                 1000,
+                null,
                 null
         );
 

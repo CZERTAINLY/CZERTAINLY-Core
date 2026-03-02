@@ -43,6 +43,7 @@ class ProxyMessageJmsEndpointConfigTest {
                 "test-core-queue",
                 Duration.ofSeconds(30),
                 1000,
+                null,
                 null
         );
 

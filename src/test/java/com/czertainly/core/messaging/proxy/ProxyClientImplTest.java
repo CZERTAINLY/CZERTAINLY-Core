@@ -56,6 +56,7 @@ class ProxyClientImplTest {
                 "test-queue",
                 Duration.ofSeconds(30),
                 1000,
+                null,
                 null
         );
 

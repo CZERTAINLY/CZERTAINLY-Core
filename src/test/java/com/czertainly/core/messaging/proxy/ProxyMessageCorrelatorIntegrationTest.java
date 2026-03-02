@@ -38,6 +38,7 @@ class ProxyMessageCorrelatorIntegrationTest extends BaseSpringBootTest {
                 proxyProperties.responseQueue(),
                 Duration.ofMillis(500), // Short timeout for testing
                 100, // Low capacity for testing
+                null,
                 proxyProperties.redis()
         );
         correlator = new ProxyMessageCorrelator(testProps);

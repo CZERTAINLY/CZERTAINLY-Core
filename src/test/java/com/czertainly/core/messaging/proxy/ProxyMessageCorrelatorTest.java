@@ -32,6 +32,7 @@ class ProxyMessageCorrelatorTest {
                 "test-queue",
                 Duration.ofSeconds(30),
                 100, // low max pending for testing capacity
+                null,
                 null
         );
         correlator = new ProxyMessageCorrelator(proxyProperties);
