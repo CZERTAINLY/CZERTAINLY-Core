@@ -112,7 +112,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.UPDATE)
-    public void updateSecretObjects(@LogResource(uuid = true) UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, NoSuchAlgorithmException, AttributeException {
+    public void updateSecretObjects(@LogResource(uuid = true) UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException {
         secretService.updateSecretObjects(uuid, request);
     }
 }
