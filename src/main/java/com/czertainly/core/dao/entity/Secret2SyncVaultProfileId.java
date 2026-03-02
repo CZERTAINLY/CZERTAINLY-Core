@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.*;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -13,7 +14,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Getter
 @Setter
-public class Secret2SyncVaultProfileId {
+public class Secret2SyncVaultProfileId implements Serializable {
 
     @Column(name = "secret_uuid" )
     private UUID secretUuid;

@@ -1,6 +1,5 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.LocationApiClient;
 import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -192,7 +191,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.VAULT_PROFILE, false);
         List<SearchFieldDataDto> fields = new ArrayList<>(List.of(
                 SearchHelper.prepareSearch(FilterField.VAULT_PROFILE_NAME),
                 SearchHelper.prepareSearch(FilterField.VAULT_PROFILE_VAULT_INSTANCE, vaultInstanceRepository.findAllNames())
