@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import static org.junit.Assert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.codehaus.janino.CodeContext.Offset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +41,13 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.repository.CbomRepository;
+import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.model.cbom.BomEntryDto;
+import com.czertainly.core.model.cbom.BomSearchRequestDto;
+import com.czertainly.core.model.cbom.CryptoAssetCountDto;
+import com.czertainly.core.model.cbom.CryptoAssetsDto;
+import com.czertainly.core.model.cbom.CryptoStatsDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -54,6 +62,9 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Autowired
     private CbomRepository cbomRepository;
 
+    @Autowired
+    private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+
     @MockitoBean
     private AttributeEngine attributeEngine;
 
@@ -65,6 +76,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() {
         cbomRepository.deleteAll();
+        scheduledJobHistoryRepository.deleteAll();
 
         mockServer = new WireMockServer(0);
         mockServer.start();
@@ -87,7 +99,6 @@ class CbomServiceTest extends BaseSpringBootTest {
             .build();
         cbomRepositoryClient = new CbomRepositoryClient();
         ReflectionTestUtils.setField(cbomRepositoryClient, "client", webClient);
-
         ReflectionTestUtils.setField(cbomService, "cbomRepositoryClient", cbomRepositoryClient);
         ReflectionTestUtils.setField(cbomRepositoryClient, "cbomRepositoryBaseUrl", "");
     }
@@ -836,5 +847,75 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertTrue(fieldNames.contains(FilterField.CBOM_PROTOCOLS_COUNT.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_CRYPTO_MATERIAL_COUNT.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_TOTAL_ASSETS_COUNT.name()));
+    }
+
+
+    @Test
+    void sync_shouldSyncAllEntries_whenNoLastSyncExists() throws Exception {
+        // Given
+        List<BomEntryDto> mockEntries = createMockBomEntries(3);
+        when(cbomRepositoryClient.search(any(BomSearchRequestDto.class)))
+                .thenReturn(mockEntries);
+
+        // When
+        cbomService.sync();
+
+        // Then
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertThat(savedCboms).hasSize(3);
+        assertThat(savedCboms)
+                .extracting(Cbom::getSerialNumber)
+                .containsExactlyInAnyOrder("serial-1", "serial-2", "serial-3");
+        
+        verify(cbomRepositoryClient).search(argThat(query -> 
+                query.getAfter().equals(0L)));
+    }
+
+    private List<BomEntryDto> createMockBomEntries(int count) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(i -> createBomEntry("serial-" + (i + 1), String.valueOf(i + 1)))
+                .collect(java.util.stream.Collectors.toList());
+    }
+    private BomEntryDto createBomEntry(String serialNumber, String version) {
+        return createBomEntryWithFullStats(serialNumber, version, 1, 2, 3, 4, 10);
+    }
+
+    private BomEntryDto createBomEntryWithFullStats(
+            String serialNumber, 
+            String version,
+            int algorithms, 
+            int certificates, 
+            int protocols, 
+            int cryptoMaterial,
+            int total) {
+        BomEntryDto entry = new BomEntryDto();
+        entry.setSerialNumber(serialNumber);
+        entry.setVersion(version);
+        entry.setTimestamp(OffsetDateTime.now());
+
+        CryptoStatsDto cryptoStats = new CryptoStatsDto();
+        CryptoAssetsDto cryptoAssets = new CryptoAssetsDto();
+        cryptoAssets.setTotal(total);
+
+        CryptoAssetCountDto algorithmsDto = new CryptoAssetCountDto();
+        algorithmsDto.setTotal(algorithms);
+        cryptoAssets.setAlgorithms(algorithmsDto);
+
+        CryptoAssetCountDto certificatesDto = new CryptoAssetCountDto();
+        certificatesDto.setTotal(certificates);
+        cryptoAssets.setCertificates(certificatesDto);
+
+        CryptoAssetCountDto protocolsDto = new CryptoAssetCountDto();
+        protocolsDto.setTotal(protocols);
+        cryptoAssets.setProtocols(protocolsDto);
+
+        CryptoAssetCountDto cryptoMaterialDto = new CryptoAssetCountDto();
+        cryptoMaterialDto.setTotal(cryptoMaterial);
+        cryptoAssets.setRelatedCryptoMaterials(cryptoMaterialDto);
+
+        cryptoStats.setCryptoAssets(cryptoAssets);
+        entry.setCryptoStats(cryptoStats);
+
+        return entry;
     }
 }
