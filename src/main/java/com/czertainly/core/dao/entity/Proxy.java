@@ -103,8 +103,8 @@ public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable,
         Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        Proxy connector = (Proxy) o;
-        return getUuid() != null && Objects.equals(getUuid(), connector.getUuid());
+        Proxy proxy = (Proxy) o;
+        return getUuid() != null && Objects.equals(getUuid(), proxy.getUuid());
     }
 
     @Override
