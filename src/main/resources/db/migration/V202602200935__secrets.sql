@@ -5,6 +5,7 @@ CREATE TABLE vault_instance (
     connector_uuid UUID,
     i_cre TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     i_upd TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    i_author VARCHAR,
     FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
@@ -16,6 +17,7 @@ CREATE TABLE vault_profile (
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
     i_cre TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     i_upd TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    i_author VARCHAR,
     FOREIGN KEY (vault_instance_uuid) REFERENCES vault_instance(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
@@ -30,6 +32,7 @@ CREATE TABLE secret (
     state VARCHAR NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
     i_upd TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    i_author VARCHAR,
     FOREIGN KEY (source_vault_profile_uuid) REFERENCES vault_profile(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
@@ -39,10 +42,10 @@ CREATE TABLE secret_version (
     version INT NOT NULL,
     fingerprint VARCHAR NOT NULL,
     vault_instance_uuid UUID NOT NULL,
-    vault_version INT NOT NULL,
+    vault_version VARCHAR,
     i_cre TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (secret_uuid) REFERENCES secret(uuid) ON UPDATE CASCADE ON DELETE RESTRICT,
-    FOREIGN KEY (vault_instance_uuid) REFERENCES vault_instance(uuid) ON UPDATE CASCADE ON DELETE SET NULL
+    FOREIGN KEY (vault_instance_uuid) REFERENCES vault_instance(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
 ALTER TABLE secret
