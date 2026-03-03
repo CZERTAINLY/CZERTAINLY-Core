@@ -5,7 +5,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -59,6 +58,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CbomService;
+import com.czertainly.core.util.CbomUtil;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
@@ -211,15 +211,7 @@ public class CbomServiceImpl implements CbomService {
         }
 
         // metadata (required)
-        Object metadataObj = content.get("metadata");
-        if (metadataObj == null) {
-            throw new ValidationException("metadata must be present");
-        }
-        if (!(metadataObj instanceof Map)) {
-            throw new ValidationException("metadata must be JSON object");
-        }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> metadata = (Map<String, Object>) metadataObj;
+        Map<String, Object> metadata = CbomUtil.getMetadata(content);
 
         // metadata.timestamp (required)
         OffsetDateTime timestamp = null;
@@ -253,14 +245,7 @@ public class CbomServiceImpl implements CbomService {
         cbom.setVersion(response.getVersion());
         cbom.setSpecVersion(specVersion);
         cbom.setTimestamp(timestamp);
-        String source = Optional.ofNullable(metadata.get("component"))
-                .filter(Map.class::isInstance)
-                .map(Map.class::cast)
-                .map(m -> m.get("name"))
-                .map(String::valueOf)
-                .orElse("");
-        cbom.setSource(source);
-
+        cbom.setSource(CbomUtil.getMetadataSource(content));
         setCryptoStats(cbom, response);
 
         cbomRepository.save(cbom);
@@ -369,17 +354,16 @@ public class CbomServiceImpl implements CbomService {
             return;
         }
 
-        Long timestamp = Long.valueOf(0);
-        if (lastSync.isEmpty()) {
-            logger.getLogger().debug("CBOM sync: there is no last scheduled run: using timestamp: 0");
-        }
-
-        // prevents sync tasks run in a parallel
-        try {
-            timestamp = (lastSync.get().getJobEndTime().getTime() / 1000);
-        } catch (NullPointerException | NoSuchElementException e) {
-            logger.getLogger().debug("CBOM sync: there is sync job in progress run. Skipping sync.");
-            return;
+        Long timestamp = 0L;
+        if (lastSync.isPresent()) {
+            try {
+                timestamp = (lastSync.get().getJobEndTime().getTime() / 1000);
+            } catch (NullPointerException e) {
+                logger.getLogger().debug("CBOM sync: there is sync job in progress run. Skipping sync.");
+                return;
+            }
+        } else {
+            logger.getLogger().debug("CBOM sync: no previous run found, performing initial sync.");
         }
 
         BomSearchRequestDto query = new BomSearchRequestDto();
@@ -405,6 +389,10 @@ public class CbomServiceImpl implements CbomService {
             } catch(AlreadyExistException e) {
                 logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {}: already exists. Skipping the sync", entry.getSerialNumber(), version);
                 duplicates ++;
+                continue;
+            } catch(NotFoundException e) {
+                logger.getLogger().warn("CBOM Sync: CBOM serialNumber {} and version {}: not exists. Skipping the sync", entry.getSerialNumber(), version);
+                skipped ++;
                 continue;
             }
             stored ++;
@@ -434,15 +422,16 @@ public class CbomServiceImpl implements CbomService {
         return response;
     }
 
-    private void createCbomEntry(BomEntryDto entry, int version) throws AlreadyExistException {
+    private void createCbomEntry(BomEntryDto entry, int version) throws CbomRepositoryException, AlreadyExistException, NotFoundException {
+        // specVersion and source arguments missing from BomEntryDto - load them from CBOM itself
+        BomResponseDto response = read(entry.getSerialNumber(), version);
+
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(entry.getSerialNumber());
         cbom.setVersion(version);
-        // FIXME: this is not returned by cbom-repository
-        // cbom.setSpecVersion(entry.getSpecVersion());
+        cbom.setSpecVersion(CbomUtil.getString(response, "specVersion", ""));
         cbom.setTimestamp(entry.getTimestamp());
-        // FIXME: this is not returned by cbom-repository
-        // cbom.setSource(entry.getSource());
+        cbom.setSource(CbomUtil.getMetadataSource(response));
         cbom.setAlgorithmsCount(entry.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal());
         cbom.setCertificatesCount(entry.getCryptoStats().getCryptoAssets().getCertificates().getTotal());
         cbom.setProtocolsCount(entry.getCryptoStats().getCryptoAssets().getProtocols().getTotal());

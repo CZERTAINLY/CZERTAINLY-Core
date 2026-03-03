@@ -8,18 +8,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.codehaus.janino.CodeContext.Offset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
@@ -44,7 +43,6 @@ import com.czertainly.core.dao.repository.CbomRepository;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.cbom.BomEntryDto;
-import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.CryptoAssetCountDto;
 import com.czertainly.core.model.cbom.CryptoAssetsDto;
 import com.czertainly.core.model.cbom.CryptoStatsDto;
@@ -55,7 +53,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
+@SpringBootTest(properties = {
+    "logging.level.com.czertainly.core.service.impl.CbomServiceImpl=TRACE",
+    "logging.level.org.springframework.web.reactive.function.client.ExchangeFunctions=TRACE"
+})
 class CbomServiceTest extends BaseSpringBootTest {
+
+    private static final String CONTENT_TYPE = "application/vnd.cyclonedx+json";
+
     @Autowired
     private CbomService cbomService;
 
@@ -856,11 +861,10 @@ class CbomServiceTest extends BaseSpringBootTest {
     void sync_shouldSyncAllEntries_whenNoLastSyncExists() throws Exception {
         // Given
         OffsetDateTime now = OffsetDateTime.now();
-        List<BomEntryDto> response = List.of(
-            entry("serial-1", "1", now.minusHours(3)),
-            entry("serial-2", "2", now.minusHours(2)),
-            entry("serial-3", "3", now.minusHours(1))
-        );
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(2));
+        BomEntryDto entry3 = entry("serial-3", "3", now.minusHours(1));
+        List<BomEntryDto> response = List.of(entry1, entry2, entry3);
 
         String jsonBody = objectMapper.writeValueAsString(response);
 
@@ -870,6 +874,10 @@ class CbomServiceTest extends BaseSpringBootTest {
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
                 .withBody(jsonBody)));
+
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
+        mockEntrySpecVersionSource(entry2, "1.7", "name-2");
+        mockEntrySpecVersionSource(entry3, "1.7", "name-3");
 
         // When
         cbomService.sync();
@@ -907,5 +915,23 @@ class CbomServiceTest extends BaseSpringBootTest {
         entry.setCryptoStats(cryptoStats);
 
         return entry;
+    }
+
+    private void mockEntrySpecVersionSource(BomEntryDto entry, String specVersion, String source) {
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom/" + entry.getSerialNumber()))
+            .withQueryParam("version", WireMock.equalTo(entry.getVersion()))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                {
+                "specVersion": "%s",
+                "metadata": {
+                "component": {
+                "name": "%s"
+                }
+                }
+                }
+                """.formatted(specVersion, source))));
     }
 }
