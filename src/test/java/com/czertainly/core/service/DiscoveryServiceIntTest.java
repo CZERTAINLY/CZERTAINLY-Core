@@ -9,13 +9,11 @@ import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.messaging.jms.producers.NotificationProducer;
-import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.util.BaseMessagingIntTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -51,11 +49,6 @@ class DiscoveryServiceIntTest extends BaseMessagingIntTest {
         SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
 
         Authentication authentication = getAuthentication();
-        CzertainlyUserDetails principal = (CzertainlyUserDetails) authentication.getPrincipal();
-        CzertainlyUserDetails userDetails = Mockito.mock(CzertainlyUserDetails.class);
-        Mockito.when(userDetails.getUserUuid()).thenReturn(principal.getUserUuid());
-        Mockito.when(userDetails.getUsername()).thenReturn(principal.getUsername());
-        Mockito.when(userDetails.getRawData()).thenReturn(principal.getRawData());
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         FunctionGroup functionGroup = new FunctionGroup();
