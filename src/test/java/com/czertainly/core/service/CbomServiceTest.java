@@ -7,11 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -146,7 +142,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         }
         """;
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/.*"))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/api/v1/bom/.*"))
             .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
             .willReturn(WireMock.aResponse()
                 .withStatus(200)
@@ -165,7 +161,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         // Verify WireMock was called
         mockServer.verify(WireMock.getRequestedFor(
-            WireMock.urlPathMatching("/v1/bom/.*"))
+            WireMock.urlPathMatching("/api/v1/bom/.*"))
             .withQueryParam("version", WireMock.equalTo(Integer.toString(version))));
     }
 
@@ -186,7 +182,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbomRepository.save(cbom);
 
         // Mock WireMock to return 404 for the requested BOM
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom/" + serialNumber))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom/" + serialNumber))
             .willReturn(WireMock.aResponse()
                 .withStatus(404)
                 .withHeader("Content-Type", "application/problem+json")
@@ -213,7 +209,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbomRepository.save(cbom);
 
         // Mock WireMock to return 500 error for the CBOM repository endpoint
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/.*"))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/api/v1/bom/.*"))
             .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
             .willReturn(WireMock.aResponse()
                 .withStatus(500)
@@ -243,7 +239,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         int version = 1;
         OffsetDateTime timestamp = OffsetDateTime.now();
 
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("version", version);
         content.put("specVersion", "1.6");
@@ -258,7 +254,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Mock WireMock to return successful response
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
@@ -308,7 +304,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         // Assert
         mockServer.verify(WireMock.postRequestedFor(
-            WireMock.urlEqualTo("/v1/bom")));
+            WireMock.urlEqualTo("/api/v1/bom")));
     }
 
     @Test
@@ -433,7 +429,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_MissingSerialNumber() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         // Missing serialNumber
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -451,7 +447,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_MissingVersion() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -469,7 +465,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_VersionNotAnInteger() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -487,7 +483,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_MissingSpecVersion() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         // Missing specVersion
@@ -505,7 +501,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_MissingMetadata() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -525,7 +521,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_MetadataNotObject() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -545,7 +541,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_MissingTimestamp() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -568,7 +564,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_InvalidTimestampFormat() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -591,7 +587,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void testUploadCbom_TimestampNotAString() {
         // Given
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -618,7 +614,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         Integer version = 1;
         OffsetDateTime timestamp = OffsetDateTime.now();
 
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -631,7 +627,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Mock WireMock to return 409 Conflict
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
             .willReturn(WireMock.aResponse()
                 .withStatus(409)
                 .withHeader("Content-Type", "application/problem+json")
@@ -656,7 +652,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(0, savedCboms.size());
 
-        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
     }
 
     @Test
@@ -666,7 +662,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         Integer version = 1;
         OffsetDateTime timestamp = OffsetDateTime.now();
 
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
@@ -679,7 +675,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Mock WireMock to return 500 Server Error
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
             .willReturn(WireMock.aResponse()
                 .withStatus(500)
                 .withHeader("Content-Type", "application/problem+json")
@@ -701,7 +697,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(0, savedCboms.size());
 
-        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
     }
 
     @Test
@@ -711,7 +707,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         Integer version = 1;
         OffsetDateTime timestamp = OffsetDateTime.now();
 
-        Map<String, Object> content = new HashMap<>();
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("specVersion", "1.5");
         content.put("version", version);
@@ -723,7 +719,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Mock WireMock to return 400 Bad Request
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
             .willReturn(WireMock.aResponse()
                 .withStatus(400)
                 .withHeader("Content-Type", "application/problem+json")
@@ -741,7 +737,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             cbomService.createCbom(request)
         );
 
-        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
     }
 
     @Test
@@ -750,22 +746,22 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request1 = new CbomUploadRequestDto();
         OffsetDateTime timestamp = OffsetDateTime.now();
 
-        request1.setContent(Map.of(
+        request1.setContent(new LinkedHashMap<>(Map.of(
             "serialNumber", "urn:uuid:first",
             "version", 1,
             "specVersion", "1.6",
             "metadata", Map.of("timestamp", timestamp.toString()
-        )));
+        ))));
 
         CbomUploadRequestDto request2 = new CbomUploadRequestDto();
-        request2.setContent(Map.of(
+        request2.setContent(new LinkedHashMap<>(Map.of(
             "serialNumber", "urn:uuid:second",
             "version", 1,
             "specVersion", "1.6",
             "metadata", Map.of("timestamp", timestamp.toString()
-        )));
+        ))));
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
@@ -796,7 +792,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(2, savedCboms.size());
 
-        mockServer.verify(2, WireMock.postRequestedFor(WireMock.urlEqualTo("/v1/bom")));
+        mockServer.verify(2, WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
     }
 
     @Test
