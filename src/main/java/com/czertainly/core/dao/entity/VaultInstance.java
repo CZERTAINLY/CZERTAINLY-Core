@@ -25,6 +25,14 @@ public class VaultInstance extends UniquelyIdentifiedAndAudited {
     @Column(name = "connector_uuid")
     private UUID connectorUuid;
 
+    @Column(name = "connector_interface_uuid")
+    private UUID connectorInterfaceUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "connector_interface_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private ConnectorInterfaceEntity connectorInterface;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     @ToString.Exclude

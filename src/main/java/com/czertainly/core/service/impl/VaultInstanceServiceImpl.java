@@ -109,6 +109,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         vaultInstance.setName(request.getName());
         vaultInstance.setConnectorUuid(request.getConnectorUuid());
         vaultInstance.setDescription(request.getDescription());
+        vaultInstance.setConnectorInterfaceUuid(request.getInterfaceUuid());
         vaultInstanceRepository.save(vaultInstance);
 
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
