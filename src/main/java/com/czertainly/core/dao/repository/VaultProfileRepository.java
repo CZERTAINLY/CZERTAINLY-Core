@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public interface VaultProfileRepository extends SecurityFilterRepository<VaultProfile, UUID> {
 
-    Boolean existsByName(String name);
+    boolean existsByName(String name);
 
     @Query("SELECT vp.name FROM VaultProfile vp")
     List<String> findAllNames();

@@ -178,7 +178,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID sourceVaultProfileUuid, SecuredUUID vaultInstanceUuid) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
-        if (Boolean.TRUE.equals(secretRepository.existsByName(secretRequest.getName()))) {
+        if (secretRepository.existsByName(secretRequest.getName())) {
             throw new AlreadyExistException("Secret with name '" + secretRequest.getName() + "' already exists");
         }
 
@@ -276,9 +276,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 processedVaultInstanceUuids.add(currentSourceVaultProfile.getVaultInstance().getUuid());
                 SecretResponseDto sourceVaultProfileResponse = updateSecretInVault(secret, secret.getSourceVaultProfile(), secretRequest, secretRequest.getAttributes());
                 for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
-                    if (!processedVaultInstanceUuids.contains(profile.getSyncProfile().getVaultInstance().getUuid())) {
-                        updateSecretInVault(secret, profile.getSyncProfile(), secretRequest, profile.getSecretAttributes());
-                        processedVaultInstanceUuids.add(profile.getSyncProfile().getVaultInstance().getUuid());
+                    if (!processedVaultInstanceUuids.contains(profile.getVaultProfile().getVaultInstance().getUuid())) {
+                        updateSecretInVault(secret, profile.getVaultProfile(), secretRequest, profile.getSecretAttributes());
+                        processedVaultInstanceUuids.add(profile.getVaultProfile().getVaultInstance().getUuid());
                     }
                 }
                 secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
@@ -322,9 +322,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
         vaultInstanceUuids.add(secret.getSourceVaultProfile().getVaultInstance().getUuid());
         for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
-            if (!vaultInstanceUuids.contains(profile.getSyncProfile().getVaultInstance().getUuid())) {
-                deleteSecretFromVault(profile.getSyncProfile(), secret, profile.getSecretAttributes());
-                vaultInstanceUuids.add(profile.getSyncProfile().getVaultInstance().getUuid());
+            if (!vaultInstanceUuids.contains(profile.getVaultProfile().getVaultInstance().getUuid())) {
+                deleteSecretFromVault(profile.getVaultProfile(), secret, profile.getSecretAttributes());
+                vaultInstanceUuids.add(profile.getVaultProfile().getVaultInstance().getUuid());
             }
         }
         secret.setLatestVersion(null);
@@ -364,7 +364,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         if (secret.getSourceVaultProfile().getUuid().equals(vaultProfileUuid)) {
             throw new ValidationException("Vault Profile with UUID %s is the source vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
         }
-        if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getSyncProfile().getUuid().equals(vaultProfileUuid))) {
+        if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid))) {
             throw new ValidationException("Vault Profile with UUID %s is already a sync vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
         }
 
@@ -386,7 +386,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
         secret2SyncVaultProfile.setId(secret2SyncVaultProfileId);
         secret2SyncVaultProfile.setSecretAttributes(requestAttributes);
-        secret2SyncVaultProfile.setSyncProfile(vaultProfile);
+        secret2SyncVaultProfile.setVaultProfile(vaultProfile);
         secret2SyncVaultProfile.setSecret(secret);
         secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
     }
@@ -396,15 +396,17 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     public void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws
             NotFoundException, ConnectorException {
         Secret secret = getSecretEntity(uuid);
-        if (secret.getSyncVaultProfiles().stream().noneMatch(profile -> profile.getSyncProfile().getUuid().equals(vaultProfileUuid))) {
+        if (secret.getSyncVaultProfiles().stream().noneMatch(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid))) {
             throw new ValidationException("Vault Profile with UUID %s is not a sync vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
         }
-        VaultProfile vaultProfile = secret.getSyncVaultProfiles().stream().filter(profile -> profile.getSyncProfile().getUuid().equals(vaultProfileUuid)).findFirst().orElseThrow().getSyncProfile();
-        if (!Objects.equals(vaultProfile.getVaultInstanceUuid(), secret.getSourceVaultProfileUuid()) && secret.getSyncVaultProfiles().stream().filter(profile -> profile.getSyncProfile().getVaultInstanceUuid().equals(vaultProfile.getVaultInstanceUuid())).count() == 1) {
+        VaultProfile vaultProfile = secret.getSyncVaultProfiles().stream().filter(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid)).findFirst().orElseThrow(
+                () -> new NotFoundException(VaultProfile.class, vaultProfileUuid)
+        ).getVaultProfile();
+        if (!Objects.equals(vaultProfile.getVaultInstanceUuid(), secret.getSourceVaultProfileUuid()) && secret.getSyncVaultProfiles().stream().filter(profile -> profile.getVaultProfile().getVaultInstanceUuid().equals(vaultProfile.getVaultInstanceUuid())).count() == 1) {
             Secret2SyncVaultProfile secret2SyncVaultProfile = secret2SyncVaultProfileRepository.getReferenceById(new Secret2SyncVaultProfileId(secret.getUuid(), vaultProfile.getUuid()));
             deleteSecretFromVault(vaultProfile, secret, secret2SyncVaultProfile.getSecretAttributes());
         }
-        secret.getSyncVaultProfiles().removeIf(profile -> profile.getSyncProfile().getUuid().equals(vaultProfileUuid));
+        secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid));
         secretRepository.save(secret);
     }
 
@@ -513,7 +515,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
             secret2SyncVaultProfile.setSecretAttributes(attributeEngine.getRequestObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
             secret2SyncVaultProfile.setId(new Secret2SyncVaultProfileId(secret.getUuid(), currentSourceVaultProfile.getUuid()));
-            secret2SyncVaultProfile.setSyncProfile(currentSourceVaultProfile);
+            secret2SyncVaultProfile.setVaultProfile(currentSourceVaultProfile);
             secret2SyncVaultProfile.setSecret(secret);
             secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
 

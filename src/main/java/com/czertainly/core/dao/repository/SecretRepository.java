@@ -10,12 +10,12 @@ import java.util.UUID;
 
 public interface SecretRepository extends SecurityFilterRepository<Secret, UUID> {
 
-    Boolean existsByName(String name);
+    boolean existsByName(String name);
 
     @Query("SELECT s.name FROM Secret s WHERE s.sourceVaultProfileUuid = :sourceVaultProfileUuid")
     List<String> findAllNamesBySourceVaultProfileUuid(UUID sourceVaultProfileUuid);
 
-    @Query("SELECT s.name FROM Secret s JOIN s.syncVaultProfiles svp JOIN svp.syncProfile vp WHERE vp.uuid = :syncVaultProfileUuid")
+    @Query("SELECT s.name FROM Secret s JOIN s.syncVaultProfiles svp JOIN svp.vaultProfile vp WHERE vp.uuid = :syncVaultProfileUuid")
     List<String> findAllNamesBySyncVaultProfileUuid(UUID syncVaultProfileUuid);
 
     @EntityGraph(attributePaths = {"groups", "owner", "sourceVaultProfile", "latestVersion", "syncVaultProfiles"})

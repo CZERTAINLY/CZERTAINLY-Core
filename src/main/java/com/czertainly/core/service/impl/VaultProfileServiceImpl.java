@@ -147,7 +147,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public VaultProfileDetailDto createVaultProfile(SecuredParentUUID securedParentUUID, VaultProfileRequestDto request) throws NotFoundException, ValidationException, AttributeException, AlreadyExistException {
-        if (Boolean.TRUE.equals(vaultProfileRepository.existsByName(request.getName()))) {
+        if (vaultProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("Vault Profile with name " + request.getName() + " already exists");
         }
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(securedParentUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, securedParentUUID));
