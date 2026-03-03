@@ -1,10 +1,13 @@
 package com.czertainly.core.messaging.proxy;
 
 import com.czertainly.api.clients.mq.model.ProxyMessage;
+import com.czertainly.core.messaging.jms.configuration.MessagingProperties;
 import com.czertainly.core.messaging.jms.listeners.AbstractJmsEndpointConfig;
-import lombok.AllArgsConstructor;
+import com.czertainly.core.messaging.jms.listeners.MessageProcessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jms.config.SimpleJmsListenerEndpoint;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,10 +18,19 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("!test")
-@AllArgsConstructor
 public class ProxyMessageJmsEndpointConfig extends AbstractJmsEndpointConfig<ProxyMessage> {
 
     private final ProxyProperties proxyProperties;
+
+    public ProxyMessageJmsEndpointConfig(
+            ObjectMapper objectMapper,
+            MessageProcessor<ProxyMessage> listenerMessageProcessor,
+            RetryTemplate jmsRetryTemplate,
+            MessagingProperties messagingProperties,
+            ProxyProperties proxyProperties) {
+        super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
+        this.proxyProperties = proxyProperties;
+    }
 
     @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {

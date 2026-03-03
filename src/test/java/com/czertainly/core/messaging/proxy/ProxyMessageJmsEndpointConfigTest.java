@@ -11,12 +11,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jms.config.SimpleJmsListenerEndpoint;
 import org.springframework.retry.support.RetryTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link ProxyMessageJmsEndpointConfig}.
@@ -47,11 +46,7 @@ class ProxyMessageJmsEndpointConfigTest {
                 null
         );
 
-        config = new ProxyMessageJmsEndpointConfig(proxyProperties);
-        ReflectionTestUtils.setField(config, "listenerMessageProcessor", messageProcessor);
-        ReflectionTestUtils.setField(config, "jmsRetryTemplate", retryTemplate);
-        ReflectionTestUtils.setField(config, "messagingProperties", messagingProperties);
-        ReflectionTestUtils.setField(config, "objectMapper", new ObjectMapper());
+        config = new ProxyMessageJmsEndpointConfig(new ObjectMapper(), messageProcessor, retryTemplate, messagingProperties, proxyProperties);
     }
 
     @Test

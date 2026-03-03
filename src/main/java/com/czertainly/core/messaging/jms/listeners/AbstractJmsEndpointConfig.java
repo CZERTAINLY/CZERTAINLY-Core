@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.jms.JMSException;
 import jakarta.jms.TextMessage;
 import org.slf4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.JmsException;
 import org.springframework.jms.config.SimpleJmsListenerEndpoint;
 import org.springframework.jms.listener.DefaultMessageListenerContainer;
@@ -24,14 +23,17 @@ public abstract class AbstractJmsEndpointConfig<T> {
     private static final Logger logger = getLogger(AbstractJmsEndpointConfig.class);
     private static final String ROUTING_KEY = "routingKey";
 
-    @Autowired
-    private ObjectMapper objectMapper;
-    @Autowired
-    protected MessageProcessor<T> listenerMessageProcessor;
-    @Autowired
-    protected RetryTemplate jmsRetryTemplate;
-    @Autowired
-    protected MessagingProperties messagingProperties;
+    private final ObjectMapper objectMapper;
+    protected final MessageProcessor<T> listenerMessageProcessor;
+    protected final RetryTemplate jmsRetryTemplate;
+    protected final MessagingProperties messagingProperties;
+
+    public AbstractJmsEndpointConfig(ObjectMapper objectMapper, MessageProcessor<T> listenerMessageProcessor, RetryTemplate jmsRetryTemplate, MessagingProperties messagingProperties) {
+        this.objectMapper = objectMapper;
+        this.listenerMessageProcessor = listenerMessageProcessor;
+        this.jmsRetryTemplate = jmsRetryTemplate;
+        this.messagingProperties = messagingProperties;
+    }
 
     public abstract SimpleJmsListenerEndpoint listenerEndpoint();
 

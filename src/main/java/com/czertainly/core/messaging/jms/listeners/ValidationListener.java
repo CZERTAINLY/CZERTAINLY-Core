@@ -14,6 +14,7 @@ import java.util.List;
 
 @Component
 public class ValidationListener implements MessageProcessor<ValidationMessage> {
+
     private static final Logger logger = LoggerFactory.getLogger(ValidationListener.class);
 
     private CertificateRepository certificateRepository;
