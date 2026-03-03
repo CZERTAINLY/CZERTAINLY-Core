@@ -25,9 +25,9 @@ public class Secret2SyncVaultProfile implements Serializable {
     private Secret secret;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("syncVaultProfileUuid")
-    @JoinColumn(name = "sync_vault_profile_uuid")
-    private VaultProfile syncProfile;
+    @MapsId("vaultProfileUuid")
+    @JoinColumn(name = "vault_profile_uuid")
+    private VaultProfile vaultProfile;
 
     @Column(name = "secret_attributes", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

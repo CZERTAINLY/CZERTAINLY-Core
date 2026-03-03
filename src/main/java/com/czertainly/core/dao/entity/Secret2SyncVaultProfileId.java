@@ -19,19 +19,19 @@ public class Secret2SyncVaultProfileId implements Serializable {
     @Column(name = "secret_uuid" )
     private UUID secretUuid;
 
-    @Column(name = "sync_vault_profile_uuid" )
-    private UUID syncVaultProfileUuid;
+    @Column(name = "vault_profile_uuid" )
+    private UUID vaultProfileUuid;
 
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
         if (!(obj instanceof Secret2SyncVaultProfileId other)) return false;
-        return Objects.equals(secretUuid, other.secretUuid) && Objects.equals(syncVaultProfileUuid, other.syncVaultProfileUuid);
+        return Objects.equals(secretUuid, other.secretUuid) && Objects.equals(vaultProfileUuid, other.vaultProfileUuid);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(secretUuid, syncVaultProfileUuid);
+        return Objects.hash(secretUuid, vaultProfileUuid);
     }
 
 }

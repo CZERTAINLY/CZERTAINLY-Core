@@ -160,11 +160,11 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
 
         Secret2SyncVaultProfileId secret2SyncVaultProfileId = new Secret2SyncVaultProfileId();
         secret2SyncVaultProfileId.setSecretUuid(secret.getUuid());
-        secret2SyncVaultProfileId.setSyncVaultProfileUuid(vaultProfile.getUuid());
+        secret2SyncVaultProfileId.setVaultProfileUuid(vaultProfile.getUuid());
         Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
         secret2SyncVaultProfile.setId(secret2SyncVaultProfileId);
         secret2SyncVaultProfile.setSecret(secret);
-        secret2SyncVaultProfile.setSyncProfile(vaultProfile);
+        secret2SyncVaultProfile.setVaultProfile(vaultProfile);
         secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
 
         Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid));

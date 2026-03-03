@@ -3,10 +3,12 @@ CREATE TABLE vault_instance (
     name VARCHAR NOT NULL,
     description VARCHAR,
     connector_uuid UUID,
+    connector_interface_uuid UUID,
     i_cre TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     i_upd TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     i_author VARCHAR,
-    FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
+    FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE RESTRICT,
+    FOREIGN KEY (connector_interface_uuid) REFERENCES connector_interface(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
 CREATE TABLE vault_profile (
@@ -54,9 +56,9 @@ FOREIGN KEY (latest_version_uuid) REFERENCES secret_version(uuid) ON UPDATE CASC
 
 CREATE TABLE secret_2_sync_vault_profile (
     secret_uuid UUID NOT NULL,
-    sync_vault_profile_uuid UUID NOT NULL,
+    vault_profile_uuid UUID NOT NULL,
     secret_attributes jsonb,
-    PRIMARY KEY (secret_uuid, sync_vault_profile_uuid),
+    PRIMARY KEY (secret_uuid, vault_profile_uuid),
     FOREIGN KEY (secret_uuid) REFERENCES secret(uuid) ON UPDATE CASCADE ON DELETE CASCADE,
-    FOREIGN KEY (sync_vault_profile_uuid) REFERENCES vault_profile(uuid) ON UPDATE CASCADE ON DELETE CASCADE
+    FOREIGN KEY (vault_profile_uuid) REFERENCES vault_profile(uuid) ON UPDATE CASCADE ON DELETE CASCADE
 );

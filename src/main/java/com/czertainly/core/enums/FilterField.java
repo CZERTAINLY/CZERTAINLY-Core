@@ -191,7 +191,7 @@ public enum FilterField {
     SECRET_STATE(Resource.SECRET, null, null, Secret_.state, Constants.STATE, SearchFieldTypeEnum.LIST, SecretState.class),
     SECRET_ENABLED(Resource.SECRET, null, null, Secret_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
     SECRET_SOURCE_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.sourceVaultProfile), VaultProfile_.name, "Source Vault Profile", SearchFieldTypeEnum.LIST),
-    SECRET_SYNC_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.syncVaultProfiles, Secret2SyncVaultProfile_.syncProfile), VaultProfile_.name, "Sync Vault Profile", SearchFieldTypeEnum.LIST),
+    SECRET_SYNC_VAULT_PROFILE(Resource.SECRET, Resource.VAULT_PROFILE, List.of(Secret_.syncVaultProfiles, Secret2SyncVaultProfile_.vaultProfile), VaultProfile_.name, "Sync Vault Profile", SearchFieldTypeEnum.LIST),
 
     // CBOM
     CBOM_SERIAL_NUMBER(Resource.CBOM, null, null, Cbom_.serialNumber, "Serial Number", SearchFieldTypeEnum.STRING),
