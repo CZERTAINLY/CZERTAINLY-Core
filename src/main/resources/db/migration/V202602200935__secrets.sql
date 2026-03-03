@@ -43,11 +43,11 @@ CREATE TABLE secret_version (
     secret_uuid UUID,
     version INT NOT NULL,
     fingerprint VARCHAR NOT NULL,
-    vault_instance_uuid UUID NOT NULL,
+    vault_instance_uuid UUID,
     vault_version VARCHAR,
     i_cre TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     FOREIGN KEY (secret_uuid) REFERENCES secret(uuid) ON UPDATE CASCADE ON DELETE SET NULL,
-    FOREIGN KEY (vault_instance_uuid) REFERENCES vault_instance(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
+    FOREIGN KEY (vault_instance_uuid) REFERENCES vault_instance(uuid) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
 ALTER TABLE secret

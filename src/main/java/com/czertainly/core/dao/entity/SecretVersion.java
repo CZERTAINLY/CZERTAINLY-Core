@@ -30,7 +30,7 @@ public class SecretVersion extends UniquelyIdentified {
     @Column(name = "fingerprint", nullable = false)
     private String fingerprint;
 
-    @Column(name = "vault_instance_uuid", nullable = false)
+    @Column(name = "vault_instance_uuid")
     private UUID vaultInstanceUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
