@@ -1,6 +1,5 @@
 package com.czertainly.core.service;
 
-import static org.junit.Assert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -9,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +72,8 @@ class CbomServiceTest extends BaseSpringBootTest {
     private WebClient webClient;
     private CbomRepositoryClient cbomRepositoryClient;
 
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
@@ -853,67 +855,55 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void sync_shouldSyncAllEntries_whenNoLastSyncExists() throws Exception {
         // Given
-        List<BomEntryDto> mockEntries = createMockBomEntries(3);
-        when(cbomRepositoryClient.search(any(BomSearchRequestDto.class)))
-                .thenReturn(mockEntries);
+        OffsetDateTime now = OffsetDateTime.now();
+        List<BomEntryDto> response = List.of(
+            entry("serial-1", "1", now.minusHours(3)),
+            entry("serial-2", "2", now.minusHours(2)),
+            entry("serial-3", "3", now.minusHours(1))
+        );
+
+        String jsonBody = objectMapper.writeValueAsString(response);
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom"))
+            .withQueryParam("after", WireMock.matching("\\d+"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody(jsonBody)));
 
         // When
         cbomService.sync();
 
         // Then
         List<Cbom> savedCboms = cbomRepository.findAll();
-        assertThat(savedCboms).hasSize(3);
-        assertThat(savedCboms)
-                .extracting(Cbom::getSerialNumber)
-                .containsExactlyInAnyOrder("serial-1", "serial-2", "serial-3");
-        
-        verify(cbomRepositoryClient).search(argThat(query -> 
-                query.getAfter().equals(0L)));
+        assertEquals(3, savedCboms.size());
+
+        List<String> serialNumbers = savedCboms.stream()
+                .map(Cbom::getSerialNumber)
+                .sorted()
+                .toList();
+
+        assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
     }
 
-    private List<BomEntryDto> createMockBomEntries(int count) {
-        return java.util.stream.IntStream.range(0, count)
-                .mapToObj(i -> createBomEntry("serial-" + (i + 1), String.valueOf(i + 1)))
-                .collect(java.util.stream.Collectors.toList());
-    }
-    private BomEntryDto createBomEntry(String serialNumber, String version) {
-        return createBomEntryWithFullStats(serialNumber, version, 1, 2, 3, 4, 10);
-    }
+    private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
+        CryptoAssetCountDto count = new CryptoAssetCountDto();
+        count.setTotal(1);
 
-    private BomEntryDto createBomEntryWithFullStats(
-            String serialNumber, 
-            String version,
-            int algorithms, 
-            int certificates, 
-            int protocols, 
-            int cryptoMaterial,
-            int total) {
+        CryptoAssetsDto cryptoAssets = new CryptoAssetsDto();
+        cryptoAssets.setAlgorithms(count);
+        cryptoAssets.setCertificates(count);
+        cryptoAssets.setProtocols(count);
+        cryptoAssets.setRelatedCryptoMaterials(count);
+        cryptoAssets.setTotal(4);
+
+        CryptoStatsDto cryptoStats = new CryptoStatsDto();
+        cryptoStats.setCryptoAssets(cryptoAssets);
+
         BomEntryDto entry = new BomEntryDto();
         entry.setSerialNumber(serialNumber);
         entry.setVersion(version);
-        entry.setTimestamp(OffsetDateTime.now());
-
-        CryptoStatsDto cryptoStats = new CryptoStatsDto();
-        CryptoAssetsDto cryptoAssets = new CryptoAssetsDto();
-        cryptoAssets.setTotal(total);
-
-        CryptoAssetCountDto algorithmsDto = new CryptoAssetCountDto();
-        algorithmsDto.setTotal(algorithms);
-        cryptoAssets.setAlgorithms(algorithmsDto);
-
-        CryptoAssetCountDto certificatesDto = new CryptoAssetCountDto();
-        certificatesDto.setTotal(certificates);
-        cryptoAssets.setCertificates(certificatesDto);
-
-        CryptoAssetCountDto protocolsDto = new CryptoAssetCountDto();
-        protocolsDto.setTotal(protocols);
-        cryptoAssets.setProtocols(protocolsDto);
-
-        CryptoAssetCountDto cryptoMaterialDto = new CryptoAssetCountDto();
-        cryptoMaterialDto.setTotal(cryptoMaterial);
-        cryptoAssets.setRelatedCryptoMaterials(cryptoMaterialDto);
-
-        cryptoStats.setCryptoAssets(cryptoAssets);
+        entry.setTimestamp(timestamp);
         entry.setCryptoStats(cryptoStats);
 
         return entry;

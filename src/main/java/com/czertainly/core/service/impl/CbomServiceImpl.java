@@ -5,6 +5,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,6 +38,7 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
@@ -355,7 +357,13 @@ public class CbomServiceImpl implements CbomService {
         Optional<ScheduledJobHistory> lastSync;
 
         try {
-            lastSync = scheduledJobHistoryRepository.findLastStartedOrSucceededByJobName(CBOM_SYNC_JOB_NAME);
+            lastSync = scheduledJobHistoryRepository.findFirstByScheduledJobJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
+                CBOM_SYNC_JOB_NAME,
+                List.of(
+                    SchedulerJobExecutionStatus.SUCCESS,
+                    SchedulerJobExecutionStatus.STARTED
+                )
+            );
         } catch (Exception e) {
             logger.getLogger().error("CBOM sync failed: unable to read last sync status: {}", e.getMessage());
             return;
@@ -369,7 +377,7 @@ public class CbomServiceImpl implements CbomService {
         // prevents sync tasks run in a parallel
         try {
             timestamp = (lastSync.get().getJobEndTime().getTime() / 1000);
-        } catch (NullPointerException e) {
+        } catch (NullPointerException | NoSuchElementException e) {
             logger.getLogger().debug("CBOM sync: there is sync job in progress run. Skipping sync.");
             return;
         }
