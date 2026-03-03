@@ -45,10 +45,10 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @JsonBackReference
     private SecretVersion latestVersion;
 
-    @Column(name = "latest_version_uuid")
+    @Column(name = "latest_version_uuid", nullable = false)
     private UUID latestVersionUuid;
 
-    @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY)
     @ToString.Exclude
     @JsonBackReference
     @OrderBy("version DESC")
@@ -79,7 +79,7 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @ToString.Exclude
     private OwnerAssociation owner;
 
-    @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE, orphanRemoval = true)
     @JsonBackReference
     @ToString.Exclude
     private Set<Secret2SyncVaultProfile> syncVaultProfiles = new HashSet<>();

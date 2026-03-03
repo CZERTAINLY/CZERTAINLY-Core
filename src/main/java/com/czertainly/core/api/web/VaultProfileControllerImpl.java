@@ -73,8 +73,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.CREATE)
-    public VaultProfileDetailDto createVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, VaultProfileRequestDto vaultProfileDetail) throws NotFoundException, AttributeException, AlreadyExistException {
-        return vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(vaultUuid), vaultProfileDetail);
+    public VaultProfileDetailDto createVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, VaultProfileRequestDto vaultProfileRequest) throws NotFoundException, AttributeException, AlreadyExistException {
+        return vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(vaultUuid), vaultProfileRequest);
     }
 
     @Override

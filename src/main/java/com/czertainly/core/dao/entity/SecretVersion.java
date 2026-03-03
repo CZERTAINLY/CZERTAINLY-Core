@@ -17,7 +17,7 @@ import java.util.UUID;
 @Setter
 public class SecretVersion extends UniquelyIdentified {
 
-    @Column(name = "secret_uuid", nullable = false)
+    @Column(name = "secret_uuid")
     private UUID secretUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -29,7 +29,7 @@ CREATE TABLE secret (
     description VARCHAR,
     source_vault_profile_uuid UUID NOT NULL,
     i_cre TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    latest_version_uuid UUID,
+    latest_version_uuid UUID NOT NULL,
     type VARCHAR NOT NULL,
     state VARCHAR NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -40,13 +40,13 @@ CREATE TABLE secret (
 
 CREATE TABLE secret_version (
     uuid UUID PRIMARY KEY,
-    secret_uuid UUID NOT NULL,
+    secret_uuid UUID,
     version INT NOT NULL,
     fingerprint VARCHAR NOT NULL,
     vault_instance_uuid UUID NOT NULL,
     vault_version VARCHAR,
     i_cre TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (secret_uuid) REFERENCES secret(uuid) ON UPDATE CASCADE ON DELETE RESTRICT,
+    FOREIGN KEY (secret_uuid) REFERENCES secret(uuid) ON UPDATE CASCADE ON DELETE SET NULL,
     FOREIGN KEY (vault_instance_uuid) REFERENCES vault_instance(uuid) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
