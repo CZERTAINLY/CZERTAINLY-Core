@@ -132,12 +132,8 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         secret.setState(SecretState.ACTIVE);
         secret.setSourceVaultProfile(vaultProfile);
         secret.setSourceVaultProfileUuid(vaultProfile.getUuid());
-        secretRepository.save(secret);
-
 
         SecretVersion secretVersion = new SecretVersion();
-        secretVersion.setSecret(secret);
-        secretVersion.setSecretUuid(secret.getUuid());
         secretVersion.setVaultInstance(vaultInstance);
         secretVersion.setVaultInstanceUuid(vaultInstance.getUuid());
         secretVersion.setFingerprint("testFingerprint");
@@ -145,6 +141,11 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
 
         secret.setLatestVersionUuid(secretVersion.getUuid());
         secretRepository.save(secret);
+
+        secretVersion.setSecret(secret);
+        secretVersion.setSecretUuid(secret.getUuid());
+        secretVersionRepository.save(secretVersion);
+
 
         SecuredUUID profileUuid = SecuredUUID.fromUUID(vaultProfile.getUuid());
         Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid));
