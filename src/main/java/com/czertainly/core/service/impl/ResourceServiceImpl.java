@@ -43,6 +43,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.io.Serializable;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -190,7 +191,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException {
+    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException, ConnectorException {
         if (callback == null) {
             logger.warn("Missing attribute callback for request attribute callback {}", requestAttributeCallback);
             return;
@@ -207,7 +208,7 @@ public class ResourceServiceImpl implements ResourceService {
         }
     }
 
-    private void processMapping(RequestAttributeCallback requestAttributeCallback, AttributeResource resource, AttributeCallbackMapping mapping, AttributeValueTarget target) throws NotFoundException, AttributeException {
+    private void processMapping(RequestAttributeCallback requestAttributeCallback, AttributeResource resource, AttributeCallbackMapping mapping, AttributeValueTarget target) throws NotFoundException, AttributeException, ConnectorException {
         if (target != AttributeValueTarget.BODY) {
             return;
         }
@@ -242,7 +243,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException {
+    public void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException, ConnectorException {
         if (attributes == null || attributes.isEmpty()) {
             return;
         }
@@ -259,7 +260,7 @@ public class ResourceServiceImpl implements ResourceService {
         }
     }
 
-    private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException {
+    private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException, ConnectorException {
         ResourceObjectContentData data = new ResourceObjectContentData();
         if (resource.isWithContent())
             data.setContent(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));

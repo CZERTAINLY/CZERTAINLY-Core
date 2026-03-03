@@ -1,0 +1,48 @@
+package com.czertainly.core.service;
+
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.connector.secrets.content.SecretContent;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.secret.*;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.UUID;
+
+public interface SecretService extends ResourceExtensionService {
+
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
+
+    PaginationResponseDto<SecretDto> listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter);
+
+    SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException;
+
+    SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException, ConnectorException;
+
+    void deleteSecret(UUID uuid) throws NotFoundException, ConnectorException;
+
+    void enableSecret(UUID uuid) throws NotFoundException;
+
+    void disableSecret(UUID uuid) throws NotFoundException;
+
+    void addVaultProfileToSecret(UUID uuid, UUID vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws NotFoundException, ConnectorException, AttributeException;
+
+    void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException, ConnectorException;
+
+    SecretDetailDto getSecretDetails(UUID uuid) throws NotFoundException;
+
+    List<SecretVersionDto> getSecretVersions(UUID uuid) throws NotFoundException;
+
+    SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, NoSuchAlgorithmException;
+
+    void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException;
+}
