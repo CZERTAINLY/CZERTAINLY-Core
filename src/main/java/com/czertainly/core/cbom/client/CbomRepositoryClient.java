@@ -49,7 +49,11 @@ public class CbomRepositoryClient {
     public BomCreateResponseDto create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
         return processRequest(r -> r
-                        .uri(cbomRepositoryBaseUrl + CBOM_CREATE)
+                        .uri(uriBuilder -> {
+                            UriBuilder builder = uriBuilder
+                                    .path(CBOM_CREATE);
+                            return builder.build();
+                        })
                         .body(Mono.just(data.getContent()), LinkedHashMap.class)
                         .header(HttpHeaders.CONTENT_TYPE, "application/vnd.cyclonedx+json")
                         .retrieve()
