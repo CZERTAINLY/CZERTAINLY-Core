@@ -128,13 +128,10 @@ class SecretServiceTest extends BaseSpringBootTest {
         secret.setState(SecretState.ACTIVE);
         secret.setSourceVaultProfile(vaultProfile);
         secret.setSourceVaultProfileUuid(vaultProfile.getUuid());
-        secretRepository.save(secret);
 
 
         SecretVersion secretVersion = new SecretVersion();
-        secretVersion.setSecret(secret);
         secretVersion.setVersion(1);
-        secretVersion.setSecretUuid(secret.getUuid());
         secretVersion.setVaultInstance(vaultInstance);
         secretVersion.setVaultInstanceUuid(vaultInstance.getUuid());
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
@@ -145,6 +142,9 @@ class SecretServiceTest extends BaseSpringBootTest {
 
         secret.setLatestVersion(secretVersion);
         secretRepository.save(secret);
+
+        secretVersion.setSecretUuid(secret.getUuid());
+        secretVersionRepository.save(secretVersion);
 
         CustomAttributeCreateRequestDto dto = new CustomAttributeCreateRequestDto();
         dto.setName(TEST_CUSTOM_ATTRIBUTE);
@@ -226,7 +226,8 @@ class SecretServiceTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteSecret() throws NotFoundException, ConnectorException {
-
+        secret.getLatestVersion().setSecret(null);
+        secretVersionRepository.save(secret.getLatestVersion());
         secretService.deleteSecret(secret.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> secretService.deleteSecret(secret.getUuid()));
     }

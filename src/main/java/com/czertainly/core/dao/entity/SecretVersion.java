@@ -66,7 +66,7 @@ public class SecretVersion extends UniquelyIdentified {
 
     public void setSecret(Secret secret) {
         this.secret = secret;
-        this.secretUuid = secret.getUuid();
+        this.secretUuid = secret == null ? null : secret.getUuid();
     }
 
     public void setVaultInstance(VaultInstance vaultInstance) {
