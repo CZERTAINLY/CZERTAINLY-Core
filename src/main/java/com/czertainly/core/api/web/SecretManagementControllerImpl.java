@@ -39,7 +39,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST, affiliatedResource = Resource.SECRET)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return secretService.getSearchableFieldInformation();
     }
@@ -70,7 +70,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.CREATE, affiliatedResource = Resource.VAULT)
-    public SecretDetailDto createSecret(SecretRequestDto secretRequest, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, @LogResource(uuid = true) UUID vaultUuid) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
+    public SecretDetailDto createSecret(SecretRequestDto secretRequest, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, UUID vaultUuid) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
         return secretService.createSecret(secretRequest, SecuredParentUUID.fromUUID(vaultProfileUuid), SecuredUUID.fromUUID(vaultUuid));
     }
 

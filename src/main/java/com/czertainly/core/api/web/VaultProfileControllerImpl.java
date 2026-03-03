@@ -96,7 +96,7 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.SEARCH_FILTER, operation = Operation.LIST)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return vaultProfileService.getSearchableFieldInformation();
     }

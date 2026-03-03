@@ -70,7 +70,7 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST, affiliatedResource = Resource.VAULT)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return vaultInstanceService.getSearchableFieldInformation();
     }
