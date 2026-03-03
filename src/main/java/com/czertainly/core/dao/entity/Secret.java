@@ -51,6 +51,7 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE, orphanRemoval = true)
     @ToString.Exclude
     @JsonBackReference
+    @OrderBy("version DESC")
     private Set<SecretVersion> versions = new HashSet<>();
 
     @Column(name = "type", nullable = false)
@@ -89,8 +90,8 @@ public class Secret extends UniquelyIdentifiedAndAudited {
         dto.setSyncVaultProfiles(syncVaultProfiles.stream().map(p -> {
             SyncVaultProfileDto vaultProfileDto = new SyncVaultProfileDto();
             vaultProfileDto.setSecretAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(p.getSecretAttributes()));
-            vaultProfileDto.setName(p.getSyncProfile().getName());
-            vaultProfileDto.setUuid(p.getSyncProfile().getUuid().toString());
+            vaultProfileDto.setName(p.getVaultProfile().getName());
+            vaultProfileDto.setUuid(p.getVaultProfile().getUuid().toString());
             return vaultProfileDto;
         }).toList());
         dto.setCreatedAt(created);
