@@ -24,20 +24,19 @@ import org.springframework.web.util.UriBuilder;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
-
 
 @Component
 @DependsOn("settingService")
 public class CbomRepositoryClient {
 
     private WebClient client;
-    private static final String CBOM_CREATE = "/v1/bom";
-    private static final String CBOM_SEARCH = "/v1/bom";
-    private static final String CBOM_READ = "/v1/bom/{urn}";
-    private static final String CBOM_READ_VERSIONS = "/v1/bom/{urn}/versions";
+    private static final String CBOM_CREATE = "/api/v1/bom";
+    private static final String CBOM_SEARCH = "/api/v1/bom";
+    private static final String CBOM_READ = "/api/v1/bom/{urn}";
+    private static final String CBOM_READ_VERSIONS = "/api/v1/bom/{urn}/versions";
 
     @Getter
     private final String cbomRepositoryBaseUrl;
@@ -50,8 +49,12 @@ public class CbomRepositoryClient {
     public BomCreateResponseDto create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
         return processRequest(r -> r
-                        .uri(cbomRepositoryBaseUrl + CBOM_CREATE)
-                        .body(Mono.just(data.getContent()), Map.class)
+                        .uri(uriBuilder -> {
+                            UriBuilder builder = uriBuilder
+                                    .path(CBOM_CREATE);
+                            return builder.build();
+                        })
+                        .body(Mono.just(data.getContent()), LinkedHashMap.class)
                         .header(HttpHeaders.CONTENT_TYPE, "application/vnd.cyclonedx+json")
                         .retrieve()
                         .toEntity(BomCreateResponseDto.class)
