@@ -19,6 +19,9 @@ import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
+import org.springframework.util.backoff.BackOff;
+import org.springframework.util.backoff.ExponentialBackOff;
+import org.springframework.util.backoff.FixedBackOff;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import static org.slf4j.LoggerFactory.getLogger;
@@ -109,10 +112,35 @@ public class JmsConfig {
             factory.setPubSubDomain(true);
             factory.setSubscriptionDurable(true);
         }
-        if (messagingProperties.listener() != null && messagingProperties.listener().recoveryInterval() != null) {
-            factory.setRecoveryInterval(messagingProperties.listener().recoveryInterval());
-        }
+        factory.setBackOff(createListenerBackOff(messagingProperties));
         return factory;
+    }
+
+    private BackOff createListenerBackOff(MessagingProperties props) {
+        MessagingProperties.Listener listener = props.listener();
+
+        // Legacy: if only recoveryInterval is explicitly set, preserve fixed-interval behavior
+        if (listener != null && listener.recoveryInterval() != null) {
+            logger.info("JMS listener recovery using fixed backoff: interval={}ms", listener.recoveryInterval());
+            return new FixedBackOff(listener.recoveryInterval(), FixedBackOff.UNLIMITED_ATTEMPTS);
+        }
+
+        // Exponential backoff (default or explicitly configured)
+        long initialInterval = listener != null ? listener.initialInterval() : 5000L;
+        double multiplier = listener != null ? listener.multiplier() : 2.0;
+        long maxInterval = listener != null ? listener.maxInterval() : 120000L;
+
+        ExponentialBackOff backOff = new ExponentialBackOff(initialInterval, multiplier);
+        backOff.setMaxInterval(maxInterval);
+
+        if (listener != null && listener.maxElapsedTime() != null) {
+            backOff.setMaxElapsedTime(listener.maxElapsedTime());
+        }
+
+        logger.info("JMS listener recovery using exponential backoff: initialInterval={}ms, multiplier={}, maxInterval={}ms, maxElapsedTime={}",
+                initialInterval, multiplier, maxInterval,
+                listener != null && listener.maxElapsedTime() != null ? listener.maxElapsedTime() + "ms" : "unlimited");
+        return backOff;
     }
 
     @Bean

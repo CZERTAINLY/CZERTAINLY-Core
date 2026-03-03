@@ -166,7 +166,9 @@ spring:
     virtual-host: ${BROKER_VIRTUAL_HOST:}
     # --- Listener/Producer settings ---
     listener:
-      recovery-interval: 5000
+      initial-interval: ${BROKER_LISTENER_INITIAL_INTERVAL:5000}
+      multiplier: ${BROKER_LISTENER_BACKOFF_MULTIPLIER:2.0}
+      max-interval: ${BROKER_LISTENER_MAX_INTERVAL:120000}
     producer:
       retry:
         enabled: true

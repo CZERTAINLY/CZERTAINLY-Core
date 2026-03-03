@@ -131,8 +131,19 @@ public record MessagingProperties(
     ) {}
 
     public record Listener(
-            Long recoveryInterval
-    ) {}
+            Long recoveryInterval,     // Legacy: fixed interval. Ignored when backoff fields are set.
+            Long initialInterval,      // Exponential backoff initial interval in ms (default: 5000)
+            Double multiplier,         // Backoff multiplier (default: 2.0)
+            Long maxInterval,          // Max backoff interval cap in ms (default: 120000 = 2 min)
+            Long maxElapsedTime        // Max total recovery time in ms (null = unlimited)
+    ) {
+        public Listener {
+            if (initialInterval == null) initialInterval = 5000L;
+            if (multiplier == null) multiplier = 2.0;
+            if (maxInterval == null) maxInterval = 120000L;
+            // maxElapsedTime null = retry forever at maxInterval
+        }
+    }
 
     public record Producer(
             @NotNull @Valid Retry retry
