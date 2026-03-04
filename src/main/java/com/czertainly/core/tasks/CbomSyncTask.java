@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class CbomSyncTask implements ScheduledJobTask {
 
+    public static final String NAME = "CbomSyncTask";
     private static final String CRON_EXPRESSION = "0 0 * ? * *";
     private static final Logger logger = LoggerFactory.getLogger(CbomSyncTask.class);
 
@@ -27,7 +28,7 @@ public class CbomSyncTask implements ScheduledJobTask {
     }
 
     public String getDefaultJobName() {
-        return "CbomSyncTask";
+        return NAME;
     }
 
     public String getDefaultCronExpression() {

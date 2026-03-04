@@ -42,9 +42,11 @@ import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
+import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.CbomRepository;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
+import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.cbom.BomEntryDto;
 import com.czertainly.core.model.cbom.CryptoAssetCountDto;
@@ -52,6 +54,7 @@ import com.czertainly.core.model.cbom.CryptoAssetsDto;
 import com.czertainly.core.model.cbom.CryptoStatsDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.tasks.CbomSyncTask;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,7 +67,6 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 })
 class CbomServiceTest extends BaseSpringBootTest {
 
-    private static final String CBOM_SYNC_JOB_NAME = "CbomSyncTask";
     private static final String CONTENT_TYPE = "application/vnd.cyclonedx+json";
 
     @Autowired
@@ -75,6 +77,9 @@ class CbomServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+
+    @Autowired
+    private ScheduledJobsRepository scheduledJobsRepository;
 
     @MockitoBean
     private AttributeEngine attributeEngine;
@@ -89,6 +94,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() {
         cbomRepository.deleteAll();
+        scheduledJobsRepository.deleteAll();
         scheduledJobHistoryRepository.deleteAll();
 
         mockServer = new WireMockServer(0);
@@ -895,8 +901,14 @@ class CbomServiceTest extends BaseSpringBootTest {
     public void sync_shouldUseTimestampFromLastSuccess() throws Exception {
         // Given: A successful job from 1 hour ago
         Date oneHourAgo = new Date(System.currentTimeMillis() - 3600 * 1000);
+        ScheduledJob scheduledJob = new ScheduledJob();
+        scheduledJob.setJobName(CbomSyncTask.NAME);
+        scheduledJob.setJobClassName(CbomSyncTask.class.getName());
+        scheduledJob.setEnabled(true);
+        scheduledJob = scheduledJobsRepository.save(scheduledJob);
+
         ScheduledJobHistory history = new ScheduledJobHistory();
-        history.setJobName(CBOM_SYNC_JOB_NAME);
+        history.setScheduledJobUuid(scheduledJob.getUuid());
         history.setJobExecution(oneHourAgo);
         history.setJobEndTime(oneHourAgo);
         history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
@@ -922,8 +934,14 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void sync_shouldSkipSync_whenJobEndTimeIsNull() throws Exception {
         // Given: A previous job entry exists BUT its end time is null (In Progress)
+        ScheduledJob scheduledJob = new ScheduledJob();
+        scheduledJob.setJobName(CbomSyncTask.NAME);
+        scheduledJob.setJobClassName(CbomSyncTask.class.getName());
+        scheduledJob.setEnabled(true);
+        scheduledJob = scheduledJobsRepository.save(scheduledJob);
+
         ScheduledJobHistory history = new ScheduledJobHistory();
-        history.setJobName(CBOM_SYNC_JOB_NAME);
+        history.setScheduledJobUuid(scheduledJob.getUuid());
         history.setJobExecution(new Date());
         history.setJobEndTime(null);
         history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.STARTED);

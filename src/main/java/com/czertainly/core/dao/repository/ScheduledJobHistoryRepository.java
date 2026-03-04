@@ -14,7 +14,7 @@ public interface ScheduledJobHistoryRepository extends SecurityFilterRepository<
     ScheduledJobHistory findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID scheduledJobUuid);
     boolean existsByScheduledJobUuid(UUID scheduledJobUuid);
 
-    Optional<ScheduledJobHistory> findFirstByJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
+    Optional<ScheduledJobHistory> findFirstByScheduledJobJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
         String jobName, 
         List<SchedulerJobExecutionStatus> statuses
     );

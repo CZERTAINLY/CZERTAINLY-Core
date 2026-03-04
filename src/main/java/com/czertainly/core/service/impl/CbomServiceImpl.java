@@ -59,6 +59,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CbomService;
+import com.czertainly.core.tasks.CbomSyncTask;
 import com.czertainly.core.util.CbomUtil;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
@@ -344,8 +345,8 @@ public class CbomServiceImpl implements CbomService {
         Optional<ScheduledJobHistory> lastSync;
 
         try {
-            lastSync = scheduledJobHistoryRepository.findFirstByJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
-                CBOM_SYNC_JOB_NAME,
+            lastSync = scheduledJobHistoryRepository.findFirstByScheduledJobJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
+                CbomSyncTask.NAME,
                 List.of(
                     SchedulerJobExecutionStatus.SUCCESS,
                     SchedulerJobExecutionStatus.STARTED
