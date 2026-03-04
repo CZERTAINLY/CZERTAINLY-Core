@@ -48,4 +48,10 @@ public class AuthPermissionEvaluationServiceImpl implements PermissionEvaluator 
     public void tokenProfiles(List<SecuredUUID> uuids) {
         // Method empty to only evaluate permissions based on ExternalAuthorization annotation
     }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.MEMBERS)
+    public void vaultProfileMembers(SecuredUUID securedUUID) {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
 }

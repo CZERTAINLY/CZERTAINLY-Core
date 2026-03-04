@@ -65,8 +65,13 @@ public enum Resource {
     ACTION("actions"),
     TRIGGER("triggers"),
 
+    // SECRETS
+    VAULT("vaults"),
+    VAULT_PROFILE("vaultProfiles"),
+    SECRET("secrets"),
+
     // CBOMS
-    CBOM("cboms"),
+    CBOM("cboms")
     ;
 
     @Schema(description = "Resource Name",

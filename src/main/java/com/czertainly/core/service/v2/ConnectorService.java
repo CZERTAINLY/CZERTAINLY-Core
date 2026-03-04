@@ -42,7 +42,7 @@ public interface ConnectorService extends ResourceExtensionService {
 
     void deleteConnector(SecuredUUID uuid) throws NotFoundException;
 
-    List<ConnectInfo> connect(ConnectRequestDto request);
+    List<ConnectInfo> connect(ConnectRequestDto request) throws ConnectorException;
 
     ConnectInfo reconnect(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 

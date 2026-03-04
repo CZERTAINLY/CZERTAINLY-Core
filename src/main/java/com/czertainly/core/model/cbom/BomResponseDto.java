@@ -1,6 +1,6 @@
 package com.czertainly.core.model.cbom;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "Response containing (C)BOM")
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class BomResponseDto extends HashMap<String, Object> {
+public class BomResponseDto extends LinkedHashMap<String, Object> {
 
     private static final String FIELD_SPEC_VERSION = "specVersion";
     private static final String FIELD_SERIAL_NUMBER = "serialNumber";

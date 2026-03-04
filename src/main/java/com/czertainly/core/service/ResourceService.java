@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
@@ -95,8 +96,8 @@ public interface ResourceService {
 
     boolean hasResourceExtensionService(Resource resource);
 
-    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException;
+    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException, ConnectorException;
 
-    void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException;
+    void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException, ConnectorException;
 
 }
