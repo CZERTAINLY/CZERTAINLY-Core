@@ -76,8 +76,6 @@ public class LoginController {
 
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     public void loginWithProvider(@PathVariable String provider, @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
-
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .replacePath(null)
                 .build()
@@ -111,6 +109,7 @@ public class LoginController {
             throw new CzertainlyAuthenticationException(message);
         }
 
+        request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
         response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
     }

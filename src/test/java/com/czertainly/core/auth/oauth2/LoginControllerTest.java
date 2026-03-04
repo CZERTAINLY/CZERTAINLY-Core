@@ -152,7 +152,7 @@ class LoginControllerTest {
 
         // 2) Call /login with error, using same cookie → should invalidate
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?&error=oops"))
+                HttpRequest.newBuilder(uri("/login?error=oops"))
                         .header("Cookie", sessionCookie)
                         .GET()
                         .build(),
@@ -216,7 +216,6 @@ class LoginControllerTest {
         settings.setOAuth2Providers(providers);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
-        // 1) Hit /prepare with redirect parameter it should set the session and redirect
         HttpResponse<String> res = http.send(
                 HttpRequest.newBuilder(uri("/oauth2/authorization/test/prepare?redirect=" + redirect))
                         .GET()
