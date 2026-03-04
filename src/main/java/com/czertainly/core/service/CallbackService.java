@@ -8,6 +8,8 @@ import com.czertainly.api.model.common.attribute.common.callback.RequestAttribut
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 
+import java.util.UUID;
+
 public interface CallbackService {
 
     /**
@@ -27,6 +29,15 @@ public interface CallbackService {
             String kind,
             RequestAttributeCallback callback
     ) throws ConnectorException, ValidationException, NotFoundException, AttributeException;
+
+    /**
+     * Function to execute the callback on the connector. This method executes the callback for the attributes
+     * defined by the connector
+     * @param uuid UUID of the connector
+     * @param callback Callback request containing information regarding the callback and the callback mappings
+     * @return Callback
+     */
+    Object callback(UUID uuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException;
 
     /**
      * Function to execute the callback on the connector. This method executes the callback only for the attributes

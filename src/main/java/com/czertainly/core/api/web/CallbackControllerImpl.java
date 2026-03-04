@@ -19,6 +19,8 @@ import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 public class CallbackControllerImpl implements CallbackController {
 
@@ -48,6 +50,12 @@ public class CallbackControllerImpl implements CallbackController {
                 kind,
                 callback
         );
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
+    public Object callback(UUID uuid, RequestAttributeCallback callback) throws ConnectorException, NotFoundException {
+        return callbackService.callback(uuid, callback);
     }
 
     @Override

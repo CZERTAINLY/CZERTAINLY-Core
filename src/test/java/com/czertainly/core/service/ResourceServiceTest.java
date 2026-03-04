@@ -316,11 +316,10 @@ class ResourceServiceTest extends BaseSpringBootTest {
         DataAttributeV3 resourceAttribute = new DataAttributeV3();
         resourceAttribute.setContentType(AttributeContentType.RESOURCE);
         resourceAttribute.setName("resource");
-        ResourceObjectContentData data = new ResourceObjectContentData();
+        ResourceObjectContentData data = new ResourceObjectContentData(AttributeResource.CERTIFICATE);
         data.setUuid(certificate.getUuid().toString());
         resourceAttribute.setContent(List.of(new ResourceObjectContent("ref", data)));
         DataAttributeProperties properties = new DataAttributeProperties();
-        properties.setResource(AttributeResource.CERTIFICATE);
         resourceAttribute.setProperties(properties);
 
         resourceService.loadResourceObjectContentData(List.of(nonResourceAttribute, resourceAttribute));

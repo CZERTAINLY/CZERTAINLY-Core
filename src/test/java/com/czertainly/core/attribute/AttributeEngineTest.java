@@ -815,9 +815,8 @@ class AttributeEngineTest extends BaseSpringBootTest {
         CodeBlockAttributeContentData codeBlockAttributeContentData = new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "print('Hello, World!')");
         testAttributeEncryption(AttributeContentType.CODEBLOCK, new CodeBlockAttributeContentV3("ref", codeBlockAttributeContentData), codeBlockAttributeContentData);
         testAttributeEncryption(AttributeContentType.BOOLEAN, new BooleanAttributeContentV3(true), true);
-        ResourceObjectContentData resourceObjectContentData = new ResourceObjectContentData();
+        ResourceObjectContentData resourceObjectContentData = new ResourceObjectContentData(AttributeResource.AUTHORITY);
         resourceObjectContentData.setAttributes(List.of(new ResponseAttributeV3()));
-        resourceObjectContentData.setResource(AttributeResource.AUTHORITY);
         resourceObjectContentData.setUuid(UUID.randomUUID().toString());
         resourceObjectContentData.setContent("content");
         resourceObjectContentData.setName("name");
