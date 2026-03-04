@@ -991,10 +991,9 @@ class CbomServiceTest extends BaseSpringBootTest {
         OffsetDateTime now = OffsetDateTime.now();
         BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
         BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(3));
-        List<BomEntryDto> response = List.of(entry1);
-
         mockSearchResponse(List.of(entry1, entry2));
 
+        // ... serial-1 exists and serial-2 gets not found
         mockEntrySpecVersionSource(entry1, "1.6", "name-1");
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/serial-2"))
             .withQueryParam("version", WireMock.equalTo("2"))
