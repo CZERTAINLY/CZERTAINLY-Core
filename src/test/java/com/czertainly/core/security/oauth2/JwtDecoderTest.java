@@ -4,7 +4,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.SettingsSectionCategory;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
-import com.czertainly.core.auth.oauth2.LoginController;
+import com.czertainly.core.auth.oauth2.LoginControllerImpl;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.security.authn.CzertainlyAnonymousToken;
@@ -51,7 +51,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
     private SettingRepository settingRepository;
 
     @Autowired
-    private LoginController loginController;
+    private LoginControllerImpl loginController;
 
     public static final String PROVIDER_NAME = "provider";
 
@@ -206,8 +206,8 @@ class JwtDecoderTest extends BaseSpringBootTest {
         providerSettings.setJwkSetUrl(null);
         providerSettings.setJwkSet(Base64.getEncoder().encodeToString(jwkSetJson.getBytes()));
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
-        ResponseEntity<String> response = loginController.getJwkSet(PROVIDER_NAME);
-        Assertions.assertEquals(jwkSetJson, response.getBody());
+        String response = loginController.getJwkSet(PROVIDER_NAME);
+        Assertions.assertEquals(jwkSetJson, response);
 
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));

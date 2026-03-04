@@ -43,7 +43,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class LoginControllerTest {
+class LoginControllerImplTest {
 
     private static WireMockServer mockServer;
 

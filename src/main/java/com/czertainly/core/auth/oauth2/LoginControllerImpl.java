@@ -1,6 +1,8 @@
 package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.interfaces.core.web.LoginController;
+import com.czertainly.api.model.core.auth.LoginProviderDto;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
@@ -12,14 +14,13 @@ import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
@@ -28,7 +29,8 @@ import java.util.Base64;
 import java.util.List;
 
 @Controller
-public class LoginController {
+@Slf4j
+public class LoginControllerImpl implements LoginController {
 
     private AuditLogService auditLogService;
 
@@ -37,12 +39,9 @@ public class LoginController {
         this.auditLogService = auditLogService;
     }
 
-    @GetMapping(
-            value = "/login",
-            produces = {"application/json"}
-    )
-    @ResponseBody
-    public ResponseEntity<List<LoginProviderDto>> login(HttpServletRequest request, @RequestParam(value = "error", required = false) String error) {
+    @Override
+    public List<LoginProviderDto> login(String error) {
+        HttpServletRequest request = getHttpServletRequest();
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
 
         if (error != null) {
@@ -57,7 +56,7 @@ public class LoginController {
                 ? authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList()
                 : List.of();
 
-        List<LoginProviderDto> loginProviders = oauth2Providers.stream()
+        return oauth2Providers.stream()
                 .map(provider -> {
                     LoginProviderDto loginProvider = new LoginProviderDto();
                     loginProvider.setName(provider.getName());
@@ -70,12 +69,13 @@ public class LoginController {
                     return loginProvider;
                 })
                 .toList();
-
-        return new ResponseEntity<>(loginProviders, HttpStatus.OK);
     }
 
-    @GetMapping("/oauth2/authorization/{provider}/prepare")
-    public void loginWithProvider(@PathVariable String provider, @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response, HttpServletRequest request) throws IOException {
+    @Override
+    public void loginWithProvider(String provider, String redirect) {
+        HttpServletRequest request = getHttpServletRequest();
+        HttpServletResponse response = getHttpServletResponse();
+
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .replacePath(null)
                 .build()
@@ -111,11 +111,17 @@ public class LoginController {
 
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
-        response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
+
+        String redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider;
+        try {
+            response.sendRedirect(redirectUrl);
+        } catch (IOException e) {
+            log.error("Error occurred when sending redirect for provider {} to {} after authentication via OAuth2.", provider, redirectUrl, e);
+        }
     }
 
-    @GetMapping("/oauth2/{provider}/jwkSet")
-    public ResponseEntity<String> getJwkSet(@PathVariable String provider) {
+    @Override
+    public String getJwkSet(String provider) {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
 
         if (authenticationSettings.getOAuth2Providers() == null || authenticationSettings.getOAuth2Providers().get(provider) == null) {
@@ -127,10 +133,7 @@ public class LoginController {
             throw new ValidationException("Provider %s does not have JWK Set set up.".formatted(provider));
         }
 
-        String jwkSet = new String(Base64.getDecoder().decode(jwkSetEncoded));
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-type", MediaType.APPLICATION_JSON_VALUE);
-        return new ResponseEntity<>(jwkSet, headers, HttpStatus.OK);
+        return new String(Base64.getDecoder().decode(jwkSetEncoded));
     }
 
 
@@ -164,5 +167,21 @@ public class LoginController {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    private HttpServletRequest getHttpServletRequest() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            throw new IllegalStateException("No ServletRequestAttributes found in RequestContextHolder");
+        }
+        return attributes.getRequest();
+    }
+
+    private HttpServletResponse getHttpServletResponse() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            throw new IllegalStateException("No ServletRequestAttributes found in RequestContextHolder");
+        }
+        return attributes.getResponse();
     }
 }
