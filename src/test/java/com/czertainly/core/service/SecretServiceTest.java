@@ -36,6 +36,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -48,6 +49,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
 
 class SecretServiceTest extends BaseSpringBootTest {
 
@@ -385,6 +389,18 @@ class SecretServiceTest extends BaseSpringBootTest {
         PaginationResponseDto<SecretDto> secrets = secretService.listSecrets(searchRequest, SecurityFilter.create());
         Assertions.assertEquals(1, secrets.getTotalItems());
         Assertions.assertEquals(secret.getName(), secrets.getItems().getFirst().getName());
+    }
+
+    @Test
+    void getSecretContent_whenFingerprintCalcThrows_shouldThrowValidationException() {
+        try (MockedStatic<SecretsUtil> mocked = mockStatic(SecretsUtil.class)) {
+            mocked.when(() -> SecretsUtil.calculateSecretContentFingerprint(any()))
+                    .thenThrow(new JsonProcessingException("boom") {});
+
+            // act + assert
+            UUID secretUuid = secret.getUuid();
+            Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+        }
     }
 
 }
