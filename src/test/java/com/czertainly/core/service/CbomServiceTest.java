@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +37,11 @@ import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
+import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.CbomRepository;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.enums.FilterField;
@@ -59,6 +62,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 })
 class CbomServiceTest extends BaseSpringBootTest {
 
+    private static final String CBOM_SYNC_JOB_NAME = "CbomSyncTask";
     private static final String CONTENT_TYPE = "application/vnd.cyclonedx+json";
 
     @Autowired
@@ -894,6 +898,34 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
     }
 
+    @Test
+    public void sync_shouldUseTimestampFromLastSuccess() throws Exception {
+        // Given: A successful job from 1 hour ago
+        Date oneHourAgo = new Date(System.currentTimeMillis() - 3600 * 1000);
+        ScheduledJobHistory history = new ScheduledJobHistory();
+        history.setJobName(CBOM_SYNC_JOB_NAME);
+        history.setJobExecution(oneHourAgo);
+        history.setJobEndTime(oneHourAgo); // This is what sync() uses
+        history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
+        scheduledJobHistoryRepository.save(history);
+
+        long expectedAfter = oneHourAgo.getTime() / 1000;
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom"))
+            .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter)))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("[]")));
+
+        // When
+        cbomService.sync();
+
+        // Then: WireMock verification ensures the 'after' param matched the DB timestamp
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom"))
+            .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter))));
+    }
+
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
         CryptoAssetCountDto count = new CryptoAssetCountDto();
         count.setTotal(1);
@@ -922,7 +954,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .withQueryParam("version", WireMock.equalTo(entry.getVersion()))
             .willReturn(WireMock.aResponse()
                 .withStatus(200)
-                .withHeader("Content-Type", "application/json")
+                .withHeader("Content-Type", CONTENT_TYPE)
                 .withBody("""
                 {
                 "specVersion": "%s",

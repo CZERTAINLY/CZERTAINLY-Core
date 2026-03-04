@@ -20,6 +20,9 @@ import java.util.UUID;
 @Table(name = "scheduled_job_history")
 public class ScheduledJobHistory extends UniquelyIdentified {
 
+    @Column(name = "job_name")
+    private String jobName;
+
     @Column(name = "job_execution")
     private Date jobExecution;
 

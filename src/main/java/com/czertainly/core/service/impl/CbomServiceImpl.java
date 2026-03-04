@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -342,7 +343,7 @@ public class CbomServiceImpl implements CbomService {
         Optional<ScheduledJobHistory> lastSync;
 
         try {
-            lastSync = scheduledJobHistoryRepository.findFirstByScheduledJobJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
+            lastSync = scheduledJobHistoryRepository.findFirstByJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
                 CBOM_SYNC_JOB_NAME,
                 List.of(
                     SchedulerJobExecutionStatus.SUCCESS,
