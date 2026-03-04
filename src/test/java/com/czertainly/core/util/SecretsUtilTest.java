@@ -2,76 +2,29 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.connector.secrets.content.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.Map;
 
 class SecretsUtilTest {
 
     @Test
     void testFingerprintCalculation() throws NoSuchAlgorithmException, JsonProcessingException {
 
-        String basicAuthContentWithExtraProperty = """
-                {
-                "password": "testPassword",
-                "username": "testUsername",
-                "extraProperty": "testExtraProperty",
-                "type": "BASIC_AUTH"
-                }
-                """;
-        String basicAuthContent = """
-                {
-                "username": "testUsername",
-                "password": "testPassword",
-                "type": "basicAuth"
-                }
-                """;
-        ObjectMapper objectMapper = new ObjectMapper();
-        BasicAuthSecretContent basicAuthSecretContent = objectMapper.readValue(basicAuthContent, BasicAuthSecretContent.class);
-        JsonMapper jsonMapper = JsonMapper.builder()
-                .findAndAddModules()
-                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .build();
-        BasicAuthSecretContent basicAuthSecretContentWithExtraProperty = jsonMapper
-                .readValue(basicAuthContentWithExtraProperty, BasicAuthSecretContent.class);
+        BasicAuthSecretContent basicAuthSecretContent = new BasicAuthSecretContent("testUsername", "testPassword");
+        BasicAuthSecretContent basicAuthSecretContentWithExtraProperty = new BasicAuthSecretContent("testUsername", "testPassword");
         Assertions.assertEquals(SecretsUtil.calculateSecretContentFingerprint(basicAuthSecretContent), SecretsUtil.calculateSecretContentFingerprint(basicAuthSecretContentWithExtraProperty));
 
-        String keyValueContent1 = """
-                {
-                "type": "keyValue",
-                "content": {
-                "key1": "value1",
-                "key2": "value2",
-                "key3": null
-                }
-                }
-                """;
-        String keyValueContent2 = """
-                {
-                "type": "KEY_VALUE",
-                "content": {
-                "key2": "value2",
-                "key1": "value1",
-                "key3": null
-                }
-                }
-                """;
-        String keyValueContent3 = """
-                {
-                "type": "keyValue",
-                "content": {
-                "key2": "value2",
-                "key1": "value1"
-                }
-                }
-                """;
-        KeyValueSecretContent keyValueSecretContent1 = objectMapper.readValue(keyValueContent1, KeyValueSecretContent.class);
-        KeyValueSecretContent keyValueSecretContent2 = jsonMapper.readValue(keyValueContent2, KeyValueSecretContent.class);
-        KeyValueSecretContent keyValueSecretContent3 = objectMapper.readValue(keyValueContent3, KeyValueSecretContent.class);
+        Map<String, Object> key1 = new HashMap<>(Map.of("key1", "value1", "key2", "value2"));
+        key1.put("key3", null);
+        KeyValueSecretContent keyValueSecretContent1 = new KeyValueSecretContent(key1);
+        Map<String, Object> key2 = new HashMap<>(Map.of("key2", "value2", "key1", "value1"));
+        key2.put("key3", null);
+        KeyValueSecretContent keyValueSecretContent2 = new KeyValueSecretContent(key2);
+        KeyValueSecretContent keyValueSecretContent3 = new KeyValueSecretContent(Map.of("key2", "value2", "key1", "value1"));
         Assertions.assertEquals(SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent1), SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent2));
         Assertions.assertNotEquals(SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent1), SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent3));
 
