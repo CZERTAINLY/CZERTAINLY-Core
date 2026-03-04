@@ -29,6 +29,8 @@ public class SecretsUtil {
 
     private static String encryptionKey;
 
+    private static final SecureRandom random = new SecureRandom();
+
     @Value("${secrets.encryption.key}")
     public void setEncryptionKeyStatic(String key){
         SecretsUtil.encryptionKey = key;
@@ -233,7 +235,6 @@ public class SecretsUtil {
      * @return salt
      */
     private static byte[] generateRandomSalt() {
-        final SecureRandom random = new SecureRandom();
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         return bytes;
