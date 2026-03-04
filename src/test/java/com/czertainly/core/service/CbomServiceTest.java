@@ -860,7 +860,6 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertTrue(fieldNames.contains(FilterField.CBOM_TOTAL_ASSETS_COUNT.name()));
     }
 
-
     @Test
     void sync_shouldSyncAllEntries_whenNoLastSyncExists() throws Exception {
         // Given
@@ -942,10 +941,35 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then: sync was skipped
         // ... no calls were made to the GET /v1/bom endpoint
         mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom")));
-        
+
         // ... no CBOMs were saved to the repository
         List<Cbom> savedCboms = cbomRepository.findAll();
         org.junit.jupiter.api.Assertions.assertTrue(savedCboms.isEmpty());
+    }
+
+    @Test
+    void testSyncCbomsFromRepository_ThrowsCbomRepositoryExceptionOn500Error() {
+        // Given: cbom-repository does not work
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom/search"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(500)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                    "type": "about:blank",
+                    "title": "Internal Server Error",
+                    "status": 500,
+                    "detail": "Server error occurred"
+                    }
+                    """)));
+
+        // Then sync should throw an exception
+        assertThrows(CbomRepositoryException.class, () -> {
+            cbomService.sync();
+        });
+
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom"))
+            .withQueryParam("after", WireMock.equalTo("0")));
     }
 
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
