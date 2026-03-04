@@ -11,8 +11,8 @@ import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -339,7 +339,7 @@ public class CbomServiceImpl implements CbomService {
         cbom.setTotalAssetsCount(totalAssetsCount);
     }
 
-    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.SYNC)
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.CREATE)
     public void sync() throws CbomRepositoryException {
         Optional<ScheduledJobHistory> lastSync;
 
@@ -443,10 +443,12 @@ public class CbomServiceImpl implements CbomService {
 
         try {
             cbomRepository.save(cbom);
-        } catch (ConstraintViolationException e) {
-            if (e.getMessage() != null && e.getMessage().contains("cbom_serial_version_unique")) {
+            cbomRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            String message = e.getMostSpecificCause().getMessage();
+            if (message != null && message.contains("cbom_serial_version_unique")) {
                 throw new AlreadyExistException(Cbom.class, 
-                    "serialNumber: " + cbom.getSerialNumber() + ", version: " + cbom.getVersion());
+                    String.format("serialNumber: %s, version: %s", cbom.getSerialNumber(), cbom.getVersion()));
             }
             throw e;
         }
