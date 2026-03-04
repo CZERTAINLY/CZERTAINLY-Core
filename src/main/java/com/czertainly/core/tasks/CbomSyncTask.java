@@ -52,7 +52,7 @@ public class CbomSyncTask implements ScheduledJobTask {
             cbomService.sync();
         } catch (Exception e) {
             final String errorMessage = String.format("Unable to sync CBOMs for job %s. Error: %s", scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
-            logger.error(errorMessage);
+            logger.error(errorMessage, e);
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, Resource.CBOM, null);
         }
 
