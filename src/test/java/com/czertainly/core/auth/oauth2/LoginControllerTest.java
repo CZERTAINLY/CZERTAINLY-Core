@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -118,10 +120,16 @@ class LoginControllerTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "http://malicious.com", "//malicious.com"})
-    void loginShouldFailWhenRedirectInvalid(String redirect) throws Exception {
-        String url = redirect.isEmpty() ? "/login" : "/login?redirect=" + redirect;
+    void prepareShouldFailWhenRedirectInvalid(String redirect) throws Exception {
+        AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
+        Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
+        providers.put("test", validProvider("test", 999));
+        settings.setOAuth2Providers(providers);
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
+
+        String path = redirect.isEmpty() ? "/prepare" : "/prepare?redirect=" + redirect;
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri(url))
+                HttpRequest.newBuilder(uri("/oauth2/authorization/test" + path))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString()
@@ -167,7 +175,7 @@ class LoginControllerTest {
     }
 
     @Test
-    void loginShouldReturnConfiguredProvidersWhenMoreThanOne() throws Exception {
+    void loginShouldReturnConfiguredProviders() throws Exception {
         AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
         Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
         providers.put("one", validProvider("one", 123));
@@ -195,40 +203,22 @@ class LoginControllerTest {
         Assertions.assertTrue(json.contains("/oauth2/authorization/two/prepare"));
     }
 
-    @Test
-    void loginShouldRedirectToProviderWhenExactlyOneValidProvider() throws Exception {
-        AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
-        Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
-        providers.put("only", validProvider("only", 321));
-        settings.setOAuth2Providers(providers);
-        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
-
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=/ui"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        // controller does sendRedirect("oauth2/authorization/{provider}") => 302
-        Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
-
-        // We can’t directly introspect server-side session here; instead, verify session cookie exists.
-        Assertions.assertNotNull(extractSessionCookie(res.headers()));
-    }
-
-    @Test
-    void prepareShouldRedirectWhenProviderKnown() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/test-redirect",
+            "%2Fadministrator%2F",
+            "%2Fadministrator%2F%3Ffoo%3Dbar%23baz"
+    })
+    void prepareShouldRedirectWhenProviderKnown(String redirect) throws Exception {
         AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
         Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
         providers.put("test", validProvider("test", 999));
         settings.setOAuth2Providers(providers);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
-        // 1) Hit /prepare with redirect parameter - it should set the session and redirect
+        // 1) Hit /prepare with redirect parameter it should set the session and redirect
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/oauth2/authorization/test/prepare?redirect=/test-redirect"))
+                HttpRequest.newBuilder(uri("/oauth2/authorization/test/prepare?redirect=" + redirect))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString()
@@ -239,53 +229,11 @@ class LoginControllerTest {
     }
 
     @Test
-    void loginShouldSucceedWithTypicalQueryParameter() throws Exception {
-        AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
-        Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
-        providers.put("only", validProvider("only", 321));
-        settings.setOAuth2Providers(providers);
-        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
-
-        // Typical query parameter: redirect=%2Fadministrator%2F (which is /administrator/)
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=%2Fadministrator%2F"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        // The Location should NOT contain the redirect anymore
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
-    }
-
-    @Test
-    void loginShouldSucceedWithQueryAndFragment() throws Exception {
-        AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
-        Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
-        providers.put("only", validProvider("only", 321));
-        settings.setOAuth2Providers(providers);
-        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
-
-        // redirect=/administrator/?foo=bar#baz
-        // Encoded: /login?redirect=%2Fadministrator%2F%3Ffoo%3Dbar%23baz
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=%2Fadministrator%2F%3Ffoo%3Dbar%23baz"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("http://localhost:8080/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
-    }
-
-    @Test
     void prepareShouldAuditAndFailWhenProviderUnknown_withoutAccessToken() throws Exception {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, new AuthenticationSettingsDto());
 
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/oauth2/authorization/unknown/prepare"))
+                HttpRequest.newBuilder(uri("/oauth2/authorization/unknown/prepare?redirect=%2F"))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString()
@@ -295,15 +243,13 @@ class LoginControllerTest {
         verify(auditLogService, times(1)).logAuthentication(eq(Operation.LOGIN), eq(OperationResult.FAILURE), contains("Unknown OAuth2 Provider"), isNull());
     }
 
-    @Test
-    void jwkSetShouldReturnDecodedJwkSet() throws Exception {
-        String jwkJson = "{\"keys\":[]}";
-        String jwkEncoded = Base64.getEncoder().encodeToString(jwkJson.getBytes(StandardCharsets.UTF_8));
-
+    @ParameterizedTest
+    @MethodSource("provideJwkSetTestData")
+    void jwkSetShouldHandleVariousScenarios(String jwkSet, boolean shouldSucceed) throws Exception {
         AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
         Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
         OAuth2ProviderSettingsDto provider = validProvider("test", 10);
-        provider.setJwkSet(jwkEncoded);
+        provider.setJwkSet(jwkSet);
         provider.setJwkSetUrl(null);
         providers.put("test", provider);
         settings.setOAuth2Providers(providers);
@@ -316,29 +262,23 @@ class LoginControllerTest {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        Assertions.assertEquals(200, res.statusCode());
-        Assertions.assertEquals(MediaType.APPLICATION_JSON_VALUE, res.headers().firstValue("Content-type").orElse(null));
-        Assertions.assertEquals(jwkJson, res.body());
+        if (shouldSucceed) {
+            String expectedJwkJson = new String(Base64.getDecoder().decode(jwkSet), StandardCharsets.UTF_8);
+            Assertions.assertEquals(200, res.statusCode());
+            Assertions.assertEquals(MediaType.APPLICATION_JSON_VALUE, res.headers().firstValue("Content-type").orElse(null));
+            Assertions.assertEquals(expectedJwkJson, res.body());
+        } else {
+            Assertions.assertTrue(res.statusCode() >= 400);
+        }
     }
 
-    @Test
-    void jwkSetShouldFailWhenJwkSetMissing() throws Exception {
-        AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
-        Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
-        OAuth2ProviderSettingsDto provider = validProvider("test", 10);
-        provider.setJwkSet(null);
-        providers.put("test", provider);
-        settings.setOAuth2Providers(providers);
-        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
-
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/oauth2/test/jwkSet"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
+    private static List<Arguments> provideJwkSetTestData() {
+        String jwkJson = "{\"keys\":[]}";
+        String jwkEncoded = Base64.getEncoder().encodeToString(jwkJson.getBytes(StandardCharsets.UTF_8));
+        return List.of(
+                Arguments.of(jwkEncoded, true),
+                Arguments.of(null, false)
         );
-
-        Assertions.assertTrue(res.statusCode() >= 400);
     }
 
     @Test
@@ -349,7 +289,7 @@ class LoginControllerTest {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, new AuthenticationSettingsDto());
 
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/oauth2/authorization/unknown/prepare"))
+                HttpRequest.newBuilder(uri("/oauth2/authorization/unknown/prepare?redirect=%2F"))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString()

@@ -24,8 +24,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 
@@ -44,7 +42,7 @@ public class LoginController {
             produces = {"application/json"}
     )
     @ResponseBody
-    public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
+    public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, @RequestParam(value = "error", required = false) String error) {
 
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
 
@@ -53,35 +51,12 @@ public class LoginController {
             throw new CzertainlyAuthenticationException("Error during authentication: " + error);
         }
 
-        String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
-                .replacePath(null)
-                .build()
-                .toUriString();
-
-        String validatedRedirectUrl = validateAndNormalizeRedirect(redirectUrl);
-        if (validatedRedirectUrl != null) {
-            request.getSession().setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
-        } else {
-            throw new CzertainlyAuthenticationException("No redirect URL provided for login or redirect URL is invalid");
-        }
-
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
 
-        // Display only properly configured providers
-        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers() != null 
+        // Work only with properly configured OAuth2 providers.
+        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers() != null
                 ? authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList()
                 : List.of();
-        if (oauth2Providers.size() == 1) {
-            request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
-            String redirectPath = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/oauth2/authorization/{provider}")
-                    .buildAndExpand(oauth2Providers.getFirst().getName())
-                    .encode()
-                    .toUriString();
-            HttpHeaders headers = new HttpHeaders();
-            headers.setLocation(URI.create(redirectPath));
-            return new ResponseEntity<>(null, headers, HttpStatus.FOUND);
-        }
 
         List<LoginProviderDto> loginProviders = oauth2Providers.stream()
                 .map(provider -> {
@@ -110,10 +85,12 @@ public class LoginController {
         String validatedRedirectUrl = validateAndNormalizeRedirect(redirect);
         if (validatedRedirectUrl != null) {
             request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
+        } else {
+            throw new CzertainlyAuthenticationException("Missing redirect URL. Please start the login from the beginning.");
         }
 
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers() != null 
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers() != null
                 ? authenticationSettings.getOAuth2Providers().get(provider)
                 : null;
 
@@ -129,10 +106,6 @@ public class LoginController {
             String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(provider);
             auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, accessToken);
             throw new CzertainlyAuthenticationException(message);
-        }
-
-        if (request.getSession(false) == null || request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE) == null) {
-            throw new CzertainlyAuthenticationException("Missing redirect URL. Please start the login from the beginning.");
         }
 
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
@@ -190,5 +163,4 @@ public class LoginController {
             return null;
         }
     }
-
 }
