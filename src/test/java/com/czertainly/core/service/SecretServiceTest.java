@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.attribute.v3.content.StringAttributeConte
 import com.czertainly.api.model.connector.secrets.SecretContentResponseDto;
 import com.czertainly.api.model.connector.secrets.SecretResponseDto;
 import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent;
+import com.czertainly.api.model.connector.secrets.content.KeyValueSecretContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -25,6 +26,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.SecretsUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -38,6 +40,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.SerializationUtils;
+import wiremock.com.fasterxml.jackson.databind.DeserializationFeature;
+import wiremock.com.fasterxml.jackson.databind.json.JsonMapper;
 
 import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
@@ -383,5 +387,68 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(secret.getName(), secrets.getItems().getFirst().getName());
     }
 
+    @Test
+    void testFingerprintCalculation() throws NoSuchAlgorithmException, JsonProcessingException, wiremock.com.fasterxml.jackson.core.JsonProcessingException {
+
+        String basicAuthContentWithExtraProperty = """
+                {
+                "password": "testPassword",
+                "username": "testUsername",
+                "extraProperty": "testExtraProperty",
+                "type": "BASIC_AUTH"
+                }
+                """;
+        String basicAuthContent = """
+                {
+                "username": "testUsername",
+                "password": "testPassword",
+                "type": "basicAuth"
+                }
+                """;
+        ObjectMapper objectMapper = new ObjectMapper();
+        BasicAuthSecretContent basicAuthSecretContent = objectMapper.readValue(basicAuthContent, BasicAuthSecretContent.class);
+        JsonMapper jsonMapper = JsonMapper.builder()
+                .findAndAddModules()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+        BasicAuthSecretContent basicAuthSecretContentWithExtraProperty = jsonMapper
+                .readValue(basicAuthContentWithExtraProperty, BasicAuthSecretContent.class);
+        Assertions.assertEquals(SecretsUtil.calculateSecretContentFingerprint(basicAuthSecretContent), SecretsUtil.calculateSecretContentFingerprint(basicAuthSecretContentWithExtraProperty));
+
+        String keyValueContent1 = """
+                {
+                "type": "keyValue",
+                "content": {
+                "key1": "value1",
+                "key2": "value2",
+                "key3": null
+                }
+                }
+                """;
+        String keyValueContent2 = """
+                {
+                "type": "KEY_VALUE",
+                "content": {
+                "key2": "value2",
+                "key1": "value1",
+                "key3": null
+                }
+                }
+                """;
+        String keyValueContent3 = """
+                {
+                "type": "keyValue",
+                "content": {
+                "key2": "value2",
+                "key1": "value1"
+                }
+                }
+                """;
+        KeyValueSecretContent keyValueSecretContent1 = objectMapper.readValue(keyValueContent1, KeyValueSecretContent.class);
+        KeyValueSecretContent keyValueSecretContent2 = jsonMapper.readValue(keyValueContent2, KeyValueSecretContent.class);
+        KeyValueSecretContent keyValueSecretContent3 = objectMapper.readValue(keyValueContent3, KeyValueSecretContent.class);
+        Assertions.assertEquals(SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent1), SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent2));
+        Assertions.assertNotEquals(SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent1), SecretsUtil.calculateSecretContentFingerprint(keyValueSecretContent3));
+    }
 
 }

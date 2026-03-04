@@ -34,9 +34,9 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ConnectorService;
-import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.SecretsUtil;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -212,7 +212,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secretVersion.setVersion(1);
         String fingerprint;
         try {
-            fingerprint = CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(secretRequest.getSecret()));
+            fingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
         } catch (NoSuchAlgorithmException | JsonProcessingException e) {
             throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
         }
@@ -267,7 +267,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             SecretVersion latestVersion = secret.getLatestVersion();
             String newFingerprint;
             try {
-                newFingerprint = CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(secretRequest.getSecret()));
+                newFingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
             } catch (NoSuchAlgorithmException | JsonProcessingException e) {
                 throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
             }
@@ -460,7 +460,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         SecretContentResponseDto secretContent = secretApiClient.getSecretContent(connectorDetailDto, secretRequestDto, latestVersion.getVaultVersion());
         String secretContentFingerprint = null;
         try {
-            secretContentFingerprint = CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(secretContent.getContent()));
+            secretContentFingerprint = SecretsUtil.calculateSecretContentFingerprint(secretContent.getContent());
         } catch (NoSuchAlgorithmException | JsonProcessingException e) {
             throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
         }

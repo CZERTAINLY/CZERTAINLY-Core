@@ -1,5 +1,11 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.connector.secrets.content.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +36,12 @@ public class SecretsUtil {
 
     private static final String algorithm = "PBEWithSHA256And256BitAES-CBC-BC";
     private static final int iterations = 1000;
+
+    private static final ObjectMapper objectMapper = JsonMapper.builder()
+            .findAndAddModules()
+            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+            .build();
 
     /**
      * Encrypts and encodes the given secret using the PBEWithSHA256And256BitAES-CBC-BC algorithm.
@@ -110,6 +122,44 @@ public class SecretsUtil {
             throw new IllegalStateException("BouncyCastle provider not found", e);
         } catch (InvalidKeyException e) {
             throw new IllegalStateException("Invalid key provided for " + algorithm, e);
+        }
+    }
+
+    public static String calculateSecretContentFingerprint(SecretContent secretContent) throws JsonProcessingException, NoSuchAlgorithmException {
+        switch (secretContent.getType()) {
+            case BASIC_AUTH -> {
+                BasicAuthSecretContent basicAuthSecretContent = (BasicAuthSecretContent) secretContent;
+                return CertificateUtil.getThumbprint((basicAuthSecretContent.getUsername() + "|" + basicAuthSecretContent.getPassword()).getBytes());
+            }
+            case API_KEY -> {
+                ApiKeySecretContent apiKeySecretContent = (ApiKeySecretContent) secretContent;
+                return CertificateUtil.getThumbprint(apiKeySecretContent.getContent().getBytes());
+            }
+            case JWT_TOKEN -> {
+                JwtTokenSecretContent jwtTokenSecretContent = (JwtTokenSecretContent) secretContent;
+                return CertificateUtil.getThumbprint(jwtTokenSecretContent.getContent().getBytes());
+            }
+            case PRIVATE_KEY -> {
+                PrivateKeySecretContent privateKeySecretContent = (PrivateKeySecretContent) secretContent;
+                return CertificateUtil.getThumbprint(privateKeySecretContent.getContent().getBytes());
+            }
+            case SECRET_KEY -> {
+                SecretKeySecretContent secretKeySecretContent = (SecretKeySecretContent) secretContent;
+                return CertificateUtil.getThumbprint(secretKeySecretContent.getContent().getBytes());
+            }
+            case GENERIC -> {
+                GenericSecretContent genericSecretContent = (GenericSecretContent) secretContent;
+                return CertificateUtil.getThumbprint(genericSecretContent.getContent().getBytes());
+            }
+            case KEY_STORE -> {
+                KeyStoreSecretContent keyStoreSecretContent = (KeyStoreSecretContent) secretContent;
+                return CertificateUtil.getThumbprint(keyStoreSecretContent.getContent().getBytes());
+            }
+            case KEY_VALUE -> {
+                KeyValueSecretContent keyValueSecretContent = (KeyValueSecretContent) secretContent;
+                return CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(keyValueSecretContent.getContent()));
+            }
+            default -> throw new IllegalArgumentException("Unsupported secret type: " + secretContent.getType());
         }
     }
 
