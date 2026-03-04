@@ -944,7 +944,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Test
     void sync_ThrowsCbomRepositoryExceptionOn500Error() {
         // Given: cbom-repository does not work
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom/search"))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
             .willReturn(WireMock.aResponse()
                 .withStatus(500)
                 .withHeader("Content-Type", "application/problem+json")
@@ -1048,7 +1048,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     private void mockEntrySpecVersionSource(BomEntryDto entry, String specVersion, String source) {
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom/" + entry.getSerialNumber()))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom/" + entry.getSerialNumber()))
             .withQueryParam("version", WireMock.equalTo(entry.getVersion()))
             .willReturn(WireMock.aResponse()
                 .withStatus(200)
