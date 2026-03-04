@@ -18,24 +18,23 @@ public class SchedulerJmsEndpointConfig extends AbstractJmsEndpointConfig<Schedu
     private final MessagingConcurrencyProperties messagingConcurrencyProperties;
 
     public SchedulerJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<SchedulerJobExecutionMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            MessagingConcurrencyProperties messagingConcurrencyProperties) {
+        ObjectMapper objectMapper,
+        MessageProcessor<SchedulerJobExecutionMessage> listenerMessageProcessor,
+        RetryTemplate jmsRetryTemplate,
+        MessagingProperties messagingProperties,
+        MessagingConcurrencyProperties messagingConcurrencyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
 
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
-                () -> "schedulerListener",
-                () -> messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
-                    ? messagingProperties.exchange()
-                    : messagingProperties.consumerDestination(messagingProperties.queue().scheduler()),
-                () -> messagingProperties.routingKey().scheduler(),
-                messagingConcurrencyProperties::scheduler,
-                SchedulerJobExecutionMessage.class
+            "schedulerListener",
+            messagingProperties.consumerDestination(messagingProperties.queue().scheduler()),
+            messagingProperties.queue().scheduler(),
+            messagingProperties.routingKey().scheduler(),
+            messagingConcurrencyProperties.scheduler(),
+            SchedulerJobExecutionMessage.class
         );
     }
 }

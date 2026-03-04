@@ -19,24 +19,23 @@ public class EventJmsEndpointConfig extends AbstractJmsEndpointConfig<EventMessa
     private final MessagingConcurrencyProperties messagingConcurrencyProperties;
 
     public EventJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<EventMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            MessagingConcurrencyProperties messagingConcurrencyProperties) {
+        ObjectMapper objectMapper,
+        MessageProcessor<EventMessage> listenerMessageProcessor,
+        RetryTemplate jmsRetryTemplate,
+        MessagingProperties messagingProperties,
+        MessagingConcurrencyProperties messagingConcurrencyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
 
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
-                () -> "eventListener",
-                () -> messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
-                    ? messagingProperties.exchange()
-                    : messagingProperties.consumerDestination(messagingProperties.queue().event()),
-                () -> messagingProperties.routingKey().event(),
-                messagingConcurrencyProperties::events,
-                EventMessage.class
+            "eventListener",
+            messagingProperties.consumerDestination(messagingProperties.queue().event()),
+            messagingProperties.queue().event(),
+            messagingProperties.routingKey().event(),
+            messagingConcurrencyProperties.events(),
+            EventMessage.class
         );
     }
 }

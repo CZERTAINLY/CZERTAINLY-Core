@@ -19,11 +19,11 @@ public class ActionsJmsEndpointConfig extends AbstractJmsEndpointConfig<ActionMe
     private final MessagingConcurrencyProperties messagingConcurrencyProperties;
 
     public ActionsJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<ActionMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            MessagingConcurrencyProperties messagingConcurrencyProperties) {
+        ObjectMapper objectMapper,
+        MessageProcessor<ActionMessage> listenerMessageProcessor,
+        RetryTemplate jmsRetryTemplate,
+        MessagingProperties messagingProperties,
+        MessagingConcurrencyProperties messagingConcurrencyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
@@ -31,13 +31,12 @@ public class ActionsJmsEndpointConfig extends AbstractJmsEndpointConfig<ActionMe
     @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
-                () -> "actionsListener",
-                () -> messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
-                    ? messagingProperties.exchange()
-                    : messagingProperties.consumerDestination(messagingProperties.queue().actions()),
-                () -> messagingProperties.routingKey().actions(),
-                messagingConcurrencyProperties::actions,
-                ActionMessage.class
+            "actionsListener",
+            messagingProperties.consumerDestination(messagingProperties.queue().actions()),
+            messagingProperties.queue().actions(),
+            messagingProperties.routingKey().actions(),
+            messagingConcurrencyProperties.actions(),
+            ActionMessage.class
         );
     }
 }

@@ -23,11 +23,11 @@ public class ProxyMessageJmsEndpointConfig extends AbstractJmsEndpointConfig<Pro
     private final ProxyProperties proxyProperties;
 
     public ProxyMessageJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<ProxyMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            ProxyProperties proxyProperties) {
+        ObjectMapper objectMapper,
+        MessageProcessor<ProxyMessage> listenerMessageProcessor,
+        RetryTemplate jmsRetryTemplate,
+        MessagingProperties messagingProperties,
+        ProxyProperties proxyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.proxyProperties = proxyProperties;
     }
@@ -35,11 +35,15 @@ public class ProxyMessageJmsEndpointConfig extends AbstractJmsEndpointConfig<Pro
     @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
-                () -> "proxyMessageListener",
-                proxyProperties::exchange,
-                proxyProperties::responseQueue,
-                proxyProperties::concurrency,
-                ProxyMessage.class
+            "proxyMessageListener",
+            // messagingProperties.consumerDestination cannot be used here because the destination for SERVICEBUS is taken from messagingProperties.exchange()
+            messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
+                 ? proxyProperties.exchange()
+                : "/queues/" + proxyProperties.responseQueue(),
+            proxyProperties.responseQueue(),
+            null,
+            proxyProperties.concurrency(),
+            ProxyMessage.class
         );
     }
 

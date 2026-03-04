@@ -10,7 +10,7 @@
       }
     },
     {
-      "name": "core.event",
+      "name": "core.events",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -37,7 +37,7 @@
       }
     },
     {
-      "name": "core.notification",
+      "name": "core.notifications",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -47,6 +47,15 @@
     },
     {
       "name": "core.validation",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "core",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -64,13 +73,22 @@
       "auto_delete": false,
       "internal": false,
       "arguments": {}
+    },
+    {
+      "name": "czertainly-proxy",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
     }
   ],
   "bindings": [
     {
       "source": "czertainly",
       "vhost": "/",
-      "destination": "core.event",
+      "destination": "core.events",
       "destination_type": "queue",
       "routing_key": "event",
       "arguments": {}
@@ -80,13 +98,13 @@
       "vhost": "/",
       "destination": "core.actions",
       "destination_type": "queue",
-      "routing_key": "actions",
+      "routing_key": "action",
       "arguments": {}
     },
     {
       "source": "czertainly",
       "vhost": "/",
-      "destination": "core.notification",
+      "destination": "core.notifications",
       "destination_type": "queue",
       "routing_key": "notification",
       "arguments": {}
@@ -113,6 +131,14 @@
       "destination": "core.validation",
       "destination_type": "queue",
       "routing_key": "validation",
+      "arguments": {}
+    },
+    {
+      "source": "czertainly-proxy",
+      "vhost": "/",
+      "destination": "core",
+      "destination_type": "queue",
+      "routing_key": "#",
       "arguments": {}
     }
   ]

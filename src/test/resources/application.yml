@@ -96,8 +96,8 @@ spring:
     queue:
       actions: core.actions
       audit-logs: core.audit-logs
-      event: core.event
-      notification: core.notification
+      event: core.events
+      notification: core.notifications
       scheduler: core.scheduler
       validation: core.validation
     listener:
@@ -106,7 +106,7 @@ spring:
       max-interval: 5000
     exchange: czertainly
     routing-key:
-      actions: actions
+      actions: action
       audit-logs: audit-logs
       event: event
       notification: notification

@@ -19,11 +19,11 @@ public class AuditLogsJmsEndpointConfig extends AbstractJmsEndpointConfig<AuditL
     private final MessagingConcurrencyProperties messagingConcurrencyProperties;
 
     public AuditLogsJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<AuditLogMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            MessagingConcurrencyProperties messagingConcurrencyProperties) {
+        ObjectMapper objectMapper,
+        MessageProcessor<AuditLogMessage> listenerMessageProcessor,
+        RetryTemplate jmsRetryTemplate,
+        MessagingProperties messagingProperties,
+        MessagingConcurrencyProperties messagingConcurrencyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
@@ -31,13 +31,12 @@ public class AuditLogsJmsEndpointConfig extends AbstractJmsEndpointConfig<AuditL
     @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
-                () -> "auditLogsListener",
-                () -> messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
-                    ? messagingProperties.exchange()
-                    : messagingProperties.consumerDestination(messagingProperties.queue().auditLogs()),
-                () -> messagingProperties.routingKey().auditLogs(),
-                messagingConcurrencyProperties::auditLogs,
-                AuditLogMessage.class
+            "auditLogsListener",
+            messagingProperties.consumerDestination(messagingProperties.queue().auditLogs()),
+            messagingProperties.queue().auditLogs(),
+            messagingProperties.routingKey().auditLogs(),
+            messagingConcurrencyProperties.auditLogs(),
+            AuditLogMessage.class
         );
     }
 }

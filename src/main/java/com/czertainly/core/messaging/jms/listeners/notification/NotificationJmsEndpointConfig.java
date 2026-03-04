@@ -18,11 +18,11 @@ public class NotificationJmsEndpointConfig extends AbstractJmsEndpointConfig<Not
     private final MessagingConcurrencyProperties messagingConcurrencyProperties;
 
     public NotificationJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<NotificationMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            MessagingConcurrencyProperties messagingConcurrencyProperties) {
+        ObjectMapper objectMapper,
+        MessageProcessor<NotificationMessage> listenerMessageProcessor,
+        RetryTemplate jmsRetryTemplate,
+        MessagingProperties messagingProperties,
+        MessagingConcurrencyProperties messagingConcurrencyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
@@ -30,13 +30,12 @@ public class NotificationJmsEndpointConfig extends AbstractJmsEndpointConfig<Not
     @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
-                () -> "notificationListener",
-                () -> messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
-                    ? messagingProperties.exchange()
-                    : messagingProperties.consumerDestination(messagingProperties.queue().notification()),
-                () -> messagingProperties.routingKey().notification(),
-                messagingConcurrencyProperties::notifications,
-                NotificationMessage.class
+            "notificationListener",
+            messagingProperties.consumerDestination(messagingProperties.queue().notification()),
+            messagingProperties.queue().notification(),
+            messagingProperties.routingKey().notification(),
+            messagingConcurrencyProperties.notifications(),
+            NotificationMessage.class
         );
     }
 }

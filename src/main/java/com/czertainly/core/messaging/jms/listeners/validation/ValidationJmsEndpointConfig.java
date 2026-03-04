@@ -18,24 +18,23 @@ public class ValidationJmsEndpointConfig extends AbstractJmsEndpointConfig<Valid
     private final MessagingConcurrencyProperties messagingConcurrencyProperties;
 
     public ValidationJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<ValidationMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            MessagingConcurrencyProperties messagingConcurrencyProperties) {
+        ObjectMapper objectMapper,
+        MessageProcessor<ValidationMessage> listenerMessageProcessor,
+        RetryTemplate jmsRetryTemplate,
+        MessagingProperties messagingProperties,
+        MessagingConcurrencyProperties messagingConcurrencyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
 
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
-                () -> "validationListener",
-                () -> messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
-                    ? messagingProperties.exchange()
-                    : messagingProperties.consumerDestination(messagingProperties.queue().validation()),
-                () -> messagingProperties.routingKey().validation(),
-                messagingConcurrencyProperties::validation,
-                ValidationMessage.class
+            "validationListener",
+            messagingProperties.consumerDestination(messagingProperties.queue().validation()),
+            messagingProperties.queue().validation(),
+            messagingProperties.routingKey().validation(),
+            messagingConcurrencyProperties.validation(),
+            ValidationMessage.class
         );
     }
 }

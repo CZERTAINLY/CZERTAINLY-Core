@@ -1,5 +1,6 @@
 package com.czertainly.core.messaging.jms.configuration;
 
+import jakarta.jms.JMSException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jms.JmsException;
@@ -10,6 +11,7 @@ import org.springframework.retry.policy.NeverRetryPolicy;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,6 +19,11 @@ import java.util.Map;
 @EnableRetry
 public class RetryConfig {
 
+    // TODO: This single RetryTemplate is shared between producers and listeners, but is configured
+    //  solely from producer.retry.* properties. Consider splitting into two separate beans —
+    //  one for producers (bounded retry, short intervals, fail-fast) and one for listeners
+    //  (potentially longer intervals, more attempts). Also consider whether listener retry is
+    //  needed at all, or if DefaultMessageListenerContainer's own BackOff recovery is sufficient.
     @Bean
     public RetryTemplate jmsRetryTemplate(MessagingProperties messagingProperties) {
         RetryTemplate template = new RetryTemplate();
@@ -25,7 +32,9 @@ public class RetryConfig {
                 messagingProperties.producer().retry().enabled()) {
 
             Map<Class<? extends Throwable>, Boolean> retryableExceptions = new HashMap<>();
-            retryableExceptions.put(JmsException.class, true);
+            retryableExceptions.put(JmsException.class, true);    // Spring JMS wrapper
+            retryableExceptions.put(JMSException.class, true);    // raw jakarta.jms (e.g. getJMSMessageID())
+            retryableExceptions.put(IOException.class, true);     // network / deserialization
 
             SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy(
                     messagingProperties.producer().retry().maxAttempts(),
