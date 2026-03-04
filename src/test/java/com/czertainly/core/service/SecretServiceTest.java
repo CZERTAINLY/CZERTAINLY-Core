@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.attribute.v3.content.StringAttributeConte
 import com.czertainly.api.model.connector.secrets.SecretContentResponseDto;
 import com.czertainly.api.model.connector.secrets.SecretResponseDto;
 import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent;
+import com.czertainly.api.model.connector.secrets.content.KeyValueSecretContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -25,6 +26,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.SecretsUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -34,16 +36,22 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.SerializationUtils;
+import wiremock.com.fasterxml.jackson.databind.DeserializationFeature;
+import wiremock.com.fasterxml.jackson.databind.json.JsonMapper;
 
 import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
 
 class SecretServiceTest extends BaseSpringBootTest {
 
@@ -383,5 +391,16 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(secret.getName(), secrets.getItems().getFirst().getName());
     }
 
+    @Test
+    void getSecretContent_whenFingerprintCalcThrows_shouldThrowValidationException() {
+        try (MockedStatic<SecretsUtil> mocked = mockStatic(SecretsUtil.class)) {
+            mocked.when(() -> SecretsUtil.calculateSecretContentFingerprint(any()))
+                    .thenThrow(new JsonProcessingException("boom") {});
+
+            // act + assert
+            UUID secretUuid = secret.getUuid();
+            Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+        }
+    }
 
 }
