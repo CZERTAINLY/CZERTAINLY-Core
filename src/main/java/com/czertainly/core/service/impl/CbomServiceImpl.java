@@ -339,6 +339,7 @@ public class CbomServiceImpl implements CbomService {
         cbom.setTotalAssetsCount(totalAssetsCount);
     }
 
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.SYNC)
     public void sync() throws CbomRepositoryException {
         Optional<ScheduledJobHistory> lastSync;
 
