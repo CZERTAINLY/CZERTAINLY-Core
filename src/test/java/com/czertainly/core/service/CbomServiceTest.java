@@ -52,6 +52,7 @@ import com.czertainly.core.model.cbom.CryptoStatsDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -867,16 +868,8 @@ class CbomServiceTest extends BaseSpringBootTest {
         BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
         BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(2));
         BomEntryDto entry3 = entry("serial-3", "3", now.minusHours(1));
-        List<BomEntryDto> response = List.of(entry1, entry2, entry3);
 
-        String jsonBody = objectMapper.writeValueAsString(response);
-
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom"))
-            .withQueryParam("after", WireMock.matching("\\d+"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(jsonBody)));
+        mockSearchResponse(List.of(entry1, entry2, entry3));
 
         mockEntrySpecVersionSource(entry1, "1.6", "name-1");
         mockEntrySpecVersionSource(entry2, "1.7", "name-2");
@@ -948,7 +941,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSyncCbomsFromRepository_ThrowsCbomRepositoryExceptionOn500Error() {
+    void sync_ThrowsCbomRepositoryExceptionOn500Error() {
         // Given: cbom-repository does not work
         mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/bom/search"))
             .willReturn(WireMock.aResponse()
@@ -970,6 +963,65 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom"))
             .withQueryParam("after", WireMock.equalTo("0")));
+    }
+
+    @Test
+    void sync_NumberFormatExceptionIgnored() throws Exception {
+        // Given
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        entry1.setVersion("bogus");
+        List<BomEntryDto> response = List.of(entry1);
+
+        mockSearchResponse(response);
+
+        // When
+        cbomService.sync();
+
+        // Then no boms were stored
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(0, savedCboms.size());
+        // ... and no get detail REST API has been called
+        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom/serial-1")));
+    }
+
+    @Test
+    void sync_NotFoundExceptionIgnored() throws Exception {
+        // Given
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(3));
+        List<BomEntryDto> response = List.of(entry1);
+
+        mockSearchResponse(List.of(entry1, entry2));
+
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/serial-2"))
+            .withQueryParam("version", WireMock.equalTo("2"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(404)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                        "type": "about:blank",
+                        "title": "Not Found",
+                        "status": 404,
+                        "detail": "Requested CBOM not found"
+                    }
+                    """)));
+
+        // When
+        cbomService.sync();
+
+        // Then no boms were stored
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(1, savedCboms.size());
+        List<String> serialNumbers = savedCboms.stream()
+                .map(Cbom::getSerialNumber)
+                .sorted()
+                .toList();
+
+        assertTrue(serialNumbers.containsAll(List.of("serial-1")));
     }
 
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
@@ -1011,5 +1063,16 @@ class CbomServiceTest extends BaseSpringBootTest {
                 }
                 }
                 """.formatted(specVersion, source))));
+    }
+
+    private void mockSearchResponse(List<BomEntryDto>  response) throws JsonProcessingException {
+        String jsonBody = objectMapper.writeValueAsString(response);
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom"))
+            .withQueryParam("after", WireMock.matching("\\d+"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody(jsonBody)));
     }
 }
