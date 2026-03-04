@@ -904,7 +904,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         long expectedAfter = oneHourAgo.getTime() / 1000;
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
             .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter)))
             .willReturn(WireMock.aResponse()
                 .withStatus(200)
@@ -915,7 +915,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         cbomService.sync();
 
         // Then: WireMock verification ensures the 'after' param matched the DB timestamp
-        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
             .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter))));
     }
 
@@ -934,7 +934,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         // Then: sync was skipped
         // ... no calls were made to the GET /v1/bom endpoint
-        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom")));
+        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom")));
 
         // ... no CBOMs were saved to the repository
         List<Cbom> savedCboms = cbomRepository.findAll();
@@ -962,7 +962,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             cbomService.sync();
         });
 
-        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
             .withQueryParam("after", WireMock.equalTo("0")));
     }
 
@@ -1068,7 +1068,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     private void mockSearchResponse(List<BomEntryDto>  response) throws JsonProcessingException {
         String jsonBody = objectMapper.writeValueAsString(response);
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/bom"))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
             .withQueryParam("after", WireMock.matching("\\d+"))
             .willReturn(WireMock.aResponse()
                 .withStatus(200)
