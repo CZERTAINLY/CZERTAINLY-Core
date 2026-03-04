@@ -161,12 +161,8 @@ public class SecretsUtil {
                 KeyValueSecretContent keyValueSecretContent = (KeyValueSecretContent) secretContent;
                 return CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(keyValueSecretContent.getContent()));
             }
-            default -> {
-                if (logger.isWarnEnabled()) {
-                    logger.warn("Unsupported secret type '{}' when calculating fingerprint, using JSON-based fallback", secretContent.getType());
-                }
-                return CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(secretContent));
-            }
+            default ->
+                    throw new IllegalArgumentException("Unsupported secret content type: " + secretContent.getType());
         }
     }
 
