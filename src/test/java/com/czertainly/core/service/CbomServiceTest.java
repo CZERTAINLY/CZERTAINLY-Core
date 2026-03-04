@@ -905,7 +905,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         ScheduledJobHistory history = new ScheduledJobHistory();
         history.setJobName(CBOM_SYNC_JOB_NAME);
         history.setJobExecution(oneHourAgo);
-        history.setJobEndTime(oneHourAgo); // This is what sync() uses
+        history.setJobEndTime(oneHourAgo);
         history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
         scheduledJobHistoryRepository.save(history);
 
@@ -924,6 +924,28 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Then: WireMock verification ensures the 'after' param matched the DB timestamp
         mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom"))
             .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter))));
+    }
+
+    @Test
+    void sync_shouldSkipSync_whenJobEndTimeIsNull() throws Exception {
+        // Given: A previous job entry exists BUT its end time is null (In Progress)
+        ScheduledJobHistory history = new ScheduledJobHistory();
+        history.setJobName(CBOM_SYNC_JOB_NAME);
+        history.setJobExecution(new Date());
+        history.setJobEndTime(null);
+        history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.STARTED);
+        scheduledJobHistoryRepository.save(history);
+
+        // When
+        cbomService.sync();
+
+        // Then: sync was skipped
+        // ... no calls were made to the GET /v1/bom endpoint
+        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom")));
+        
+        // ... no CBOMs were saved to the repository
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        org.junit.jupiter.api.Assertions.assertTrue(savedCboms.isEmpty());
     }
 
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
