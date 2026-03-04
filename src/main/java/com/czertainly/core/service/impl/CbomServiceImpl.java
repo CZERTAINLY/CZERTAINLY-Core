@@ -358,12 +358,13 @@ public class CbomServiceImpl implements CbomService {
 
         Long timestamp = 0L;
         if (lastSync.isPresent()) {
-            try {
-                timestamp = (lastSync.get().getJobEndTime().getTime() / 1000);
-            } catch (NullPointerException e) {
+            ScheduledJobHistory lastSyncJob = lastSync.get();
+            Date jobEndTime = lastSyncJob.getJobEndTime();
+            if (jobEndTime == null) {
                 logger.getLogger().debug("CBOM sync: there is sync job in progress run. Skipping sync.");
                 return;
             }
+            timestamp = jobEndTime.getTime() / 1000;
         } else {
             logger.getLogger().debug("CBOM sync: no previous run found, performing initial sync.");
         }
