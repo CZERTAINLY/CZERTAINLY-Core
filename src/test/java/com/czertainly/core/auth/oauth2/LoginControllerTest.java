@@ -142,7 +142,7 @@ class LoginControllerTest {
     void loginShouldFailAndInvalidateSessionWhenErrorPresent() throws Exception {
         // 1) Hit /login once to establish a session cookie
         HttpResponse<String> first = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=/ui"))
+                HttpRequest.newBuilder(uri("/login"))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString()
@@ -152,7 +152,7 @@ class LoginControllerTest {
 
         // 2) Call /login with error, using same cookie → should invalidate
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=/ui&error=oops"))
+                HttpRequest.newBuilder(uri("/login?&error=oops"))
                         .header("Cookie", sessionCookie)
                         .GET()
                         .build(),
@@ -163,7 +163,7 @@ class LoginControllerTest {
 
         // 3) A subsequent call with same cookie should behave like a fresh session (i.e., server issues a new session cookie)
         HttpResponse<String> after = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=/ui"))
+                HttpRequest.newBuilder(uri("/login"))
                         .header("Cookie", sessionCookie)
                         .GET()
                         .build(),
@@ -185,7 +185,7 @@ class LoginControllerTest {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
         HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=/ui"))
+                HttpRequest.newBuilder(uri("/login"))
                         .header("Accept", MediaType.APPLICATION_JSON_VALUE)
                         .GET()
                         .build(),

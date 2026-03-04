@@ -42,8 +42,7 @@ public class LoginController {
             produces = {"application/json"}
     )
     @ResponseBody
-    public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, @RequestParam(value = "error", required = false) String error) {
-
+    public ResponseEntity<List<LoginProviderDto>> login(HttpServletRequest request, @RequestParam(value = "error", required = false) String error) {
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
 
         if (error != null) {
@@ -77,6 +76,8 @@ public class LoginController {
 
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     public void loginWithProvider(@PathVariable String provider, @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response, HttpServletRequest request) throws IOException {
+        request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
+
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .replacePath(null)
                 .build()
@@ -86,7 +87,9 @@ public class LoginController {
         if (validatedRedirectUrl != null) {
             request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
         } else {
-            throw new CzertainlyAuthenticationException("Missing redirect URL. Please start the login from the beginning.");
+            String message = "Missing redirect URL. Please start the login from the beginning.";
+            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, null);
+            throw new CzertainlyAuthenticationException(message);
         }
 
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
