@@ -129,37 +129,42 @@ public class SecretsUtil {
         switch (secretContent.getType()) {
             case BASIC_AUTH -> {
                 BasicAuthSecretContent basicAuthSecretContent = (BasicAuthSecretContent) secretContent;
-                return CertificateUtil.getThumbprint((basicAuthSecretContent.getUsername() + "|" + basicAuthSecretContent.getPassword()).getBytes());
+                return CertificateUtil.getThumbprint((basicAuthSecretContent.getUsername() + "|" + basicAuthSecretContent.getPassword()).getBytes(StandardCharsets.UTF_8));
             }
             case API_KEY -> {
                 ApiKeySecretContent apiKeySecretContent = (ApiKeySecretContent) secretContent;
-                return CertificateUtil.getThumbprint(apiKeySecretContent.getContent().getBytes());
+                return CertificateUtil.getThumbprint(apiKeySecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case JWT_TOKEN -> {
                 JwtTokenSecretContent jwtTokenSecretContent = (JwtTokenSecretContent) secretContent;
-                return CertificateUtil.getThumbprint(jwtTokenSecretContent.getContent().getBytes());
+                return CertificateUtil.getThumbprint(jwtTokenSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case PRIVATE_KEY -> {
                 PrivateKeySecretContent privateKeySecretContent = (PrivateKeySecretContent) secretContent;
-                return CertificateUtil.getThumbprint(privateKeySecretContent.getContent().getBytes());
+                return CertificateUtil.getThumbprint(privateKeySecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case SECRET_KEY -> {
                 SecretKeySecretContent secretKeySecretContent = (SecretKeySecretContent) secretContent;
-                return CertificateUtil.getThumbprint(secretKeySecretContent.getContent().getBytes());
+                return CertificateUtil.getThumbprint(secretKeySecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case GENERIC -> {
                 GenericSecretContent genericSecretContent = (GenericSecretContent) secretContent;
-                return CertificateUtil.getThumbprint(genericSecretContent.getContent().getBytes());
+                return CertificateUtil.getThumbprint(genericSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case KEY_STORE -> {
                 KeyStoreSecretContent keyStoreSecretContent = (KeyStoreSecretContent) secretContent;
-                return CertificateUtil.getThumbprint(keyStoreSecretContent.getContent().getBytes());
+                return CertificateUtil.getThumbprint(keyStoreSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case KEY_VALUE -> {
                 KeyValueSecretContent keyValueSecretContent = (KeyValueSecretContent) secretContent;
                 return CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(keyValueSecretContent.getContent()));
             }
-            default -> throw new IllegalArgumentException("Unsupported secret type: " + secretContent.getType());
+            default -> {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Unsupported secret type '{}' when calculating fingerprint, using JSON-based fallback", secretContent.getType());
+                }
+                return CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(secretContent));
+            }
         }
     }
 

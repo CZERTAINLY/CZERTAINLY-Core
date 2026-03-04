@@ -214,7 +214,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         try {
             fingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
         } catch (NoSuchAlgorithmException | JsonProcessingException e) {
-            throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
+            throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
         }
 
         secretVersion.setFingerprint(fingerprint);
@@ -269,7 +269,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             try {
                 newFingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
             } catch (NoSuchAlgorithmException | JsonProcessingException e) {
-                throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
+                throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
             }
 
             boolean contentChanged = !newFingerprint.equals(latestVersion.getFingerprint());
@@ -462,7 +462,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         try {
             secretContentFingerprint = SecretsUtil.calculateSecretContentFingerprint(secretContent.getContent());
         } catch (NoSuchAlgorithmException | JsonProcessingException e) {
-            throw new ValidationException("Unable to calculate secret fingerprint" + e.getMessage());
+            throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
         }
         if (!secret.getLatestVersion().getFingerprint().equals(secretContentFingerprint)) {
             SecretVersion newVersion = new SecretVersion();
