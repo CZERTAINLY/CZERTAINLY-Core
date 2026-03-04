@@ -75,8 +75,6 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class CbomServiceImpl implements CbomService {
 
-    private static final String CBOM_SYNC_JOB_NAME = "CbomSyncTask";
-
     private static final LoggerWrapper logger = new LoggerWrapper(CbomServiceImpl.class, Module.CORE, Resource.CBOM);
 
     private CbomRepository cbomRepository;
