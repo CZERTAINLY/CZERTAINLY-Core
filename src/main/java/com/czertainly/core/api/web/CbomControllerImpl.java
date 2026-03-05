@@ -77,7 +77,7 @@ public class CbomControllerImpl implements CbomController {
         resource = Resource.CBOM,
         operation = Operation.SYNC)
     public void sync() throws CbomRepositoryException {
-        cbomService.sync();
+        cbomService.syncAuthorized();
     }
 
     @Override

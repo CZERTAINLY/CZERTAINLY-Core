@@ -339,6 +339,10 @@ public class CbomServiceImpl implements CbomService {
     }
 
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.CREATE)
+    public void syncAuthorized() throws CbomRepositoryException {
+        sync();
+    }
+
     public void sync() throws CbomRepositoryException {
         Optional<ScheduledJobHistory> lastSync;
 
