@@ -47,6 +47,7 @@ public class ConnectorInterfaceEntity extends UniquelyIdentified implements Seri
         connectorInterface.setCode(interfaceCode);
         connectorInterface.setVersion(version);
         connectorInterface.setFeatures(features);
+        connectorInterface.setUuid(uuid);
         return connectorInterface;
     }
 
