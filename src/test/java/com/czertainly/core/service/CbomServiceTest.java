@@ -61,10 +61,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
-@SpringBootTest(properties = {
-    "logging.level.com.czertainly.core.service.impl.CbomServiceImpl=DEBUG",
-    "logging.level.org.springframework.web.reactive.function.client.ExchangeFunctions=DEBUG"
-})
 class CbomServiceTest extends BaseSpringBootTest {
 
     private static final String CONTENT_TYPE = "application/vnd.cyclonedx+json";
@@ -901,7 +897,6 @@ class CbomServiceTest extends BaseSpringBootTest {
     void sync_shouldSyncAllEntries_whenNoLastSyncIsNull() throws Exception {
         // Given
 
-        Date oneHourAgo = new Date(System.currentTimeMillis() - 3600 * 1000);
         ScheduledJob scheduledJob = new ScheduledJob();
         scheduledJob.setJobName(CbomSyncTask.NAME);
         scheduledJob.setJobClassName(CbomSyncTask.class.getName());
