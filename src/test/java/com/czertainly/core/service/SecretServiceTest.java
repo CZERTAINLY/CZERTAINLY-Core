@@ -403,4 +403,16 @@ class SecretServiceTest extends BaseSpringBootTest {
         }
     }
 
+    @Test
+    void testGetSecretContentDisabled() {
+        secret.setEnabled(false);
+        secretRepository.save(secret);
+        UUID secretUuid = secret.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+        secret.setEnabled(true);
+        vaultProfile.setEnabled(false);
+        vaultProfileRepository.save(vaultProfile);
+        Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+    }
+
 }

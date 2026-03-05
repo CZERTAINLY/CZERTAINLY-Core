@@ -454,6 +454,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
     public SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException {
         Secret secret = getSecretEntity(uuid);
+        if (!secret.getSourceVaultProfile().isEnabled() || !secret.isEnabled()) {
+            throw new ValidationException("Secret or source vault profile is not enabled");
+        }
         SecretVersion latestVersion = secret.getLatestVersion();
         ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(latestVersion.getVaultInstance().getConnectorUuid()));
         com.czertainly.api.model.connector.secrets.SecretRequestDto secretRequestDto = getSecretRequestDto(secret, connectorDetailDto, latestVersion.getVaultInstance().getUuid(), attributeEngine.getRequestObjectDataAttributesContent(UUID.fromString(connectorDetailDto.getUuid()), null, Resource.SECRET, secret.getUuid()));
