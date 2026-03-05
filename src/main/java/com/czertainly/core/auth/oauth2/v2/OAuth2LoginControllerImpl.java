@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.auth.LoginProviderDto;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.core.util.OAuth2LoginFlowHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.service.v2.OAuth2LoginService;
@@ -14,9 +15,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -24,7 +24,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.io.IOException;
 import java.util.List;
 
-@Controller
+@RestController
 @Slf4j
 public class OAuth2LoginControllerImpl implements OAuth2LoginController {
 
@@ -79,30 +79,16 @@ public class OAuth2LoginControllerImpl implements OAuth2LoginController {
 
         String validatedRedirectUrl = oauth2LoginService.validateAndNormalizeRedirect(redirect);
         if (validatedRedirectUrl == null) {
-            String message = "Missing or invalid redirect URL. Please start the login from the beginning.";
-            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, null);
-            throw new CzertainlyAuthenticationException(message);
+            String errorMessage = "Missing or invalid redirect URL. Please start the login from the beginning.";
+            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, errorMessage, null);
+            throw new CzertainlyAuthenticationException(errorMessage);
         }
 
         HttpServletRequest request = getHttpServletRequest();
         HttpServletResponse response = getHttpServletResponse();
         request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
 
-        OAuth2ProviderSettingsDto providerSettings = oauth2LoginService.getOAuth2ProviderSettings(provider);
-
-        if (providerSettings == null) {
-            String accessToken;
-            try {
-                OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
-                accessToken = oauth2AccessToken.getTokenValue();
-            } catch (Exception e) {
-                accessToken = null;
-            }
-
-            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(provider);
-            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, accessToken);
-            throw new CzertainlyAuthenticationException(message);
-        }
+        OAuth2ProviderSettingsDto providerSettings = OAuth2LoginFlowHelper.resolveProviderOrThrow(provider, request, oauth2LoginService, auditLogService);
 
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());

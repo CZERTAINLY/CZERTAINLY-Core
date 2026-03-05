@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -136,7 +135,7 @@ class OAuth2LoginControllerTest {
 
         Assertions.assertTrue(res.statusCode() >= 400);
 
-        // 3) A subsequent call with same cookie should behave like a fresh session (i.e., server issues a new session cookie)
+        // 3) A subsequent call with the same cookie should behave like a fresh session (i.e., server issues a new session cookie)
         HttpResponse<String> after = http.send(
                 HttpRequest.newBuilder(uri(path + "?redirect=/ui"))
                         .header("Cookie", sessionCookie)

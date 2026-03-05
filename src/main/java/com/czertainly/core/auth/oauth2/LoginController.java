@@ -2,21 +2,20 @@ package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.LoginProviderDto;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.core.auth.oauth2.v2.OAuth2LoginControllerImpl;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.service.v2.OAuth2LoginService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.OAuth2Constants;
+import com.czertainly.core.util.OAuth2LoginFlowHelper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,11 +45,15 @@ public class LoginController {
         this.oauth2LoginService = oauth2LoginService;
     }
 
+    /**
+     * @deprecated since 2.17.0, use {@link OAuth2LoginControllerImpl#getOAuth2Providers} instead
+     */
     @GetMapping(
             value = "/login",
             produces = {"application/json"}
     )
     @ResponseBody
+    @Deprecated(forRemoval = true, since = "2.17.0")
     public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
@@ -103,6 +106,9 @@ public class LoginController {
         return new ResponseEntity<>(loginProviders, HttpStatus.OK);
     }
 
+    /**
+     * @deprecated since 2.17.0, use {@link OAuth2LoginControllerImpl#loginWithProvider} instead
+     */
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     public void loginWithProvider(@PathVariable String provider, @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response, HttpServletRequest request) throws IOException {
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
@@ -115,21 +121,7 @@ public class LoginController {
             request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
         }
 
-        OAuth2ProviderSettingsDto providerSettings = oauth2LoginService.getOAuth2ProviderSettings(provider);
-
-        if (providerSettings == null) {
-            String accessToken;
-            try {
-                OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
-                accessToken = oauth2AccessToken.getTokenValue();
-            } catch (Exception e) {
-                accessToken = null;
-            }
-
-            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(provider);
-            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, accessToken);
-            throw new CzertainlyAuthenticationException(message);
-        }
+        OAuth2ProviderSettingsDto providerSettings = OAuth2LoginFlowHelper.resolveProviderOrThrow(provider, request, oauth2LoginService, auditLogService);
 
         if (request.getSession(false) == null || request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE) == null) {
             throw new CzertainlyAuthenticationException("Missing redirect URL. Please start the login from the beginning.");

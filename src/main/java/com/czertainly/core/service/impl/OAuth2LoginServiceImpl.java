@@ -1,6 +1,5 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
@@ -10,8 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 
 @Service
