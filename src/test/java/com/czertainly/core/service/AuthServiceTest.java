@@ -700,8 +700,46 @@ class AuthServiceTest extends BaseSpringBootTest {
                                 "displayName": "List"
                             }
                         ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7890",
+                        "name": "vaults",
+                        "displayName": "Vaults",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7891",
+                        "name": "vaultProfiles",
+                        "displayName": "Vault Profiles",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7892",
+                        "name": "secrets",
+                        "displayName": "Secrets",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
                     }
-               
                 ]
                 """;
     }

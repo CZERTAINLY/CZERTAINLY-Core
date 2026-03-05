@@ -69,6 +69,11 @@ public enum Resource {
     // SAAS
     TRUSTED_CERTIFICATE("trustedCertificates"),
 
+    // SECRETS
+    VAULT("vaults"),
+    VAULT_PROFILE("vaultProfiles"),
+    SECRET("secrets"),
+
     // CBOMS
     CBOM("cboms")
     ;

@@ -47,4 +47,5 @@ public interface PermissionEvaluator {
      */
     void tokenProfiles(List<SecuredUUID> uuids);
 
+    void vaultProfileMembers(SecuredUUID securedUUID);
 }

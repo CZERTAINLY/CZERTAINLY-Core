@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.NotSupportedException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
@@ -311,7 +308,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testLoadResourceObjectContentDataFromDataAttributes() throws NotFoundException, AttributeException {
+    void testLoadResourceObjectContentDataFromDataAttributes() throws NotFoundException, AttributeException, ConnectorException {
         DataAttributeV3 nonResourceAttribute = new DataAttributeV3();
         nonResourceAttribute.setName("name");
         nonResourceAttribute.setContentType(AttributeContentType.DATE);
@@ -336,7 +333,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testLoadResourceObjectContentDataToBody() throws NotFoundException, AttributeException {
+    void testLoadResourceObjectContentDataToBody() throws NotFoundException, AttributeException, ConnectorException {
         AuthorityInstanceReference authorityInstance = new AuthorityInstanceReference();
         authorityInstance.setName("auth");
         authorityInstanceReferenceRepository.save(authorityInstance);
