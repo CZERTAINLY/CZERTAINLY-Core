@@ -1,6 +1,7 @@
 package com.czertainly.core.tasks;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,26 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
         assertEquals(SchedulerJobExecutionStatus.FAILED, result.getStatus());
         assertTrue(result.getResultMessage().contains("Sync failed"));
         Mockito.verify(cbomService, Mockito.times(1)).sync();
+    }
+
+    @Test
+    void testGetDefaultJobName() {
+        assertEquals(CbomSyncTask.NAME, cbomSyncTask.getDefaultJobName());
+    }
+
+    @Test
+    void testGetDefaultCronExpression() {
+        assertEquals("0 0 0 * * ?", cbomSyncTask.getDefaultCronExpression());
+    }
+
+    @Test
+    void testIsDefaultOneTimeJob() {
+        assertFalse(cbomSyncTask.isDefaultOneTimeJob());
+    }
+
+    @Test
+    void testGetJobClassName() {
+        assertEquals(CbomSyncTask.class.getName(), cbomSyncTask.getJobClassName());
     }
 
 }
