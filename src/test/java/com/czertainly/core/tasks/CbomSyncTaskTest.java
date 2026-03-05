@@ -53,7 +53,7 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
 
     @Test
     void testGetDefaultCronExpression() {
-        assertEquals("0 0 0 * * ?", cbomSyncTask.getDefaultCronExpression());
+        assertEquals("0 0 * ? * *", cbomSyncTask.getDefaultCronExpression());
     }
 
     @Test
