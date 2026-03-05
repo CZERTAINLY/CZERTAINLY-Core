@@ -1001,7 +1001,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(0, savedCboms.size());
         // ... and no get detail REST API has been called
-        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v1/bom/serial-1")));
+        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom/serial-1")));
     }
 
     @Test
@@ -1014,7 +1014,7 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         // ... serial-1 exists and serial-2 gets not found
         mockEntrySpecVersionSource(entry1, "1.6", "name-1");
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/bom/serial-2"))
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/api/v1/bom/serial-2"))
             .withQueryParam("version", WireMock.equalTo("2"))
             .willReturn(WireMock.aResponse()
                 .withStatus(404)
