@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -369,7 +370,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     }
 
     @Override
-    public String getResourceObjectContent(UUID uuid) {
+    public ResourceObjectContentData getResourceObjectContent(UUID uuid) {
         return null;
     }
 }

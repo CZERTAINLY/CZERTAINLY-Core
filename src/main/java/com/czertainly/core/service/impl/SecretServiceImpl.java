@@ -10,6 +10,8 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
 import com.czertainly.api.model.connector.secrets.*;
 import com.czertainly.api.model.connector.secrets.content.*;
 import com.czertainly.api.model.core.auth.Resource;
@@ -564,34 +566,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
-    public String getResourceObjectContent(UUID uuid) throws NotFoundException, ConnectorException {
+    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException, ConnectorException {
+        ResourceSecretContentData resourceSecretContentData = new ResourceSecretContentData();
         SecretContent contentDto = getSecretContent(uuid);
-        switch (contentDto.getType()) {
-            case BASIC_AUTH, KEY_STORE, KEY_VALUE -> {
-                try {
-                    return objectMapper.writeValueAsString((contentDto));
-                } catch (JsonProcessingException e) {
-                    throw new IllegalArgumentException("Cannot serialize secret content of type %s. Secret UUID: %s. Error: %s".formatted(contentDto.getType(), uuid, e.getMessage()));
-                }
-            }
-            case API_KEY -> {
-                return ((ApiKeySecretContent) contentDto).getContent();
-            }
-            case JWT_TOKEN -> {
-                return ((JwtTokenSecretContent) contentDto).getContent();
-            }
-            case SECRET_KEY -> {
-                return ((SecretKeySecretContent) contentDto).getContent();
-            }
-            case PRIVATE_KEY -> {
-                return ((PrivateKeySecretContent) contentDto).getContent();
-            }
-            case GENERIC -> {
-                return ((GenericSecretContent) contentDto).getContent();
-            }
-        }
-
-        return "";
+        resourceSecretContentData.setContent(contentDto);
+        return resourceSecretContentData;
     }
 
     @Override
