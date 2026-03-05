@@ -403,7 +403,7 @@ public class CbomServiceImpl implements CbomService {
             }
             stored ++;
         }
-        logger.getLogger().info("CBOM Sync: finished, read {} entries, skipped due an error {}, skipped duplicates {}, stored {} new entries",
+        logger.getLogger().info("CBOM Sync: finished, read {} entries, skipped due to an error {}, skipped duplicates {}, stored {} new entries",
             cboms.size(),
             skipped,
             duplicates,
