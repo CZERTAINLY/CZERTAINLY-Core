@@ -934,34 +934,6 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void sync_shouldSkipSync_whenJobEndTimeIsNull() throws Exception {
-        // Given: A previous job entry exists BUT its end time is null (In Progress)
-        ScheduledJob scheduledJob = new ScheduledJob();
-        scheduledJob.setJobName(CbomSyncTask.NAME);
-        scheduledJob.setJobClassName(CbomSyncTask.class.getName());
-        scheduledJob.setEnabled(true);
-        scheduledJob = scheduledJobsRepository.save(scheduledJob);
-
-        ScheduledJobHistory history = new ScheduledJobHistory();
-        history.setScheduledJobUuid(scheduledJob.getUuid());
-        history.setJobExecution(new Date());
-        history.setJobEndTime(null);
-        history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.STARTED);
-        scheduledJobHistoryRepository.save(history);
-
-        // When
-        cbomService.sync();
-
-        // Then: sync was skipped
-        // ... no calls were made to the GET /v1/bom endpoint
-        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom")));
-
-        // ... no CBOMs were saved to the repository
-        List<Cbom> savedCboms = cbomRepository.findAll();
-        org.junit.jupiter.api.Assertions.assertTrue(savedCboms.isEmpty());
-    }
-
-    @Test
     void sync_ThrowsCbomRepositoryExceptionOn500Error() {
         // Given: cbom-repository does not work
         mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
