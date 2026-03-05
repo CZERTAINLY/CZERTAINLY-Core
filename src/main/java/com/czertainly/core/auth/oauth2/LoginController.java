@@ -110,6 +110,7 @@ public class LoginController {
      * @deprecated since 2.17.0, use {@link OAuth2LoginControllerImpl#loginWithProvider} instead
      */
     @GetMapping("/oauth2/authorization/{provider}/prepare")
+    @Deprecated(forRemoval = true, since = "2.17.0")
     public void loginWithProvider(@PathVariable String provider, @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response, HttpServletRequest request) throws IOException {
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .replacePath(null)
