@@ -11,6 +11,7 @@ import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.api.exception.CbomRepositoryException;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -40,6 +41,13 @@ public class CbomRepositoryClient {
 
     @Getter
     private final String cbomRepositoryBaseUrl;
+
+    @Value("${cbom.client.max-buffer-size:20971520}")
+    private int maxBufferSize = 20971520;
+
+    public void setMaxBufferSize(int maxBufferSize) {
+        this.maxBufferSize = maxBufferSize;
+    }
 
     public CbomRepositoryClient() {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
@@ -112,6 +120,7 @@ public class CbomRepositoryClient {
         if (client == null) {
             client = WebClient
                     .builder()
+                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
                     .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
                     .baseUrl(cbomRepositoryBaseUrl)
                     .build();
