@@ -37,7 +37,7 @@ public interface CallbackService {
      * @param callback Callback request containing information regarding the callback and the callback mappings
      * @return Callback
      */
-    Object callback(UUID uuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException;
+    Object callback(UUID uuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException, AttributeException;
 
     /**
      * Function to execute the callback on the connector. This method executes the callback only for the attributes

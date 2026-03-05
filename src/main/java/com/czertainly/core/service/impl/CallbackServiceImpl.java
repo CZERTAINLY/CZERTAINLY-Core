@@ -130,31 +130,23 @@ public class CallbackServiceImpl implements CallbackService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public Object callback(UUID uuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException {
-        ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(uuid));
-        DataAttribute attribute = attributeEngine.getDataAttributeDefinition(uuid, callback.getName());
-        if (attribute == null) {
-            throw new NotFoundException(BaseAttribute.class, callback.getName());
-        }
-
-        AttributeCallback attributeCallback = getAttributeCallback(attribute);
-        AttributeResource attributeResource = getAttributeResource(attribute);
-        AttributeDefinitionUtils.validateCallback(attributeCallback, callback, attributeResource != null);
+    public Object callback(UUID connectorUuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException, AttributeException {
+        ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
+        return getCallbackObject(callback, null, connector);
     }
 
     private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, ConnectorDetailDto connector) throws NotFoundException, ConnectorException, AttributeException {
         UUID connectorUuid = UUID.fromString(connector.getUuid());
-        BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connectorUuid);
+        BaseAttribute attribute = getBaseAttribute(callback, definitions, connectorUuid);
+
         AttributeCallback attributeCallback = getAttributeCallback(attribute);
 
         AttributeResource attributeResource = getAttributeResource(attribute);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback, attributeResource != null);
 
-
         if (Objects.equals(attributeCallback.getCallbackContext(), "core/getCredentials")) {
             return coreCallbackService.coreGetCredentials(callback);
         }
-
 
         if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE) {
             return coreCallbackService.coreGetResources(callback, attributeResource);
@@ -168,7 +160,12 @@ public class CallbackServiceImpl implements CallbackService {
                 AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
                 if (callbackMapping != null && callbackMapping.getFrom() != null) {
                     String fromAttributeName = callbackMapping.getFrom().split("\\.", 2)[0];
-                    DataAttribute fromAttribute = (DataAttribute) getAttributeByName(fromAttributeName, definitions, connectorUuid);
+                    DataAttribute fromAttribute;
+                    if (definitions == null || definitions.isEmpty()) {
+                        fromAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, fromAttributeName);
+                    } else {
+                        fromAttribute = (DataAttribute) getAttributeByName(fromAttributeName, definitions, connectorUuid);
+                    }
                     toResource.put(to, fromAttribute.getProperties().getResource());
                 }
             }
@@ -180,6 +177,28 @@ public class CallbackServiceImpl implements CallbackService {
             processGroupAttributes(connectorUuid, response);
         }
         return response;
+    }
+
+    private BaseAttribute getBaseAttribute(RequestAttributeCallback callback, List<BaseAttribute> definitions, UUID connectorUuid) throws NotFoundException {
+        BaseAttribute attribute;
+        if (definitions != null && !definitions.isEmpty()) {
+            attribute = getAttributeByName(callback.getName(), definitions, connectorUuid);
+        } else {
+            attribute = getBaseAttributeFromExistingDefinition(callback, connectorUuid);
+        }
+        return attribute;
+    }
+
+    private BaseAttribute getBaseAttributeFromExistingDefinition(RequestAttributeCallback callback, UUID connectorUuid) throws NotFoundException {
+        BaseAttribute attribute;
+        attribute = attributeEngine.getDataAttributeDefinition(connectorUuid, callback.getName());
+        if (attribute == null) {
+            attribute = attributeEngine.getGroupAttributeDefinition(connectorUuid, callback.getName());
+            if (attribute == null) {
+                throw new NotFoundException(BaseAttribute.class, callback.getName());
+            }
+        }
+        return attribute;
     }
 
     private AttributeResource getAttributeResource(BaseAttribute attribute) {

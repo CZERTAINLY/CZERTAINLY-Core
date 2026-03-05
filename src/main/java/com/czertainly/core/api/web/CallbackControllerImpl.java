@@ -54,7 +54,7 @@ public class CallbackControllerImpl implements CallbackController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
-    public Object callback(UUID uuid, RequestAttributeCallback callback) throws ConnectorException, NotFoundException {
+    public Object callback(UUID uuid, RequestAttributeCallback callback) throws ConnectorException, NotFoundException, AttributeException {
         return callbackService.callback(uuid, callback);
     }
 
