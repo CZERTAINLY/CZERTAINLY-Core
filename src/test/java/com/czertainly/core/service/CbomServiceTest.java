@@ -914,7 +914,9 @@ class CbomServiceTest extends BaseSpringBootTest {
         history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
         scheduledJobHistoryRepository.save(history);
 
-        long expectedAfter = oneHourAgo.getTime() / 1000;
+        long safetyOverlapSeconds = 60L;
+        long baseTimestamp = oneHourAgo.getTime() / 1000;
+        long expectedAfter = Math.max(0L, baseTimestamp - safetyOverlapSeconds);
 
         mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
             .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter)))
