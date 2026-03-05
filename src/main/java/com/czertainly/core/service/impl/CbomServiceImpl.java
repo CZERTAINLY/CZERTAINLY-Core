@@ -355,8 +355,8 @@ public class CbomServiceImpl implements CbomService {
                 )
             );
         } catch (Exception e) {
-            logger.getLogger().error("CBOM sync failed: unable to read last sync status: {}", e.getMessage());
-            return;
+            logger.getLogger().error("CBOM sync failed: unable to read last sync status", e);
+            throw new CbomRepositoryException("CBOM sync failed: unable to read last sync status", e);
         }
 
         Long timestamp = 0L;

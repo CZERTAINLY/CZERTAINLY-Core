@@ -30,6 +30,7 @@ public final class CbomUtil {
             .filter(Map.class::isInstance)
             .map(Map.class::cast)
             .map(m -> m.get("name"))
+            .filter(o -> o != null)
             .map(String::valueOf)
             .orElse("");
     }

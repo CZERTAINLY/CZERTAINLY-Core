@@ -23,18 +23,6 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
     private CbomSyncTask cbomSyncTask;
 
 
-    @BeforeEach
-    void setUp() {
-    }
-
-    @Test
-    void testPerform() throws Exception {
-        ScheduledJobInfo scheduledJobInfo = new ScheduledJobInfo(CbomSyncTask.NAME);
-        Object taskData = new Object();
-        cbomSyncTask.performJob(scheduledJobInfo, taskData);
-        Mockito.verify(cbomService, Mockito.times(1)).sync();
-    }
-
     @Test
     void testPerformJob_Success() throws Exception {
         ScheduledJobInfo scheduledJobInfo = new ScheduledJobInfo(CbomSyncTask.NAME);

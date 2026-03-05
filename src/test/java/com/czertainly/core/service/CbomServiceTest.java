@@ -62,8 +62,8 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
 @SpringBootTest(properties = {
-    "logging.level.com.czertainly.core.service.impl.CbomServiceImpl=TRACE",
-    "logging.level.org.springframework.web.reactive.function.client.ExchangeFunctions=TRACE"
+    "logging.level.com.czertainly.core.service.impl.CbomServiceImpl=DEBUG",
+    "logging.level.org.springframework.web.reactive.function.client.ExchangeFunctions=DEBUG"
 })
 class CbomServiceTest extends BaseSpringBootTest {
 
@@ -94,8 +94,8 @@ class CbomServiceTest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() {
         cbomRepository.deleteAll();
-        scheduledJobsRepository.deleteAll();
         scheduledJobHistoryRepository.deleteAll();
+        scheduledJobsRepository.deleteAll();
 
         mockServer = new WireMockServer(0);
         mockServer.start();
@@ -908,12 +908,6 @@ class CbomServiceTest extends BaseSpringBootTest {
         scheduledJob.setEnabled(true);
         scheduledJob = scheduledJobsRepository.save(scheduledJob);
 
-        ScheduledJobHistory history = new ScheduledJobHistory();
-        history.setScheduledJobUuid(scheduledJob.getUuid());
-        history.setJobExecution(null);
-        history.setJobEndTime(null);
-        history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
-        scheduledJobHistoryRepository.save(history);
 
         OffsetDateTime now = OffsetDateTime.now();
         BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
