@@ -18,7 +18,8 @@ import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
-import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceCertificateContentData;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -316,7 +317,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         DataAttributeV3 resourceAttribute = new DataAttributeV3();
         resourceAttribute.setContentType(AttributeContentType.RESOURCE);
         resourceAttribute.setName("resource");
-        ResourceObjectContentData data = new ResourceObjectContentData();
+        ResourceCertificateContentData data = new ResourceCertificateContentData();
         data.setUuid(certificate.getUuid().toString());
         resourceAttribute.setContent(List.of(new ResourceObjectContent("ref", data)));
         DataAttributeProperties properties = new DataAttributeProperties();
@@ -325,7 +326,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
         resourceService.loadResourceObjectContentData(List.of(nonResourceAttribute, resourceAttribute));
         Assertions.assertNull(nonResourceAttribute.getContent());
-        ResourceObjectContentData dataWithResource = (ResourceObjectContentData) resourceAttribute.getContent().getFirst().getData();
+        ResourceCertificateContentData dataWithResource = (ResourceCertificateContentData) resourceAttribute.getContent().getFirst().getData();
         Assertions.assertEquals(certificate.getContentData(), dataWithResource.getContent());
         Assertions.assertEquals(AttributeResource.CERTIFICATE, dataWithResource.getResource());
         Assertions.assertEquals(certificate.getCommonName(), dataWithResource.getName());
@@ -361,14 +362,14 @@ class ResourceServiceTest extends BaseSpringBootTest {
         requestAttributeCallback.setBody(body);
         resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
-        Assertions.assertEquals("name", ((ResourceObjectContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
+        Assertions.assertEquals("name", ((ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
 
 
         body.put(resourceMapping.getTo(), (Serializable) List.of(Map.of("uuid", authorityInstance.getUuid().toString(), "name", authorityInstance.getName())));
         requestAttributeCallback.setBody(body);
         resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
-        Assertions.assertEquals("name", ((ResourceObjectContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
+        Assertions.assertEquals("name", ((ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
 
 
         body.put(resourceMapping.getTo(), (Serializable) Map.of("name", authorityInstance.getName()));
@@ -395,7 +396,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     private static void assertCorrectBodyData(RequestAttributeCallback requestAttributeCallback, AttributeCallbackMapping resourceMapping, AuthorityInstanceReference authorityInstance) {
-        ResourceObjectContentData data = (ResourceObjectContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo());
+        ResourceSimpleContentData data = (ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo());
         Assertions.assertEquals(authorityInstance.getUuid().toString(), data.getUuid());
         List<ResponseAttribute> attributes = data.getAttributes();
         Assertions.assertEquals(1, attributes.size());
