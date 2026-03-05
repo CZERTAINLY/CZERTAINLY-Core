@@ -1,46 +1,49 @@
-package com.czertainly.core.auth.oauth2;
+package com.czertainly.core.auth.oauth2.v2;
 
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.interfaces.core.web.LoginController;
+import com.czertainly.api.interfaces.core.web.v2.OAuth2LoginController;
 import com.czertainly.api.model.core.auth.LoginProviderDto;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
-import com.czertainly.core.settings.SettingsCache;
+import com.czertainly.core.service.v2.OAuth2LoginService;
 import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
-import java.net.URI;
-import java.util.Base64;
 import java.util.List;
 
 @Controller
 @Slf4j
-public class LoginControllerImpl implements LoginController {
+public class OAuth2LoginControllerImpl implements OAuth2LoginController {
 
     private AuditLogService auditLogService;
+    private OAuth2LoginService oauth2LoginService;
 
     @Autowired
     public void setAuditLogService(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;
     }
 
+    @Autowired
+    public void setOauth2LoginService(OAuth2LoginService oauth2LoginService) {
+        this.oauth2LoginService = oauth2LoginService;
+    }
+
     @Override
-    public List<LoginProviderDto> login(String error) {
+    @ResponseBody
+    public List<LoginProviderDto> getOAuth2Providers(String error) {
         HttpServletRequest request = getHttpServletRequest();
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
 
@@ -49,19 +52,15 @@ public class LoginControllerImpl implements LoginController {
             throw new CzertainlyAuthenticationException("Error during authentication: " + error);
         }
 
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-
         // Work only with properly configured OAuth2 providers.
-        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers() != null
-                ? authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList()
-                : List.of();
+        List<OAuth2ProviderSettingsDto> oauth2Providers = oauth2LoginService.getValidOAuth2Providers();
 
         return oauth2Providers.stream()
                 .map(provider -> {
                     LoginProviderDto loginProvider = new LoginProviderDto();
                     loginProvider.setName(provider.getName());
                     String loginUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                            .path("/oauth2/authorization/{provider}/prepare")
+                            .path("/v2/oauth2/providers/{provider}/login")
                             .buildAndExpand(provider.getName())
                             .encode()
                             .toUriString();
@@ -72,28 +71,24 @@ public class LoginControllerImpl implements LoginController {
     }
 
     @Override
-    public void loginWithProvider(String provider, String redirect) {
-        HttpServletRequest request = getHttpServletRequest();
-        HttpServletResponse response = getHttpServletResponse();
-
+    public ResponseEntity<Void> loginWithProvider(String provider, String redirect) {
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .replacePath(null)
                 .build()
                 .toUriString();
 
-        String validatedRedirectUrl = validateAndNormalizeRedirect(redirect);
-        if (validatedRedirectUrl != null) {
-            request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
-        } else {
-            String message = "Missing redirect URL. Please start the login from the beginning.";
+        String validatedRedirectUrl = oauth2LoginService.validateAndNormalizeRedirect(redirect);
+        if (validatedRedirectUrl == null) {
+            String message = "Missing or invalid redirect URL. Please start the login from the beginning.";
             auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, null);
             throw new CzertainlyAuthenticationException(message);
         }
 
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers() != null
-                ? authenticationSettings.getOAuth2Providers().get(provider)
-                : null;
+        HttpServletRequest request = getHttpServletRequest();
+        HttpServletResponse response = getHttpServletResponse();
+        request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
+
+        OAuth2ProviderSettingsDto providerSettings = oauth2LoginService.getOAuth2ProviderSettings(provider);
 
         if (providerSettings == null) {
             String accessToken;
@@ -112,61 +107,15 @@ public class LoginControllerImpl implements LoginController {
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
 
-        String redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider;
+        String redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v2/oauth2/providers/" + provider;
         try {
             response.sendRedirect(redirectUrl);
         } catch (IOException e) {
-            log.error("Error occurred when sending redirect for provider {} to {} after authentication via OAuth2.", provider, redirectUrl, e);
+            String message = "Error occurred when sending redirect for provider '%s' to '%s' after authentication via OAuth2.".formatted(provider, redirectUrl);
+            log.error(message, e);
+            throw new CzertainlyAuthenticationException(message, e);
         }
-    }
-
-    @Override
-    public String getJwkSet(String provider) {
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-
-        if (authenticationSettings.getOAuth2Providers() == null || authenticationSettings.getOAuth2Providers().get(provider) == null) {
-            throw new ValidationException("Provider %s does not exist.".formatted(provider));
-        }
-
-        String jwkSetEncoded = authenticationSettings.getOAuth2Providers().get(provider).getJwkSet();
-        if (jwkSetEncoded == null) {
-            throw new ValidationException("Provider %s does not have JWK Set set up.".formatted(provider));
-        }
-
-        return new String(Base64.getDecoder().decode(jwkSetEncoded));
-    }
-
-
-    private boolean validOAuth2Provider(OAuth2ProviderSettingsDto settingsDto) {
-        return (settingsDto.getClientId() != null) &&
-                (settingsDto.getClientSecret() != null) &&
-                (settingsDto.getAuthorizationUrl() != null) &&
-                (settingsDto.getTokenUrl() != null) &&
-                (settingsDto.getJwkSetUrl() != null || settingsDto.getJwkSet() != null) &&
-                (settingsDto.getLogoutUrl() != null) &&
-                (settingsDto.getPostLogoutUrl() != null);
-    }
-
-    private String validateAndNormalizeRedirect(String redirectUrl) {
-        if (redirectUrl == null || redirectUrl.isEmpty()) {
-            return null;
-        }
-
-        // Must be a relative path (starts with /) and not protocol-relative (not starting with //)
-        if (!redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
-            return null;
-        }
-
-        // Basic normalization to remove host/scheme if any (though startsWith("/") already helps)
-        try {
-            URI uri = URI.create(redirectUrl);
-            if (uri.isAbsolute() || uri.getHost() != null) {
-                return null;
-            }
-            return uri.getPath() + (uri.getQuery() != null ? "?" + uri.getQuery() : "") + (uri.getFragment() != null ? "#" + uri.getFragment() : "");
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return null;
     }
 
     private HttpServletRequest getHttpServletRequest() {
