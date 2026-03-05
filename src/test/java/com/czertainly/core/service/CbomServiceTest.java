@@ -898,6 +898,35 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void syncAuthorized_shouldSyncAllEntries_whenNoLastSyncExists() throws Exception {
+        // Given
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(2));
+        BomEntryDto entry3 = entry("serial-3", "3", now.minusHours(1));
+
+        mockSearchResponse(List.of(entry1, entry2, entry3));
+
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
+        mockEntrySpecVersionSource(entry2, "1.7", "name-2");
+        mockEntrySpecVersionSource(entry3, "1.7", "name-3");
+
+        // When
+        cbomService.syncAuthorized();
+
+        // Then
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(3, savedCboms.size());
+
+        List<String> serialNumbers = savedCboms.stream()
+                .map(Cbom::getSerialNumber)
+                .sorted()
+                .toList();
+
+        assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
+    }
+
+    @Test
     public void sync_shouldUseTimestampFromLastSuccess() throws Exception {
         // Given: A successful job from 1 hour ago
         Date oneHourAgo = new Date(System.currentTimeMillis() - 3600 * 1000);
