@@ -1,8 +1,8 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
-import com.czertainly.api.model.client.connector.v2.ConnectorInterfaceInfo;
 import com.czertainly.api.model.client.connector.v2.FeatureFlag;
+import com.czertainly.api.model.core.connector.v2.ConnectorInterfaceDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -42,8 +42,9 @@ public class ConnectorInterfaceEntity extends UniquelyIdentified implements Seri
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<FeatureFlag> features;
 
-    public ConnectorInterfaceInfo mapToDto() {
-        ConnectorInterfaceInfo connectorInterface = new ConnectorInterfaceInfo();
+    public ConnectorInterfaceDto mapToDto() {
+        ConnectorInterfaceDto connectorInterface = new ConnectorInterfaceDto();
+        connectorInterface.setUuid(uuid);
         connectorInterface.setCode(interfaceCode);
         connectorInterface.setVersion(version);
         connectorInterface.setFeatures(features);
