@@ -20,9 +20,9 @@ public final class OAuth2LoginFlowHelper {
         if (providerSettings == null) {
             String accessToken;
             try {
-                OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
+                OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession(false).getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
                 accessToken = oauth2AccessToken.getTokenValue();
-            } catch (Exception e) {
+            } catch (NullPointerException e) {
                 accessToken = null;
             }
 

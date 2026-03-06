@@ -222,8 +222,7 @@ class OAuth2LoginControllerTest {
         );
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        String expectedLocation = pathTemplate.contains("v2") ? "/v2/oauth2/providers/test" : "/oauth2/authorization/test";
-        Assertions.assertEquals(expectedLocation, res.headers().firstValue("Location").orElse(null));
+        Assertions.assertEquals("/oauth2/authorization/test", res.headers().firstValue("Location").orElse(null));
     }
 
     @ParameterizedTest

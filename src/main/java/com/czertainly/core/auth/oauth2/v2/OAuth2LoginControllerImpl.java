@@ -91,7 +91,7 @@ public class OAuth2LoginControllerImpl implements OAuth2LoginController {
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
 
-        String redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v2/oauth2/providers/" + provider;
+        String redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider;
         try {
             response.sendRedirect(redirectUrl);
         } catch (IOException e) {
