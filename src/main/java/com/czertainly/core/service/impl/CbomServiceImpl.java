@@ -191,6 +191,7 @@ public class CbomServiceImpl implements CbomService {
         // Extract the required specVersion
         String specVersion = Optional.ofNullable(content.get("specVersion"))
             .map(Object::toString)
+            .filter(s -> !StringUtils.isBlank(s))
             .orElseThrow(() -> new ValidationException("specVersion must not be empty"));
 
         // upload JSON to cbom-repository
