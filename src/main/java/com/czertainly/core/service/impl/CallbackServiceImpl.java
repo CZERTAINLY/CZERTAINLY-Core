@@ -160,12 +160,7 @@ public class CallbackServiceImpl implements CallbackService {
                 AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
                 if (callbackMapping != null && callbackMapping.getFrom() != null) {
                     String fromAttributeName = callbackMapping.getFrom().split("\\.", 2)[0];
-                    DataAttribute fromAttribute;
-                    if (definitions == null || definitions.isEmpty()) {
-                        fromAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, fromAttributeName);
-                    } else {
-                        fromAttribute = (DataAttribute) getAttributeByName(fromAttributeName, definitions, connectorUuid);
-                    }
+                    DataAttribute fromAttribute = getFromAttribute(definitions, connectorUuid, fromAttributeName);
                     toResource.put(to, fromAttribute.getProperties().getResource());
                 }
             }
@@ -177,6 +172,19 @@ public class CallbackServiceImpl implements CallbackService {
             processGroupAttributes(connectorUuid, response);
         }
         return response;
+    }
+
+    private DataAttribute getFromAttribute(List<BaseAttribute> definitions, UUID connectorUuid, String fromAttributeName) throws NotFoundException {
+        DataAttribute fromAttribute;
+        if (definitions == null || definitions.isEmpty()) {
+            fromAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, fromAttributeName);
+            if (fromAttribute == null) {
+                throw new NotFoundException("Attribute definition '" + fromAttributeName + "' not found for connector " + connectorUuid);
+            }
+        } else {
+            fromAttribute = (DataAttribute) getAttributeByName(fromAttributeName, definitions, connectorUuid);
+        }
+        return fromAttribute;
     }
 
     private BaseAttribute getBaseAttribute(RequestAttributeCallback callback, List<BaseAttribute> definitions, UUID connectorUuid) throws NotFoundException {

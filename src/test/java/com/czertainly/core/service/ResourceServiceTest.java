@@ -322,6 +322,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         resourceAttribute.setContent(List.of(new ResourceObjectContent("ref", data)));
         DataAttributeProperties properties = new DataAttributeProperties();
         resourceAttribute.setProperties(properties);
+        properties.setResource(AttributeResource.CERTIFICATE);
 
         resourceService.loadResourceObjectContentData(List.of(nonResourceAttribute, resourceAttribute));
         Assertions.assertNull(nonResourceAttribute.getContent());
