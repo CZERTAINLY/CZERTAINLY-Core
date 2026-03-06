@@ -957,6 +957,13 @@ class CbomServiceTest extends BaseSpringBootTest {
                 .toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
+
+        // Resync again
+        cbomService.syncAuthorized();
+
+        // Then should be still 3 entries (no duplicates)
+        savedCboms = cbomRepository.findAll();
+        assertEquals(3, savedCboms.size());
     }
 
     @Test
