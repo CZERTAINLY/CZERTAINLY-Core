@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -839,6 +840,121 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertEquals(2, savedCboms.size());
 
         mockServer.verify(2, WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
+    }
+
+    @Test
+    void testDeleteCbom_Success() throws NotFoundException {
+        Cbom cbom = new Cbom();
+        cbom.setSerialNumber("urn:uuid:delete-test");
+        cbom.setVersion(1);
+        cbom.setSpecVersion("1.6");
+        cbom.setTimestamp(OffsetDateTime.now());
+        cbom = cbomRepository.save(cbom);
+        UUID uuid = cbom.getUuid();
+
+        // Verify it exists
+        assertEquals(1, cbomRepository.findAll().size());
+
+        // When
+        cbomService.deleteCbom(uuid);
+
+        // Then
+        assertEquals(0, cbomRepository.findAll().size());
+        assertFalse(cbomRepository.findById(uuid).isPresent());
+    }
+
+    @Test
+    void testDeleteCbom_NotFound() {
+        UUID nonExistentUuid = UUID.randomUUID();
+        assertThrows(NotFoundException.class, () -> cbomService.deleteCbom(nonExistentUuid));
+    }
+
+    @Test
+    void testBulkDeleteCbom_Success() {
+        // Given
+        Cbom cbom1 = new Cbom();
+        cbom1.setSerialNumber("urn:uuid:bulk-delete-1");
+        cbom1.setVersion(1);
+        cbom1.setSpecVersion("1.6");
+        cbom1.setTimestamp(OffsetDateTime.now());
+        cbom1 = cbomRepository.save(cbom1);
+
+        Cbom cbom2 = new Cbom();
+        cbom2.setSerialNumber("urn:uuid:bulk-delete-2");
+        cbom2.setVersion(1);
+        cbom2.setSpecVersion("1.6");
+        cbom2.setTimestamp(OffsetDateTime.now());
+        cbom2 = cbomRepository.save(cbom2);
+
+        Cbom cbom3 = new Cbom();
+        cbom3.setSerialNumber("urn:uuid:bulk-delete-3");
+        cbom3.setVersion(1);
+        cbom3.setSpecVersion("1.6");
+        cbom3.setTimestamp(OffsetDateTime.now());
+        cbom3 = cbomRepository.save(cbom3);
+
+        List<UUID> uuids = List.of(cbom1.getUuid(), cbom2.getUuid(), cbom3.getUuid());
+
+        // Verify they exist
+        assertEquals(3, cbomRepository.findAll().size());
+
+        // When
+        List<BulkActionMessageDto> messages = cbomService.bulkDeleteCbom(uuids);
+
+        // Then
+        assertEquals(0, messages.size());
+        assertEquals(0, cbomRepository.findAll().size());
+    }
+
+    @Test
+    void testBulkDeleteCbom_PartialSuccess() {
+        // Given
+        Cbom cbom1 = new Cbom();
+        cbom1.setSerialNumber("urn:uuid:bulk-partial-1");
+        cbom1.setVersion(1);
+        cbom1.setSpecVersion("1.6");
+        cbom1.setTimestamp(OffsetDateTime.now());
+        cbom1 = cbomRepository.save(cbom1);
+
+        UUID nonExistentUuid = UUID.randomUUID();
+        List<UUID> uuids = List.of(cbom1.getUuid(), nonExistentUuid);
+
+        // Verify initial state
+        assertEquals(1, cbomRepository.findAll().size());
+
+        // When
+        List<BulkActionMessageDto> messages = cbomService.bulkDeleteCbom(uuids);
+
+        // Then
+        assertEquals(1, messages.size());
+        assertEquals(nonExistentUuid.toString(), messages.getFirst().getUuid());
+        assertTrue(messages.getFirst().getMessage().contains("not found"));
+        assertEquals(0, cbomRepository.findAll().size());
+    }
+
+    @Test
+    void testBulkDeleteCbom_AllNotFound() {
+        // Given
+        UUID nonExistent1 = UUID.randomUUID();
+        UUID nonExistent2 = UUID.randomUUID();
+        List<UUID> uuids = List.of(nonExistent1, nonExistent2);
+
+        // When
+        List<BulkActionMessageDto> messages = cbomService.bulkDeleteCbom(uuids);
+
+        // Then
+        assertEquals(2, messages.size());
+        assertTrue(messages.stream().allMatch(m -> m.getMessage().contains("not found")));
+    }
+
+    @Test
+    void testBulkDeleteCbom_NullEmptyList() {
+        List<BulkActionMessageDto> messages = cbomService.bulkDeleteCbom(null);
+        assertEquals(0, messages.size());
+
+        List<UUID> uuids = List.of();
+        messages = cbomService.bulkDeleteCbom(uuids);
+        assertEquals(0, messages.size());
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.czertainly.core.api.web;
 import java.util.List;
 import java.util.UUID;
 
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -70,6 +71,18 @@ public class CbomControllerImpl implements CbomController {
         operation = Operation.CREATE)
     public CbomDto uploadCbom(CbomUploadRequestDto request) throws ValidationException, AlreadyExistException, CbomRepositoryException {
         return cbomService.createCbom(request);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.CBOM, operation = Operation.DELETE)
+    public void deleteCbom(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        cbomService.deleteCbom(uuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.CBOM, operation = Operation.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteCbom(@LogResource(uuid = true) List<UUID> uuids) {
+        return cbomService.bulkDeleteCbom(uuids);
     }
 
     @AuditLogged(
