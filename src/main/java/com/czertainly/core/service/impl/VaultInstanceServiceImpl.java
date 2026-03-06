@@ -145,7 +145,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     public PaginationResponseDto<VaultInstanceDto> listVaultInstances(SearchRequestDto request, SecurityFilter securityFilter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
-        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR), predicate, p,  (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR, VaultInstance_.CONNECTOR_INTERFACE), predicate, p,  (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream().map(VaultInstance::mapToDto).toList();
         PaginationResponseDto<VaultInstanceDto> response = new PaginationResponseDto<>();
         response.setItems(vaultInstances);

@@ -35,7 +35,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.czertainly.core.dao.entity.Connector;
-import org.springframework.security.core.parameters.P;
 
 import java.io.Serializable;
 import java.util.List;
