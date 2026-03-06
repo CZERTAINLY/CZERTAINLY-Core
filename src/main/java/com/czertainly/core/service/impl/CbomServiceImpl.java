@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.czertainly.core.events.transaction.TransactionHandler;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,6 +86,8 @@ public class CbomServiceImpl implements CbomService {
 
     private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
 
+    private TransactionHandler transactionHandler;
+
     @Autowired
     public void setCbomRepository(CbomRepository cbomRepository) {
         this.cbomRepository = cbomRepository;
@@ -103,6 +106,11 @@ public class CbomServiceImpl implements CbomService {
     @Autowired
     public void setScheduledJobHistoryRepository(ScheduledJobHistoryRepository scheduledJobHistoryRepository) {
         this.scheduledJobHistoryRepository = scheduledJobHistoryRepository;
+    }
+
+    @Autowired
+    public void setTransactionHandler(TransactionHandler transactionHandler) {
+        this.transactionHandler = transactionHandler;
     }
 
     @Override
@@ -135,8 +143,8 @@ public class CbomServiceImpl implements CbomService {
         Cbom cbom = getEntity(uuid);
 
         BomResponseDto response = read(
-            cbom.getSerialNumber(),
-            cbom.getVersion()
+                cbom.getSerialNumber(),
+                cbom.getVersion()
         );
 
         CbomDto cbomDto = cbom.mapToDto();
@@ -343,37 +351,8 @@ public class CbomServiceImpl implements CbomService {
         sync();
     }
 
-    public void sync() throws CbomRepositoryException {
-        Optional<ScheduledJobHistory> lastSync;
-
-        try {
-            lastSync = scheduledJobHistoryRepository.findFirstByScheduledJobJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
-                CbomSyncTask.NAME,
-                List.of(
-                    SchedulerJobExecutionStatus.SUCCESS,
-                    SchedulerJobExecutionStatus.STARTED
-                )
-            );
-        } catch (Exception e) {
-            logger.getLogger().error("CBOM sync failed: unable to read last sync status", e);
-            throw new CbomRepositoryException("CBOM sync failed: unable to read last sync status", e);
-        }
-
-        Long timestamp = 0L;
-        if (lastSync.isPresent()) {
-            ScheduledJobHistory lastSyncJob = lastSync.get();
-            Date jobExecution = lastSyncJob.getJobExecution();
-            if (jobExecution == null) {
-                logger.getLogger().debug("CBOM sync: last sync job has no execution start time, performing initial sync.");
-            } else {
-                long safetyOverlapSeconds = 60L;
-                long baseTimestamp = jobExecution.getTime() / 1000;
-                timestamp = Math.max(0L, baseTimestamp - safetyOverlapSeconds);
-            }
-        } else {
-            logger.getLogger().debug("CBOM sync: no previous run found, performing initial sync.");
-        }
-
+    public String sync() throws CbomRepositoryException {
+        long timestamp = getLastSyncTimestamp();
         BomSearchRequestDto query = new BomSearchRequestDto();
         query.setAfter(timestamp);
         List<BomEntryDto> cboms = cbomRepositoryClient.search(query);
@@ -382,35 +361,62 @@ public class CbomServiceImpl implements CbomService {
         int skipped = 0;
         int duplicates = 0;
         int stored = 0;
-        for (BomEntryDto entry: cboms) {
+        for (BomEntryDto entry : cboms) {
             int version;
             try {
-                version = Integer.parseInt(entry.getVersion());
-            } catch (NumberFormatException e) {
-                logger.getLogger().warn("CBOM Sync: CBOM document serialNumber {} and version {}: has invalid version. Skipping the sync", entry.getSerialNumber(), entry.getVersion());
-                skipped ++;
+                version = validateSyncedCbomEntry(entry);
+            } catch (AlreadyExistException e) {
+                logger.getLogger().debug("CBOM Sync: {}", e.getMessage());
+                duplicates++;
+                continue;
+            } catch (ValidationException e) {
+                logger.getLogger().debug("CBOM Sync: {}", e.getMessage());
+                skipped++;
                 continue;
             }
 
+            // specVersion and source arguments missing from BomEntryDto - load them from CBOM itself
+            BomResponseDto response;
             try {
-                createCbomEntry(entry, version);
-            } catch(AlreadyExistException e) {
-                logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {}: already exists. Skipping the sync", entry.getSerialNumber(), version);
-                duplicates ++;
-                continue;
-            } catch(NotFoundException e) {
+                response = read(entry.getSerialNumber(), version);
+            } catch (NotFoundException e) {
                 logger.getLogger().warn("CBOM Sync: CBOM serialNumber {} and version {}: not exists. Skipping the sync", entry.getSerialNumber(), version);
-                skipped ++;
+                skipped++;
+                continue;
+            } catch (Exception ex) {
+                logger.getLogger().warn("CBOM Sync: CBOM serialNumber {} and version {}: error while reading the CBOM document from repository. Skipping the sync. Error: {}", entry.getSerialNumber(), version, ex.getMessage());
+                skipped++;
                 continue;
             }
-            stored ++;
+            try {
+                transactionHandler.runInNewTransaction(() -> {
+                    createCbomEntry(entry, version, response);
+                });
+            } catch (Exception e) {
+                if (e instanceof DataIntegrityViolationException dataIntegrityViolationException) {
+                    String message = dataIntegrityViolationException.getMostSpecificCause().getMessage();
+                    if (message != null && message.contains("cbom_serial_version_unique")) {
+                        logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {}: already exists. Skipping the sync", entry.getSerialNumber(), version);
+                        duplicates++;
+                        continue;
+                    }
+                }
+                logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {} syncing error {}.", entry.getSerialNumber(), version, e.getMessage());
+                skipped++;
+                continue;
+            }
+            stored++;
         }
-        logger.getLogger().info("CBOM Sync: finished, read {} entries, skipped due to an error {}, skipped duplicates {}, stored {} new entries",
-            cboms.size(),
-            skipped,
-            duplicates,
-            stored
+
+        String syncResultMessage = "Read %d entries, skipped due to an error %d, skipped duplicates %d, stored %d new entries".formatted(
+                cboms.size(),
+                skipped,
+                duplicates,
+                stored
         );
+        logger.getLogger().info("CBOM Sync: finished. {}", syncResultMessage);
+
+        return syncResultMessage;
     }
 
     private BomResponseDto read(String serialNumber, int version) throws CbomRepositoryException, NotFoundException {
@@ -422,7 +428,7 @@ public class CbomServiceImpl implements CbomService {
             logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {}: {}", serialNumber, version, response);
         } catch (CbomRepositoryException ex) {
             if (ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
-                throw new NotFoundException(CbomDetailDto.class, "Cbom");
+                throw new NotFoundException("CBOM Repository entry", serialNumber);
             } else {
                 throw ex;
             }
@@ -430,10 +436,48 @@ public class CbomServiceImpl implements CbomService {
         return response;
     }
 
-    private void createCbomEntry(BomEntryDto entry, int version) throws CbomRepositoryException, AlreadyExistException, NotFoundException {
-        // specVersion and source arguments missing from BomEntryDto - load them from CBOM itself
-        BomResponseDto response = read(entry.getSerialNumber(), version);
+    private int validateSyncedCbomEntry(BomEntryDto entry) throws ValidationException, AlreadyExistException {
+        if (entry.getSerialNumber() == null) {
+            throw new ValidationException("CBOM entry with missing serial number and version %s".formatted(entry.getVersion()));
+        }
 
+        int version;
+        try {
+            version = Integer.parseInt(entry.getVersion());
+        } catch (NumberFormatException e) {
+            throw new ValidationException("CBOM document with serialNumber %s has invalid version %s".formatted(entry.getSerialNumber(), entry.getVersion()));
+        }
+
+        boolean cbomVersionExists = cbomRepository.existsBySerialNumberAndVersion(entry.getSerialNumber(), version);
+        if (cbomVersionExists) {
+            throw new AlreadyExistException("CBOM document with serial number %s and version %s already exists. Skipping the sync".formatted(entry.getSerialNumber(), version));
+        }
+
+        return version;
+    }
+
+    private long getLastSyncTimestamp() {
+        Optional<ScheduledJobHistory> lastSync = scheduledJobHistoryRepository.findFirstByScheduledJobJobNameAndSchedulerExecutionStatusOrderByJobExecutionDesc(CbomSyncTask.NAME, SchedulerJobExecutionStatus.SUCCESS);
+
+        if (lastSync.isEmpty()) {
+            logger.getLogger().debug("CBOM sync: no previous run found, performing initial sync.");
+            return 0L;
+        }
+
+        long timestamp = 0L;
+        ScheduledJobHistory lastSyncJob = lastSync.get();
+        Date jobExecution = lastSyncJob.getJobExecution();
+        if (jobExecution == null) {
+            logger.getLogger().debug("CBOM sync: last sync job has no execution start time, performing initial sync.");
+        } else {
+            long safetyOverlapSeconds = 60L;
+            long baseTimestamp = jobExecution.getTime() / 1000;
+            timestamp = Math.max(0L, baseTimestamp - safetyOverlapSeconds);
+        }
+        return timestamp;
+    }
+
+    private void createCbomEntry(BomEntryDto entry, int version, BomResponseDto response) {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(entry.getSerialNumber());
         cbom.setVersion(version);
@@ -445,17 +489,6 @@ public class CbomServiceImpl implements CbomService {
         cbom.setProtocolsCount(entry.getCryptoStats().getCryptoAssets().getProtocols().getTotal());
         cbom.setCryptoMaterialCount(entry.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal());
         cbom.setTotalAssetsCount(entry.getCryptoStats().getCryptoAssets().getTotal());
-
-        try {
-            cbomRepository.save(cbom);
-            cbomRepository.flush();
-        } catch (DataIntegrityViolationException e) {
-            String message = e.getMostSpecificCause().getMessage();
-            if (message != null && message.contains("cbom_serial_version_unique")) {
-                throw new AlreadyExistException(Cbom.class, 
-                    String.format("serialNumber: %s, version: %s", cbom.getSerialNumber(), cbom.getVersion()));
-            }
-            throw e;
-        }
+        cbomRepository.save(cbom);
     }
 }

@@ -70,7 +70,8 @@ public interface CbomService extends ResourceExtensionService {
      * Synchronize CBOMs from the CBOM repository. This version is intended for use
      * by scheduled jobs where no authorization context is available.
      *
+     * @return A string message indicating the result of the synchronization process
      * @throws CbomRepositoryException if there are problems accessing the CBOM repository
      */
-    void sync() throws CbomRepositoryException;
+    String sync() throws CbomRepositoryException;
 }

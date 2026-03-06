@@ -49,19 +49,14 @@ public class CbomSyncTask implements ScheduledJobTask {
 
     @Override
     public ScheduledTaskResult performJob(final ScheduledJobInfo scheduledJobInfo, final Object taskData) {
+        String syncResultMessage;
         try {
-            cbomService.sync();
+            syncResultMessage = cbomService.sync();
         } catch (Exception e) {
             final String errorMessage = String.format("Unable to sync CBOMs for job %s. Error: %s", scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
             logger.error(errorMessage, e);
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, Resource.CBOM, null);
         }
-
-        return new ScheduledTaskResult(
-            SchedulerJobExecutionStatus.SUCCESS,
-            null,
-            Resource.CBOM,
-            null
-        );
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, syncResultMessage, Resource.CBOM, null);
     }
 }

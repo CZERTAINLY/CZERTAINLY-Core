@@ -5,17 +5,17 @@ import com.czertainly.core.dao.entity.ScheduledJobHistory;
 
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface ScheduledJobHistoryRepository extends SecurityFilterRepository<ScheduledJobHistory, UUID>{
+public interface ScheduledJobHistoryRepository extends SecurityFilterRepository<ScheduledJobHistory, UUID> {
     ScheduledJobHistory findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID scheduledJobUuid);
+
     boolean existsByScheduledJobUuid(UUID scheduledJobUuid);
 
-    Optional<ScheduledJobHistory> findFirstByScheduledJobJobNameAndSchedulerExecutionStatusInOrderByJobExecutionDesc(
-        String jobName, 
-        List<SchedulerJobExecutionStatus> statuses
+    Optional<ScheduledJobHistory> findFirstByScheduledJobJobNameAndSchedulerExecutionStatusOrderByJobExecutionDesc(
+            String jobName,
+            SchedulerJobExecutionStatus status
     );
 }
