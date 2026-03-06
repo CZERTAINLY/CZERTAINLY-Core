@@ -79,14 +79,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     private VaultProfileService vaultProfileService;
 
     private SecretApiClient secretApiClient;
-
-    private static final ObjectMapper objectMapper = JsonMapper.builder()
-            .findAndAddModules()
-            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
-            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-            .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
-            .build();
-
+    
     @Autowired
     public void setSecret2SyncVaultProfileRepository(Secret2SyncVaultProfileRepository secret2SyncVaultProfileRepository) {
         this.secret2SyncVaultProfileRepository = secret2SyncVaultProfileRepository;
