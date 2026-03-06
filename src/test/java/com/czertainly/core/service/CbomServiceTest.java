@@ -266,18 +266,11 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
         int version = 1;
-        OffsetDateTime timestamp = OffsetDateTime.now();
 
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("version", version);
         content.put("specVersion", "1.6");
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("timestamp", timestamp.toString());
-        Map<String, Object> component = new HashMap<>();
-        component.put("name", "CORE");
-        metadata.put("component", component);
-        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -329,7 +322,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(1, savedCboms.size());
         assertEquals(serialNumber, savedCboms.getFirst().getSerialNumber());
-        assertEquals("CORE", savedCboms.getFirst().getSource());
+        assertEquals(null, savedCboms.getFirst().getSource());
 
         // Assert
         mockServer.verify(WireMock.postRequestedFor(
@@ -456,7 +449,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUploadCbom_MissingSerialNumber() {
+    void testUploadCbom_MissingSerialNumber() throws AlreadyExistException, CbomRepositoryException {
         // Given
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         // Missing serialNumber
@@ -467,17 +460,47 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // When / Then
-        assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {
+                    "total": 5
+                    },
+                    "certificates": {
+                    "total": 3
+                    },
+                    "protocols": {
+                    "total": 2
+                    },
+                    "relatedCryptoMaterials": {
+                    "total": 4
+                    },
+                    "total": 14
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result = cbomService.createCbom(request);
+
+        assertNotNull(result);
+        assertEquals("urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79", result.getSerialNumber());
     }
 
     @Test
-    void testUploadCbom_MissingVersion() {
+    void testUploadCbom_MissingVersion() throws AlreadyExistException, CbomRepositoryException {
         // Given
+        String serialNumber = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79";
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
-        content.put("serialNumber", "urn:uuid:test-123");
+        content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
         // Missing version
@@ -485,28 +508,40 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // When / Then
-        assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
-    }
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+                    "version": 42,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {
+                    "total": 5
+                    },
+                    "certificates": {
+                    "total": 3
+                    },
+                    "protocols": {
+                    "total": 2
+                    },
+                    "relatedCryptoMaterials": {
+                    "total": 4
+                    },
+                    "total": 14
+                    }
+                    }
+                    }
+                    """)));
 
-    @Test
-    void testUploadCbom_VersionNotAnInteger() {
-        // Given
-        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
-        content.put("serialNumber", "urn:uuid:test-123");
-        content.put("bomFormat", "CycloneDX");
-        content.put("specVersion", "1.5");
-        content.put("version", "1.5");
+        // When
+        CbomDto result = cbomService.createCbom(request);
 
-        CbomUploadRequestDto request = new CbomUploadRequestDto();
-        request.setContent(content);
-
-        // When / Then
-        assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
+        // Then
+        assertNotNull(result);
+        assertEquals(42, result.getVersion());
     }
 
     @Test
@@ -528,7 +563,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUploadCbom_MissingMetadata() {
+    void testUploadCbom_MissingMetadata() throws AlreadyExistException, CbomRepositoryException {
         // Given
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -540,15 +575,35 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
-        assertEquals("metadata must be present", exception.getMessage());
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:test-123",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {"total": 0},
+                    "certificates": {"total": 0},
+                    "protocols": {"total": 0},
+                    "relatedCryptoMaterials": {"total": 0},
+                    "total": 0
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result = cbomService.createCbom(request);
+
+        // Then
+        assertNotNull(result);
     }
 
     @Test
-    void testUploadCbom_MetadataNotObject() {
+    void testUploadCbom_MetadataNotObject() throws AlreadyExistException, CbomRepositoryException {
         // Given
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -560,15 +615,35 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
-        assertEquals("metadata must be JSON object", exception.getMessage());
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:test-123",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {"total": 0},
+                    "certificates": {"total": 0},
+                    "protocols": {"total": 0},
+                    "relatedCryptoMaterials": {"total": 0},
+                    "total": 0
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result = cbomService.createCbom(request);
+
+        // Then
+        assertNotNull(result);
     }
 
     @Test
-    void testUploadCbom_MissingTimestamp() {
+    void testUploadCbom_MissingTimestamp() throws AlreadyExistException, CbomRepositoryException {
         // Given
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -583,15 +658,35 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
-        assertEquals("metadata.timestamp must be present", exception.getMessage());
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:test-123",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {"total": 0},
+                    "certificates": {"total": 0},
+                    "protocols": {"total": 0},
+                    "relatedCryptoMaterials": {"total": 0},
+                    "total": 0
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result = cbomService.createCbom(request);
+
+        // Then
+        assertNotNull(result);
     }
 
     @Test
-    void testUploadCbom_InvalidTimestampFormat() {
+    void testUploadCbom_InvalidTimestampFormat() throws AlreadyExistException, CbomRepositoryException {
         // Given
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -606,15 +701,35 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
-        assertEquals("metadata.timestamp must be valid ISO-8601 timestamp", exception.getMessage());
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:test-123",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {"total": 0},
+                    "certificates": {"total": 0},
+                    "protocols": {"total": 0},
+                    "relatedCryptoMaterials": {"total": 0},
+                    "total": 0
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result = cbomService.createCbom(request);
+
+        // Then
+        assertNotNull(result);
     }
 
     @Test
-    void testUploadCbom_TimestampNotAString() {
+    void testUploadCbom_TimestampNotAString() throws AlreadyExistException, CbomRepositoryException {
         // Given
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", "urn:uuid:test-123");
@@ -629,11 +744,31 @@ class CbomServiceTest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // When / Then
-        ValidationException exception = assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
-        assertEquals("timestamp must be String", exception.getMessage());
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                    "serialNumber": "urn:uuid:test-123",
+                    "version": 1,
+                    "cryptoStats": {
+                    "cryptoAssets": {
+                    "algorithms": {"total": 0},
+                    "certificates": {"total": 0},
+                    "protocols": {"total": 0},
+                    "relatedCryptoMaterials": {"total": 0},
+                    "total": 0
+                    }
+                    }
+                    }
+                    """)));
+
+        // When
+        CbomDto result = cbomService.createCbom(request);
+
+        // Then
+        assertNotNull(result);
     }
 
     @Test
@@ -641,16 +776,12 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:test-123";
         Integer version = 1;
-        OffsetDateTime timestamp = OffsetDateTime.now();
 
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
         content.put("version", version);
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("timestamp", timestamp.toString());
-        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -689,16 +820,12 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:server-error";
         Integer version = 1;
-        OffsetDateTime timestamp = OffsetDateTime.now();
 
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
         content.put("specVersion", "1.5");
         content.put("version", version);
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("timestamp", timestamp.toString());
-        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -734,15 +861,11 @@ class CbomServiceTest extends BaseSpringBootTest {
         // Given
         String serialNumber = "urn:uuid:bad-request";
         Integer version = 1;
-        OffsetDateTime timestamp = OffsetDateTime.now();
 
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("specVersion", "1.5");
         content.put("version", version);
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("timestamp", timestamp.toString());
-        content.put("metadata", metadata);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
@@ -773,22 +896,19 @@ class CbomServiceTest extends BaseSpringBootTest {
     void testCreateCbom_MultipleCreations() throws Exception {
         // Given
         CbomUploadRequestDto request1 = new CbomUploadRequestDto();
-        OffsetDateTime timestamp = OffsetDateTime.now();
 
         request1.setContent(new LinkedHashMap<>(Map.of(
             "serialNumber", "urn:uuid:first",
             "version", 1,
-            "specVersion", "1.6",
-            "metadata", Map.of("timestamp", timestamp.toString()
-        ))));
+            "specVersion", "1.6"
+        )));
 
         CbomUploadRequestDto request2 = new CbomUploadRequestDto();
         request2.setContent(new LinkedHashMap<>(Map.of(
             "serialNumber", "urn:uuid:second",
             "version", 1,
-            "specVersion", "1.6",
-            "metadata", Map.of("timestamp", timestamp.toString()
-        ))));
+            "specVersion", "1.6"
+        )));
 
         mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
             .willReturn(WireMock.aResponse()

@@ -1,0 +1,211 @@
+package com.czertainly.core.util;
+
+import com.czertainly.api.exception.ValidationException;
+import org.junit.jupiter.api.Test;
+
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class CbomUtilTest {
+
+    @Test
+    void testGetMetadata_Success() throws ValidationException {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("key", "value");
+        content.put("metadata", metadata);
+
+        Map<String, Object> result = CbomUtil.getMetadata(content);
+
+        assertNotNull(result);
+        assertEquals("value", result.get("key"));
+    }
+
+    @Test
+    void testGetMetadata_Missing() {
+        Map<String, Object> content = new HashMap<>();
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.getMetadata(content);
+        });
+
+        assertEquals("metadata must be present", exception.getMessage());
+    }
+
+    @Test
+    void testGetMetadata_NotMap() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("metadata", "not a map");
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.getMetadata(content);
+        });
+
+        assertEquals("metadata must be JSON object", exception.getMessage());
+    }
+
+    @Test
+    void testGetMetadataComponentName_Success() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        Map<String, Object> component = new HashMap<>();
+        component.put("name", "test-component");
+        metadata.put("component", component);
+        content.put("metadata", metadata);
+
+        Optional<String> result = CbomUtil.getMetadataComponentName(content);
+
+        assertTrue(result.isPresent());
+        assertEquals("test-component", result.get());
+    }
+
+    @Test
+    void testGetMetadataComponentName_NoMetadata() {
+        Map<String, Object> content = new HashMap<>();
+
+        Optional<String> result = CbomUtil.getMetadataComponentName(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetMetadataComponentName_NoComponent() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        content.put("metadata", metadata);
+
+        Optional<String> result = CbomUtil.getMetadataComponentName(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetMetadataComponentName_ComponentNotMap() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("component", "not a map");
+        content.put("metadata", metadata);
+
+        Optional<String> result = CbomUtil.getMetadataComponentName(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetMetadataComponentName_NoName() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        Map<String, Object> component = new HashMap<>();
+        metadata.put("component", component);
+        content.put("metadata", metadata);
+
+        Optional<String> result = CbomUtil.getMetadataComponentName(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetMetadataComponentName_NameNull() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        Map<String, Object> component = new HashMap<>();
+        component.put("name", null);
+        metadata.put("component", component);
+        content.put("metadata", metadata);
+
+        Optional<String> result = CbomUtil.getMetadataComponentName(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetMetadataTimestamp_Success() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        String timestampStr = "2024-01-15T10:30:00Z";
+        metadata.put("timestamp", timestampStr);
+        content.put("metadata", metadata);
+
+        Optional<OffsetDateTime> result = CbomUtil.getMetadataTimestamp(content);
+
+        assertTrue(result.isPresent());
+        assertEquals(OffsetDateTime.parse(timestampStr), result.get());
+    }
+
+    @Test
+    void testGetMetadataTimestamp_NoMetadata() {
+        Map<String, Object> content = new HashMap<>();
+
+        Optional<OffsetDateTime> result = CbomUtil.getMetadataTimestamp(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetMetadataTimestamp_NoTimestamp() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        content.put("metadata", metadata);
+
+        Optional<OffsetDateTime> result = CbomUtil.getMetadataTimestamp(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetMetadataTimestamp_InvalidFormat() {
+        Map<String, Object> content = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("timestamp", "invalid-date");
+        content.put("metadata", metadata);
+
+        Optional<OffsetDateTime> result = CbomUtil.getMetadataTimestamp(content);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetString_Success() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("key", "value");
+
+        Optional<String> result = CbomUtil.getString(content, "key");
+
+        assertTrue(result.isPresent());
+        assertEquals("value", result.get());
+    }
+
+    @Test
+    void testGetString_Missing() {
+        Map<String, Object> content = new HashMap<>();
+
+        Optional<String> result = CbomUtil.getString(content, "key");
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetString_Null() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("key", null);
+
+        Optional<String> result = CbomUtil.getString(content, "key");
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testGetString_NonStringValue() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("key", 123);
+
+        Optional<String> result = CbomUtil.getString(content, "key");
+
+        assertTrue(result.isPresent());
+        assertEquals("123", result.get());
+    }
+}
