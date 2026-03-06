@@ -217,6 +217,7 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
         VaultInstance vaultInstance = new VaultInstance();
         vaultInstance.setName("test");
         vaultInstance.setConnectorUuid(connectorUUID.getValue());
+        vaultInstance.setConnectorInterface(connectorInterfaceRepository.findAll().getFirst());
         vaultInstanceRepository.save(vaultInstance);
 
         Assertions.assertThrows(ValidationException.class, () -> connectorService.deleteConnector(connectorUUID));

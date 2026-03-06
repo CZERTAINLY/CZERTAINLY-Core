@@ -479,6 +479,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (!connector.getVaultInstances().isEmpty()) {
             for (VaultInstance vaultInstance : connector.getVaultInstances()) {
                 vaultInstance.setConnector(null);
+                vaultInstance.setConnectorInterface(null);
                 vaultInstanceRepository.save(vaultInstance);
             }
             connector.getVaultInstances().clear();
