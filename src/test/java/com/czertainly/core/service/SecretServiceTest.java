@@ -410,6 +410,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         UUID secretUuid = secret.getUuid();
         Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
         secret.setEnabled(true);
+        secretRepository.save(secret);
         vaultProfile.setEnabled(false);
         vaultProfileRepository.save(vaultProfile);
         Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
