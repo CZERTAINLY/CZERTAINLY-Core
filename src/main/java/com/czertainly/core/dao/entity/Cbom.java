@@ -24,7 +24,6 @@ import lombok.ToString;
 @Entity
 @Table(name = "cbom")
 public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -38,7 +37,7 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
     @Column(name = "spec_version", nullable = false)
     private String specVersion;
 
-    @Column(name = "timestamp", nullable = false, updatable = false)
+    @Column(name = "timestamp", nullable = true, updatable = false)
     private OffsetDateTime timestamp;
 
     @Column(name = "source", nullable = true)

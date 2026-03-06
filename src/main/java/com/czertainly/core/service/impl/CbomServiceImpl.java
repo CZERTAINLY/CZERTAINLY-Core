@@ -1,7 +1,5 @@
 package com.czertainly.core.service.impl;
 
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -188,51 +186,11 @@ public class CbomServiceImpl implements CbomService {
             );
         }
 
-        // serialNumber (required)
-        String serialNumber = Optional.ofNullable(content.get("serialNumber")).map(Object::toString).orElse(null);
-        if (StringUtils.isBlank(serialNumber)) {
-            throw new ValidationException(
-                    ValidationError.create("serialNumber must not be empty")
-            );
-        }
-
-        // version (required)
-        String version = Optional.ofNullable(content.get("version")).map(Object::toString).orElse(null);
-        if (StringUtils.isBlank(version)) {
-            throw new ValidationException(
-                    ValidationError.create("version must not be empty")
-            );
-        }
-
-        try {
-            Integer.parseInt(version);
-        } catch (NumberFormatException e) {
-            throw new ValidationException("version must be integer");
-        }
-
-        // specVersion (required)
-        String specVersion = Optional.ofNullable(content.get("specVersion")).map(Object::toString).orElse(null);
-        if (StringUtils.isBlank(specVersion)) {
-            throw new ValidationException(
-                    ValidationError.create("specVersion must not be empty")
-            );
-        }
-
-        // metadata (required)
-        Map<String, Object> metadata = CbomUtil.getMetadata(content);
-
-        // metadata.timestamp (required)
-        OffsetDateTime timestamp = null;
-        try {
-            String timestampStr = (String) metadata.get("timestamp");
-            timestamp = OffsetDateTime.parse(timestampStr);
-        } catch (ClassCastException e) {
-            throw new ValidationException("timestamp must be String");
-        } catch (NullPointerException npe) {
-            throw new ValidationException("metadata.timestamp must be present");
-        } catch (DateTimeParseException e) {
-            throw new ValidationException("metadata.timestamp must be valid ISO-8601 timestamp");
-        }
+        // Extract the required specVersion
+        String specVersion = Optional.ofNullable(content.get("specVersion"))
+            .map(Object::toString)
+            .filter(s -> !StringUtils.isBlank(s))
+            .orElseThrow(() -> new ValidationException("specVersion must not be empty"));
 
         // upload JSON to cbom-repository
         BomCreateResponseDto response;
@@ -252,8 +210,8 @@ public class CbomServiceImpl implements CbomService {
         cbom.setSerialNumber(response.getSerialNumber());
         cbom.setVersion(response.getVersion());
         cbom.setSpecVersion(specVersion);
-        cbom.setTimestamp(timestamp);
-        cbom.setSource(CbomUtil.getMetadataSource(content));
+        cbom.setTimestamp(CbomUtil.getMetadataTimestamp(content).orElse(null));
+        cbom.setSource(CbomUtil.getMetadataComponentName(content).orElse(null));
         setCryptoStats(cbom, response);
 
         cbomRepository.save(cbom);
@@ -361,7 +319,7 @@ public class CbomServiceImpl implements CbomService {
         int skipped = 0;
         int duplicates = 0;
         int stored = 0;
-        
+
         for (BomEntryDto entry : cboms) {
             int version;
             try {
@@ -480,9 +438,14 @@ public class CbomServiceImpl implements CbomService {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(entry.getSerialNumber());
         cbom.setVersion(version);
-        cbom.setSpecVersion(CbomUtil.getString(response, "specVersion", ""));
+        Optional<String> specVersion = CbomUtil.getString(response, "specVersion");
+        if (specVersion.isEmpty()) {
+            throw new ValidationException("cbom-repository returned empty specVersion");
+        } else {
+            cbom.setSpecVersion(specVersion.get());
+        }
         cbom.setTimestamp(entry.getTimestamp());
-        cbom.setSource(CbomUtil.getMetadataSource(response));
+        cbom.setSource(CbomUtil.getMetadataComponentName(response).orElse(null));
         cbom.setAlgorithmsCount(entry.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal());
         cbom.setCertificatesCount(entry.getCryptoStats().getCryptoAssets().getCertificates().getTotal());
         cbom.setProtocolsCount(entry.getCryptoStats().getCryptoAssets().getProtocols().getTotal());
