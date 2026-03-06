@@ -49,6 +49,7 @@ class CbomRepositoryClientTest {
         cache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
 
         client = new CbomRepositoryClient();
+        client.setMaxBufferSize(262144);
         objectMapper = new ObjectMapper();
         objectMapper.findAndRegisterModules();
     }
@@ -277,6 +278,30 @@ class CbomRepositoryClientTest {
 
         // Assert
         assertEquals(baseUrl, result);
+    }
+
+    @Test
+    void testRead_LargeResponse_FailsWithBufferSizeLimit() throws Exception {
+        // Arrange
+        String urn = "urn:uuid:test-serial";
+        int smallBufferSize = 100;
+        client.setMaxBufferSize(smallBufferSize);
+
+        StringBuilder largeContent = new StringBuilder();
+        largeContent.append("A".repeat(smallBufferSize + 1));
+
+        BomResponseDto response = new BomResponseDto();
+        response.put("serialNumber", urn);
+        response.put("largeData", largeContent.toString());
+
+        wireMock.stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(objectMapper.writeValueAsString(response))));
+
+        // Act & Assert
+        assertThrows(Exception.class, () -> client.read(urn, null));
     }
 
     @Test
