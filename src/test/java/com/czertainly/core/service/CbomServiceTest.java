@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -346,7 +347,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(1, savedCboms.size());
         assertEquals(serialNumber, savedCboms.getFirst().getSerialNumber());
-        assertEquals(null, savedCboms.getFirst().getSource());
+        assertNull(savedCboms.getFirst().getSource());
 
         // Assert
         mockServer.verify(WireMock.postRequestedFor(
