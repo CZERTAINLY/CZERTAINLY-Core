@@ -10,6 +10,8 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
 import com.czertainly.api.model.connector.secrets.*;
 import com.czertainly.api.model.connector.secrets.content.*;
 import com.czertainly.api.model.core.auth.Resource;
@@ -37,12 +39,7 @@ import com.czertainly.core.service.v2.ConnectorService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.SecretsUtil;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -77,14 +74,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     private VaultProfileService vaultProfileService;
 
     private SecretApiClient secretApiClient;
-
-    private static final ObjectMapper objectMapper = JsonMapper.builder()
-            .findAndAddModules()
-            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
-            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-            .defaultPropertyInclusion(JsonInclude.Value.construct(JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL))
-            .build();
-
+    
     @Autowired
     public void setSecret2SyncVaultProfileRepository(Secret2SyncVaultProfileRepository secret2SyncVaultProfileRepository) {
         this.secret2SyncVaultProfileRepository = secret2SyncVaultProfileRepository;
@@ -564,34 +554,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
-    public String getResourceObjectContent(UUID uuid) throws NotFoundException, ConnectorException {
+    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException, ConnectorException {
+        ResourceSecretContentData resourceSecretContentData = new ResourceSecretContentData();
         SecretContent contentDto = getSecretContent(uuid);
-        switch (contentDto.getType()) {
-            case BASIC_AUTH, KEY_STORE, KEY_VALUE -> {
-                try {
-                    return objectMapper.writeValueAsString((contentDto));
-                } catch (JsonProcessingException e) {
-                    throw new IllegalArgumentException("Cannot serialize secret content of type %s. Secret UUID: %s. Error: %s".formatted(contentDto.getType(), uuid, e.getMessage()));
-                }
-            }
-            case API_KEY -> {
-                return ((ApiKeySecretContent) contentDto).getContent();
-            }
-            case JWT_TOKEN -> {
-                return ((JwtTokenSecretContent) contentDto).getContent();
-            }
-            case SECRET_KEY -> {
-                return ((SecretKeySecretContent) contentDto).getContent();
-            }
-            case PRIVATE_KEY -> {
-                return ((PrivateKeySecretContent) contentDto).getContent();
-            }
-            case GENERIC -> {
-                return ((GenericSecretContent) contentDto).getContent();
-            }
-        }
-
-        return "";
+        resourceSecretContentData.setContent(contentDto);
+        return resourceSecretContentData;
     }
 
     @Override
