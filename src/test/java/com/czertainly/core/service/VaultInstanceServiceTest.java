@@ -182,8 +182,6 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         VaultInstanceUpdateRequestDto requestDto = new VaultInstanceUpdateRequestDto();
         Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.updateVaultInstance(UUID.randomUUID(), requestDto));
         requestDto.setDescription("new description");
-        requestDto.setConnectorUuid(connector.getUuid());
-        requestDto.setInterfaceUuid(interfaceEntity.getUuid());
         RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setName(TEST_CUSTOM_ATTRIBUTE);
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));

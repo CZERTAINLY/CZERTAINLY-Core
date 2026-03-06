@@ -180,12 +180,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
 
-        vaultInstance.setConnectorUuid(request.getConnectorUuid());
         ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
-        if (connector.getInterfaces().stream().map(ConnectorInterfaceDto::getUuid).noneMatch(request.getInterfaceUuid()::equals)) {
-            throw new ValidationException("Connector does not have interface with UUID " + request.getInterfaceUuid());
-        }
-        vaultInstance.setConnectorInterfaceUuid(request.getInterfaceUuid());
         checkConnectionToVaultInConnector(vaultInstance.getConnectorUuid(), request.getAttributes(), connector);
 
         detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
