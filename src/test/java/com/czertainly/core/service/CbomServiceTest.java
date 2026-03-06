@@ -20,7 +20,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
@@ -901,8 +900,6 @@ class CbomServiceTest extends BaseSpringBootTest {
         scheduledJob.setJobName(CbomSyncTask.NAME);
         scheduledJob.setJobClassName(CbomSyncTask.class.getName());
         scheduledJob.setEnabled(true);
-        scheduledJob = scheduledJobsRepository.save(scheduledJob);
-
 
         OffsetDateTime now = OffsetDateTime.now();
         BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
@@ -967,7 +964,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void sync_shouldUseTimestampFromLastSuccess() throws Exception {
+    void sync_shouldUseTimestampFromLastSuccess() throws Exception {
         // Given: A successful job from 1 hour ago
         Date oneHourAgo = new Date(System.currentTimeMillis() - 3600 * 1000);
         ScheduledJob scheduledJob = new ScheduledJob();

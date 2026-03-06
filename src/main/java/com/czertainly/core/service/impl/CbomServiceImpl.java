@@ -361,6 +361,7 @@ public class CbomServiceImpl implements CbomService {
         int skipped = 0;
         int duplicates = 0;
         int stored = 0;
+        
         for (BomEntryDto entry : cboms) {
             int version;
             try {
@@ -389,9 +390,7 @@ public class CbomServiceImpl implements CbomService {
                 continue;
             }
             try {
-                transactionHandler.runInNewTransaction(() -> {
-                    createCbomEntry(entry, version, response);
-                });
+                transactionHandler.runInNewTransaction(() -> createCbomEntry(entry, version, response));
             } catch (Exception e) {
                 if (e instanceof DataIntegrityViolationException dataIntegrityViolationException) {
                     String message = dataIntegrityViolationException.getMostSpecificCause().getMessage();
