@@ -67,7 +67,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     private static final String BOM_ENTRY_JSON = """
 {
   "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
-  "version": 1,
+  "version": 42,
   "cryptoStats": {
     "cryptoAssets": {
       "algorithms": {
