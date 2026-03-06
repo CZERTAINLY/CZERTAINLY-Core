@@ -75,13 +75,13 @@ public class CbomControllerImpl implements CbomController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CBOM, operation = Operation.DELETE)
-    public void deleteCbom(UUID uuid) throws NotFoundException {
+    public void deleteCbom(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         cbomService.deleteCbom(uuid);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CBOM, operation = Operation.DELETE)
-    public List<BulkActionMessageDto> bulkDeleteCbom(List<UUID> uuids) {
+    public List<BulkActionMessageDto> bulkDeleteCbom(@LogResource(uuid = true) List<UUID> uuids) {
         return cbomService.bulkDeleteCbom(uuids);
     }
 

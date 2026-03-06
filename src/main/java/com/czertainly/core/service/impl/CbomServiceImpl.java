@@ -1,11 +1,5 @@
 package com.czertainly.core.service.impl;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.*;
 
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -70,7 +64,8 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service(Resource.Codes.CBOM)
 @Transactional
@@ -231,17 +226,28 @@ public class CbomServiceImpl implements CbomService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteCbom(List<UUID> uuids) {
-        Set<UUID> existingUuids = cbomRepository.findExistingUuids(uuids);
-
         List<BulkActionMessageDto> messages = new ArrayList<>();
+
+        if (uuids == null || uuids.isEmpty()) {
+            return messages;
+        }
+
+        Set<UUID> existingUuids = cbomRepository.findExistingUuids(uuids);
         for (UUID uuid : uuids) {
             if (!existingUuids.contains(uuid)) {
                 messages.add(new BulkActionMessageDto(uuid.toString(), "", "CBOM entry not found"));
                 continue;
             }
-            cbomRepository.deleteById(uuid);
+            try {
+                transactionHandler.runInNewTransaction(() -> cbomRepository.deleteById(uuid));
+            } catch (Exception ex) {
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", "Error deleting CBOM entry: %s".formatted(ex.getMessage())));
+                logger.logEvent(Operation.DELETE, OperationResult.FAILURE, null, List.of(new ResourceObjectIdentity(null, uuid)), ex.getMessage());
+                continue;
+            }
             logger.logEvent(Operation.DELETE, OperationResult.SUCCESS, null, List.of(new ResourceObjectIdentity(null, uuid)), null);
         }
 
