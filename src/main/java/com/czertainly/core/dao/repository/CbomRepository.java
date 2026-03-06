@@ -21,4 +21,6 @@ public interface CbomRepository extends SecurityFilterRepository<Cbom, UUID> {
     ORDER BY c2.version DESC
     """)
     List<Cbom> findVersionsByUuid(@Param("uuid") UUID uuid);
+
+    boolean existsBySerialNumberAndVersion(String serialNumber, int version);
 }

@@ -10,6 +10,8 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceCertificateContentData;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -2187,10 +2189,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
-    public String getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException {
+    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException {
+        ResourceCertificateContentData contentData = new ResourceCertificateContentData();
+        contentData.setCertificateType(CertificateType.X509);
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         if (certificate.getCertificateContent() == null) throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
-        return certificate.getContentData();
+        contentData.setContent(certificate.getCertificateContent().getContent());
+        return contentData;
     }
 
 }

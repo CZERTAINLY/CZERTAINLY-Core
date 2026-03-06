@@ -72,6 +72,14 @@ public class CbomControllerImpl implements CbomController {
         return cbomService.createCbom(request);
     }
 
+    @AuditLogged(
+        module = Module.CORE,
+        resource = Resource.CBOM,
+        operation = Operation.SYNC)
+    public void sync() throws CbomRepositoryException {
+        cbomService.syncAuthorized();
+    }
+
     @Override
     @AuditLogged(
         module = Module.CORE,

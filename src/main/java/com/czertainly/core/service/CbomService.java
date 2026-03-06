@@ -57,4 +57,21 @@ public interface CbomService extends ResourceExtensionService {
      * @return List of {@link SearchFieldDataByGroupDto} object with definition the possible fields
      */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
+
+    /**
+     * Synchronize CBOMs from the CBOM repository. This version is intended for use
+     * by the REST API controller as it requires authorization.
+     *
+     * @throws CbomRepositoryException if there are problems accessing the CBOM repository
+     */
+    void syncAuthorized() throws CbomRepositoryException;
+
+    /**
+     * Synchronize CBOMs from the CBOM repository. This version is intended for use
+     * by scheduled jobs where no authorization context is available.
+     *
+     * @return A string message indicating the result of the synchronization process
+     * @throws CbomRepositoryException if there are problems accessing the CBOM repository
+     */
+    String sync() throws CbomRepositoryException;
 }
