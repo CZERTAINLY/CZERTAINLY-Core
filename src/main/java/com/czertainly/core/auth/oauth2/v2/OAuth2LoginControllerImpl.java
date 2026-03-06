@@ -11,16 +11,15 @@ import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.service.v2.OAuth2LoginService;
 import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -83,7 +82,6 @@ public class OAuth2LoginControllerImpl implements OAuth2LoginController {
         }
 
         HttpServletRequest request = getHttpServletRequest();
-        HttpServletResponse response = getHttpServletResponse();
         request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
 
         OAuth2ProviderSettingsDto providerSettings = OAuth2LoginFlowHelper.resolveProviderOrThrow(provider, request, oauth2LoginService, auditLogService);
@@ -92,14 +90,7 @@ public class OAuth2LoginControllerImpl implements OAuth2LoginController {
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
 
         String redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider;
-        try {
-            response.sendRedirect(redirectUrl);
-        } catch (IOException e) {
-            String message = "Error occurred when sending redirect for provider '%s' to '%s' after authentication via OAuth2.".formatted(provider, redirectUrl);
-            log.error(message, e);
-            throw new CzertainlyAuthenticationException(message, e);
-        }
-        return null;
+        return ResponseEntity.status(HttpStatus.FOUND).header("Location", redirectUrl).build();
     }
 
     private HttpServletRequest getHttpServletRequest() {
@@ -108,13 +99,5 @@ public class OAuth2LoginControllerImpl implements OAuth2LoginController {
             throw new IllegalStateException("No ServletRequestAttributes found in RequestContextHolder");
         }
         return attributes.getRequest();
-    }
-
-    private HttpServletResponse getHttpServletResponse() {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes == null) {
-            throw new IllegalStateException("No ServletRequestAttributes found in RequestContextHolder");
-        }
-        return attributes.getResponse();
     }
 }
