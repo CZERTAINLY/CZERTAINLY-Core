@@ -64,6 +64,30 @@ class CbomServiceTest extends BaseSpringBootTest {
 
     private static final String CONTENT_TYPE = "application/vnd.cyclonedx+json";
 
+    private static final String BOM_ENTRY_JSON = """
+{
+  "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+  "version": 1,
+  "cryptoStats": {
+    "cryptoAssets": {
+      "algorithms": {
+        "total": 5
+      },
+      "certificates": {
+        "total": 3
+      },
+      "protocols": {
+        "total": 2
+      },
+      "relatedCryptoMaterials": {
+        "total": 4
+      },
+      "total": 14
+    }
+  }
+}
+    """;
+
     @Autowired
     private CbomService cbomService;
 
@@ -464,29 +488,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {
-                    "total": 5
-                    },
-                    "certificates": {
-                    "total": 3
-                    },
-                    "protocols": {
-                    "total": 2
-                    },
-                    "relatedCryptoMaterials": {
-                    "total": 4
-                    },
-                    "total": 14
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -512,29 +514,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
-                    "version": 42,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {
-                    "total": 5
-                    },
-                    "certificates": {
-                    "total": 3
-                    },
-                    "protocols": {
-                    "total": 2
-                    },
-                    "relatedCryptoMaterials": {
-                    "total": 4
-                    },
-                    "total": 14
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -579,21 +559,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:test-123",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {"total": 0},
-                    "certificates": {"total": 0},
-                    "protocols": {"total": 0},
-                    "relatedCryptoMaterials": {"total": 0},
-                    "total": 0
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -619,21 +585,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:test-123",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {"total": 0},
-                    "certificates": {"total": 0},
-                    "protocols": {"total": 0},
-                    "relatedCryptoMaterials": {"total": 0},
-                    "total": 0
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -662,21 +614,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:test-123",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {"total": 0},
-                    "certificates": {"total": 0},
-                    "protocols": {"total": 0},
-                    "relatedCryptoMaterials": {"total": 0},
-                    "total": 0
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -705,21 +643,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:test-123",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {"total": 0},
-                    "certificates": {"total": 0},
-                    "protocols": {"total": 0},
-                    "relatedCryptoMaterials": {"total": 0},
-                    "total": 0
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -748,21 +672,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:test-123",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {"total": 0},
-                    "certificates": {"total": 0},
-                    "protocols": {"total": 0},
-                    "relatedCryptoMaterials": {"total": 0},
-                    "total": 0
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -914,21 +824,7 @@ class CbomServiceTest extends BaseSpringBootTest {
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:placeholder",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {"total": 1},
-                    "certificates": {"total": 1},
-                    "protocols": {"total": 1},
-                    "relatedCryptoMaterials": {"total": 1},
-                    "total": 4
-                    }
-                    }
-                    }
-                    """)));
+                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result1 = cbomService.createCbom(request1);
