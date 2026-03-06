@@ -7,7 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,24 +37,44 @@ import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
+import com.czertainly.core.dao.entity.ScheduledJob;
+import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.CbomRepository;
+import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
+import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.model.cbom.BomEntryDto;
+import com.czertainly.core.model.cbom.CryptoAssetCountDto;
+import com.czertainly.core.model.cbom.CryptoAssetsDto;
+import com.czertainly.core.model.cbom.CryptoStatsDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.tasks.CbomSyncTask;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
 class CbomServiceTest extends BaseSpringBootTest {
+
+    private static final String CONTENT_TYPE = "application/vnd.cyclonedx+json";
+
     @Autowired
     private CbomService cbomService;
 
     @Autowired
     private CbomRepository cbomRepository;
+
+    @Autowired
+    private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+
+    @Autowired
+    private ScheduledJobsRepository scheduledJobsRepository;
 
     @MockitoBean
     private AttributeEngine attributeEngine;
@@ -57,10 +83,14 @@ class CbomServiceTest extends BaseSpringBootTest {
     private WebClient webClient;
     private CbomRepositoryClient cbomRepositoryClient;
 
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         cbomRepository.deleteAll();
+        scheduledJobHistoryRepository.deleteAll();
+        scheduledJobsRepository.deleteAll();
 
         mockServer = new WireMockServer(0);
         mockServer.start();
@@ -83,7 +113,6 @@ class CbomServiceTest extends BaseSpringBootTest {
             .build();
         cbomRepositoryClient = new CbomRepositoryClient();
         ReflectionTestUtils.setField(cbomRepositoryClient, "client", webClient);
-
         ReflectionTestUtils.setField(cbomService, "cbomRepositoryClient", cbomRepositoryClient);
         ReflectionTestUtils.setField(cbomRepositoryClient, "cbomRepositoryBaseUrl", "");
     }
@@ -832,5 +861,276 @@ class CbomServiceTest extends BaseSpringBootTest {
         assertTrue(fieldNames.contains(FilterField.CBOM_PROTOCOLS_COUNT.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_CRYPTO_MATERIAL_COUNT.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_TOTAL_ASSETS_COUNT.name()));
+    }
+
+    @Test
+    void sync_shouldSyncAllEntries_whenNoLastSyncExists() throws Exception {
+        // Given
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(2));
+        BomEntryDto entry3 = entry("serial-3", "3", now.minusHours(1));
+
+        mockSearchResponse(List.of(entry1, entry2, entry3));
+
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
+        mockEntrySpecVersionSource(entry2, "1.7", "name-2");
+        mockEntrySpecVersionSource(entry3, "1.7", "name-3");
+
+        // When
+        cbomService.sync();
+
+        // Then
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(3, savedCboms.size());
+
+        List<String> serialNumbers = savedCboms.stream()
+                .map(Cbom::getSerialNumber)
+                .sorted()
+                .toList();
+
+        assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
+    }
+
+    @Test
+    void sync_shouldSyncAllEntries_whenNoLastSyncIsNull() throws Exception {
+        // Given
+
+        ScheduledJob scheduledJob = new ScheduledJob();
+        scheduledJob.setJobName(CbomSyncTask.NAME);
+        scheduledJob.setJobClassName(CbomSyncTask.class.getName());
+        scheduledJob.setEnabled(true);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(2));
+        BomEntryDto entry3 = entry("serial-3", "3", now.minusHours(1));
+
+        mockSearchResponse(List.of(entry1, entry2, entry3));
+
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
+        mockEntrySpecVersionSource(entry2, "1.7", "name-2");
+        mockEntrySpecVersionSource(entry3, "1.7", "name-3");
+
+        // When
+        cbomService.sync();
+
+        // Then
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(3, savedCboms.size());
+
+        List<String> serialNumbers = savedCboms.stream()
+                .map(Cbom::getSerialNumber)
+                .sorted()
+                .toList();
+
+        assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
+    }
+
+    @Test
+    void syncAuthorized_shouldSyncAllEntries_whenNoLastSyncExists() throws Exception {
+        // Given
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(2));
+        BomEntryDto entry3 = entry("serial-3", "3", now.minusHours(1));
+
+        mockSearchResponse(List.of(entry1, entry2, entry3));
+
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
+        mockEntrySpecVersionSource(entry2, "1.7", "name-2");
+        mockEntrySpecVersionSource(entry3, "1.7", "name-3");
+
+        // When
+        cbomService.syncAuthorized();
+
+        // Then
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(3, savedCboms.size());
+
+        List<String> serialNumbers = savedCboms.stream()
+                .map(Cbom::getSerialNumber)
+                .sorted()
+                .toList();
+
+        assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
+
+        // Resync again
+        cbomService.syncAuthorized();
+
+        // Then should be still 3 entries (no duplicates)
+        savedCboms = cbomRepository.findAll();
+        assertEquals(3, savedCboms.size());
+    }
+
+    @Test
+    void sync_shouldUseTimestampFromLastSuccess() throws Exception {
+        // Given: A successful job from 1 hour ago
+        Date oneHourAgo = new Date(System.currentTimeMillis() - 3600 * 1000);
+        ScheduledJob scheduledJob = new ScheduledJob();
+        scheduledJob.setJobName(CbomSyncTask.NAME);
+        scheduledJob.setJobClassName(CbomSyncTask.class.getName());
+        scheduledJob.setEnabled(true);
+        scheduledJob = scheduledJobsRepository.save(scheduledJob);
+
+        ScheduledJobHistory history = new ScheduledJobHistory();
+        history.setScheduledJobUuid(scheduledJob.getUuid());
+        history.setJobExecution(oneHourAgo);
+        history.setJobEndTime(oneHourAgo);
+        history.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
+        scheduledJobHistoryRepository.save(history);
+
+        long safetyOverlapSeconds = 60L;
+        long baseTimestamp = oneHourAgo.getTime() / 1000;
+        long expectedAfter = Math.max(0L, baseTimestamp - safetyOverlapSeconds);
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter)))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("[]")));
+
+        // When
+        cbomService.sync();
+
+        // Then: WireMock verification ensures the 'after' param matched the DB timestamp
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter))));
+    }
+
+    @Test
+    void sync_ThrowsCbomRepositoryExceptionOn500Error() {
+        // Given: cbom-repository does not work
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(500)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                    "type": "about:blank",
+                    "title": "Internal Server Error",
+                    "status": 500,
+                    "detail": "Server error occurred"
+                    }
+                    """)));
+
+        // Then sync should throw an exception
+        assertThrows(CbomRepositoryException.class, () -> {
+            cbomService.sync();
+        });
+
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .withQueryParam("after", WireMock.equalTo("0")));
+    }
+
+    @Test
+    void sync_NumberFormatExceptionIgnored() throws Exception {
+        // Given
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        entry1.setVersion("bogus");
+        List<BomEntryDto> response = List.of(entry1);
+
+        mockSearchResponse(response);
+
+        // When
+        cbomService.sync();
+
+        // Then no boms were stored
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(0, savedCboms.size());
+        // ... and no get detail REST API has been called
+        mockServer.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom/serial-1")));
+    }
+
+    @Test
+    void sync_NotFoundExceptionIgnored() throws Exception {
+        // Given
+        OffsetDateTime now = OffsetDateTime.now();
+        BomEntryDto entry1 = entry("serial-1", "1", now.minusHours(3));
+        BomEntryDto entry2 = entry("serial-2", "2", now.minusHours(3));
+        mockSearchResponse(List.of(entry1, entry2));
+
+        // ... serial-1 exists and serial-2 gets not found
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/api/v1/bom/serial-2"))
+            .withQueryParam("version", WireMock.equalTo("2"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(404)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                        "type": "about:blank",
+                        "title": "Not Found",
+                        "status": 404,
+                        "detail": "Requested CBOM not found"
+                    }
+                    """)));
+
+        // When
+        cbomService.sync();
+
+        // Then no boms were stored
+        List<Cbom> savedCboms = cbomRepository.findAll();
+        assertEquals(1, savedCboms.size());
+        List<String> serialNumbers = savedCboms.stream()
+                .map(Cbom::getSerialNumber)
+                .sorted()
+                .toList();
+
+        assertTrue(serialNumbers.containsAll(List.of("serial-1")));
+    }
+
+    private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
+        CryptoAssetCountDto count = new CryptoAssetCountDto();
+        count.setTotal(1);
+
+        CryptoAssetsDto cryptoAssets = new CryptoAssetsDto();
+        cryptoAssets.setAlgorithms(count);
+        cryptoAssets.setCertificates(count);
+        cryptoAssets.setProtocols(count);
+        cryptoAssets.setRelatedCryptoMaterials(count);
+        cryptoAssets.setTotal(4);
+
+        CryptoStatsDto cryptoStats = new CryptoStatsDto();
+        cryptoStats.setCryptoAssets(cryptoAssets);
+
+        BomEntryDto entry = new BomEntryDto();
+        entry.setSerialNumber(serialNumber);
+        entry.setVersion(version);
+        entry.setTimestamp(timestamp);
+        entry.setCryptoStats(cryptoStats);
+
+        return entry;
+    }
+
+    private void mockEntrySpecVersionSource(BomEntryDto entry, String specVersion, String source) {
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom/" + entry.getSerialNumber()))
+            .withQueryParam("version", WireMock.equalTo(entry.getVersion()))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", CONTENT_TYPE)
+                .withBody("""
+                {
+                "specVersion": "%s",
+                "metadata": {
+                "component": {
+                "name": "%s"
+                }
+                }
+                }
+                """.formatted(specVersion, source))));
+    }
+
+    private void mockSearchResponse(List<BomEntryDto>  response) throws JsonProcessingException {
+        String jsonBody = objectMapper.writeValueAsString(response);
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .withQueryParam("after", WireMock.matching("\\d+"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody(jsonBody)));
     }
 }
