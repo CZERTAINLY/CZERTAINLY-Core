@@ -156,6 +156,7 @@ spring:
       token-refresh-interval: ${BROKER_AZURE_TOKEN_REFRESH_INTERVAL:300} # seconds
       token-getting-timeout: ${BROKER_AZURE_TOKEN_GETTING_TIMEOUT:30} # seconds
     amqp-idle-timeout: ${BROKER_AMQP_IDLE_TIMEOUT:120000} # 2 min, AMQP transport-level heartbeat
+    close-timeout: ${BROKER_CLOSE_TIMEOUT:2000} # ms, max time to wait for clean AMQP close handshake on connection failure
     pool:
       max-connections: ${BROKER_POOL_MAX_CONNECTIONS:1}
       connection-idle-timeout: ${BROKER_POOL_CONNECTION_IDLE_TIMEOUT:30000}

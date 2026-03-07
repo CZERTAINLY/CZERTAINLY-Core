@@ -20,6 +20,7 @@ public record MessagingProperties(
         String username,      // Required for RabbitMQ and ServiceBus+SAS, optional for ServiceBus+AAD
         String password,  // Required for RabbitMQ and ServiceBus+SAS, optional for ServiceBus+AAD
         Integer amqpIdleTimeout,
+        Integer closeTimeout,
         @Valid AadAuth aadAuth,
         Pool pool,
         @Valid Listener listener,

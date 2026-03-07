@@ -57,6 +57,17 @@ public class JmsConfig {
         JmsConnectionFactory factory = new JmsConnectionFactory(brokerUrl);
         factory.setForceSyncSend(true);
 
+        // When a connection is force-closed by the broker (e.g. Azure amqp:connection:forced),
+        // JmsPoolConnectionFactory's ExceptionListener calls JmsConnection.close() which blocks
+        // on AmqpProvider.close() for up to closeTimeout (default: 60s) waiting for a clean AMQP
+        // close handshake that will never come. During this blocking period, the pool's
+        // validateObject() cannot detect the dead connection and returns it to callers.
+        // Setting a short closeTimeout ensures the ExceptionListener completes quickly so the pool
+        // can evict the dead connection before the first retry (initialInterval defaults to 3s).
+        if (props.closeTimeout() != null) {
+            factory.setCloseTimeout(props.closeTimeout());
+        }
+
         if (props.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {
             configureServiceBusAuthentication(factory, props);
             // Return raw factory for ServiceBus - listener containers manage their own connections.
