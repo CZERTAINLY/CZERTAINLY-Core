@@ -15,7 +15,6 @@ import org.springframework.retry.support.RetryTemplate;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
@@ -51,7 +50,6 @@ class ProxyMessageJmsEndpointConfigTest {
     @Test
     void listenerEndpoint_withServiceBus_configuresSubscriptionAndSelector() {
         when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.SERVICEBUS);
-        when(messagingProperties.consumerDestination(any())).thenReturn(proxyProperties.exchange());
 
         ProxyMessageJmsEndpointConfig config = new ProxyMessageJmsEndpointConfig(new ObjectMapper(), messageProcessor, retryTemplate, messagingProperties, proxyProperties);
         SimpleJmsListenerEndpoint endpoint = config.listenerEndpoint();
@@ -66,11 +64,9 @@ class ProxyMessageJmsEndpointConfigTest {
         String destination = "/queues/" + proxyProperties.responseQueue();
 
         when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.RABBITMQ);
-        when(messagingProperties.consumerDestination(any())).thenReturn(destination);
 
         ProxyMessageJmsEndpointConfig config = new ProxyMessageJmsEndpointConfig(new ObjectMapper(), messageProcessor, retryTemplate, messagingProperties, proxyProperties);
         SimpleJmsListenerEndpoint endpoint = config.listenerEndpoint();
-
 
         assertThat(endpoint.getDestination()).isEqualTo(destination);
         assertThat(endpoint.getSubscription()).isNull();

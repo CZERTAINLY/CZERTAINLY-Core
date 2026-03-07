@@ -33,6 +33,7 @@ import com.czertainly.api.interfaces.client.v1.LocationSyncApiClient;
 import com.czertainly.api.interfaces.client.v1.NotificationInstanceSyncApiClient;
 import com.czertainly.api.interfaces.client.v1.TokenInstanceSyncApiClient;
 import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.proxy.ProxyDto;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -112,24 +113,28 @@ public class ConnectorApiFactory {
     }
 
     /**
-     * Selects between REST and MQ client based on connector configuration.
-     *
-     * @param connector The connector configuration
-     * @param restClient The REST client (always available)
-     * @param mqClient The MQ client (may be empty if proxy/messaging is not enabled)
-     * @return MQ client if connector has proxyId and MQ client is available, otherwise REST client
+     * Selects between REST and MQ client based on proxy configuration.
      */
-    private <T> T getClient(ConnectorDto connector, T restClient, Optional<? extends T> mqClient) {
-        Objects.requireNonNull(connector, "connector must not be null");
-        if (shouldUseMq(connector) && mqClient.isPresent()) {
-            log.debug("Using MQ client for connector {} via proxy {}", connector.getName(), connector.getProxy().getCode());
+    private <T> T getClient(ProxyDto proxy, String connectorName, T restClient, Optional<? extends T> mqClient) {
+        if (shouldUseMq(proxy) && mqClient.isPresent()) {
+            log.debug("Using MQ client for connector {} via proxy {}", connectorName, proxy.getCode());
             return mqClient.get();
         }
         return restClient;
     }
 
+    private <T> T getClient(ConnectorDto connector, T restClient, Optional<? extends T> mqClient) {
+        Objects.requireNonNull(connector, "connector must not be null");
+        return getClient(connector.getProxy(), connector.getName(), restClient, mqClient);
+    }
+
     public AttributeSyncApiClient getAttributeApiClient(ConnectorDto connector) {
         return getClient(connector, restAttributeApiClient, mqAttributeApiClient);
+    }
+
+    public AttributeSyncApiClient getAttributeApiClient(com.czertainly.api.model.core.connector.v2.ConnectorDto connector) {
+        Objects.requireNonNull(connector, "connector must not be null");
+        return getClient(connector.getProxy(), connector.getName(), restAttributeApiClient, mqAttributeApiClient);
     }
 
     public ConnectorSyncApiClient getConnectorApiClient(ConnectorDto connector) {
@@ -209,13 +214,13 @@ public class ConnectorApiFactory {
     }
 
     /**
-     * Check if MQ-based communication should be used for the given connector.
+     * Check if MQ-based communication should be used based on proxy configuration.
      *
-     * @param connector Connector configuration
-     * @return true if connector has a proxy with non-empty code set
+     * @param proxy Proxy configuration, may be null
+     * @return true if proxy has a non-empty code set
      */
-    private boolean shouldUseMq(ConnectorDto connector) {
-        return connector.getProxy() != null && connector.getProxy().getCode() != null && !connector.getProxy().getCode().isBlank();
+    private boolean shouldUseMq(ProxyDto proxy) {
+        return proxy != null && proxy.getCode() != null && !proxy.getCode().isBlank();
     }
 
 }

@@ -3,6 +3,9 @@ package com.czertainly.core.model.cbom;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.time.OffsetDateTime;
+
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -28,6 +31,21 @@ public class BomEntryDto {
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private String version;
+
+    @NotNull
+    @Schema(
+            description = "RFC 3339 timestamp when this CBOM was created",
+            example = "2026-01-25T21:35:05Z",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    private OffsetDateTime timestamp;
+
+    @NotNull
+    @Schema(
+            description = "Crypto statistics",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    private CryptoStatsDto cryptoStats;
 
     @Override
     public String toString() {

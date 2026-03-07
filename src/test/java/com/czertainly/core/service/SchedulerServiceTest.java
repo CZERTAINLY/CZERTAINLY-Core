@@ -16,10 +16,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
+import com.czertainly.api.model.core.scheduler.*;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
@@ -37,8 +34,10 @@ import com.czertainly.core.messaging.jms.listeners.EventListener;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.tasks.CbomSyncTask;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
 import com.czertainly.core.tasks.ScheduledJobInfo;
+import com.czertainly.core.tasks.SystemScheduledJobs;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -354,6 +353,40 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(0, listResponse.getTotalItems());
 
         mockServer.stop();
+    }
+
+    @Test
+    void testSystemScheduledJobsRegistration() throws SchedulerException {
+        WireMockServer mockServer = new WireMockServer(SCHEDULER_PORT);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        // 2. Stub the create endpoint
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/scheduler/create"))
+                .willReturn(WireMock.ok()));
+
+        try {
+            SystemScheduledJobs systemScheduledJobs = new SystemScheduledJobs();
+            systemScheduledJobs.setSchedulerService(schedulerService);
+
+            systemScheduledJobs.registerJobs();
+
+            // Verify all expected jobs are registered
+            ScheduledJobsResponseDto jobs = schedulerService.listScheduledJobs(
+                    SecurityFilter.create(), new PaginationRequestDto());
+
+            Assertions.assertEquals(3, jobs.getScheduledJobs().size());
+
+            List<String> jobClassNames = jobs.getScheduledJobs().stream()
+                    .map(ScheduledJobDto::getJobName)
+                    .toList();
+
+            Assertions.assertTrue(jobClassNames.stream()
+                    .anyMatch(name -> name.contains(CbomSyncTask.NAME)));
+        } finally {
+            // 3. Ensure server is stopped to free up the port
+            mockServer.stop();
+        }
     }
 
 }

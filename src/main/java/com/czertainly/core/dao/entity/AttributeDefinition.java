@@ -57,7 +57,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     @Enumerated(EnumType.STRING)
     private AttributeType type;
 
-    @Column(name = "content_type", nullable = false)
+    @Column(name = "content_type")
     @Enumerated(EnumType.STRING)
     private AttributeContentType contentType;
 

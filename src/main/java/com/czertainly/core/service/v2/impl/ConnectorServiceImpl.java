@@ -69,6 +69,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private ComplianceProfileRepository complianceProfileRepository;
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
+    private ProxyRepository proxyRepository;
 
     private ConnectorAuthService connectorAuthService;
 
@@ -131,6 +132,11 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Autowired
+    public void setProxyRepository(ProxyRepository proxyRepository) {
+        this.proxyRepository = proxyRepository;
+    }
+
+    @Autowired
     public void setConnectorAuthService(ConnectorAuthService connectorAuthService) {
         this.connectorAuthService = connectorAuthService;
     }
@@ -184,6 +190,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     public ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
         Connector connector = getConnectorEntity(uuid);
 
+        Proxy proxy = resolveProxy(request.getProxyUuid(), null);
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
@@ -192,11 +199,14 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setUrl(request.getUrl());
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        connector.setProxy(proxy);
         connectorRepository.save(connector);
 
-        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
-        ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
-        connectorAdapter.updateConnectorFunctions(connector, connectInfo);
+        if (proxy == null) {
+            ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
+            ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
+            connectorAdapter.updateConnectorFunctions(connector, connectInfo);
+        }
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
@@ -255,6 +265,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         apiClientDto.setUrl(request.getUrl());
         apiClientDto.setAuthType(request.getAuthType());
         apiClientDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        apiClientDto.setProxy(request.getProxy());
         for (ConnectorAdapter connectorAdapter : connectorAdapters.values()) {
             ConnectInfo connectInfo;
             try {
@@ -404,17 +415,9 @@ public class ConnectorServiceImpl implements ConnectorService {
             throw new AlreadyExistException(Connector.class, "URL %s with version %s".formatted(request.getUrl(), request.getVersion().getLabel()));
         }
 
+        Proxy proxy = resolveProxy(request.getProxyUuid(), request.getProxyCode());
         List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
-
-        ConnectorApiClientDto connectorApiDto = new ConnectorApiClientDto();
-        connectorApiDto.setName(request.getName());
-        connectorApiDto.setUrl(request.getUrl());
-        connectorApiDto.setAuthType(request.getAuthType());
-        connectorApiDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
-
-        ConnectorAdapter connectorAdapter = getAdapter(request.getVersion());
-        ConnectInfo connectInfo = connectorAdapter.validateConnection(connectorApiDto);
 
         Connector connector = new Connector();
         connector.setName(request.getName());
@@ -422,10 +425,27 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setUrl(request.getUrl());
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
-        connector.setStatus(connectorStatus);
-        connectorRepository.save(connector);
+        connector.setProxy(proxy);
 
-        connectorAdapter.updateConnectorFunctions(connector, connectInfo);
+        if (proxy != null) {
+            // Proxy connector: skip direct connection validation, set status directly
+            connector.setStatus(ConnectorStatus.CONNECTED);
+            connectorRepository.save(connector);
+        } else {
+            ConnectorApiClientDto connectorApiDto = new ConnectorApiClientDto();
+            connectorApiDto.setName(request.getName());
+            connectorApiDto.setUrl(request.getUrl());
+            connectorApiDto.setAuthType(request.getAuthType());
+            connectorApiDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
+
+            ConnectorAdapter connectorAdapter = getAdapter(request.getVersion());
+            ConnectInfo connectInfo = connectorAdapter.validateConnection(connectorApiDto);
+
+            connector.setStatus(connectorStatus);
+            connectorRepository.save(connector);
+
+            connectorAdapter.updateConnectorFunctions(connector, connectInfo);
+        }
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
@@ -539,6 +559,18 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         attributeEngine.deleteAllObjectAttributeContent(Resource.CONNECTOR, connector.getUuid());
         connectorRepository.delete(connector);
+    }
+
+    private Proxy resolveProxy(String proxyUuid, String proxyCode) throws NotFoundException {
+        if (proxyUuid != null && !proxyUuid.isBlank()) {
+            return proxyRepository.findByUuid(SecuredUUID.fromString(proxyUuid))
+                    .orElseThrow(() -> new NotFoundException(Proxy.class, proxyUuid));
+        }
+        if (proxyCode != null && !proxyCode.isBlank()) {
+            return proxyRepository.findByCode(proxyCode)
+                    .orElseThrow(() -> new NotFoundException(Proxy.class, proxyCode));
+        }
+        return null;
     }
 
     private ConnectorAdapter getAdapter(ConnectorVersion version) {

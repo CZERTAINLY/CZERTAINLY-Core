@@ -93,23 +93,25 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     public ConnectorDto mapToListDto() {
         ConnectorDto dto = new ConnectorDto();
-        dto.setUuid(this.uuid.toString());
-        dto.setName(this.name);
-        dto.setVersion(this.version);
-        dto.setUrl(this.url);
-        dto.setStatus(this.status);
+        setCommonFields(dto);
         return dto;
     }
 
     public ConnectorDetailDto mapToDetailDto() {
         ConnectorDetailDto dto = new ConnectorDetailDto();
+        setCommonFields(dto);
+
+        dto.setAuthType(authType);
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        return dto;
+    }
+
+    private void setCommonFields(ConnectorDto dto) {
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setVersion(this.version);
         dto.setUrl(this.url);
         dto.setStatus(this.status);
-        dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
         dto.setInterfaces(this.interfaces.stream().map(ConnectorInterfaceEntity::mapToDto).toList());
         dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
             FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();
@@ -119,8 +121,6 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         if (this.proxy != null) {
             dto.setProxy(this.proxy.mapToDtoSimple());
         }
-
-        return dto;
     }
 
     public ConnectorApiClientDto mapToApiClientDto() {
