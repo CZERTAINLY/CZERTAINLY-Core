@@ -1,7 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.EntityInstanceApiClient;
-import com.czertainly.api.clients.LocationApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
@@ -83,8 +82,7 @@ public class LocationServiceImpl implements LocationService {
     private CertificateLocationRepository certificateLocationRepository;
     private CertificateRelationRepository certificateRelationRepository;
     private RaProfileRepository raProfileRepository;
-    private EntityInstanceApiClient entityInstanceApiClient;
-    private LocationApiClient locationApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private CertificateService certificateService;
     private ClientOperationService clientOperationService;
     private CertificateEventHistoryService certificateEventHistoryService;
@@ -113,13 +111,8 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Autowired
-    public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
-        this.entityInstanceApiClient = entityInstanceApiClient;
-    }
-
-    @Autowired
-    public void setLocationApiClient(LocationApiClient locationApiClient) {
-        this.locationApiClient = locationApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -297,7 +290,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
-            return locationApiClient.listPushCertificateAttributes(
+            return connectorApiFactory.getLocationApiClient(location.getEntityInstanceReference().getConnector().mapToDto()).listPushCertificateAttributes(
                     location.getEntityInstanceReference().getConnector().mapToDto(),
                     location.getEntityInstanceReference().getEntityInstanceUuid());
         } catch (ConnectorException e) {
@@ -314,7 +307,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
-            return locationApiClient.listGenerateCsrAttributes(
+            return connectorApiFactory.getLocationApiClient(location.getEntityInstanceReference().getConnector().mapToDto()).listGenerateCsrAttributes(
                     location.getEntityInstanceReference().getConnector().mapToDto(),
                     location.getEntityInstanceReference().getEntityInstanceUuid());
         } catch (ConnectorException e) {
@@ -483,7 +476,7 @@ public class LocationServiceImpl implements LocationService {
 
         PushCertificateResponseDto pushCertificateResponseDto;
         try {
-            pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
+            pushCertificateResponseDto = connectorApiFactory.getLocationApiClient(location.getEntityInstanceReference().getConnector().mapToDto()).pushCertificateToLocation(
                     location.getEntityInstanceReference().getConnector().mapToDto(),
                     location.getEntityInstanceReference().getEntityInstanceUuid(),
                     pushCertificateRequestDto
@@ -606,7 +599,7 @@ public class LocationServiceImpl implements LocationService {
 
         LocationDetailResponseDto locationDetailResponseDto;
         try {
-            locationDetailResponseDto = locationApiClient.getLocationDetail(
+            locationDetailResponseDto = connectorApiFactory.getLocationApiClient(entityInstanceRef.getConnector().mapToDto()).getLocationDetail(
                     entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid(), locationDetailRequestDto);
         } catch (ConnectorException e) {
             logger.debug("Failed to get Location details: {}, {}, reason: {}", location.getName(), location.getUuid(), e.getMessage());
@@ -752,7 +745,7 @@ public class LocationServiceImpl implements LocationService {
 
         GenerateCsrResponseDto generateCsrResponseDto;
         try {
-            generateCsrResponseDto = locationApiClient.generateCsrLocation(
+            generateCsrResponseDto = connectorApiFactory.getLocationApiClient(location.getEntityInstanceReference().getConnector().mapToDto()).generateCsrLocation(
                     location.getEntityInstanceReference().getConnector().mapToDto(),
                     location.getEntityInstanceReference().getEntityInstanceUuid(),
                     generateCsrRequestDto
@@ -860,7 +853,7 @@ public class LocationServiceImpl implements LocationService {
 
         PushCertificateResponseDto pushCertificateResponseDto;
         try {
-            pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
+            pushCertificateResponseDto = connectorApiFactory.getLocationApiClient(location.getEntityInstanceReference().getConnector().mapToDto()).pushCertificateToLocation(
                     location.getEntityInstanceReference().getConnector().mapToDto(),
                     location.getEntityInstanceReference().getEntityInstanceUuid(),
                     pushCertificateRequestDto
@@ -933,7 +926,7 @@ public class LocationServiceImpl implements LocationService {
         locationDetailRequestDto.setLocationAttributes(requestAttributes);
         LocationDetailResponseDto locationDetailResponseDto;
         try {
-            locationDetailResponseDto = locationApiClient.getLocationDetail(
+            locationDetailResponseDto = connectorApiFactory.getLocationApiClient(entityInstanceReference.getConnector().mapToDto()).getLocationDetail(
                     entityInstanceReference.getConnector().mapToDto(), entityInstanceReference.getEntityInstanceUuid(), locationDetailRequestDto);
         } catch (ConnectorException e) {
             logger.debug("Failed to get Location {} details: {}", locationName, e.getMessage());
@@ -987,10 +980,10 @@ public class LocationServiceImpl implements LocationService {
         ConnectorDto connectorDto = entityInstanceRef.getConnector().mapToDto();
 
         // validate first by connector
-        entityInstanceApiClient.validateLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid(), attributes);
+        connectorApiFactory.getEntityInstanceApiClient(connectorDto).validateLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid(), attributes);
 
         // list definitions
-        List<BaseAttribute> definitions = entityInstanceApiClient.listLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid());
+        List<BaseAttribute> definitions = connectorApiFactory.getEntityInstanceApiClient(connectorDto).listLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid());
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(entityInstanceRef.getConnectorUuid(), null, definitions, attributes);
@@ -1110,7 +1103,7 @@ public class LocationServiceImpl implements LocationService {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
         removeCertificateRequestDto.setCertificateMetadata(metadata);
-        locationApiClient.removeCertificateFromLocation(location.getEntityInstanceReference().getConnector().mapToDto(),
+        connectorApiFactory.getLocationApiClient(location.getEntityInstanceReference().getConnector().mapToDto()).removeCertificateFromLocation(location.getEntityInstanceReference().getConnector().mapToDto(),
                 location.getEntityInstanceReference().getEntityInstanceUuid(),
                 removeCertificateRequestDto);
     }
