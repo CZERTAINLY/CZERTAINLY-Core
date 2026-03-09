@@ -51,6 +51,9 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
     private TokenInstanceReferenceRepository tokenInstanceRepository;
 
     @Autowired
+    private VaultInstanceRepository vaultInstanceRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     private Connector connector;
@@ -210,6 +213,12 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
         token.setKind("TST");
         token.setConnectorUuid(connectorUUID.getValue());
         tokenInstanceRepository.save(token);
+
+        VaultInstance vaultInstance = new VaultInstance();
+        vaultInstance.setName("test");
+        vaultInstance.setConnectorUuid(connectorUUID.getValue());
+        vaultInstance.setConnectorInterface(connectorInterfaceRepository.findAll().getFirst());
+        vaultInstanceRepository.save(vaultInstance);
 
         Assertions.assertThrows(ValidationException.class, () -> connectorService.deleteConnector(connectorUUID));
 

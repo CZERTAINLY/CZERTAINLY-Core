@@ -208,6 +208,14 @@ public class AttributeEngine {
         return null;
     }
 
+    public BaseAttribute getGroupAttributeDefinition(UUID connectorUuid, String name) {
+        AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.GROUP, connectorUuid, name).orElse(null);
+        if (definition != null) {
+            return definition.getDefinition();
+        }
+        return null;
+    }
+
     public List<MetadataAttribute> getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo contentInfo) {
         // TODO: use also operation?
         List<ObjectAttributeDefinitionContent> objectDefinitionContents = attributeContent2ObjectRepository.getObjectAttributeDefinitionContent(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
@@ -465,7 +473,26 @@ public class AttributeEngine {
             if (attribute.getType() == AttributeType.DATA) {
                 updateDataAttributeDefinition(connectorUuid, operation, (DataAttribute) attribute);
             }
+            if (attribute.getType() == AttributeType.GROUP) {
+                updateGroupAttributeDefinition(connectorUuid, attribute);
+            }
         }
+    }
+
+    private void updateGroupAttributeDefinition(UUID connectorUuid, BaseAttribute attribute) throws AttributeException {
+        validateAttributeDefinition(attribute, connectorUuid);
+        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.GROUP, connectorUuid, UUID.fromString(attribute.getUuid()), attribute.getName()).orElse(null);
+        if (attributeDefinition == null) {
+            attributeDefinition = new AttributeDefinition();
+            attributeDefinition.setConnectorUuid(connectorUuid);
+            attributeDefinition.setAttributeUuid(UUID.fromString(attribute.getUuid()));
+            attributeDefinition.setName(attribute.getName());
+            attributeDefinition.setType(AttributeType.GROUP);
+            attributeDefinition.setVersion(attribute.getVersion());
+            attributeDefinition.setLabel(attribute.getName());
+        }
+        attributeDefinition.setDefinition(attribute);
+        attributeDefinitionRepository.save(attributeDefinition);
     }
 
     private void updateDataAttributeDefinition(UUID connectorUuid, String operation, DataAttribute dataAttribute) throws AttributeException {

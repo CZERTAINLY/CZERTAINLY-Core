@@ -1,0 +1,1 @@
+ALTER TABLE cbom ALTER COLUMN timestamp DROP NOT NULL;

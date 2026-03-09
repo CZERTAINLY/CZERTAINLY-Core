@@ -41,7 +41,7 @@ public class BuildGitInfoContributor implements InfoContributor {
             }
 
             if (version.contains("SNAPSHOT")) {
-                gitInfo.put("commit", gitProperties.getShortCommitId());
+                gitInfo.put("commitId", gitProperties.getShortCommitId());
                 gitInfo.put("branch", gitProperties.getBranch());
             }
 
