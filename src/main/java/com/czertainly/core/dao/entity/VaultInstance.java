@@ -60,6 +60,11 @@ public class VaultInstance extends UniquelyIdentifiedAndAudited {
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-        this.connectorUuid = connector.getUuid();
+        this.connectorUuid = connector == null ? null : connector.getUuid();
+    }
+
+    public void setConnectorInterface(ConnectorInterfaceEntity connectorInterface) {
+        this.connectorInterface = connectorInterface;
+        this.connectorInterfaceUuid = connectorInterface == null ? null : connectorInterface.getUuid();
     }
 }
