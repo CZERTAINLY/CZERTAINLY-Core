@@ -17,6 +17,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.core.io.buffer.DataBufferLimitException;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -301,7 +302,7 @@ class CbomRepositoryClientTest {
                         .withBody(objectMapper.writeValueAsString(response))));
 
         // Act & Assert
-        assertThrows(Exception.class, () -> client.read(urn, null));
+        assertThrows(DataBufferLimitException.class, () -> client.read(urn, null));
     }
 
     @Test
