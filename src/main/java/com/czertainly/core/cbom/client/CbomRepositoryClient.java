@@ -43,10 +43,11 @@ public class CbomRepositoryClient {
     private final String cbomRepositoryBaseUrl;
 
     @Value("${cbom.client.max-buffer-size:20971520}")
-    private int maxBufferSize = 20971520;
+    private int maxBufferSize;
 
     public void setMaxBufferSize(int maxBufferSize) {
         this.maxBufferSize = maxBufferSize;
+        this.client = null;
     }
 
     public CbomRepositoryClient() {
