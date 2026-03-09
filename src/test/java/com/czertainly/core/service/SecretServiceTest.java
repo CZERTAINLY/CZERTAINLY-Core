@@ -10,6 +10,8 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.error.ErrorCode;
+import com.czertainly.api.model.common.error.ProblemDetailExtended;
 import com.czertainly.api.model.connector.secrets.SecretContentResponseDto;
 import com.czertainly.api.model.connector.secrets.SecretResponseDto;
 import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent;
@@ -38,6 +40,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.SerializationUtils;
@@ -177,7 +182,6 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), SecuredUUID.fromUUID(UUID.randomUUID())));
 
         request.setDescription("Test secret description");
-        request.setSourceVaultProfileUuid(vaultProfile.getUuid());
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
         secretContent.setPassword("testPassword2");
         secretContent.setUsername("testUsername2");
@@ -234,10 +238,17 @@ class SecretServiceTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteSecret() throws NotFoundException, ConnectorException {
+        SecretVersion latestVersion = secret.getLatestVersion();
         secret.getLatestVersion().setSecret(null);
         secretVersionRepository.save(secret.getLatestVersion());
         secretService.deleteSecret(secret.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> secretService.deleteSecret(secret.getUuid()));
+        secret.setLatestVersion(latestVersion);
+        secretRepository.save(secret);
+        WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_NOT_FOUND, "", null, null), HttpStatus.NOT_FOUND.value())
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        Assertions.assertDoesNotThrow(() -> secretService.deleteSecret(secret.getUuid()));
     }
 
     @Test
@@ -283,6 +294,19 @@ class SecretServiceTest extends BaseSpringBootTest {
         secret2SyncVaultProfileRepository.delete(secret2SyncVaultProfile);
 
         secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, createSecretAttributes);
+
+        VaultInstance newVaultInstance = new VaultInstance();
+        newVaultInstance.setName("newVaultInstance");
+        newVaultInstance.setConnector(connector);
+        vaultInstanceRepository.save(newVaultInstance);
+        VaultProfile newVaultProfileWithNewInstance = new VaultProfile();
+        newVaultProfileWithNewInstance.setName("newVaultProfileNewInstance");
+        newVaultProfileWithNewInstance.setVaultInstance(newVaultInstance);
+        vaultProfileRepository.save(newVaultProfileWithNewInstance);
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.NOT_FOUND.value())
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        Assertions.assertDoesNotThrow(() -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), createSecretAttributes));
 
         Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().anyMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileUuid)));
