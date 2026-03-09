@@ -202,11 +202,9 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setProxy(proxy);
         connectorRepository.save(connector);
 
-        if (proxy == null) {
-            ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
-            ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
-            connectorAdapter.updateConnectorFunctions(connector, connectInfo);
-        }
+        ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
+        ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
+        connectorAdapter.updateConnectorFunctions(connector, connectInfo);
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
@@ -428,9 +426,14 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setProxy(proxy);
 
         if (proxy != null) {
-            // Proxy connector: skip direct connection validation, set status directly
+            // Proxy connector: always CONNECTED (it registered itself via proxy, so it's reachable).
+            // Must save first so mapToApiClientDto() includes UUID and proxy info for MQ routing.
             connector.setStatus(ConnectorStatus.CONNECTED);
             connectorRepository.save(connector);
+
+            ConnectorAdapter connectorAdapter = getAdapter(request.getVersion());
+            ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
+            connectorAdapter.updateConnectorFunctions(connector, connectInfo);
         } else {
             ConnectorApiClientDto connectorApiDto = new ConnectorApiClientDto();
             connectorApiDto.setName(request.getName());

@@ -37,7 +37,6 @@ public class ConnectorServiceImpl implements ConnectorService {
     private com.czertainly.core.service.v2.ConnectorService connectorServiceV2;
 
     private ConnectorRepository connectorRepository;
-    private ProxyRepository proxyRepository;
     private ConnectorApiFactory connectorApiFactory;
     private AttributeEngine attributeEngine;
 
@@ -49,11 +48,6 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
         this.connectorRepository = connectorRepository;
-    }
-
-    @Autowired
-    public void setProxyRepository(ProxyRepository proxyRepository) {
-        this.proxyRepository = proxyRepository;
     }
 
     @Autowired
@@ -90,12 +84,6 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        Proxy proxy = resolveProxy(request.getProxyUuid());
-
-        if (proxy != null) {
-            return createConnectorWithProxy(request, proxy);
-        }
-
         var requestV2 = new com.czertainly.api.model.core.connector.v2.ConnectorRequestDto();
         requestV2.setName(request.getName());
         requestV2.setUrl(request.getUrl());
@@ -103,72 +91,23 @@ public class ConnectorServiceImpl implements ConnectorService {
         requestV2.setAuthType(request.getAuthType());
         requestV2.setAuthAttributes(request.getAuthAttributes());
         requestV2.setCustomAttributes(request.getCustomAttributes());
+        requestV2.setProxyUuid(request.getProxyUuid());
+        requestV2.setProxyCode(request.getProxyCode());
 
         ConnectorDetailDto detailDto = connectorServiceV2.createConnector(requestV2);
         return convertToDtoV1(detailDto);
     }
 
-    private ConnectorDto createConnectorWithProxy(ConnectorRequestDto request, Proxy proxy) throws AlreadyExistException, AttributeException, NotFoundException {
-        if (request.getName() == null || request.getName().isBlank()) {
-            throw new ValidationException(ValidationError.create("Connector name must not be empty"));
-        }
-        if (connectorRepository.findByName(request.getName()).isPresent()) {
-            throw new AlreadyExistException(Connector.class, request.getName());
-        }
-
-        Connector connector = new Connector();
-        connector.setName(request.getName());
-        connector.setVersion(ConnectorVersion.V1);
-        connector.setUrl(request.getUrl());
-        connector.setAuthType(request.getAuthType());
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connector.setProxy(proxy);
-        connectorRepository.save(connector);
-
-        ConnectorDetailDto dto = connector.mapToDetailDto();
-        if (request.getCustomAttributes() != null) {
-            dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(
-                    Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
-        }
-        return convertToDtoV1(dto);
-    }
-
     @Override
     public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
-        Proxy proxy = resolveProxy(request.getProxyUuid());
-
-        // Set proxy on connector entity before v2 call so validateConnection routes through proxy
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-        connector.setProxy(proxy);
-        connectorRepository.save(connector);
-
-        if (proxy != null) {
-            // Handle proxy connector edit directly - v2 validateConnection would use direct HTTP
-            // since it builds ConnectorApiClientDto from request without proxy context
-            connector.setUrl(request.getUrl());
-            if (request.getAuthType() != null) {
-                connector.setAuthType(request.getAuthType());
-            }
-            connectorRepository.save(connector);
-
-            ConnectorDetailDto detailDto = connector.mapToDetailDto();
-            if (request.getCustomAttributes() != null) {
-                detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(
-                        Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
-            }
-            return convertToDtoV1(detailDto);
-        }
-
         var requestV2 = new com.czertainly.api.model.core.connector.v2.ConnectorUpdateRequestDto();
         requestV2.setUrl(request.getUrl());
         requestV2.setAuthType(request.getAuthType());
         requestV2.setAuthAttributes(request.getAuthAttributes());
         requestV2.setCustomAttributes(request.getCustomAttributes());
+        requestV2.setProxyUuid(request.getProxyUuid());
 
         ConnectorDetailDto detailDto = connectorServiceV2.editConnector(uuid, requestV2);
-        detailDto = connector.mapToDetailDto();
-
         return convertToDtoV1(detailDto);
     }
 
@@ -402,14 +341,6 @@ public class ConnectorServiceImpl implements ConnectorService {
         dto.setProxy(connectorDetailDto.getProxy());
 
         return dto;
-    }
-
-    private Proxy resolveProxy(String proxyUuid) throws NotFoundException {
-        if (proxyUuid == null || proxyUuid.isBlank()) {
-            return null;
-        }
-        return proxyRepository.findByUuid(SecuredUUID.fromString(proxyUuid))
-                .orElseThrow(() -> new NotFoundException(Proxy.class, proxyUuid));
     }
 
 }

@@ -539,7 +539,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnectorWithProxy");
-        request.setUrl("http://localhost:" + mockServer.port());
+        request.setUrl("http://proxy-connector:1234");
         request.setProxyUuid(proxy.getUuid().toString());
 
         ConnectorDto dto = connectorService.createConnector(request);
@@ -551,13 +551,9 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
     @Test
     void testAddConnector_withNonExistentProxy() {
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson("[]")));
-
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnectorWithBadProxy");
-        request.setUrl("http://localhost:" + mockServer.port());
+        request.setUrl("http://proxy-connector:5678");
         request.setProxyUuid("abfbc322-29e1-11ed-a261-0242ac120099");
 
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.createConnector(request));
