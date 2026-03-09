@@ -59,7 +59,7 @@ public class AuthHelper {
     public static final String CMP_USERNAME = "cmp";
 
     public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");
-    public static final List<String> OAUTH2_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/health/**", "/v?/connector/register");
+    public static final List<String> OAUTH2_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/oauth2/**", "/v?/health/**", "/v?/connector/register");
 
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);

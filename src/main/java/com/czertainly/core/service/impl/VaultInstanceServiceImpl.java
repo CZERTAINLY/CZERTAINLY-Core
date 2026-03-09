@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorInterfaceDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -99,8 +100,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
             throw new AlreadyExistException("Vault Instance with the same name already exists");
         }
 
-
         ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(request.getConnectorUuid()));
+        if (connector.getInterfaces().stream().map(ConnectorInterfaceDto::getUuid).noneMatch(request.getInterfaceUuid()::equals)) {
+            throw new ValidationException("Connector does not have interface with UUID " + request.getInterfaceUuid());
+        }
         checkConnectionToVaultInConnector(request.getConnectorUuid(), request.getAttributes(), connector);
 
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
@@ -142,7 +145,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     public PaginationResponseDto<VaultInstanceDto> listVaultInstances(SearchRequestDto request, SecurityFilter securityFilter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
-        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR), predicate, p,  (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR, VaultInstance_.CONNECTOR_INTERFACE), predicate, p,  (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream().map(VaultInstance::mapToDto).toList();
         PaginationResponseDto<VaultInstanceDto> response = new PaginationResponseDto<>();
         response.setItems(vaultInstances);
@@ -177,7 +180,8 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
         attributeEngine.validateCustomAttributesContent(Resource.VAULT, request.getCustomAttributes());
 
-        checkConnectionToVaultInConnector(vaultInstance.getConnectorUuid(), request.getAttributes(), connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid())));
+        ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
+        checkConnectionToVaultInConnector(vaultInstance.getConnectorUuid(), request.getAttributes(), connector);
 
         detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));

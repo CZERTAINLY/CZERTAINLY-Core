@@ -1,14 +1,8 @@
 package com.czertainly.core.service.impl;
 
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.core.events.transaction.TransactionHandler;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
@@ -70,7 +64,8 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service(Resource.Codes.CBOM)
 @Transactional
@@ -188,51 +183,11 @@ public class CbomServiceImpl implements CbomService {
             );
         }
 
-        // serialNumber (required)
-        String serialNumber = Optional.ofNullable(content.get("serialNumber")).map(Object::toString).orElse(null);
-        if (StringUtils.isBlank(serialNumber)) {
-            throw new ValidationException(
-                    ValidationError.create("serialNumber must not be empty")
-            );
-        }
-
-        // version (required)
-        String version = Optional.ofNullable(content.get("version")).map(Object::toString).orElse(null);
-        if (StringUtils.isBlank(version)) {
-            throw new ValidationException(
-                    ValidationError.create("version must not be empty")
-            );
-        }
-
-        try {
-            Integer.parseInt(version);
-        } catch (NumberFormatException e) {
-            throw new ValidationException("version must be integer");
-        }
-
-        // specVersion (required)
-        String specVersion = Optional.ofNullable(content.get("specVersion")).map(Object::toString).orElse(null);
-        if (StringUtils.isBlank(specVersion)) {
-            throw new ValidationException(
-                    ValidationError.create("specVersion must not be empty")
-            );
-        }
-
-        // metadata (required)
-        Map<String, Object> metadata = CbomUtil.getMetadata(content);
-
-        // metadata.timestamp (required)
-        OffsetDateTime timestamp = null;
-        try {
-            String timestampStr = (String) metadata.get("timestamp");
-            timestamp = OffsetDateTime.parse(timestampStr);
-        } catch (ClassCastException e) {
-            throw new ValidationException("timestamp must be String");
-        } catch (NullPointerException npe) {
-            throw new ValidationException("metadata.timestamp must be present");
-        } catch (DateTimeParseException e) {
-            throw new ValidationException("metadata.timestamp must be valid ISO-8601 timestamp");
-        }
+        // Extract the required specVersion
+        String specVersion = Optional.ofNullable(content.get("specVersion"))
+                .map(Object::toString)
+                .filter(s -> !StringUtils.isBlank(s))
+                .orElseThrow(() -> new ValidationException("specVersion must not be empty"));
 
         // upload JSON to cbom-repository
         BomCreateResponseDto response;
@@ -252,14 +207,51 @@ public class CbomServiceImpl implements CbomService {
         cbom.setSerialNumber(response.getSerialNumber());
         cbom.setVersion(response.getVersion());
         cbom.setSpecVersion(specVersion);
-        cbom.setTimestamp(timestamp);
-        cbom.setSource(CbomUtil.getMetadataSource(content));
+        cbom.setTimestamp(CbomUtil.getMetadataTimestamp(content).orElse(null));
+        cbom.setSource(CbomUtil.getMetadataComponentName(content).orElse(null));
         setCryptoStats(cbom, response);
 
         cbomRepository.save(cbom);
         LoggingHelper.putLogResourceInfo(Resource.CBOM, false, cbom.getUuid().toString(), cbom.getSerialNumber());
         logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, null, List.of(new ResourceObjectIdentity(cbom.getSerialNumber(), cbom.getUuid())), "CBOM record created with serialNumber %s and version %s".formatted(cbom.getSerialNumber(), cbom.getVersion()));
         return cbom.mapToDto();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DELETE)
+    public void deleteCbom(UUID uuid) throws NotFoundException {
+        Cbom cbom = getEntity(SecuredUUID.fromUUID(uuid));
+        cbomRepository.delete(cbom);
+        logger.logEvent(Operation.DELETE, OperationResult.SUCCESS, null, List.of(new ResourceObjectIdentity(cbom.getSerialNumber(), cbom.getUuid())), "CBOM record with serialNumber %s and version %s deleted".formatted(cbom.getSerialNumber(), cbom.getVersion()));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteCbom(List<UUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+
+        if (uuids == null || uuids.isEmpty()) {
+            return messages;
+        }
+
+        Set<UUID> existingUuids = cbomRepository.findExistingUuids(uuids);
+        for (UUID uuid : uuids) {
+            if (!existingUuids.contains(uuid)) {
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", "CBOM entry not found"));
+                continue;
+            }
+            try {
+                transactionHandler.runInNewTransaction(() -> cbomRepository.deleteById(uuid));
+            } catch (Exception ex) {
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", "Error deleting CBOM entry: %s".formatted(ex.getMessage())));
+                logger.logEvent(Operation.DELETE, OperationResult.FAILURE, null, List.of(new ResourceObjectIdentity(null, uuid)), ex.getMessage());
+                continue;
+            }
+            logger.logEvent(Operation.DELETE, OperationResult.SUCCESS, null, List.of(new ResourceObjectIdentity(null, uuid)), null);
+        }
+
+        return messages;
     }
 
     @Override
@@ -361,7 +353,7 @@ public class CbomServiceImpl implements CbomService {
         int skipped = 0;
         int duplicates = 0;
         int stored = 0;
-        
+
         for (BomEntryDto entry : cboms) {
             int version;
             try {
@@ -480,9 +472,14 @@ public class CbomServiceImpl implements CbomService {
         Cbom cbom = new Cbom();
         cbom.setSerialNumber(entry.getSerialNumber());
         cbom.setVersion(version);
-        cbom.setSpecVersion(CbomUtil.getString(response, "specVersion", ""));
+        Optional<String> specVersion = CbomUtil.getString(response, "specVersion");
+        if (specVersion.isEmpty()) {
+            throw new ValidationException("cbom-repository returned empty specVersion");
+        } else {
+            cbom.setSpecVersion(specVersion.get());
+        }
         cbom.setTimestamp(entry.getTimestamp());
-        cbom.setSource(CbomUtil.getMetadataSource(response));
+        cbom.setSource(CbomUtil.getMetadataComponentName(response).orElse(null));
         cbom.setAlgorithmsCount(entry.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal());
         cbom.setCertificatesCount(entry.getCryptoStats().getCryptoAssets().getCertificates().getTotal());
         cbom.setProtocolsCount(entry.getCryptoStats().getCryptoAssets().getProtocols().getTotal());

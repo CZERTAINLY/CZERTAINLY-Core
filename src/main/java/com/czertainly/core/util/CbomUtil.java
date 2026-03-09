@@ -1,5 +1,6 @@
 package com.czertainly.core.util;
 
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
 
@@ -24,20 +25,35 @@ public final class CbomUtil {
         return metadata;
     }
 
-    public static String getMetadataSource(Map<String, Object> content) throws ValidationException {
-        Map<String, Object> metadata = getMetadata(content);
-        return Optional.ofNullable(metadata.get("component"))
-            .filter(Map.class::isInstance)
-            .map(Map.class::cast)
-            .map(m -> m.get("name"))
-            .filter(o -> o != null)
-            .map(String::valueOf)
-            .orElse("");
+    // get the metadata.component.name field if exists
+    public static Optional<String> getMetadataComponentName(Map<String, Object> content) {
+        try {
+            Map<String, Object> metadata = getMetadata(content);
+            return Optional.ofNullable(metadata.get("component"))
+             .filter(Map.class::isInstance)
+             .map(Map.class::cast)
+             .map(m -> m.get("name"))
+             .filter(o -> o != null)
+            .map(String::valueOf);
+        } catch (ValidationException e) {
+            return Optional.empty();
+        }
     }
 
-    public static String getString(Map<String, Object> content, String key, String dflt) {
+    // get the metadata.timestamp field if exists
+    public static Optional<OffsetDateTime> getMetadataTimestamp(Map<String, Object> content) {
+        try {
+            Map<String, Object> metadata = getMetadata(content);
+            String timestampStr = (String) metadata.get("timestamp");
+            OffsetDateTime timestamp = OffsetDateTime.parse(timestampStr);
+            return Optional.ofNullable(timestamp);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+     }
+
+    public static Optional<String> getString(Map<String, Object> content, String key) {
         return Optional.ofNullable(content.get(key))
-                .map(Object::toString)
-                .orElse(dflt);
+        .map(Object::toString);
     }
 }
