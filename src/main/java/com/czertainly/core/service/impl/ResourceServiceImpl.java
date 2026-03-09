@@ -14,6 +14,7 @@ import com.czertainly.api.model.common.attribute.common.callback.RequestAttribut
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
@@ -43,7 +44,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.io.Serializable;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -261,11 +261,13 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException, ConnectorException {
-        ResourceObjectContentData data = new ResourceObjectContentData();
-        if (resource.isWithContent())
-            data.setContent(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
-        data.setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resource.getCode()), uuid));
-        data.setResource(resource);
+        ResourceObjectContentData data;
+        if (resource.getContentClass() == ResourceSimpleContentData.class) {
+            data = new ResourceSimpleContentData(resource);
+            ((ResourceSimpleContentData) data).setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resource.getCode()), uuid));
+        } else {
+            data = attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid);
+        }
         data.setUuid(uuid.toString());
         data.setName(name);
         return data;

@@ -24,6 +24,7 @@ import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.*;
 import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
@@ -815,11 +816,9 @@ class AttributeEngineTest extends BaseSpringBootTest {
         CodeBlockAttributeContentData codeBlockAttributeContentData = new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "print('Hello, World!')");
         testAttributeEncryption(AttributeContentType.CODEBLOCK, new CodeBlockAttributeContentV3("ref", codeBlockAttributeContentData), codeBlockAttributeContentData);
         testAttributeEncryption(AttributeContentType.BOOLEAN, new BooleanAttributeContentV3(true), true);
-        ResourceObjectContentData resourceObjectContentData = new ResourceObjectContentData();
+        ResourceSimpleContentData resourceObjectContentData = new ResourceSimpleContentData(AttributeResource.AUTHORITY);
         resourceObjectContentData.setAttributes(List.of(new ResponseAttributeV3()));
-        resourceObjectContentData.setResource(AttributeResource.AUTHORITY);
         resourceObjectContentData.setUuid(UUID.randomUUID().toString());
-        resourceObjectContentData.setContent("content");
         resourceObjectContentData.setName("name");
         testAttributeEncryption(AttributeContentType.RESOURCE, new ResourceObjectContent("ref", resourceObjectContentData), resourceObjectContentData);
     }

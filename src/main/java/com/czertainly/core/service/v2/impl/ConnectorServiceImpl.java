@@ -67,6 +67,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    private VaultInstanceRepository vaultInstanceRepository;
     private ComplianceProfileRepository complianceProfileRepository;
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
 
@@ -74,6 +75,11 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private AttributeEngine attributeEngine;
     private TransactionHandler transactionHandler;
+
+    @Autowired
+    public void setVaultInstanceRepository(VaultInstanceRepository vaultInstanceRepository) {
+        this.vaultInstanceRepository = vaultInstanceRepository;
+    }
 
     @Autowired
     public void setConnectorAdapters(Map<String, ConnectorAdapter> connectorAdapters) {
@@ -470,6 +476,16 @@ public class ConnectorServiceImpl implements ConnectorService {
             connectorRepository.save(connector);
         }
 
+        if (!connector.getVaultInstances().isEmpty()) {
+            for (VaultInstance vaultInstance : connector.getVaultInstances()) {
+                vaultInstance.setConnector(null);
+                vaultInstance.setConnectorInterface(null);
+                vaultInstanceRepository.save(vaultInstance);
+            }
+            connector.getVaultInstances().clear();
+            connectorRepository.save(connector);
+        }
+
         // delete connector associations to compliance profiles rules
         complianceProfileRuleRepository.deleteByConnectorUuid(connector.getUuid());
     }
@@ -518,6 +534,10 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         if (!connector.getTokenInstanceReferences().isEmpty()) {
             errors.add("Dependent Token Instances: " + String.join(", ", connector.getTokenInstanceReferences().stream().map(TokenInstanceReference::getName).collect(Collectors.toSet())));
+        }
+
+        if (!connector.getVaultInstances().isEmpty()) {
+            errors.add("Dependent Vault Instances: " + String.join(", ", connector.getVaultInstances().stream().map(VaultInstance::getName).collect(Collectors.toSet())));
         }
 
         Set<String> complianceProfileNames = complianceProfileRepository.findDistinctByComplianceRulesConnectorUuid(connector.getUuid()).stream().map(ComplianceProfile::getName).collect(Collectors.toSet());

@@ -5,6 +5,8 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
+import com.czertainly.api.model.client.connector.v2.FeatureFlag;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -15,8 +17,10 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.vault.*;
+import com.czertainly.core.dao.entity.ConnectorInterfaceEntity;
 import com.czertainly.core.dao.entity.VaultInstance;
 import com.czertainly.core.dao.entity.VaultProfile;
+import com.czertainly.core.dao.repository.ConnectorInterfaceRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.VaultInstanceRepository;
 import com.czertainly.core.dao.repository.VaultProfileRepository;
@@ -48,11 +52,14 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
+    private ConnectorInterfaceRepository connectorInterfaceRepository;
+    @Autowired
     private AttributeService attributeService;
 
     private Connector connector;
     private VaultInstance vaultInstance;
     private WireMockServer mockServer;
+    private ConnectorInterfaceEntity interfaceEntity;
 
 
     @BeforeEach
@@ -74,6 +81,14 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         connector.setName("testConnector");
         connector.setUrl("http://localhost:" + mockServer.port());
         connectorRepository.save(connector);
+
+        // Add connector interface
+        interfaceEntity = new ConnectorInterfaceEntity();
+        interfaceEntity.setConnectorUuid(connector.getUuid());
+        interfaceEntity.setInterfaceCode(ConnectorInterface.SECRET);
+        interfaceEntity.setVersion("v2");
+        interfaceEntity.setFeatures(List.of(FeatureFlag.STATELESS));
+        connectorInterfaceRepository.save(interfaceEntity);
 
         vaultInstance = new VaultInstance();
         vaultInstance.setConnector(connector);
@@ -100,6 +115,7 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         VaultInstanceRequestDto requestDto = new VaultInstanceRequestDto();
         requestDto.setName(vaultInstance.getName());
         requestDto.setConnectorUuid(connector.getUuid());
+        requestDto.setInterfaceUuid(UUID.randomUUID());
         RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setName(TEST_CUSTOM_ATTRIBUTE);
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
@@ -107,6 +123,8 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         requestDto.setDescription("description");
         Assertions.assertThrows(AlreadyExistException.class, () -> vaultInstanceService.createVaultInstance(requestDto));
         requestDto.setName("test2");
+        Assertions.assertThrows(ValidationException.class, () -> vaultInstanceService.createVaultInstance(requestDto));
+        requestDto.setInterfaceUuid(interfaceEntity.getUuid());
         VaultInstanceDetailDto vaultInstanceDetailDto = vaultInstanceService.createVaultInstance(requestDto);
         Assertions.assertNotNull(vaultInstanceDetailDto);
         Assertions.assertEquals(requestDto.getName(), vaultInstanceDetailDto.getName());
