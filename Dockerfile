@@ -42,7 +42,9 @@ LABEL org.opencontainers.image.authors="CZERTAINLY <support@czertainly.com>"
 # add non root user czertainly
 RUN addgroup --system --gid 10001 czertainly && adduser --system --home /opt/czertainly --uid 10001 --ingroup czertainly czertainly
 
+# apk upgrade should be removed once CVEs will be fixed in eclipse-temurin:21-jdk-alpine-3.23
 RUN apk update && \
+  apk --no-cache upgrade && \
   apk add --no-cache curl
 
 COPY data/docker /
