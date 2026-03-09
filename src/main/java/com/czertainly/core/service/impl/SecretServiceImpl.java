@@ -403,7 +403,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 createSecretInVault(addedVaultProfile.getVaultInstance().getConnectorUuid(), addedVaultProfile.getVaultInstanceUuid(), secret.getType(), addedVaultProfile.getUuid(), createSecretRequestDto);
             } catch (ConnectorProblemException e) {
                 if (e.getProblemDetail().getErrorCode() == ErrorCode.RESOURCE_ALREADY_EXISTS) {
-                    logger.warn("Secret {} already exists in the vault {}", secret.getName(), addedVaultProfile.getName());
+                    logger.warn("Secret {} already exists in the vault {}", secret.getName(), addedVaultProfile.getVaultInstance().getName());
                 }
             }
         }
@@ -428,6 +428,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         VaultProfile removedVaultProfile = secret.getSyncVaultProfiles().stream().filter(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid)).findFirst().orElseThrow(
                 () -> new NotFoundException(VaultProfile.class, vaultProfileUuid)
         ).getVaultProfile();
+        secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid));
         // Check if there are any vault profiles related to the secret with the same vault instance as the one being removed
         // If there are no such profiles, remove the secret from the vault
         if (!Objects.equals(removedVaultProfile.getVaultInstanceUuid(), secret.getSourceVaultProfile().getVaultInstanceUuid()) && secret.getSyncVaultProfiles()
@@ -436,7 +437,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             Secret2SyncVaultProfile secret2SyncVaultProfile = secret2SyncVaultProfileRepository.getReferenceById(new Secret2SyncVaultProfileId(secret.getUuid(), removedVaultProfile.getUuid()));
             deleteSecretFromVault(removedVaultProfile, secret, secret2SyncVaultProfile.getSecretAttributes());
         }
-        secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid));
         secretRepository.save(secret);
     }
 
@@ -556,6 +556,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             // If new source vault profile was in sync vault profiles, remove association
             if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getVaultProfile().getUuid().equals(updatedSourceVaultProfile.getUuid()))) {
                 secret2SyncVaultProfileRepository.deleteById(new Secret2SyncVaultProfileId(secret.getUuid(), updatedSourceVaultProfile.getUuid()));
+                secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(updatedSourceVaultProfile.getUuid()));
             }
 
             secret.setSourceVaultProfile(updatedSourceVaultProfile);
@@ -573,7 +574,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 try {
                     secretResponseDto = createSecretInVault(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), updatedSourceVaultProfile.getVaultInstanceUuid(), secret.getType(), updatedSourceVaultProfile.getUuid(), secretRequest);
                 } catch (ConnectorProblemException e) {
-                    logger.warn("Secret {} already exists in the vault {}", secret.getName(), updatedSourceVaultProfile.getName());
+                    logger.warn("Secret {} already exists in the vault {}", secret.getName(), updatedSourceVaultProfile.getVaultInstance().getName());
                     newVersion.setVaultVersion(secret.getLatestVersion().getVaultVersion());
                 }
                 if (secretResponseDto != null) {
