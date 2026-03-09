@@ -1,6 +1,6 @@
 package com.czertainly.core.messaging.jms.listeners;
 
-import com.czertainly.api.clients.NotificationInstanceApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
@@ -52,7 +52,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     private AttributeEngine attributeEngine;
 
     private NotificationService notificationService;
-    private NotificationInstanceApiClient notificationInstanceApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private PendingNotificationRepository pendingNotificationRepository;
     private NotificationProfileVersionRepository notificationProfileVersionRepository;
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
@@ -245,7 +245,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         List<DataAttribute> mappingAttributes;
         ConnectorDto connector = notificationInstanceReference.getConnector().mapToDto();
         try {
-            mappingAttributes = notificationInstanceApiClient.listMappingAttributes(connector, notificationInstanceReference.getKind());
+            mappingAttributes = connectorApiFactory.getNotificationInstanceApiClient(connector).listMappingAttributes(connector, notificationInstanceReference.getKind());
         } catch (ConnectorException e) {
             logger.error("Cannot retrieve mapping attributes from connector: {}", e.getMessage());
             throw e;
@@ -280,7 +280,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         notificationProviderNotifyRequestDto.setRecipients(recipientsDto);
 
         try {
-            notificationInstanceApiClient.sendNotification(connector, notificationInstanceReference.getNotificationInstanceUuid().toString(), notificationProviderNotifyRequestDto);
+            connectorApiFactory.getNotificationInstanceApiClient(connector).sendNotification(connector, notificationInstanceReference.getNotificationInstanceUuid().toString(), notificationProviderNotifyRequestDto);
         } catch (ConnectorException e) {
             logger.error("Cannot send notification to connector: {}", e.getMessage());
             throw e;

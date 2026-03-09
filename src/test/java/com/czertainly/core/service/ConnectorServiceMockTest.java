@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.clients.ApiClientConnectorInfo;
 import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
@@ -107,12 +108,13 @@ class ConnectorServiceMockTest {
         functionGroup.getEndpoints().add(endpoint2);
         functionGroup.getEndpoints().add(endpoint3);
 
+        ((ConnectorV1Adapter) connectorAdapter).setConnectorApiFactory(connectorApiFactory);
         ((ConnectorServiceImpl) connectorService).setConnectorAdapters(Map.of(ConnectorVersion.V1.getCode(), connectorAdapter, ConnectorVersion.V2.getCode(), connectorAdapter));
 
         Mockito.when(functionGroupRepository.findByCode(Mockito.any())).thenReturn(Optional.empty());
         Mockito.when(functionGroupRepository.findByCode(FunctionGroupCode.CREDENTIAL_PROVIDER)).thenReturn(Optional.of(functionGroup));
 
-        Mockito.when(connectorApiFactory.getConnectorApiClient(Mockito.any())).thenReturn(connectorApiClient);
+        Mockito.when(connectorApiFactory.getConnectorApiClient(Mockito.any(ApiClientConnectorInfo.class))).thenReturn(connectorApiClient);
     }
 
     @Test

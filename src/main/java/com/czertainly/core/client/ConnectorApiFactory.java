@@ -1,5 +1,6 @@
 package com.czertainly.core.client;
 
+import com.czertainly.api.clients.ApiClientConnectorInfo;
 import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.CertificateApiClient;
@@ -211,6 +212,28 @@ public class ConnectorApiFactory {
 
     public NotificationInstanceSyncApiClient getNotificationInstanceApiClient(ConnectorDto connector) {
         return getClient(connector, restNotificationInstanceApiClient, mqNotificationInstanceApiClient);
+    }
+
+    // Overloads accepting ApiClientConnectorInfo (used by ConnectorAdapters)
+
+    public com.czertainly.api.interfaces.client.v1.HealthSyncApiClient getHealthApiClient(ApiClientConnectorInfo connector) {
+        Objects.requireNonNull(connector, "connector must not be null");
+        return getClient(connector.getProxy(), connector.getName(), restHealthApiClient, mqHealthApiClient);
+    }
+
+    public ConnectorSyncApiClient getConnectorApiClient(ApiClientConnectorInfo connector) {
+        Objects.requireNonNull(connector, "connector must not be null");
+        return getClient(connector.getProxy(), connector.getName(), restConnectorApiClient, mqConnectorApiClient);
+    }
+
+    public HealthSyncApiClient getHealthApiClientV2(ApiClientConnectorInfo connector) {
+        Objects.requireNonNull(connector, "connector must not be null");
+        return getClient(connector.getProxy(), connector.getName(), restHealthApiClientV2, mqHealthApiClientV2);
+    }
+
+    public InfoSyncApiClient getInfoApiClientV2(ApiClientConnectorInfo connector) {
+        Objects.requireNonNull(connector, "connector must not be null");
+        return getClient(connector.getProxy(), connector.getName(), restInfoApiClientV2, mqInfoApiClientV2);
     }
 
     /**
