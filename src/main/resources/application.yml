@@ -158,7 +158,7 @@ spring:
     amqp-idle-timeout: ${BROKER_AMQP_IDLE_TIMEOUT:120000} # 2 min, AMQP transport-level heartbeat
     close-timeout: ${BROKER_CLOSE_TIMEOUT:2000} # ms, max time to wait for clean AMQP close handshake on connection failure
     pool:
-      max-connections: ${BROKER_POOL_MAX_CONNECTIONS:1}
+      max-connections: ${BROKER_POOL_MAX_CONNECTIONS:5}
       connection-idle-timeout: ${BROKER_POOL_CONNECTION_IDLE_TIMEOUT:30000}
       connection-check-interval: ${BROKER_POOL_CONNECTION_CHECK_INTERVAL:60000}
       max-sessions-per-connection: ${BROKER_POOL_MAX_SESSIONS:500}
