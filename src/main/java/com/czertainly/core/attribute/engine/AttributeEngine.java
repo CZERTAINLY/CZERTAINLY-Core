@@ -473,13 +473,20 @@ public class AttributeEngine {
             if (attribute.getType() == AttributeType.DATA) {
                 updateDataAttributeDefinition(connectorUuid, operation, (DataAttribute) attribute);
             }
+            if (attribute.getType() == AttributeType.GROUP) {
+                updateGroupAttributeDefinition(connectorUuid, attribute);
+            }
         }
     }
 
     public void updateAttributeDefinitionsWithCallback(UUID connectorUuid, List<? extends BaseAttribute> attributes) throws AttributeException {
         for (BaseAttribute attribute : attributes) {
-            if (attribute.getType() == AttributeType.GROUP) updateGroupAttributeDefinition(connectorUuid, attribute);
-            if (attribute.getType() == AttributeType.DATA && ((DataAttribute) attribute).getAttributeCallback() != null) updateDataAttributeDefinition(connectorUuid, null, (DataAttribute) attribute);
+            if (attribute.getType() == AttributeType.GROUP) {
+                updateGroupAttributeDefinition(connectorUuid, attribute);
+            }
+            if (attribute.getType() == AttributeType.DATA && ((DataAttribute) attribute).getAttributeCallback() != null) {
+                updateDataAttributeDefinition(connectorUuid, null, (DataAttribute) attribute);
+            }
         }
     }
 

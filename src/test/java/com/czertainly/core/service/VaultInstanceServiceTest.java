@@ -10,7 +10,6 @@ import com.czertainly.api.model.client.connector.v2.FeatureFlag;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
@@ -26,10 +25,7 @@ import com.czertainly.api.model.core.vault.*;
 import com.czertainly.core.dao.entity.ConnectorInterfaceEntity;
 import com.czertainly.core.dao.entity.VaultInstance;
 import com.czertainly.core.dao.entity.VaultProfile;
-import com.czertainly.core.dao.repository.ConnectorInterfaceRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.VaultInstanceRepository;
-import com.czertainly.core.dao.repository.VaultProfileRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -64,6 +60,8 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
     private ConnectorInterfaceRepository connectorInterfaceRepository;
     @Autowired
     private AttributeService attributeService;
+    @Autowired
+    private AttributeDefinitionRepository attributeDefinitionRepository;
 
     private Connector connector;
     private VaultInstance vaultInstance;
@@ -143,6 +141,7 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(2, attributes.size());
         Assertions.assertEquals(groupAttributeV3.getName(), attributes.get(0).getName());
         Assertions.assertEquals(dataAttributeV3.getName(), attributes.get(1).getName());
+        Assertions.assertEquals(3, attributeDefinitionRepository.count());
     }
 
     @Test
