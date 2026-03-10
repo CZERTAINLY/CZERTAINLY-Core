@@ -368,7 +368,8 @@ public class CbomServiceImpl implements CbomService {
                 continue;
             }
 
-            // specVersion and source arguments missing from BomEntryDto - load them from CBOM itself
+            // specVersion, source and metadata.timestamp arguments missing from BomEntryDto
+            // - load them from CBOM itself
             BomResponseDto response;
             try {
                 response = read(entry.getSerialNumber(), version);
@@ -478,7 +479,7 @@ public class CbomServiceImpl implements CbomService {
         } else {
             cbom.setSpecVersion(specVersion.get());
         }
-        cbom.setTimestamp(entry.getTimestamp());
+        cbom.setTimestamp(CbomUtil.getMetadataTimestamp(response).orElse(null));
         cbom.setSource(CbomUtil.getMetadataComponentName(response).orElse(null));
         cbom.setAlgorithmsCount(entry.getCryptoStats().getCryptoAssets().getAlgorithms().getTotal());
         cbom.setCertificatesCount(entry.getCryptoStats().getCryptoAssets().getCertificates().getTotal());
