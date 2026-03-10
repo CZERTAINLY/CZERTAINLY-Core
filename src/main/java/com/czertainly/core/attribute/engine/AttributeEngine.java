@@ -479,6 +479,17 @@ public class AttributeEngine {
         }
     }
 
+    public void updateAttributeDefinitionsWithCallback(UUID connectorUuid, List<? extends BaseAttribute> attributes) throws AttributeException {
+        for (BaseAttribute attribute : attributes) {
+            if (attribute.getType() == AttributeType.GROUP) {
+                updateGroupAttributeDefinition(connectorUuid, attribute);
+            }
+            if (attribute.getType() == AttributeType.DATA && ((DataAttribute) attribute).getAttributeCallback() != null) {
+                updateDataAttributeDefinition(connectorUuid, null, (DataAttribute) attribute);
+            }
+        }
+    }
+
     private void updateGroupAttributeDefinition(UUID connectorUuid, BaseAttribute attribute) throws AttributeException {
         validateAttributeDefinition(attribute, connectorUuid);
         AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.GROUP, connectorUuid, UUID.fromString(attribute.getUuid()), attribute.getName()).orElse(null);

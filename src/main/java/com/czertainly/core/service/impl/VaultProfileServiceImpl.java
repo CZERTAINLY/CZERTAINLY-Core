@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -183,10 +184,14 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException {
+    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException, AttributeException {
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultUUID));
         ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
-        return secretApiClient.getSecretAttributes(connectorDetailDto, secretType);
+        List<BaseAttribute> attributes = secretApiClient.getSecretAttributes(connectorDetailDto, secretType);
+        // Save attributes needed for callback
+        // TODO: This is a temporary solution, solution for this should be implemented in general
+        attributeEngine.updateAttributeDefinitionsWithCallback(UUID.fromString(connectorDetailDto.getUuid()), attributes);
+        return attributes;
     }
 
     @Override
