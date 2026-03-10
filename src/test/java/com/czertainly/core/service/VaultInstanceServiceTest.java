@@ -9,7 +9,13 @@ import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
 import com.czertainly.api.model.client.connector.v2.FeatureFlag;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -27,6 +33,8 @@ import com.czertainly.core.dao.repository.VaultProfileRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -35,6 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.czertainly.core.dao.entity.Connector;
+import org.springframework.http.HttpStatus;
 
 import java.io.Serializable;
 import java.util.List;
@@ -108,6 +117,32 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         dto.setContentType(AttributeContentType.STRING);
         dto.setResources(List.of(Resource.VAULT));
         attributeService.createCustomAttribute(dto);
+    }
+
+    @Test
+    void testListAttributes() throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
+        GroupAttributeV3 groupAttributeV3 = new GroupAttributeV3();
+        groupAttributeV3.setName("test");
+        groupAttributeV3.setUuid(UUID.randomUUID().toString());
+        groupAttributeV3.setAttributeCallback(new AttributeCallback());
+        DataAttributeV3 dataAttributeV3 = new DataAttributeV3();
+        dataAttributeV3.setName("test2");
+        dataAttributeV3.setUuid(UUID.randomUUID().toString());
+        dataAttributeV3.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("label");
+        dataAttributeV3.setProperties(properties);
+        dataAttributeV3.setAttributeCallback(new AttributeCallback());
+
+        mockServer.stubFor(
+                WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
+                        .willReturn(WireMock.jsonResponse(new ObjectMapper().writeValueAsString(List.of(groupAttributeV3, dataAttributeV3)), HttpStatus.OK.value()))
+        );
+        List<BaseAttribute> attributes = vaultInstanceService.listVaultInstanceAttributes(connector.getUuid());
+        Assertions.assertNotNull(attributes);
+        Assertions.assertEquals(2, attributes.size());
+        Assertions.assertEquals(groupAttributeV3.getName(), attributes.get(0).getName());
+        Assertions.assertEquals(dataAttributeV3.getName(), attributes.get(1).getName());
     }
 
     @Test
