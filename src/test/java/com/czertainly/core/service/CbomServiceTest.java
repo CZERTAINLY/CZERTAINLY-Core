@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import com.czertainly.api.model.common.BulkActionMessageDto;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +31,7 @@ import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cbom.CbomDetailDto;
@@ -61,6 +61,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.google.gson.Gson;
 
 class CbomServiceTest extends BaseSpringBootTest {
 
@@ -1006,9 +1007,10 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         mockSearchResponse(List.of(entry1, entry2, entry3));
 
-        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
-        mockEntrySpecVersionSource(entry2, "1.7", "name-2");
-        mockEntrySpecVersionSource(entry3, "1.7", "name-3");
+        OffsetDateTime timestamp = OffsetDateTime.parse("2024-01-15T10:30:00Z");
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1", timestamp);
+        mockEntrySpecVersionSource(entry2, "1.7", "name-2", timestamp);
+        mockEntrySpecVersionSource(entry3, "1.7", "name-3", timestamp);
 
         // When
         cbomService.sync();
@@ -1023,6 +1025,13 @@ class CbomServiceTest extends BaseSpringBootTest {
                 .toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
+
+        List<OffsetDateTime> timestamps = savedCboms.stream()
+                .map(Cbom::getTimestamp)
+                .sorted()
+                .toList();
+
+        assertTrue(timestamps.containsAll(List.of(timestamp, timestamp, timestamp)));
     }
 
     @Test
@@ -1041,9 +1050,10 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         mockSearchResponse(List.of(entry1, entry2, entry3));
 
-        mockEntrySpecVersionSource(entry1, "1.6", "name-1");
-        mockEntrySpecVersionSource(entry2, "1.7", "name-2");
-        mockEntrySpecVersionSource(entry3, "1.7", "name-3");
+        OffsetDateTime timestamp = null;
+        mockEntrySpecVersionSource(entry1, "1.6", "name-1", null);
+        mockEntrySpecVersionSource(entry2, "1.7", "name-2", null);
+        mockEntrySpecVersionSource(entry3, "1.7", "name-3", null);
 
         // When
         cbomService.sync();
@@ -1058,6 +1068,12 @@ class CbomServiceTest extends BaseSpringBootTest {
                 .toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
+
+        long nullTimestamps = savedCboms.stream()
+                .map(Cbom::getTimestamp)
+                .filter(t -> timestamp == null ? t == null : timestamp.equals(t))
+                .count();
+        assertEquals(3, nullTimestamps);
     }
 
     @Test
@@ -1239,21 +1255,27 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     private void mockEntrySpecVersionSource(BomEntryDto entry, String specVersion, String source) {
+        mockEntrySpecVersionSource(entry, specVersion, source, null);
+    }
+
+    private void mockEntrySpecVersionSource(BomEntryDto entry, String specVersion, String source, OffsetDateTime timestamp) {
+        Map<String, Object> metadata = new HashMap<>();
+        if (timestamp != null) {
+            metadata.put("timestamp", timestamp.toString());
+        }
+        metadata.put("component", Map.of("name", source));
+
+        Map<String, Object> response = Map.of(
+            "specVersion", specVersion,
+            "metadata", metadata
+        );
+
         mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom/" + entry.getSerialNumber()))
             .withQueryParam("version", WireMock.equalTo(entry.getVersion()))
             .willReturn(WireMock.aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", CONTENT_TYPE)
-                .withBody("""
-                {
-                "specVersion": "%s",
-                "metadata": {
-                "component": {
-                "name": "%s"
-                }
-                }
-                }
-                """.formatted(specVersion, source))));
+                .withBody(new Gson().toJson(response))));
     }
 
     private void mockSearchResponse(List<BomEntryDto>  response) throws JsonProcessingException {
