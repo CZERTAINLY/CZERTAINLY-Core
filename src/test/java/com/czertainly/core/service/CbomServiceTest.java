@@ -1031,7 +1031,7 @@ class CbomServiceTest extends BaseSpringBootTest {
                 .sorted()
                 .toList();
 
-        assertTrue(timestamps.containsAll(List.of(timestamp, timestamp, timestamp)));
+        assertTrue(timestamps.stream().allMatch(timestamp::equals));
     }
 
     @Test
