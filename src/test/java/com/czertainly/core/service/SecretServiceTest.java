@@ -13,7 +13,6 @@ import com.czertainly.api.model.common.attribute.v3.content.StringAttributeConte
 import com.czertainly.api.model.connector.secrets.SecretContentResponseDto;
 import com.czertainly.api.model.connector.secrets.SecretResponseDto;
 import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent;
-import com.czertainly.api.model.connector.secrets.content.KeyValueSecretContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -41,8 +40,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.SerializationUtils;
-import wiremock.com.fasterxml.jackson.databind.DeserializationFeature;
-import wiremock.com.fasterxml.jackson.databind.json.JsonMapper;
 
 import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
@@ -128,6 +125,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         vaultProfile.setName("testProfile");
         vaultProfile.setVaultInstance(vaultInstance);
         vaultProfile.setVaultInstanceUuid(vaultInstance.getUuid());
+        vaultProfile.setEnabled(true);
         vaultProfileRepository.save(vaultProfile);
 
         secret = new Secret();
@@ -135,6 +133,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         secret.setType(com.czertainly.api.model.connector.secrets.SecretType.BASIC_AUTH);
         secret.setState(SecretState.ACTIVE);
         secret.setSourceVaultProfile(vaultProfile);
+        secret.setEnabled(true);
         secret.setSourceVaultProfileUuid(vaultProfile.getUuid());
 
 
@@ -333,6 +332,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         VaultProfile newVaultProfile2 = new VaultProfile();
         newVaultProfile2.setName("newVaultProfile2");
         newVaultProfile2.setVaultInstance(newVaultInstance);
+        newVaultProfile2.setEnabled(true);
         vaultProfileRepository.save(newVaultProfile2);
 
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile2.getUuid());
@@ -401,6 +401,19 @@ class SecretServiceTest extends BaseSpringBootTest {
             UUID secretUuid = secret.getUuid();
             Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
         }
+    }
+
+    @Test
+    void testGetSecretContentDisabled() {
+        secret.setEnabled(false);
+        secretRepository.save(secret);
+        UUID secretUuid = secret.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+        secret.setEnabled(true);
+        secretRepository.save(secret);
+        vaultProfile.setEnabled(false);
+        vaultProfileRepository.save(vaultProfile);
+        Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
     }
 
 }

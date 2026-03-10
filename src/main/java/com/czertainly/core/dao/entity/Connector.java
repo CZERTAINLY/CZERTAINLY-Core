@@ -91,6 +91,11 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @ToString.Exclude
     private Set<TokenInstanceReference> tokenInstanceReferences = new HashSet<>();
 
+    @OneToMany(mappedBy = "connector", fetch = FetchType.LAZY)
+    @JsonIgnore
+    @ToString.Exclude
+    private Set<VaultInstance> vaultInstances = new HashSet<>();
+
     public ConnectorDto mapToListDto() {
         ConnectorDto dto = new ConnectorDto();
         setCommonFields(dto);
