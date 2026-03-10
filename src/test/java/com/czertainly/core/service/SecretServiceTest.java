@@ -345,6 +345,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         VaultProfile newVaultProfile = new VaultProfile();
         newVaultProfile.setName("newVaultProfile");
         newVaultProfile.setVaultInstance(vaultInstance);
+        newVaultProfile.setEnabled(true);
         vaultProfileRepository.save(newVaultProfile);
 
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile.getUuid());

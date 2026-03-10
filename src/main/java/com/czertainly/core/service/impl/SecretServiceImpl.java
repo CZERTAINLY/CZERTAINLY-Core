@@ -470,10 +470,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     public SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException {
         Secret secret = getSecretEntity(uuid);
         if (!secret.getSourceVaultProfile().isEnabled()) {
-            throw new ValidationException("Source vault profile with UUID " + secret.getSourceVaultProfile().getUuid() + " is not enabled");
+            throw new ValidationException("Source vault profile" + secret.getSourceVaultProfile().getName() + " is not enabled");
         }
         if (!secret.isEnabled()) {
-            throw new ValidationException("Secret with UUID " + secret.getUuid() + " is not enabled");
+            throw new ValidationException("Secret" + secret.getName() + " is not enabled");
         }
         SecretVersion latestVersion = secret.getLatestVersion();
         ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(latestVersion.getVaultInstance().getConnectorUuid()));
