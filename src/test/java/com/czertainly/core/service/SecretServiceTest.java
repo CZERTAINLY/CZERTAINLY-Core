@@ -303,7 +303,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         newVaultProfileWithNewInstance.setVaultInstance(newVaultInstance);
         vaultProfileRepository.save(newVaultProfileWithNewInstance);
         WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.NOT_FOUND.value())
+                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.CONFLICT.value())
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
         Assertions.assertDoesNotThrow(() -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), createSecretAttributes));
 
