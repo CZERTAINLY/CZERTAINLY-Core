@@ -15,12 +15,12 @@ import java.util.Objects;
 public class ActionProducer {
     private final JmsTemplate jmsTemplate;
     private final MessagingProperties messagingProperties;
-    private final RetryTemplate retryTemplate;
+    private final RetryTemplate producerRetryTemplate;
 
     public void produceMessage(@NonNull final ActionMessage actionMessage) {
         Objects.requireNonNull(actionMessage, "Action message cannot be null");
 
-        retryTemplate.execute(context -> {
+        producerRetryTemplate.execute(context -> {
             jmsTemplate.convertAndSend(
                     messagingProperties.produceDestinationActions(),
                     actionMessage,

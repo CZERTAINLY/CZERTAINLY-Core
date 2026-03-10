@@ -29,20 +29,28 @@ public class CzertainlyJmsPoolConnectionFactory extends JmsPoolConnectionFactory
 
     @Override
     protected PooledConnection createPooledConnection(Connection connection) {
+        logger.info("Creating pooled connection wrapping: {} (type: {})", connection, connection.getClass().getName());
         return new PooledConnection(connection) {
             @Override
             public boolean isClosed() {
-                if (super.isClosed()) {
+                boolean superClosed = super.isClosed();
+                if (superClosed) {
+                    logger.debug("PooledConnection.isClosed(): super.isClosed()=true (delegate is null)");
                     return true;
                 }
                 try {
                     Connection underlying = getConnection();
                     if (underlying instanceof JmsConnection jmsConnection) {
-                        if (jmsConnection.isClosed() || jmsConnection.isFailed()) {
-                            logger.warn("Qpid JmsConnection is {} — reporting as closed to trigger pool eviction",
-                                    jmsConnection.isFailed() ? "failed" : "closed");
+                        boolean failed = jmsConnection.isFailed();
+                        boolean closed = jmsConnection.isClosed();
+                        if (failed || closed) {
+                            logger.warn("Qpid JmsConnection is {} — reporting as closed to trigger pool eviction (failed={}, closed={})",
+                                    failed ? "failed" : "closed", failed, closed);
                             return true;
                         }
+                    } else {
+                        logger.warn("Underlying connection is not JmsConnection: {} (type: {})",
+                                underlying, underlying != null ? underlying.getClass().getName() : "null");
                     }
                 } catch (Exception e) {
                     logger.debug("Unexpected exception inspecting underlying JmsConnection state", e);

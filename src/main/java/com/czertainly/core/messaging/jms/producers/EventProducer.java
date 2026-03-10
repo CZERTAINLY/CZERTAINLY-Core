@@ -15,12 +15,12 @@ import java.util.Objects;
 public class EventProducer {
     private final JmsTemplate jmsTemplate;
     private final MessagingProperties messagingProperties;
-    private final RetryTemplate retryTemplate;
+    private final RetryTemplate producerRetryTemplate;
 
     public void produceMessage(@NonNull final EventMessage eventMessage) {
         Objects.requireNonNull(eventMessage, "Event message cannot be null");
 
-        retryTemplate.execute(context -> {
+        producerRetryTemplate.execute(context -> {
             jmsTemplate.convertAndSend(
                     messagingProperties.produceDestinationEvent(),
                     eventMessage,

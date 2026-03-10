@@ -15,11 +15,11 @@ import java.util.Objects;
 public class ValidationProducer {
     private final JmsTemplate jmsTemplate;
     private final MessagingProperties messagingProperties;
-    private final RetryTemplate retryTemplate;
+    private final RetryTemplate producerRetryTemplate;
 
     public void produceMessage(@NonNull final ValidationMessage validationMessage) {
         Objects.requireNonNull(validationMessage, "Validation message cannot be null");
-        retryTemplate.execute(context -> {
+        producerRetryTemplate.execute(context -> {
             jmsTemplate.convertAndSend(
                     messagingProperties.produceDestinationValidation(),
                     validationMessage,

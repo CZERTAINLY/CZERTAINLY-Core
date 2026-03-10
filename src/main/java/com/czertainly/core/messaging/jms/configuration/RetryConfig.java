@@ -1,6 +1,7 @@
 package com.czertainly.core.messaging.jms.configuration;
 
 import jakarta.jms.JMSException;
+import org.messaginghub.pooled.jms.JmsPoolConnectionFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jms.JmsException;
@@ -19,13 +20,30 @@ import java.util.Map;
 @EnableRetry
 public class RetryConfig {
 
-    // TODO: This single RetryTemplate is shared between producers and listeners, but is configured
-    //  solely from producer.retry.* properties. Consider splitting into two separate beans —
-    //  one for producers (bounded retry, short intervals, fail-fast) and one for listeners
-    //  (potentially longer intervals, more attempts). Also consider whether listener retry is
-    //  needed at all, or if DefaultMessageListenerContainer's own BackOff recovery is sufficient.
+    /**
+     * Retry template for JMS listeners — logging only, no pool interaction.
+     * Listener containers use the raw {@code ConnectionFactory} bean, not the pooled one.
+     */
     @Bean
     public RetryTemplate jmsRetryTemplate(MessagingProperties messagingProperties) {
+        RetryTemplate template = createRetryTemplate(messagingProperties);
+        template.registerListener(new JmsRetryListener());
+        return template;
+    }
+
+    /**
+     * Retry template for JMS producers — clears the producer connection pool on
+     * connection-level failures to force a fresh connection on the next retry.
+     */
+    @Bean
+    public RetryTemplate producerRetryTemplate(MessagingProperties messagingProperties,
+                                                JmsPoolConnectionFactory producerConnectionFactory) {
+        RetryTemplate template = createRetryTemplate(messagingProperties);
+        template.registerListener(new ProducerRetryListener(producerConnectionFactory));
+        return template;
+    }
+
+    private RetryTemplate createRetryTemplate(MessagingProperties messagingProperties) {
         RetryTemplate template = new RetryTemplate();
 
         if (messagingProperties.producer() != null && messagingProperties.producer().retry() != null &&
@@ -51,8 +69,6 @@ public class RetryConfig {
             RetryPolicy neverRetryPolicy = new NeverRetryPolicy();
             template.setRetryPolicy(neverRetryPolicy);
         }
-
-        template.registerListener(new JmsRetryListener());
 
         return template;
     }

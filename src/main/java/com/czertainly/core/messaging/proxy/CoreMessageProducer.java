@@ -19,17 +19,17 @@ public class CoreMessageProducer {
     private final JmsTemplate jmsTemplate;
     private final ProxyProperties proxyProperties;
     private final MessagingProperties messagingProperties;
-    private final RetryTemplate retryTemplate;
+    private final RetryTemplate producerRetryTemplate;
 
     public CoreMessageProducer(
             JmsTemplate jmsTemplate,
             ProxyProperties proxyProperties,
             MessagingProperties messagingProperties,
-            RetryTemplate retryTemplate) {
+            RetryTemplate producerRetryTemplate) {
         this.jmsTemplate = jmsTemplate;
         this.proxyProperties = proxyProperties;
         this.messagingProperties = messagingProperties;
-        this.retryTemplate = retryTemplate;
+        this.producerRetryTemplate = producerRetryTemplate;
         log.info("CoreMessageProducer initialized with exchange: {}", proxyProperties.exchange());
     }
 
@@ -51,7 +51,7 @@ public class CoreMessageProducer {
         log.debug("Sending core message correlationId={} proxyId={} destination={} routingKey={}",
                 message.getCorrelationId(), proxyId, destination, routingKey);
 
-        retryTemplate.execute(context -> {
+        producerRetryTemplate.execute(context -> {
             jmsTemplate.convertAndSend(
                     destination,
                     message,

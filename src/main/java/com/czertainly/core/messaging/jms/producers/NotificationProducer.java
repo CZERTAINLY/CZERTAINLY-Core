@@ -24,10 +24,10 @@ public class NotificationProducer {
 
     private final JmsTemplate jmsTemplate;
     private final MessagingProperties messagingProperties;
-    private final RetryTemplate retryTemplate;
+    private final RetryTemplate producerRetryTemplate;
 
     private void sendMessage(final NotificationMessage notificationMessage) {
-        retryTemplate.execute(context -> {
+        producerRetryTemplate.execute(context -> {
             jmsTemplate.convertAndSend(
                     messagingProperties.produceDestinationNotifications(),
                     notificationMessage,

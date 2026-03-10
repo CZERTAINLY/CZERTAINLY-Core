@@ -15,12 +15,12 @@ import java.util.Objects;
 public class AuditLogsProducer {
     private final JmsTemplate jmsTemplate;
     private final MessagingProperties messagingProperties;
-    private final RetryTemplate retryTemplate;
+    private final RetryTemplate producerRetryTemplate;
 
     public void produceMessage(@NonNull final AuditLogMessage auditLogMessage) {
         Objects.requireNonNull(auditLogMessage, "Audit log message cannot be null");
 
-        retryTemplate.execute(context -> {
+        producerRetryTemplate.execute(context -> {
             jmsTemplate.convertAndSend(
                     messagingProperties.produceDestinationAuditLogs(),
                     auditLogMessage,
