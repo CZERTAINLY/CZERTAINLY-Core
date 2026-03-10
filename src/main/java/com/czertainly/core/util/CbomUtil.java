@@ -7,7 +7,6 @@ import java.util.Optional;
 import com.czertainly.api.exception.ValidationException;
 
 public final class CbomUtil {
-
     private CbomUtil() {
         throw new IllegalStateException("Utility class");
     }
