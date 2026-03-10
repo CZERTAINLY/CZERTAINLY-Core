@@ -5,7 +5,9 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorInterfaceDto;
@@ -206,7 +208,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     }
 
     @Override
-    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException {
-        return vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
+    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException {
+        List<BaseAttribute> attributes = vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
+        // Save attributes needed for callback
+        attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, attributes);
+        return attributes;
     }
 }

@@ -4,7 +4,9 @@ import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
@@ -41,6 +43,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -183,10 +186,13 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException {
+    public List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException, AttributeException {
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultUUID));
         ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
-        return secretApiClient.getSecretAttributes(connectorDetailDto, secretType);
+        List<BaseAttribute> attributes = secretApiClient.getSecretAttributes(connectorDetailDto, secretType);
+        // Save attributes needed for callback
+        attributeEngine.updateAttributeDefinitionsWithCallback(UUID.fromString(connectorDetailDto.getUuid()), attributes);
+        return attributes;
     }
 
     @Override

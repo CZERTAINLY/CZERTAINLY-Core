@@ -30,5 +30,5 @@ public interface VaultInstanceService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
-    List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException;
 }
