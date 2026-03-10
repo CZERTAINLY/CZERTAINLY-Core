@@ -36,7 +36,7 @@ public class JmsNetworkChaosTest extends JmsResilienceTests {
     private MessagingProperties messagingProperties;
 
     @Autowired
-    private RetryTemplate jmsRetryTemplate;
+    private RetryTemplate producerRetryTemplate;
 
     private CountingRetryListener countingRetryListener;
     private int maxAttempts;
@@ -48,7 +48,7 @@ public class JmsNetworkChaosTest extends JmsResilienceTests {
         // Register listener once, reset on each test
         if (countingRetryListener == null) {
             countingRetryListener = new CountingRetryListener();
-            jmsRetryTemplate.registerListener(countingRetryListener);
+            producerRetryTemplate.registerListener(countingRetryListener);
         }
         countingRetryListener.reset();
     }

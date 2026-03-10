@@ -68,7 +68,10 @@ class ConnectorServiceMockTest {
     private AttributeEngine attributeEngine;
 
     @Mock
-    private ProxyService proxyService;
+    private VaultInstanceRepository vaultInstanceRepository;
+
+    @Mock
+    private ProxyRepository proxyRepository;
 
     @InjectMocks
     private ConnectorServiceImpl connectorService;
