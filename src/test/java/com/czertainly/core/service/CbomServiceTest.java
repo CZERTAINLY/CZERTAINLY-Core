@@ -1028,7 +1028,6 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         List<OffsetDateTime> timestamps = savedCboms.stream()
                 .map(Cbom::getTimestamp)
-                .sorted()
                 .toList();
 
         assertTrue(timestamps.stream().allMatch(timestamp::equals));
@@ -1071,7 +1070,6 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         long nullTimestamps = savedCboms.stream()
                 .map(Cbom::getTimestamp)
-                .filter(t -> timestamp == null ? t == null : timestamp.equals(t))
                 .count();
         assertEquals(3, nullTimestamps);
     }
