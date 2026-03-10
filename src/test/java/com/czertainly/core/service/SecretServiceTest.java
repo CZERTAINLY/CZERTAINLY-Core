@@ -374,7 +374,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         // Set vault profile in sync profiles as source
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile.getUuid());
         WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.NOT_FOUND.value())
+                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.CONFLICT.value())
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
         secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();

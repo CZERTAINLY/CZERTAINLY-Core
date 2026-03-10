@@ -351,10 +351,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             if (e.getProblemDetail().getErrorCode() == ErrorCode.RESOURCE_NOT_FOUND) {
                 // If the secret is not found in the vault, we can consider it as already deleted and continue with the process
                 logger.warn("Secret {} has already been removed in the vault {}", secret.getName(), profile.getVaultInstance().getName());
-                return;
+            } else {
+                throw e;
             }
         }
-        secretApiClient.deleteSecret(connectorDetailDto, secretRequestDto);
     }
 
     @Override
@@ -404,6 +404,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             } catch (ConnectorProblemException e) {
                 if (e.getProblemDetail().getErrorCode() == ErrorCode.RESOURCE_ALREADY_EXISTS) {
                     logger.warn("Secret {} already exists in the vault {}", secret.getName(), addedVaultProfile.getVaultInstance().getName());
+                } else {
+                    throw e;
                 }
             }
         }
@@ -428,15 +430,15 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         VaultProfile removedVaultProfile = secret.getSyncVaultProfiles().stream().filter(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid)).findFirst().orElseThrow(
                 () -> new NotFoundException(VaultProfile.class, vaultProfileUuid)
         ).getVaultProfile();
-        secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid));
+        Secret2SyncVaultProfile secret2SyncVaultProfile = secret2SyncVaultProfileRepository.getReferenceById(new Secret2SyncVaultProfileId(secret.getUuid(), removedVaultProfile.getUuid()));
         // Check if there are any vault profiles related to the secret with the same vault instance as the one being removed
         // If there are no such profiles, remove the secret from the vault
         if (!Objects.equals(removedVaultProfile.getVaultInstanceUuid(), secret.getSourceVaultProfile().getVaultInstanceUuid()) && secret.getSyncVaultProfiles()
                 .stream()
                 .noneMatch(profile -> profile.getVaultProfile().getVaultInstanceUuid().equals(removedVaultProfile.getVaultInstanceUuid()))) {
-            Secret2SyncVaultProfile secret2SyncVaultProfile = secret2SyncVaultProfileRepository.getReferenceById(new Secret2SyncVaultProfileId(secret.getUuid(), removedVaultProfile.getUuid()));
             deleteSecretFromVault(removedVaultProfile, secret, secret2SyncVaultProfile.getSecretAttributes());
         }
+        secret.getSyncVaultProfiles().remove(secret2SyncVaultProfile);
         secretRepository.save(secret);
     }
 
@@ -580,8 +582,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 try {
                     secretResponseDto = createSecretInVault(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), updatedSourceVaultProfile.getVaultInstanceUuid(), secret.getType(), updatedSourceVaultProfile.getUuid(), secretRequest);
                 } catch (ConnectorProblemException e) {
-                    logger.warn("Secret {} already exists in the vault {}", secret.getName(), updatedSourceVaultProfile.getVaultInstance().getName());
-                    newVersion.setVaultVersion(secret.getLatestVersion().getVaultVersion());
+                    if (e.getProblemDetail().getErrorCode() == ErrorCode.RESOURCE_ALREADY_EXISTS) {
+                        logger.warn("Secret {} already exists in the vault {}", secret.getName(), updatedSourceVaultProfile.getVaultInstance().getName());
+                        newVersion.setVaultVersion(secret.getLatestVersion().getVaultVersion());
+                    } else {
+                        throw e;
+                    }
                 }
                 if (secretResponseDto != null) {
                     attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
