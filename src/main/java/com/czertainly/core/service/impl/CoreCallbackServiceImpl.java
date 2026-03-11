@@ -83,13 +83,11 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
         }
         return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters, callback.getPagination())
                 .stream()
-                .map(id ->{ ResourceObjectContent resourceObjectContent = new ResourceObjectContent();
+                .map(id -> {
                     ResourceObjectContentData data = new ResourceObjectContentData(resource);
                     data.setUuid(id.getUuid());
                     data.setName(id.getName());
-                    resourceObjectContent.setData(data);
-                    resourceObjectContent.setReference(id.getName());
-                    return resourceObjectContent;
+                    return new ResourceObjectContent(id.getName(), data);
                 })
                 .toList();
     }
