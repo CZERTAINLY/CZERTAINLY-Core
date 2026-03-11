@@ -619,7 +619,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         return secretRepository.listResourceObjects(filter, Secret_.name,  (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters), pagination);
