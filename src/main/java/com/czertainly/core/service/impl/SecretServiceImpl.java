@@ -162,7 +162,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public PaginationResponseDto<SecretDto> listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter) {
         TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, searchRequest.getFilters());
-        List<Secret> secrets = getSecrets(securityFilter, searchRequest.getPageNumber(), searchRequest.getItemsPerPage(), additionalWhereClause);
+        Pageable p = PageRequest.of(searchRequest.getPageNumber() - 1, searchRequest.getItemsPerPage());
+        List<Secret> secrets = getSecrets(securityFilter, p, additionalWhereClause);
         List<SecretDto> secretDtos = secrets.stream().map(Secret::mapToDto).toList();
         PaginationResponseDto<SecretDto> response = new PaginationResponseDto<>();
         response.setItems(secretDtos);
@@ -173,9 +174,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         return response;
     }
 
-    private List<Secret> getSecrets(SecurityFilter securityFilter, int pageNumber, int itemsPerPage, TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+    private List<Secret> getSecrets(SecurityFilter securityFilter, Pageable p, TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         securityFilter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
-        Pageable p = PageRequest.of(pageNumber - 1, itemsPerPage);
         return secretRepository.findUsingSecurityFilter(securityFilter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED))).stream().toList();
     }
 
@@ -619,13 +619,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter
-                                                            filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        return getSecrets(filter, pagination.getPageNumber(), pagination.getItemsPerPage(), (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters))
-                .stream()
-                .map(secret -> new NameAndUuidDto(secret.getUuid(), secret.getName()))
-                .toList();
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
+        return secretRepository.listResourceObjects(filter, Secret_.name,  (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters), pagination);
     }
 
     @Override
