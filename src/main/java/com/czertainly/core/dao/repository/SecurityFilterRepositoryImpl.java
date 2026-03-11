@@ -187,8 +187,12 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, PaginationRequestDto page) {
-        TypedQuery<NameAndUuidDto> query = entityManager
-                .createQuery(createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause));
+        CriteriaQuery<NameAndUuidDto> criteriaQuery = createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause);
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        final Root<T> root = criteriaQuery.from(nameAttribute.getDeclaringType().getJavaType());
+        criteriaQuery.orderBy(cb.asc(root.get(nameAttribute)));
+
+        TypedQuery<NameAndUuidDto> query = entityManager.createQuery(criteriaQuery);
         if (page != null) {
             query.setFirstResult((page.getPageNumber() - 1) * page.getItemsPerPage());
             query.setMaxResults(page.getItemsPerPage());
