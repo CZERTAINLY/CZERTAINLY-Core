@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
@@ -108,10 +109,10 @@ class CoreCallbackServiceTest extends BaseSpringBootTest {
         pagination.setItemsPerPage(2);
         pagination.setPageNumber(1);
         requestAttributeCallback.setPagination(pagination);
-        List<NameAndUuidDto> result = coreCallbackService.coreGetResources(requestAttributeCallback, AttributeResource.CERTIFICATE);
+        List<ResourceObjectContent> result = coreCallbackService.coreGetResources(requestAttributeCallback, AttributeResource.CERTIFICATE);
         Assertions.assertEquals(1, result.size());
-        Assertions.assertEquals(certificate1.getUuid().toString(), result.getFirst().getUuid());
-        Assertions.assertEquals(certificate1.getCommonName(), result.getFirst().getName());
+        Assertions.assertEquals(certificate1.getUuid().toString(), result.getFirst().getData().getUuid());
+        Assertions.assertEquals(certificate1.getCommonName(), result.getFirst().getData().getName());
 
         String invalidFilter = "xxx";
         requestAttributeCallback.setFilter(Map.of(invalidFilter, CertificateState.ISSUED));
@@ -136,7 +137,7 @@ class CoreCallbackServiceTest extends BaseSpringBootTest {
         authorityInstanceReference2.setName("n2");
         authorityInstanceReferenceRepository.save(authorityInstanceReference2);
 
-        List<NameAndUuidDto> result = coreCallbackService.coreGetResources(new RequestAttributeCallback(), AttributeResource.AUTHORITY);
+        List<ResourceObjectContent> result = coreCallbackService.coreGetResources(new RequestAttributeCallback(), AttributeResource.AUTHORITY);
         Assertions.assertEquals(2, result.size());
     }
 
