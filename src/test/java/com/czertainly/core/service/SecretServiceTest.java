@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -454,6 +455,13 @@ class SecretServiceTest extends BaseSpringBootTest {
         vaultProfile.setEnabled(false);
         vaultProfileRepository.save(vaultProfile);
         Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+    }
+
+    @Test
+    void testListResourceObjects() {
+        List<NameAndUuidDto> secrets = secretService.listResourceObjects(SecurityFilter.create(), null, null);
+        Assertions.assertEquals(1, secrets.size());
+        Assertions.assertEquals(secret.getName(), secrets.getFirst().getName());
     }
 
 }
