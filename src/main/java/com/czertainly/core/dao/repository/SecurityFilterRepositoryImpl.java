@@ -177,6 +177,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                         root.get(nameAttribute)
                 )
         );
+        query.orderBy(cb.asc(root.get(nameAttribute)));
 
         final List<Predicate> predicates = getPredicates(securityFilter, additionalWhereClause, root, cb, query);
         if (!predicates.isEmpty()) {
@@ -188,9 +189,6 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, PaginationRequestDto page) {
         CriteriaQuery<NameAndUuidDto> criteriaQuery = createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause);
-        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        final Root<T> root = criteriaQuery.from(nameAttribute.getDeclaringType().getJavaType());
-        criteriaQuery.orderBy(cb.asc(root.get(nameAttribute)));
 
         TypedQuery<NameAndUuidDto> query = entityManager.createQuery(criteriaQuery);
         if (page != null) {
