@@ -13,6 +13,118 @@ import static org.junit.jupiter.api.Assertions.*;
 class CbomUtilTest {
 
     @Test
+    void testMustGetSerialNumber_Success() throws ValidationException {
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79");
+
+        String result = CbomUtil.mustGetSerialNumber(content);
+
+        assertEquals("urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79", result);
+    }
+
+    @Test
+    void testMustGetSerialNumber_EmptyString_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "");
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetSerialNumber(content);
+        });
+
+        assertEquals("serialNumber must not be empty", exception.getMessage());
+    }
+
+    @Test
+    void testMustGetSerialNumber_Null_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", null);
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetSerialNumber(content);
+        });
+
+        assertEquals("serialNumber must not be empty", exception.getMessage());
+    }
+
+    @Test
+    void testMustGetSerialNumber_Missing_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetSerialNumber(content);
+        });
+
+        assertEquals("serialNumber must not be empty", exception.getMessage());
+    }
+
+    @Test
+    void testMustGetVersion_IntegerValue_Success() throws ValidationException {
+        Map<String, Object> content = new HashMap<>();
+        content.put("version", 1);
+
+        int result = CbomUtil.mustGetVersion(content);
+
+        assertEquals(1, result);
+    }
+
+    @Test
+    void testMustGetVersion_StringValue_Success() throws ValidationException {
+        Map<String, Object> content = new HashMap<>();
+        content.put("version", "42");
+
+        int result = CbomUtil.mustGetVersion(content);
+
+        assertEquals(42, result);
+    }
+
+    @Test
+    void testMustGetVersion_InvalidString_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("version", "not-a-number");
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetVersion(content);
+        });
+
+        assertEquals("version must be a valid integer", exception.getMessage());
+    }
+
+    @Test
+    void testMustGetVersion_Null_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("version", null);
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetVersion(content);
+        });
+
+        assertEquals("version must not be empty", exception.getMessage());
+    }
+
+    @Test
+    void testMustGetVersion_Missing_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetVersion(content);
+        });
+
+        assertEquals("version must not be empty", exception.getMessage());
+    }
+
+    @Test
+    void testMustGetVersion_InvalidType_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("version", new Object());
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetVersion(content);
+        });
+
+        assertEquals("version must not be empty", exception.getMessage());
+    }
+
+    @Test
     void testGetMetadata_Success() throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         Map<String, Object> metadata = new HashMap<>();

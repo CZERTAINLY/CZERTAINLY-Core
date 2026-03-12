@@ -50,6 +50,7 @@ import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.cbom.BomEntryDto;
+import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.model.cbom.CryptoAssetCountDto;
 import com.czertainly.core.model.cbom.CryptoAssetsDto;
 import com.czertainly.core.model.cbom.CryptoStatsDto;
@@ -685,7 +686,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateCbom_AlreadyExists_409Response() {
+    void testCreateCbom_AlreadyExists_409Response() throws AlreadyExistException, CbomRepositoryException, JsonProcessingException {
         // Given
         String serialNumber = "urn:uuid:test-123";
         Integer version = 1;
@@ -693,37 +694,32 @@ class CbomServiceTest extends BaseSpringBootTest {
         LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("serialNumber", serialNumber);
         content.put("bomFormat", "CycloneDX");
-        content.put("specVersion", "1.5");
+        content.put("specVersion", "1.6");
         content.put("version", version);
 
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        // Mock WireMock to return 409 Conflict
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+        mockConflictResponse();
+
+        BomVersionDto versionDto = new BomVersionDto();
+        versionDto.setTimestamp(OffsetDateTime.now().toString());
+        versionDto.setVersion(String.valueOf(version));
+        BomEntryDto e = entry(serialNumber, String.valueOf(version), OffsetDateTime.now());
+        versionDto.setCryptoStats(e.getCryptoStats());
+        // Mock WireMock to return versions list
+        mockServer.stubFor(WireMock.get(WireMock.urlMatching("/api/v1/bom/.*/versions"))
             .willReturn(WireMock.aResponse()
-                .withStatus(409)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                    "type": "about:blank",
-                    "title": "Conflict",
-                    "status": 409,
-                    "detail": "CBOM with this serial number and version already exists"
-                    }
-                    """)));
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody(objectMapper.writeValueAsString(List.of(versionDto)))));
 
         // When / Then
-        AlreadyExistException exception = assertThrows(AlreadyExistException.class, () ->
-            cbomService.createCbom(request)
-        );
+        cbomService.createCbom(request);
 
-        assertNotNull(exception);
-        assertTrue(exception.getMessage().contains("CBOM with given serial number and version already exists"));
-
-        // Verify entity was NOT saved to database
+        // Verify entity was saved to database
         List<Cbom> savedCboms = cbomRepository.findAll();
-        assertEquals(0, savedCboms.size());
+        assertEquals(1, savedCboms.size());
 
         mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
     }
@@ -1049,7 +1045,6 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         mockSearchResponse(List.of(entry1, entry2, entry3));
 
-        OffsetDateTime timestamp = null;
         mockEntrySpecVersionSource(entry1, "1.6", "name-1", null);
         mockEntrySpecVersionSource(entry2, "1.7", "name-2", null);
         mockEntrySpecVersionSource(entry3, "1.7", "name-3", null);
@@ -1285,5 +1280,21 @@ class CbomServiceTest extends BaseSpringBootTest {
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
                 .withBody(jsonBody)));
+    }
+
+    private void mockConflictResponse() {
+        // Mock WireMock to return 409 Conflict
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(409)
+                .withHeader("Content-Type", "application/problem+json")
+                .withBody("""
+                    {
+                    "type": "about:blank",
+                    "title": "Conflict",
+                    "status": 409,
+                    "detail": "CBOM with this serial number and version already exists"
+                    }
+                    """)));
     }
 }

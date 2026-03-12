@@ -11,6 +11,32 @@ public final class CbomUtil {
         throw new IllegalStateException("Utility class");
     }
 
+    public static String mustGetSerialNumber(Map<String, Object> content) throws ValidationException {
+        String serialNumber = CbomUtil.getString(content, "serialNumber")
+            .orElseThrow(() -> new ValidationException("serialNumber must not be empty"));
+        if (serialNumber.isEmpty()) {
+            throw new ValidationException("serialNumber must not be empty");
+        }
+        return serialNumber;
+    }
+
+    public static int mustGetVersion(Map<String, Object> content) throws ValidationException {
+        Object versionObj = content.get("version");
+        int version;
+        if (versionObj instanceof Integer) {
+            version = (Integer) versionObj;
+        } else if (versionObj instanceof String) {
+            try {
+                version = Integer.parseInt((String) versionObj);
+            } catch (NumberFormatException e) {
+                throw new ValidationException("version must be a valid integer");
+            }
+        } else {
+            throw new ValidationException("version must not be empty");
+        }
+        return version;
+    }
+
     public static Map<String, Object> getMetadata(Map<String, Object> content) throws ValidationException {
         Object metadataObj = content.get("metadata");
         if (metadataObj == null) {
