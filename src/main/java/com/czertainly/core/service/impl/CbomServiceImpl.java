@@ -339,7 +339,7 @@ public class CbomServiceImpl implements CbomService {
         int protocolsCount = 0;
         int cryptoMaterialCount = 0;
         int totalAssetsCount = 0;
-        if (cryptoStats != null && cryptoStats != null && cryptoStats.getCryptoAssets() != null) {
+        if (cryptoStats != null && cryptoStats.getCryptoAssets() != null) {
             if (cryptoStats.getCryptoAssets().getAlgorithms() != null
                     && cryptoStats.getCryptoAssets().getAlgorithms().getTotal() != null) {
                 algorithmsCount = cryptoStats.getCryptoAssets().getAlgorithms().getTotal();
