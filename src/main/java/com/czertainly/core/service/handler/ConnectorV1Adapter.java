@@ -116,8 +116,13 @@ public class ConnectorV1Adapter implements ConnectorAdapter {
 
     @Override
     public ConnectInfoV1 validateConnection(ApiClientConnectorInfo connectorInfo) throws ConnectorException {
-        ConnectInfoV1 connectInfo = checkConnection(connectorInfo);
+        ConnectInfo connectInfo = checkConnection(connectorInfo);
+        return validateConnection(connectInfo);
+    }
 
+    @Override
+    public ConnectInfoV1 validateConnection(ConnectInfo connectInfoV1) throws ConnectorException {
+        ConnectInfoV1 connectInfo = (ConnectInfoV1) connectInfoV1;
         List<FunctionGroupCode> connectFunctionGroupCodeList = new ArrayList<>();
         Map<FunctionGroupCode, List<String>> connectFunctionGroupKindMap = new EnumMap<>(FunctionGroupCode.class);
         connectInfo.getFunctionGroups().forEach(functionGroup -> {
@@ -127,7 +132,7 @@ public class ConnectorV1Adapter implements ConnectorAdapter {
 
         List<String> alreadyExistingConnector = new ArrayList<>();
         for (Connector connector : connectorRepository.findAll()) {
-            if (connectorInfo.getUuid() != null && connector.getUuid().toString().equals(connectorInfo.getUuid())) {
+            if (connectInfo.getConnectorUuid() != null && connector.getUuid().equals(connectInfo.getConnectorUuid())) {
                 continue;
             }
             List<FunctionGroupCode> connectorFunctionGroups = connector.getFunctionGroups().stream().map(Connector2FunctionGroup::getFunctionGroup).toList().stream().map(FunctionGroup::getCode).toList();

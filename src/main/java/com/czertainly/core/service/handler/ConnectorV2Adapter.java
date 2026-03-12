@@ -72,6 +72,12 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
     @Override
     public ConnectInfo validateConnection(ApiClientConnectorInfo connectorInfo) throws ConnectorException {
         ConnectInfoV2 connectInfo = checkConnection(connectorInfo);
+        return validateConnection(connectInfo);
+    }
+
+    @Override
+    public ConnectInfo validateConnection(ConnectInfo connectInfoV2) throws ConnectorException {
+        ConnectInfoV2 connectInfo = (ConnectInfoV2) connectInfoV2;
 
         // Validate that mandatory interfaces are present in list of interfaces provided by the Connector and also at least one other functional provider
         EnumSet<ConnectorInterface> mandatoryInterfaces = EnumSet.copyOf(List.of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS));
