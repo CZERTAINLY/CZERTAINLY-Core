@@ -199,13 +199,12 @@ public class CbomServiceImpl implements CbomService {
                 .orElseThrow(() -> new ValidationException("specVersion must not be empty"));
 
         // upload JSON to cbom-repository
-        BomCreateResponseDto response;
         CryptoStatsDto cryptoStats = null;
         String serialNumber = "";
         int version = -1;
         boolean existsInRepository = false;
         try {
-            response = cbomRepositoryClient.create(request);
+            BomCreateResponseDto response = cbomRepositoryClient.create(request);
             logger.logEventDebug(Operation.CREATE, OperationResult.SUCCESS, response, List.of(new ResourceObjectIdentity(response.getSerialNumber(), null)), "CBOM document created in repository with serialNumber %s and version %s".formatted(response.getSerialNumber(), response.getVersion()));
 
             serialNumber = response.getSerialNumber();
