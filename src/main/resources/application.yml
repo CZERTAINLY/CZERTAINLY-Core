@@ -15,6 +15,14 @@ cmp:
         timeout: 20
   verbose: false
 
+# Discovery settings
+discovery:
+  provider:
+    max-certificates-per-page: ${DISCOVERY_PROVIDER_MAX_CERTIFICATES_PER_PAGE:100}
+    max-parallelism: ${DISCOVERY_PROVIDER_MAX_PARALLELISM:5}
+    sleep-time-ms: ${DISCOVERY_PROVIDER_SLEEP_TIME_MS:5000}
+    max-wait-time-seconds: ${DISCOVERY_PROVIDER_MAX_WAIT_TIME_SECONDS:21600}
+
 hibernate:
   types:
     print:

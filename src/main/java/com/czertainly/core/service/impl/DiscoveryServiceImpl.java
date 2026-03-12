@@ -57,6 +57,7 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
@@ -76,12 +77,10 @@ import java.util.concurrent.*;
 public class DiscoveryServiceImpl implements DiscoveryService {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
-    private static final Integer MAXIMUM_PARALLELISM = 5;
-    private static final Integer MAXIMUM_CERTIFICATES_PER_PAGE = 100;
-    private static final Integer SLEEP_TIME = 5 * 1000; // Seconds * Milliseconds - Retry of discovery for every 5 Seconds
-    private static final Long MAXIMUM_WAIT_TIME = (long) (6 * 60 * 60); // Hours * Minutes * Seconds
 
     private static final Semaphore downloadCertSemaphore = new Semaphore(10);
+
+    private final DiscoveryProperties discoveryProperties;
 
     private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
@@ -101,6 +100,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private ResourceService resourceService;
     private ConnectorRepository connectorRepository;
+
+    public DiscoveryServiceImpl(DiscoveryProperties discoveryProperties) {
+        this.discoveryProperties = discoveryProperties;
+    }
 
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
@@ -488,12 +491,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         getRequest.setName(response.getName());
         getRequest.setKind(discovery.getKind());
         getRequest.setPageNumber(1);
-        getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
+        getRequest.setItemsPerPage(discoveryProperties.maxCertificatesPerPage());
 
         boolean isReachedMaxTime = false;
         while (response.getStatus() == DiscoveryStatus.IN_PROGRESS) {
-            logger.debug("Waiting {}ms for discovery to be completed: name={}, uuid={}", SLEEP_TIME, discovery.getName(), discovery.getUuid());
-            Thread.sleep(SLEEP_TIME);
+            logger.debug("Waiting {}ms for discovery to be completed: name={}, uuid={}", discoveryProperties.sleepTimeMs(), discovery.getName(), discovery.getUuid());
+            Thread.sleep(discoveryProperties.sleepTimeMs());
 
             try {
                 response = discoveryApiClient.getDiscoveryData(context.getConnectorDto(), getRequest, response.getUuid());
@@ -505,16 +508,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             logger.debug("Discovery response: name={}, uuid={}, status={}, total={}", discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
             long secondsElapsed = (new Date().getTime() - discovery.getStartTime().getTime()) / 1000;
-            if (!isReachedMaxTime && secondsElapsed > MAXIMUM_WAIT_TIME) {
+            if (!isReachedMaxTime && secondsElapsed > discoveryProperties.maxWaitTimeSeconds()) {
                 isReachedMaxTime = true;
 
                 context.setDiscoveryStatus(DiscoveryStatus.WARNING);
                 context.setConnectorDiscoveryStatus(response.getStatus());
                 context.setConnectorCertificatesDiscovered(response.getTotalCertificatesDiscovered());
                 context.setMessage("Discovery exceeded maximum time of %d hours. Please abort the discovery if the provider is stuck in state '%s'."
-                        .formatted((int) (MAXIMUM_WAIT_TIME / (60 * 60)), DiscoveryStatus.IN_PROGRESS.getLabel()));
+                        .formatted((int) (discoveryProperties.maxWaitTimeSeconds() / (60 * 60)), DiscoveryStatus.IN_PROGRESS.getLabel()));
                 updateDiscoveryStateInTx(context, false);
-            } else if (isReachedMaxTime && secondsElapsed > 2 * MAXIMUM_WAIT_TIME) {
+            } else if (isReachedMaxTime && secondsElapsed > 2 * discoveryProperties.maxWaitTimeSeconds()) {
                 context.setDiscoveryStatus(DiscoveryStatus.FAILED);
                 context.setConnectorDiscoveryStatus(response.getStatus());
                 context.setConnectorCertificatesDiscovered(response.getTotalCertificatesDiscovered());
@@ -546,7 +549,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         getRequest.setName(response.getName());
         getRequest.setKind(discovery.getKind());
         getRequest.setPageNumber(1);
-        getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
+        getRequest.setItemsPerPage(discoveryProperties.maxCertificatesPerPage());
 
         List<Future<?>> futures = new ArrayList<>();
         Set<String> uniqueCertificateContents = new HashSet<>();
@@ -554,7 +557,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);
-                getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
+                getRequest.setItemsPerPage(discoveryProperties.maxCertificatesPerPage());
                 try {
                     response = discoveryApiClient.getDiscoveryData(context.getConnectorDto(), getRequest, response.getUuid());
                 } catch (ConnectorException e) {
@@ -570,10 +573,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     context.setMessage(String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
                     throw new DiscoveryException(discovery.getName(), context.getMessage());
                 }
-                if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
+                if (response.getCertificateData().size() > discoveryProperties.maxCertificatesPerPage()) {
                     handleDiscoveredCertificatesBatch(futures, discovery.getName());
                     context.setDiscoveryStatus(DiscoveryStatus.WARNING);
-                    context.setMessage("Too many certificates (%d) in response at page %d. Maximum processable is %d.".formatted(response.getCertificateData().size(), currentPage, MAXIMUM_CERTIFICATES_PER_PAGE));
+                    context.setMessage("Too many certificates (%d) in response at page %d. Maximum processable is %d.".formatted(response.getCertificateData().size(), currentPage, discoveryProperties.maxCertificatesPerPage()));
                     throw new DiscoveryException(discovery.getName(), context.getMessage());
                 }
 
@@ -582,7 +585,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 ++currentPage;
                 currentTotal += response.getCertificateData().size();
 
-                if (futures.size() >= MAXIMUM_PARALLELISM) {
+                if (futures.size() >= discoveryProperties.maxParallelism()) {
                     handleDiscoveredCertificatesBatch(futures, discovery.getName());
                 }
             }
