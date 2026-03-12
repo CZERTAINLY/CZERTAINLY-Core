@@ -244,7 +244,14 @@ public class CbomServiceImpl implements CbomService {
         cbom.setSource(CbomUtil.getMetadataComponentName(content).orElse(null));
         setCryptoStats(cbom, serialNumber, version, cryptoStats);
 
-        cbomRepository.save(cbom);
+        try {
+            cbomRepository.save(cbom);
+        } catch (DataIntegrityViolationException e) {
+            // Ensure deterministic behavior when a CBOM with the same serialNumber and version already exists locally
+            throw new AlreadyExistException(
+                    "CBOM with serialNumber %s and version %s already exists".formatted(serialNumber, version)
+            );
+        }
         logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, null, List.of(new ResourceObjectIdentity(cbom.getSerialNumber(), cbom.getUuid())), "CBOM record created with serialNumber %s and version %s".formatted(cbom.getSerialNumber(), cbom.getVersion()));
         return cbom.mapToDto();
     }
