@@ -4,6 +4,8 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.czertainly.api.exception.ValidationException;
 
 public final class CbomUtil {
@@ -14,7 +16,7 @@ public final class CbomUtil {
     public static String mustGetSerialNumber(Map<String, Object> content) throws ValidationException {
         String serialNumber = CbomUtil.getString(content, "serialNumber")
             .orElseThrow(() -> new ValidationException("serialNumber must not be empty"));
-        if (serialNumber.isEmpty()) {
+        if (StringUtils.isEmpty(serialNumber)) {
             throw new ValidationException("serialNumber must not be empty");
         }
         return serialNumber;

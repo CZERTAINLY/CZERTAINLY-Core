@@ -35,6 +35,18 @@ class CbomUtilTest {
     }
 
     @Test
+    void testMustGetSerialNumber_BlankString_ThrowsException() {
+        Map<String, Object> content = new HashMap<>();
+        content.put("serialNumber", "   ");
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> {
+            CbomUtil.mustGetSerialNumber(content);
+        });
+
+        assertEquals("serialNumber must not be blank", exception.getMessage());
+    }
+
+    @Test
     void testMustGetSerialNumber_Null_ThrowsException() {
         Map<String, Object> content = new HashMap<>();
         content.put("serialNumber", null);
