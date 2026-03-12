@@ -23,7 +23,6 @@ import com.czertainly.core.service.SecretService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
 
@@ -64,7 +63,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.GET_CONTENT)
-    public SecretContent getSecretContent(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException, NoSuchAlgorithmException {
+    public SecretContent getSecretContent(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
         return secretService.getSecretContent(uuid);
     }
 
@@ -82,7 +81,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.DELETE)
-    public void deleteSecret(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException {
+    public void deleteSecret(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
         secretService.deleteSecret(uuid);
     }
 
@@ -106,7 +105,7 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.DISASSOCIATE)
-    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException, ConnectorException {
+    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
         secretService.removeVaultProfileFromSecret(uuid, vaultProfileUuid);
     }
 
