@@ -6,10 +6,13 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.error.ErrorCode;
+import com.czertainly.api.model.common.error.ProblemDetailExtended;
 import com.czertainly.api.model.connector.secrets.SecretContentResponseDto;
 import com.czertainly.api.model.connector.secrets.SecretResponseDto;
 import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent;
@@ -37,6 +40,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.SerializationUtils;
@@ -176,7 +182,6 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), SecuredUUID.fromUUID(UUID.randomUUID())));
 
         request.setDescription("Test secret description");
-        request.setSourceVaultProfileUuid(vaultProfile.getUuid());
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
         secretContent.setPassword("testPassword2");
         secretContent.setUsername("testUsername2");
@@ -233,10 +238,17 @@ class SecretServiceTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteSecret() throws NotFoundException, ConnectorException {
+        SecretVersion latestVersion = secret.getLatestVersion();
         secret.getLatestVersion().setSecret(null);
         secretVersionRepository.save(secret.getLatestVersion());
         secretService.deleteSecret(secret.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> secretService.deleteSecret(secret.getUuid()));
+        secret.setLatestVersion(latestVersion);
+        secretRepository.save(secret);
+        WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_NOT_FOUND, "", null, null), HttpStatus.NOT_FOUND.value())
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        Assertions.assertDoesNotThrow(() -> secretService.deleteSecret(secret.getUuid()));
     }
 
     @Test
@@ -283,6 +295,19 @@ class SecretServiceTest extends BaseSpringBootTest {
 
         secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, createSecretAttributes);
 
+        VaultInstance newVaultInstance = new VaultInstance();
+        newVaultInstance.setName("newVaultInstance");
+        newVaultInstance.setConnector(connector);
+        vaultInstanceRepository.save(newVaultInstance);
+        VaultProfile newVaultProfileWithNewInstance = new VaultProfile();
+        newVaultProfileWithNewInstance.setName("newVaultProfileNewInstance");
+        newVaultProfileWithNewInstance.setVaultInstance(newVaultInstance);
+        vaultProfileRepository.save(newVaultProfileWithNewInstance);
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.CONFLICT.value())
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        Assertions.assertDoesNotThrow(() -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), createSecretAttributes));
+
         Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().anyMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileUuid)));
 
@@ -291,6 +316,12 @@ class SecretServiceTest extends BaseSpringBootTest {
 
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertFalse(reloadedSecret.getSyncVaultProfiles().contains(secret2SyncVaultProfile));
+
+        // Test removing vault profile when it is the only one with the new vault instance
+        secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileWithNewInstance.getUuid());
+        reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
+        Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().noneMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileWithNewInstance.getUuid())));
+
     }
 
 
@@ -307,20 +338,20 @@ class SecretServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Transactional
     void updateSourceVaultProfile() throws NotFoundException, ConnectorException, AttributeException {
         SecretUpdateObjectsDto updateObjectsDto = new SecretUpdateObjectsDto();
         updateObjectsDto.setSourceVaultProfileUuid(vaultProfile.getUuid());
         Assertions.assertDoesNotThrow(() -> secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto));
 
         VaultProfile newVaultProfile = new VaultProfile();
-        newVaultProfile.setName("newVaultProfile2");
+        newVaultProfile.setName("newVaultProfile");
         newVaultProfile.setVaultInstance(vaultInstance);
+        newVaultProfile.setEnabled(true);
         vaultProfileRepository.save(newVaultProfile);
 
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile.getUuid());
         secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto);
-        Secret reloadedSecret = secretRepository.findByUuid(SecuredUUID.fromUUID(secret.getUuid())).orElseThrow();
+        Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
         Assertions.assertEquals(newVaultProfile.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
         Assertions.assertEquals(1, reloadedSecret.getLatestVersion().getVersion());
 
@@ -337,9 +368,19 @@ class SecretServiceTest extends BaseSpringBootTest {
 
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile2.getUuid());
         secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto);
-        reloadedSecret = secretRepository.findById(secret.getUuid()).orElseThrow();
-        Assertions.assertEquals(newVaultProfile2, reloadedSecret.getSourceVaultProfile());
+        reloadedSecret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(newVaultProfile2.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
         Assertions.assertEquals(2, reloadedSecret.getLatestVersion().getVersion());
+
+        // Set vault profile in sync profiles as source
+        updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile.getUuid());
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.CONFLICT.value())
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto);
+        reloadedSecret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(newVaultProfile.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
+        Assertions.assertFalse(secret2SyncVaultProfileRepository.findById(new Secret2SyncVaultProfileId(secret.getUuid(), newVaultProfile.getUuid())).isPresent());
     }
 
     @Test
@@ -414,6 +455,13 @@ class SecretServiceTest extends BaseSpringBootTest {
         vaultProfile.setEnabled(false);
         vaultProfileRepository.save(vaultProfile);
         Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+    }
+
+    @Test
+    void testListResourceObjects() {
+        List<NameAndUuidDto> secrets = secretService.listResourceObjects(SecurityFilter.create(), null, null);
+        Assertions.assertEquals(1, secrets.size());
+        Assertions.assertEquals(secret.getName(), secrets.getFirst().getName());
     }
 
 }

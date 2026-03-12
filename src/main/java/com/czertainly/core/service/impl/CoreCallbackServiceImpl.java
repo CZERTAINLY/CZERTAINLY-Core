@@ -7,6 +7,8 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -62,7 +64,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
     }
 
     @Override
-    public List<NameAndUuidDto> coreGetResources(RequestAttributeCallback callback, AttributeResource resource) throws NotFoundException {
+    public List<ResourceObjectContent> coreGetResources(RequestAttributeCallback callback, AttributeResource resource) throws NotFoundException {
         // Filters are in form: property_name.operator
         List<SearchFilterRequestDto> filters = new ArrayList<>();
         if (callback.getFilter() != null) {
@@ -79,7 +81,15 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
                 filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator, callback.getFilter().get(filterDefinition)));
             }
         }
-        return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters, callback.getPagination());
+        return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters, callback.getPagination())
+                .stream()
+                .map(id -> {
+                    ResourceObjectContentData data = new ResourceObjectContentData(resource);
+                    data.setUuid(id.getUuid());
+                    data.setName(id.getName());
+                    return new ResourceObjectContent(id.getName(), data);
+                })
+                .toList();
     }
 
 }

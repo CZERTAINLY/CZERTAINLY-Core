@@ -206,7 +206,11 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     }
 
     @Override
-    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException {
-        return vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
+    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException {
+        List<BaseAttribute> attributes = vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
+        // Save attributes needed for callback
+        // TODO: This is a temporary solution, solution for this should be implemented in general
+        attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, attributes);
+        return attributes;
     }
 }

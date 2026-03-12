@@ -91,7 +91,7 @@ public class VaultProfileControllerImpl implements VaultProfileController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> getAttributesForCreatingSecret(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, @LogResource(uuid = true) UUID vaultProfileUuid, SecretType secretType) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> getAttributesForCreatingSecret(@LogResource(uuid = true, affiliated = true) UUID vaultUuid, @LogResource(uuid = true) UUID vaultProfileUuid, SecretType secretType) throws ConnectorException, NotFoundException, AttributeException {
         return vaultProfileService.getAttributesForCreatingSecret(SecuredParentUUID.fromUUID(vaultUuid), SecuredUUID.fromUUID(vaultProfileUuid), secretType);
     }
 
