@@ -265,7 +265,7 @@ public class ConnectorServiceImpl implements ConnectorService {
             try {
                 connectInfo = connectorAdapter.checkConnection(apiClientDto);
                 connectorAdapter.validateConnection(connectInfo);
-            } catch (Exception e) {
+            } catch (ConnectorException | ValidationException e) {
                 if (e instanceof ConnectorCommunicationException || e instanceof ConnectorEntityNotFoundException || e instanceof ConnectorServerException) {
                     logger.debug("No connector of version {} is running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
                     continue;
@@ -274,7 +274,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 if (e instanceof ValidationException) {
                     logger.error("Validation error when connecting to connector of version {} with the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage());
                 } else {
-                    logger.error("Unable to connect to connector of version {} running on the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage());
+                    logger.error("Unable to connect to connector of version {} running on the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage(), e);
                 }
 
                 if (connectInfo == null) {

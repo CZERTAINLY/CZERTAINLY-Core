@@ -20,6 +20,7 @@ import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.NullUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,6 +103,7 @@ public class ConnectorV1Adapter implements ConnectorAdapter {
         List<InfoResponse> functions = infoApiClient.listSupportedFunctions(connectorInfo);
 
         ConnectInfoV1 connectInfo = new ConnectInfoV1();
+        connectInfo.setConnectorUuid(NullUtil.parseUuidOrNull(connectorInfo.getUuid()));
         functions.forEach(function -> {
             FunctionGroupDto functionGroupDto = new FunctionGroupDto();
             functionGroupDto.setName(function.getFunctionGroupCode().getLabel());
