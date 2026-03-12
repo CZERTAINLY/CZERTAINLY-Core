@@ -237,7 +237,7 @@ class SecretServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDeleteSecret() throws NotFoundException, ConnectorException {
+    void testDeleteSecret() throws NotFoundException, ConnectorException, AttributeException {
         SecretVersion latestVersion = secret.getLatestVersion();
         secret.getLatestVersion().setSecret(null);
         secretVersionRepository.save(secret.getLatestVersion());
