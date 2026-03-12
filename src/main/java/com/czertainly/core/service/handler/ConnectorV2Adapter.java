@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.connector.v2.ConnectInfoV2;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.ConnectorInterfaceEntity;
 import com.czertainly.core.dao.repository.ConnectorInterfaceRepository;
+import com.czertainly.core.util.NullUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +65,7 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
         InfoResponse infoResponse = infoApiClient.getConnectorInfo(connectorInfo);
 
         ConnectInfoV2 connectInfo = new ConnectInfoV2();
+        connectInfo.setConnectorUuid(NullUtil.parseUuidOrNull(connectorInfo.getUuid()));
         connectInfo.setConnector(infoResponse.getConnector());
         connectInfo.setInterfaces(infoResponse.getInterfaces());
         return connectInfo;
@@ -72,6 +74,12 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
     @Override
     public ConnectInfo validateConnection(ApiClientConnectorInfo connectorInfo) throws ConnectorException {
         ConnectInfoV2 connectInfo = checkConnection(connectorInfo);
+        return validateConnection(connectInfo);
+    }
+
+    @Override
+    public ConnectInfo validateConnection(ConnectInfo connectInfoV2) throws ConnectorException {
+        ConnectInfoV2 connectInfo = (ConnectInfoV2) connectInfoV2;
 
         // Validate that mandatory interfaces are present in list of interfaces provided by the Connector and also at least one other functional provider
         EnumSet<ConnectorInterface> mandatoryInterfaces = EnumSet.copyOf(List.of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS));

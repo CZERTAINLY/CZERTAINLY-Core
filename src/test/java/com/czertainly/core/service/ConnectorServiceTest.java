@@ -263,6 +263,14 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
         // Connector with same function group (CREDENTIAL_PROVIDER) and kind (ApiKey) already exists
         Assertions.assertThrows(ValidationException.class, () -> connectorService.createConnector(request));
+
+        ConnectRequestDto connectRequest = new ConnectRequestDto();
+        connectRequest.setUrl(request.getUrl());
+        connectRequest.setAuthType(AuthType.NONE);
+        connectRequest.setUuid(connector.getUuid().toString());
+
+        // Even though the function group and kind are duplicate, it should not throw exception on connect as the connector is already created and connected successfully
+        Assertions.assertDoesNotThrow(() -> connectorService.connect(connectRequest));
     }
 
     @Test

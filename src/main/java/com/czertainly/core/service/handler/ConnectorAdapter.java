@@ -21,6 +21,8 @@ public interface ConnectorAdapter {
 
     ConnectInfo validateConnection(ApiClientConnectorInfo connectorInfo) throws ConnectorException;
 
+    ConnectInfo validateConnection(ConnectInfo connectInfo) throws ConnectorException;
+
     void updateConnectorFunctions(Connector connector, ConnectInfo connectInfo) throws ConnectorException, NotFoundException;
 
 }
