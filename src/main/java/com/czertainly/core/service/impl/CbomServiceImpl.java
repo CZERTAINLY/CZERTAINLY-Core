@@ -360,7 +360,7 @@ public class CbomServiceImpl implements CbomService {
                 totalAssetsCount = cryptoStats.getCryptoAssets().getTotal();
             }
         } else {
-            logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {} does not contain crypto stats: {}", serialNumber, version);
+            logger.getLogger().debug("CBOM document retrieved from repository for serialNumber {} and version {} does not contain crypto stats", serialNumber, version);
         }
 
         cbom.setAlgorithmsCount(algorithmsCount);
