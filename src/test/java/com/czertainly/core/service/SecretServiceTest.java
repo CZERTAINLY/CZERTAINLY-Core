@@ -33,7 +33,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -109,6 +108,8 @@ class SecretServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretResponseDto))));
         WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
                 .willReturn(WireMock.ok()));
+        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
+                .willReturn(WireMock.okJson("[]")));
         SecretContentResponseDto secretContentResponseDto = new SecretContentResponseDto();
         BasicAuthSecretContent basicAuthSecretContent = new BasicAuthSecretContent();
         basicAuthSecretContent.setPassword("testPassword");
