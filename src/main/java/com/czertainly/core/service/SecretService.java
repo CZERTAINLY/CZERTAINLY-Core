@@ -14,7 +14,6 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,7 +41,7 @@ public interface SecretService extends ResourceExtensionService {
 
     List<SecretVersionDto> getSecretVersions(UUID uuid) throws NotFoundException;
 
-    SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, NoSuchAlgorithmException, AttributeException;
+    SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, AttributeException;
 
     void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException;
 }
