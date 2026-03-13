@@ -450,6 +450,10 @@ public class CbomServiceImpl implements CbomService {
         return syncResultMessage;
     }
 
+    public boolean isCbomRepositoryClientConfigured() {
+        return cbomRepositoryClient.isConfigured();
+    }
+
     private BomResponseDto read(String serialNumber, int version) throws CbomRepositoryException, NotFoundException {
         BomResponseDto response;
         try {

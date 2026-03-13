@@ -89,4 +89,10 @@ public interface CbomService extends ResourceExtensionService {
      * @throws CbomRepositoryException if there are problems accessing the CBOM repository
      */
     String sync() throws CbomRepositoryException;
+
+    /**
+     * Check if the repository client is configured or not
+     * @return boolean indicating yes or not
+     */
+    boolean isCbomRepositoryClientConfigured();
 }

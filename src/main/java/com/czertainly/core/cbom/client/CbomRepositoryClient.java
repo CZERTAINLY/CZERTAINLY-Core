@@ -11,6 +11,8 @@ import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.api.exception.CbomRepositoryException;
 import lombok.Getter;
+
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
@@ -158,5 +160,9 @@ public class CbomRepositoryClient {
                     });
         }
         return Mono.just(clientResponse);
+    }
+
+    public boolean isConfigured() {
+        return this.cbomRepositoryBaseUrl != null && StringUtils.isNotBlank(this.cbomRepositoryBaseUrl);
     }
 }
