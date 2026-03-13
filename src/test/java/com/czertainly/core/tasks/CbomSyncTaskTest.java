@@ -27,23 +27,41 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
     void testPerformJob_Success() throws Exception {
         ScheduledJobInfo scheduledJobInfo = new ScheduledJobInfo(CbomSyncTask.NAME);
         Object taskData = new Object();
+        Mockito.when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(true);
 
         ScheduledTaskResult result = cbomSyncTask.performJob(scheduledJobInfo, taskData);
 
         assertEquals(SchedulerJobExecutionStatus.SUCCESS, result.getStatus());
+        Mockito.verify(cbomService, Mockito.times(1)).isCbomRepositoryClientConfigured();
         Mockito.verify(cbomService, Mockito.times(1)).sync();
     }
 
     @Test
     void testPerformJob_Failure() throws Exception {
         ScheduledJobInfo scheduledJobInfo = new ScheduledJobInfo(CbomSyncTask.NAME);
+        Mockito.when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(true);
         Mockito.doThrow(new RuntimeException("Sync failed")).when(cbomService).sync();
 
         ScheduledTaskResult result = cbomSyncTask.performJob(scheduledJobInfo, new Object());
 
         assertEquals(SchedulerJobExecutionStatus.FAILED, result.getStatus());
         assertTrue(result.getResultMessage().contains("Sync failed"));
+        Mockito.verify(cbomService, Mockito.times(1)).isCbomRepositoryClientConfigured();
         Mockito.verify(cbomService, Mockito.times(1)).sync();
+    }
+
+    @Test
+    void testPerformJob_Skip() throws Exception {
+        ScheduledJobInfo scheduledJobInfo = new ScheduledJobInfo(CbomSyncTask.NAME);
+        Mockito.when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(false);
+
+        ScheduledTaskResult result = cbomSyncTask.performJob(scheduledJobInfo, new Object());
+
+        assertEquals("CBOM Sync: SKIPPED", result.getResultMessage());
+        assertEquals(SchedulerJobExecutionStatus.SUCCESS, result.getStatus());
+        assertTrue(result.getResultMessage().contains("Sync failed"));
+        Mockito.verify(cbomService, Mockito.times(1)).isCbomRepositoryClientConfigured();
+        Mockito.verify(cbomService, Mockito.times(0)).sync();
     }
 
     @Test
