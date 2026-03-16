@@ -5,7 +5,6 @@ import com.czertainly.core.logging.AuditLogEnhancer;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.AuditLogMessage;
 import com.czertainly.core.service.AuditLogService;
-import com.czertainly.core.util.AuthHelper;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,7 +30,6 @@ public class AuditLogsListener {
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_AUDIT_LOGS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.audit-logs}")
     public void processMessage(final AuditLogMessage auditLogMessage) {
-        AuthHelper.authenticateAsSuperAdmin();
         LogRecord logRecord = auditLogMessage.getLogRecord();
         LogRecord.LogRecordBuilder builder = LogRecord.builder()
                 .audited(true)

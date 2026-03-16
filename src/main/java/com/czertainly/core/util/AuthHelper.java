@@ -31,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -70,13 +69,6 @@ public class AuthHelper {
     private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 
     private static final Set<String> protocolUsers = Set.of(ACME_USERNAME, SCEP_USERNAME, CMP_USERNAME);
-
-    public static void authenticateAsSuperAdmin() {
-        AuthenticationInfo authUserInfo = new AuthenticationInfo(AuthMethod.USER_PROXY, null,  SUPERADMIN_USERNAME, List.of(new SimpleGrantedAuthority(SUPERADMIN_USERNAME)));
-        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
-        SecurityContext securityContext = SecurityContextHolder.getContext();
-        securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
-    }
 
     @Autowired
     public void setOpaClient(OpaClient opaClient) {
