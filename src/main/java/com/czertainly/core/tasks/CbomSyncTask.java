@@ -3,6 +3,7 @@ package com.czertainly.core.tasks;
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.core.api.ScheduledJobSkippedExcetion;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.CbomService;
 import lombok.NoArgsConstructor;
@@ -59,7 +60,7 @@ public class CbomSyncTask implements ScheduledJobTask {
             syncResultMessage = cbomService.sync();
         } catch (Exception e) {
             if (e instanceof CbomRepositoryException ex && ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
-                return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "CBOM Sync: SKIPPED", Resource.CBOM, null);
+                throw new ScheduledJobSkippedExcetion();
             }
 
             final String errorMessage = String.format("Unable to sync CBOMs for job %s. Error: %s", scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
