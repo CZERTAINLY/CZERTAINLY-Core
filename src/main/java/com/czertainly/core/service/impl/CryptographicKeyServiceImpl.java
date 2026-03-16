@@ -937,6 +937,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        CryptographicKey key = checkKeyRequestToken(objectUuid.getValue(), "get detail of", true, true);
+        return new NameAndUuidDto(objectUuid.getValue(), key.getName());
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource cryptographic keys.");
     }

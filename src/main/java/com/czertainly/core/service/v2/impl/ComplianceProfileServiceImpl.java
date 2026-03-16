@@ -487,6 +487,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return complianceProfileRepository.findResourceObject(objectUuid.getValue(), ComplianceProfile_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return complianceProfileRepository.listResourceObjects(filter, ComplianceProfile_.name);

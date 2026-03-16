@@ -261,6 +261,11 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return connectorServiceV2.getResourceObjectExternal(objectUuid);
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return connectorServiceV2.listResourceObjects(filter, filters, pagination);
     }

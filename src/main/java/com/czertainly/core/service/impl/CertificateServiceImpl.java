@@ -1481,6 +1481,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        Certificate certificate = getCertificateEntity(objectUuid);
+        return new NameAndUuidDto(certificate.getUuid(), certificate.getSerialNumber());
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(filters, false);
         return certificateRepository.listResourceObjects(filter, Certificate_.commonName, additionalWhereClause, pagination);

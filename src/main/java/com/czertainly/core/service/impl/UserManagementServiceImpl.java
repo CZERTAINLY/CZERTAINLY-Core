@@ -288,6 +288,12 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return listUsers().stream().map(u -> new NameAndUuidDto(u.getUuid(), u.getUsername())).toList();
     }

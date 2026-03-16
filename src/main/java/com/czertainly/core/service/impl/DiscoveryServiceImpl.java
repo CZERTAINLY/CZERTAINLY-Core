@@ -695,6 +695,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return discoveryRepository.findResourceObject(objectUuid.getValue(), DiscoveryHistory_.name);
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource discoveries.");
     }

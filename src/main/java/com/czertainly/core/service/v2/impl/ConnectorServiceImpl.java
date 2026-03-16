@@ -389,6 +389,12 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return connectorRepository.findResourceObject(objectUuid.getValue(), Connector_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return connectorRepository.listResourceObjects(filter, Connector_.name, null, pagination);

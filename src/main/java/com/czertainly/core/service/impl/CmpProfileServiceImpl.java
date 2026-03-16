@@ -334,7 +334,12 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     @Override
     public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return cmpProfileRepository.findResourceObject(objectUuid, CmpProfile_.name);
+    }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return cmpProfileRepository.findResourceObject(objectUuid.getValue(), CmpProfile_.name);
     }
 
     @Override

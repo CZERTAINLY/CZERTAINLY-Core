@@ -426,6 +426,11 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return complianceProfileServiceV2.getResourceObjectExternal(objectUuid);
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return complianceProfileServiceV2.listResourceObjects(filter, filters, pagination);
     }

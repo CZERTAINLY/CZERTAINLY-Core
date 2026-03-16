@@ -368,6 +368,12 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getTokenInstanceEntity(uuid);

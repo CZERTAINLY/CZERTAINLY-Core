@@ -278,6 +278,12 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return entityInstanceReferenceRepository.findResourceObject(objectUuid.getValue(), EntityInstanceReference_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);

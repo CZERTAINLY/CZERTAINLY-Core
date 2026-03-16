@@ -723,6 +723,14 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        Location location = locationRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Location.class, objectUuid.getValue()));
+        permissionEvaluator.authorityInstance(location.getEntityInstanceReference().getSecuredUuid());
+        return new NameAndUuidDto(String.valueOf(objectUuid), location.getName());
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         final TriFunction<Root<Location>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);

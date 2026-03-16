@@ -145,6 +145,12 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return groupRepository.findResourceObject(objectUuid.getValue(), Group_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return groupRepository.listResourceObjects(filter, Group_.name);
