@@ -104,7 +104,16 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResourceObjectDto getResourceObject(Resource resource, UUID objectUuid, boolean internal) throws NotFoundException {
+    public ResourceObjectDto getResourceObject(Resource resource, UUID objectUuid) throws NotFoundException {
+        return getResourceObjectDto(resource, objectUuid, false);
+    }
+
+    @Override
+    public ResourceObjectDto getResourceObjectInternal(Resource resource, UUID objectUuid) throws NotFoundException {
+        return getResourceObjectDto(resource, objectUuid, true);
+    }
+
+    private ResourceObjectDto getResourceObjectDto(Resource resource, UUID objectUuid, boolean internal) throws NotFoundException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (resourceExtensionService == null) {
             throw new NotSupportedException("Cannot retrieve object for requested resource: " + resource.getLabel());

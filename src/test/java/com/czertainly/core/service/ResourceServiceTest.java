@@ -426,11 +426,11 @@ class ResourceServiceTest extends BaseSpringBootTest {
         );
 
         for (Resource resource : allowedResources) {
-            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObject(resource, UUID.randomUUID(), false));
+            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObject(resource, UUID.randomUUID()));
         }
 
         for (Resource resource : notAllowedResources) {
-            Assertions.assertThrows(AuthorizationDeniedException.class, () -> resourceService.getResourceObject(resource, UUID.randomUUID(), false));
+            Assertions.assertThrows(AuthorizationDeniedException.class, () -> resourceService.getResourceObject(resource, UUID.randomUUID()));
         }
     }
 

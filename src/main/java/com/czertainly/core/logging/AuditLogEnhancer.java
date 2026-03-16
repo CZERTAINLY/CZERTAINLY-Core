@@ -29,7 +29,7 @@ public class AuditLogEnhancer {
         for (ResourceObjectIdentity object : objects) {
             if (object != null && object.uuid() != null && object.name() == null) {
                 try {
-                    enrichedObjects.add(new ResourceObjectIdentity(resourceService.getResourceObject(resource, object.uuid(), true).getName(), object.uuid()));
+                    enrichedObjects.add(new ResourceObjectIdentity(resourceService.getResourceObjectInternal(resource, object.uuid()).getName(), object.uuid()));
                 } catch (NotFoundException | NotSupportedException ignored) {
                     // Did not manage to retrieve object name
                     enrichedObjects.add(object);
@@ -44,7 +44,7 @@ public class AuditLogEnhancer {
         if (resourceService.hasResourceExtensionService(resource)) return uuids.stream().map(uuid -> {
                     String name;
                     try {
-                        name = resourceService.getResourceObject(resource, uuid, true).getName();
+                        name = resourceService.getResourceObject(resource, uuid).getName();
                     } catch (NotFoundException e) {
                         name = null;
                     }
