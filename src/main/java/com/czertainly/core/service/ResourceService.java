@@ -38,9 +38,10 @@ public interface ResourceService {
      *
      * @param resource   resource
      * @param objectUuid object UUID
+     * @param internal   flag to indicate whether the object is retrieved for internal use without authorization check or for external use with authorization check
      * @return ResourceObjectDto object
      */
-    ResourceObjectDto getResourceObject(Resource resource, UUID objectUuid) throws NotFoundException;
+    ResourceObjectDto getResourceObject(Resource resource, UUID objectUuid, boolean internal) throws NotFoundException;
 
     /**
      * Function to get the list of objects available to be displayed for object level access for Access Control

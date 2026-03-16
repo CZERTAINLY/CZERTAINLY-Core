@@ -437,7 +437,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
         List<ResourceObjectDto> associatedObjects = new ArrayList<>();
         for (ComplianceProfileAssociation association : complianceProfile.getAssociations()) {
-            associatedObjects.add(resourceService.getResourceObject(association.getResource(), association.getObjectUuid()));
+            associatedObjects.add(resourceService.getResourceObject(association.getResource(), association.getObjectUuid(), false));
         }
 
         return associatedObjects;
