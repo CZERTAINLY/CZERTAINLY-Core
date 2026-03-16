@@ -573,7 +573,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(updatedSourceVaultProfile.getUuid()));
             }
 
-            secret.setSourceVaultProfile(updatedSourceVaultProfile);
             if (updatedSourceVaultProfile.getVaultInstance() != currentSourceVaultProfile.getVaultInstance()) {
                 attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
                 SecretVersion newVersion = new SecretVersion();
@@ -606,6 +605,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 secret.getVersions().add(newVersion);
                 secretRepository.save(secret);
             }
+            secret.setSourceVaultProfile(updatedSourceVaultProfile);
         }
     }
 
