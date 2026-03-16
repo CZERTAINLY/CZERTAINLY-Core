@@ -264,6 +264,14 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        TokenProfile profile = getTokenProfileEntity(objectUuid);
+        permissionEvaluator.tokenInstance(profile.getTokenInstanceReference().getSecuredUuid());
+        return new NameAndUuidDto(profile.getUuid(), profile.getName());
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return tokenProfileRepository.listResourceObjects(filter, TokenProfile_.name);

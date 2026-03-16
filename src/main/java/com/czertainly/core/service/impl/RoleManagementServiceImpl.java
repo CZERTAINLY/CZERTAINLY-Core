@@ -156,6 +156,13 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource roles.");
     }

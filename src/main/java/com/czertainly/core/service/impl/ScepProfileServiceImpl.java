@@ -374,6 +374,12 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return scepProfileRepository.listResourceObjects(filter, ScepProfile_.name);
