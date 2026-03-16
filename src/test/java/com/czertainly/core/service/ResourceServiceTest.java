@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
@@ -40,6 +41,7 @@ import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.security.authz.opa.dto.OpaResourceAccessResult;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -54,6 +56,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.Serializable;
 import java.util.*;
@@ -401,7 +404,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void  testGetResourceWithAuthorization() {
+    void  testGetResourceWithAuthorization() throws NotFoundException {
         forbidGetResourceWithAuthorization();
         List<Resource> allowedResources = List.of(
                 Resource.ACME_PROFILE,
@@ -425,14 +428,15 @@ class ResourceServiceTest extends BaseSpringBootTest {
                 Resource.SECRET
         );
 
+        UUID objectUuid = UUID.randomUUID();
         for (Resource resource : allowedResources) {
-            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObject(resource, UUID.randomUUID()));
-            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObjectInternal(resource, UUID.randomUUID()));
+            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObject(resource, objectUuid));
+            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObjectInternal(resource, objectUuid));
         }
 
         for (Resource resource : notAllowedResources) {
-            Assertions.assertThrows(AuthorizationDeniedException.class, () -> resourceService.getResourceObject(resource, UUID.randomUUID()));
-            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObjectInternal(resource, UUID.randomUUID()));
+            Assertions.assertThrows(AuthorizationDeniedException.class, () -> resourceService.getResourceObject(resource, objectUuid));
+            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObjectInternal(resource, objectUuid));
         }
     }
 
