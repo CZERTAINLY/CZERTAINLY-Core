@@ -330,8 +330,8 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetResourceObject() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getResourceObject(UUID.randomUUID()));
-        NameAndUuidDto nameAndUuidDto = attributeService.getResourceObject(definition.getUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getResourceObjectInternal(UUID.randomUUID()));
+        NameAndUuidDto nameAndUuidDto = attributeService.getResourceObjectInternal(definition.getUuid());
         Assertions.assertEquals(definition.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(definition.getName(), nameAndUuidDto.getName());
 

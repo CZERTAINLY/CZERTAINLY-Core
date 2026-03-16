@@ -278,7 +278,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return credentialRepository.findResourceObject(objectUuid, Credential_.name);
     }
 

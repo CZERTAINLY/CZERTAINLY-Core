@@ -327,9 +327,15 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         AttributeDefinition customAttribute = attributeDefinitionRepository.findByUuidAndType(objectUuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(CustomAttribute.class, objectUuid));
         return customAttribute.mapToAccessControlObjects();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
     }
 
     @Override

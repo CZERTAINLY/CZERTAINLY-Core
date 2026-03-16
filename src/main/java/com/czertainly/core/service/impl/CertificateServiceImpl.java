@@ -1476,7 +1476,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return certificateRepository.findResourceObject(objectUuid, Certificate_.serialNumber);
     }
 

@@ -384,7 +384,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return connectorRepository.findResourceObject(objectUuid, Connector_.name);
     }
 

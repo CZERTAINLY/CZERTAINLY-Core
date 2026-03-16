@@ -20,6 +20,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeAccountService;
+import com.czertainly.core.service.PermissionEvaluator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,10 +39,24 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     private static final Logger logger = LoggerFactory.getLogger(AcmeAccountServiceImpl.class);
 
-    @Autowired
     private AcmeAccountRepository acmeAccountRepository;
-    @Autowired
     private AcmeOrderRepository acmeOrderRepository;
+    private PermissionEvaluator permissionEvaluator;
+
+    @Autowired
+    public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
+    }
+
+    @Autowired
+    public void setAcmeAccountRepository(AcmeAccountRepository acmeAccountRepository) {
+        this.acmeAccountRepository = acmeAccountRepository;
+    }
+
+    @Autowired
+    public void setAcmeOrderRepository(AcmeOrderRepository acmeOrderRepository) {
+        this.acmeOrderRepository = acmeOrderRepository;
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
@@ -158,8 +173,16 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return acmeAccountRepository.findResourceObject(objectUuid, AcmeAccount_.accountId);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        AcmeAccount account = getAcmeAccountEntity(objectUuid);
+        permissionEvaluator.acmeProfile(account.getAcmeProfile().getSecuredUuid());
+        return new NameAndUuidDto(account.getUuid(), account.getAccountId());
     }
 
     @Override

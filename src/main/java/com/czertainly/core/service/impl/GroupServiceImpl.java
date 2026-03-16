@@ -140,7 +140,7 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return groupRepository.findResourceObject(objectUuid, Group_.name);
     }
 

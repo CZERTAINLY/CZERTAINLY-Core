@@ -111,7 +111,7 @@ public class ResourceServiceImpl implements ResourceService {
             throw new NotSupportedException("Cannot retrieve object for requested resource: " + resource.getLabel());
         }
 
-        NameAndUuidDto nameAndUuidDto = resourceExtensionService.getResourceObject(objectUuid);
+        NameAndUuidDto nameAndUuidDto = resourceExtensionService.getResourceObjectInternal(objectUuid);
         return new ResourceObjectDto(resource, objectUuid, nameAndUuidDto.getName());
     }
 

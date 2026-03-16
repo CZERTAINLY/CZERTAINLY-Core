@@ -932,7 +932,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return cryptographicKeyRepository.findResourceObject(objectUuid, CryptographicKey_.name);
     }
 

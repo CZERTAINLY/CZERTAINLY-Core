@@ -215,7 +215,7 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
         var objects = complianceProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(2, objects.size());
 
-        var profileInfo = complianceProfileService.getResourceObject(complianceProfile.getUuid());
+        var profileInfo = complianceProfileService.getResourceObjectInternal(complianceProfile.getUuid());
         Assertions.assertEquals(complianceProfile.getName(), profileInfo.getName());
     }
 

@@ -357,7 +357,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return tokenInstanceReferenceRepository.findResourceObject(objectUuid, TokenInstanceReference_.name);
     }
 

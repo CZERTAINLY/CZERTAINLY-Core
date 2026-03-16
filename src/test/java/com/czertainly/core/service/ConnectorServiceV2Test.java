@@ -422,7 +422,7 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void testGetResourceObject() throws NotFoundException {
-        NameAndUuidDto dto = connectorService.getResourceObject(connector.getUuid());
+        NameAndUuidDto dto = connectorService.getResourceObjectInternal(connector.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(connector.getName(), dto.getName());
         Assertions.assertEquals(connector.getUuid().toString(), dto.getUuid());

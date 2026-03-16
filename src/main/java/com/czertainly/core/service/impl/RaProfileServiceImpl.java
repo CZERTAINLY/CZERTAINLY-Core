@@ -541,7 +541,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return raProfileRepository.findResourceObject(objectUuid, RaProfile_.name);
     }
 

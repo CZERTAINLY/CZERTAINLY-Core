@@ -259,7 +259,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return tokenProfileRepository.findResourceObject(objectUuid, TokenProfile_.name);
     }
 

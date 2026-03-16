@@ -273,7 +273,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return entityInstanceReferenceRepository.findResourceObject(objectUuid, EntityInstanceReference_.name);
     }
 

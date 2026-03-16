@@ -690,7 +690,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return discoveryRepository.findResourceObject(objectUuid, DiscoveryHistory_.name);
     }
 

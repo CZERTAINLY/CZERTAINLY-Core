@@ -150,7 +150,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(objectUuid.toString());
         return new NameAndUuidDto(roleDetailDto.getUuid(), roleDetailDto.getName());
     }

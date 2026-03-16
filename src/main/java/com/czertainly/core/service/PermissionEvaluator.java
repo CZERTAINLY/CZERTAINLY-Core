@@ -1,6 +1,9 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.util.List;
@@ -48,4 +51,6 @@ public interface PermissionEvaluator {
     void tokenProfiles(List<SecuredUUID> uuids);
 
     void vaultProfileMembers(SecuredUUID securedUUID);
+
+    void acmeProfile(SecuredUUID uuid) throws NotFoundException;
 }

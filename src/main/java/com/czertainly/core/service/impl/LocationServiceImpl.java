@@ -718,7 +718,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return locationRepository.findResourceObject(objectUuid, Location_.name);
     }
 
