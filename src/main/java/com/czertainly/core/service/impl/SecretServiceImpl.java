@@ -77,7 +77,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     private ResourceObjectAssociationService objectAssociationService;
     private ConnectorService connectorService;
-    private VaultProfileService vaultProfileService;
     private VaultInstanceService vaultInstanceService;
 
     private SecretApiClient secretApiClient;
@@ -95,11 +94,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @Autowired
     public void setConnectorRequestAttributesBuilder(ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder) {
         this.connectorRequestAttributesBuilder = connectorRequestAttributesBuilder;
-    }
-
-    @Autowired
-    public void setVaultProfileService(VaultProfileService vaultProfileService) {
-        this.vaultProfileService = vaultProfileService;
     }
 
     @Autowired
@@ -242,21 +236,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         return secretDetailDto;
     }
 
-    private SecretResponseDto createSecretInVault(UUID connectorUuid, UUID vaultUuid, SecretType type, UUID vaultProfileUuid, SecretRequestDto secretRequest) throws ConnectorException, NotFoundException, AttributeException {
-        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
-        CreateSecretRequestDto createSecretRequestDto = new CreateSecretRequestDto();
-        createSecretRequestDto.setName(secretRequest.getName());
-        createSecretRequestDto.setSecret(secretRequest.getSecret());
-        List<BaseAttribute> vaultAttributesDefinitions = vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
-        List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultAttributesDefinitions, attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.VAULT, vaultUuid));
-        createSecretRequestDto.setVaultAttributes(requestVaultAttributes);
-        List<BaseAttribute> createSecretAttributesDefinitions = vaultProfileService.getAttributesForCreatingSecret(SecuredParentUUID.fromUUID(vaultUuid), SecuredUUID.fromUUID(vaultProfileUuid), type);
-        List<RequestAttribute> requestSecretAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, createSecretAttributesDefinitions, secretRequest.getAttributes());
-        createSecretRequestDto.setSecretAttributes(requestSecretAttributes);
-
-        return secretApiClient.createSecret(connectorDetailDto, createSecretRequestDto);
-    }
-
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
     public SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException, ConnectorException {
@@ -309,23 +288,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         return secretDetailDto;
     }
 
-
-    private SecretResponseDto updateSecretInVault(Secret secret, VaultProfile vaultProfile, SecretUpdateRequestDto secretRequest, List<RequestAttribute> secretAttributes) throws
-            NotFoundException, ConnectorException, AttributeException {
-        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(vaultProfile.getVaultInstance().getConnectorUuid()));
-        List<BaseAttribute> createSecretAttributes = vaultProfileService.getAttributesForCreatingSecret(vaultProfile.getVaultInstance().getSecuredParentUuid(), vaultProfile.getSecuredUuid(), secretRequest.getSecret().getType());
-        UUID connectorUuid = UUID.fromString(connectorDetailDto.getUuid());
-        List<RequestAttribute> requestAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, createSecretAttributes, secretAttributes);
-        UpdateSecretRequestDto updateSecretRequestDto = new UpdateSecretRequestDto();
-        updateSecretRequestDto.setName(secret.getName());
-        updateSecretRequestDto.setSecret(secretRequest.getSecret());
-        List<BaseAttribute> vaultAttributes = vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
-        updateSecretRequestDto.setVaultAttributes(connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.VAULT, vaultProfile.getVaultInstanceUuid())));
-        updateSecretRequestDto.setSecretAttributes(requestAttributes);
-        updateSecretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
-        return secretApiClient.updateSecret(connectorDetailDto, updateSecretRequestDto);
-    }
-
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
     public void deleteSecret(UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
@@ -351,8 +313,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     private void deleteSecretFromVault(VaultProfile profile, Secret secret, List<RequestAttribute> secretAttributes) throws NotFoundException, ConnectorException, AttributeException {
-        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(profile.getVaultInstance().getConnectorUuid()));
-        com.czertainly.api.model.connector.secrets.SecretRequestDto secretRequestDto = getSecretRequestDto(secret, connectorDetailDto, profile, secretAttributes);
+        UUID connectorUuid = profile.getVaultInstance().getConnectorUuid();
+
+        var secretRequestDto = new com.czertainly.api.model.connector.secrets.SecretRequestDto();
+        ConnectorDetailDto connectorDetailDto = loadSecretRequestDto(connectorUuid, profile, secret, secretAttributes, secretRequestDto);
         try {
             secretApiClient.deleteSecret(connectorDetailDto, secretRequestDto);
         } catch (ConnectorProblemException e) {
@@ -481,8 +445,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             throw new ValidationException("Secret" + secret.getName() + " is not enabled");
         }
         SecretVersion latestVersion = secret.getLatestVersion();
-        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(latestVersion.getVaultInstance().getConnectorUuid()));
-        com.czertainly.api.model.connector.secrets.SecretRequestDto secretRequestDto = getSecretRequestDto(secret, connectorDetailDto, secret.getSourceVaultProfile(), attributeEngine.getRequestObjectDataAttributesContent(UUID.fromString(connectorDetailDto.getUuid()), null, Resource.SECRET, secret.getUuid()));
+
+        UUID connectorUuid = secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid();
+
+        var secretRequestDto = new com.czertainly.api.model.connector.secrets.SecretRequestDto();
+        var secretAttributes = attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.SECRET, secret.getUuid());
+        ConnectorDetailDto connectorDetailDto = loadSecretRequestDto(connectorUuid, secret.getSourceVaultProfile(), secret, secretAttributes, secretRequestDto);
         SecretContentResponseDto secretContent = secretApiClient.getSecretContent(connectorDetailDto, secretRequestDto, latestVersion.getVaultVersion());
         String secretContentFingerprint = null;
         try {
@@ -503,21 +471,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             secretRepository.save(secret);
         }
         return secretContent.getContent();
-    }
-
-    private com.czertainly.api.model.connector.secrets.SecretRequestDto getSecretRequestDto(Secret secret, ConnectorDetailDto connectorDetailDto, VaultProfile profile, List<RequestAttribute> secretAttributes) throws ConnectorException, NotFoundException, AttributeException {
-        UUID vaultInstanceUuid = profile.getVaultInstanceUuid();
-        com.czertainly.api.model.connector.secrets.SecretRequestDto secretRequestDto = new com.czertainly.api.model.connector.secrets.SecretRequestDto();
-        secretRequestDto.setName(secret.getName());
-        secretRequestDto.setType(secret.getType());
-        UUID connectorUuid = UUID.fromString(connectorDetailDto.getUuid());
-        List<BaseAttribute> attributeDefinition = vaultProfileService.getAttributesForCreatingSecret(SecuredParentUUID.fromUUID(vaultInstanceUuid), profile.getSecuredUuid(), secret.getType());
-        secretRequestDto.setSecretAttributes(connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, attributeDefinition, secretAttributes));
-        List<BaseAttribute> vaultAttributesDefinitions = vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
-        List<RequestAttribute> vaultAttributeValues = attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.VAULT, vaultInstanceUuid);
-        secretRequestDto.setVaultAttributes(connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultAttributesDefinitions, vaultAttributeValues));
-        secretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
-        return secretRequestDto;
     }
 
     @Override
@@ -636,5 +589,50 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @Override
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getSecretEntity(uuid.getValue());
+    }
+
+    private SecretResponseDto createSecretInVault(UUID connectorUuid, UUID vaultUuid, SecretType type, UUID vaultProfileUuid, SecretRequestDto secretRequest) throws ConnectorException, NotFoundException, AttributeException {
+        CreateSecretRequestDto createSecretRequestDto = new CreateSecretRequestDto();
+        createSecretRequestDto.setName(secretRequest.getName());
+        createSecretRequestDto.setSecret(secretRequest.getSecret());
+
+        ConnectorDetailDto connectorDetailDto = loadSecretOperationRequest(connectorUuid, vaultUuid, vaultProfileUuid, type, secretRequest.getAttributes(), createSecretRequestDto);
+
+        return secretApiClient.createSecret(connectorDetailDto, createSecretRequestDto);
+    }
+
+    private SecretResponseDto updateSecretInVault(Secret secret, VaultProfile vaultProfile, SecretUpdateRequestDto secretRequest, List<RequestAttribute> secretAttributes) throws
+            NotFoundException, ConnectorException, AttributeException {
+        UUID connectorUuid = vaultProfile.getVaultInstance().getConnectorUuid();
+
+        UpdateSecretRequestDto updateSecretRequestDto = new UpdateSecretRequestDto();
+        updateSecretRequestDto.setName(secret.getName());
+        updateSecretRequestDto.setSecret(secretRequest.getSecret());
+        updateSecretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
+
+        ConnectorDetailDto connectorDetailDto = loadSecretOperationRequest(connectorUuid, vaultProfile.getVaultInstanceUuid(), vaultProfile.getUuid(), secret.getType(), secretAttributes, updateSecretRequestDto);
+
+        return secretApiClient.updateSecret(connectorDetailDto, updateSecretRequestDto);
+    }
+
+    private ConnectorDetailDto loadSecretRequestDto(UUID connectorUuid, VaultProfile vaultProfile, Secret secret, List<RequestAttribute> secretAttributes, com.czertainly.api.model.connector.secrets.SecretRequestDto secretRequestDto) throws ConnectorException, NotFoundException, AttributeException {
+        secretRequestDto.setName(secret.getName());
+        secretRequestDto.setType(secret.getType());
+        secretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
+
+        return loadSecretOperationRequest(connectorUuid, vaultProfile.getVaultInstanceUuid(), vaultProfile.getUuid(), secret.getType(), secretAttributes, secretRequestDto);
+    }
+
+    private ConnectorDetailDto loadSecretOperationRequest(UUID connectorUuid, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretType type, List<RequestAttribute> secretAttributes, SecretOperationRequest secretOperationRequest) throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
+
+        vaultInstanceService.loadAttributesForSecretOperation(connectorDetailDto, vaultInstanceUuid, vaultProfileUuid, secretOperationRequest);
+
+        List<BaseAttribute> secretAttributesDefinitions = secretApiClient.getSecretAttributes(connectorDetailDto, type);
+        attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, secretAttributesDefinitions);
+        List<RequestAttribute> requestSecretAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, secretAttributesDefinitions, secretAttributes);
+        secretOperationRequest.setSecretAttributes(requestSecretAttributes);
+
+        return connectorDetailDto;
     }
 }

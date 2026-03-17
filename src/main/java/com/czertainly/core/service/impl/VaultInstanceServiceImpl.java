@@ -1,11 +1,14 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.clients.ApiClientConnectorInfo;
+import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.clients.secret.VaultApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.connector.secrets.SecretOperationRequest;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorInterfaceDto;
@@ -60,12 +63,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     private AttributeEngine attributeEngine;
     private ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder;
 
-
     @Autowired
     public void setConnectorRequestAttributesBuilder(ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder) {
         this.connectorRequestAttributesBuilder = connectorRequestAttributesBuilder;
     }
-
 
     @Autowired
     public void setVaultApiClient(VaultApiClient vaultApiClient) {
@@ -145,7 +146,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     public PaginationResponseDto<VaultInstanceDto> listVaultInstances(SearchRequestDto request, SecurityFilter securityFilter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
-        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR, VaultInstance_.CONNECTOR_INTERFACE), predicate, p,  (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+        List<VaultInstanceDto> vaultInstances = vaultInstanceRepository.findUsingSecurityFilter(securityFilter, List.of(VaultInstance_.CONNECTOR, VaultInstance_.CONNECTOR_INTERFACE), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream().map(VaultInstance::mapToDto).toList();
         PaginationResponseDto<VaultInstanceDto> response = new PaginationResponseDto<>();
         response.setItems(vaultInstances);
@@ -206,6 +207,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.ANY)
     public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException {
         List<BaseAttribute> attributes = vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
         // Save attributes needed for callback
@@ -213,4 +215,38 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, attributes);
         return attributes;
     }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.ANY)
+    public List<BaseAttribute> listVaultProfileAttributes(SecuredUUID vaultInstanceUuid) throws ConnectorException, NotFoundException, AttributeException {
+        VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultInstanceUuid)
+                .orElseThrow(() -> new NotFoundException(Resource.VAULT.getLabel(), vaultInstanceUuid.toString()));
+
+        var vaultAttributes = listVaultInstanceAttributes(vaultInstance.getConnectorUuid());
+        List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(vaultInstance.getConnectorUuid(), vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid()));
+
+        List<BaseAttribute> attributes = vaultApiClient.listVaultProfileAttributes(vaultInstance.getConnector().mapToApiClientDto(), requestVaultAttributes);
+        // TODO: This is a temporary solution, solution for this should be implemented in general
+        attributeEngine.updateAttributeDefinitionsWithCallback(vaultInstance.getConnectorUuid(), attributes);
+        return attributes;
+    }
+
+    @Override
+    public void loadAttributesForSecretOperation(ApiClientConnectorInfo connector, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretOperationRequest secretOperationRequest) throws NotFoundException, ConnectorException, AttributeException {
+        UUID connectorUuid = UUID.fromString(connector.getUuid());
+
+        // get and load vault attributes
+        List<BaseAttribute> vaultAttributes = vaultApiClient.listVaultAttributes(connector);
+        attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, vaultAttributes);
+        List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.VAULT, vaultInstanceUuid));
+
+        // get and load vault profile attributes
+        List<BaseAttribute> vaultProfileAttributes = vaultApiClient.listVaultProfileAttributes(connector, requestVaultAttributes);
+        attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, vaultProfileAttributes);
+        List<RequestAttribute> requestVaultProfileAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultProfileAttributes, attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.VAULT_PROFILE, vaultProfileUuid));
+
+        secretOperationRequest.setVaultAttributes(requestVaultAttributes);
+        secretOperationRequest.setVaultProfileAttributes(requestVaultProfileAttributes);
+    }
+
 }
