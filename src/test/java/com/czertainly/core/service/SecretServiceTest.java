@@ -110,6 +110,8 @@ class SecretServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.ok()));
         WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
                 .willReturn(WireMock.okJson("[]")));
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
+                .willReturn(WireMock.okJson("[]")));
         SecretContentResponseDto secretContentResponseDto = new SecretContentResponseDto();
         BasicAuthSecretContent basicAuthSecretContent = new BasicAuthSecretContent();
         basicAuthSecretContent.setPassword("testPassword");

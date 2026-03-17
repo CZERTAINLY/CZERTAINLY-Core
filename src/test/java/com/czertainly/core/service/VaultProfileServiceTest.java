@@ -25,6 +25,8 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,12 +55,29 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
     private SecretVersionRepository secretVersionRepository;
     @Autowired
     private Secret2SyncVaultProfileRepository secret2SyncVaultProfileRepository;
+    @Autowired
+    private ConnectorRepository connectorRepository;
 
     private VaultProfile vaultProfile;
     private VaultInstance vaultInstance;
+    private WireMockServer mockServer;
+    private Connector connector;
 
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException {
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+
+        WireMock.configureFor("localhost", mockServer.port());
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+
+        connector = new Connector();
+        connector.setName("testConnector");
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connectorRepository.save(connector);
+
         vaultInstance = new VaultInstance();
         vaultInstance.setName("testInstance");
         vaultInstanceRepository.save(vaultInstance);
@@ -89,6 +108,12 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         requestDto.setCustomAttributes(List.of(attribute));
         Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(UUID.randomUUID()), requestDto));
+        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), requestDto));
+
+        vaultInstance.setConnector(connector);
+        vaultInstance.setConnectorUuid(connector.getUuid());
+        vaultInstance = vaultInstanceRepository.save(vaultInstance);
+
         VaultProfileDetailDto createdProfile = vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), requestDto);
         Assertions.assertNotNull(createdProfile);
         Assertions.assertEquals(requestDto.getName(), createdProfile.getName());
@@ -110,6 +135,12 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         attribute.setName(TEST_CUSTOM_ATTRIBUTE);
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         requestDto.setCustomAttributes(List.of(attribute));
+
+        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), requestDto));
+
+        vaultInstance.setConnector(connector);
+        vaultInstance.setConnectorUuid(connector.getUuid());
+        vaultInstance = vaultInstanceRepository.save(vaultInstance);
         VaultProfileDetailDto detailDto = vaultProfileService.updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), requestDto);
 
         Assertions.assertNotNull(detailDto);
