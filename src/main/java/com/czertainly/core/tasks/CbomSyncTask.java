@@ -52,7 +52,7 @@ public class CbomSyncTask implements ScheduledJobTask {
     @Override
     public ScheduledTaskResult performJob(final ScheduledJobInfo scheduledJobInfo, final Object taskData) {
         if (!cbomService.isCbomRepositoryClientConfigured()) {
-            return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "CBOM Sync: SKIPPED", Resource.CBOM, null);
+            throw new ScheduledJobSkippedExcetion();
         }
 
         String syncResultMessage;
