@@ -300,7 +300,7 @@ class SchedulerServiceMockedTest {
 
         assertNotNull(response);
         verify(schedulerApiClient).schedulerCreate(any());
-        verify(scheduledJobsRepository, never()).save(argThat(job -> job != scheduledJob));
+        verify(scheduledJobsRepository, never()).save(any());
     }
 
     @Test
