@@ -3,13 +3,19 @@ package com.czertainly.core.tasks;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ProblemDetail;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.core.api.ScheduledJobSkippedExcetion;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.CbomService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -81,6 +87,24 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
     @Test
     void testGetJobClassName() {
         assertEquals(CbomSyncTask.class.getName(), cbomSyncTask.getJobClassName());
+    }
+
+    @Test
+    void testPerformJob_WhenSyncThrowsCbomRepositoryExceptionWith404_ThrowsScheduledJobSkippedException() throws CbomRepositoryException {
+        // Arrange
+        when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(true);
+        
+        ProblemDetail problemDetail = ProblemDetail.forStatus(404);
+        CbomRepositoryException cbomException = new CbomRepositoryException(problemDetail);
+        
+        when(cbomService.sync()).thenThrow(cbomException);
+
+        // Act & Assert
+        assertThrows(ScheduledJobSkippedExcetion.class, () -> 
+            cbomSyncTask.performJob(null, null)
+        );
+        
+        verify(cbomService).sync();
     }
 
 }
