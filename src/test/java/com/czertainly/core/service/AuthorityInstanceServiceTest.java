@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
-import java.util.UUID;
 
 class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 

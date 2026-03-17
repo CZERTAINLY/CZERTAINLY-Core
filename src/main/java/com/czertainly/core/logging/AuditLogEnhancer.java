@@ -44,8 +44,8 @@ public class AuditLogEnhancer {
         if (resourceService.hasResourceExtensionService(resource)) return uuids.stream().map(uuid -> {
                     String name;
                     try {
-                        name = resourceService.getResourceObject(resource, uuid).getName();
-                    } catch (NotFoundException e) {
+                        name = resourceService.getResourceObjectInternal(resource, uuid).getName();
+                    } catch (NotFoundException | NotSupportedException e) {
                         name = null;
                     }
                     return new ResourceObjectIdentity(name, uuid);
