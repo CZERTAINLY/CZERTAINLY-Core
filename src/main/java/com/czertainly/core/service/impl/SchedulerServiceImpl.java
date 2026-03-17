@@ -11,7 +11,7 @@ import com.czertainly.api.model.scheduler.SchedulerJobDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.api.model.scheduler.SchedulerRequestDto;
 import com.czertainly.api.model.scheduler.UpdateScheduledJob;
-import com.czertainly.core.api.ScheduledJobSkippedExcetion;
+import com.czertainly.core.api.ScheduledJobSkippedException;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
@@ -266,7 +266,7 @@ public class SchedulerServiceImpl implements SchedulerService {
         ScheduledTaskResult result = null;
         try {
             result = scheduledJobTask.performJob(new ScheduledJobInfo(scheduledJob.getJobName(), scheduledJob.getUuid(), scheduledJobHistory.getUuid()), scheduledJob.getObjectData());
-        } catch (ScheduledJobSkippedExcetion e) {
+        } catch (ScheduledJobSkippedException e) {
             skipped = true;
         } finally {
             if (skipped || result != null) {
@@ -293,12 +293,12 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         // update job history
         if (result != null) {
-        scheduledJobHistory.setJobEndTime(new Date());
-        scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
-        scheduledJobHistory.setResultMessage(result.getResultMessage());
-        scheduledJobHistory.setResultObjectType(result.getResultObjectType());
-        scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
-        scheduledJobHistoryRepository.save(scheduledJobHistory);
+            scheduledJobHistory.setJobEndTime(new Date());
+            scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
+            scheduledJobHistory.setResultMessage(result.getResultMessage());
+            scheduledJobHistory.setResultObjectType(result.getResultObjectType());
+            scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
+            scheduledJobHistoryRepository.save(scheduledJobHistory);
         } else if (skipped) {
             scheduledJobHistoryRepository.delete(scheduledJobHistory);
         }
