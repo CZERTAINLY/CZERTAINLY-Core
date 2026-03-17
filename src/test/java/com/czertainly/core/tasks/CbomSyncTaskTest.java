@@ -15,7 +15,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
-import com.czertainly.core.api.ScheduledJobSkippedExcetion;
+import com.czertainly.core.api.ScheduledJobSkippedException;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.CbomService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -61,10 +61,10 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
         ScheduledJobInfo scheduledJobInfo = new ScheduledJobInfo(CbomSyncTask.NAME);
         Mockito.when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(false);
 
-        ScheduledTaskResult result = cbomSyncTask.performJob(scheduledJobInfo, new Object());
+        assertThrows(ScheduledJobSkippedException.class, () ->
+            cbomSyncTask.performJob(scheduledJobInfo, new Object())
+        );
 
-        assertEquals(SchedulerJobExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("CBOM Sync: SKIPPED", result.getResultMessage());
         Mockito.verify(cbomService, Mockito.times(1)).isCbomRepositoryClientConfigured();
         Mockito.verify(cbomService, Mockito.times(0)).sync();
     }
@@ -100,7 +100,7 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
         when(cbomService.sync()).thenThrow(cbomException);
 
         // Act & Assert
-        assertThrows(ScheduledJobSkippedExcetion.class, () -> 
+        assertThrows(ScheduledJobSkippedException.class, () -> 
             cbomSyncTask.performJob(null, null)
         );
         
