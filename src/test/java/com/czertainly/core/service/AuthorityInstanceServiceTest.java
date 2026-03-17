@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
+import java.util.UUID;
 
 class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
@@ -248,5 +249,17 @@ class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = authorityInstanceService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = authorityInstanceService.getResourceObjectInternal(authorityInstance.getUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(authorityInstance.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = authorityInstanceService.getResourceObjectExternal(authorityInstance.getSecuredUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(authorityInstance.getName(), nameAndUuidDto.getName());
+
     }
 }

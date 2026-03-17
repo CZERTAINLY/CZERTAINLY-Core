@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
@@ -482,5 +483,16 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
         var groups = complianceProfileService.getComplianceGroups(connector.getUuid().toString(), KIND);
         Assertions.assertEquals(1, groups.size());
         Assertions.assertEquals(2, groups.getFirst().getGroups().size());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = complianceProfileService.getResourceObjectInternal(complianceProfile.getUuid());
+        Assertions.assertEquals(complianceProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(complianceProfile.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = complianceProfileService.getResourceObjectExternal(complianceProfile.getSecuredUuid());
+        Assertions.assertEquals(complianceProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(complianceProfile.getName(), nameAndUuidDto.getName());
     }
 }

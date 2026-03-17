@@ -426,5 +426,9 @@ class ConnectorServiceV2Test extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(connector.getName(), dto.getName());
         Assertions.assertEquals(connector.getUuid().toString(), dto.getUuid());
+
+        NameAndUuidDto nameAndUuidDto = connectorService.getResourceObjectExternal(connector.getSecuredUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(connector.getName(), nameAndUuidDto.getName());
     }
 }

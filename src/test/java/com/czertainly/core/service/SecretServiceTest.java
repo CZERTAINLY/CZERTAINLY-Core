@@ -465,4 +465,15 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(secret.getName(), secrets.getFirst().getName());
     }
 
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = secretService.getResourceObjectInternal(secret.getUuid());
+        Assertions.assertEquals(secret.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(secret.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = secretService.getResourceObjectExternal(secret.getSecuredUuid());
+        Assertions.assertEquals(secret.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(secret.getName(), nameAndUuidDto.getName());
+    }
+
 }

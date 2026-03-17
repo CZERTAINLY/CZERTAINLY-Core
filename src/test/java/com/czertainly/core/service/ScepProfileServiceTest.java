@@ -366,4 +366,15 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = scepProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = scepProfileService.getResourceObjectInternal(scepProfile.getUuid());
+        Assertions.assertEquals(scepProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(scepProfile.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = scepProfileService.getResourceObjectExternal(scepProfile.getSecuredUuid());
+        Assertions.assertEquals(scepProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(scepProfile.getName(), nameAndUuidDto.getName());
+    }
 }

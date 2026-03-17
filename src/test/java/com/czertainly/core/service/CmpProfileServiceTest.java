@@ -5,6 +5,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
@@ -186,5 +187,16 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         cmpProfileService.deleteCmpProfile(cmpProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
         Assertions.assertTrue(protocolCertificateAssociationsRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = cmpProfileService.getResourceObjectInternal(cmpProfile.getUuid());
+        Assertions.assertEquals(cmpProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(cmpProfile.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = cmpProfileService.getResourceObjectExternal(cmpProfile.getSecuredUuid());
+        Assertions.assertEquals(cmpProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(cmpProfile.getName(), nameAndUuidDto.getName());
     }
 }

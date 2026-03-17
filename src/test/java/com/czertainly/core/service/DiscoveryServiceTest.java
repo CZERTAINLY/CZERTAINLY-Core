@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
@@ -345,6 +346,17 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
         persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
         Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = discoveryService.getResourceObjectInternal(discovery.getUuid());
+        Assertions.assertEquals(discovery.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(discovery.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = discoveryService.getResourceObjectExternal(discovery.getSecuredUuid());
+        Assertions.assertEquals(discovery.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(discovery.getName(), nameAndUuidDto.getName());
     }
 
     private void stubConnectorEndpoints() {

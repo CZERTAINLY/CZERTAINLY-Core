@@ -209,4 +209,15 @@ class EntityInstanceServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = entityInstanceService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = entityInstanceService.getResourceObjectInternal(entityInstance.getUuid());
+        Assertions.assertEquals(entityInstance.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(entityInstance.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = entityInstanceService.getResourceObjectExternal(entityInstance.getSecuredUuid());
+        Assertions.assertEquals(entityInstance.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(entityInstance.getName(), nameAndUuidDto.getName());
+    }
 }

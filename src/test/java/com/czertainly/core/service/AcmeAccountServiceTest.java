@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
@@ -206,5 +207,16 @@ class AcmeAccountServiceTest extends BaseSpringBootTest {
     void testBulkDisable() throws NotFoundException {
         acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getSecuredUuid()));
         Assertions.assertFalse(acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).isEnabled());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = acmeAccountService.getResourceObjectInternal(acmeAccount.getUuid());
+        Assertions.assertEquals(acmeAccount.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(acmeAccount.getAccountId(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = acmeAccountService.getResourceObjectExternal(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(acmeAccount.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(acmeAccount.getAccountId(), nameAndUuidDto.getName());
     }
 }
