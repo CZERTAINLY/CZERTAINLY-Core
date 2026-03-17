@@ -101,7 +101,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
         response.setItems(vaultProfiles);
         response.setPageNumber(request.getPageNumber());
         response.setItemsPerPage(request.getItemsPerPage());
-        response.setTotalItems(vaultProfileRepository.countUsingSecurityFilter(securityFilter,predicate));
+        response.setTotalItems(vaultProfileRepository.countUsingSecurityFilter(securityFilter, predicate));
         response.setTotalPages((int) Math.ceil((double) response.getTotalItems() / request.getItemsPerPage()));
         return response;
     }
@@ -111,6 +111,9 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     public VaultProfileDetailDto getVaultProfileDetails(SecuredParentUUID vaultUuid, SecuredUUID vaultProfileUuid) throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(vaultProfileUuid).orElseThrow(() -> new NotFoundException(VaultProfile.class, vaultProfileUuid));
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
+        if (vaultProfile.getVaultInstance().getConnectorUuid() != null) {
+            detailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.VAULT_PROFILE, vaultProfile.getUuid()));
+        }
         detailDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfileUuid.getValue()));
         return detailDto;
     }
@@ -119,12 +122,17 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public VaultProfileDetailDto updateVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, VaultProfileUpdateRequestDto request) throws NotFoundException, AttributeException {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(securedUUID).orElseThrow(() -> new NotFoundException(VaultProfile.class, securedUUID));
+        if (vaultProfile.getVaultInstance().getConnectorUuid() == null) {
+            throw new ValidationException("Cannot update vault profile for vault without associated connector");
+        }
+
         // check that the vault profile is associated with the same vault instance?
         vaultProfile.setDescription(request.getDescription());
         attributeEngine.validateCustomAttributesContent(Resource.VAULT_PROFILE, request.getCustomAttributes());
 
         vaultProfileRepository.save(vaultProfile);
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
+        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getCustomAttributes()));
         return detailDto;
     }
@@ -152,6 +160,10 @@ public class VaultProfileServiceImpl implements VaultProfileService {
             throw new AlreadyExistException("Vault Profile with name " + request.getName() + " already exists");
         }
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(securedParentUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, securedParentUUID));
+        if (vaultInstance.getConnectorUuid() == null) {
+            throw new ValidationException("Cannot create vault profile for vault without associated connector");
+        }
+
         attributeEngine.validateCustomAttributesContent(Resource.VAULT_PROFILE, request.getCustomAttributes());
 
         VaultProfile vaultProfile = new VaultProfile();
@@ -161,6 +173,8 @@ public class VaultProfileServiceImpl implements VaultProfileService {
         vaultProfileRepository.save(vaultProfile);
 
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
+        // Store vault profile data and custom attributes
+        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getCustomAttributes()));
 
         return detailDto;

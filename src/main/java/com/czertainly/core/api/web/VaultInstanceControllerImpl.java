@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.vault.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.logging.LogResource;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.VaultInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +35,15 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, name = "vaultProfile", affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listVaultProfileAttributes(@LogResource(uuid = true, affiliated = true) UUID uuid) throws ConnectorException, NotFoundException, AttributeException {
+        return vaultInstanceService.listVaultProfileAttributes(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
