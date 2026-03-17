@@ -1,7 +1,6 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.ApiClientConnectorInfo;
-import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.clients.secret.VaultApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
@@ -221,6 +220,9 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     public List<BaseAttribute> listVaultProfileAttributes(SecuredUUID vaultInstanceUuid) throws ConnectorException, NotFoundException, AttributeException {
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(Resource.VAULT.getLabel(), vaultInstanceUuid.toString()));
+        if (vaultInstance.getConnectorUuid() == null) {
+            throw new ValidationException("Cannot list vault profile attributes for vault without associated connector");
+        }
 
         var vaultAttributes = listVaultInstanceAttributes(vaultInstance.getConnectorUuid());
         List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(vaultInstance.getConnectorUuid(), vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid()));

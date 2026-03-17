@@ -61,8 +61,6 @@ import java.util.stream.Collectors;
 @Service(value = Resource.Codes.SECRET)
 @Transactional
 public class SecretServiceImpl implements SecretService, AttributeResourceService {
-
-
     private static final Logger logger = LoggerFactory.getLogger(SecretServiceImpl.class);
 
     private AttributeEngine attributeEngine;
@@ -583,7 +581,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
-        return secretRepository.listResourceObjects(filter, Secret_.name,  (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters), pagination);
+        return secretRepository.listResourceObjects(filter, Secret_.name, (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters), pagination);
     }
 
     @Override
@@ -605,6 +603,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             NotFoundException, ConnectorException, AttributeException {
         UUID connectorUuid = vaultProfile.getVaultInstance().getConnectorUuid();
 
+        // Ensure that the incoming secret content type (if specified) matches the persisted secret type
+        if (secretRequest.getSecret().getType() != secret.getType()) {
+            throw new ValidationException("Secret type cannot be changed during update.");
+        }
+
         UpdateSecretRequestDto updateSecretRequestDto = new UpdateSecretRequestDto();
         updateSecretRequestDto.setName(secret.getName());
         updateSecretRequestDto.setSecret(secretRequest.getSecret());
@@ -624,6 +627,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     private ConnectorDetailDto loadSecretOperationRequest(UUID connectorUuid, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretType type, List<RequestAttribute> secretAttributes, SecretOperationRequest secretOperationRequest) throws ConnectorException, NotFoundException, AttributeException {
+        if (connectorUuid == null) {
+            throw new ValidationException("Cannot load attributes for secret operation, when vault instance is not associated with connector");
+        }
+
         ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
 
         vaultInstanceService.loadAttributesForSecretOperation(connectorDetailDto, vaultInstanceUuid, vaultProfileUuid, secretOperationRequest);

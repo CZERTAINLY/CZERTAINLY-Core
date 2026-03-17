@@ -35,7 +35,7 @@ public interface VaultInstanceService {
 
     List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException;
 
-    List<BaseAttribute> listVaultProfileAttributes(SecuredUUID securedUUID) throws ConnectorException, NotFoundException, AttributeException;
+    List<BaseAttribute> listVaultProfileAttributes(SecuredUUID vaultInstanceUuid) throws ConnectorException, NotFoundException, AttributeException;
 
     void loadAttributesForSecretOperation(ApiClientConnectorInfo connector, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretOperationRequest secretOperationRequest) throws NotFoundException, ConnectorException, AttributeException;
 }

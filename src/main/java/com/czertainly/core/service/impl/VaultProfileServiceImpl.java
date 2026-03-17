@@ -122,6 +122,10 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public VaultProfileDetailDto updateVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID, VaultProfileUpdateRequestDto request) throws NotFoundException, AttributeException {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(securedUUID).orElseThrow(() -> new NotFoundException(VaultProfile.class, securedUUID));
+        if (vaultProfile.getVaultInstance().getConnectorUuid() == null) {
+            throw new ValidationException("Cannot update vault profile for vault without associated connector");
+        }
+
         // check that the vault profile is associated with the same vault instance?
         vaultProfile.setDescription(request.getDescription());
         attributeEngine.validateCustomAttributesContent(Resource.VAULT_PROFILE, request.getCustomAttributes());
@@ -156,6 +160,10 @@ public class VaultProfileServiceImpl implements VaultProfileService {
             throw new AlreadyExistException("Vault Profile with name " + request.getName() + " already exists");
         }
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(securedParentUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, securedParentUUID));
+        if (vaultInstance.getConnectorUuid() == null) {
+            throw new ValidationException("Cannot create vault profile for vault without associated connector");
+        }
+
         attributeEngine.validateCustomAttributesContent(Resource.VAULT_PROFILE, request.getCustomAttributes());
 
         VaultProfile vaultProfile = new VaultProfile();
