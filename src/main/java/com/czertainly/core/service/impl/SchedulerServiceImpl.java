@@ -304,7 +304,7 @@ public class SchedulerServiceImpl implements SchedulerService {
         }
 
         // deregister one-time job
-        if (SchedulerJobExecutionStatus.SUCCESS.equals(result.getStatus()) && scheduledJob.isOneTime()) {
+        if (result != null && SchedulerJobExecutionStatus.SUCCESS.equals(result.getStatus()) && scheduledJob.isOneTime()) {
             try {
                 schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
                 logger.info("Scheduled job '{}' was deleted/unscheduled because it was one-time job only.", scheduledJob.getJobName());
