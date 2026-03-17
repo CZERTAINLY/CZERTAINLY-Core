@@ -271,4 +271,17 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = acmeProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = acmeProfileService.getResourceObjectInternal(acmeProfile.getUuid());
+        Assertions.assertNotNull(nameAndUuidDto);
+        Assertions.assertEquals(acmeProfile.getName(), nameAndUuidDto.getName());
+        Assertions.assertEquals(acmeProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+
+        nameAndUuidDto = acmeProfileService.getResourceObjectExternal(acmeProfile.getSecuredUuid());
+        Assertions.assertNotNull(nameAndUuidDto);
+        Assertions.assertEquals(acmeProfile.getName(), nameAndUuidDto.getName());
+        Assertions.assertEquals(acmeProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+    }
 }
