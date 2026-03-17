@@ -10,7 +10,7 @@ import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.api.model.scheduler.UpdateScheduledJob;
-import com.czertainly.core.api.ScheduledJobSkippedExcetion;
+import com.czertainly.core.api.ScheduledJobSkippedException;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
@@ -425,7 +425,7 @@ class SchedulerServiceMockedTest {
 
     @Test
     void testRunScheduledJob_WhenJobThrowsScheduledJobSkippedException_DeletesHistory() throws Exception {
-        TestTask testTask = spy(new TestTask(new ScheduledJobSkippedExcetion()));
+        TestTask testTask = spy(new TestTask(new ScheduledJobSkippedException()));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -599,14 +599,14 @@ class SchedulerServiceMockedTest {
     // Inner test class to simulate a ScheduledJobTask
     public static class TestTask implements ScheduledJobTask {
         private final ScheduledTaskResult result;
-        private final ScheduledJobSkippedExcetion exception;
+        private final ScheduledJobSkippedException exception;
 
         public TestTask(ScheduledTaskResult result) {
             this.result = result;
             this.exception = null;
         }
 
-        public TestTask(ScheduledJobSkippedExcetion exception) {
+        public TestTask(ScheduledJobSkippedException exception) {
             this.result = null;
             this.exception = exception;
         }
