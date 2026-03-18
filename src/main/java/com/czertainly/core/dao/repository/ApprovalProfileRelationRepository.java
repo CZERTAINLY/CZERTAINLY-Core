@@ -17,4 +17,12 @@ public interface ApprovalProfileRelationRepository extends SecurityFilterReposit
     @EntityGraph(attributePaths = {"approvalProfile", "approvalProfile.approvalProfileVersions"})
     Optional<List<ApprovalProfileRelation>> findByResourceUuidAndResource(final UUID resourceUuid, final Resource resource);
 
+    boolean existsByApprovalProfileUuidAndResourceAndResourceUuid(UUID approvalProfileUuid, Resource resource, UUID resourceUuid);
+
+    void deleteByApprovalProfileUuidAndResourceAndResourceUuid(UUID value, Resource resource, UUID associationObjectUuid);
+
+    List<ApprovalProfileRelation> findDistinctByResourceAndResourceUuid(Resource resource, UUID associationObjectUuid);
+
+    boolean existsByResourceAndResourceUuid(Resource resource, UUID resourceUuid);
+
 }
