@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.N;
 
 import java.util.List;
 import java.util.UUID;
@@ -246,4 +248,16 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertFalse(updatedProfile.isEnabled());
     }
 
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        List<NameAndUuidDto> dtos = vaultProfileService.listResourceObjects(SecurityFilter.create(), null, null);
+        Assertions.assertEquals(1, dtos.size());
+
+        NameAndUuidDto dto = vaultProfileService.getResourceObjectExternal(SecuredUUID.fromUUID(vaultProfile.getUuid()));
+        Assertions.assertEquals(vaultProfile.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals(vaultProfile.getName(), dto.getName());
+
+        dto = vaultProfileService.getResourceObjectInternal(vaultProfile.getUuid());
+        Assertions.assertEquals(vaultProfile.getUuid().toString(), dto.getUuid());
+    }
 }
