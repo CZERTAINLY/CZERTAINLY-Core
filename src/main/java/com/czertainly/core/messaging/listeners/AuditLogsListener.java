@@ -30,9 +30,7 @@ public class AuditLogsListener {
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_AUDIT_LOGS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.audit-logs}")
     public void processMessage(final AuditLogMessage auditLogMessage) {
-
         LogRecord logRecord = auditLogMessage.getLogRecord();
-
         LogRecord.LogRecordBuilder builder = LogRecord.builder()
                 .audited(true)
                 .timestamp(logRecord.timestamp())

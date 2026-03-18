@@ -282,9 +282,15 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         UserDetailDto dto = userManagementApiClient.getUserDetail(objectUuid.toString());
         return new NameAndUuidDto(dto.getUuid(), dto.getUsername());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
     }
 
     @Override

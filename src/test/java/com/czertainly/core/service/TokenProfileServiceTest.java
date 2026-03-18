@@ -296,4 +296,15 @@ class TokenProfileServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> response = tokenProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, response.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = tokenProfileService.getResourceObjectInternal(tokenProfile.getUuid());
+        Assertions.assertEquals(tokenProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(tokenProfile.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = tokenProfileService.getResourceObjectExternal(tokenProfile.getSecuredUuid());
+        Assertions.assertEquals(tokenProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(tokenProfile.getName(), nameAndUuidDto.getName());
+    }
 }

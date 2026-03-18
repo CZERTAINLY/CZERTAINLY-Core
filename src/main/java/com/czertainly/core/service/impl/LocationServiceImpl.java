@@ -718,8 +718,16 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return locationRepository.findResourceObject(objectUuid, Location_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        Location location = locationRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Location.class, objectUuid.getValue()));
+        permissionEvaluator.authorityInstance(location.getEntityInstanceReference().getSecuredUuid());
+        return new NameAndUuidDto(String.valueOf(objectUuid), location.getName());
     }
 
     @Override

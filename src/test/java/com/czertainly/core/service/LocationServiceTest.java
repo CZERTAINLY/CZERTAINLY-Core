@@ -532,6 +532,17 @@ class LocationServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(0, associations.size());
     }
 
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = locationService.getResourceObjectInternal(location.getUuid());
+        Assertions.assertEquals(location.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(location.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = locationService.getResourceObjectExternal(location.getSecuredUuid());
+        Assertions.assertEquals(location.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(location.getName(), nameAndUuidDto.getName());
+    }
+
     private RaProfile getRaProfile() {
         RaProfile raProfile = new RaProfile();
         raProfile.setEnabled(true);

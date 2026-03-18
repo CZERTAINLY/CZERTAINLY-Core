@@ -12,7 +12,17 @@ import java.util.UUID;
 
 public interface ResourceExtensionService {
 
-    NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException;
+    /**
+     * Function to get the name and uuid dto for the object available in the database. Intended for internal use only without authorization check
+     * @return NameAndUuidDto
+     */
+    NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException;
+
+    /**
+     * Function to get the name and uuid dto for the object available in the database. Intended for external use with authorization check
+     * @return NameAndUuidDto
+     */
+    NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException;
 
     /**
      * Function to get the list of name and uuid dto for the objects available in the database.

@@ -572,9 +572,14 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DETAIL)
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
-        Secret secret = getSecretEntity(objectUuid);
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        Secret secret = getSecretEntity(objectUuid.getValue());
         return new NameAndUuidDto(secret.getUuid(), secret.getName());
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return secretRepository.findResourceObject(objectUuid, Secret_.name);
     }
 
     @Override

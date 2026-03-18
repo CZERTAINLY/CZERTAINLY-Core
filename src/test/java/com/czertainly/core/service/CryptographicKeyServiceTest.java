@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -870,6 +871,17 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         Assertions.assertDoesNotThrow(
                 () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = cryptographicKeyService.getResourceObjectInternal(key.getUuid());
+        Assertions.assertEquals(key.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(key.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = cryptographicKeyService.getResourceObjectExternal(key.getSecuredUuid());
+        Assertions.assertEquals(key.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(key.getName(), nameAndUuidDto.getName());
     }
 
     private void mockConnectorDeleteKey() {

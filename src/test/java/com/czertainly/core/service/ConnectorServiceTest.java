@@ -515,4 +515,15 @@ class ConnectorServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = connectorService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = connectorService.getResourceObjectInternal(connector.getUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(connector.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = connectorService.getResourceObjectExternal(connector.getSecuredUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(connector.getName(), nameAndUuidDto.getName());
+    }
 }
