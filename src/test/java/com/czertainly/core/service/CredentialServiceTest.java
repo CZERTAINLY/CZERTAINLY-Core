@@ -378,4 +378,15 @@ class CredentialServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = credentialService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = credentialService.getResourceObjectInternal(credential.getUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(credential.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = credentialService.getResourceObjectExternal(credential.getSecuredUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(credential.getName(), nameAndUuidDto.getName());
+    }
 }

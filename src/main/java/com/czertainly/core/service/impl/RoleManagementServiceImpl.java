@@ -150,10 +150,17 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(objectUuid.toString());
         return new NameAndUuidDto(roleDetailDto.getUuid(), roleDetailDto.getName());
     }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {

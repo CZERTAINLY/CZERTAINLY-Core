@@ -16,7 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -1222,6 +1224,25 @@ class CbomServiceTest extends BaseSpringBootTest {
                 .toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1")));
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        Cbom cbom = new Cbom();
+        cbom.setSerialNumber("testing");
+        cbom.setTimestamp(OffsetDateTime.now());
+        cbom.setVersion(1);
+        cbom.setSpecVersion("1.6");
+        cbomRepository.save(cbom);
+
+        NameAndUuidDto nameAndUuidDto = cbomService.getResourceObjectInternal(cbom.getUuid());
+        Assertions.assertEquals(cbom.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(cbom.getSerialNumber(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = cbomService.getResourceObjectExternal(cbom.getSecuredUuid());
+        Assertions.assertEquals(cbom.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(cbom.getSerialNumber(), nameAndUuidDto.getName());
+
     }
 
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {

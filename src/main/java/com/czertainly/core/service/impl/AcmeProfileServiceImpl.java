@@ -414,8 +414,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return acmeProfileRepository.findResourceObject(objectUuid, AcmeProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return acmeProfileRepository.findResourceObject(objectUuid.getValue(), AcmeProfile_.name);
     }
 
     @Override

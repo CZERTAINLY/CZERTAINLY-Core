@@ -541,8 +541,16 @@ public class RaProfileServiceImpl implements RaProfileService {
 
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return raProfileRepository.findResourceObject(objectUuid, RaProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        RaProfile raProfile = raProfileRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(RaProfile.class, objectUuid.getValue()));
+        permissionEvaluator.authorityInstance(raProfile.getAuthorityInstanceReference().getSecuredUuid());
+        return new NameAndUuidDto(String.valueOf(objectUuid), raProfile.getName());
     }
 
     @Override

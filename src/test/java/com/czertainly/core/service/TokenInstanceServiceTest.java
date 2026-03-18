@@ -290,4 +290,15 @@ class TokenInstanceServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> response = tokenInstanceService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, response.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = tokenInstanceService.getResourceObjectInternal(tokenInstanceReference.getUuid());
+        Assertions.assertEquals(tokenInstanceReference.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(tokenInstanceReference.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = tokenInstanceService.getResourceObjectExternal(tokenInstanceReference.getSecuredUuid());
+        Assertions.assertEquals(tokenInstanceReference.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(tokenInstanceReference.getName(), nameAndUuidDto.getName());
+    }
 }
