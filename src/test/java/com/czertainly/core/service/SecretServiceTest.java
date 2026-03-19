@@ -227,6 +227,7 @@ class SecretServiceTest extends BaseSpringBootTest {
     @Test
     void testUpdateSecret() throws NotFoundException, AttributeException, ConnectorException {
         Assertions.assertThrows(NotFoundException.class, () -> secretService.updateSecret(UUID.randomUUID(), new SecretUpdateRequestDto()));
+        addSyncVaultProfile(secret);
         SecretUpdateRequestDto request = new SecretUpdateRequestDto();
         request.setDescription("Test secret new description");
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
@@ -246,6 +247,10 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals("data2", ((List<AttributeContent>) secretDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
         Assertions.assertEquals(2, secretDetailDto.getVersion());
 
+        Assertions.assertNotNull(secretDetailDto.getMetadata());
+        Assertions.assertEquals(1, secretDetailDto.getMetadata().size());
+        Assertions.assertEquals(2, secretDetailDto.getMetadata().getFirst().getItems().getFirst().getSourceObjects().size());
+
         // Check that the version has not changed with the same content
         secretDetailDto = secretService.updateSecret(secret.getUuid(), request);
         Assertions.assertEquals(2, secretDetailDto.getVersion());
@@ -253,6 +258,22 @@ class SecretServiceTest extends BaseSpringBootTest {
         request.setSecret(null);
         secretDetailDto = secretService.updateSecret(secret.getUuid(), request);
         Assertions.assertEquals(2, secretDetailDto.getVersion());
+    }
+
+    private void addSyncVaultProfile(Secret secret) {
+        VaultInstance vaultInstance1 = new VaultInstance();
+        vaultInstance1.setName("vaultInstance1");
+        vaultInstance1.setConnector(connector);
+        vaultInstanceRepository.save(vaultInstance1);
+        VaultProfile newVaultProfile = new VaultProfile();
+        newVaultProfile.setName("newVaultProfile");
+        newVaultProfile.setVaultInstance(vaultInstance1);
+        vaultProfileRepository.save(newVaultProfile);
+        Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
+        secret2SyncVaultProfile.setId(new Secret2SyncVaultProfileId(secret.getUuid(), newVaultProfile.getUuid()));
+        secret2SyncVaultProfile.setSecret(secret);
+        secret2SyncVaultProfile.setVaultProfile(newVaultProfile);
+        secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
     }
 
     @Test
