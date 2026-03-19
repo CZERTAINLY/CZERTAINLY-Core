@@ -273,4 +273,24 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals("testAttribute", attributes.getFirst().getName());
     }
 
+    @Test
+    void testListSecretAttributes_NoConnector() {
+        vaultInstance.setConnector(null);
+        vaultInstance.setConnectorUuid(null);
+        vaultInstanceRepository.save(vaultInstance);
+
+        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.listSecretAttributes(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), SecretType.GENERIC));
+    }
+
+    @Test
+    void testGetSearchableFieldInformation() {
+        var searchableFields = vaultProfileService.getSearchableFieldInformation();
+        Assertions.assertNotNull(searchableFields);
+        Assertions.assertFalse(searchableFields.isEmpty());
+        var propertyGroup = searchableFields.stream().filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY).findFirst().orElseThrow();
+        Assertions.assertNotNull(propertyGroup);
+        Assertions.assertTrue(propertyGroup.getSearchFieldData().stream().anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_NAME.name())));
+        Assertions.assertTrue(propertyGroup.getSearchFieldData().stream().anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_VAULT_INSTANCE.name())));
+    }
+
 }
