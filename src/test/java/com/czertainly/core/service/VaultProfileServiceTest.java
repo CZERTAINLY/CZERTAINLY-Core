@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
@@ -10,6 +11,7 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.connector.secrets.SecretType;
@@ -27,6 +29,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,6 +97,14 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         dto.setContentType(AttributeContentType.STRING);
         dto.setResources(List.of(Resource.VAULT_PROFILE));
         attributeService.createCustomAttribute(dto);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (mockServer != null) {
+            mockServer.resetAll();
+            mockServer.stop();
+        }
     }
 
     @Test
@@ -244,6 +255,42 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         vaultProfileService.disableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()));
         VaultProfile updatedProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(vaultProfile.getUuid())).orElseThrow();
         Assertions.assertFalse(updatedProfile.isEnabled());
+    }
+
+    @Test
+    void testListSecretAttributes() throws NotFoundException, ConnectorException, AttributeException {
+        vaultInstance.setConnector(connector);
+        vaultInstance.setConnectorUuid(connector.getUuid());
+        vaultInstanceRepository.save(vaultInstance);
+
+        String secretType = SecretType.GENERIC.getCode();
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/secretProvider/secrets/" + secretType + "/attributes"))
+                .willReturn(WireMock.okJson("[{\"uuid\":\"2d648f63-bf0a-4aff-8861-842cb60a77bb\", \"name\":\"testAttribute\", \"type\":\"data\", \"contentType\":\"string\", \"properties\":{\"label\":\"Test Attribute\", \"required\":false, \"readOnly\":false, \"visible\":true}}]")));
+
+        List<BaseAttribute> attributes = vaultProfileService.listSecretAttributes(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), SecretType.GENERIC);
+        Assertions.assertNotNull(attributes);
+        Assertions.assertEquals(1, attributes.size());
+        Assertions.assertEquals("testAttribute", attributes.getFirst().getName());
+    }
+
+    @Test
+    void testListSecretAttributes_NoConnector() {
+        vaultInstance.setConnector(null);
+        vaultInstance.setConnectorUuid(null);
+        vaultInstanceRepository.save(vaultInstance);
+
+        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.listSecretAttributes(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), SecretType.GENERIC));
+    }
+
+    @Test
+    void testGetSearchableFieldInformation() {
+        var searchableFields = vaultProfileService.getSearchableFieldInformation();
+        Assertions.assertNotNull(searchableFields);
+        Assertions.assertFalse(searchableFields.isEmpty());
+        var propertyGroup = searchableFields.stream().filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY).findFirst().orElseThrow();
+        Assertions.assertNotNull(propertyGroup);
+        Assertions.assertTrue(propertyGroup.getSearchFieldData().stream().anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_NAME.name())));
+        Assertions.assertTrue(propertyGroup.getSearchFieldData().stream().anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_VAULT_INSTANCE.name())));
     }
 
 }

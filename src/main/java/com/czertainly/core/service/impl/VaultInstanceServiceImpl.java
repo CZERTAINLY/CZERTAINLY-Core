@@ -209,9 +209,9 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
     @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.ANY)
     public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException {
         List<BaseAttribute> attributes = vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
-        // Save attributes needed for callback
+        // Save connector attributes definitions in attribute engine, so they can be used for validation and content preparation in other operations
         // TODO: This is a temporary solution, solution for this should be implemented in general
-        attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, attributes);
+        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes);
         return attributes;
     }
 
@@ -224,12 +224,13 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
             throw new ValidationException("Cannot list vault profile attributes for vault without associated connector");
         }
 
-        var vaultAttributes = listVaultInstanceAttributes(vaultInstance.getConnectorUuid());
+        List<BaseAttribute> vaultAttributes = vaultApiClient.listVaultAttributes(vaultInstance.getConnector().mapToApiClientDto());
         List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(vaultInstance.getConnectorUuid(), vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid()));
 
         List<BaseAttribute> attributes = vaultApiClient.listVaultProfileAttributes(vaultInstance.getConnector().mapToApiClientDto(), requestVaultAttributes);
         // TODO: This is a temporary solution, solution for this should be implemented in general
-        attributeEngine.updateAttributeDefinitionsWithCallback(vaultInstance.getConnectorUuid(), attributes);
+        // Save connector attributes definitions in attribute engine, so they can be used for validation and content preparation in other operations
+        attributeEngine.updateDataAttributeDefinitions(vaultInstance.getConnectorUuid(), null, attributes);
         return attributes;
     }
 
