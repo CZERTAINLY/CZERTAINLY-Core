@@ -204,7 +204,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
         List<BaseAttribute> attributes = secretApiClient.getSecretAttributes(connectorDetailDto, secretType);
         // Save attributes needed for callback
         // TODO: This is a temporary solution, solution for this should be implemented in general
-        attributeEngine.updateAttributeDefinitionsWithCallback(UUID.fromString(connectorDetailDto.getUuid()), attributes);
+        attributeEngine.updateDataAttributeDefinitions(UUID.fromString(connectorDetailDto.getUuid()), null, attributes);
         return attributes;
     }
 

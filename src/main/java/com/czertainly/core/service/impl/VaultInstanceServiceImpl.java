@@ -211,7 +211,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         List<BaseAttribute> attributes = vaultApiClient.listVaultAttributes(connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid)));
         // Save attributes needed for callback
         // TODO: This is a temporary solution, solution for this should be implemented in general
-        attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, attributes);
+        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes);
         return attributes;
     }
 
@@ -229,7 +229,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
 
         List<BaseAttribute> attributes = vaultApiClient.listVaultProfileAttributes(vaultInstance.getConnector().mapToApiClientDto(), requestVaultAttributes);
         // TODO: This is a temporary solution, solution for this should be implemented in general
-        attributeEngine.updateAttributeDefinitionsWithCallback(vaultInstance.getConnectorUuid(), attributes);
+        attributeEngine.updateDataAttributeDefinitions(vaultInstance.getConnectorUuid(), null, attributes);
         return attributes;
     }
 
