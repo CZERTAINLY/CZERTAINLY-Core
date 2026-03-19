@@ -246,4 +246,20 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertFalse(updatedProfile.isEnabled());
     }
 
+    @Test
+    void testListSecretAttributes() throws NotFoundException, com.czertainly.api.exception.ConnectorException, AttributeException {
+        vaultInstance.setConnector(connector);
+        vaultInstance.setConnectorUuid(connector.getUuid());
+        vaultInstanceRepository.save(vaultInstance);
+
+        String secretType = SecretType.GENERIC.getCode();
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/secretProvider/secrets/" + secretType + "/attributes"))
+                .willReturn(WireMock.okJson("[{\"uuid\":\"123\", \"name\":\"testAttribute\", \"label\":\"Test Attribute\", \"type\":\"data\", \"contentType\":\"string\", \"properties\":{\"required\":false, \"readOnly\":false, \"visible\":true}}]")));
+
+        List<com.czertainly.api.model.common.attribute.common.BaseAttribute> attributes = vaultProfileService.listSecretAttributes(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), SecretType.GENERIC);
+        Assertions.assertNotNull(attributes);
+        Assertions.assertEquals(1, attributes.size());
+        Assertions.assertEquals("testAttribute", attributes.getFirst().getName());
+    }
+
 }
