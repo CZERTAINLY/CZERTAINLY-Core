@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
@@ -21,6 +20,7 @@ import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateKeyUsage;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.notification.RecipientType;
@@ -219,7 +219,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCertificateRuleEvaluatorOnEnumProperty() throws RuleException {
+    void testCertificateRuleEvaluatorOnKeyAlgorithmProperty() throws RuleException {
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         certificate.setPublicKeyAlgorithm("RSA");
         condition.setOperator(FilterConditionOperator.EQUALS);
@@ -235,6 +235,28 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         // Null String empty
         certificate.setPublicKeyAlgorithm(null);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EMPTY);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
+
+    @Test
+    void testCertificateRuleEvaluatorOnEnumProperty() throws RuleException {
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setFieldIdentifier(FilterField.CERTIFICATE_VALIDATION_STATUS.name());
+        condition.setValue(List.of(CertificateValidationStatus.VALID.getCode()));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EQUALS);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EMPTY);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        // Not null validation status
+        condition.setOperator(FilterConditionOperator.EMPTY);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        // Null validation status
+        certificate.setValidationStatus(null);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
