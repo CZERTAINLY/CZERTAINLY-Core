@@ -265,7 +265,7 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
 
         String secretType = SecretType.GENERIC.getCode();
         WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/secretProvider/secrets/" + secretType + "/attributes"))
-                .willReturn(WireMock.okJson("[{\"uuid\":\"123\", \"name\":\"testAttribute\", \"label\":\"Test Attribute\", \"type\":\"data\", \"contentType\":\"string\", \"properties\":{\"required\":false, \"readOnly\":false, \"visible\":true}}]")));
+                .willReturn(WireMock.okJson("[{\"uuid\":\"2d648f63-bf0a-4aff-8861-842cb60a77bb\", \"name\":\"testAttribute\", \"type\":\"data\", \"contentType\":\"string\", \"properties\":{\"label\":\"Test Attribute\", \"required\":false, \"readOnly\":false, \"visible\":true}}]")));
 
         List<BaseAttribute> attributes = vaultProfileService.listSecretAttributes(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), SecretType.GENERIC);
         Assertions.assertNotNull(attributes);
