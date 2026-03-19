@@ -198,7 +198,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.UPDATE)
     public void disassociateApprovalProfile(SecuredUUID approvalProfileUuid, Resource resource, UUID associationObjectUuid) throws NotFoundException {
         if (!resource.hasApprovalProfiles()) {
             throw new ValidationException(RESOURCE_DOES_NOT_SUPPORT_APPROVAL_PROFILES.formatted(resource.getLabel()));
