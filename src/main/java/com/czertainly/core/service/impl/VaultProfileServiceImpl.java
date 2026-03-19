@@ -200,7 +200,12 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public List<BaseAttribute> listSecretAttributes(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException, AttributeException {
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultUUID).orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultUUID));
-        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
+        var connectorUuid = vaultInstance.getConnectorUuid();
+        if (connectorUuid == null) {
+            throw new ValidationException("Cannot list secret attributes for a vault without associated connector");
+        }
+
+        ConnectorDetailDto connectorDetailDto = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
         List<BaseAttribute> attributes = secretApiClient.getSecretAttributes(connectorDetailDto, secretType);
         // Save attributes needed for callback
         // TODO: This is a temporary solution, solution for this should be implemented in general
