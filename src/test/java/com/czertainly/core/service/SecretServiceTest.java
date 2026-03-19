@@ -193,7 +193,9 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(AlreadyExistException.class, () -> secretService.createSecret(request, vaultInstance.getSecuredParentUuid(), vaultProfile.getSecuredUuid()));
         request.setName("newSecret");
         Assertions.assertThrows(NotFoundException.class, () -> secretService.createSecret(request, SecuredParentUUID.fromUUID(UUID.randomUUID()), vaultInstance.getSecuredUuid()));
-        Assertions.assertThrows(ValidationException.class, () -> secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), SecuredUUID.fromUUID(UUID.randomUUID())));
+        SecuredUUID securedUUID = SecuredUUID.fromUUID(UUID.randomUUID());
+        SecuredParentUUID vaultProfileSecuredParentUuid = vaultProfile.getSecuredParentUuid();
+        Assertions.assertThrows(ValidationException.class, () -> secretService.createSecret(request, vaultProfileSecuredParentUuid, securedUUID));
 
         request.setDescription("Test secret description");
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
@@ -205,7 +207,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         request.setCustomAttributes(List.of(attribute));
 
-        SecretDetailDto secretDetailDto = secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), vaultInstance.getSecuredUuid());
+        SecretDetailDto secretDetailDto = secretService.createSecret(request, vaultProfileSecuredParentUuid, vaultInstance.getSecuredUuid());
         Assertions.assertNotNull(secretDetailDto);
         Assertions.assertEquals(request.getName(), secretDetailDto.getName());
         Assertions.assertNotNull(secretDetailDto.getUuid());
