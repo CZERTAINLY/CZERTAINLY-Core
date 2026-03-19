@@ -13,21 +13,16 @@ import com.czertainly.api.model.core.acme.ChallengeStatus;
 import com.czertainly.api.model.core.acme.ChallengeType;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
-import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
@@ -35,6 +30,9 @@ import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
+import com.czertainly.core.messaging.model.ActionMessage;
+import com.czertainly.core.messaging.producers.ActionProducer;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.AcmeProfileService;
@@ -42,8 +40,8 @@ import com.czertainly.core.service.AuthorityInstanceService;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.service.acme.AcmeTestUtil;
+import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.BaseSpringBootTest;
-import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -53,8 +51,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.net.URI;
 import java.security.KeyPair;
@@ -66,6 +66,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 
@@ -86,10 +87,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
  * <p>The external Authority Provider connector is stubbed with WireMock.
  * Challenge HTTP validation is simulated by directly setting the entity state in the database,
  * which is appropriate for a service-layer integration test.
- *
- * @see AcmeService
- * @see AcmeProfileService
- * @see RaProfileService
+ * Certificate issuance via the connector is driven through the real
+ * {@link com.czertainly.core.service.v2.ClientOperationService} code path: the
+ * {@link ActionProducer} is spied on so that each {@code ActionMessage} is dispatched
+ * synchronously to {@code issueCertificateAction} instead of being sent over RabbitMQ.
  */
 public class AcmeProtocolFlowITest extends BaseSpringBootTest {
 
@@ -103,6 +104,11 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     private AcmeProfileService acmeProfileService;
     @Autowired
     private AcmeService acmeService;
+    @Autowired
+    private ClientOperationService clientOperationService;
+
+    @MockitoSpyBean
+    private ActionProducer actionProducer;
 
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -118,21 +124,14 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     private AcmeAuthorizationRepository acmeAuthorizationRepository;
     @Autowired
     private AcmeChallengeRepository acmeChallengeRepository;
-    @Autowired
-    private CertificateRepository certificateRepository;
-    @Autowired
-    private CertificateContentRepository certificateContentRepository;
 
     // ── Test constants ────────────────────────────────────────────────────────
 
     private static final String ACME_PROFILE_NAME = "testAcmeProfile";
-    private static final String AUTHORITY_UUID = "00000000-0000-0000-0000-000000000001";
+    private static final String AUTHORITY_UUID = UUID.randomUUID().toString();
     private static final String CONNECTOR_NAME = "testConnector";
-    /**
-     * Localhost is required for HTTP-01 challenge simulation.
-     */
-    private static final String DOMAIN_NAME = "localhost";
-    private static final String KIND_NAME = "testKind";
+    private static final String DOMAIN_NAME = "localhost"; // Localhost is required for HTTP-01 challenge simulation.
+    private static final String KIND_NAME = "MOCK_EJBCA";
     private static final String RA_PROFILE_NAME = "testRaProfile";
 
     // ── Per-test state ────────────────────────────────────────────────────────
@@ -152,6 +151,16 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
         kpg.initialize(2048);
         acmeKeyPair = kpg.generateKeyPair();
+
+        // Intercept ActionProducer to drive certificate issuance synchronously, bypassing RabbitMQ. ISSUE messages
+        // are forwarded directly to issueCertificateAction; all other action types remain no-ops.
+        Mockito.doAnswer(inv -> {
+            ActionMessage msg = inv.getArgument(0);
+            if (msg.getResourceAction() == ResourceAction.ISSUE) {
+                clientOperationService.issueCertificateAction(msg.getResourceUuid(), false);
+            }
+            return null;
+        }).when(actionProducer).produceMessage(Mockito.any());
     }
 
     @AfterEach
@@ -188,13 +197,12 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         validateChallenge(orderId, order, acmeAccountId);
 
         // ── Step 5: Order finalisation ────────────────────────────────────────
-        KeyPair csrKeyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
-        X509Certificate testCert = AcmeTestUtil.createTestCertificate(csrKeyPair, DOMAIN_NAME);
-        String certData = Base64.getEncoder().encodeToString(testCert.getEncoded());
-        finalizeOrder(orderId, acmeAccountId, csrKeyPair, certData);
+        finalizeOrder(orderId, acmeAccountId);
 
-        // ── Step 6: Manually transition certificate to ISSUED ─────────────────
-        updateCertificateState(orderId, testCert, certData);
+        // ── Step 6: Wait for async certificate issuance ───────────────────────
+        // finalizeOrder triggers an @Async task that calls issueCertificateAction
+        // via the ActionProducer doAnswer; poll until the order reaches VALID.
+        awaitOrderStatus(orderId, OrderStatus.VALID);
 
         // ── Step 7: Verify order status ───────────────────────────────────────
         ResponseEntity<com.czertainly.api.model.core.acme.Order> orderResponse = acmeService.getOrder(
@@ -392,7 +400,14 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     /**
      * Builds a CSR and sends {@code POST /order/{id}/finalize}.
      */
-    private void finalizeOrder(String orderId, String accountId, KeyPair csrKeyPair, String certData) throws Exception {
+    private void finalizeOrder(String orderId, String accountId) throws Exception {
+        KeyPair csrKeyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        X509Certificate testCert = AcmeTestUtil.createTestCertificate(csrKeyPair, DOMAIN_NAME);
+        String certData = Base64.getEncoder().encodeToString(testCert.getEncoded());
+        // Mock the actual certificate issuance.
+        wireMockServer.stubFor(post(urlMatching("/v2/authorityProvider/authorities/" + AUTHORITY_UUID + "/certificates/issue"))
+                .willReturn(okJson("{ \"certificateData\": \"" + certData + "\" }")));
+
         PKCS10CertificationRequest csr = AcmeTestUtil.createCsr(csrKeyPair, DOMAIN_NAME);
         String base64Csr = Base64.getUrlEncoder().withoutPadding().encodeToString(csr.getEncoded());
 
@@ -407,26 +422,27 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     }
 
     /**
-     * Manually transitions the certificate linked to the order from {@code PENDING} to
-     * {@code ISSUED} and attaches its DER content, simulating what the async certificate
-     * lifecycle processor would normally do.
+     * Polls via {@link AcmeService#getOrder} (which recomputes order status from the
+     * certificate state on each call) until the expected status is reached or a
+     * terminal failure state is detected, failing the test if the timeout (10 s)
+     * is exceeded.
      */
-    private void updateCertificateState(String orderId, X509Certificate testCert, String certData) throws Exception {
-        AcmeOrder orderToUpdate = acmeOrderRepository.findByOrderId(orderId).orElseThrow();
-        Assertions.assertNotNull(
-                orderToUpdate.getCertificateReferenceUuid(),
-                "Certificate reference UUID must be set after finalisation");
-
-        Certificate certificate = certificateRepository.findByUuid(orderToUpdate.getCertificateReferenceUuid()).orElseThrow();
-        certificate.setState(CertificateState.ISSUED);
-
-        CertificateContent content = new CertificateContent();
-        content.setContent(certData);
-        content.setFingerprint(CertificateUtil.getThumbprint(testCert));
-        certificateContentRepository.save(content);
-
-        certificate.setCertificateContent(content);
-        certificateRepository.save(certificate);
+    private void awaitOrderStatus(String orderId, OrderStatus expected) throws Exception {
+        for (int i = 0; i < 50; i++) {
+            ResponseEntity<com.czertainly.api.model.core.acme.Order> response = acmeService.getOrder(
+                    ACME_PROFILE_NAME, orderId,
+                    new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + orderId), false);
+            OrderStatus current = response.getBody() != null ? response.getBody().getStatus() : null;
+            if (expected == current) return;
+            if (current == OrderStatus.INVALID) break;
+            Thread.sleep(200);
+        }
+        ResponseEntity<com.czertainly.api.model.core.acme.Order> finalResponse = acmeService.getOrder(
+                ACME_PROFILE_NAME, orderId,
+                new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + orderId), false);
+        OrderStatus finalStatus = finalResponse.getBody() != null ? finalResponse.getBody().getStatus() : null;
+        Assertions.assertEquals(expected, finalStatus,
+                "Order did not reach " + expected + " status within timeout");
     }
 
     // ── JWS helper ────────────────────────────────────────────────────────────
