@@ -252,10 +252,10 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
-        // Not null String
+        // Not null validation status
         condition.setOperator(FilterConditionOperator.EMPTY);
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
-        // Null String empty
+        // Null validation status
         certificate.setValidationStatus(null);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
