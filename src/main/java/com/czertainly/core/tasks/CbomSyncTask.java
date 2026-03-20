@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,7 +60,7 @@ public class CbomSyncTask implements ScheduledJobTask {
         try {
             syncResultMessage = cbomService.sync();
         } catch (Exception e) {
-            if (e instanceof CbomRepositoryException ex && ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == 404) {
+            if (e instanceof CbomRepositoryException ex && ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == HttpStatus.SERVICE_UNAVAILABLE.value()) {
                 throw new ScheduledJobSkippedException();
             }
 

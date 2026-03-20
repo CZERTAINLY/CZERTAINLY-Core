@@ -385,14 +385,13 @@ public class CbomServiceImpl implements CbomService {
 
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.CREATE)
     public void syncAuthorized() throws CbomRepositoryException {
+        if (!cbomRepositoryClient.isConfigured()) {
+            logger.getLogger().debug("CBOM sync: cbom-repository not configured: skipped;");
+        }
         sync();
     }
 
     public String sync() throws CbomRepositoryException {
-        if (!cbomRepositoryClient.isConfigured()) {
-            logger.getLogger().debug("CBOM sync: cbom-repository not configured: skipped;");
-            return "";
-        }
         long timestamp = getLastSyncTimestamp();
         BomSearchRequestDto query = new BomSearchRequestDto();
         query.setAfter(timestamp);

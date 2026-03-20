@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -90,11 +91,11 @@ class CbomSyncTaskTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testPerformJob_WhenSyncThrowsCbomRepositoryExceptionWith404_ThrowsScheduledJobSkippedException() throws CbomRepositoryException {
+    void testPerformJob_WhenSyncThrowsCbomRepositoryExceptionWith503_ThrowsScheduledJobSkippedException() throws CbomRepositoryException {
         // Arrange
         when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(true);
         
-        ProblemDetail problemDetail = ProblemDetail.forStatus(404);
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
         CbomRepositoryException cbomException = new CbomRepositoryException(problemDetail);
         
         when(cbomService.sync()).thenThrow(cbomException);
