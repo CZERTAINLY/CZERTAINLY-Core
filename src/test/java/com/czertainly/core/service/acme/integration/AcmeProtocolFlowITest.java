@@ -17,12 +17,14 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
+import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
@@ -111,6 +113,8 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     private ActionProducer actionProducer;
 
     @Autowired
+    private CertificateRepository certificateRepository;
+    @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
     private FunctionGroupRepository functionGroupRepository;
@@ -133,10 +137,12 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     private static final String DOMAIN_NAME = "localhost"; // Localhost is required for HTTP-01 challenge simulation.
     private static final String KIND_NAME = "MOCK_EJBCA";
     private static final String RA_PROFILE_NAME = "testRaProfile";
+    private static final String RA_PROFILE_NAME_2 = "testRaProfile2";
 
     // ── Per-test state ────────────────────────────────────────────────────────
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private KeyPairGenerator keyPairGenerator;
     private WireMockServer wireMockServer;
     private KeyPair acmeKeyPair;
 
@@ -148,9 +154,9 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         wireMockServer.start();
         WireMock.configureFor("localhost", wireMockServer.port());
 
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(2048);
-        acmeKeyPair = kpg.generateKeyPair();
+        keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        acmeKeyPair = keyPairGenerator.generateKeyPair();
 
         // Intercept ActionProducer to drive certificate issuance synchronously, bypassing RabbitMQ. ISSUE messages
         // are forwarded directly to issueCertificateAction; all other action types remain no-ops.
@@ -219,6 +225,66 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
                 new URI("/acme/" + ACME_PROFILE_NAME + "/cert/" + certificateId), false);
         Assertions.assertEquals(200, downloadResponse.getStatusCode().value());
         Assertions.assertNotNull(downloadResponse.getBody());
+    }
+
+    /**
+     * Regression test exposing the RA Profile snapshot bug.
+     *
+     * <p>When an ACME account is created, it captures a snapshot of the RA Profile UUID that
+     * was configured on the ACME Profile at that moment. If the ACME Profile is later updated
+     * to point to a different RA Profile via {@link AcmeProfileService#updateRaProfile}, the
+     * already-created account is <em>not</em> updated. Subsequent certificate issuance through
+     * that account therefore uses the original (stale) RA Profile instead of the current one.
+     *
+     * <p>This test exhibits the problem: after switching the ACME Profile from
+     * {@value #RA_PROFILE_NAME} to {@value #RA_PROFILE_NAME_2}, a new order placed on the
+     * existing account is finalized, and the resulting certificate is expected to be associated
+     * with {@value #RA_PROFILE_NAME_2}. With the current implementation the assertion fails
+     * because the certificate still references the original {@value #RA_PROFILE_NAME}.
+     */
+    @Test
+    public void acmeRaProfileChangeNotReflectedInExistingAccount() throws Exception {
+
+        // ── Step 1: Infrastructure with raProfile1 ────────────────────────────
+        Connector connector = createConnector();
+        AuthorityInstanceDto authorityInstance = createAuthorityInstance(connector);
+        RaProfileDto raProfile1 = createRaProfile(authorityInstance);
+        AcmeProfileDto acmeProfile = createAcmeProfile(raProfile1, authorityInstance);
+
+        // ── Step 2: Create an ACME account – raProfile1 is snapshotted ──────────
+        String acmeAccountId = createAcmeAccount();
+
+        // ── Step 3: Create raProfile2 and update the ACME Profile to use it ──
+        RaProfileDto raProfile2 = createSecondRaProfile(authorityInstance);
+        acmeProfileService.updateRaProfile(
+                SecuredUUID.fromString(acmeProfile.getUuid()),
+                raProfile2.getUuid());
+
+        // ── Step 4: Place a new order on the existing account ─────────────────
+        ResponseEntity<com.czertainly.api.model.core.acme.Order> newOrderResponse = createAcmeOrder(acmeAccountId);
+        com.czertainly.api.model.core.acme.Order order = newOrderResponse.getBody();
+        Assertions.assertNotNull(order);
+        Assertions.assertNotNull(newOrderResponse.getHeaders().getLocation());
+        String orderLocation = newOrderResponse.getHeaders().getLocation().toString();
+        String orderId = orderLocation.substring(orderLocation.lastIndexOf('/') + 1);
+
+        // ── Step 5: Challenge and finalization ────────────────────────────────
+        validateChallenge(orderId, order, acmeAccountId);
+        finalizeOrder(orderId, acmeAccountId);
+        awaitOrderStatus(orderId, OrderStatus.VALID);
+
+        // ── Step 6: Assert certificate reflects the updated RA Profile ────────
+        // BUG: the account still carries the raProfile1 snapshot, so the
+        // certificate is issued under raProfile1 instead of raProfile2.
+        AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow();
+        Assertions.assertNotNull(acmeOrder.getCertificateReferenceUuid(), "Issued certificate must not be null");
+        Certificate certificate = certificateRepository
+                .findByUuid(acmeOrder.getCertificateReferenceUuid()).orElseThrow();
+        Assertions.assertEquals(
+                UUID.fromString(raProfile2.getUuid()),
+                certificate.getRaProfileUuid(),
+                "Certificate should be issued under the updated RA Profile (" + RA_PROFILE_NAME_2 + "), " +
+                "but was issued under the original snapshotted RA Profile (" + RA_PROFILE_NAME + ")");
     }
 
     // ── Infrastructure setup helpers ──────────────────────────────────────────
@@ -291,7 +357,7 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         return raProfile;
     }
 
-    private void createAcmeProfile(RaProfileDto raProfile, AuthorityInstanceDto authorityInstance) throws Exception {
+    private AcmeProfileDto createAcmeProfile(RaProfileDto raProfile, AuthorityInstanceDto authorityInstance) throws Exception {
         AcmeProfileRequestDto request = new AcmeProfileRequestDto();
         request.setName(ACME_PROFILE_NAME);
         request.setRaProfileUuid(raProfile.getUuid());
@@ -309,6 +375,20 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
                 SecuredUUID.fromString(raProfile.getUuid()),
                 SecuredUUID.fromString(acmeProfileDto.getUuid()),
                 activateRequest);
+
+        return acmeProfileDto;
+    }
+
+    private RaProfileDto createSecondRaProfile(AuthorityInstanceDto authorityInstance) throws Exception {
+        AddRaProfileRequestDto request = new AddRaProfileRequestDto();
+        request.setName(RA_PROFILE_NAME_2);
+        request.setAttributes(List.of());
+        RaProfileDto raProfile = raProfileService.addRaProfile(
+                SecuredParentUUID.fromString(authorityInstance.getUuid()), request);
+        raProfileService.enableRaProfile(
+                SecuredParentUUID.fromString(authorityInstance.getUuid()),
+                SecuredUUID.fromString(raProfile.getUuid()));
+        return raProfile;
     }
 
     // ── ACME flow helpers ─────────────────────────────────────────────────────
@@ -359,6 +439,7 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
             com.czertainly.api.model.core.acme.Order order,
             String accountId) throws Exception {
 
+        Assertions.assertNotNull(order.getAuthorizations());
         String authzUrl = order.getAuthorizations().getFirst();
         String authzId = authzUrl.substring(authzUrl.lastIndexOf('/') + 1);
 
@@ -401,7 +482,7 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
      * Builds a CSR and sends {@code POST /order/{id}/finalize}.
      */
     private void finalizeOrder(String orderId, String accountId) throws Exception {
-        KeyPair csrKeyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        KeyPair csrKeyPair = keyPairGenerator.generateKeyPair();
         X509Certificate testCert = AcmeTestUtil.createTestCertificate(csrKeyPair, DOMAIN_NAME);
         String certData = Base64.getEncoder().encodeToString(testCert.getEncoded());
         // Mock the actual certificate issuance.
