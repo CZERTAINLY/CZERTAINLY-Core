@@ -389,6 +389,10 @@ public class CbomServiceImpl implements CbomService {
     }
 
     public String sync() throws CbomRepositoryException {
+        if (!cbomRepositoryClient.isConfigured()) {
+            logger.getLogger().debug("CBOM sync: cbom-repository not configured: skipped;");
+            return "";
+        }
         long timestamp = getLastSyncTimestamp();
         BomSearchRequestDto query = new BomSearchRequestDto();
         query.setAfter(timestamp);
