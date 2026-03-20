@@ -135,7 +135,7 @@ public class CbomRepositoryClient {
             this.client = null;
             throw new CbomRepositoryException(ProblemDetail.forStatusAndDetail(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "cbom-repository base URL is not configured"
+                    "CBOM Repository base URL is not configured"
             ));
         }
         if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
@@ -163,10 +163,10 @@ public class CbomRepositoryClient {
                 throw cbomRepositoryException;
             }
             if (unwrappedCause instanceof WebClientRequestException wcre) {
-                logger.error("Unable to connect to cbom-repository: {}", wcre.getMessage());
+                logger.error("Unable to connect to CBOM Repository: {}", wcre.getMessage());
                 throw new CbomRepositoryException(ProblemDetail.forStatusAndDetail(
                         HttpStatus.SERVICE_UNAVAILABLE,
-                        "Unable to connect to cbom-repository: please make sure service is accessible and running."
+                        "Unable to connect to CBOM Repository: please make sure service is accessible and running."
                 ));
             }
             if (unwrappedCause instanceof WebClientResponseException wcre) {
