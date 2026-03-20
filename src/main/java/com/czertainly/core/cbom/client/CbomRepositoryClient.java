@@ -51,6 +51,26 @@ public class CbomRepositoryClient {
     private volatile WebClient client;
     private volatile String lastCbomRepositoryUrl;
 
+
+    public void resetClient() {
+        synchronized (this) {
+            this.client = null;
+            this.lastCbomRepositoryUrl = "";
+        }
+    }
+
+    public void recreateClient(String currentUrl) {
+        synchronized (this) {
+            this.lastCbomRepositoryUrl = currentUrl;
+            this.client = WebClient.builder()
+                    .baseUrl(currentUrl)
+                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
+                    .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
+                    .build();
+        }
+    }
+
+
     public void setMaxBufferSize(int maxBufferSize) {
         this.maxBufferSize = maxBufferSize;
         this.client = null;
@@ -132,24 +152,14 @@ public class CbomRepositoryClient {
     private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) throws CbomRepositoryException {
         String currentUrl = getCbomRepositoryBaseUrl();
         if (StringUtils.isBlank(currentUrl)) {
-            this.client = null;
+            resetClient();
             throw new CbomRepositoryException(ProblemDetail.forStatusAndDetail(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "CBOM Repository base URL is not configured"
             ));
         }
         if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
-            synchronized(this) {
-                if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
-                    lastCbomRepositoryUrl = currentUrl;
-                    client = WebClient
-                    .builder()
-                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
-                    .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
-                    .baseUrl(currentUrl)
-                    .build();
-                }
-            }
+            recreateClient(currentUrl);
         }
         return client.method(method);
     }
