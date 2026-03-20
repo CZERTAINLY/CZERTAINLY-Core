@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -283,5 +284,27 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(nameAndUuidDto);
         Assertions.assertEquals(acmeProfile.getName(), nameAndUuidDto.getName());
         Assertions.assertEquals(acmeProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+    }
+
+    @Test
+    void testBulkForceRemove() {
+        // Prepare
+        AcmeProfile acmeProfile2 = new AcmeProfile();
+        acmeProfile2.setName("acmeProfile2");
+        acmeProfileRepository.save(acmeProfile2);
+
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("raProfile");
+        raProfile.setAcmeProfile(acmeProfile2);
+        raProfileRepository.save(raProfile);
+
+        // Act
+        List<BulkActionMessageDto> messages = acmeProfileService.bulkForceRemoveACMEProfiles(List.of(acmeProfile2.getSecuredUuid()));
+
+        // Verify
+        Assertions.assertTrue(messages.isEmpty());
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile2.getSecuredUuid()));
+        RaProfile updatedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElseThrow();
+        Assertions.assertNull(updatedRaProfile.getAcmeProfile());
     }
 }

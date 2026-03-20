@@ -4,6 +4,7 @@ import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -18,5 +19,5 @@ public interface AcmeAccountRepository extends SecurityFilterRepository<AcmeAcco
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE AcmeAccount a SET a.raProfileUuid = :newRaProfileUuid WHERE a.acmeProfileUuid = :acmeProfileUuid AND a.isDefaultRaProfile = true")
-    void updateRaProfileForDefaultAccounts(UUID acmeProfileUuid, UUID newRaProfileUuid);
+    void updateRaProfileForDefaultAccounts(@Param("acmeProfileUuid") UUID acmeProfileUuid, @Param("newRaProfileUuid") UUID newRaProfileUuid);
 }

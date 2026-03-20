@@ -58,6 +58,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
+import org.awaitility.Awaitility;
+
 import java.net.URI;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -69,6 +71,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 
@@ -235,7 +238,7 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
      * existing account results in a certificate associated with {@value #RA_PROFILE_NAME_2}.
      */
     @Test
-    public void acmeRaProfileChangeNotReflectedInExistingAccount() throws Exception {
+    public void acmeRaProfileChangeReflectedInExistingAccount() throws Exception {
 
         // ── Step 1: Infrastructure with raProfile1 ────────────────────────────
         Connector connector = createConnector();
@@ -409,13 +412,6 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         return location.substring(location.lastIndexOf('/') + 1);
     }
 
-    record PlacedOrder(
-            String orderId,
-            String status,
-            String certificateReferenceUuid,
-            String certificateReferenceSerial) {
-    }
-
     /**
      * Sends {@code POST /new-order} for {@value #DOMAIN_NAME} and returns the response.
      */
@@ -515,21 +511,22 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
      * is exceeded.
      */
     private void awaitOrderStatus(String orderId, OrderStatus expected) throws Exception {
-        for (int i = 0; i < 50; i++) {
-            ResponseEntity<com.czertainly.api.model.core.acme.Order> response = acmeService.getOrder(
-                    ACME_PROFILE_NAME, orderId,
-                    new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + orderId), false);
-            OrderStatus current = response.getBody() != null ? response.getBody().getStatus() : null;
-            if (expected == current) return;
-            if (current == OrderStatus.INVALID) break;
-            Thread.sleep(200);
-        }
-        ResponseEntity<com.czertainly.api.model.core.acme.Order> finalResponse = acmeService.getOrder(
-                ACME_PROFILE_NAME, orderId,
-                new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + orderId), false);
-        OrderStatus finalStatus = finalResponse.getBody() != null ? finalResponse.getBody().getStatus() : null;
-        Assertions.assertEquals(expected, finalStatus,
-                "Order did not reach " + expected + " status within timeout");
+        URI orderUri = new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + orderId);
+        Awaitility.await("Order " + orderId + " reaches " + expected)
+                .atMost(10, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .pollInSameThread()
+                .failFast("Order reached INVALID status",
+                        () -> {
+                            ResponseEntity<com.czertainly.api.model.core.acme.Order> r =
+                                    acmeService.getOrder(ACME_PROFILE_NAME, orderId, orderUri, false);
+                            return r.getBody() != null && r.getBody().getStatus() == OrderStatus.INVALID;
+                        })
+                .until(() -> {
+                    ResponseEntity<com.czertainly.api.model.core.acme.Order> r =
+                            acmeService.getOrder(ACME_PROFILE_NAME, orderId, orderUri, false);
+                    return r.getBody() != null && r.getBody().getStatus() == expected;
+                });
     }
 
     // ── JWS helper ────────────────────────────────────────────────────────────

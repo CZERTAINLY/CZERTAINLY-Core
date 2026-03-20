@@ -33,6 +33,7 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
+import com.nimbusds.jose.util.Base64URL;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,11 +42,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.InitialDirContext;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -1094,5 +1102,53 @@ class AcmeServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
         // contains Link header
         Assertions.assertNotNull(response.getHeaders().get("Link"));
+    }
+
+    @Test
+    void testValidateChallenge_Dns01() throws AcmeProblemDocumentException, JOSEException, NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, NamingException {
+        AcmeAuthorization authorization = new AcmeAuthorization();
+        authorization.setAuthorizationId("authDns01");
+        authorization.setStatus(AuthorizationStatus.PENDING);
+        authorization.setIdentifier("{\"type\":\"dns\",\"value\":\"example.com\"}");
+        authorization.setOrderUuid(order1.getUuid());
+        authorization.setOrder(order1);
+        acmeAuthorizationRepository.save(authorization);
+
+        AcmeChallenge challenge = new AcmeChallenge();
+        challenge.setChallengeId("challengeDns01");
+        challenge.setStatus(ChallengeStatus.PENDING);
+        challenge.setType(ChallengeType.DNS01);
+        challenge.setToken("tokenDns01");
+        challenge.setAuthorizationUuid(authorization.getUuid());
+        challenge.setAuthorization(authorization);
+        acmeChallengeRepository.save(challenge);
+
+        String keyAuthorization = AcmeCommonHelper.createKeyAuthorization(challenge.getToken(), rsa2048PublicJWK.toPublicKey());
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        final byte[] encodedHashOfExpectedKeyAuthorization = digest.digest(keyAuthorization.getBytes(StandardCharsets.UTF_8));
+        String expectedDnsValidationToken = Base64URL.encode(encodedHashOfExpectedKeyAuthorization).toString();
+
+        try (var mockedContext = Mockito.mockConstruction(InitialDirContext.class, (mock, context) -> {
+            Attributes attrs = Mockito.mock(Attributes.class);
+            Attribute attr = Mockito.mock(Attribute.class);
+            @SuppressWarnings("unchecked")
+            NamingEnumeration<Attribute> enumeration = (NamingEnumeration<Attribute>) Mockito.mock(NamingEnumeration.class);
+
+            Mockito.when(mock.getAttributes(Mockito.anyString(), Mockito.any(String[].class))).thenReturn(attrs);
+            Mockito.doReturn(enumeration).when(attrs).getAll();
+            Mockito.when(enumeration.hasMore()).thenReturn(true, false);
+            Mockito.when(enumeration.next()).thenReturn(attr);
+            Mockito.when(attr.get()).thenReturn(expectedDnsValidationToken);
+        })) {
+            URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/chall/" + challenge.getChallengeId());
+            ResponseEntity<Challenge> response = acmeService.validateChallenge(ACME_PROFILE_NAME, challenge.getChallengeId(), requestUri, false);
+
+            Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
+            Assertions.assertEquals(ChallengeStatus.VALID, Objects.requireNonNull(response.getBody()).getStatus());
+
+            AcmeChallenge updatedChallenge = acmeChallengeRepository.findByChallengeId(challenge.getChallengeId()).orElseThrow();
+            Assertions.assertEquals(ChallengeStatus.VALID, updatedChallenge.getStatus());
+            Assertions.assertNotNull(updatedChallenge.getValidated());
+        }
     }
 }
