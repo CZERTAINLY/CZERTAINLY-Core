@@ -10,19 +10,23 @@ import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.api.exception.CbomRepositoryException;
-import lombok.Getter;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriBuilder;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
@@ -34,18 +38,18 @@ import java.util.function.Function;
 @Component
 @DependsOn("settingService")
 public class CbomRepositoryClient {
+    private static final Logger logger = LoggerFactory.getLogger(CbomRepositoryClient.class);
 
-    private WebClient client;
     private static final String CBOM_CREATE = "/api/v1/bom";
     private static final String CBOM_SEARCH = "/api/v1/bom";
     private static final String CBOM_READ = "/api/v1/bom/{urn}";
     private static final String CBOM_READ_VERSIONS = "/api/v1/bom/{urn}/versions";
 
-    @Getter
-    private final String cbomRepositoryBaseUrl;
-
     @Value("${cbom.client.max-buffer-size:20971520}")
     private int maxBufferSize;
+
+    private volatile WebClient client;
+    private volatile String lastCbomRepositoryUrl;
 
     public void setMaxBufferSize(int maxBufferSize) {
         this.maxBufferSize = maxBufferSize;
@@ -53,8 +57,8 @@ public class CbomRepositoryClient {
     }
 
     public CbomRepositoryClient() {
-        PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
-        this.cbomRepositoryBaseUrl = platformSettings.getUtils().getCbomRepositoryUrl();
+        this.lastCbomRepositoryUrl = "";
+        this.client = null;
     }
 
     public BomCreateResponseDto create(final CbomUploadRequestDto data) throws CbomRepositoryException {
@@ -118,15 +122,34 @@ public class CbomRepositoryClient {
                         .block().getBody(),
                 request);
     }
+    private String getCbomRepositoryBaseUrl() {
+        PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+            return platformSettings != null && platformSettings.getUtils() != null
+                   ? platformSettings.getUtils().getCbomRepositoryUrl()
+                   : null;
+    }
 
-    private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) {
-        if (client == null) {
-            client = WebClient
+    private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) throws CbomRepositoryException {
+        String currentUrl = getCbomRepositoryBaseUrl();
+        if (StringUtils.isBlank(currentUrl)) {
+            this.client = null;
+            throw new CbomRepositoryException(ProblemDetail.forStatusAndDetail(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "cbom-repository base URL is not configured"
+            ));
+        }
+        if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
+            synchronized(this) {
+                if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
+                    lastCbomRepositoryUrl = currentUrl;
+                    client = WebClient
                     .builder()
                     .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
                     .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
-                    .baseUrl(cbomRepositoryBaseUrl)
+                    .baseUrl(currentUrl)
                     .build();
+                }
+            }
         }
         return client.method(method);
     }
@@ -139,7 +162,14 @@ public class CbomRepositoryClient {
             if (unwrappedCause instanceof CbomRepositoryException cbomRepositoryException) {
                 throw cbomRepositoryException;
             }
-            if (unwrappedCause instanceof org.springframework.web.reactive.function.client.WebClientResponseException wcre) {
+            if (unwrappedCause instanceof WebClientRequestException wcre) {
+                logger.error("Unable to connect to cbom-repository: {}", wcre.getMessage());
+                throw new CbomRepositoryException(ProblemDetail.forStatusAndDetail(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Unable to connect to cbom-repository: please make sure service is accessible and running."
+                ));
+            }
+            if (unwrappedCause instanceof WebClientResponseException wcre) {
                 throw new CbomRepositoryException(ProblemDetail.forStatus(wcre.getStatusCode()));
             }
             throw e;
@@ -163,6 +193,6 @@ public class CbomRepositoryClient {
     }
 
     public boolean isConfigured() {
-        return this.cbomRepositoryBaseUrl != null && StringUtils.isNotBlank(this.cbomRepositoryBaseUrl);
+        return StringUtils.isNotBlank(this.getCbomRepositoryBaseUrl());
     }
 }

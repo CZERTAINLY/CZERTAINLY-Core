@@ -1,42 +1,26 @@
 package com.czertainly.core.cbom.client;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.time.OffsetDateTime;
-import java.util.LinkedHashMap;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
-
 import com.czertainly.api.exception.CbomRepositoryException;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.UtilsSettingsDto;
-import com.czertainly.core.model.cbom.BomCreateResponseDto;
-import com.czertainly.core.model.cbom.BomEntryDto;
-import com.czertainly.core.model.cbom.BomResponseDto;
-import com.czertainly.core.model.cbom.BomSearchRequestDto;
-import com.czertainly.core.model.cbom.BomVersionDto;
+import com.czertainly.core.model.cbom.*;
 import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.jupiter.api.Assertions.*;
 
 class CbomRepositoryClientTest {
 
@@ -281,15 +265,6 @@ class CbomRepositoryClientTest {
         // Assert
         assertNotNull(result);
         assertTrue(result.isEmpty());
-    }
-
-    @Test
-    void testGetServiceUrl() {
-        // Act
-        String result = client.getCbomRepositoryBaseUrl();
-
-        // Assert
-        assertEquals(baseUrl, result);
     }
 
     @Test
