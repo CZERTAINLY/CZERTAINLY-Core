@@ -16,7 +16,7 @@ public interface AcmeAccountRepository extends SecurityFilterRepository<AcmeAcco
     AcmeAccount findByPublicKey(String publicKey);
     boolean existsByAcmeProfileUuidAndIsDefaultRaProfileTrue(UUID acmeProfileUuid);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE AcmeAccount a SET a.raProfileUuid = :newRaProfileUuid WHERE a.acmeProfileUuid = :acmeProfileUuid AND a.isDefaultRaProfile = true")
     void updateRaProfileForDefaultAccounts(UUID acmeProfileUuid, UUID newRaProfileUuid);
 }

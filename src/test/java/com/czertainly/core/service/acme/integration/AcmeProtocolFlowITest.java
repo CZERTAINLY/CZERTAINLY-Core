@@ -192,28 +192,23 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         String acmeAccountId = createAcmeAccount();
 
         // ── Step 3: Order creation ────────────────────────────────────────────
-        ResponseEntity<com.czertainly.api.model.core.acme.Order> newOrderResponse = createAcmeOrder(acmeAccountId);
-        com.czertainly.api.model.core.acme.Order order = newOrderResponse.getBody();
-        Assertions.assertNotNull(order);
-        Assertions.assertNotNull(newOrderResponse.getHeaders().getLocation());
-        String orderLocation = newOrderResponse.getHeaders().getLocation().toString();
-        String orderId = orderLocation.substring(orderLocation.lastIndexOf('/') + 1);
+        OrderAndId order = createAcmeOrder(acmeAccountId);
 
         // ── Step 4: Challenge authorisation ───────────────────────────────────
-        validateChallenge(orderId, order, acmeAccountId);
+        validateChallenge(order, acmeAccountId);
 
         // ── Step 5: Order finalisation ────────────────────────────────────────
-        finalizeOrder(orderId, acmeAccountId);
+        finalizeOrder(order.orderId, acmeAccountId);
 
         // ── Step 6: Wait for async certificate issuance ───────────────────────
         // finalizeOrder triggers an @Async task that calls issueCertificateAction
         // via the ActionProducer doAnswer; poll until the order reaches VALID.
-        awaitOrderStatus(orderId, OrderStatus.VALID);
+        awaitOrderStatus(order.orderId, OrderStatus.VALID);
 
         // ── Step 7: Verify order status ───────────────────────────────────────
         ResponseEntity<com.czertainly.api.model.core.acme.Order> orderResponse = acmeService.getOrder(
-                ACME_PROFILE_NAME, orderId,
-                new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + orderId), false);
+                ACME_PROFILE_NAME, order.orderId,
+                new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + order.orderId), false);
         Assertions.assertNotNull(orderResponse.getBody());
         Assertions.assertEquals(OrderStatus.VALID, orderResponse.getBody().getStatus());
 
@@ -252,17 +247,12 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         String acmeAccountId = createAcmeAccount();
 
         // ── Step 3: Place a new order on the existing account ─────────────────
-        ResponseEntity<com.czertainly.api.model.core.acme.Order> newOrderResponse = createAcmeOrder(acmeAccountId);
-        com.czertainly.api.model.core.acme.Order order = newOrderResponse.getBody();
-        Assertions.assertNotNull(order);
-        Assertions.assertNotNull(newOrderResponse.getHeaders().getLocation());
-        String orderLocation = newOrderResponse.getHeaders().getLocation().toString();
-        String orderId = orderLocation.substring(orderLocation.lastIndexOf('/') + 1);
+        OrderAndId order_1 = createAcmeOrder(acmeAccountId);
 
         // ── Step 4: Challenge and finalization ────────────────────────────────
-        validateChallenge(orderId, order, acmeAccountId);
-        finalizeOrder(orderId, acmeAccountId);
-        awaitOrderStatus(orderId, OrderStatus.VALID);
+        validateChallenge(order_1, acmeAccountId);
+        finalizeOrder(order_1.orderId, acmeAccountId);
+        awaitOrderStatus(order_1.orderId, OrderStatus.VALID);
 
         // ── Step 5: Create raProfile2 and update the ACME Profile to use it ──
         RaProfileDto raProfile2 = createSecondRaProfile(authorityInstance);
@@ -271,20 +261,15 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
                 raProfile2.getUuid());
 
         // ── Step 6: Place a new order on the same ACME account ─────────────────
-        newOrderResponse = createAcmeOrder(acmeAccountId);
-        order = newOrderResponse.getBody();
-        Assertions.assertNotNull(order);
-        Assertions.assertNotNull(newOrderResponse.getHeaders().getLocation());
-        orderLocation = newOrderResponse.getHeaders().getLocation().toString();
-        orderId = orderLocation.substring(orderLocation.lastIndexOf('/') + 1);
+        OrderAndId order_2 = createAcmeOrder(acmeAccountId);
 
         // ── Step 7: Challenge, finalize, and await the new order ──────────────
-        validateChallenge(orderId, order, acmeAccountId);
-        finalizeOrder(orderId, acmeAccountId);
-        awaitOrderStatus(orderId, OrderStatus.VALID);
+        validateChallenge(order_2, acmeAccountId);
+        finalizeOrder(order_2.orderId, acmeAccountId);
+        awaitOrderStatus(order_2.orderId, OrderStatus.VALID);
 
         // ── Step 8: Assert certificate reflects the updated RA Profile ────────
-        AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow();
+        AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(order_2.orderId).orElseThrow();
         Assertions.assertNotNull(acmeOrder.getCertificateReferenceUuid(), "Issued certificate must not be null");
         Certificate certificate = certificateRepository
                 .findByUuid(acmeOrder.getCertificateReferenceUuid()).orElseThrow();
@@ -400,6 +385,11 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
 
     // ── ACME flow helpers ─────────────────────────────────────────────────────
 
+    private record OrderAndId(
+            com.czertainly.api.model.core.acme.Order order,
+            String orderId) {
+    }
+
     /**
      * Sends {@code POST /new-account} and returns the assigned account ID.
      */
@@ -419,10 +409,17 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         return location.substring(location.lastIndexOf('/') + 1);
     }
 
+    record PlacedOrder(
+            String orderId,
+            String status,
+            String certificateReferenceUuid,
+            String certificateReferenceSerial) {
+    }
+
     /**
      * Sends {@code POST /new-order} for {@value #DOMAIN_NAME} and returns the response.
      */
-    private ResponseEntity<com.czertainly.api.model.core.acme.Order> createAcmeOrder(String accountId) throws Exception {
+    private OrderAndId createAcmeOrder(String accountId) throws Exception {
         Map<String, Object> payload = new HashMap<>();
         Map<String, String> identifier = new HashMap<>();
         identifier.put("type", "dns");
@@ -434,20 +431,22 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
                 ACME_PROFILE_NAME, jws,
                 new URI("/acme/" + ACME_PROFILE_NAME + "/new-order"), false);
         Assertions.assertEquals(201, response.getStatusCode().value());
-        return response;
+
+        com.czertainly.api.model.core.acme.Order order = response.getBody();
+        Assertions.assertNotNull(order);
+        Assertions.assertNotNull(response.getHeaders().getLocation());
+        String orderLocation = response.getHeaders().getLocation().toString();
+        String orderId = orderLocation.substring(orderLocation.lastIndexOf('/') + 1);
+        return new OrderAndId(order, orderId);
     }
 
     /**
      * Retrieves the authorization, finds the HTTP-01 challenge, and simulates validation
      * by directly updating entity state in the database.
      */
-    private void validateChallenge(
-            String orderId,
-            com.czertainly.api.model.core.acme.Order order,
-            String accountId) throws Exception {
-
-        Assertions.assertNotNull(order.getAuthorizations());
-        String authzUrl = order.getAuthorizations().getFirst();
+    private void validateChallenge(OrderAndId order, String accountId) throws Exception {
+        Assertions.assertNotNull(order.order.getAuthorizations());
+        String authzUrl = order.order.getAuthorizations().getFirst();
         String authzId = authzUrl.substring(authzUrl.lastIndexOf('/') + 1);
 
         String jws = createJws(null, "/acme/" + ACME_PROFILE_NAME + "/authz/" + authzId, accountId);
@@ -479,8 +478,8 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         acmeOrderRepository.save(acmeOrder);
 
         ResponseEntity<com.czertainly.api.model.core.acme.Order> updatedOrder = acmeService.getOrder(
-                ACME_PROFILE_NAME, orderId,
-                new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + orderId), false);
+                ACME_PROFILE_NAME, order.orderId,
+                new URI("/acme/" + ACME_PROFILE_NAME + "/order/" + order.orderId), false);
         Assertions.assertNotNull(updatedOrder.getBody());
         Assertions.assertEquals(OrderStatus.READY, updatedOrder.getBody().getStatus());
     }
