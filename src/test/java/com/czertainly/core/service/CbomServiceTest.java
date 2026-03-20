@@ -41,6 +41,9 @@ import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.UtilsSettingsDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.cbom.client.CbomRepositoryClient;
@@ -58,6 +61,7 @@ import com.czertainly.core.model.cbom.CryptoAssetsDto;
 import com.czertainly.core.model.cbom.CryptoStatsDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.tasks.CbomSyncTask;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -111,6 +115,11 @@ class CbomServiceTest extends BaseSpringBootTest {
 
     private WireMockServer mockServer;
     private WebClient webClient;
+
+    @Autowired
+    private SettingsCache settingsCache;
+
+    @Autowired
     private CbomRepositoryClient cbomRepositoryClient;
 
     @Autowired
@@ -141,10 +150,18 @@ class CbomServiceTest extends BaseSpringBootTest {
                 })
                 .build())
             .build();
+
+        String wireMockUrl = "http://localhost:" + mockServer.port();
+
+        PlatformSettingsDto platformSettings = new PlatformSettingsDto();
+        platformSettings.setUtils(new UtilsSettingsDto());
+        platformSettings.getUtils().setCbomRepositoryUrl("http://localhost:" + mockServer.port());
+        settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
+
         cbomRepositoryClient = new CbomRepositoryClient();
         ReflectionTestUtils.setField(cbomRepositoryClient, "client", webClient);
+        ReflectionTestUtils.setField(cbomRepositoryClient, "lastCbomRepositoryUrl", wireMockUrl);
         ReflectionTestUtils.setField(cbomService, "cbomRepositoryClient", cbomRepositoryClient);
-        ReflectionTestUtils.setField(cbomRepositoryClient, "cbomRepositoryBaseUrl", "");
     }
 
     @AfterEach

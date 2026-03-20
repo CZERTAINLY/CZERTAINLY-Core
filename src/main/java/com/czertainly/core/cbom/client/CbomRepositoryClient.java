@@ -122,7 +122,7 @@ public class CbomRepositoryClient {
                         .block().getBody(),
                 request);
     }
-    private String getCbomRepositoryBaseUrl() {
+    public String getCbomRepositoryBaseUrl() {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
             return platformSettings != null && platformSettings.getUtils() != null
                    ? platformSettings.getUtils().getCbomRepositoryUrl()
