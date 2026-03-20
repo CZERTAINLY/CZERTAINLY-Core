@@ -228,19 +228,16 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     }
 
     /**
-     * Regression test exposing the RA Profile snapshot bug.
+     * Ensure a change to the default RA Profile is reflected in existing ACME accounts.
      *
-     * <p>When an ACME account is created, it captures a snapshot of the RA Profile UUID that
-     * was configured on the ACME Profile at that moment. If the ACME Profile is later updated
-     * to point to a different RA Profile via {@link AcmeProfileService#updateRaProfile}, the
-     * already-created account is <em>not</em> updated. Subsequent certificate issuance through
-     * that account therefore uses the original (stale) RA Profile instead of the current one.
+     * <p>When an ACME account is created through the ACME-Profile-based flow it is marked with
+     * {@code isDefaultRaProfile = true}. If the ACME Profile is later updated to a different RA Profile
+     * via {@link AcmeProfileService#updateRaProfile}, all such accounts must have their RA profiles updated
+     * so that subsequent certificate operations are issued under the new RA Profile.
      *
-     * <p>This test exhibits the problem: after switching the ACME Profile from
-     * {@value #RA_PROFILE_NAME} to {@value #RA_PROFILE_NAME_2}, a new order placed on the
-     * existing account is finalized, and the resulting certificate is expected to be associated
-     * with {@value #RA_PROFILE_NAME_2}. With the current implementation the assertion fails
-     * because the certificate still references the original {@value #RA_PROFILE_NAME}.
+     * <p>This test verifies that after switching the ACME Profile from
+     * {@value #RA_PROFILE_NAME} to {@value #RA_PROFILE_NAME_2}, a new order finalized on the
+     * existing account results in a certificate associated with {@value #RA_PROFILE_NAME_2}.
      */
     @Test
     public void acmeRaProfileChangeNotReflectedInExistingAccount() throws Exception {
@@ -254,13 +251,7 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         // ── Step 2: Create an ACME account – raProfile1 is snapshotted ──────────
         String acmeAccountId = createAcmeAccount();
 
-        // ── Step 3: Create raProfile2 and update the ACME Profile to use it ──
-        RaProfileDto raProfile2 = createSecondRaProfile(authorityInstance);
-        acmeProfileService.updateRaProfile(
-                SecuredUUID.fromString(acmeProfile.getUuid()),
-                raProfile2.getUuid());
-
-        // ── Step 4: Place a new order on the existing account ─────────────────
+        // ── Step 3: Place a new order on the existing account ─────────────────
         ResponseEntity<com.czertainly.api.model.core.acme.Order> newOrderResponse = createAcmeOrder(acmeAccountId);
         com.czertainly.api.model.core.acme.Order order = newOrderResponse.getBody();
         Assertions.assertNotNull(order);
@@ -268,14 +259,31 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         String orderLocation = newOrderResponse.getHeaders().getLocation().toString();
         String orderId = orderLocation.substring(orderLocation.lastIndexOf('/') + 1);
 
-        // ── Step 5: Challenge and finalization ────────────────────────────────
+        // ── Step 4: Challenge and finalization ────────────────────────────────
         validateChallenge(orderId, order, acmeAccountId);
         finalizeOrder(orderId, acmeAccountId);
         awaitOrderStatus(orderId, OrderStatus.VALID);
 
-        // ── Step 6: Assert certificate reflects the updated RA Profile ────────
-        // BUG: the account still carries the raProfile1 snapshot, so the
-        // certificate is issued under raProfile1 instead of raProfile2.
+        // ── Step 5: Create raProfile2 and update the ACME Profile to use it ──
+        RaProfileDto raProfile2 = createSecondRaProfile(authorityInstance);
+        acmeProfileService.updateRaProfile(
+                SecuredUUID.fromString(acmeProfile.getUuid()),
+                raProfile2.getUuid());
+
+        // ── Step 6: Place a new order on the same ACME account ─────────────────
+        newOrderResponse = createAcmeOrder(acmeAccountId);
+        order = newOrderResponse.getBody();
+        Assertions.assertNotNull(order);
+        Assertions.assertNotNull(newOrderResponse.getHeaders().getLocation());
+        orderLocation = newOrderResponse.getHeaders().getLocation().toString();
+        orderId = orderLocation.substring(orderLocation.lastIndexOf('/') + 1);
+
+        // ── Step 7: Challenge, finalize, and await the new order ──────────────
+        validateChallenge(orderId, order, acmeAccountId);
+        finalizeOrder(orderId, acmeAccountId);
+        awaitOrderStatus(orderId, OrderStatus.VALID);
+
+        // ── Step 8: Assert certificate reflects the updated RA Profile ────────
         AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow();
         Assertions.assertNotNull(acmeOrder.getCertificateReferenceUuid(), "Issued certificate must not be null");
         Certificate certificate = certificateRepository
@@ -283,8 +291,7 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         Assertions.assertEquals(
                 UUID.fromString(raProfile2.getUuid()),
                 certificate.getRaProfileUuid(),
-                "Certificate should be issued under the updated RA Profile (" + RA_PROFILE_NAME_2 + "), " +
-                "but was issued under the original snapshotted RA Profile (" + RA_PROFILE_NAME + ")");
+                "Certificate should be issued under the updated RA Profile (" + RA_PROFILE_NAME_2 + ")");
     }
 
     // ── Infrastructure setup helpers ──────────────────────────────────────────
