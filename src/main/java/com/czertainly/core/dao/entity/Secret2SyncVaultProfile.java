@@ -8,6 +8,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -31,6 +32,6 @@ public class Secret2SyncVaultProfile implements Serializable {
 
     @Column(name = "secret_attributes", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<RequestAttribute> secretAttributes;
+    private List<RequestAttribute> secretAttributes = new ArrayList<>();
 
 }
