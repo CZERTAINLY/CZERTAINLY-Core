@@ -20,8 +20,10 @@ import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -52,6 +54,8 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     ConnectorRepository connectorRepository;
+    @Autowired
+    private AcmeAccountRepository acmeAccountRepository;
 
     private AcmeProfile acmeProfile;
     private RequestAttributeV3 domainAttrRequestAttribute;
@@ -306,5 +310,33 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile2.getSecuredUuid()));
         RaProfile updatedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElseThrow();
         Assertions.assertNull(updatedRaProfile.getAcmeProfile());
+    }
+
+    @Test
+    void testEditAcmeProfile_cannotSetRaProfileToNull_whenAccountsWithDefaultRaProfileExist() {
+        // Prepare an ACME account with a default RA profile.
+        setUpOldConnector();
+        acmeProfileRepository.save(acmeProfile);
+
+        AcmeAccount acmeAccount = new AcmeAccount();
+        acmeAccount.setAccountId("test-account-id");
+        acmeAccount.setPublicKey("test-public-key");
+        acmeAccount.setDefaultRaProfile(true);
+        acmeAccount.setEnabled(true);
+        acmeAccount.setAcmeProfileUuid(acmeProfile.getUuid().toString());
+        acmeAccount.setRaProfileUuid(acmeProfile.getRaProfile().getUuid().toString());
+        acmeAccountRepository.save(acmeAccount);
+
+        // Act
+        AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
+        request.setRaProfileUuid(null);
+        ValidationException exception = Assertions.assertThrows(
+                ValidationException.class,
+                () -> acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request)
+        );
+
+        // Verify the error message
+        Assertions.assertTrue(exception.getMessage().contains("Cannot remove the RA Profile"));
+        Assertions.assertTrue(exception.getMessage().contains("because there are existing ACME accounts"));
     }
 }
