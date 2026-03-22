@@ -547,20 +547,34 @@ class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testNewAccount() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_acmeProfileBased_withExistingKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, false);
+        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false);
         assertNewAccount(account);
     }
 
     @Test
-    void testNewAccount_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_raProfileBased_withExistingKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, true);
+        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, true);
         assertNewAccount(account);
     }
 
-    private String buildNewAccountRequestJSON(URI requestUri) throws JOSEException {
+    @Test
+    void testNewAccount_acmeProfileBased_withNewKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
+        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, false);
+        assertNewAccount(account);
+    }
+
+    @Test
+    void testNewAccount_raProfileBased_withNewKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
+        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, true);
+        assertNewAccount(account);
+    }
+
+    private String buildNewAccountRequestJSON_withExistingKey(URI requestUri) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
         jwsObjectJSON.sign(
                 new JWSHeader.Builder(JWSAlgorithm.RS256)
@@ -569,6 +583,19 @@ class AcmeServiceTest extends BaseSpringBootTest {
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
                         .build(),
                 rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private String buildNewAccountRequestJSON_withNewKey(URI requestUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(newRsa2048PublicJWK)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                newRsa2048Signer
         );
         return jwsObjectJSON.serializeFlattened();
     }
@@ -653,14 +680,14 @@ class AcmeServiceTest extends BaseSpringBootTest {
     void testNewAccountOnExisting_wrongConfiguration() throws URISyntaxException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME_2 + "/new-account");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(ACME_PROFILE_NAME_2, buildNewAccountRequestJSON(requestUri), requestUri, false));
+                () -> acmeService.newAccount(ACME_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false));
     }
 
     @Test
     void testNewAccountOnExisting_wrongConfiguration_raProfileBased() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME_2 + "/new-account");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(RA_PROFILE_NAME_2, buildNewAccountRequestJSON(requestUri), requestUri, true));
+                () -> acmeService.newAccount(RA_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, true));
     }
 
     @Test
@@ -933,7 +960,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     void testUpdateAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/update");
-        acmeService.updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, buildNewAccountRequestJSON(requestUri), requestUri, false);
+        acmeService.updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false);
         AcmeAccount acmeAccount = acmeAccountRepository.findByAccountId(ACME_ACCOUNT_ID_VALID).orElseThrow();
         Assertions.assertEquals(1, acmeAccount.getFailedOrders());
     }
