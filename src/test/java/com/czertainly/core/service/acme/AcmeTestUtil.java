@@ -43,13 +43,13 @@ public final class AcmeTestUtil {
      *
      * <p>A fresh nonce is persisted to {@code acmeNonceRepository} so the service can validate it.
      *
-     * @param objectMapper       Jackson mapper used to serialise the payload
-     * @param acmeKeyPair        RSA key pair to sign the JWS
+     * @param objectMapper        Jackson mapper used to serialize the payload
+     * @param acmeKeyPair         RSA key pair to sign the JWS
      * @param acmeNonceRepository repository used to register the generated nonce
-     * @param payload            request payload object (serialised to JSON), or {@code null} for POST-as-GET
-     * @param url                the ACME endpoint URL embedded in the JWS header
-     * @param accountId          account ID for the {@code kid} header, or {@code null} for new-account
-     * @param acmeProfileName    ACME profile name used to construct the account URL
+     * @param payload             request payload object (serialized to JSON), or {@code null} for POST-as-GET
+     * @param url                 the ACME endpoint URL embedded in the JWS header
+     * @param accountId           account ID for the {@code kid} header, or {@code null} for new-account
+     * @param acmeProfileName     ACME profile name used to construct the account URL
      * @return flattened JWS serialisation
      */
     public static String createJwsRequest(
@@ -95,8 +95,7 @@ public final class AcmeTestUtil {
      * @param commonName CN value for the subject distinguished name
      * @return DER-encoded CSR
      */
-    public static PKCS10CertificationRequest createCsr(KeyPair keyPair, String commonName)
-            throws OperatorCreationException, IOException {
+    public static PKCS10CertificationRequest createCsr(KeyPair keyPair, String commonName) throws OperatorCreationException {
 
         X500Name subject = new X500Name("CN=" + commonName);
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());

@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -323,6 +324,8 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         acmeAccount.setPublicKey("test-public-key");
         acmeAccount.setDefaultRaProfile(true);
         acmeAccount.setEnabled(true);
+        acmeAccount.setStatus(AccountStatus.VALID);
+        acmeAccount.setTermsOfServiceAgreed(true);
         acmeAccount.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         acmeAccount.setRaProfileUuid(acmeProfile.getRaProfile().getUuid().toString());
         acmeAccountRepository.save(acmeAccount);
@@ -330,9 +333,9 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         // Act
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
         request.setRaProfileUuid(null);
-        ValidationException exception = Assertions.assertThrows(
-                ValidationException.class,
-                () -> acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request)
+        SecuredUUID acmeProfileUuid = acmeProfile.getSecuredUuid();
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> acmeProfileService.editAcmeProfile(acmeProfileUuid, request)
         );
 
         // Verify the error message

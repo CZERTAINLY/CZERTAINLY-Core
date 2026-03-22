@@ -250,12 +250,12 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
         String acmeAccountId = createAcmeAccount();
 
         // ── Step 3: Place a new order on the existing account ─────────────────
-        OrderAndId order_1 = createAcmeOrder(acmeAccountId);
+        OrderAndId order1 = createAcmeOrder(acmeAccountId);
 
         // ── Step 4: Challenge and finalization ────────────────────────────────
-        validateChallenge(order_1, acmeAccountId);
-        finalizeOrder(order_1.orderId, acmeAccountId);
-        awaitOrderStatus(order_1.orderId, OrderStatus.VALID);
+        validateChallenge(order1, acmeAccountId);
+        finalizeOrder(order1.orderId, acmeAccountId);
+        awaitOrderStatus(order1.orderId, OrderStatus.VALID);
 
         // ── Step 5: Create raProfile2 and update the ACME Profile to use it ──
         RaProfileDto raProfile2 = createSecondRaProfile(authorityInstance);
@@ -264,15 +264,15 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
                 raProfile2.getUuid());
 
         // ── Step 6: Place a new order on the same ACME account ─────────────────
-        OrderAndId order_2 = createAcmeOrder(acmeAccountId);
+        OrderAndId order2 = createAcmeOrder(acmeAccountId);
 
         // ── Step 7: Challenge, finalize, and await the new order ──────────────
-        validateChallenge(order_2, acmeAccountId);
-        finalizeOrder(order_2.orderId, acmeAccountId);
-        awaitOrderStatus(order_2.orderId, OrderStatus.VALID);
+        validateChallenge(order2, acmeAccountId);
+        finalizeOrder(order2.orderId, acmeAccountId);
+        awaitOrderStatus(order2.orderId, OrderStatus.VALID);
 
         // ── Step 8: Assert certificate reflects the updated RA Profile ────────
-        AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(order_2.orderId).orElseThrow();
+        AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(order2.orderId).orElseThrow();
         Assertions.assertNotNull(acmeOrder.getCertificateReferenceUuid(), "Issued certificate must not be null");
         Certificate certificate = certificateRepository
                 .findByUuid(acmeOrder.getCertificateReferenceUuid()).orElseThrow();
