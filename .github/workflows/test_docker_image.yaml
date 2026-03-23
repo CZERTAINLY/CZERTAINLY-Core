@@ -91,7 +91,7 @@ jobs:
 
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:ci
           format: json
@@ -105,7 +105,7 @@ jobs:
           path: trivy-report-amd64.json
 
       - name: Fail build on vulnerabilities
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:ci
           trivy-config: config/trivy.yaml
@@ -147,7 +147,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}-arm64
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:ci
           format: json
@@ -161,7 +161,7 @@ jobs:
           path: trivy-report-arm64.json
 
       - name: Fail build on vulnerabilities
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:ci
           trivy-config: config/trivy.yaml
