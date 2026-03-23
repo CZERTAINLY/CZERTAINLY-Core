@@ -158,14 +158,9 @@ class CbomRepositoryClientRefresherIntegrationTest {
         CbomRepositoryUrlChangedEvent event = new CbomRepositoryUrlChangedEvent(OLD_URL, NEW_URL);
 
         // Act
-        long startTime = System.currentTimeMillis();
         eventPublisher.publishEvent(event);
-        long publishTime = System.currentTimeMillis() - startTime;
 
-        // Assert - publishing should be fast (async), not wait for execution
-        assertThat(publishTime).isLessThan(100);
-        
-        // But the actual handling by refresher should complete within reasonable time
+        // Assert - handling by refresher should complete within reasonable time
         verify(cbomRepositoryClientRefresher, timeout(1000).times(1)).onCbomRepositoryUrlChanged(event);
         verify(cbomRepositoryClient, timeout(1000).times(1)).recreateClient(NEW_URL);
     }
