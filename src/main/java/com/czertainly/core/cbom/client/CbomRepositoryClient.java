@@ -48,19 +48,20 @@ public class CbomRepositoryClient {
     @Value("${cbom.client.max-buffer-size:20971520}")
     private int maxBufferSize;
 
-    private volatile WebClient client;
-    private volatile String lastCbomRepositoryUrl;
+    private WebClient client;
+    private String lastCbomRepositoryUrl;
+    private final Object clientLock = new Object();
 
 
     public void resetClient() {
-        synchronized (this) {
+        synchronized (this.clientLock) {
             this.client = null;
             this.lastCbomRepositoryUrl = "";
         }
     }
 
     public void recreateClient(String currentUrl) {
-        synchronized (this) {
+        synchronized (this.clientLock) {
             this.lastCbomRepositoryUrl = currentUrl;
             this.client = WebClient.builder()
                     .baseUrl(currentUrl)
@@ -72,8 +73,10 @@ public class CbomRepositoryClient {
 
 
     public void setMaxBufferSize(int maxBufferSize) {
-        this.maxBufferSize = maxBufferSize;
-        this.client = null;
+        synchronized (this.clientLock) {
+            this.maxBufferSize = maxBufferSize;
+            this.client = null;
+        }
     }
 
     public CbomRepositoryClient() {
@@ -158,10 +161,13 @@ public class CbomRepositoryClient {
                     "CBOM Repository base URL is not configured"
             ));
         }
-        if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
-            recreateClient(currentUrl);
+
+        synchronized (this.clientLock) {
+            if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
+                recreateClient(currentUrl);
+            }
+            return client.method(method);
         }
-        return client.method(method);
     }
 
     private static <T, R> R processRequest(Function<T, R> func, T request) throws CbomRepositoryException {
