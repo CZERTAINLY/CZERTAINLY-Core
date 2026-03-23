@@ -807,7 +807,7 @@ public class AcmeServiceImpl implements AcmeService {
         account.setTermsOfServiceAgreed(true);
         account.setRaProfile(raProfileToUse);
         account.setPublicKey(publicKey);
-        account.setDefaultRaProfile(true);
+        account.setDefaultRaProfile(!isRaProfileBased);
         account.setAccountId(accountId);
         account.setContact(SerializationUtil.serialize(accountRequest.getContact()));
         acmeAccountRepository.save(account);
