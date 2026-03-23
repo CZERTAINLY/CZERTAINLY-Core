@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
@@ -255,6 +256,19 @@ class VaultProfileServiceTest extends BaseSpringBootTest {
         vaultProfileService.disableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()));
         VaultProfile updatedProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(vaultProfile.getUuid())).orElseThrow();
         Assertions.assertFalse(updatedProfile.isEnabled());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        List<NameAndUuidDto> dtos = vaultProfileService.listResourceObjects(SecurityFilter.create(), null, null);
+        Assertions.assertEquals(1, dtos.size());
+
+        NameAndUuidDto dto = vaultProfileService.getResourceObjectExternal(SecuredUUID.fromUUID(vaultProfile.getUuid()));
+        Assertions.assertEquals(vaultProfile.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals(vaultProfile.getName(), dto.getName());
+
+        dto = vaultProfileService.getResourceObjectInternal(vaultProfile.getUuid());
+        Assertions.assertEquals(vaultProfile.getUuid().toString(), dto.getUuid());
     }
 
     @Test
