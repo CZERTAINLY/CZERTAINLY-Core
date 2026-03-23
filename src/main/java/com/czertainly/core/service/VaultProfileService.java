@@ -16,7 +16,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface VaultProfileService {
+public interface VaultProfileService extends ResourceExtensionService {
 
     PaginationResponseDto<VaultProfileDto> listVaultProfiles(SearchRequestDto searchRequest, SecurityFilter securityFilter);
 
