@@ -387,6 +387,7 @@ public class CbomServiceImpl implements CbomService {
     public void syncAuthorized() throws CbomRepositoryException {
         if (!cbomRepositoryClient.isConfigured()) {
             logger.getLogger().debug("CBOM sync: cbom-repository not configured: skipped;");
+            return;
         }
         sync();
     }
