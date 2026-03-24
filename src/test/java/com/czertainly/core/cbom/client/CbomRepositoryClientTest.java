@@ -13,6 +13,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -44,8 +45,8 @@ class CbomRepositoryClientTest {
         SettingsCache cache = new SettingsCache();
         cache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
 
-        client = new CbomRepositoryClient();
-        client.setMaxBufferSize(262144);
+        WebClient wclient = WebClient.builder().build();
+        client = new CbomRepositoryClient(wclient, 262144);
         objectMapper = new ObjectMapper();
         objectMapper.findAndRegisterModules();
     }
@@ -272,7 +273,8 @@ class CbomRepositoryClientTest {
         // Arrange
         String urn = "urn:uuid:test-serial";
         int smallBufferSize = 100;
-        client.setMaxBufferSize(smallBufferSize);
+        WebClient wclient = WebClient.builder().build();
+        client = new CbomRepositoryClient(wclient, smallBufferSize);
 
         StringBuilder largeContent = new StringBuilder();
         largeContent.append("A".repeat(smallBufferSize + 1));

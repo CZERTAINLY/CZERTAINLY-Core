@@ -108,7 +108,7 @@ public class CbomRepositoryClient {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
         final String baseUrl = getCbomRepositoryBaseUrl();
         return processRequest(r -> r
-                        .uri(baseUrl + CBOM_READ_VERSIONS)
+                        .uri(baseUrl + CBOM_READ_VERSIONS, urn)
                         .retrieve()
                         .toEntity(new ParameterizedTypeReference<List<BomVersionDto>>() {
                         })
