@@ -14,7 +14,6 @@ import com.czertainly.api.exception.CbomRepositoryException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -27,7 +26,8 @@ import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.springframework.web.util.UriBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
+
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 
@@ -45,24 +45,23 @@ public class CbomRepositoryClient {
     private static final String CBOM_READ = "/api/v1/bom/{urn}";
     private static final String CBOM_READ_VERSIONS = "/api/v1/bom/{urn}/versions";
 
-    @Value("${cbom.client.max-buffer-size:20971520}")
-    private int maxBufferSize;
+    // @Value("${cbom.client.max-buffer-size:20971520}")
+    // private final int maxBufferSize;
 
-    private WebClient client;
+    private final WebClient client;
 
-    public void setMaxBufferSize(int maxBufferSize) {
-        this.maxBufferSize = maxBufferSize;
-        this.client = buildClient();
+    public CbomRepositoryClient(WebClient client, int maxBufferSize) {
+        this.client = WebClient.builder()
+        .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
+        .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
+        .build();
     }
 
     public BomCreateResponseDto create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
+        final String baseUrl = getCbomRepositoryBaseUrl();
         return processRequest(r -> r
-                        .uri(uriBuilder -> {
-                            UriBuilder builder = uriBuilder
-                                    .path(CBOM_CREATE);
-                            return builder.build();
-                        })
+                        .uri(baseUrl + CBOM_CREATE)
                         .body(Mono.just(data.getContent()), LinkedHashMap.class)
                         .header(HttpHeaders.CONTENT_TYPE, "application/vnd.cyclonedx+json")
                         .retrieve()
@@ -72,44 +71,44 @@ public class CbomRepositoryClient {
     }
 
     public List<BomEntryDto> search(final BomSearchRequestDto query) throws CbomRepositoryException {
-        final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
+        String baseUrl = getCbomRepositoryBaseUrl();
+        final WebClient.RequestBodyUriSpec request = client.method(HttpMethod.GET);
         return processRequest(r -> r
-                        .uri(uriBuilder -> uriBuilder
-                                .path(CBOM_SEARCH)
-                                .queryParam("after", query.getAfter())
-                                .build())
-                        .retrieve()
-                        .toEntity(new ParameterizedTypeReference<List<BomEntryDto>>() {
-                        })
-                        .block().getBody(),
-                request);
+            .uri(uriBuilder -> UriComponentsBuilder.fromUriString(baseUrl)
+                .path(CBOM_SEARCH)
+                .queryParam("after", query.getAfter())
+                .build()
+                .toUri())
+            .retrieve()
+            .toEntity(new ParameterizedTypeReference<List<BomEntryDto>>() {
+            })
+            .block().getBody(),
+            request);
     }
 
     public BomResponseDto read(final String urn, final Integer version) throws CbomRepositoryException {
-        final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
+        final WebClient.RequestBodyUriSpec request = client.method(HttpMethod.GET);
+        final String baseUrl = getCbomRepositoryBaseUrl();
         return processRequest(r -> r
-                        .uri(uriBuilder -> {
-                            UriBuilder builder = uriBuilder
-                                    .path(CBOM_READ);
-                            if (version != null) {
-                                builder.queryParam("version", version);
-                            }
-                            return builder.build(urn);
-                        })
-                        .retrieve()
-                        .toEntity(BomResponseDto.class)
-                        .block().getBody(),
-                request);
+            .uri(uriBuilder -> {
+                UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
+                .path(CBOM_READ);
+                if (version != null) {
+                    builder.queryParam("version", version);
+                }
+                return builder.build(urn);
+            })
+            .retrieve()
+            .toEntity(BomResponseDto.class)
+            .block().getBody(),
+            request);
     }
 
     public List<BomVersionDto> versions(final String urn) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
+        final String baseUrl = getCbomRepositoryBaseUrl();
         return processRequest(r -> r
-                        .uri(uriBuilder -> {
-                            UriBuilder builder = uriBuilder
-                                    .path(CBOM_READ_VERSIONS);
-                            return builder.build(urn);
-                        })
+                        .uri(baseUrl + CBOM_READ_VERSIONS)
                         .retrieve()
                         .toEntity(new ParameterizedTypeReference<List<BomVersionDto>>() {
                         })
@@ -118,29 +117,30 @@ public class CbomRepositoryClient {
     }
 
     public boolean isConfigured() {
-        return StringUtils.isNotBlank(this.getCbomRepositoryBaseUrl());
+        try {
+            return StringUtils.isNotBlank(this.getCbomRepositoryBaseUrl());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    private String getCbomRepositoryBaseUrl() {
+    private String getCbomRepositoryBaseUrl() throws CbomRepositoryException {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
-        return platformSettings != null && platformSettings.getUtils() != null
-                ? platformSettings.getUtils().getCbomRepositoryUrl()
-                : null;
-    }
+        String baseUrl = platformSettings != null && platformSettings.getUtils() != null
+        ? platformSettings.getUtils().getCbomRepositoryUrl()
+        : null;
 
-    private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) throws CbomRepositoryException {
-        String currentUrl = getCbomRepositoryBaseUrl();
-        if (StringUtils.isBlank(currentUrl)) {
+        if (StringUtils.isBlank(baseUrl)) {
             throw new CbomRepositoryException(ProblemDetail.forStatusAndDetail(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "CBOM Repository base URL is not configured"
             ));
         }
+        return baseUrl;
+    }
 
-        if (client == null) {
-            client = buildClient();
-        }
-        return client.mutate().baseUrl(currentUrl).build().method(method);
+    private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) {
+        return client.method(method);
     }
 
     private static <T, R> R processRequest(Function<T, R> func, T request) throws CbomRepositoryException {
@@ -179,13 +179,5 @@ public class CbomRepositoryClient {
                     });
         }
         return Mono.just(clientResponse);
-    }
-
-
-    private WebClient buildClient() {
-        return WebClient.builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
-                .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
-                .build();
     }
 }
