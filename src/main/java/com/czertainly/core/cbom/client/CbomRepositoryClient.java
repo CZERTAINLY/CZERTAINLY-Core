@@ -50,7 +50,7 @@ public class CbomRepositoryClient {
 
 
     public void setMaxBufferSize(int maxBufferSize) {
-            this.maxBufferSize = maxBufferSize;
+        this.maxBufferSize = maxBufferSize;
     }
 
     public CbomRepositoryClient() {
