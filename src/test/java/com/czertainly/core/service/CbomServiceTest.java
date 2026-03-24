@@ -24,9 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.reactive.function.client.ExchangeStrategies;
-import org.springframework.web.reactive.function.client.WebClient;
+
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CbomRepositoryException;
@@ -46,7 +44,6 @@ import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.UtilsSettingsDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
@@ -114,13 +111,9 @@ class CbomServiceTest extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     private WireMockServer mockServer;
-    private WebClient webClient;
 
     @Autowired
     private SettingsCache settingsCache;
-
-    @Autowired
-    private CbomRepositoryClient cbomRepositoryClient;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -136,32 +129,10 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        webClient = WebClient.builder()
-            .baseUrl("http://localhost:" + mockServer.port())
-            .filter((request, next) -> next.exchange(request)
-                .flatMap(CbomRepositoryClient::handleHttpExceptions))
-            .exchangeStrategies(ExchangeStrategies.builder()
-                .codecs(configurer -> {
-                    configurer.defaultCodecs().maxInMemorySize(1024 * 1024);
-                    ObjectMapper mapper = new ObjectMapper();
-                    mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-                    configurer.defaultCodecs().jackson2JsonDecoder(new org.springframework.http.codec.json.Jackson2JsonDecoder(mapper));
-                    configurer.defaultCodecs().jackson2JsonEncoder(new org.springframework.http.codec.json.Jackson2JsonEncoder(mapper));
-                })
-                .build())
-            .build();
-
-        String wireMockUrl = "http://localhost:" + mockServer.port();
-
         PlatformSettingsDto platformSettings = new PlatformSettingsDto();
         platformSettings.setUtils(new UtilsSettingsDto());
         platformSettings.getUtils().setCbomRepositoryUrl("http://localhost:" + mockServer.port());
         settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
-
-        cbomRepositoryClient = new CbomRepositoryClient();
-        ReflectionTestUtils.setField(cbomRepositoryClient, "client", webClient);
-        ReflectionTestUtils.setField(cbomRepositoryClient, "lastCbomRepositoryUrl", wireMockUrl);
-        ReflectionTestUtils.setField(cbomService, "cbomRepositoryClient", cbomRepositoryClient);
     }
 
     @AfterEach
