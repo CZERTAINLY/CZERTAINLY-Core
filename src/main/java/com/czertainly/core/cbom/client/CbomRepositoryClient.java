@@ -55,9 +55,6 @@ public class CbomRepositoryClient {
         this.client = buildClient();
     }
 
-    public CbomRepositoryClient() {
-    }
-
     public BomCreateResponseDto create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
         return processRequest(r -> r
