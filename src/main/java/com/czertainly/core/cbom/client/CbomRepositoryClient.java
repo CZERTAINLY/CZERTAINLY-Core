@@ -90,11 +90,11 @@ public class CbomRepositoryClient {
         return processRequest(r -> r
             .uri(uriBuilder -> {
                 UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl)
-                .path(CBOM_READ);
+                    .path(CBOM_READ);
                 if (version != null) {
                     builder.queryParam("version", version);
                 }
-                return builder.build(urn);
+                return builder.buildAndExpand(urn).toUri();
             })
             .retrieve()
             .toEntity(BomResponseDto.class)
