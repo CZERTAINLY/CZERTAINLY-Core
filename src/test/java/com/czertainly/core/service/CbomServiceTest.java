@@ -118,8 +118,12 @@ class CbomServiceTest extends BaseSpringBootTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    private PlatformSettingsDto originalSettings;
+
     @BeforeEach
     void setUp() {
+        originalSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+
         cbomRepository.deleteAll();
         scheduledJobHistoryRepository.deleteAll();
         scheduledJobsRepository.deleteAll();
@@ -138,6 +142,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     @AfterEach
     void tearDown() {
         mockServer.stop();
+        settingsCache.cacheSettings(SettingsSection.PLATFORM, originalSettings);
     }
 
     @Test
