@@ -48,9 +48,11 @@ public class CbomRepositoryClient {
     @Value("${cbom.client.max-buffer-size:20971520}")
     private int maxBufferSize;
 
+    private WebClient client;
 
     public void setMaxBufferSize(int maxBufferSize) {
         this.maxBufferSize = maxBufferSize;
+        this.client = buildClient();
     }
 
     public CbomRepositoryClient() {
@@ -138,8 +140,10 @@ public class CbomRepositoryClient {
             ));
         }
 
-        WebClient client = newClient(currentUrl);
-        return client.method(method);
+        if (client == null) {
+            client = buildClient();
+        }
+        return client.mutate().baseUrl(currentUrl).build().method(method);
     }
 
     private static <T, R> R processRequest(Function<T, R> func, T request) throws CbomRepositoryException {
@@ -181,9 +185,8 @@ public class CbomRepositoryClient {
     }
 
 
-    private WebClient newClient(String currentUrl) {
+    private WebClient buildClient() {
         return WebClient.builder()
-                .baseUrl(currentUrl)
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
                 .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
                 .build();
