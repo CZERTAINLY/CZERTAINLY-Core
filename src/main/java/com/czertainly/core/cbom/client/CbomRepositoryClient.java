@@ -182,10 +182,10 @@ public class CbomRepositoryClient {
 
 
     private WebClient newClient(String currentUrl) {
-            return  WebClient.builder()
-                    .baseUrl(currentUrl)
-                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
-                    .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
-                    .build();
+        return WebClient.builder()
+                .baseUrl(currentUrl)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
+                .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
+                .build();
     }
 }
