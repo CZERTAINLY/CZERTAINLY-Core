@@ -386,7 +386,7 @@ public class CbomServiceImpl implements CbomService {
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.CREATE)
     public void syncAuthorized() throws CbomRepositoryException {
         if (!cbomRepositoryClient.isConfigured()) {
-            logger.getLogger().debug("CBOM sync: cbom-repository not configured: skipped;");
+            logger.getLogger().debug("CBOM sync: CBOM Repository not configured: skipped;");
             return;
         }
         sync();
@@ -528,7 +528,7 @@ public class CbomServiceImpl implements CbomService {
         cbom.setVersion(version);
         Optional<String> specVersion = CbomUtil.getString(response, "specVersion");
         if (specVersion.isEmpty()) {
-            throw new ValidationException("cbom-repository returned empty specVersion");
+            throw new ValidationException("CBOM Repository returned empty specVersion");
         } else {
             cbom.setSpecVersion(specVersion.get());
         }
