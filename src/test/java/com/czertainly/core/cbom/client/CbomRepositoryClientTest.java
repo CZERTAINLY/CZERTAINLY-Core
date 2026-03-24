@@ -10,6 +10,8 @@ import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -33,10 +35,12 @@ class CbomRepositoryClientTest {
     private CbomRepositoryClient client;
     private ObjectMapper objectMapper;
     private String baseUrl;
+    private PlatformSettingsDto originalPlatformSettings;
 
     @BeforeEach
     void setUp() {
         baseUrl = wireMock.baseUrl();
+        originalPlatformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
 
         PlatformSettingsDto platformSettings = new PlatformSettingsDto();
         UtilsSettingsDto utilsSettings = new UtilsSettingsDto();
@@ -49,6 +53,12 @@ class CbomRepositoryClientTest {
         client = new CbomRepositoryClient(wclient, 262144);
         objectMapper = new ObjectMapper();
         objectMapper.findAndRegisterModules();
+    }
+
+    @AfterEach
+    void tearDown() {
+        PlatformSettingsDto toRestore = originalPlatformSettings != null ? originalPlatformSettings : new PlatformSettingsDto();
+        new SettingsCache().cacheSettings(SettingsSection.PLATFORM, toRestore);
     }
 
     @Test
