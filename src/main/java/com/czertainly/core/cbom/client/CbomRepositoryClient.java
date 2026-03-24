@@ -48,40 +48,12 @@ public class CbomRepositoryClient {
     @Value("${cbom.client.max-buffer-size:20971520}")
     private int maxBufferSize;
 
-    private WebClient client;
-    private String lastCbomRepositoryUrl;
-    private final Object clientLock = new Object();
-
-
-    public void resetClient() {
-        synchronized (this.clientLock) {
-            this.client = null;
-            this.lastCbomRepositoryUrl = "";
-        }
-    }
-
-    public void recreateClient(String currentUrl) {
-        synchronized (this.clientLock) {
-            this.lastCbomRepositoryUrl = currentUrl;
-            this.client = WebClient.builder()
-                    .baseUrl(currentUrl)
-                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
-                    .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
-                    .build();
-        }
-    }
-
 
     public void setMaxBufferSize(int maxBufferSize) {
-        synchronized (this.clientLock) {
             this.maxBufferSize = maxBufferSize;
-            this.client = null;
-        }
     }
 
     public CbomRepositoryClient() {
-        this.lastCbomRepositoryUrl = "";
-        this.client = null;
     }
 
     public BomCreateResponseDto create(final CbomUploadRequestDto data) throws CbomRepositoryException {
@@ -145,7 +117,12 @@ public class CbomRepositoryClient {
                         .block().getBody(),
                 request);
     }
-    public String getCbomRepositoryBaseUrl() {
+
+    public boolean isConfigured() {
+        return StringUtils.isNotBlank(this.getCbomRepositoryBaseUrl());
+    }
+
+    private String getCbomRepositoryBaseUrl() {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
             return platformSettings != null && platformSettings.getUtils() != null
                    ? platformSettings.getUtils().getCbomRepositoryUrl()
@@ -155,19 +132,14 @@ public class CbomRepositoryClient {
     private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) throws CbomRepositoryException {
         String currentUrl = getCbomRepositoryBaseUrl();
         if (StringUtils.isBlank(currentUrl)) {
-            resetClient();
             throw new CbomRepositoryException(ProblemDetail.forStatusAndDetail(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "CBOM Repository base URL is not configured"
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "CBOM Repository base URL is not configured"
             ));
         }
 
-        synchronized (this.clientLock) {
-            if (client == null || !lastCbomRepositoryUrl.equals(currentUrl)) {
-                recreateClient(currentUrl);
-            }
-            return client.method(method);
-        }
+        WebClient client = newClient(currentUrl);
+        return client.method(method);
     }
 
     private static <T, R> R processRequest(Function<T, R> func, T request) throws CbomRepositoryException {
@@ -208,7 +180,12 @@ public class CbomRepositoryClient {
         return Mono.just(clientResponse);
     }
 
-    public boolean isConfigured() {
-        return StringUtils.isNotBlank(this.getCbomRepositoryBaseUrl());
+
+    private WebClient newClient(String currentUrl) {
+            return  WebClient.builder()
+                    .baseUrl(currentUrl)
+                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
+                    .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
+                    .build();
     }
 }
