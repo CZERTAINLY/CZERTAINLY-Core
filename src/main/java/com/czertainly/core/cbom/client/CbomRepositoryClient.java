@@ -124,9 +124,9 @@ public class CbomRepositoryClient {
 
     private String getCbomRepositoryBaseUrl() {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
-            return platformSettings != null && platformSettings.getUtils() != null
-                   ? platformSettings.getUtils().getCbomRepositoryUrl()
-                   : null;
+        return platformSettings != null && platformSettings.getUtils() != null
+                ? platformSettings.getUtils().getCbomRepositoryUrl()
+                : null;
     }
 
     private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) throws CbomRepositoryException {
