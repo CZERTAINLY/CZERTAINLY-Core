@@ -1238,6 +1238,53 @@ class CbomServiceTest extends BaseSpringBootTest {
 
     }
 
+    @Test
+    void testCreateCbom_AlreadyExists_VersionNotFoundInList() throws JsonProcessingException {
+        // Given
+        String serialNumber = "urn:uuid:test-version-missing";
+        Integer version = 5;
+
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
+        content.put("serialNumber", serialNumber);
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.6");
+        content.put("version", version);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        mockConflictResponse();
+
+        // Mock versions endpoint to return list WITHOUT the version we're looking for
+        BomVersionDto versionDto1 = new BomVersionDto();
+        versionDto1.setTimestamp(OffsetDateTime.now().toString());
+        versionDto1.setVersion("1");
+        versionDto1.setCryptoStats(new CryptoStatsDto());
+
+        BomVersionDto versionDto2 = new BomVersionDto();
+        versionDto2.setTimestamp(OffsetDateTime.now().toString());
+        versionDto2.setVersion("3");
+        versionDto2.setCryptoStats(new CryptoStatsDto());
+
+        // Version 5 is NOT in this list - should trigger the exception
+        mockServer.stubFor(WireMock.get(WireMock.urlMatching("/api/v1/bom/.*/versions"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody(objectMapper.writeValueAsString(List.of(versionDto1, versionDto2)))));
+
+        // When / Then
+        CbomRepositoryException exception = assertThrows(CbomRepositoryException.class, 
+        () -> cbomService.createCbom(request));
+
+        assertNotNull(exception.getProblemDetail());
+        assertEquals(404, exception.getProblemDetail().getStatus());
+        assertEquals("CBOM version not found in repository", exception.getProblemDetail().getDetail());
+
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*/versions")));
+    }
+
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
         CryptoAssetCountDto count = new CryptoAssetCountDto();
         count.setTotal(1);
