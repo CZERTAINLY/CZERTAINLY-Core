@@ -28,7 +28,7 @@ Optional longer explanation of what and why, wrapped at
 
 Further paragraphs or bullet points if needed:
  - Use a hyphen or asterisk for bullets
- - Preceded by a single space
+ - Indent bullets by two spaces and add a space after the hyphen
 
 Link: https://github.com/CZERTAINLY/<repo>/issues/<number>
 ```
