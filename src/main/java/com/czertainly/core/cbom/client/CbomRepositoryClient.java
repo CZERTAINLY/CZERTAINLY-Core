@@ -14,6 +14,7 @@ import com.czertainly.api.exception.CbomRepositoryException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -45,13 +46,10 @@ public class CbomRepositoryClient {
     private static final String CBOM_READ = "/api/v1/bom/{urn}";
     private static final String CBOM_READ_VERSIONS = "/api/v1/bom/{urn}/versions";
 
-    // @Value("${cbom.client.max-buffer-size:20971520}")
-    // private final int maxBufferSize;
-
     private final WebClient client;
 
-    public CbomRepositoryClient(WebClient client, int maxBufferSize) {
-        this.client = WebClient.builder()
+    public CbomRepositoryClient(WebClient client, @Value("${cbom.client.max-buffer-size:20971520}") int maxBufferSize) {
+        this.client = client.mutate()
         .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(maxBufferSize))
         .filter(ExchangeFilterFunction.ofResponseProcessor(CbomRepositoryClient::handleHttpExceptions))
         .build();
