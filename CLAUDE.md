@@ -36,7 +36,7 @@ Link: https://github.com/CZERTAINLY/<repo>/issues/<number>
 ### Example
 
 ```
-Fix CBOM repository client not reconfigured on URL change
+Fix CBOM client not reconfigured after URL change
 
 The old event-based WebClient caching required explicit refresh
 events to pick up URL changes from platform settings. Replace with
