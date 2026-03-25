@@ -32,9 +32,6 @@ import java.util.UUID;
 
 class ComplianceProfileServiceV2Test extends BaseComplianceTest {
 
-    @Autowired
-    private CertificateRequestRepository certificateRequestRepository;
-
     @Test
     void testResourceObjectsHandling() throws NotFoundException {
         var complianceProfile2 = new ComplianceProfile();
@@ -333,7 +330,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         Assertions.assertTrue(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(randomUUID));
     }
 
-    private UUID createCertificateWithComplianceResult(UUID randomUUID, UUID certificateRequestUuid) {
+    private UUID createCertificateWithComplianceResult(UUID randomUUID) {
         Certificate certificate = new Certificate();
         certificate.setComplianceStatus(ComplianceStatus.NOK);
         ComplianceResultDto complianceResultDto = new ComplianceResultDto();
@@ -347,22 +344,8 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         complianceResultDto.setProviderRules(List.of(complianceResultRulesDto));
         certificate.setComplianceResult(complianceResultDto);
         certificate.setRaProfileUuid(associatedRaProfileUuid);
-        certificate.setCertificateRequestUuid(certificateRequestUuid);
         certificateRepository.save(certificate);
         return certificate.getUuid();
-    }
-
-    private UUID creatCertificateRequestWithComplianceResult(UUID randomUUID) {
-        CertificateRequestEntity certificateRequest = new CertificateRequestEntity();
-        certificateRequest.setComplianceStatus(ComplianceStatus.NOK);
-        ComplianceResultDto complianceResultDto = new ComplianceResultDto();
-        complianceResultDto.setInternalRules(new ComplianceResultRulesDto());
-        complianceResultDto.getInternalRules().getNotApplicable().add(internalCertificateRuleUuid);
-        complianceResultDto.getInternalRules().getNotApplicable().add(randomUUID);
-        ComplianceResultProviderRulesDto complianceResultRulesDto = new ComplianceResultProviderRulesDto();
-        complianceResultRulesDto.getNotApplicable().add(complianceV2RuleUuid);
-        complianceResultRulesDto.getNotApplicable().add(randomUUID);
-        certificateRequestRepository.save(certificateRequest);
     }
 
     @Test
