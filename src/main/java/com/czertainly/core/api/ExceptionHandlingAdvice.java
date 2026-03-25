@@ -571,7 +571,8 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(CbomRepositoryException.class)
     public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException(CbomRepositoryException ex) {
         LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail());
-        return ResponseEntity.status(ex.getProblemDetail().getStatus())
+        int status = ex.getProblemDetail() != null ? ex.getProblemDetail().getStatus() : 500;
+        return ResponseEntity.status(status)
                 .body(new ErrorMessageDto(ex.getMessage()));
     }
 }
