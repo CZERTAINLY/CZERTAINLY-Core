@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.ConditionItemRequestDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.service.v2.ComplianceProfileService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
@@ -60,6 +61,11 @@ class BaseComplianceTest extends BaseSpringBootTest {
     private RaProfileRepository raProfileRepository;
 
     @Autowired
+    private VaultProfileRepository vaultProfileRepository;
+    @Autowired
+    protected VaultInstanceRepository vaultInstanceRepository;
+
+    @Autowired
     protected CertificateRepository certificateRepository;
     @Autowired
     protected CertificateContentRepository certificateContentRepository;
@@ -73,10 +79,14 @@ class BaseComplianceTest extends BaseSpringBootTest {
     protected UUID associatedRaProfileUuid;
     protected UUID unassociatedRaProfileUuid;
 
+    protected UUID vaultInstanceUuid;
+    protected UUID vaultProfileUuid;
+
     protected UUID internalCertificateRuleUuid;
     protected UUID internalCertificateRule2Uuid;
     protected UUID internalCertificateInvalidRuleUuid;
     protected UUID internalCertificateRequestRuleUuid;
+    protected UUID internalSecretRuleUuid;
     protected final UUID complianceV1RuleUuid = UUID.randomUUID();
     protected final UUID complianceV1Rule2Uuid = UUID.randomUUID();
     protected final UUID complianceV1GroupUuid = UUID.randomUUID();
@@ -128,6 +138,24 @@ class BaseComplianceTest extends BaseSpringBootTest {
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
         unassociatedRaProfileUuid = raProfile.getUuid();
+
+        VaultInstance vaultInstance = new VaultInstance();
+        vaultInstance.setName("TestVault");
+        vaultInstance.setConnector(connectorV2);
+        vaultInstance = vaultInstanceRepository.save(vaultInstance);
+        vaultInstanceUuid = vaultInstance.getUuid();
+
+        VaultProfile vaultProfile = new VaultProfile();
+        vaultProfile.setName("TestVaultProfile");
+        vaultProfile.setVaultInstance(vaultInstance);
+        vaultProfile = vaultProfileRepository.save(vaultProfile);
+        vaultProfileUuid = vaultProfile.getUuid();
+
+        ComplianceProfileAssociation complianceProfileVaultAssociation = new ComplianceProfileAssociation();
+        complianceProfileVaultAssociation.setComplianceProfileUuid(complianceProfile.getUuid());
+        complianceProfileVaultAssociation.setResource(Resource.VAULT_PROFILE);
+        complianceProfileVaultAssociation.setObjectUuid(vaultProfile.getUuid());
+        complianceProfileAssociationRepository.save(complianceProfileVaultAssociation);
 
         complianceProfile = complianceProfileRepository.findWithAssociationsByUuid(complianceProfile.getUuid()).orElseThrow();
         Assertions.assertFalse(complianceProfile.getComplianceRules().isEmpty(), "Compliance rules should be loaded");
@@ -192,6 +220,14 @@ class BaseComplianceTest extends BaseSpringBootTest {
         ruleRequestDto.setResource(Resource.CERTIFICATE_REQUEST);
         ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
         internalCertificateRequestRuleUuid = ruleDetailDto.getUuid();
+
+        conditionItemRequestDto.setFieldIdentifier(FilterField.SECRET_NAME.name());
+        conditionItemRequestDto.setValue("secret");
+        conditionItemRequestDto.setOperator(FilterConditionOperator.EQUALS);
+        ruleRequestDto.setName("TestInternalRuleSecret");
+        ruleRequestDto.setResource(Resource.SECRET);
+        ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
+        internalSecretRuleUuid = ruleDetailDto.getUuid();
     }
 
     private void createComplianceProfileAssociations() {
@@ -219,6 +255,13 @@ class BaseComplianceTest extends BaseSpringBootTest {
         complianceProfileRule3.setResource(Resource.CERTIFICATE);
         complianceProfileRule3.setInternalRuleUuid(internalCertificateRuleUuid);
         complianceProfileRuleRepository.save(complianceProfileRule3);
+
+        ComplianceProfileRule complianceProfileRule4 = new ComplianceProfileRule();
+        complianceProfileRule4.setComplianceProfile(complianceProfile);
+        complianceProfileRule4.setComplianceProfileUuid(complianceProfile.getUuid());
+        complianceProfileRule4.setResource(Resource.SECRET);
+        complianceProfileRule4.setInternalRuleUuid(internalSecretRuleUuid);
+        complianceProfileRuleRepository.save(complianceProfileRule4);
     }
 
     protected void mockComplianceProviderResponses(boolean defaultResponses) {

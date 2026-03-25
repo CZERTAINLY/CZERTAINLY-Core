@@ -2,12 +2,15 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -24,6 +27,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.VaultProfileService;
 import com.czertainly.core.service.v2.ConnectorService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
@@ -43,7 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Service
+@Service(value = Resource.Codes.VAULT_PROFILE)
 @Transactional
 public class VaultProfileServiceImpl implements VaultProfileService {
 
@@ -53,8 +57,14 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
     private ConnectorService connectorService;
     private AttributeEngine attributeEngine;
+    private PermissionEvaluator permissionEvaluator;
 
     private SecretApiClient secretApiClient;
+
+    @Autowired
+    public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
+    }
 
     @Autowired
     public void setSecretApiClient(SecretApiClient secretApiClient) {
@@ -226,4 +236,31 @@ public class VaultProfileServiceImpl implements VaultProfileService {
     }
 
 
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return vaultProfileRepository.findResourceObject(objectUuid, VaultProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        VaultProfile vaultProfile = vaultProfileRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(VaultProfile.class, objectUuid));
+        permissionEvaluator.vaultInstance(vaultProfile.getVaultInstance().getSecuredUuid());
+        return new NameAndUuidDto(objectUuid.getValue(), vaultProfile.getName());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        filter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
+        TriFunction<Root<VaultProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters);
+        return vaultProfileRepository.listResourceObjects(filter, VaultProfile_.name, predicate, pagination);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        VaultProfile vaultProfile = vaultProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(VaultProfile.class, uuid));
+        permissionEvaluator.vaultInstance(vaultProfile.getVaultInstance().getSecuredUuid());
+    }
 }
