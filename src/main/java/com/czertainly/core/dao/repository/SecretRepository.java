@@ -29,10 +29,6 @@ public interface SecretRepository extends SecurityFilterRepository<Secret, UUID>
 
     List<Secret> findBySourceVaultProfileUuid(UUID associationObjectUuid);
 
-    List<Secret> findByUuidIn(List<UUID> objectUuids);
-
-    List<Secret> findBySourceVaultProfileUuid(UUID associationObjectUuid);
-
     @Modifying
     @Query(value = """
             WITH affected_by_profile AS (
