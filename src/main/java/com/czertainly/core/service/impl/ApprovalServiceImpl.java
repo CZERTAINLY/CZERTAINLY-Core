@@ -4,14 +4,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approval.*;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
-import com.czertainly.core.dao.entity.Approval;
-import com.czertainly.core.dao.entity.ApprovalProfileVersion;
-import com.czertainly.core.dao.entity.ApprovalRecipient;
-import com.czertainly.core.dao.entity.ApprovalStep;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.ApprovalRecipientRepository;
 import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.dao.repository.ApprovalStepRepository;
@@ -61,8 +57,12 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.LIST)
-    public ApprovalResponseDto listApprovals(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
-        return listOfApprovals(filter, null, paginationRequestDto);
+    public ApprovalResponseDto listApprovals(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto, Resource resource) {
+        TriFunction<Root<Approval>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = null;
+        if (resource != null) {
+            additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Approval_.RESOURCE), resource);
+        }
+        return listOfApprovals(filter, additionalWhereClause, paginationRequestDto);
     }
 
     @Override

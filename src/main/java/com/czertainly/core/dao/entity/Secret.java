@@ -45,7 +45,7 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @JsonBackReference
     private SecretVersion latestVersion;
 
-    @Column(name = "latest_version_uuid", nullable = false)
+    @Column(name = "latest_version_uuid")
     private UUID latestVersionUuid;
 
     @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY)

@@ -3,6 +3,9 @@ package com.czertainly.core.messaging.listeners;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.secret.SecretRequestDto;
+import com.czertainly.api.model.core.secret.SecretUpdateObjectsDto;
+import com.czertainly.api.model.core.secret.SecretUpdateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -16,6 +19,7 @@ import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
+import com.czertainly.core.service.SecretService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,6 +44,8 @@ public class ActionListener {
     private ApprovalService approvalService;
 
     private ClientOperationService clientOperationService;
+
+    private SecretService secretService;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -92,11 +98,34 @@ public class ActionListener {
         }
     }
 
-    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
+    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
         if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
             processCertificateAction(actionMessage, hasApproval, isApproved);
+        } else if (Objects.requireNonNull(actionMessage.getResource()) == Resource.SECRET) {
+            processSecretAction(actionMessage, hasApproval, isApproved);
         } else {
             logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
+        }
+    }
+
+    private void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException {
+        // handle rejected actions
+        if (hasApproval && !isApproved) {
+            logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
+            return;
+        }
+
+        switch (actionMessage.getResourceAction()) {
+            case CREATE ->
+                secretService.createSecretAction(actionMessage.getResourceUuid(), actionMessage.getApprovalProfileResourceUuid(), (SecretRequestDto) actionMessage.getData(), isApproved);
+            case UPDATE ->
+                secretService.updateSecretAction(actionMessage.getResourceUuid(), actionMessage.getApprovalProfileResourceUuid(), (SecretUpdateRequestDto) actionMessage.getData(), isApproved);
+            case DELETE ->
+                secretService.deleteSecretAction(actionMessage.getResourceUuid());
+            case UPDATE_SOURCE_VAULT_PROFILE ->
+                secretService.updateSourceVaultProfile((SecretUpdateObjectsDto) actionMessage.getData(), actionMessage.getResourceUuid());
+            default ->
+                logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
         }
     }
 
@@ -156,5 +185,10 @@ public class ActionListener {
     @Autowired
     public void setAuthHelper(AuthHelper authHelper) {
         this.authHelper = authHelper;
+    }
+
+    @Autowired
+    public void setSecretService(SecretService secretService) {
+        this.secretService = secretService;
     }
 }

@@ -25,9 +25,15 @@ public interface SecretService extends ResourceExtensionService {
 
     SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException;
 
+    void createSecretAction(UUID secretUuid, UUID vaultProfileUuid, SecretRequestDto secretRequest, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException;
+
     SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException, ConnectorException;
 
+    void updateSecretAction(UUID secretUuid, UUID vaultProfileUuid, SecretUpdateRequestDto secretRequest, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException;
+
     void deleteSecret(UUID uuid) throws NotFoundException, ConnectorException, AttributeException;
+
+    void deleteSecretAction(UUID secretUuid) throws NotFoundException, ConnectorException, AttributeException;
 
     void enableSecret(UUID uuid) throws NotFoundException;
 
@@ -44,4 +50,6 @@ public interface SecretService extends ResourceExtensionService {
     SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, AttributeException;
 
     void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException;
+
+    void updateSourceVaultProfile(SecretUpdateObjectsDto request, UUID secretUuid) throws NotFoundException, ConnectorException, AttributeException;
 }
