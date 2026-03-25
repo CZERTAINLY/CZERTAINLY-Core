@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -226,11 +227,12 @@ public class CbomServiceImpl implements CbomService {
             List<BomVersionDto> versions = cbomRepositoryClient.versions(serialNumber);
 
             final String fv = String.valueOf(version);
+            final String fsn = serialNumber;
             BomVersionDto matchingVersion = versions.stream()
             .filter(v -> v.getVersion().equals(fv))
             .findFirst()
             .orElseThrow(() -> {
-                logger.getLogger().warn("CBOM with serialNumber {} and version {} not found in cbom-repository, despite the fact it returned Already Exists error earlier. Try to upload again.");
+                logger.getLogger().warn("CBOM with serialNumber {} and version {} not found in cbom-repository, despite the fact it returned Already Exists error earlier. Try to upload again.", fsn, fv);
                 ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "CBOM serialNumber and version is reported as existing but was not found in the repository. Please try to upload it again to synchronize state.");
                 return new CbomRepositoryException(problemDetail);
                 });
@@ -252,7 +254,13 @@ public class CbomServiceImpl implements CbomService {
                 "CBOM with serialNumber %s and version %s already exists".formatted(serialNumber, version)
             );
         }
-        cbomRepository.save(cbom);
+        try {
+            cbomRepository.save(cbom);
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyExistException(
+                "CBOM with serialNumber %s and version %s already exists".formatted(serialNumber, version)
+            );
+        }
         logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, null, List.of(new ResourceObjectIdentity(cbom.getSerialNumber(), cbom.getUuid())), "CBOM record created with serialNumber %s and version %s".formatted(cbom.getSerialNumber(), cbom.getVersion()));
         return cbom.mapToDto();
     }
@@ -449,13 +457,12 @@ public class CbomServiceImpl implements CbomService {
                 skipped++;
                 continue;
             }
-            stored++;
-
             if (isDuplicate.get()) {
                 logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {}: already exists. Skipping the sync", entry.getSerialNumber(), version);
                 duplicates++;
                 continue;
             }
+            stored++;
         }
 
         String syncResultMessage = "Read %d entries, skipped due to an error %d, skipped duplicates %d, stored %d new entries".formatted(
@@ -555,6 +562,12 @@ public class CbomServiceImpl implements CbomService {
         cbom.setProtocolsCount(entry.getCryptoStats().getCryptoAssets().getProtocols().getTotal());
         cbom.setCryptoMaterialCount(entry.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal());
         cbom.setTotalAssetsCount(entry.getCryptoStats().getCryptoAssets().getTotal());
-        cbomRepository.save(cbom);
+        try {
+            cbomRepository.save(cbom);
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyExistException(
+                "CBOM with serialNumber %s and version %s already exists".formatted(serialNumber, version)
+            );
+        }
     }
 }

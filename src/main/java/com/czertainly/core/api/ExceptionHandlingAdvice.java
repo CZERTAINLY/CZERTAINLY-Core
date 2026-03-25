@@ -1,6 +1,7 @@
 package com.czertainly.core.api;
 
 import com.czertainly.api.exception.*;
+import org.apache.commons.lang3.StringUtils;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
@@ -571,8 +572,12 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(CbomRepositoryException.class)
     public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException(CbomRepositoryException ex) {
         LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail());
-        int status = ex.getProblemDetail() != null ? ex.getProblemDetail().getStatus() : 500;
-        return ResponseEntity.status(status)
-                .body(new ErrorMessageDto(ex.getMessage()));
+        if (ex.getProblemDetail() == null) {
+            return ResponseEntity.status(500).body(new ErrorMessageDto(ex.getMessage()));
+        }
+        String message = StringUtils.isNotBlank(ex.getProblemDetail().getDetail())
+                ? ex.getProblemDetail().getDetail()
+                : ex.getMessage();
+        return ResponseEntity.status(ex.getProblemDetail().getStatus()).body(new ErrorMessageDto(message));
     }
 }
