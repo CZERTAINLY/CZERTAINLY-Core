@@ -281,11 +281,7 @@ public class SchedulerServiceImpl implements SchedulerService {
         logger.debug("ScheduledJobFinished event handler: {}", event.scheduledJobInfo().jobUuid());
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobUuid())).orElseThrow(() -> new NotFoundException(ScheduledJob.class, event.scheduledJobInfo().jobUuid()));
         final ScheduledJobHistory scheduledJobHistory = scheduledJobHistoryRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobHistoryUuid())).orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, event.scheduledJobInfo().jobHistoryUuid()));
-        finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, event.result());
-    }
-
-    private void finalizeFinishedScheduledJob(ScheduledJob scheduledJob, ScheduledJobHistory scheduledJobHistory, ScheduledTaskResult result) {
-        finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, result, false);
+        finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, event.result(), false);
     }
 
     private void finalizeFinishedScheduledJob(ScheduledJob scheduledJob, ScheduledJobHistory scheduledJobHistory, ScheduledTaskResult result, boolean skipped) {
@@ -300,6 +296,7 @@ public class SchedulerServiceImpl implements SchedulerService {
             scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
             scheduledJobHistoryRepository.save(scheduledJobHistory);
         } else if (skipped) {
+            logger.debug("Skipping scheduled job '{}', removing history entry", scheduledJob.getJobName());
             scheduledJobHistoryRepository.delete(scheduledJobHistory);
         }
 
