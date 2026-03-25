@@ -24,9 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.reactive.function.client.ExchangeStrategies;
-import org.springframework.web.reactive.function.client.WebClient;
+
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CbomRepositoryException;
@@ -41,9 +39,11 @@ import com.czertainly.api.model.core.cbom.CbomDto;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.UtilsSettingsDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.cbom.client.CbomRepositoryClient;
 import com.czertainly.core.dao.entity.Cbom;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
@@ -58,6 +58,7 @@ import com.czertainly.core.model.cbom.CryptoAssetsDto;
 import com.czertainly.core.model.cbom.CryptoStatsDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.tasks.CbomSyncTask;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -110,14 +111,19 @@ class CbomServiceTest extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     private WireMockServer mockServer;
-    private WebClient webClient;
-    private CbomRepositoryClient cbomRepositoryClient;
+
+    @Autowired
+    private SettingsCache settingsCache;
 
     @Autowired
     private ObjectMapper objectMapper;
 
+    private PlatformSettingsDto originalSettings;
+
     @BeforeEach
     void setUp() {
+        originalSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+
         cbomRepository.deleteAll();
         scheduledJobHistoryRepository.deleteAll();
         scheduledJobsRepository.deleteAll();
@@ -127,29 +133,16 @@ class CbomServiceTest extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        webClient = WebClient.builder()
-            .baseUrl("http://localhost:" + mockServer.port())
-            .filter((request, next) -> next.exchange(request)
-                .flatMap(CbomRepositoryClient::handleHttpExceptions))
-            .exchangeStrategies(ExchangeStrategies.builder()
-                .codecs(configurer -> {
-                    configurer.defaultCodecs().maxInMemorySize(1024 * 1024);
-                    ObjectMapper mapper = new ObjectMapper();
-                    mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-                    configurer.defaultCodecs().jackson2JsonDecoder(new org.springframework.http.codec.json.Jackson2JsonDecoder(mapper));
-                    configurer.defaultCodecs().jackson2JsonEncoder(new org.springframework.http.codec.json.Jackson2JsonEncoder(mapper));
-                })
-                .build())
-            .build();
-        cbomRepositoryClient = new CbomRepositoryClient();
-        ReflectionTestUtils.setField(cbomRepositoryClient, "client", webClient);
-        ReflectionTestUtils.setField(cbomService, "cbomRepositoryClient", cbomRepositoryClient);
-        ReflectionTestUtils.setField(cbomRepositoryClient, "cbomRepositoryBaseUrl", "");
+        PlatformSettingsDto platformSettings = new PlatformSettingsDto();
+        platformSettings.setUtils(new UtilsSettingsDto());
+        platformSettings.getUtils().setCbomRepositoryUrl("http://localhost:" + mockServer.port());
+        settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
     }
 
     @AfterEach
     void tearDown() {
         mockServer.stop();
+        settingsCache.cacheSettings(SettingsSection.PLATFORM, originalSettings);
     }
 
     @Test
@@ -1243,6 +1236,53 @@ class CbomServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(cbom.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(cbom.getSerialNumber(), nameAndUuidDto.getName());
 
+    }
+
+    @Test
+    void testCreateCbom_AlreadyExists_VersionNotFoundInList() throws JsonProcessingException {
+        // Given
+        String serialNumber = "urn:uuid:test-version-missing";
+        Integer version = 5;
+
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
+        content.put("serialNumber", serialNumber);
+        content.put("bomFormat", "CycloneDX");
+        content.put("specVersion", "1.6");
+        content.put("version", version);
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        mockConflictResponse();
+
+        // Mock versions endpoint to return list WITHOUT the version we're looking for
+        BomVersionDto versionDto1 = new BomVersionDto();
+        versionDto1.setTimestamp(OffsetDateTime.now().toString());
+        versionDto1.setVersion("1");
+        versionDto1.setCryptoStats(new CryptoStatsDto());
+
+        BomVersionDto versionDto2 = new BomVersionDto();
+        versionDto2.setTimestamp(OffsetDateTime.now().toString());
+        versionDto2.setVersion("3");
+        versionDto2.setCryptoStats(new CryptoStatsDto());
+
+        // Version 5 is NOT in this list - should trigger the exception
+        mockServer.stubFor(WireMock.get(WireMock.urlMatching("/api/v1/bom/.*/versions"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody(objectMapper.writeValueAsString(List.of(versionDto1, versionDto2)))));
+
+        // When / Then
+        CbomRepositoryException exception = assertThrows(CbomRepositoryException.class, 
+        () -> cbomService.createCbom(request));
+
+        assertNotNull(exception.getProblemDetail());
+        assertEquals(404, exception.getProblemDetail().getStatus());
+        assertEquals("CBOM version not found in repository", exception.getProblemDetail().getDetail());
+
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
+        mockServer.verify(WireMock.getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*/versions")));
     }
 
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
