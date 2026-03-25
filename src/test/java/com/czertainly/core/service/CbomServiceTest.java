@@ -815,10 +815,21 @@ class CbomServiceTest extends BaseSpringBootTest {
         )));
 
         mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .inScenario("multipleCreations")
+            .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+                .withBody(bomEntryJson()))
+            .willSetStateTo("second"));
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .inScenario("multipleCreations")
+            .whenScenarioStateIs("second")
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody(bomEntryJson())));
 
         // When
         CbomDto result1 = cbomService.createCbom(request1);
@@ -1278,11 +1289,15 @@ class CbomServiceTest extends BaseSpringBootTest {
         () -> cbomService.createCbom(request));
 
         assertNotNull(exception.getProblemDetail());
-        assertEquals(404, exception.getProblemDetail().getStatus());
-        assertEquals("CBOM version not found in repository", exception.getProblemDetail().getDetail());
+        assertEquals(500, exception.getProblemDetail().getStatus());
+        assertEquals("CBOM serialNumber and version is reported as existing but was not found in the repository. Please try to upload it again to synchronize state.", exception.getProblemDetail().getDetail());
 
         mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
         mockServer.verify(WireMock.getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*/versions")));
+    }
+
+    private String bomEntryJson() {
+        return BOM_ENTRY_JSON.replace("urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79", "urn:uuid:" + UUID.randomUUID());
     }
 
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
