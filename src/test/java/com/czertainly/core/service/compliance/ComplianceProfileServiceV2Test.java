@@ -16,16 +16,24 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.CertificateRequestRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
+import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
+import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 class ComplianceProfileServiceV2Test extends BaseComplianceTest {
+
+    @Autowired
+    private CertificateRequestRepository certificateRequestRepository;
 
     @Test
     void testResourceObjectsHandling() throws NotFoundException {
@@ -301,6 +309,60 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
         ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(0, complianceProfileDto.getInternalRules().size());
+    }
+
+    @Test
+    void testDeleteOrphanedRule() throws ConnectorException, NotFoundException {
+        UUID randomUUID = UUID.randomUUID();
+        UUID certificateUuid = createCertificateWithComplianceResult(randomUUID);
+        ComplianceProfileRulesPatchRequestDto dto = new ComplianceProfileRulesPatchRequestDto();
+        dto.setRemoval(true);
+        dto.setRuleUuid(internalCertificateRuleUuid);
+        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow();
+        Assertions.assertFalse(certificate.getComplianceResult().getInternalRules().getNotApplicable().contains(internalCertificateRuleUuid));
+        Assertions.assertTrue(certificate.getComplianceResult().getInternalRules().getNotApplicable().contains(randomUUID));
+
+        dto.setRuleUuid(complianceV2RuleUuid);
+        dto.setConnectorUuid(connectorV2.getUuid());
+        dto.setKind(KIND_V2);
+        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException("Certificate not found"));
+
+        Assertions.assertFalse(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(complianceV2RuleUuid));
+        Assertions.assertTrue(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(randomUUID));
+    }
+
+    private UUID createCertificateWithComplianceResult(UUID randomUUID, UUID certificateRequestUuid) {
+        Certificate certificate = new Certificate();
+        certificate.setComplianceStatus(ComplianceStatus.NOK);
+        ComplianceResultDto complianceResultDto = new ComplianceResultDto();
+        complianceResultDto.setInternalRules(new ComplianceResultRulesDto());
+        complianceResultDto.getInternalRules().getNotApplicable().add(internalCertificateRuleUuid);
+        complianceResultDto.getInternalRules().getNotApplicable().add(randomUUID);
+        ComplianceResultProviderRulesDto complianceResultRulesDto = new ComplianceResultProviderRulesDto();
+        complianceResultRulesDto.getNotApplicable().add(complianceV2RuleUuid);
+        complianceResultRulesDto.getNotApplicable().add(randomUUID);
+        complianceResultRulesDto.setConnectorUuid(connectorV2.getUuid());
+        complianceResultDto.setProviderRules(List.of(complianceResultRulesDto));
+        certificate.setComplianceResult(complianceResultDto);
+        certificate.setRaProfileUuid(associatedRaProfileUuid);
+        certificate.setCertificateRequestUuid(certificateRequestUuid);
+        certificateRepository.save(certificate);
+        return certificate.getUuid();
+    }
+
+    private UUID creatCertificateRequestWithComplianceResult(UUID randomUUID) {
+        CertificateRequestEntity certificateRequest = new CertificateRequestEntity();
+        certificateRequest.setComplianceStatus(ComplianceStatus.NOK);
+        ComplianceResultDto complianceResultDto = new ComplianceResultDto();
+        complianceResultDto.setInternalRules(new ComplianceResultRulesDto());
+        complianceResultDto.getInternalRules().getNotApplicable().add(internalCertificateRuleUuid);
+        complianceResultDto.getInternalRules().getNotApplicable().add(randomUUID);
+        ComplianceResultProviderRulesDto complianceResultRulesDto = new ComplianceResultProviderRulesDto();
+        complianceResultRulesDto.getNotApplicable().add(complianceV2RuleUuid);
+        complianceResultRulesDto.getNotApplicable().add(randomUUID);
+        certificateRequestRepository.save(certificateRequest);
     }
 
     @Test
