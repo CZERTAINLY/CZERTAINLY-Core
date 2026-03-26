@@ -24,10 +24,12 @@ import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
@@ -127,6 +129,8 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
     private AcmeNonceRepository acmeNonceRepository;
     @Autowired
     private AcmeOrderRepository acmeOrderRepository;
+    @Autowired
+    private AcmeProfileRepository acmeProfileRepository;
     @Autowired
     private AcmeAuthorizationRepository acmeAuthorizationRepository;
     @Autowired
@@ -263,15 +267,20 @@ public class AcmeProtocolFlowITest extends BaseSpringBootTest {
                 SecuredUUID.fromString(acmeProfile.getUuid()),
                 raProfile2.getUuid());
 
-        // ── Step 6: Place a new order on the same ACME account ─────────────────
+        // ── Step 6: Assert that the ACME Profile's RA Profile was persisted correctly ──
+        AcmeProfile reloadedAcmeProfile = acmeProfileRepository.findByUuid(UUID.fromString(acmeProfile.getUuid())).orElseThrow();
+        Assertions.assertEquals(UUID.fromString(raProfile2.getUuid()), reloadedAcmeProfile.getRaProfileUuid(),
+                "ACME Profile ra_profile_uuid must be persisted to the database after updateRaProfile");
+
+        // ── Step 7: Place a new order on the same ACME account ─────────────────
         OrderAndId order2 = createAcmeOrder(acmeAccountId);
 
-        // ── Step 7: Challenge, finalize, and await the new order ──────────────
+        // ── Step 8: Challenge, finalize, and await the new order ──────────────
         validateChallenge(order2, acmeAccountId);
         finalizeOrder(order2.orderId, acmeAccountId);
         awaitOrderStatus(order2.orderId, OrderStatus.VALID);
 
-        // ── Step 8: Assert certificate reflects the updated RA Profile ────────
+        // ── Step 9: Assert certificate reflects the updated RA Profile ────────
         AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(order2.orderId).orElseThrow();
         Assertions.assertNotNull(acmeOrder.getCertificateReferenceUuid(), "Issued certificate must not be null");
         Certificate certificate = certificateRepository
