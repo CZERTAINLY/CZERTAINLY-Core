@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.compliance.v2.ComplianceInternalRuleReque
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -15,13 +16,12 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckRuleDto;
+import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.workflows.ConditionItemDto;
 import com.czertainly.api.model.core.workflows.ConditionItemRequestDto;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CryptographicKeyRepository;
-import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.TokenProfileRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.helpers.CertificateGeneratorHelper;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
@@ -59,6 +59,12 @@ class ComplianceServiceTest extends BaseComplianceTest {
 
     @Autowired
     CryptographicKeyRepository cryptographicKeyRepository;
+
+    @Autowired
+    private SecretRepository secretRepository;
+
+    @Autowired
+    private SecretVersionRepository secretVersionRepository;
 
     @Autowired
     ClientOperationService clientOperationService;
@@ -276,6 +282,41 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceService.checkResourceObjectCompliance(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
         Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance status should be Not Compliant");
+    }
+
+    @Test
+    void testSecretCompliance() throws NotFoundException {
+        // Check compliance for secret
+        Secret secret = new Secret();
+        secret.setName("secret");
+        secret.setType(SecretType.BASIC_AUTH);
+        secret.setState(SecretState.ACTIVE);
+        secret.setSourceVaultProfileUuid(vaultProfileUuid);
+
+        SecretVersion secretVersion = new SecretVersion();
+        secretVersion.setVaultInstanceUuid(vaultInstanceUuid);
+        secretVersion.setVersion(1);
+        secretVersion.setFingerprint("fingerprint");
+        secretVersionRepository.save(secretVersion);
+
+        secret.setLatestVersion(secretVersion);
+        secretRepository.save(secret);
+
+        Assertions.assertDoesNotThrow(() -> complianceService.checkResourceObjectsComplianceValidation(Resource.VAULT_PROFILE, List.of(vaultProfileUuid)));
+        Assertions.assertDoesNotThrow(() -> complianceService.checkResourceObjectsComplianceValidation(Resource.SECRET, List.of(secret.getUuid())));
+        complianceService.checkResourceObjectCompliance(Resource.SECRET, secret.getUuid());
+        ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+
+        complianceService.checkCompliance(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())), Resource.SECRET, null);
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+        OffsetDateTime lastUpdated = complianceCheckResult.getTimestamp();
+
+        complianceService.checkResourceObjectCompliance(Resource.VAULT_PROFILE, vaultProfileUuid);
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+        Assertions.assertNotEquals(lastUpdated, complianceCheckResult.getTimestamp());
     }
 
     @Test

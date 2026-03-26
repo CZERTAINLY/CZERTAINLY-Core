@@ -12,6 +12,8 @@ public interface SecretRepository extends SecurityFilterRepository<Secret, UUID>
 
     boolean existsByName(String name);
 
+    Optional<Secret> findByUuid(UUID uuid);
+
     @Query("SELECT s.name FROM Secret s WHERE s.sourceVaultProfileUuid = :sourceVaultProfileUuid")
     List<String> findAllNamesBySourceVaultProfileUuid(UUID sourceVaultProfileUuid);
 
@@ -20,4 +22,8 @@ public interface SecretRepository extends SecurityFilterRepository<Secret, UUID>
 
     @EntityGraph(attributePaths = {"groups", "owner", "sourceVaultProfile", "latestVersion", "syncVaultProfiles"})
     Optional<Secret> findWithAssociationsByUuid(UUID uuid);
+
+    List<Secret> findByUuidIn(List<UUID> objectUuids);
+
+    List<Secret> findBySourceVaultProfileUuid(UUID associationObjectUuid);
 }
