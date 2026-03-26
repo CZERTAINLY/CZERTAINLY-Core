@@ -448,10 +448,18 @@ public class CbomServiceImpl implements CbomService {
                     try {
                         createCbomEntry(entry, version, response);
                     } catch (AlreadyExistException e) {
+                        // Pre-check duplicate: no DB operation occurred, transaction is healthy.
+                        // AlreadyExistException is checked so it cannot cross the Runnable boundary;
+                        // handle it here and signal the result via isDuplicate.
                         isDuplicate.set(true);
                     }
-                }
-                );
+                });
+            } catch (DataIntegrityViolationException e) {
+                // Race condition: unique constraint hit at DB level. The REQUIRES_NEW transaction
+                // is already rolled back; count as duplicate rather than an error.
+                logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {}: already exists (unique constraint). Skipping the sync", entry.getSerialNumber(), version);
+                duplicates++;
+                continue;
             } catch (Exception e) {
                 logger.getLogger().debug("CBOM Sync: CBOM serialNumber {} and version {} syncing error {}.", entry.getSerialNumber(), version, e.getMessage());
                 skipped++;
@@ -562,12 +570,9 @@ public class CbomServiceImpl implements CbomService {
         cbom.setProtocolsCount(entry.getCryptoStats().getCryptoAssets().getProtocols().getTotal());
         cbom.setCryptoMaterialCount(entry.getCryptoStats().getCryptoAssets().getRelatedCryptoMaterials().getTotal());
         cbom.setTotalAssetsCount(entry.getCryptoStats().getCryptoAssets().getTotal());
-        try {
-            cbomRepository.save(cbom);
-        } catch (DataIntegrityViolationException e) {
-            throw new AlreadyExistException(
-                "CBOM with serialNumber %s and version %s already exists".formatted(serialNumber, version)
-            );
-        }
+        // Let DataIntegrityViolationException propagate unchecked so the REQUIRES_NEW
+        // transaction is not left rollback-only when caught inside the Runnable boundary.
+        // The sync loop catches it specifically and counts it as a duplicate.
+        cbomRepository.save(cbom);
     }
 }

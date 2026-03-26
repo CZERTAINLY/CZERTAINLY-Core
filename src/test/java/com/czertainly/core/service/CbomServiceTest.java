@@ -1390,7 +1390,7 @@ class CbomServiceTest extends BaseSpringBootTest {
         // When
         String result = cbomService.sync();
 
-        // Then: DataIntegrityViolationException caught and treated as duplicate
+        // Then: DataIntegrityViolationException propagates out of the transaction and is counted as duplicate
         assertTrue(result.contains("skipped duplicates 1"));
         assertTrue(result.contains("stored 0 new entries"));
     }
