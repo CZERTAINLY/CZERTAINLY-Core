@@ -282,8 +282,10 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceService.checkResourceObjectCompliance(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
         Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance status should be Not Compliant");
+    }
 
-
+    @Test
+    void testSecretCompliance() throws NotFoundException {
         // Check compliance for secret
         Secret secret = new Secret();
         secret.setName("secret");
@@ -303,7 +305,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         Assertions.assertDoesNotThrow(() -> complianceService.checkResourceObjectsComplianceValidation(Resource.VAULT_PROFILE, List.of(vaultProfileUuid)));
         Assertions.assertDoesNotThrow(() -> complianceService.checkResourceObjectsComplianceValidation(Resource.SECRET, List.of(secret.getUuid())));
         complianceService.checkResourceObjectCompliance(Resource.SECRET, secret.getUuid());
-        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
         Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
 
         complianceService.checkCompliance(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())), Resource.SECRET, null);
