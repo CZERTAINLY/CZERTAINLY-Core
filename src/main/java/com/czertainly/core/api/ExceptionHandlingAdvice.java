@@ -97,9 +97,9 @@ public class ExceptionHandlingAdvice {
      * @return
      */
     @ExceptionHandler(AlreadyExistException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorMessageDto handleAlreadyExistException(AlreadyExistException ex) {
-        LOG.info("HTTP 400: {}", ex.getMessage());
+        LOG.info("HTTP 409: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
