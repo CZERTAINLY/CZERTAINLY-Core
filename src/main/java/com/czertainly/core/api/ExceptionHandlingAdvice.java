@@ -1,7 +1,6 @@
 package com.czertainly.core.api;
 
 import com.czertainly.api.exception.*;
-import org.apache.commons.lang3.StringUtils;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
@@ -11,6 +10,7 @@ import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BeautificationUtil;
 import jakarta.validation.ConstraintViolationException;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -573,7 +573,7 @@ public class ExceptionHandlingAdvice {
     public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException(CbomRepositoryException ex) {
         LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail());
         if (ex.getProblemDetail() == null) {
-            return ResponseEntity.status(500).body(new ErrorMessageDto(ex.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorMessageDto(ex.getMessage()));
         }
         String message = StringUtils.isNotBlank(ex.getProblemDetail().getDetail())
                 ? ex.getProblemDetail().getDetail()

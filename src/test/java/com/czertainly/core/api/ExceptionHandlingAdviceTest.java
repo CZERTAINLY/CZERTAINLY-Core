@@ -40,6 +40,19 @@ class ExceptionHandlingAdviceTest {
     }
 
     @Test
+    void handleCbomRepositoryException_ShouldFallbackToExceptionMessageWhenDetailIsNull() {
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problemDetail.setDetail(null);
+        CbomRepositoryException ex = new CbomRepositoryException(problemDetail);
+
+        ResponseEntity<ErrorMessageDto> response = advice.handleCbomRepositoryException(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(ex.getMessage(), response.getBody().getMessage());
+    }
+
+    @Test
     void handleCbomRepositoryException_ShouldReturnInternalServerErrorWhenProblemDetailIsNull() {
         CbomRepositoryException ex = new CbomRepositoryException("Upload of BOM failed.");
 
