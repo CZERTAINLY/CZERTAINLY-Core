@@ -627,6 +627,14 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     @Override
+    public void handleSecretCreationRejected(UUID resourceUuid) throws NotFoundException {
+        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(resourceUuid))
+                .orElseThrow(() -> new NotFoundException(Secret.class, resourceUuid));
+        secret.setState(SecretState.REJECTED);
+        secretRepository.save(secret);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
     public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
         ResourceSecretContentData resourceSecretContentData = new ResourceSecretContentData();

@@ -112,7 +112,11 @@ public class ActionListener {
     private void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException {
         // handle rejected actions
         if (hasApproval && !isApproved) {
-            logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
+            if (actionMessage.getResourceAction() == ResourceAction.CREATE) {
+                secretService.handleSecretCreationRejected(actionMessage.getResourceUuid());
+            } else {
+                logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
+            }
             return;
         }
 
