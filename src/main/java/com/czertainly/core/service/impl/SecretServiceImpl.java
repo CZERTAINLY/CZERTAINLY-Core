@@ -30,6 +30,7 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.messaging.model.ActionMessage;
+import com.czertainly.core.messaging.model.SecretActionData;
 import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -38,11 +39,9 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ConnectorService;
-import com.czertainly.core.util.AuthHelper;
-import com.czertainly.core.util.FilterPredicatesBuilder;
-import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.SecretsUtil;
+import com.czertainly.core.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -188,7 +187,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID sourceVaultProfileUuid, SecuredUUID vaultInstanceUuid) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
+    public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID sourceVaultProfileUuid, SecuredUUID vaultInstanceUuid) throws NotFoundException, AttributeException, AlreadyExistException {
         if (secretRepository.existsByName(secretRequest.getName())) {
             throw new AlreadyExistException("Secret with name '" + secretRequest.getName() + "' already exists");
         }
@@ -219,7 +218,17 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
         secretDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), secretRequest.getAttributes()));
 
-        produceActionMessage(secretRequest, vaultProfile, secret, ResourceAction.CREATE);
+        SecretActionData actionData;
+        try {
+            actionData = SecretActionData.builder()
+                    .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(new ObjectMapper().writeValueAsString(secretRequest.getSecret()), SecretEncodingVersion.V1))
+                    .name(secretRequest.getName())
+                    .attributes(secretRequest.getAttributes())
+                    .build();
+        } catch (JsonProcessingException e) {
+            throw new ValidationException("Unable to encrypt secret: " + e.getMessage());
+        }
+        produceActionMessage(actionData, vaultProfile, secret, ResourceAction.CREATE);
         return secretDetailDto;
     }
 
@@ -277,7 +286,16 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
             boolean contentChanged = !newFingerprint.equals(latestVersion.getFingerprint());
             if (contentChanged) {
-                produceActionMessage(secretRequest, currentSourceVaultProfile, secret, ResourceAction.UPDATE);
+                SecretActionData actionData;
+                try {
+                    actionData = SecretActionData.builder()
+                            .attributes(secretRequest.getAttributes())
+                            .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(new ObjectMapper().writeValueAsString(secretRequest.getSecret()), SecretEncodingVersion.V1))
+                            .build();
+                } catch (JsonProcessingException e) {
+                    throw new ValidationException("Unable to encrypt secret: " + e.getMessage());
+                }
+                produceActionMessage(actionData, currentSourceVaultProfile, secret, ResourceAction.UPDATE);
             }
         }
 
@@ -289,11 +307,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         return secretDetailDto;
     }
 
-    private void produceActionMessage(Object secretRequest, VaultProfile currentSourceVaultProfile, Secret secret, ResourceAction resourceAction) {
+    private void produceActionMessage(SecretActionData secretActionData, VaultProfile currentSourceVaultProfile, Secret secret, ResourceAction resourceAction) {
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.VAULT_PROFILE);
         actionMessage.setApprovalProfileResourceUuid(currentSourceVaultProfile.getUuid());
-        actionMessage.setData(secretRequest);
+        actionMessage.setData(secretActionData);
         actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
         actionMessage.setResource(Resource.SECRET);
         actionMessage.setResourceAction(resourceAction);
@@ -565,8 +583,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
 
         boolean sourceVaultProfileChanged = !request.getSourceVaultProfileUuid().equals(currentSourceVaultProfileUuid);
+        SecretActionData secretActionData = SecretActionData.builder()
+                .updatedSourceVaultProfileUuid(request.getSourceVaultProfileUuid())
+                .attributes(request.getSecretAttributes())
+                .build();
         if (sourceVaultProfileChanged) {
-            produceActionMessage(request, currentSourceVaultProfile, secret, ResourceAction.UPDATE_SOURCE_VAULT_PROFILE);
+            produceActionMessage(secretActionData, currentSourceVaultProfile, secret, ResourceAction.UPDATE_SOURCE_VAULT_PROFILE);
         }
     }
 

@@ -2,6 +2,7 @@ package com.czertainly.core.messaging.listeners;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
+import com.czertainly.api.model.connector.secrets.content.SecretContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.secret.SecretRequestDto;
 import com.czertainly.api.model.core.secret.SecretUpdateObjectsDto;
@@ -17,12 +18,16 @@ import com.czertainly.core.dao.repository.ApprovalProfileRelationRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.model.SecretActionData;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.SecretService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.SecretEncodingVersion;
+import com.czertainly.core.util.SecretsUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +104,7 @@ public class ActionListener {
         }
     }
 
-    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
+    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException, JsonProcessingException {
         if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
             processCertificateAction(actionMessage, hasApproval, isApproved);
         } else if (Objects.requireNonNull(actionMessage.getResource()) == Resource.SECRET) {
@@ -109,7 +114,7 @@ public class ActionListener {
         }
     }
 
-    private void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException {
+    private void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
         // handle rejected actions
         if (hasApproval && !isApproved) {
             if (actionMessage.getResourceAction() == ResourceAction.CREATE) {
@@ -120,19 +125,27 @@ public class ActionListener {
             return;
         }
 
+        SecretActionData secretActionData = mapper.convertValue(actionMessage.getData(), SecretActionData.class);
         switch (actionMessage.getResourceAction()) {
             case CREATE ->  {
-                SecretRequestDto secretRequestDto = mapper.convertValue(actionMessage.getData(), SecretRequestDto.class);
+                SecretRequestDto secretRequestDto = new SecretRequestDto();
+                secretRequestDto.setName(secretActionData.name());
+                secretRequestDto.setSecret(mapper.readValue(SecretsUtil.decodeAndDecryptSecretString(secretActionData.encryptedContent(), SecretEncodingVersion.V1), SecretContent.class));
+                secretRequestDto.setAttributes(secretActionData.attributes());
                 secretService.createSecretAction(actionMessage.getResourceUuid(), secretRequestDto, isApproved);
             }
             case UPDATE ->  {
-                SecretUpdateRequestDto secretUpdateRequestDto = mapper.convertValue(actionMessage.getData(), SecretUpdateRequestDto.class);
+                SecretUpdateRequestDto secretUpdateRequestDto = new SecretUpdateRequestDto();
+                secretUpdateRequestDto.setSecret(mapper.readValue(SecretsUtil.decodeAndDecryptSecretString(secretActionData.encryptedContent(), SecretEncodingVersion.V1), SecretContent.class));
+                secretUpdateRequestDto.setAttributes(secretActionData.attributes());
                 secretService.updateSecretAction(actionMessage.getResourceUuid(), secretUpdateRequestDto, isApproved);
             }
             case DELETE ->
                 secretService.deleteSecretAction(actionMessage.getResourceUuid());
             case UPDATE_SOURCE_VAULT_PROFILE -> {
-                SecretUpdateObjectsDto secretUpdateObjectsDto = mapper.convertValue(actionMessage.getData(), SecretUpdateObjectsDto.class);
+                SecretUpdateObjectsDto secretUpdateObjectsDto = new SecretUpdateObjectsDto();
+                secretUpdateObjectsDto.setSourceVaultProfileUuid(secretActionData.updatedSourceVaultProfileUuid());
+                secretUpdateObjectsDto.setSecretAttributes(secretActionData.attributes());
                 secretService.updateSourceVaultProfile(secretUpdateObjectsDto, actionMessage.getResourceUuid());
             }
             default ->
