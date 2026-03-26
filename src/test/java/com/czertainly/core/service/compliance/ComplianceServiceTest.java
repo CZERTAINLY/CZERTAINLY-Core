@@ -283,6 +283,10 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
         Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance status should be Not Compliant");
 
+
+        // Run a compliance check on a profile with no secrets
+        Assertions.assertDoesNotThrow(() -> complianceService.checkResourceObjectCompliance(Resource.VAULT_PROFILE, vaultProfileUuid));
+
         // Check compliance for secret
         Secret secret = new Secret();
         secret.setName("secret");
@@ -306,6 +310,12 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceService.checkCompliance(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())), Resource.SECRET, null);
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
         Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+        OffsetDateTime lastUpdated = complianceCheckResult.getTimestamp();
+
+        complianceService.checkResourceObjectCompliance(Resource.VAULT_PROFILE, vaultProfileUuid);
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+        Assertions.assertNotEquals(lastUpdated, complianceCheckResult.getTimestamp());
     }
 
     @Test
