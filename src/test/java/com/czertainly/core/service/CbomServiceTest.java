@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 
 import com.czertainly.api.exception.AlreadyExistException;
@@ -110,6 +111,9 @@ class CbomServiceTest extends BaseSpringBootTest {
     @MockitoBean
     private AttributeEngine attributeEngine;
 
+    @MockitoSpyBean
+    private CbomRepository cbomRepositorySpy;
+
     private WireMockServer mockServer;
 
     @Autowired
@@ -143,6 +147,7 @@ class CbomServiceTest extends BaseSpringBootTest {
     void tearDown() {
         mockServer.stop();
         settingsCache.cacheSettings(SettingsSection.PLATFORM, originalSettings);
+        Mockito.reset(cbomRepositorySpy);
     }
 
     @Test
@@ -815,10 +820,21 @@ class CbomServiceTest extends BaseSpringBootTest {
         )));
 
         mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .inScenario("multipleCreations")
+            .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
             .willReturn(WireMock.aResponse()
                 .withStatus(201)
                 .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+                .withBody(bomEntryJson()))
+            .willSetStateTo("second"));
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .inScenario("multipleCreations")
+            .whenScenarioStateIs("second")
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody(bomEntryJson())));
 
         // When
         CbomDto result1 = cbomService.createCbom(request1);
@@ -1278,11 +1294,109 @@ class CbomServiceTest extends BaseSpringBootTest {
         () -> cbomService.createCbom(request));
 
         assertNotNull(exception.getProblemDetail());
-        assertEquals(404, exception.getProblemDetail().getStatus());
-        assertEquals("CBOM version not found in repository", exception.getProblemDetail().getDetail());
+        assertEquals(500, exception.getProblemDetail().getStatus());
+        assertEquals("CBOM serialNumber and version is reported as existing but was not found in the repository. Please try to upload it again to synchronize state.", exception.getProblemDetail().getDetail());
 
         mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
         mockServer.verify(WireMock.getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*/versions")));
+    }
+
+    @Test
+    void testCreateCbom_AlreadyExistsInLocalDb() throws Exception {
+        // Given - entry already committed to local DB
+        String serialNumber = "urn:uuid:already-local";
+        int version = 1;
+
+        Cbom existing = new Cbom();
+        existing.setSerialNumber(serialNumber);
+        existing.setVersion(version);
+        existing.setSpecVersion("1.6");
+        existing.setTimestamp(OffsetDateTime.now());
+        cbomRepository.save(existing);
+
+        LinkedHashMap<String, Object> content = new LinkedHashMap<>();
+        content.put("serialNumber", serialNumber);
+        content.put("version", version);
+        content.put("specVersion", "1.6");
+
+        CbomUploadRequestDto request = new CbomUploadRequestDto();
+        request.setContent(content);
+
+        // Repository accepts the upload (201) with the same serialNumber/version
+        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
+            .willReturn(WireMock.aResponse()
+                .withStatus(201)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                    {
+                      "serialNumber": "urn:uuid:already-local",
+                      "version": 1,
+                      "cryptoStats": {
+                        "cryptoAssets": {
+                          "algorithms": { "total": 1 },
+                          "certificates": { "total": 1 },
+                          "protocols": { "total": 1 },
+                          "relatedCryptoMaterials": { "total": 1 },
+                          "total": 4
+                        }
+                      }
+                    }
+                    """)));
+
+        // When / Then - local DB pre-check fires (line 252)
+        assertThrows(AlreadyExistException.class, () -> cbomService.createCbom(request));
+        assertEquals(1, cbomRepository.findAll().size());
+    }
+
+    @Test
+    void sync_shouldCountDuplicate_whenRaceConditionInCreateCbomEntry() throws Exception {
+        // Race condition: validateSyncedCbomEntry (first check) sees no entry,
+        // but createCbomEntry (second check, new transaction) finds it already exists.
+        String serialNumber = "serial-race";
+        int version = 1;
+
+        BomEntryDto entry = entry(serialNumber, String.valueOf(version), OffsetDateTime.now());
+        mockSearchResponse(List.of(entry));
+        mockEntrySpecVersionSource(entry, "1.6", "source");
+
+        Mockito.doReturn(false)  // validateSyncedCbomEntry: passes
+               .doReturn(true)   // createCbomEntry: already exists
+               .when(cbomRepositorySpy).existsBySerialNumberAndVersion(serialNumber, version);
+
+        // When
+        String result = cbomService.sync();
+
+        // Then: counted as duplicate, nothing stored
+        assertTrue(result.contains("skipped duplicates 1"));
+        assertTrue(result.contains("stored 0 new entries"));
+    }
+
+    @Test
+    void sync_shouldHandleDataIntegrityViolation_asAlreadyExist() throws Exception {
+        // Race condition fallback: both existence checks pass (false),
+        // but save() fails with a unique constraint violation.
+        String serialNumber = "serial-integrity";
+        int version = 1;
+
+        BomEntryDto entry = entry(serialNumber, String.valueOf(version), OffsetDateTime.now());
+        mockSearchResponse(List.of(entry));
+        mockEntrySpecVersionSource(entry, "1.6", "source");
+
+        Mockito.doReturn(false)
+               .when(cbomRepositorySpy).existsBySerialNumberAndVersion(serialNumber, version);
+        Mockito.doThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"))
+               .when(cbomRepositorySpy).save(Mockito.any(Cbom.class));
+
+        // When
+        String result = cbomService.sync();
+
+        // Then: DataIntegrityViolationException propagates out of the transaction and is counted as duplicate
+        assertTrue(result.contains("skipped duplicates 1"));
+        assertTrue(result.contains("stored 0 new entries"));
+    }
+
+    private String bomEntryJson() {
+        return BOM_ENTRY_JSON.replace("urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79", "urn:uuid:" + UUID.randomUUID());
     }
 
     private BomEntryDto entry(String serialNumber, String version, OffsetDateTime timestamp) {
