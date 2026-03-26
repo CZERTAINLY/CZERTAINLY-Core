@@ -210,27 +210,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setName(secretRequest.getName());
         secret.setDescription(secretRequest.getDescription());
         secret.setSourceVaultProfile(vaultProfile);
-        secret.setState(SecretState.ACTIVE);
+        secret.setState(SecretState.PENDING_APPROVAL);
         secret.setType(secretRequest.getSecret().getType());
-
-        SecretVersion secretVersion = new SecretVersion();
-        secretVersion.setSecret(secret);
-        secretVersion.setVersion(1);
-        String fingerprint;
-        try {
-            fingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
-        } catch (NoSuchAlgorithmException | JsonProcessingException e) {
-            throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
-        }
-
-        secretVersion.setFingerprint(fingerprint);
-        secretVersion.setVaultInstance(vaultInstance);
-        secretVersionRepository.save(secretVersion);
-
-        secret.setLatestVersion(secretVersion);
-        secret.getVersions().add(secretVersion);
         secretRepository.save(secret);
-
         objectAssociationService.setOwnerFromProfile(Resource.SECRET, secret.getUuid());
 
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
@@ -247,24 +229,37 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     @Override
-    public void createSecretAction(UUID secretUuid, UUID vaultProfileUuid, SecretRequestDto secretRequest, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException {
+    public void createSecretAction(UUID secretUuid, SecretRequestDto secretRequest, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(secretUuid);
-        VaultProfile vaultProfile = vaultProfileRepository.findById(vaultProfileUuid)
-                .orElseThrow(() -> new NotFoundException(VaultProfile.class, vaultProfileUuid.toString()));
+        VaultProfile vaultProfile = secret.getSourceVaultProfile();
         if (!isApproved) {
             checkCreateSecretPermissions(SecuredParentUUID.fromUUID(vaultProfile.getVaultInstanceUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()));
         }
         UUID connectorUuid = vaultProfile.getVaultInstance().getConnectorUuid();
-        SecretResponseDto secretResponseDto = createSecretInVault(connectorUuid, vaultProfile.getVaultInstanceUuid(), secretRequest.getSecret().getType(), vaultProfileUuid, secretRequest);
-        secret.getLatestVersion().setVaultVersion(secretResponseDto.getVersion());
+        SecretResponseDto secretResponseDto = createSecretInVault(connectorUuid, vaultProfile.getVaultInstanceUuid(), secretRequest.getSecret().getType(), vaultProfile.getUuid(), secretRequest);
+        SecretVersion secretVersion = new SecretVersion();
+        secretVersion.setSecret(secret);
+        secretVersion.setVersion(1);
+        String fingerprint;
+        try {
+            fingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
+        } catch (NoSuchAlgorithmException | JsonProcessingException e) {
+            throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
+        }
+        secretVersion.setFingerprint(fingerprint);
+        secretVersion.setVaultInstanceUuid(vaultProfile.getVaultInstanceUuid());
+        secretVersion.setVaultVersion(secretResponseDto.getVersion());
+        secretVersionRepository.save(secretVersion);
         secret.setState(SecretState.ACTIVE);
+        secret.setLatestVersion(secretVersion);
+        secret.getVersions().add(secretVersion);
         attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, vaultProfile.getUuid(), vaultProfile.getName()));
         secretRepository.save(secret);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
-    public SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException, ConnectorException {
+    public SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException {
         Secret secret = getSecretEntity(uuid);
 
         attributeEngine.validateCustomAttributesContent(Resource.SECRET, secretRequest.getCustomAttributes());
@@ -307,10 +302,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     @Override
-    public void updateSecretAction(UUID secretUuid, UUID vaultProfileUuid, SecretUpdateRequestDto secretRequest, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException {
+    public void updateSecretAction(UUID secretUuid, SecretUpdateRequestDto secretRequest, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(secretUuid);
-        VaultProfile currentSourceVaultProfile = vaultProfileRepository.findById(vaultProfileUuid)
-                .orElseThrow(() -> new NotFoundException(VaultProfile.class, vaultProfileUuid.toString()));
+        VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
         SecretVersion newVersion = new SecretVersion();
         newVersion.setSecret(secret);
         newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);

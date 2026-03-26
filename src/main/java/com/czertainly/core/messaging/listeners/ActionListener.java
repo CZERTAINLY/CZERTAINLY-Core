@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileRelation;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
+import com.czertainly.core.dao.entity.Secret;
 import com.czertainly.core.dao.repository.ApprovalProfileRelationRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
@@ -116,14 +117,20 @@ public class ActionListener {
         }
 
         switch (actionMessage.getResourceAction()) {
-            case CREATE ->
-                secretService.createSecretAction(actionMessage.getResourceUuid(), actionMessage.getApprovalProfileResourceUuid(), (SecretRequestDto) actionMessage.getData(), isApproved);
-            case UPDATE ->
-                secretService.updateSecretAction(actionMessage.getResourceUuid(), actionMessage.getApprovalProfileResourceUuid(), (SecretUpdateRequestDto) actionMessage.getData(), isApproved);
+            case CREATE ->  {
+                SecretRequestDto secretRequestDto = mapper.convertValue(actionMessage.getData(), SecretRequestDto.class);
+                secretService.createSecretAction(actionMessage.getResourceUuid(), secretRequestDto, isApproved);
+            }
+            case UPDATE ->  {
+                SecretUpdateRequestDto secretUpdateRequestDto = mapper.convertValue(actionMessage.getData(), SecretUpdateRequestDto.class);
+                secretService.updateSecretAction(actionMessage.getResourceUuid(), secretUpdateRequestDto, isApproved);
+            }
             case DELETE ->
                 secretService.deleteSecretAction(actionMessage.getResourceUuid());
-            case UPDATE_SOURCE_VAULT_PROFILE ->
-                secretService.updateSourceVaultProfile((SecretUpdateObjectsDto) actionMessage.getData(), actionMessage.getResourceUuid());
+            case UPDATE_SOURCE_VAULT_PROFILE -> {
+                SecretUpdateObjectsDto secretUpdateObjectsDto = mapper.convertValue(actionMessage.getData(), SecretUpdateObjectsDto.class);
+                secretService.updateSourceVaultProfile(secretUpdateObjectsDto, actionMessage.getResourceUuid());
+            }
             default ->
                 logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
         }
