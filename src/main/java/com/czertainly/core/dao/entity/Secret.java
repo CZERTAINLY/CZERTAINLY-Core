@@ -158,7 +158,7 @@ public class Secret extends UniquelyIdentifiedAndAudited implements ComplianceSu
 
     @Override
     public IPlatformEnum getFormat() {
-        return type;
+        return null;
     }
 
     @Override

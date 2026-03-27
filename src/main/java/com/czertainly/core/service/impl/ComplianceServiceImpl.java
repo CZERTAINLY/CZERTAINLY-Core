@@ -454,7 +454,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                     associationResource == Resource.CERTIFICATE || associationResource == Resource.CERTIFICATE_REQUEST || associationResource == Resource.RA_PROFILE;
             case CRYPTOGRAPHIC_KEY, CRYPTOGRAPHIC_KEY_ITEM ->
                     associationResource == Resource.CRYPTOGRAPHIC_KEY || associationResource == Resource.CRYPTOGRAPHIC_KEY_ITEM || associationResource == Resource.TOKEN_PROFILE;
-            case VAULT_PROFILE ->
+            case SECRET ->
                     associationResource == Resource.VAULT_PROFILE || associationResource == Resource.SECRET;
             default -> false;
         };

@@ -4,12 +4,14 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -19,8 +21,10 @@ import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -51,6 +55,8 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     ConnectorRepository connectorRepository;
+    @Autowired
+    private AcmeAccountRepository acmeAccountRepository;
 
     private AcmeProfile acmeProfile;
     private RequestAttributeV3 domainAttrRequestAttribute;
@@ -283,5 +289,57 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(nameAndUuidDto);
         Assertions.assertEquals(acmeProfile.getName(), nameAndUuidDto.getName());
         Assertions.assertEquals(acmeProfile.getUuid().toString(), nameAndUuidDto.getUuid());
+    }
+
+    @Test
+    void testBulkForceRemove() {
+        // Prepare
+        AcmeProfile acmeProfile2 = new AcmeProfile();
+        acmeProfile2.setName("acmeProfile2");
+        acmeProfileRepository.save(acmeProfile2);
+
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("raProfile");
+        raProfile.setAcmeProfile(acmeProfile2);
+        raProfileRepository.save(raProfile);
+
+        // Act
+        List<BulkActionMessageDto> messages = acmeProfileService.bulkForceRemoveACMEProfiles(List.of(acmeProfile2.getSecuredUuid()));
+
+        // Verify
+        Assertions.assertTrue(messages.isEmpty());
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile2.getSecuredUuid()));
+        RaProfile updatedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElseThrow();
+        Assertions.assertNull(updatedRaProfile.getAcmeProfile());
+    }
+
+    @Test
+    void testEditAcmeProfile_cannotSetRaProfileToNull_whenAccountsWithDefaultRaProfileExist() {
+        // Prepare an ACME account with a default RA profile.
+        setUpOldConnector();
+        acmeProfileRepository.save(acmeProfile);
+
+        AcmeAccount acmeAccount = new AcmeAccount();
+        acmeAccount.setAccountId("test-account-id");
+        acmeAccount.setPublicKey("test-public-key");
+        acmeAccount.setDefaultRaProfile(true);
+        acmeAccount.setEnabled(true);
+        acmeAccount.setStatus(AccountStatus.VALID);
+        acmeAccount.setTermsOfServiceAgreed(true);
+        acmeAccount.setAcmeProfileUuid(acmeProfile.getUuid().toString());
+        acmeAccount.setRaProfileUuid(acmeProfile.getRaProfile().getUuid().toString());
+        acmeAccountRepository.save(acmeAccount);
+
+        // Act
+        AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
+        request.setRaProfileUuid(null);
+        SecuredUUID acmeProfileUuid = acmeProfile.getSecuredUuid();
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> acmeProfileService.editAcmeProfile(acmeProfileUuid, request)
+        );
+
+        // Verify the error message
+        Assertions.assertTrue(exception.getMessage().contains("Cannot remove the RA Profile"));
+        Assertions.assertTrue(exception.getMessage().contains("because there are existing ACME accounts"));
     }
 }

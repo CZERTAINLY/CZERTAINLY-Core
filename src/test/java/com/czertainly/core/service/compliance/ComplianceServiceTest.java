@@ -309,6 +309,41 @@ class ComplianceServiceTest extends BaseComplianceTest {
     }
 
     @Test
+    void testSecretCompliance() throws NotFoundException {
+        // Check compliance for secret
+        Secret secret = new Secret();
+        secret.setName("secret");
+        secret.setType(SecretType.BASIC_AUTH);
+        secret.setState(SecretState.ACTIVE);
+        secret.setSourceVaultProfileUuid(vaultProfileUuid);
+
+        SecretVersion secretVersion = new SecretVersion();
+        secretVersion.setVaultInstanceUuid(vaultInstanceUuid);
+        secretVersion.setVersion(1);
+        secretVersion.setFingerprint("fingerprint");
+        secretVersionRepository.save(secretVersion);
+
+        secret.setLatestVersion(secretVersion);
+        secretRepository.save(secret);
+
+        Assertions.assertDoesNotThrow(() -> complianceService.checkResourceObjectsComplianceValidation(Resource.VAULT_PROFILE, List.of(vaultProfileUuid)));
+        Assertions.assertDoesNotThrow(() -> complianceService.checkResourceObjectsComplianceValidation(Resource.SECRET, List.of(secret.getUuid())));
+        complianceService.checkResourceObjectCompliance(Resource.SECRET, secret.getUuid());
+        ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+
+        complianceService.checkCompliance(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())), Resource.SECRET, null);
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+        OffsetDateTime lastUpdated = complianceCheckResult.getTimestamp();
+
+        complianceService.checkResourceObjectCompliance(Resource.VAULT_PROFILE, vaultProfileUuid);
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
+        Assertions.assertNotEquals(lastUpdated, complianceCheckResult.getTimestamp());
+    }
+
+    @Test
     void testCertificateRequestComplianceCheckBeforeIssue() throws Exception {
         WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue/attributes"))
                 .willReturn(WireMock.aResponse()
