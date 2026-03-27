@@ -319,10 +319,18 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         actionProducer.produceMessage(actionMessage);
     }
 
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
+    private void checkUpdateSecretPermissions() {
+        // empty to evaluate permissions
+    }
+
     @Override
     public void updateSecretAction(UUID secretUuid, SecretUpdateRequestDto secretRequest, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(secretUuid);
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
+        if (!isApproved) {
+            checkUpdateSecretPermissions();
+        }
         SecretVersion newVersion = new SecretVersion();
         newVersion.setSecret(secret);
         newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);
@@ -362,9 +370,17 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         produceActionMessage(null, secret.getSourceVaultProfile(), secret, ResourceAction.DELETE);
     }
 
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
+    private void checkDeleteSecretPermissions() {
+        // empty to evaluate permissions
+    }
+
     @Override
-    public void deleteSecretAction(UUID secretUuid) throws NotFoundException, ConnectorException, AttributeException {
+    public void deleteSecretAction(UUID secretUuid, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(secretUuid);
+        if (!isApproved) {
+            checkDeleteSecretPermissions();
+        }
         // Delete secret from vaults
         Set<UUID> vaultInstanceUuids = new HashSet<>();
         deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
@@ -593,8 +609,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     }
 
     @Override
-    public void updateSourceVaultProfile(SecretUpdateObjectsDto request, UUID secretUuid) throws NotFoundException, ConnectorException, AttributeException {
+    public void updateSourceVaultProfile(SecretUpdateObjectsDto request, UUID secretUuid, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(secretUuid);
+        if (!isApproved) {
+            checkUpdateSecretPermissions();
+        }
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
         VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()))
                 .orElseThrow(() -> new NotFoundException(VaultProfile.class, request.getSourceVaultProfileUuid()));

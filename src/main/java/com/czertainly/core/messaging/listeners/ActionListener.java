@@ -13,7 +13,6 @@ import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileRelation;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
-import com.czertainly.core.dao.entity.Secret;
 import com.czertainly.core.dao.repository.ApprovalProfileRelationRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
@@ -141,12 +140,12 @@ public class ActionListener {
                 secretService.updateSecretAction(actionMessage.getResourceUuid(), secretUpdateRequestDto, isApproved);
             }
             case DELETE ->
-                secretService.deleteSecretAction(actionMessage.getResourceUuid());
+                secretService.deleteSecretAction(actionMessage.getResourceUuid(), isApproved);
             case UPDATE_SOURCE_VAULT_PROFILE -> {
                 SecretUpdateObjectsDto secretUpdateObjectsDto = new SecretUpdateObjectsDto();
                 secretUpdateObjectsDto.setSourceVaultProfileUuid(secretActionData.updatedSourceVaultProfileUuid());
                 secretUpdateObjectsDto.setSecretAttributes(secretActionData.attributes());
-                secretService.updateSourceVaultProfile(secretUpdateObjectsDto, actionMessage.getResourceUuid());
+                secretService.updateSourceVaultProfile(secretUpdateObjectsDto, actionMessage.getResourceUuid(), isApproved);
             }
             default ->
                 logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
