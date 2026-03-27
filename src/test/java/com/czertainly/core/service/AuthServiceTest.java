@@ -4,6 +4,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.AuthResourceDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDetailDto;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
@@ -78,12 +79,14 @@ class AuthServiceTest extends BaseSpringBootTest {
         injectLocalhostUserProfileToContext();
 
         UserProfileDetailDto userProfileDto = authService.getAuthProfile();
-        Assertions.assertEquals(4, userProfileDto.getPermissions().getAllowedListings().size());
+        var expected = List.of(Resource.CERTIFICATE, Resource.DIGITAL_SIGNATURE, Resource.CRYPTOGRAPHIC_KEY, Resource.SECRET, Resource.SETTINGS);
+        Assertions.assertIterableEquals(expected, userProfileDto.getPermissions().getAllowedListings());
 
         // allow also users through group object member permissions
         injectLocalhostUserProfileChangedToContext();
         userProfileDto = authService.getAuthProfile();
-        Assertions.assertEquals(6, userProfileDto.getPermissions().getAllowedListings().size());
+        expected = List.of(Resource.CERTIFICATE, Resource.DIGITAL_SIGNATURE, Resource.GROUP, Resource.CRYPTOGRAPHIC_KEY, Resource.SECRET, Resource.SETTINGS, Resource.USER);
+        Assertions.assertIterableEquals(expected, userProfileDto.getPermissions().getAllowedListings());
 
     }
 
@@ -703,6 +706,71 @@ class AuthServiceTest extends BaseSpringBootTest {
                         "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7892",
                         "name": "secrets",
                         "displayName": "Secrets",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7893",
+                        "name": "digitalSignatures",
+                        "displayName": "Digital Signature",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7894",
+                        "name": "ilmSigningProtocolConfigurations",
+                        "displayName": "ILM Signing Protocol Configuration",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7895",
+                        "name": "signingProfiles",
+                        "displayName": "Signing Profile",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7896",
+                        "name": "timeQualityConfigurations",
+                        "displayName": "Time Quality Configuration",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "b31b0ea1-d97f-4ade-895c-a982f4544e1b",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7897",
+                        "name": "tspConfigurations",
+                        "displayName": "TSP Configuration",
                         "objectAccess": true,
                         "actions": [
                             {

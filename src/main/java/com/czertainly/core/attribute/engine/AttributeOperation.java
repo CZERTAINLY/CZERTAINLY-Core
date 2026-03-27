@@ -6,6 +6,8 @@ public class AttributeOperation {
     public static final String CERTIFICATE_REVOKE = "revoke";
     public static final String CERTIFICATE_REQUEST_SIGN = "sign";
     public static final String ENCRYPT = "encrypt";
+    public static final String SIGNING_SCHEME = "signingScheme";
+    public static final String WORKFLOW_FORMATTER = "workflowFormatter";
 
     private AttributeOperation() {
     }

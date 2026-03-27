@@ -1,0 +1,13 @@
+package com.czertainly.core.dao.repository.signing;
+
+import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
+import com.czertainly.core.dao.repository.SecurityFilterRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface TimeQualityConfigurationRepository extends SecurityFilterRepository<TimeQualityConfiguration, UUID> {
+}

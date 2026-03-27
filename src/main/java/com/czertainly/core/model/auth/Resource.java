@@ -71,7 +71,14 @@ public enum Resource {
     SECRET("secrets"),
 
     // CBOMS
-    CBOM("cboms")
+    CBOM("cboms"),
+
+    // SIGNING
+    SIGNING_PROFILE("signingProfiles"),
+    ILM_SIGNING_PROTOCOL_CONFIGURATION("ilmSigningProtocolConfigurations"),
+    TSP_CONFIGURATION("tspConfigurations"),
+    TIME_QUALITY_CONFIGURATION("timeQualityConfigurations"),
+    DIGITAL_SIGNATURE("digitalSignatures")
     ;
 
     @Schema(description = "Resource Name",
