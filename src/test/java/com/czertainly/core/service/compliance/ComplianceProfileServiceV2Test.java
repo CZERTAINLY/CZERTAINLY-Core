@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.v2.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceRuleRequestDto;
+import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateSubjectType;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
@@ -14,8 +15,11 @@ import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.czertainly.api.model.core.compliance.v2.ProviderComplianceRulesDto;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.SecretRepository;
+import com.czertainly.core.dao.repository.SecretVersionRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
@@ -23,12 +27,18 @@ import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 class ComplianceProfileServiceV2Test extends BaseComplianceTest {
+
+    @Autowired
+    private SecretRepository secretRepository;
+    @Autowired
+    private SecretVersionRepository secretVersionRepository;
 
     @Test
     void testResourceObjectsHandling() throws NotFoundException {
@@ -327,6 +337,14 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
 
         Assertions.assertFalse(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(complianceV2RuleUuid));
         Assertions.assertTrue(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(randomUUID));
+
+        UUID secretUuid = createSecretWithComplianceResult(randomUUID);
+        dto.setConnectorUuid(null);
+        dto.setRuleUuid(internalSecretRuleUuid);
+        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        Secret secret = secretRepository.findByUuid(secretUuid).orElseThrow(() -> new NotFoundException("Secret not found"));
+        Assertions.assertFalse(secret.getComplianceResult().getInternalRules().getNotApplicable().contains(internalSecretRuleUuid));
+        Assertions.assertTrue(secret.getComplianceResult().getInternalRules().getNotApplicable().contains(randomUUID));
     }
 
     private UUID createCertificateWithComplianceResult(UUID randomUUID) {
@@ -345,6 +363,30 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         certificate.setRaProfileUuid(associatedRaProfileUuid);
         certificateRepository.save(certificate);
         return certificate.getUuid();
+    }
+
+    private UUID createSecretWithComplianceResult(UUID randomUUID) {
+        Secret secret = new Secret();
+        secret.setName("secret");
+        secret.setType(SecretType.BASIC_AUTH);
+        secret.setState(SecretState.ACTIVE);
+        secret.setSourceVaultProfileUuid(vaultProfileUuid);
+
+        SecretVersion secretVersion = new SecretVersion();
+        secretVersion.setVaultInstanceUuid(vaultInstanceUuid);
+        secretVersion.setVersion(1);
+        secretVersion.setFingerprint("fingerprint");
+        secretVersionRepository.save(secretVersion);
+
+        ComplianceResultDto complianceResultDto = new ComplianceResultDto();
+        complianceResultDto.setInternalRules(new ComplianceResultRulesDto());
+        complianceResultDto.getInternalRules().getNotApplicable().add(internalSecretRuleUuid);
+        complianceResultDto.getInternalRules().getNotApplicable().add(randomUUID);
+        secret.setComplianceResult(complianceResultDto);
+
+        secret.setLatestVersion(secretVersion);
+        secretRepository.save(secret);
+        return secret.getUuid();
     }
 
     @Test
