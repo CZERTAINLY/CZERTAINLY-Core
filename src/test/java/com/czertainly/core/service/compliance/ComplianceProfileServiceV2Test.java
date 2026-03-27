@@ -19,7 +19,6 @@ import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.ComplianceInternalRuleRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.SecretRepository;
 import com.czertainly.core.dao.repository.SecretVersionRepository;
 import com.czertainly.core.enums.FilterField;
@@ -342,6 +341,12 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
 
         Assertions.assertFalse(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(complianceV2RuleUuid));
         Assertions.assertTrue(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(randomUUID));
+
+        dto.setRuleUuid(complianceV2RuleKeyUuid);
+        dto.setRemoval(false);
+        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        dto.setRemoval(true);
+        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
 
         UUID secretUuid = createSecretWithComplianceResult(randomUUID);
         dto.setConnectorUuid(null);
