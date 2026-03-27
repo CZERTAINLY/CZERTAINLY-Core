@@ -25,7 +25,7 @@ public interface CertificateRequestRepository extends SecurityFilterRepository<C
                 SELECT DISTINCT cr.uuid
                 FROM {h-schema}certificate_request cr
                 JOIN {h-schema}certificate c
-                    ON cr.certificate_uuid = c.uuid
+                    ON cr.uuid = c.certificate_request_uuid
                 JOIN {h-schema}ra_profile ra
                     ON c.ra_profile_uuid = ra.uuid
                 JOIN {h-schema}compliance_profile_association cpa
@@ -74,7 +74,7 @@ public interface CertificateRequestRepository extends SecurityFilterRepository<C
                 SELECT DISTINCT cr.uuid
                 FROM {h-schema}certificate_request cr
                 JOIN {h-schema}certificate c
-                    ON cr.certificate_uuid = c.uuid
+                    ON cr.uuid = c.certificate_request_uuid
                 JOIN {h-schema}ra_profile ra
                     ON c.ra_profile_uuid = ra.uuid
                 JOIN {h-schema}compliance_profile_association cpa

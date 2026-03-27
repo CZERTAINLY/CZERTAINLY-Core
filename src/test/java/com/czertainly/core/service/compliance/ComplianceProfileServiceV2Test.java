@@ -18,6 +18,8 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.ComplianceInternalRuleRepository;
+import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.SecretRepository;
 import com.czertainly.core.dao.repository.SecretVersionRepository;
 import com.czertainly.core.enums.FilterField;
@@ -39,6 +41,9 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     private SecretRepository secretRepository;
     @Autowired
     private SecretVersionRepository secretVersionRepository;
+    @Autowired
+    private ComplianceInternalRuleRepository complianceInternalRuleRepository;
+
 
     @Test
     void testResourceObjectsHandling() throws NotFoundException {
@@ -345,6 +350,30 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         Secret secret = secretRepository.findByUuid(secretUuid).orElseThrow(() -> new NotFoundException("Secret not found"));
         Assertions.assertFalse(secret.getComplianceResult().getInternalRules().getNotApplicable().contains(internalSecretRuleUuid));
         Assertions.assertTrue(secret.getComplianceResult().getInternalRules().getNotApplicable().contains(randomUUID));
+
+        UUID certificateRequestRuleUuid = createRule(Resource.CERTIFICATE_REQUEST);
+        dto.setRuleUuid(certificateRequestRuleUuid);
+        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+
+        UUID keyItemRuleUuid = createRule(Resource.CRYPTOGRAPHIC_KEY_ITEM);
+        dto.setRuleUuid(keyItemRuleUuid);
+        Assertions.assertThrows(ValidationException.class,() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+
+        UUID keyRuleUuid = createRule(Resource.CRYPTOGRAPHIC_KEY);
+        dto.setRuleUuid(keyRuleUuid);
+        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+    }
+
+    private UUID createRule(Resource resource) {
+        ComplianceInternalRule rule = new ComplianceInternalRule();
+        rule.setName("TestRule");
+        rule.setResource(resource);
+        complianceInternalRuleRepository.save(rule);
+        ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
+        complianceProfileRule.setComplianceProfileUuid(complianceProfile.getUuid());
+        complianceProfileRule.setInternalRuleUuid(rule.getUuid());
+        complianceProfileRuleRepository.save(complianceProfileRule);
+        return rule.getUuid();
     }
 
     private UUID createCertificateWithComplianceResult(UUID randomUUID) {

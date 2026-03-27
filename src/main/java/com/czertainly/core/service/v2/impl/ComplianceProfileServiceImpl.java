@@ -423,19 +423,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             if (!request.isRemoval()) {
                 ruleHandler.createComplianceProfileInternalRuleAssoc(uuid.getValue(), request.getRuleUuid());
             } else {
-                // Remove orphaned internal rules from the compliance result that are not part of any profile anymore
-                ComplianceInternalRule internalRule = internalRuleRepository.findByUuid(request.getRuleUuid()).orElseThrow(() -> new NotFoundException(ComplianceInternalRule.class, request.getRuleUuid()));
-                switch (internalRule.getResource()) {
-                    case CERTIFICATE ->
-                            certificateRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
-                    case CRYPTOGRAPHIC_KEY ->
-                            cryptographicKeyItemRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
-                    case SECRET -> secretRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
-                    case CERTIFICATE_REQUEST ->
-                            certificateRequestRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
-                    default ->
-                            throw new ValidationException("Unsupported resource type %s for the internal rule".formatted(internalRule.getResource()));
-                }
+                removeRulesWithoutComplianceProfileFromComplianceResult(request);
             }
         } else {
             // provider rule
@@ -464,6 +452,22 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         }
 
 
+    }
+
+    private void removeRulesWithoutComplianceProfileFromComplianceResult(ComplianceProfileRulesPatchRequestDto request) throws NotFoundException {
+        // Remove orphaned internal rules from the compliance result that are not part of any profile anymore
+        ComplianceInternalRule internalRule = internalRuleRepository.findByUuid(request.getRuleUuid()).orElseThrow(() -> new NotFoundException(ComplianceInternalRule.class, request.getRuleUuid()));
+        switch (internalRule.getResource()) {
+            case CERTIFICATE ->
+                    certificateRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            case CRYPTOGRAPHIC_KEY ->
+                    cryptographicKeyItemRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            case SECRET -> secretRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            case CERTIFICATE_REQUEST ->
+                    certificateRequestRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            default ->
+                    throw new ValidationException("Unsupported resource type %s for the internal rule".formatted(internalRule.getResource()));
+        }
     }
 
     @Override
