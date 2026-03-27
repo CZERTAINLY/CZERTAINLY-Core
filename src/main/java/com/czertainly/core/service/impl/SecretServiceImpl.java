@@ -276,6 +276,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setDescription(secretRequest.getDescription());
 
         if (secretRequest.getSecret() != null) {
+            if (secret.getState() == SecretState.PENDING_APPROVAL || secret.getState() == SecretState.REJECTED) {
+                throw new ValidationException("Secret %s is in state %s and cannot be updated".formatted(secret.getName(), secret.getState().getCode()));
+            }
             SecretVersion latestVersion = secret.getLatestVersion();
             String newFingerprint;
             try {
@@ -420,6 +423,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.ENABLE)
     public void enableSecret(UUID uuid) throws NotFoundException {
         Secret secret = getSecretEntity(uuid);
+        if (secret.getState() == SecretState.PENDING_APPROVAL || secret.getState() == SecretState.REJECTED) {
+            throw new ValidationException("Secret %s is in state %s and cannot be enabled".formatted(secret.getName(), secret.getState().getCode()));
+        }
         secret.setEnabled(true);
         secretRepository.save(secret);
     }
@@ -443,6 +449,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
         if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid))) {
             throw new ValidationException("Vault Profile with UUID %s is already a sync vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
+        }
+        if (secret.getState() == SecretState.PENDING_APPROVAL || secret.getState() == SecretState.REJECTED) {
+            throw new ValidationException("Secret %s is in state %s and cannot be updated".formatted(secret.getName(), secret.getState().getCode()));
         }
 
         VaultProfile addedVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(vaultProfileUuid))
@@ -566,11 +575,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
-    public void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws
-            NotFoundException, ConnectorException, AttributeException {
+    public void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException {
         Secret secret = getSecretEntity(uuid);
         if (request.getSourceVaultProfileUuid() != null) {
-            updateSourceVaultProfile(request, secret);
+            updateSourceVaultProfileAction(request, secret);
         }
         if (request.getGroupUuids() != null) {
             // check if there is change in groups compared to the current state
@@ -592,7 +600,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
     }
 
-    private void updateSourceVaultProfile(SecretUpdateObjectsDto request, Secret secret) {
+    private void updateSourceVaultProfileAction(SecretUpdateObjectsDto request, Secret secret) {
+        if (secret.getState() == SecretState.PENDING_APPROVAL || secret.getState() == SecretState.REJECTED) {
+            throw new ValidationException("Secret %s is in state %s and source vault profile cannot be updated".formatted(secret.getName(), secret.getState().getCode()));
+        }
         UUID currentSourceVaultProfileUuid = secret.getSourceVaultProfile().getUuid();
         // Evaluate vault profile membership for current source profile
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(currentSourceVaultProfileUuid));
