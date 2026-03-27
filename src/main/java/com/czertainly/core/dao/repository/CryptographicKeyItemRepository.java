@@ -78,7 +78,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
                     ON cpr.compliance_profile_uuid = cpa.compliance_profile_uuid
                 WHERE cpa.resource = 'TOKEN_PROFILE'
                   AND cpr.internal_rule_uuid = :ruleUuid
-                  AND s.compliance_status IN ('NOK', 'NA', 'FAILED')
+                  AND cki.compliance_status IN ('NOK', 'NA', 'FAILED')
             )
             UPDATE {h-schema}cryptographic_key_item cki
             SET compliance_result =

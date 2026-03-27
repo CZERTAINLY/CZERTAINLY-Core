@@ -123,6 +123,11 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Autowired
+    public void setCertificateRequestRepository(CertificateRequestRepository certificateRequestRepository) {
+        this.certificateRequestRepository = certificateRequestRepository;
+    }
+
+    @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
     }

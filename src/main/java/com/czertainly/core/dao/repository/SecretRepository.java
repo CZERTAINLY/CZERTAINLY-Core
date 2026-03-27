@@ -35,7 +35,7 @@ public interface SecretRepository extends SecurityFilterRepository<Secret, UUID>
                 SELECT DISTINCT s.uuid
                 FROM {h-schema}secret s
                 JOIN {h-schema}vault_profile va
-                    ON s.vault_profile_uuid = va.uuid
+                    ON s.source_vault_profile_uuid = va.uuid
                 JOIN {h-schema}compliance_profile_association cpa
                     ON cpa.object_uuid = va.uuid
                 JOIN {h-schema}compliance_profile_rule cpr
@@ -82,7 +82,7 @@ public interface SecretRepository extends SecurityFilterRepository<Secret, UUID>
                 SELECT DISTINCT s.uuid
                 FROM {h-schema}secret s
                 JOIN {h-schema}vault_profile va
-                    ON s.vault_profile_uuid = va.uuid
+                    ON s.source_vault_profile_uuid = va.uuid
                 JOIN {h-schema}compliance_profile_association cpa
                     ON cpa.object_uuid = va.uuid
                 JOIN {h-schema}compliance_profile_rule cpr

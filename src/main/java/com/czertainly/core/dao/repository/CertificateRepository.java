@@ -264,7 +264,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query(value = """
             WITH affected_by_profile AS (
                 SELECT DISTINCT c.uuid
-                FROM core.certificate c
+                FROM {h-schema}certificate c
                 JOIN {h-schema}ra_profile ra
                     ON c.ra_profile_uuid = ra.uuid
                 JOIN {h-schema}compliance_profile_association cpa

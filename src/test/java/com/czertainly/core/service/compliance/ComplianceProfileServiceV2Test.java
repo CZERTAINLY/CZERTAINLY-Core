@@ -16,7 +16,6 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CertificateRequestRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
@@ -24,7 +23,6 @@ import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Set;
