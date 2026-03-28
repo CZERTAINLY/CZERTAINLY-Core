@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -82,6 +83,7 @@ class AcmeAccountServiceTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setVersion(ConnectorVersion.V1);
         connector = connectorRepository.save(connector);
 
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
