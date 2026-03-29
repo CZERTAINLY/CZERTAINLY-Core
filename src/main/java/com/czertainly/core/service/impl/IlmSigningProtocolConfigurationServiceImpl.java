@@ -19,6 +19,7 @@ import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
+import com.czertainly.core.mapper.signing.IlmSigningProtocolConfigurationMapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -68,7 +69,7 @@ public class IlmSigningProtocolConfigurationServiceImpl implements IlmSigningPro
         TriFunction<Root<IlmSigningProtocolConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
         List<IlmSigningProtocolConfigurationListDto> configurations = ilmSigningProtocolConfigurationRepository.findUsingSecurityFilter(filter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream()
-                .map(IlmSigningProtocolConfiguration::mapToListDto)
+                .map(IlmSigningProtocolConfigurationMapper::toListDto)
                 .toList();
         PaginationResponseDto<IlmSigningProtocolConfigurationListDto> response = new PaginationResponseDto<>();
         response.setItems(configurations);
@@ -85,7 +86,7 @@ public class IlmSigningProtocolConfigurationServiceImpl implements IlmSigningPro
     public IlmSigningProtocolConfigurationDto getIlmSigningProtocolConfiguration(SecuredUUID uuid) throws NotFoundException {
         IlmSigningProtocolConfiguration configuration = getIlmSigningProtocolConfigurationEntity(uuid.getValue());
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, uuid.getValue());
-        return configuration.mapToDto(customAttributes);
+        return IlmSigningProtocolConfigurationMapper.toDto(configuration, customAttributes);
     }
 
     @Override
@@ -159,7 +160,7 @@ public class IlmSigningProtocolConfigurationServiceImpl implements IlmSigningPro
         IlmSigningProtocolConfiguration saved = ilmSigningProtocolConfigurationRepository.save(configuration);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, saved.getUuid(), request.getCustomAttributes());
-        return saved.mapToDto(customAttributes);
+        return IlmSigningProtocolConfigurationMapper.toDto(saved, customAttributes);
 
     }
 

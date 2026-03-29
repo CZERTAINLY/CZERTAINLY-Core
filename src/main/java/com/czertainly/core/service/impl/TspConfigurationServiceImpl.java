@@ -19,6 +19,7 @@ import com.czertainly.core.dao.entity.signing.TspConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.repository.signing.TspConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
+import com.czertainly.core.mapper.signing.TspConfigurationMapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -68,7 +69,7 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
         TriFunction<Root<TspConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
         List<TspConfigurationListDto> configurations = tspConfigurationRepository.findUsingSecurityFilter(filter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream()
-                .map(TspConfiguration::mapToListDto)
+                .map(TspConfigurationMapper::toListDto)
                 .toList();
         PaginationResponseDto<TspConfigurationListDto> response = new PaginationResponseDto<>();
         response.setItems(configurations);
@@ -85,7 +86,7 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
     public TspConfigurationDto getTspConfiguration(SecuredUUID uuid) throws NotFoundException {
         TspConfiguration configuration = getTspConfigurationEntity(uuid.getValue());
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.TSP_CONFIGURATION, uuid.getValue());
-        return configuration.mapToDto(customAttributes);
+        return TspConfigurationMapper.toDto(configuration, customAttributes);
     }
 
     @Override
@@ -159,7 +160,7 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
         TspConfiguration saved = tspConfigurationRepository.save(configuration);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.TSP_CONFIGURATION, saved.getUuid(), request.getCustomAttributes());
-        return saved.mapToDto(customAttributes);
+        return TspConfigurationMapper.toDto(saved, customAttributes);
 
     }
 

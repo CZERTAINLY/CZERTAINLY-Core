@@ -1,8 +1,5 @@
 package com.czertainly.core.dao.entity.signing;
 
-import com.czertainly.api.model.client.attribute.ResponseAttribute;
-import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolConfigurationDto;
-import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolConfigurationListDto;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,14 +11,13 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "ilm_signing_protocol_configuration")
-public class IlmSigningProtocolConfiguration extends UniquelyIdentifiedAndAudited  {
+public class IlmSigningProtocolConfiguration extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "name", nullable = false)
     private String name;
@@ -40,21 +36,5 @@ public class IlmSigningProtocolConfiguration extends UniquelyIdentifiedAndAudite
     public void setDefaultSigningProfile(SigningProfile defaultSigningProfile) {
         this.defaultSigningProfile = defaultSigningProfile;
         this.defaultSigningProfileUuid = defaultSigningProfile != null ? defaultSigningProfile.getUuid() : null;
-    }
-
-    public IlmSigningProtocolConfigurationDto mapToDto(List<ResponseAttribute> customAttributes) {
-        IlmSigningProtocolConfigurationDto dto = new IlmSigningProtocolConfigurationDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        dto.setDescription(description);
-        dto.setCustomAttributes(customAttributes);
-        return dto;
-    }
-
-    public IlmSigningProtocolConfigurationListDto mapToListDto() {
-        IlmSigningProtocolConfigurationListDto dto = new IlmSigningProtocolConfigurationListDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        return dto;
     }
 }

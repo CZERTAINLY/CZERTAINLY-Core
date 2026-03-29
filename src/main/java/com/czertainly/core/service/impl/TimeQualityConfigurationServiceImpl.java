@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
+import com.czertainly.core.mapper.signing.TimeQualityConfigurationMapper;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -64,7 +65,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     public PaginationResponseDto<TimeQualityConfigurationListDto> listTimeQualityConfigurations(SearchRequestDto request, SecurityFilter filter) {
         List<TimeQualityConfiguration> configurations = timeQualityConfigurationRepository.findUsingSecurityFilter(filter);
         List<TimeQualityConfigurationListDto> dtos = configurations.stream()
-                .map(TimeQualityConfiguration::mapToListDto)
+                .map(TimeQualityConfigurationMapper::toListDto)
                 .toList();
         PaginationResponseDto<TimeQualityConfigurationListDto> response = new PaginationResponseDto<>();
         // :TODO: this is completely wrong
@@ -82,7 +83,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
         TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
-        return configuration.mapToDto(customAttributes);
+        return TimeQualityConfigurationMapper.toDto(configuration, customAttributes);
     }
 
     @Override
@@ -102,7 +103,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
         TimeQualityConfiguration saved = timeQualityConfigurationRepository.save(configuration);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, saved.getUuid(), request.getCustomAttributes());
-        return saved.mapToDto(customAttributes);
+        return TimeQualityConfigurationMapper.toDto(saved, customAttributes);
     }
 
     @Override
@@ -123,7 +124,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
         TimeQualityConfiguration saved = timeQualityConfigurationRepository.save(configuration);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, saved.getUuid(), request.getCustomAttributes());
-        return saved.mapToDto(customAttributes);
+        return TimeQualityConfigurationMapper.toDto(saved, customAttributes);
     }
 
     @Override

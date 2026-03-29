@@ -1056,7 +1056,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         ilmConfig.setName("test-ilm-config");
         ilmConfig = ilmRepository.save(ilmConfig);
 
-        signingProfileService.activateIlmSigningProtocol(savedProfile.getSecuredUuid(), ilmConfig.getSecuredUuid());
+        var activationDto = signingProfileService.activateIlmSigningProtocol(savedProfile.getSecuredUuid(), ilmConfig.getSecuredUuid());
+        Assertions.assertTrue(activationDto.isAvailable());
+        Assertions.assertNotNull(activationDto.getSigningUrl());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
@@ -1159,7 +1161,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         tspConfig.setName("test-tsp-config");
         tspConfig = tspRepository.save(tspConfig);
 
-        signingProfileService.activateTsp(savedProfile.getSecuredUuid(), tspConfig.getSecuredUuid());
+        var activationDto = signingProfileService.activateTsp(savedProfile.getSecuredUuid(), tspConfig.getSecuredUuid());
+        Assertions.assertTrue(activationDto.isAvailable());
+        Assertions.assertNotNull(activationDto.getSigningUrl());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());

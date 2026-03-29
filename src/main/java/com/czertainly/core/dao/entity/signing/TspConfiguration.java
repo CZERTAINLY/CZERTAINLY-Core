@@ -1,8 +1,5 @@
 package com.czertainly.core.dao.entity.signing;
 
-import com.czertainly.api.model.client.attribute.ResponseAttribute;
-import com.czertainly.api.model.client.signing.protocols.tsp.TspConfigurationDto;
-import com.czertainly.api.model.client.signing.protocols.tsp.TspConfigurationListDto;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,7 +11,6 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -40,21 +36,5 @@ public class TspConfiguration extends UniquelyIdentifiedAndAudited {
     public void setDefaultSigningProfile(SigningProfile defaultSigningProfile) {
         this.defaultSigningProfile = defaultSigningProfile;
         this.defaultSigningProfileUuid = defaultSigningProfile != null ? defaultSigningProfile.getUuid() : null;
-    }
-
-    public TspConfigurationDto mapToDto(List<ResponseAttribute> customAttributes) {
-        TspConfigurationDto dto = new TspConfigurationDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        dto.setDescription(description);
-        dto.setCustomAttributes(customAttributes);
-        return dto;
-    }
-
-    public TspConfigurationListDto mapToListDto() {
-        TspConfigurationListDto dto = new TspConfigurationListDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        return dto;
     }
 }

@@ -9,21 +9,19 @@ import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureDt
 import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureListDto;
 import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureValidationResultDto;
 import com.czertainly.core.dao.entity.signing.DigitalSignature;
-import com.czertainly.core.dao.entity.signing.SigningProfile;
+import com.czertainly.core.mapper.signing.DigitalSignatureMapper;
 import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.DigitalSignatureService;
-import com.czertainly.core.service.model.SecuredList;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @Transactional
@@ -47,7 +45,7 @@ public class DigitalSignatureServiceImpl implements DigitalSignatureService {
     public PaginationResponseDto<DigitalSignatureListDto> listDigitalSignatures(SearchRequestDto request, SecurityFilter filter) {
         List<DigitalSignature> signatures = digitalSignatureRepository.findUsingSecurityFilter(filter);
         List<DigitalSignatureListDto> dtos = signatures.stream()
-                .map(DigitalSignature::mapToListDto)
+                .map(DigitalSignatureMapper::toListDto)
                 .toList();
         PaginationResponseDto<DigitalSignatureListDto> response = new PaginationResponseDto<>();
         // :TODO: this is completely wrong
@@ -64,7 +62,7 @@ public class DigitalSignatureServiceImpl implements DigitalSignatureService {
     public DigitalSignatureDto getDigitalSignature(SecuredUUID uuid) throws NotFoundException {
         DigitalSignature signature = digitalSignatureRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Digital Signature not found"));
-        return signature.mapToDto();
+        return DigitalSignatureMapper.toDto(signature);
     }
 
     @Override

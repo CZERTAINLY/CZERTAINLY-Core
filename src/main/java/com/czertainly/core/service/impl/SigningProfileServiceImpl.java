@@ -41,6 +41,7 @@ import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfiguratio
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspConfigurationRepository;
+import com.czertainly.core.mapper.signing.SigningProfileMapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -99,7 +100,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         TriFunction<Root<SigningProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
         List<SigningProfileListDto> profiles = signingProfileRepository.findUsingSecurityFilter(filter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream()
-                .map(SigningProfile::mapToListDto)
+                .map(SigningProfileMapper::toListDto)
                 .toList();
         PaginationResponseDto<SigningProfileListDto> response = new PaginationResponseDto<>();
         response.setItems(profiles);
@@ -143,7 +144,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         }
 
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, uuid.getValue());
-        return profile.mapToDto(customAttributes);
+        return SigningProfileMapper.toDto(profile, customAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -172,7 +173,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         saveVersionSnapshot(profile, 1, request.getSigningScheme(), request.getWorkflow(), false);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid(), request.getCustomAttributes());
-        return profile.mapToDto(customAttributes);
+        return SigningProfileMapper.toDto(profile, customAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -206,7 +207,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         saveVersionSnapshot(profile, profile.getLatestVersion(), request.getSigningScheme(), request.getWorkflow(), !bump);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid(), request.getCustomAttributes());
-        return profile.mapToDto(customAttributes);
+        return SigningProfileMapper.toDto(profile, customAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -324,33 +325,29 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
     @Transactional
     public IlmSigningProtocolActivationDetailDto getIlmSigningProtocolActivationDetails(SecuredUUID uuid) throws NotFoundException {
-        SigningProfile profile = findByUuid(uuid);
-        IlmSigningProtocolActivationDetailDto dto = new IlmSigningProtocolActivationDetailDto();
-        // :TODO:
-        return dto;
+        SigningProfile signingProfile = findByUuid(uuid);
+        return SigningProfileMapper.toIlmSigningProtocolActivationDto(signingProfile);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
     @Transactional
     public IlmSigningProtocolActivationDetailDto activateIlmSigningProtocol(SecuredUUID signingProfileUuid, SecuredUUID ilmConfigUuid) throws NotFoundException {
-        SigningProfile profile = findByUuid(signingProfileUuid);
+        SigningProfile signingProfile = findByUuid(signingProfileUuid);
         IlmSigningProtocolConfiguration ilmConfig = ilmSigningProtocolRepository.findByUuid(ilmConfigUuid)
                 .orElseThrow(() -> new NotFoundException("ILM Signing Protocol Configuration not found: " + ilmConfigUuid));
-        profile.setIlmSigningProtocolConfiguration(ilmConfig);
-        signingProfileRepository.save(profile);
-        IlmSigningProtocolActivationDetailDto dto = new IlmSigningProtocolActivationDetailDto();
-        // :TODO:
-        return dto;
+        signingProfile.setIlmSigningProtocolConfiguration(ilmConfig);
+        signingProfileRepository.save(signingProfile);
+        return SigningProfileMapper.toIlmSigningProtocolActivationDto(signingProfile);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
     @Transactional
     public void deactivateIlmSigningProtocol(SecuredUUID uuid) throws NotFoundException {
-        SigningProfile profile = findByUuid(uuid);
-        profile.setIlmSigningProtocolConfiguration(null);
-        signingProfileRepository.save(profile);
+        SigningProfile signingProfile = findByUuid(uuid);
+        signingProfile.setIlmSigningProtocolConfiguration(null);
+        signingProfileRepository.save(signingProfile);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -361,25 +358,20 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
     @Transactional
     public TspActivationDetailDto getTspActivationDetails(SecuredUUID uuid) throws NotFoundException {
-        SigningProfile profile = findByUuid(uuid);
-        TspActivationDetailDto dto = new TspActivationDetailDto();
-        // :TODO:
-        return dto;
+        SigningProfile signingProfile = findByUuid(uuid);
+        return SigningProfileMapper.toTspActivationDto(signingProfile);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
     @Transactional
-    public TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspConfigUuid) throws
-            NotFoundException {
-        SigningProfile profile = findByUuid(signingProfileUuid);
+    public TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspConfigUuid) throws NotFoundException {
+        SigningProfile signingProfile = findByUuid(signingProfileUuid);
         TspConfiguration tspConfig = tspRepository.findByUuid(tspConfigUuid)
                 .orElseThrow(() -> new NotFoundException("TSP Configuration not found: " + tspConfigUuid));
-        profile.setTspConfiguration(tspConfig);
-        signingProfileRepository.save(profile);
-        TspActivationDetailDto dto = new TspActivationDetailDto();
-        // :TODO:
-        return dto;
+        signingProfile.setTspConfiguration(tspConfig);
+        signingProfileRepository.save(signingProfile);
+        return SigningProfileMapper.toTspActivationDto(signingProfile);
     }
 
     @Override
@@ -529,7 +521,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             applyWorkflow(tmp, workflowReq);
 
             List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, live.getUuid());
-            return tmp.mapToDto(customAttributes);
+            return SigningProfileMapper.toDto(tmp, customAttributes);
         } catch (Exception e) {
             log.error("Failed to load signing profile snapshot v{} for {}: {}",
                     spv.getVersion(), live.getUuid(), e.getMessage());
@@ -586,6 +578,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     public void setIlmSigningProtocolRepository(IlmSigningProtocolConfigurationRepository ilmSigningProtocolConfigurationRepository) {
         this.ilmSigningProtocolRepository = ilmSigningProtocolConfigurationRepository;
     }
+
     @Autowired
     public void setObjectMapper(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;

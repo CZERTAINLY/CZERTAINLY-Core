@@ -1,8 +1,5 @@
 package com.czertainly.core.dao.entity.signing;
 
-import com.czertainly.api.model.client.attribute.ResponseAttribute;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,27 +43,4 @@ public class TimeQualityConfiguration extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "leap_second_guard")
     private Boolean leapSecondGuard;
-
-    public TimeQualityConfigurationDto mapToDto(List<ResponseAttribute> customAttributes) {
-        TimeQualityConfigurationDto dto = new TimeQualityConfigurationDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        dto.setNtpServers(ntpServers);
-        dto.setNtpCheckInterval(ntpCheckInterval);
-        dto.setNtpSamplesPerServer(ntpSamplesPerServer);
-        dto.setNtpCheckTimeout(ntpCheckTimeout);
-        dto.setMinReachable(minReachable);
-        dto.setMaxDrift(maxDrift);
-        dto.setLeapSecondGuard(leapSecondGuard);
-        dto.setCustomAttributes(customAttributes);
-        return dto;
-    }
-
-    public TimeQualityConfigurationListDto mapToListDto() {
-        TimeQualityConfigurationListDto dto = new TimeQualityConfigurationListDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        dto.setNtpServers(ntpServers);
-        return dto;
-    }
 }
