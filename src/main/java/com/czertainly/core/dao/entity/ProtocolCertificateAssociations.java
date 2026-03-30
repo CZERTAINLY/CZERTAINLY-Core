@@ -26,6 +26,7 @@ public class ProtocolCertificateAssociations extends UniquelyIdentified {
     private UUID ownerUuid;
 
     @Column
+    @JdbcTypeCode(SqlTypes.ARRAY)
     private List<UUID> groupUuids;
 
     @Column(columnDefinition = "jsonb")
