@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.model.compliance.*;
@@ -40,6 +41,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private static final Logger logger = LoggerFactory.getLogger(ComplianceServiceImpl.class);
     private static final String COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE = "Cannot check compliance for resource %s. Resource does not support compliance check";
+    private static final String ASSOCIATION_SUBQUERY = "SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = '%s'";
 
     private ComplianceApiClient complianceApiClient;
     private com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1;
@@ -497,76 +499,144 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    public void removeRuleFromComplianceResults(UUID complianceProfileUuid, Resource ruleResource, UUID ruleUuid, UUID connectorUuid, String kind) {
-        String ruleUuidStr = ruleUuid.toString();
+    public void removeRulesFromComplianceResults(UUID complianceProfileUuid, Resource ruleResource, Set<UUID> ruleUuids, UUID connectorUuid, String kind) {
+        if (ruleUuids.isEmpty()) {
+            return;
+        }
+
         String jsonbUpdate;
         java.util.function.Consumer<jakarta.persistence.Query> paramSetter;
         String jsonbCondition;
 
-        if (connectorUuid == null) {
-            // @formatter:off
-            jsonbUpdate = """
-                    jsonb_set(jsonb_set(jsonb_set(compliance_result,
-                        '{internalRules,notCompliant}', COALESCE((compliance_result #> '{internalRules,notCompliant}') - :ruleUuid, '[]'::jsonb)),
-                        '{internalRules,notApplicable}', COALESCE((compliance_result #> '{internalRules,notApplicable}') - :ruleUuid, '[]'::jsonb)),
-                        '{internalRules,notAvailable}', COALESCE((compliance_result #> '{internalRules,notAvailable}') - :ruleUuid, '[]'::jsonb))
-                    """;
-            // @formatter:on
-            jsonbCondition = "compliance_result -> 'internalRules' IS NOT NULL";
-            paramSetter = query -> query.setParameter("ruleUuid", ruleUuidStr);
+        if (ruleUuids.size() == 1) {
+            // Single UUID — use the efficient built-in `-` operator and jsonb_exists for targeted WHERE
+            String ruleUuidStr = ruleUuids.iterator().next().toString();
+            if (connectorUuid == null) {
+                // @formatter:off
+                jsonbUpdate = """
+                        jsonb_set(jsonb_set(jsonb_set(compliance_result,
+                            '{internalRules,notCompliant}', COALESCE((compliance_result #> '{internalRules,notCompliant}') - :ruleUuid, '[]'::jsonb)),
+                            '{internalRules,notApplicable}', COALESCE((compliance_result #> '{internalRules,notApplicable}') - :ruleUuid, '[]'::jsonb)),
+                            '{internalRules,notAvailable}', COALESCE((compliance_result #> '{internalRules,notAvailable}') - :ruleUuid, '[]'::jsonb))
+                        """;
+                jsonbCondition = """
+                        (jsonb_exists(compliance_result #> '{internalRules,notCompliant}', :ruleUuid)
+                        OR jsonb_exists(compliance_result #> '{internalRules,notApplicable}', :ruleUuid)
+                        OR jsonb_exists(compliance_result #> '{internalRules,notAvailable}', :ruleUuid))
+                        """;
+                // @formatter:on
+                paramSetter = query -> query.setParameter("ruleUuid", ruleUuidStr);
+            } else {
+                // @formatter:off
+                jsonbUpdate = """
+                        jsonb_set(compliance_result, '{providerRules}', COALESCE(
+                            (SELECT jsonb_agg(
+                                CASE WHEN elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind
+                                THEN jsonb_set(jsonb_set(jsonb_set(elem,
+                                    '{notCompliant}', COALESCE((elem -> 'notCompliant') - :ruleUuid, '[]'::jsonb)),
+                                    '{notApplicable}', COALESCE((elem -> 'notApplicable') - :ruleUuid, '[]'::jsonb)),
+                                    '{notAvailable}', COALESCE((elem -> 'notAvailable') - :ruleUuid, '[]'::jsonb))
+                                ELSE elem END
+                            ) FROM jsonb_array_elements(compliance_result -> 'providerRules') AS elem),
+                            '[]'::jsonb))
+                        """;
+                jsonbCondition = """
+                        EXISTS (SELECT 1 FROM jsonb_array_elements(compliance_result -> 'providerRules') elem
+                            WHERE elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind
+                            AND (jsonb_exists(elem -> 'notCompliant', :ruleUuid)
+                                OR jsonb_exists(elem -> 'notApplicable', :ruleUuid)
+                                OR jsonb_exists(elem -> 'notAvailable', :ruleUuid)))
+                        """;
+                // @formatter:on
+                String connectorUuidStr = connectorUuid.toString();
+                paramSetter = query -> {
+                    query.setParameter("ruleUuid", ruleUuidStr);
+                    query.setParameter("connectorUuid", connectorUuidStr);
+                    query.setParameter("kind", kind);
+                };
+            }
         } else {
-            // Rebuild providerRules array, removing the rule UUID from matching provider entry
-            // @formatter:off
-            jsonbUpdate = """
-                    jsonb_set(compliance_result, '{providerRules}', COALESCE(
-                        (SELECT jsonb_agg(
-                            CASE WHEN elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind
-                            THEN jsonb_set(jsonb_set(jsonb_set(elem,
-                                '{notCompliant}', COALESCE((elem -> 'notCompliant') - :ruleUuid, '[]'::jsonb)),
-                                '{notApplicable}', COALESCE((elem -> 'notApplicable') - :ruleUuid, '[]'::jsonb)),
-                                '{notAvailable}', COALESCE((elem -> 'notAvailable') - :ruleUuid, '[]'::jsonb))
-                            ELSE elem END
-                        ) FROM jsonb_array_elements(compliance_result -> 'providerRules') AS elem),
-                        '[]'::jsonb))
-                    """;
-            // @formatter:on
-            jsonbCondition = "compliance_result -> 'providerRules' IS NOT NULL";
-            String connectorUuidStr = connectorUuid.toString();
-            paramSetter = query -> {
-                query.setParameter("ruleUuid", ruleUuidStr);
-                query.setParameter("connectorUuid", connectorUuidStr);
-                query.setParameter("kind", kind);
-            };
+            // Multiple UUIDs — use subquery filter to remove all in a single pass, jsonb_exists_any for targeted WHERE
+            String ruleUuidsCsv = ruleUuids.stream().map(UUID::toString).collect(java.util.stream.Collectors.joining(","));
+            // Filters a JSONB array to exclude elements matching any of the provided rule UUIDs
+            String filterArray = "(SELECT COALESCE(jsonb_agg(el), '[]'::jsonb) FROM jsonb_array_elements(%s) el WHERE NOT el #>> '{}' = ANY(string_to_array(:ruleUuids, ',')))";
+
+            if (connectorUuid == null) {
+                // @formatter:off
+                jsonbUpdate = "jsonb_set(jsonb_set(jsonb_set(compliance_result,"
+                        + " '{internalRules,notCompliant}', " + filterArray.formatted("compliance_result #> '{internalRules,notCompliant}'") + "),"
+                        + " '{internalRules,notApplicable}', " + filterArray.formatted("compliance_result #> '{internalRules,notApplicable}'") + "),"
+                        + " '{internalRules,notAvailable}', " + filterArray.formatted("compliance_result #> '{internalRules,notAvailable}'") + ")";
+                jsonbCondition = "(jsonb_exists_any(compliance_result #> '{internalRules,notCompliant}', string_to_array(:ruleUuids, ','))"
+                        + " OR jsonb_exists_any(compliance_result #> '{internalRules,notApplicable}', string_to_array(:ruleUuids, ','))"
+                        + " OR jsonb_exists_any(compliance_result #> '{internalRules,notAvailable}', string_to_array(:ruleUuids, ','))";
+                // @formatter:on
+                paramSetter = query -> query.setParameter("ruleUuids", ruleUuidsCsv);
+            } else {
+                // @formatter:off
+                jsonbUpdate = "jsonb_set(compliance_result, '{providerRules}', COALESCE("
+                        + " (SELECT jsonb_agg("
+                        + "     CASE WHEN elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind"
+                        + "     THEN jsonb_set(jsonb_set(jsonb_set(elem,"
+                        + "         '{notCompliant}', " + filterArray.formatted("elem -> 'notCompliant'") + "),"
+                        + "         '{notApplicable}', " + filterArray.formatted("elem -> 'notApplicable'") + "),"
+                        + "         '{notAvailable}', " + filterArray.formatted("elem -> 'notAvailable'") + ")"
+                        + "     ELSE elem END"
+                        + " ) FROM jsonb_array_elements(compliance_result -> 'providerRules') AS elem),"
+                        + " '[]'::jsonb))";
+                jsonbCondition = "EXISTS (SELECT 1 FROM jsonb_array_elements(compliance_result -> 'providerRules') elem"
+                        + " WHERE elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind"
+                        + " AND (jsonb_exists_any(elem -> 'notCompliant', string_to_array(:ruleUuids, ','))"
+                        + " OR jsonb_exists_any(elem -> 'notApplicable', string_to_array(:ruleUuids, ','))"
+                        + " OR jsonb_exists_any(elem -> 'notAvailable', string_to_array(:ruleUuids, ','))))";
+                // @formatter:on
+                String connectorUuidStr = connectorUuid.toString();
+                paramSetter = query -> {
+                    query.setParameter("ruleUuids", ruleUuidsCsv);
+                    query.setParameter("connectorUuid", connectorUuidStr);
+                    query.setParameter("kind", kind);
+                };
+            }
         }
 
-        SubjectTable subjectTable = getSubjectTable(ruleResource);
         String sql = "UPDATE %s SET compliance_result = %s WHERE compliance_result IS NOT NULL AND %s AND %s".formatted(
-                subjectTable.tableName(), jsonbUpdate, jsonbCondition, subjectTable.subjectCondition());
+                getSubjectTableName(ruleResource), jsonbUpdate, jsonbCondition, getSubjectCondition(ruleResource));
         var query = entityManager.createNativeQuery(sql);
         query.setParameter("profileUuid", complianceProfileUuid);
         paramSetter.accept(query);
         int updated = query.executeUpdate();
         if (updated > 0) {
-            logger.debug("Removed rule {} from compliance results of {} rows in {}", ruleUuid, updated, subjectTable.tableName());
+            logger.debug("Removed rules {} from compliance results of {} {} records", ruleUuids, updated, ruleResource.getLabel());
         }
     }
 
-    private record SubjectTable(String tableName, String subjectCondition) {}
+    private static String getTableName(Class<?> entityClass) {
+        jakarta.persistence.Table table = entityClass.getAnnotation(jakarta.persistence.Table.class);
+        if (table == null) {
+            throw new IllegalStateException("Entity class %s is missing @Table annotation".formatted(entityClass.getName()));
+        }
+        return table.name();
+    }
 
-    private SubjectTable getSubjectTable(Resource ruleResource) {
+    private String getSubjectTableName(Resource ruleResource) {
+        Class<?> entityClass = ResourceToClass.getClassByResource(ruleResource);
+        if (entityClass == null) {
+            throw new ValidationException("Unsupported compliance subject resource: %s".formatted(ruleResource.getLabel()));
+        }
+        return getTableName(entityClass);
+    }
+
+    private String getSubjectCondition(Resource ruleResource) {
         return switch (ruleResource) {
-            case CERTIFICATE -> new SubjectTable("certificate",
-                    "(ra_profile_uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'RA_PROFILE')" +
-                    " OR uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CERTIFICATE'))");
-            case CERTIFICATE_REQUEST -> new SubjectTable("certificate_request",
-                    "uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CERTIFICATE_REQUEST')");
-            case CRYPTOGRAPHIC_KEY_ITEM -> new SubjectTable("cryptographic_key_item",
-                    "(key_uuid IN (SELECT ck.uuid FROM cryptographic_key ck JOIN compliance_profile_association cpa ON ck.token_profile_uuid = cpa.object_uuid WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'TOKEN_PROFILE')" +
-                    " OR key_uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CRYPTOGRAPHIC_KEY')" +
-                    " OR uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CRYPTOGRAPHIC_KEY_ITEM'))");
-            case SECRET -> new SubjectTable("secret",
-                    "(source_vault_profile_uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'VAULT_PROFILE')" +
-                    " OR uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'SECRET'))");
+            case CERTIFICATE -> "(ra_profile_uuid IN (%s) OR uuid IN (%s))".formatted(
+                    ASSOCIATION_SUBQUERY.formatted(Resource.RA_PROFILE.name()), ASSOCIATION_SUBQUERY.formatted(Resource.CERTIFICATE.name()));
+            case CERTIFICATE_REQUEST -> "uuid IN (%s)".formatted(
+                    ASSOCIATION_SUBQUERY.formatted(Resource.CERTIFICATE_REQUEST.name()));
+            case CRYPTOGRAPHIC_KEY_ITEM -> "(key_uuid IN (SELECT ck.uuid FROM %s ck JOIN compliance_profile_association cpa ON ck.token_profile_uuid = cpa.object_uuid WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = '%s') OR key_uuid IN (%s) OR uuid IN (%s))".formatted(
+                    getTableName(CryptographicKey.class), Resource.TOKEN_PROFILE.name(),
+                    ASSOCIATION_SUBQUERY.formatted(Resource.CRYPTOGRAPHIC_KEY.name()), ASSOCIATION_SUBQUERY.formatted(Resource.CRYPTOGRAPHIC_KEY_ITEM.name()));
+            case SECRET -> "(source_vault_profile_uuid IN (%s) OR uuid IN (%s))".formatted(
+                    ASSOCIATION_SUBQUERY.formatted(Resource.VAULT_PROFILE.name()), ASSOCIATION_SUBQUERY.formatted(Resource.SECRET.name()));
             default -> throw new ValidationException("Unsupported compliance subject resource: %s".formatted(ruleResource.getLabel()));
         };
     }
@@ -575,13 +645,12 @@ public class ComplianceServiceImpl implements ComplianceService {
     public void removeGroupRulesFromComplianceResults(UUID complianceProfileUuid, Resource ruleResource, UUID groupUuid, UUID connectorUuid, String kind) throws ConnectorException, NotFoundException {
         ComplianceRulesGroupsBatchDto batchDto = ruleHandler.getComplianceProviderRulesBatch(connectorUuid, kind, Set.of(), Set.of(groupUuid), true);
         ComplianceGroupBatchResponseDto group = batchDto.getGroups().get(groupUuid);
-        if (group == null || group.getRules() == null) {
+        if (group == null || group.getRules() == null || group.getRules().isEmpty()) {
             logger.warn("Could not fetch rules for group {} from connector {}/{} — skipping compliance result cleanup", groupUuid, connectorUuid, kind);
             return;
         }
-        for (ComplianceRuleResponseDto rule : group.getRules()) {
-            removeRuleFromComplianceResults(complianceProfileUuid, ruleResource, rule.getUuid(), connectorUuid, kind);
-        }
+        Set<UUID> ruleUuids = group.getRules().stream().map(ComplianceRuleResponseDto::getUuid).collect(java.util.stream.Collectors.toSet());
+        removeRulesFromComplianceResults(complianceProfileUuid, ruleResource, ruleUuids, connectorUuid, kind);
     }
 
     private Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> getSubjectHandlers(boolean checkByProfiles) {

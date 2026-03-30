@@ -405,7 +405,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndInternalRuleUuid(uuid.getValue(), request.getRuleUuid());
             if (request.isRemoval()) {
-                complianceService.removeRuleFromComplianceResults(uuid.getValue(), profileRule.getResource(), request.getRuleUuid(), null, null);
+                complianceService.removeRulesFromComplianceResults(uuid.getValue(), profileRule.getResource(), Set.of(request.getRuleUuid()), null, null);
             } else {
                 ruleHandler.createComplianceProfileInternalRuleAssoc(uuid.getValue(), request.getRuleUuid());
             }
@@ -419,7 +419,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
             if (request.isRemoval()) {
-                complianceService.removeRuleFromComplianceResults(uuid.getValue(), profileRule.getResource(), request.getRuleUuid(), request.getConnectorUuid(), request.getKind());
+                complianceService.removeRulesFromComplianceResults(uuid.getValue(), profileRule.getResource(), Set.of(request.getRuleUuid()), request.getConnectorUuid(), request.getKind());
             } else {
                 ComplianceRuleResponseDto providerRule = ruleHandler.getProviderRule(request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
                 ruleHandler.createComplianceProfileProviderRuleAssoc(uuid.getValue(), request.getConnectorUuid(), request.getKind(), providerRule, request.getAttributes());
