@@ -42,6 +42,7 @@ import java.util.*;
 public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     private static final Logger logger = LoggerFactory.getLogger(ComplianceProfileServiceImpl.class);
+    private static final String RESOURCE_DOES_NOT_SUPPORT_COMPLIANCE_PROFILES = "Resource %s does not support compliance profiles";
 
     private ComplianceApiClient complianceApiClient;
     private com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1;
@@ -464,6 +465,9 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException, AlreadyExistException {
+        if (!resource.hasComplianceProfiles()) {
+            throw new ValidationException(RESOURCE_DOES_NOT_SUPPORT_COMPLIANCE_PROFILES.formatted(resource.getLabel()));
+        }
         if (!complianceProfileRepository.existsById(uuid.getValue())) {
             throw new NotFoundException(ComplianceProfile.class, uuid.getValue());
         }

@@ -648,6 +648,141 @@ class ComplianceServiceTest extends BaseComplianceTest {
     }
 
     @Test
+    void testRemoveRules_emptySet_noOp() throws Exception {
+        ComplianceResultDto result = new ComplianceResultDto();
+        ComplianceResultRulesDto internal = new ComplianceResultRulesDto();
+        internal.setNotCompliant(new HashSet<>(Set.of(internalCertificateRuleUuid)));
+        internal.setNotApplicable(new HashSet<>());
+        internal.setNotAvailable(new HashSet<>());
+        result.setInternalRules(internal);
+        result.setStatus(ComplianceStatus.NOK);
+        result.setTimestamp(OffsetDateTime.now());
+
+        Certificate cert = createCertificateWithComplianceResult(result);
+
+        complianceService.removeRulesFromComplianceResults(complianceProfile.getUuid(), Resource.CERTIFICATE, Set.of(), null, null);
+
+        ComplianceResultDto updated = reloadComplianceResult(cert.getUuid());
+        Assertions.assertTrue(updated.getInternalRules().getNotCompliant().contains(internalCertificateRuleUuid), "Rule should remain when empty set is passed");
+    }
+
+    @Test
+    void testRemoveMultipleInternalRuleUuids() throws Exception {
+        UUID rule1 = internalCertificateRuleUuid;
+        UUID rule2 = internalCertificateRule2Uuid;
+        UUID rule3 = UUID.randomUUID();
+
+        ComplianceResultDto result = new ComplianceResultDto();
+        ComplianceResultRulesDto internal = new ComplianceResultRulesDto();
+        internal.setNotCompliant(new HashSet<>(Set.of(rule1, rule3)));
+        internal.setNotApplicable(new HashSet<>(Set.of(rule2)));
+        internal.setNotAvailable(new HashSet<>());
+        result.setInternalRules(internal);
+        result.setStatus(ComplianceStatus.NOK);
+        result.setTimestamp(OffsetDateTime.now());
+
+        Certificate cert = createCertificateWithComplianceResult(result);
+
+        // Remove rule1 and rule2 in one call — exercises multi-UUID internal rules branch (jsonb_exists_any + jsonb_agg filter)
+        complianceService.removeRulesFromComplianceResults(complianceProfile.getUuid(), Resource.CERTIFICATE, Set.of(rule1, rule2), null, null);
+
+        ComplianceResultDto updated = reloadComplianceResult(cert.getUuid());
+        Assertions.assertFalse(updated.getInternalRules().getNotCompliant().contains(rule1), "rule1 should be removed from notCompliant");
+        Assertions.assertFalse(updated.getInternalRules().getNotApplicable().contains(rule2), "rule2 should be removed from notApplicable");
+        Assertions.assertTrue(updated.getInternalRules().getNotCompliant().contains(rule3), "rule3 should remain in notCompliant");
+    }
+
+    @Test
+    void testRemoveRulesFromSecretComplianceResults() throws Exception {
+        UUID ruleUuid = internalSecretRuleUuid;
+
+        Secret secret = new Secret();
+        secret.setName("test-secret-" + UUID.randomUUID());
+        secret.setType(SecretType.BASIC_AUTH);
+        secret.setState(SecretState.ACTIVE);
+        secret.setSourceVaultProfileUuid(vaultProfileUuid);
+
+        SecretVersion secretVersion = new SecretVersion();
+        secretVersion.setVaultInstanceUuid(vaultInstanceUuid);
+        secretVersion.setVersion(1);
+        secretVersion.setFingerprint("fp-" + UUID.randomUUID());
+        secretVersionRepository.save(secretVersion);
+        secret.setLatestVersion(secretVersion);
+
+        ComplianceResultDto result = new ComplianceResultDto();
+        ComplianceResultRulesDto internal = new ComplianceResultRulesDto();
+        internal.setNotCompliant(new HashSet<>(Set.of(ruleUuid)));
+        internal.setNotApplicable(new HashSet<>());
+        internal.setNotAvailable(new HashSet<>());
+        result.setInternalRules(internal);
+        result.setStatus(ComplianceStatus.NOK);
+        result.setTimestamp(OffsetDateTime.now());
+
+        secret.setComplianceResult(result);
+        secret.setComplianceStatus(ComplianceStatus.NOK);
+        secretRepository.save(secret);
+
+        complianceService.removeRulesFromComplianceResults(complianceProfile.getUuid(), Resource.SECRET, Set.of(ruleUuid), null, null);
+
+        Secret updatedSecret = secretRepository.findByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertFalse(updatedSecret.getComplianceResult().getInternalRules().getNotCompliant().contains(ruleUuid), "Rule should be removed from secret compliance result");
+    }
+
+    @Test
+    void testRemoveGroupRules_withRulesFromProvider() throws Exception {
+        UUID groupRuleUuid = complianceV2RuleUuid;
+
+        ComplianceResultDto result = new ComplianceResultDto();
+        ComplianceResultProviderRulesDto provider = new ComplianceResultProviderRulesDto();
+        provider.setConnectorUuid(connectorV2.getUuid());
+        provider.setKind(KIND_V2);
+        provider.setNotCompliant(new HashSet<>(Set.of(groupRuleUuid)));
+        provider.setNotApplicable(new HashSet<>());
+        provider.setNotAvailable(new HashSet<>());
+        result.setProviderRules(new ArrayList<>(List.of(provider)));
+        result.setStatus(ComplianceStatus.NOK);
+        result.setTimestamp(OffsetDateTime.now());
+
+        Certificate cert = createCertificateWithComplianceResult(result);
+
+        // Override the batch POST stub to return the group with rules included
+        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules".formatted(KIND_V2)))
+                .willReturn(WireMock.aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "rules": [],
+                                  "groups": [
+                                    {
+                                      "uuid": "%s",
+                                      "name": "Group2",
+                                      "resource": "certificates",
+                                      "rules": [
+                                        {
+                                          "uuid": "%s",
+                                          "name": "Rule1",
+                                          "resource": "certificates"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                                """.formatted(complianceV2Group2Uuid, groupRuleUuid))
+                        .withStatus(200)));
+
+        complianceService.removeGroupRulesFromComplianceResults(complianceProfile.getUuid(), Resource.CERTIFICATE, complianceV2Group2Uuid, connectorV2.getUuid(), KIND_V2);
+
+        ComplianceResultDto updated = reloadComplianceResult(cert.getUuid());
+        ComplianceResultProviderRulesDto updatedProvider = updated.getProviderRules().stream()
+                .filter(p -> p.getConnectorUuid().equals(connectorV2.getUuid()) && p.getKind().equals(KIND_V2))
+                .findFirst().orElseThrow();
+        Assertions.assertFalse(updatedProvider.getNotCompliant().contains(groupRuleUuid), "Group rule UUID should be removed from compliance result");
+
+        // Restore original mock
+        mockComplianceProviderResponses(true);
+    }
+
+    @Test
     void testCheckComplianceValidation() {
         // check validation of compliance check request
         List<SecuredUUID> uuids = List.of(SecuredUUID.fromUUID(UUID.randomUUID()));

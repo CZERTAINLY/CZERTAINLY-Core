@@ -646,16 +646,16 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     private String getSubjectCondition(Resource ruleResource) {
+        // Compliance profiles can only be associated with RA_PROFILE, TOKEN_PROFILE, or VAULT_PROFILE
         return switch (normalizeToComplianceSubjectResource(ruleResource)) {
-            case CERTIFICATE -> "(ra_profile_uuid IN (%s) OR uuid IN (%s))".formatted(
-                    associationSubquery(Resource.RA_PROFILE), associationSubquery(Resource.CERTIFICATE));
-            case CERTIFICATE_REQUEST -> "uuid IN (%s)".formatted(
-                    associationSubquery(Resource.CERTIFICATE_REQUEST));
-            case CRYPTOGRAPHIC_KEY_ITEM -> "(key_uuid IN (SELECT ck.uuid FROM %s ck JOIN compliance_profile_association cpa ON ck.token_profile_uuid = cpa.object_uuid WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = '%s') OR key_uuid IN (%s) OR uuid IN (%s))".formatted(
-                    getTableName(CryptographicKey.class), Resource.TOKEN_PROFILE.name(),
-                    associationSubquery(Resource.CRYPTOGRAPHIC_KEY), associationSubquery(Resource.CRYPTOGRAPHIC_KEY_ITEM));
-            case SECRET -> "(source_vault_profile_uuid IN (%s) OR uuid IN (%s))".formatted(
-                    associationSubquery(Resource.VAULT_PROFILE), associationSubquery(Resource.SECRET));
+            case CERTIFICATE -> "ra_profile_uuid IN (%s)".formatted(
+                    associationSubquery(Resource.RA_PROFILE));
+            case CERTIFICATE_REQUEST -> "uuid IN (SELECT c.certificate_request_uuid FROM %s c WHERE c.ra_profile_uuid IN (%s) AND c.certificate_request_uuid IS NOT NULL)".formatted(
+                    getTableName(Certificate.class), associationSubquery(Resource.RA_PROFILE));
+            case CRYPTOGRAPHIC_KEY_ITEM -> "key_uuid IN (SELECT ck.uuid FROM %s ck WHERE ck.token_profile_uuid IN (%s))".formatted(
+                    getTableName(CryptographicKey.class), associationSubquery(Resource.TOKEN_PROFILE));
+            case SECRET -> "source_vault_profile_uuid IN (%s)".formatted(
+                    associationSubquery(Resource.VAULT_PROFILE));
             default -> throw new ValidationException("Unsupported compliance subject resource: %s".formatted(ruleResource.getLabel()));
         };
     }
