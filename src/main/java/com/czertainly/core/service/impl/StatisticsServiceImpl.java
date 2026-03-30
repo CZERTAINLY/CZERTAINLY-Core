@@ -6,7 +6,10 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.DiscoveryService;
 import com.czertainly.core.service.GroupService;
 import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.SecretService;
 import com.czertainly.core.service.StatisticsService;
+import com.czertainly.core.service.VaultInstanceService;
+import com.czertainly.core.service.VaultProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,8 +27,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private CertificateService certificateService;
     private DiscoveryService discoveryService;
     private GroupService groupService;
-
     private RaProfileService raProfileService;
+    private SecretService secretService;
+    private VaultInstanceService vaultInstanceService;
+    private VaultProfileService vaultProfileService;
 
 
     @Override
@@ -49,7 +54,23 @@ public class StatisticsServiceImpl implements StatisticsService {
         } catch (AccessDeniedException e){
             dto.setTotalRaProfiles(0L);
         }
-        return certificateService.addCertificateStatistics(SecurityFilter.create(), dto, includeArchived);
+        try {
+            dto.setTotalSecrets(secretService.statisticsSecretCount(SecurityFilter.create()));
+        } catch (AccessDeniedException e) {
+            dto.setTotalSecrets(0L);
+        }
+        try {
+            dto.setTotalVaultInstances(vaultInstanceService.statisticsVaultInstanceCount(SecurityFilter.create()));
+        } catch (AccessDeniedException e) {
+            dto.setTotalVaultInstances(0L);
+        }
+        try {
+            dto.setTotalVaultProfiles(vaultProfileService.statisticsVaultProfileCount(SecurityFilter.create()));
+        } catch (AccessDeniedException e) {
+            dto.setTotalVaultProfiles(0L);
+        }
+        certificateService.addCertificateStatistics(SecurityFilter.create(), dto, includeArchived);
+        return secretService.addSecretStatistics(SecurityFilter.create(), dto);
     }
 
     @Autowired
@@ -70,5 +91,20 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Autowired
     public void setRaProfileService(RaProfileService raProfileService) {
         this.raProfileService = raProfileService;
+    }
+
+    @Autowired
+    public void setSecretService(SecretService secretService) {
+        this.secretService = secretService;
+    }
+
+    @Autowired
+    public void setVaultInstanceService(VaultInstanceService vaultInstanceService) {
+        this.vaultInstanceService = vaultInstanceService;
+    }
+
+    @Autowired
+    public void setVaultProfileService(VaultProfileService vaultProfileService) {
+        this.vaultProfileService = vaultProfileService;
     }
 }

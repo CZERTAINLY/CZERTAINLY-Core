@@ -252,4 +252,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         secretOperationRequest.setVaultProfileAttributes(requestVaultProfileAttributes);
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.LIST)
+    public Long statisticsVaultInstanceCount(SecurityFilter filter) {
+        return vaultInstanceRepository.countUsingSecurityFilter(filter, null);
+    }
+
 }
