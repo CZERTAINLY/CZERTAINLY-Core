@@ -4,6 +4,8 @@ import com.czertainly.api.clients.v2.ComplianceApiClient;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.model.connector.compliance.v2.ComplianceGroupBatchResponseDto;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceRuleResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
@@ -20,6 +22,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.handler.ComplianceProfileRuleHandler;
 import com.czertainly.core.service.handler.ComplianceSubjectHandler;
+import jakarta.persistence.PersistenceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +63,9 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceProfileRuleHandler ruleHandler;
 
     private EventProducer eventProducer;
+
+    @PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     @Autowired
     public void setEventProducer(EventProducer eventProducer) {
@@ -488,6 +494,94 @@ public class ComplianceServiceImpl implements ComplianceService {
             case VAULT_PROFILE -> secretRepository.findBySourceVaultProfileUuid(associationObjectUuid);
             default -> List.of();
         };
+    }
+
+    @Override
+    public void removeRuleFromComplianceResults(UUID complianceProfileUuid, Resource ruleResource, UUID ruleUuid, UUID connectorUuid, String kind) {
+        String ruleUuidStr = ruleUuid.toString();
+        String jsonbUpdate;
+        java.util.function.Consumer<jakarta.persistence.Query> paramSetter;
+        String jsonbCondition;
+
+        if (connectorUuid == null) {
+            // @formatter:off
+            jsonbUpdate = """
+                    jsonb_set(jsonb_set(jsonb_set(compliance_result,
+                        '{internalRules,notCompliant}', COALESCE((compliance_result #> '{internalRules,notCompliant}') - :ruleUuid, '[]'::jsonb)),
+                        '{internalRules,notApplicable}', COALESCE((compliance_result #> '{internalRules,notApplicable}') - :ruleUuid, '[]'::jsonb)),
+                        '{internalRules,notAvailable}', COALESCE((compliance_result #> '{internalRules,notAvailable}') - :ruleUuid, '[]'::jsonb))
+                    """;
+            // @formatter:on
+            jsonbCondition = "compliance_result -> 'internalRules' IS NOT NULL";
+            paramSetter = query -> query.setParameter("ruleUuid", ruleUuidStr);
+        } else {
+            // Rebuild providerRules array, removing the rule UUID from matching provider entry
+            // @formatter:off
+            jsonbUpdate = """
+                    jsonb_set(compliance_result, '{providerRules}', COALESCE(
+                        (SELECT jsonb_agg(
+                            CASE WHEN elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind
+                            THEN jsonb_set(jsonb_set(jsonb_set(elem,
+                                '{notCompliant}', COALESCE((elem -> 'notCompliant') - :ruleUuid, '[]'::jsonb)),
+                                '{notApplicable}', COALESCE((elem -> 'notApplicable') - :ruleUuid, '[]'::jsonb)),
+                                '{notAvailable}', COALESCE((elem -> 'notAvailable') - :ruleUuid, '[]'::jsonb))
+                            ELSE elem END
+                        ) FROM jsonb_array_elements(compliance_result -> 'providerRules') AS elem),
+                        '[]'::jsonb))
+                    """;
+            // @formatter:on
+            jsonbCondition = "compliance_result -> 'providerRules' IS NOT NULL";
+            String connectorUuidStr = connectorUuid.toString();
+            paramSetter = query -> {
+                query.setParameter("ruleUuid", ruleUuidStr);
+                query.setParameter("connectorUuid", connectorUuidStr);
+                query.setParameter("kind", kind);
+            };
+        }
+
+        SubjectTable subjectTable = getSubjectTable(ruleResource);
+        String sql = "UPDATE %s SET compliance_result = %s WHERE compliance_result IS NOT NULL AND %s AND %s".formatted(
+                subjectTable.tableName(), jsonbUpdate, jsonbCondition, subjectTable.subjectCondition());
+        var query = entityManager.createNativeQuery(sql);
+        query.setParameter("profileUuid", complianceProfileUuid);
+        paramSetter.accept(query);
+        int updated = query.executeUpdate();
+        if (updated > 0) {
+            logger.debug("Removed rule {} from compliance results of {} rows in {}", ruleUuid, updated, subjectTable.tableName());
+        }
+    }
+
+    private record SubjectTable(String tableName, String subjectCondition) {}
+
+    private SubjectTable getSubjectTable(Resource ruleResource) {
+        return switch (ruleResource) {
+            case CERTIFICATE -> new SubjectTable("certificate",
+                    "(ra_profile_uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'RA_PROFILE')" +
+                    " OR uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CERTIFICATE'))");
+            case CERTIFICATE_REQUEST -> new SubjectTable("certificate_request",
+                    "uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CERTIFICATE_REQUEST')");
+            case CRYPTOGRAPHIC_KEY_ITEM -> new SubjectTable("cryptographic_key_item",
+                    "(key_uuid IN (SELECT ck.uuid FROM cryptographic_key ck JOIN compliance_profile_association cpa ON ck.token_profile_uuid = cpa.object_uuid WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'TOKEN_PROFILE')" +
+                    " OR key_uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CRYPTOGRAPHIC_KEY')" +
+                    " OR uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'CRYPTOGRAPHIC_KEY_ITEM'))");
+            case SECRET -> new SubjectTable("secret",
+                    "(source_vault_profile_uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'VAULT_PROFILE')" +
+                    " OR uuid IN (SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = 'SECRET'))");
+            default -> throw new ValidationException("Unsupported compliance subject resource: %s".formatted(ruleResource.getLabel()));
+        };
+    }
+
+    @Override
+    public void removeGroupRulesFromComplianceResults(UUID complianceProfileUuid, Resource ruleResource, UUID groupUuid, UUID connectorUuid, String kind) throws ConnectorException, NotFoundException {
+        ComplianceRulesGroupsBatchDto batchDto = ruleHandler.getComplianceProviderRulesBatch(connectorUuid, kind, Set.of(), Set.of(groupUuid), true);
+        ComplianceGroupBatchResponseDto group = batchDto.getGroups().get(groupUuid);
+        if (group == null || group.getRules() == null) {
+            logger.warn("Could not fetch rules for group {} from connector {}/{} — skipping compliance result cleanup", groupUuid, connectorUuid, kind);
+            return;
+        }
+        for (ComplianceRuleResponseDto rule : group.getRules()) {
+            removeRuleFromComplianceResults(complianceProfileUuid, ruleResource, rule.getUuid(), connectorUuid, kind);
+        }
     }
 
     private Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> getSubjectHandlers(boolean checkByProfiles) {

@@ -57,6 +57,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     private AttributeEngine attributeEngine;
     private ComplianceProfileRuleHandler ruleHandler;
+    private ComplianceService complianceService;
 
     @Autowired
     public void setComplianceApiClient(ComplianceApiClient complianceApiClient) {
@@ -111,6 +112,11 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Autowired
     public void setRuleHandler(ComplianceProfileRuleHandler ruleHandler) {
         this.ruleHandler = ruleHandler;
+    }
+
+    @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
     }
 
     @Override
@@ -391,22 +397,30 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
         if (request.getConnectorUuid() == null) {
             // internal rule
-            if (request.isRemoval() && !complianceProfileRuleRepository.existsByComplianceProfileUuidAndInternalRuleUuid(uuid.getValue(), request.getRuleUuid())) {
+            ComplianceProfileRule profileRule = complianceProfileRuleRepository.findByComplianceProfileUuidAndInternalRuleUuid(uuid.getValue(), request.getRuleUuid())
+                    .orElse(null);
+            if (request.isRemoval() && profileRule == null) {
                 throw new NotFoundException("Compliance profile does not have assigned internal rule with UUID %s".formatted(request.getRuleUuid()));
             }
 
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndInternalRuleUuid(uuid.getValue(), request.getRuleUuid());
-            if (!request.isRemoval()) {
+            if (request.isRemoval()) {
+                complianceService.removeRuleFromComplianceResults(uuid.getValue(), profileRule.getResource(), request.getRuleUuid(), null, null);
+            } else {
                 ruleHandler.createComplianceProfileInternalRuleAssoc(uuid.getValue(), request.getRuleUuid());
             }
         } else {
             // provider rule
-            if (request.isRemoval() && !complianceProfileRuleRepository.existsByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getRuleUuid())) {
+            ComplianceProfileRule profileRule = complianceProfileRuleRepository.findByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getRuleUuid())
+                    .orElse(null);
+            if (request.isRemoval() && profileRule == null) {
                 throw new NotFoundException("Compliance profile does not have assigned rule with UUID %s from connector %s and kind %s".formatted(request.getRuleUuid(), request.getConnectorUuid(), request.getKind()));
             }
 
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
-            if (!request.isRemoval()) {
+            if (request.isRemoval()) {
+                complianceService.removeRuleFromComplianceResults(uuid.getValue(), profileRule.getResource(), request.getRuleUuid(), request.getConnectorUuid(), request.getKind());
+            } else {
                 ComplianceRuleResponseDto providerRule = ruleHandler.getProviderRule(request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
                 ruleHandler.createComplianceProfileProviderRuleAssoc(uuid.getValue(), request.getConnectorUuid(), request.getKind(), providerRule, request.getAttributes());
             }
@@ -419,12 +433,16 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         if (!complianceProfileRepository.existsById(uuid.getValue())) {
             throw new NotFoundException(ComplianceProfile.class, uuid.getValue());
         }
-        if (request.isRemoval() && !complianceProfileRuleRepository.existsByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid())) {
+        ComplianceProfileRule profileRule = complianceProfileRuleRepository.findByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid())
+                .orElse(null);
+        if (request.isRemoval() && profileRule == null) {
             throw new NotFoundException("Compliance profile does not have assigned group with UUID %s from connector %s and kind %s".formatted(request.getGroupUuid(), request.getConnectorUuid(), request.getKind()));
         }
 
         complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid());
-        if (!request.isRemoval()) {
+        if (request.isRemoval()) {
+            complianceService.removeGroupRulesFromComplianceResults(uuid.getValue(), profileRule.getResource(), request.getGroupUuid(), request.getConnectorUuid(), request.getKind());
+        } else {
             ComplianceGroupResponseDto providerGroup = ruleHandler.getProviderGroup(request.getConnectorUuid(), request.getKind(), request.getGroupUuid());
             ruleHandler.createComplianceProfileProviderGroupAssoc(uuid.getValue(), request.getConnectorUuid(), request.getKind(), providerGroup);
         }
