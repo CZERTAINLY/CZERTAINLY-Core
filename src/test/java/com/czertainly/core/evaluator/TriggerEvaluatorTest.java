@@ -597,6 +597,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Certificate newCertificate = new Certificate();
         certificateRepository.save(newCertificate);
         Connector connector = new Connector();
+        connector.setVersion(ConnectorVersion.V1);
         connectorRepository.save(connector);
         UUID connectorUuid = connector.getUuid();
         MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
