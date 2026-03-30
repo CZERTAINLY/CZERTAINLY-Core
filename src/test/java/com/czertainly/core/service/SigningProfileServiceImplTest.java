@@ -5,6 +5,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV2;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
@@ -26,6 +28,7 @@ import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWork
 import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.common.attribute.common.AttributeVersion;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
@@ -1521,16 +1524,25 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         Assertions.assertInstanceOf(StaticKeyManagedSigningDto.class, updated.getSigningScheme());
         StaticKeyManagedSigningDto schemeDto = (StaticKeyManagedSigningDto) updated.getSigningScheme();
-        Assertions.assertFalse(schemeDto.getSigningOperationAttributes().isEmpty());
+        List<ResponseAttribute> signingOperationAttributes = schemeDto.getSigningOperationAttributes();
+        Assertions.assertFalse(signingOperationAttributes.isEmpty());
+        Optional<ResponseAttribute> rsaSigningSchemeAttribute = signingOperationAttributes.stream().filter(
+                a -> RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME.equals(a.getName())).findFirst();
+        Assertions.assertTrue(rsaSigningSchemeAttribute.isPresent());
         // The RSA sig-scheme attribute content should reflect the new PSS value, not the old PKCS1-v1_5
-        String updatedSigSchemeValue = schemeDto.getSigningOperationAttributes().stream()
-                .filter(a -> RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME.equals(a.getName()))
-                .map(a -> ((List<?>) a.getContent()).getFirst())
-                .map(c -> ((com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2<?>) c).getData().toString())
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("RSA signature scheme attribute not found in updated DTO"));
-        Assertions.assertEquals(RsaSignatureScheme.PSS.getCode(), updatedSigSchemeValue,
-                "Signing operation attributes should be replaced with new value on update");
+        if (AttributeVersion.V2.equals(rsaSigningSchemeAttribute.get().getVersion())) {
+            ResponseAttributeV2 rsaSigningSchemeAttributeV2 = (ResponseAttributeV2) rsaSigningSchemeAttribute.get();
+            var attributeContentV2 = rsaSigningSchemeAttributeV2.getContent().getFirst();
+            Assertions.assertEquals(RsaSignatureScheme.PSS.getCode(), attributeContentV2.getData().toString(),
+                    "Signing operation attributes should be replaced with new value on update");
+        } else if (AttributeVersion.V3.equals(rsaSigningSchemeAttribute.get().getVersion())) {
+            ResponseAttributeV3 rsaSigningSchemeAttributeV3 = (ResponseAttributeV3) rsaSigningSchemeAttribute.get();
+            var attributeContentV3 = rsaSigningSchemeAttributeV3.getContent().getFirst();
+            Assertions.assertEquals(RsaSignatureScheme.PSS.getCode(), attributeContentV3.getData().toString(),
+                    "Signing operation attributes should be replaced with new value on update");
+        } else {
+            Assertions.fail("Unknown attribute version: " + rsaSigningSchemeAttribute.get().getVersion() + " - the test needs to be updated to handle this version");
+        }
     }
 
     @Test
