@@ -1,17 +1,22 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.connector.secrets.SecretType;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.secret.SecretDetailDto;
 import com.czertainly.api.model.core.secret.SecretDto;
 import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.api.model.core.secret.SyncVaultProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -22,7 +27,7 @@ import java.util.UUID;
 @Table(name = "secret")
 @Getter
 @Setter
-public class Secret extends UniquelyIdentifiedAndAudited {
+public class Secret extends UniquelyIdentifiedAndAudited implements ComplianceSubject {
 
     @Column(name = "name", nullable = false)
     private String name;
@@ -84,6 +89,14 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     @ToString.Exclude
     private Set<Secret2SyncVaultProfile> syncVaultProfiles = new HashSet<>();
 
+    @Column(name = "compliance_result", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ComplianceResultDto complianceResult;
+
+    @Column(name = "compliance_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ComplianceStatus complianceStatus = ComplianceStatus.NOT_CHECKED;
+
     public SecretDetailDto mapToDetailDto() {
         SecretDetailDto dto = new SecretDetailDto();
         setCommonFields(dto);
@@ -118,6 +131,7 @@ public class Secret extends UniquelyIdentifiedAndAudited {
             secretDto.setOwner(new NameAndUuidDto(owner.getOwnerUuid().toString(), owner.getOwnerUsername()));
         }
         secretDto.setGroups(groups.stream().map(g -> new NameAndUuidDto(g.getUuid().toString(), g.getName())).toList());
+        secretDto.setComplianceStatus(complianceStatus);
     }
 
     @Override
@@ -140,5 +154,15 @@ public class Secret extends UniquelyIdentifiedAndAudited {
     public void setLatestVersion(SecretVersion latestVersion) {
         this.latestVersion = latestVersion;
         this.latestVersionUuid = latestVersion == null ? null : latestVersion.getUuid();
+    }
+
+    @Override
+    public IPlatformEnum getFormat() {
+        return null;
+    }
+
+    @Override
+    public String getContentData() {
+        return "";
     }
 }

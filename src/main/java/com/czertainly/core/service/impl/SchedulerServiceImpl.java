@@ -11,6 +11,7 @@ import com.czertainly.api.model.scheduler.SchedulerJobDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.api.model.scheduler.SchedulerRequestDto;
 import com.czertainly.api.model.scheduler.UpdateScheduledJob;
+import com.czertainly.core.api.ScheduledJobSkippedException;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
@@ -259,10 +260,18 @@ public class SchedulerServiceImpl implements SchedulerService {
         if (scheduledJob.getUserUuid() != null) {
             authHelper.authenticateAsUser(scheduledJob.getUserUuid());
         }
-        final ScheduledTaskResult result = scheduledJobTask.performJob(new ScheduledJobInfo(scheduledJob.getJobName(), scheduledJob.getUuid(), scheduledJobHistory.getUuid()), scheduledJob.getObjectData());
 
-        if (result != null) {
-            finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, result);
+
+        boolean skipped = false;
+        ScheduledTaskResult result = null;
+        try {
+            result = scheduledJobTask.performJob(new ScheduledJobInfo(scheduledJob.getJobName(), scheduledJob.getUuid(), scheduledJobHistory.getUuid()), scheduledJob.getObjectData());
+        } catch (ScheduledJobSkippedException e) {
+            skipped = true;
+        } finally {
+            if (skipped || result != null) {
+                finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, result, skipped);
+            }
         }
     }
 
@@ -272,22 +281,27 @@ public class SchedulerServiceImpl implements SchedulerService {
         logger.debug("ScheduledJobFinished event handler: {}", event.scheduledJobInfo().jobUuid());
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobUuid())).orElseThrow(() -> new NotFoundException(ScheduledJob.class, event.scheduledJobInfo().jobUuid()));
         final ScheduledJobHistory scheduledJobHistory = scheduledJobHistoryRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobHistoryUuid())).orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, event.scheduledJobInfo().jobHistoryUuid()));
-        finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, event.result());
+        finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, event.result(), false);
     }
 
-    private void finalizeFinishedScheduledJob(ScheduledJob scheduledJob, ScheduledJobHistory scheduledJobHistory, ScheduledTaskResult result) {
+    private void finalizeFinishedScheduledJob(ScheduledJob scheduledJob, ScheduledJobHistory scheduledJobHistory, ScheduledTaskResult result, boolean skipped) {
         logger.debug("Finalizing finished scheduled job '{}'", scheduledJob.getJobName());
 
         // update job history
-        scheduledJobHistory.setJobEndTime(new Date());
-        scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
-        scheduledJobHistory.setResultMessage(result.getResultMessage());
-        scheduledJobHistory.setResultObjectType(result.getResultObjectType());
-        scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
-        scheduledJobHistoryRepository.save(scheduledJobHistory);
+        if (result != null) {
+            scheduledJobHistory.setJobEndTime(new Date());
+            scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
+            scheduledJobHistory.setResultMessage(result.getResultMessage());
+            scheduledJobHistory.setResultObjectType(result.getResultObjectType());
+            scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
+            scheduledJobHistoryRepository.save(scheduledJobHistory);
+        } else if (skipped) {
+            logger.debug("Skipping scheduled job '{}', removing history entry", scheduledJob.getJobName());
+            scheduledJobHistoryRepository.delete(scheduledJobHistory);
+        }
 
         // deregister one-time job
-        if (SchedulerJobExecutionStatus.SUCCESS.equals(result.getStatus()) && scheduledJob.isOneTime()) {
+        if (result != null && SchedulerJobExecutionStatus.SUCCESS.equals(result.getStatus()) && scheduledJob.isOneTime()) {
             try {
                 schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
                 logger.info("Scheduled job '{}' was deleted/unscheduled because it was one-time job only.", scheduledJob.getJobName());
@@ -297,7 +311,7 @@ public class SchedulerServiceImpl implements SchedulerService {
         }
 
         // raise event for non-system job
-        if (!scheduledJob.isSystem()) {
+        if (!scheduledJob.isSystem() && result != null) {
             eventProducer.produceMessage(ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), result));
         }
 

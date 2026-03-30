@@ -255,6 +255,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile = acmeProfileRepository.save(acmeProfile);
 
         if (raProfile != null) {
+            // Keep as the last because it will flush and evict all entities from the Hibernate first-level cache.
             acmeAccountRepository.updateRaProfileForDefaultAccounts(acmeProfile.getUuid(), raProfile.getUuid());
         }
 
