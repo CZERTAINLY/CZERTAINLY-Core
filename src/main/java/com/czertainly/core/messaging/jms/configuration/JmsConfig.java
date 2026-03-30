@@ -34,13 +34,39 @@ public class JmsConfig {
 
     @Bean
     public ConnectionFactory connectionFactory(MessagingProperties props) {
+        if (props.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {
+            return createServiceBusConnectionFactory(props);
+        }
+        return createRabbitMqConnectionFactory(props);
+    }
+
+    private ConnectionFactory createServiceBusConnectionFactory(MessagingProperties props) {
+        // Use the broker URL as-is for ServiceBus — it may contain a failover:(...) scheme
+        // that UriComponentsBuilder cannot parse.
+        String brokerUrl = props.getEffectiveBrokerUrl();
+        logger.info("Connecting to ServiceBus broker: {}", brokerUrl);
+
+        JmsConnectionFactory factory = new JmsConnectionFactory(brokerUrl);
+        factory.setForceSyncSend(true);
+
+        if (props.closeTimeout() != null) {
+            factory.setCloseTimeout(props.closeTimeout());
+        }
+
+        configureServiceBusAuthentication(factory, props);
+        // Return raw factory for ServiceBus - listener containers manage their own connections.
+        // CachingConnectionFactory interferes with DefaultMessageListenerContainer recovery
+        // for durable/shared subscriptions. Producers use JmsPoolConnectionFactory (see below).
+        return factory;
+    }
+
+    private ConnectionFactory createRabbitMqConnectionFactory(MessagingProperties props) {
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(props.getEffectiveBrokerUrl());
 
         // For RabbitMQ with AMQP 1.0, vhost is specified in the AMQP Open frame hostname field
         // The hostname field must be "vhost:name" format according to RabbitMQ AMQP 1.0 docs
         // We use amqp.vhost connection property to set this value
-        if (props.brokerType() == MessagingProperties.BrokerType.RABBITMQ &&
-                props.virtualHost() != null && !props.virtualHost().isEmpty()) {
+        if (props.virtualHost() != null && !props.virtualHost().isEmpty()) {
             builder.queryParam("amqp.vhost", "vhost:" + props.virtualHost());
         }
 
@@ -57,23 +83,8 @@ public class JmsConfig {
         JmsConnectionFactory factory = new JmsConnectionFactory(brokerUrl);
         factory.setForceSyncSend(true);
 
-        // When a connection is force-closed by the broker (e.g. Azure amqp:connection:forced),
-        // JmsPoolConnectionFactory's ExceptionListener calls JmsConnection.close() which blocks
-        // on AmqpProvider.close() for up to closeTimeout (default: 60s) waiting for a clean AMQP
-        // close handshake that will never come. During this blocking period, the pool's
-        // validateObject() cannot detect the dead connection and returns it to callers.
-        // Setting a short closeTimeout ensures the ExceptionListener completes quickly so the pool
-        // can evict the dead connection before the first retry (initialInterval defaults to 3s).
         if (props.closeTimeout() != null) {
             factory.setCloseTimeout(props.closeTimeout());
-        }
-
-        if (props.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {
-            configureServiceBusAuthentication(factory, props);
-            // Return raw factory for ServiceBus - listener containers manage their own connections.
-            // CachingConnectionFactory interferes with DefaultMessageListenerContainer recovery
-            // for durable/shared subscriptions. Producers use JmsPoolConnectionFactory (see below).
-            return factory;
         }
 
         // RabbitMQ - standard username/password authentication
