@@ -17,6 +17,7 @@ import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
@@ -199,6 +200,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     private void setUpOldConnector() {
         Connector connector = new Connector();
+        connector.setVersion(ConnectorVersion.V1);
         connectorRepository.save(connector);
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
         authorityInstanceReference.setConnectorUuid(connector.getUuid());

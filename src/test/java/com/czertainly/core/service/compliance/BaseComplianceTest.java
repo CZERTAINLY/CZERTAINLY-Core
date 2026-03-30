@@ -104,8 +104,8 @@ class BaseComplianceTest extends BaseSpringBootTest {
         mockComplianceProviderResponses(true);
         mockComplianceProviderV1Responses();
 
-        connectorV1 = createConnector("TestConnectorV1", FunctionGroupCode.COMPLIANCE_PROVIDER);
-        connectorV2 = createConnector("TestConnectorV2", FunctionGroupCode.COMPLIANCE_PROVIDER_V2);
+        connectorV1 = createConnector("TestConnectorV1", FunctionGroupCode.COMPLIANCE_PROVIDER, ConnectorVersion.V1);
+        connectorV2 = createConnector("TestConnectorV2", FunctionGroupCode.COMPLIANCE_PROVIDER_V2, ConnectorVersion.V2);
 
         complianceProfile = new ComplianceProfile();
         complianceProfile.setName("TestProfile");
@@ -162,11 +162,11 @@ class BaseComplianceTest extends BaseSpringBootTest {
         Assertions.assertFalse(complianceProfile.getAssociations().isEmpty(), "Compliance associations should be loaded");
     }
 
-    private Connector createConnector(String name, FunctionGroupCode functionGroupCode) {
+    private Connector createConnector(String name, FunctionGroupCode functionGroupCode, ConnectorVersion connectorVersion) {
         Connector connector = new Connector();
         connector.setName(name);
         connector.setUrl("http://localhost:" + mockServer.port());
-        connector.setVersion(ConnectorVersion.V1);
+        connector.setVersion(connectorVersion);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
