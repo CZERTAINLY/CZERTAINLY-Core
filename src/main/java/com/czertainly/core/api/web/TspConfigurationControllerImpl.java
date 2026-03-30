@@ -78,4 +78,28 @@ public class TspConfigurationControllerImpl implements TspConfigurationControlle
     public List<BulkActionMessageDto> bulkDeleteTspConfigurations(@LogResource(uuid = true) List<UUID> uuids) {
         return tspConfigurationService.bulkDeleteTspConfigurations(SecuredUUID.fromUuidList(uuids));
     }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_CONFIGURATION, operation = Operation.ENABLE)
+    public void enableTspConfiguration(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        tspConfigurationService.enableTspConfiguration(SecuredUUID.fromUUID(uuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_CONFIGURATION, operation = Operation.ENABLE)
+    public List<BulkActionMessageDto> bulkEnableTspConfigurations(@LogResource(uuid = true) List<UUID> uuids) {
+        return tspConfigurationService.bulkEnableTspConfigurations(SecuredUUID.fromUuidList(uuids));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_CONFIGURATION, operation = Operation.DISABLE)
+    public void disableTspConfiguration(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        tspConfigurationService.disableTspConfiguration(SecuredUUID.fromUUID(uuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_CONFIGURATION, operation = Operation.DISABLE)
+    public List<BulkActionMessageDto> bulkDisableTspConfigurations(@LogResource(uuid = true) List<UUID> uuids) {
+        return tspConfigurationService.bulkDisableTspConfigurations(SecuredUUID.fromUuidList(uuids));
+    }
 }

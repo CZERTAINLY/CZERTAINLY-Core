@@ -134,6 +134,60 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
         return messages;
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // Enable / disable
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public void enableTspConfiguration(SecuredUUID uuid) throws NotFoundException {
+        TspConfiguration configuration = getTspConfigurationEntity(uuid.getValue());
+        configuration.setEnabled(true);
+        tspConfigurationRepository.save(configuration);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public List<BulkActionMessageDto> bulkEnableTspConfigurations(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            try {
+                enableTspConfiguration(uuid);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public void disableTspConfiguration(SecuredUUID uuid) throws NotFoundException {
+        TspConfiguration configuration = getTspConfigurationEntity(uuid.getValue());
+        configuration.setEnabled(false);
+        tspConfigurationRepository.save(configuration);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public List<BulkActionMessageDto> bulkDisableTspConfigurations(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            try {
+                disableTspConfiguration(uuid);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
     private SigningProfile validateCreateUpdateRequest(TspConfigurationRequestDto request) throws NotFoundException, ValidationException {
         if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
             throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
@@ -155,7 +209,6 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
     private TspConfigurationDto updateAndMapToDto(TspConfiguration configuration, TspConfigurationRequestDto request, SigningProfile defaultSigningProfile) throws AttributeException, NotFoundException {
         configuration.setName(request.getName());
         configuration.setDescription(request.getDescription());
-        // :TODO: configuration.setEnabled(false);
         configuration.setDefaultSigningProfile(defaultSigningProfile);
         TspConfiguration saved = tspConfigurationRepository.save(configuration);
 

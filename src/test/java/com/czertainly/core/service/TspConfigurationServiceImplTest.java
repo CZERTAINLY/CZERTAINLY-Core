@@ -317,4 +317,79 @@ class TspConfigurationServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(tspRepository.findById(savedConfig.getUuid()).isPresent());
         Assertions.assertFalse(tspRepository.findById(second.getUuid()).isPresent());
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Enable / disable
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testEnableTspConfiguration_setsEnabledTrue() throws NotFoundException {
+        Assertions.assertFalse(savedConfig.getEnabled(), "Config should start disabled");
+
+        tspService.enableTspConfiguration(savedConfig.getSecuredUuid());
+
+        TspConfiguration fromDb = tspRepository.findById(savedConfig.getUuid()).orElseThrow();
+        Assertions.assertTrue(fromDb.getEnabled());
+    }
+
+    @Test
+    void testDisableTspConfiguration_setsEnabledFalse() throws NotFoundException {
+        // Pre-enable the entity directly in the DB
+        savedConfig.setEnabled(true);
+        tspRepository.save(savedConfig);
+
+        tspService.disableTspConfiguration(savedConfig.getSecuredUuid());
+
+        TspConfiguration fromDb = tspRepository.findById(savedConfig.getUuid()).orElseThrow();
+        Assertions.assertFalse(fromDb.getEnabled());
+    }
+
+    @Test
+    void testEnableTspConfiguration_notFound_throwsNotFoundException() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> tspService.enableTspConfiguration(
+                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+    }
+
+    @Test
+    void testDisableTspConfiguration_notFound_throwsNotFoundException() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> tspService.disableTspConfiguration(
+                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+    }
+
+    @Test
+    void testBulkEnableTspConfigurations_enablesAll() {
+        TspConfiguration second = new TspConfiguration();
+        second.setName("second-tsp-config");
+        second = tspRepository.save(second);
+
+        List<BulkActionMessageDto> messages = tspService.bulkEnableTspConfigurations(
+                List.of(savedConfig.getSecuredUuid(), second.getSecuredUuid()));
+
+        Assertions.assertNotNull(messages);
+        Assertions.assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
+        Assertions.assertTrue(tspRepository.findById(savedConfig.getUuid()).orElseThrow().getEnabled());
+        Assertions.assertTrue(tspRepository.findById(second.getUuid()).orElseThrow().getEnabled());
+    }
+
+    @Test
+    void testBulkDisableTspConfigurations_disablesAll() {
+        // Pre-enable both entities
+        savedConfig.setEnabled(true);
+        tspRepository.save(savedConfig);
+
+        TspConfiguration second = new TspConfiguration();
+        second.setName("second-tsp-config");
+        second.setEnabled(true);
+        second = tspRepository.save(second);
+
+        List<BulkActionMessageDto> messages = tspService.bulkDisableTspConfigurations(
+                List.of(savedConfig.getSecuredUuid(), second.getSecuredUuid()));
+
+        Assertions.assertNotNull(messages);
+        Assertions.assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
+        Assertions.assertFalse(tspRepository.findById(savedConfig.getUuid()).orElseThrow().getEnabled());
+        Assertions.assertFalse(tspRepository.findById(second.getUuid()).orElseThrow().getEnabled());
+    }
 }

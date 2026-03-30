@@ -29,4 +29,12 @@ public interface IlmSigningProtocolConfigurationService {
     void deleteIlmSigningProtocolConfiguration(SecuredUUID uuid) throws NotFoundException;
 
     List<BulkActionMessageDto> bulkDeleteIlmSigningProtocolConfigurations(List<SecuredUUID> uuids);
+
+    void enableIlmSigningProtocolConfiguration(SecuredUUID uuid) throws NotFoundException;
+
+    List<BulkActionMessageDto> bulkEnableIlmSigningProtocolConfigurations(List<SecuredUUID> uuids);
+
+    void disableIlmSigningProtocolConfiguration(SecuredUUID uuid) throws NotFoundException;
+
+    List<BulkActionMessageDto> bulkDisableIlmSigningProtocolConfigurations(List<SecuredUUID> uuids);
 }

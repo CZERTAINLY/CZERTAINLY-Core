@@ -29,4 +29,12 @@ public interface TspConfigurationService {
     void deleteTspConfiguration(SecuredUUID uuid) throws NotFoundException;
 
     List<BulkActionMessageDto> bulkDeleteTspConfigurations(List<SecuredUUID> uuids);
+
+    void enableTspConfiguration(SecuredUUID uuid) throws NotFoundException;
+
+    List<BulkActionMessageDto> bulkEnableTspConfigurations(List<SecuredUUID> uuids);
+
+    void disableTspConfiguration(SecuredUUID uuid) throws NotFoundException;
+
+    List<BulkActionMessageDto> bulkDisableTspConfigurations(List<SecuredUUID> uuids);
 }

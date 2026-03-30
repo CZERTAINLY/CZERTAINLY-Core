@@ -78,4 +78,28 @@ public class IlmSigningProtocolConfigurationControllerImpl implements IlmSigning
     public List<BulkActionMessageDto> bulkDeleteIlmSigningProtocolConfigurations(@LogResource(uuid = true) List<UUID> uuids) {
         return ilmSigningProtocolConfigurationService.bulkDeleteIlmSigningProtocolConfigurations(SecuredUUID.fromUuidList(uuids));
     }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, operation = Operation.ENABLE)
+    public void enableIlmSigningProtocolConfiguration(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        ilmSigningProtocolConfigurationService.enableIlmSigningProtocolConfiguration(SecuredUUID.fromUUID(uuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, operation = Operation.ENABLE)
+    public List<BulkActionMessageDto> bulkEnableIlmSigningProtocolConfigurations(@LogResource(uuid = true) List<UUID> uuids) {
+        return ilmSigningProtocolConfigurationService.bulkEnableIlmSigningProtocolConfigurations(SecuredUUID.fromUuidList(uuids));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, operation = Operation.DISABLE)
+    public void disableIlmSigningProtocolConfiguration(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        ilmSigningProtocolConfigurationService.disableIlmSigningProtocolConfiguration(SecuredUUID.fromUUID(uuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, operation = Operation.DISABLE)
+    public List<BulkActionMessageDto> bulkDisableIlmSigningProtocolConfigurations(@LogResource(uuid = true) List<UUID> uuids) {
+        return ilmSigningProtocolConfigurationService.bulkDisableIlmSigningProtocolConfigurations(SecuredUUID.fromUuidList(uuids));
+    }
 }

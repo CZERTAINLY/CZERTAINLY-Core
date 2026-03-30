@@ -134,6 +134,60 @@ public class IlmSigningProtocolConfigurationServiceImpl implements IlmSigningPro
         return messages;
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // Enable / disable
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public void enableIlmSigningProtocolConfiguration(SecuredUUID uuid) throws NotFoundException {
+        IlmSigningProtocolConfiguration configuration = getIlmSigningProtocolConfigurationEntity(uuid.getValue());
+        configuration.setEnabled(true);
+        ilmSigningProtocolConfigurationRepository.save(configuration);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public List<BulkActionMessageDto> bulkEnableIlmSigningProtocolConfigurations(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            try {
+                enableIlmSigningProtocolConfiguration(uuid);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public void disableIlmSigningProtocolConfiguration(SecuredUUID uuid) throws NotFoundException {
+        IlmSigningProtocolConfiguration configuration = getIlmSigningProtocolConfigurationEntity(uuid.getValue());
+        configuration.setEnabled(false);
+        ilmSigningProtocolConfigurationRepository.save(configuration);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION, action = ResourceAction.ENABLE)
+    @Transactional
+    public List<BulkActionMessageDto> bulkDisableIlmSigningProtocolConfigurations(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            try {
+                disableIlmSigningProtocolConfiguration(uuid);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
     private SigningProfile validateCreateUpdateRequest(IlmSigningProtocolConfigurationRequestDto request) throws NotFoundException, ValidationException {
         if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
             throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
@@ -155,7 +209,6 @@ public class IlmSigningProtocolConfigurationServiceImpl implements IlmSigningPro
     private IlmSigningProtocolConfigurationDto updateAndMapToDto(IlmSigningProtocolConfiguration configuration, IlmSigningProtocolConfigurationRequestDto request, SigningProfile defaultSigningProfile) throws AttributeException, NotFoundException {
         configuration.setName(request.getName());
         configuration.setDescription(request.getDescription());
-        // :TODO: configuration.setEnabled(false);
         configuration.setDefaultSigningProfile(defaultSigningProfile);
         IlmSigningProtocolConfiguration saved = ilmSigningProtocolConfigurationRepository.save(configuration);
 

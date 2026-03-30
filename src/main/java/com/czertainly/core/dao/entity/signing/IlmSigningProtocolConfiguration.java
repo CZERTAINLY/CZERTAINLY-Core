@@ -25,6 +25,9 @@ public class IlmSigningProtocolConfiguration extends UniquelyIdentifiedAndAudite
     @Column(name = "description")
     private String description;
 
+    @Column(name = "enabled", nullable = false)
+    private Boolean enabled = false;
+
     @Column(name = "default_signing_profile_uuid")
     private UUID defaultSigningProfileUuid;
 

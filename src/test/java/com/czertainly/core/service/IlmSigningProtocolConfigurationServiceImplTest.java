@@ -323,4 +323,79 @@ class IlmSigningProtocolConfigurationServiceImplTest extends BaseSpringBootTest 
         Assertions.assertTrue(ilmRepository.findById(savedConfig.getUuid()).isPresent());
         Assertions.assertFalse(ilmRepository.findById(second.getUuid()).isPresent());
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Enable / disable
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testEnableIlmSigningProtocolConfiguration_setsEnabledTrue() throws NotFoundException {
+        Assertions.assertFalse(savedConfig.getEnabled(), "Config should start disabled");
+
+        ilmService.enableIlmSigningProtocolConfiguration(savedConfig.getSecuredUuid());
+
+        IlmSigningProtocolConfiguration fromDb = ilmRepository.findById(savedConfig.getUuid()).orElseThrow();
+        Assertions.assertTrue(fromDb.getEnabled());
+    }
+
+    @Test
+    void testDisableIlmSigningProtocolConfiguration_setsEnabledFalse() throws NotFoundException {
+        // Pre-enable the entity directly in the DB
+        savedConfig.setEnabled(true);
+        ilmRepository.save(savedConfig);
+
+        ilmService.disableIlmSigningProtocolConfiguration(savedConfig.getSecuredUuid());
+
+        IlmSigningProtocolConfiguration fromDb = ilmRepository.findById(savedConfig.getUuid()).orElseThrow();
+        Assertions.assertFalse(fromDb.getEnabled());
+    }
+
+    @Test
+    void testEnableIlmSigningProtocolConfiguration_notFound_throwsNotFoundException() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> ilmService.enableIlmSigningProtocolConfiguration(
+                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+    }
+
+    @Test
+    void testDisableIlmSigningProtocolConfiguration_notFound_throwsNotFoundException() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> ilmService.disableIlmSigningProtocolConfiguration(
+                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+    }
+
+    @Test
+    void testBulkEnableIlmSigningProtocolConfigurations_enablesAll() {
+        IlmSigningProtocolConfiguration second = new IlmSigningProtocolConfiguration();
+        second.setName("second-ilm-config");
+        second = ilmRepository.save(second);
+
+        List<BulkActionMessageDto> messages = ilmService.bulkEnableIlmSigningProtocolConfigurations(
+                List.of(savedConfig.getSecuredUuid(), second.getSecuredUuid()));
+
+        Assertions.assertNotNull(messages);
+        Assertions.assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
+        Assertions.assertTrue(ilmRepository.findById(savedConfig.getUuid()).orElseThrow().getEnabled());
+        Assertions.assertTrue(ilmRepository.findById(second.getUuid()).orElseThrow().getEnabled());
+    }
+
+    @Test
+    void testBulkDisableIlmSigningProtocolConfigurations_disablesAll() {
+        // Pre-enable both entities
+        savedConfig.setEnabled(true);
+        ilmRepository.save(savedConfig);
+
+        IlmSigningProtocolConfiguration second = new IlmSigningProtocolConfiguration();
+        second.setName("second-ilm-config");
+        second.setEnabled(true);
+        second = ilmRepository.save(second);
+
+        List<BulkActionMessageDto> messages = ilmService.bulkDisableIlmSigningProtocolConfigurations(
+                List.of(savedConfig.getSecuredUuid(), second.getSecuredUuid()));
+
+        Assertions.assertNotNull(messages);
+        Assertions.assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
+        Assertions.assertFalse(ilmRepository.findById(savedConfig.getUuid()).orElseThrow().getEnabled());
+        Assertions.assertFalse(ilmRepository.findById(second.getUuid()).orElseThrow().getEnabled());
+    }
 }
