@@ -31,6 +31,7 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -103,12 +104,14 @@ class AttributeEngineTest extends BaseSpringBootTest {
         connectorAuthority = new Connector();
         connectorAuthority.setName("EJBCAAuthorityConnector");
         connectorAuthority.setUrl("http://localhost:8080");
+        connectorAuthority.setVersion(ConnectorVersion.V1);
         connectorAuthority.setStatus(ConnectorStatus.CONNECTED);
         connectorAuthority = connectorRepository.save(connectorAuthority);
 
         connectorDiscovery = new Connector();
         connectorDiscovery.setName("NetworkDiscoveryConnector");
         connectorDiscovery.setUrl("http://localhost:8081");
+        connectorDiscovery.setVersion(ConnectorVersion.V1);
         connectorDiscovery.setStatus(ConnectorStatus.CONNECTED);
         connectorDiscovery = connectorRepository.save(connectorDiscovery);
 
