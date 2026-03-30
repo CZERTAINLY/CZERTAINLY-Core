@@ -75,6 +75,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     void testListConnectors_One() throws NotFoundException {
         Connector connector = new Connector();
         connector.setName("Demo");
+        connector.setVersion(ConnectorVersion.V1);
         connectorRepository.save(connector);
 
         List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
