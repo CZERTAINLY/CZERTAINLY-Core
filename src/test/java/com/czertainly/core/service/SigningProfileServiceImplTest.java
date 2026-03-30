@@ -1035,16 +1035,19 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testActivateIlmSigningProtocol_linksConfigToProfile() throws NotFoundException {
+    void testActivateIlmSigningProtocol_linksConfigToProfile() throws AttributeException, NotFoundException {
+        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-ilm-activate"));
+        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
+
         IlmSigningProtocolConfiguration ilmConfig = new IlmSigningProtocolConfiguration();
         ilmConfig.setName("test-ilm-config");
         ilmConfig = ilmRepository.save(ilmConfig);
 
-        var activationDto = signingProfileService.activateIlmSigningProtocol(savedProfile.getSecuredUuid(), ilmConfig.getSecuredUuid());
+        var activationDto = signingProfileService.activateIlmSigningProtocol(profileUuid, ilmConfig.getSecuredUuid());
         Assertions.assertTrue(activationDto.isAvailable());
         Assertions.assertNotNull(activationDto.getSigningUrl());
 
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
+        Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(ilmConfig.getUuid(), fromDb.get().getIlmSigningProtocolConfigurationUuid());
     }
@@ -1063,15 +1066,21 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testActivateIlmSigningProtocol_ilmConfigNotFound_throwsNotFoundException() {
+    void testActivateIlmSigningProtocol_ilmConfigNotFound_throwsNotFoundException() throws AttributeException, NotFoundException {
+        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-ilm-not-found"));
+        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
+
         Assertions.assertThrows(NotFoundException.class,
                 () -> signingProfileService.activateIlmSigningProtocol(
-                        savedProfile.getSecuredUuid(),
+                        profileUuid,
                         SecuredUUID.fromString("00000000-0000-0000-0000-000000000002")));
     }
 
     @Test
-    void testActivateIlmSigningProtocol_replacesExistingLink() throws NotFoundException {
+    void testActivateIlmSigningProtocol_replacesExistingLink() throws AttributeException, NotFoundException {
+        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-ilm-replace"));
+        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
+
         IlmSigningProtocolConfiguration ilmConfig1 = new IlmSigningProtocolConfiguration();
         ilmConfig1.setName("ilm-config-1");
         ilmConfig1 = ilmRepository.save(ilmConfig1);
@@ -1081,11 +1090,11 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         ilmConfig2 = ilmRepository.save(ilmConfig2);
 
         // Link the first config
-        signingProfileService.activateIlmSigningProtocol(savedProfile.getSecuredUuid(), ilmConfig1.getSecuredUuid());
-        // Replace with the second config
-        signingProfileService.activateIlmSigningProtocol(savedProfile.getSecuredUuid(), ilmConfig2.getSecuredUuid());
+        signingProfileService.activateIlmSigningProtocol(profileUuid, ilmConfig1.getSecuredUuid());
+        // Replace it with the second config
+        signingProfileService.activateIlmSigningProtocol(profileUuid, ilmConfig2.getSecuredUuid());
 
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
+        Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(ilmConfig2.getUuid(), fromDb.get().getIlmSigningProtocolConfigurationUuid(),
                 "The profile should reference the second ILM config after replacement");
@@ -1140,16 +1149,19 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testActivateTsp_linksConfigToProfile() throws NotFoundException {
+    void testActivateTsp_linksConfigToProfile() throws AttributeException, NotFoundException {
+        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-tsp-activate"));
+        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
+
         TspConfiguration tspConfig = new TspConfiguration();
         tspConfig.setName("test-tsp-config");
         tspConfig = tspRepository.save(tspConfig);
 
-        var activationDto = signingProfileService.activateTsp(savedProfile.getSecuredUuid(), tspConfig.getSecuredUuid());
+        var activationDto = signingProfileService.activateTsp(profileUuid, tspConfig.getSecuredUuid());
         Assertions.assertTrue(activationDto.isAvailable());
         Assertions.assertNotNull(activationDto.getSigningUrl());
 
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
+        Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(tspConfig.getUuid(), fromDb.get().getTspConfigurationUuid());
     }
@@ -1168,15 +1180,21 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testActivateTsp_tspConfigNotFound_throwsNotFoundException() {
+    void testActivateTsp_tspConfigNotFound_throwsNotFoundException() throws AttributeException, NotFoundException {
+        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-tsp-not-found"));
+        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
+
         Assertions.assertThrows(NotFoundException.class,
                 () -> signingProfileService.activateTsp(
-                        savedProfile.getSecuredUuid(),
+                        profileUuid,
                         SecuredUUID.fromString("00000000-0000-0000-0000-000000000002")));
     }
 
     @Test
-    void testActivateTsp_replacesExistingLink() throws NotFoundException {
+    void testActivateTsp_replacesExistingLink() throws AttributeException, NotFoundException {
+        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-tsp-replace"));
+        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
+
         TspConfiguration tspConfig1 = new TspConfiguration();
         tspConfig1.setName("tsp-config-1");
         tspConfig1 = tspRepository.save(tspConfig1);
@@ -1186,11 +1204,11 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         tspConfig2 = tspRepository.save(tspConfig2);
 
         // Link the first config
-        signingProfileService.activateTsp(savedProfile.getSecuredUuid(), tspConfig1.getSecuredUuid());
-        // Replace with the second config
-        signingProfileService.activateTsp(savedProfile.getSecuredUuid(), tspConfig2.getSecuredUuid());
+        signingProfileService.activateTsp(profileUuid, tspConfig1.getSecuredUuid());
+        // Replace it with the second config
+        signingProfileService.activateTsp(profileUuid, tspConfig2.getSecuredUuid());
 
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
+        Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(tspConfig2.getUuid(), fromDb.get().getTspConfigurationUuid(),
                 "The profile should reference the second TSP config after replacement");
@@ -1210,6 +1228,18 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertNull(fromDb.get().getTspConfigurationUuid());
+    }
+
+    @Test
+    void testActivateTsp_unsupportedWorkflowType_throwsValidationException() {
+        // savedProfile uses RAW_SIGNING which does not support TSP
+        TspConfiguration tspConfig = new TspConfiguration();
+        tspConfig.setName("tsp-config-unsupported-workflow");
+        tspConfig = tspRepository.save(tspConfig);
+        final SecuredUUID tspUuid = tspConfig.getSecuredUuid();
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> signingProfileService.activateTsp(savedProfile.getSecuredUuid(), tspUuid));
     }
 
     @Test

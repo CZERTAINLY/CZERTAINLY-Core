@@ -5,6 +5,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -31,6 +33,8 @@ public interface SigningProfileService {
     SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspConfigurationUuid, SecurityFilter filter);
 
     SigningProfileDto getSigningProfile(SecuredUUID uuid, Integer version) throws NotFoundException;
+
+    List<SigningProtocol> listSupportedProtocols(SigningWorkflowType workflowType);
 
     SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AttributeException, NotFoundException;
 

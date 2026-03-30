@@ -19,6 +19,7 @@ import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSi
 import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
@@ -28,6 +29,7 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureListDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Audited_;
@@ -63,12 +65,22 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @Slf4j
 public class SigningProfileServiceImpl implements SigningProfileService {
+    /**
+     * Defines which signing protocols are allowed for each workflow type.
+     */
+    private static final Map<SigningWorkflowType, Set<SigningProtocol>> SUPPORTED_PROTOCOLS = Map.of(
+            SigningWorkflowType.TIMESTAMPING, EnumSet.of(SigningProtocol.ILM_SIGNING_PROTOCOL, SigningProtocol.TSP)
+    );
+
     private DigitalSignatureRepository digitalSignatureRepository;
     private IlmSigningProtocolConfigurationRepository ilmSigningProtocolRepository;
     private SigningProfileRepository signingProfileRepository;
@@ -88,6 +100,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Transactional
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return new ArrayList<>();
+    }
+
+    @Override
+    public List<SigningProtocol> listSupportedProtocols(SigningWorkflowType workflowType) {
+        return List.copyOf(SUPPORTED_PROTOCOLS.getOrDefault(workflowType, EnumSet.noneOf(SigningProtocol.class)));
     }
 
     @Override
@@ -326,6 +343,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Transactional
     public IlmSigningProtocolActivationDetailDto activateIlmSigningProtocol(SecuredUUID signingProfileUuid, SecuredUUID ilmConfigUuid) throws NotFoundException {
         SigningProfile signingProfile = findByUuid(signingProfileUuid);
+        validateSupportedProtocol(signingProfile.getWorkflowType(), SigningProtocol.ILM_SIGNING_PROTOCOL);
         IlmSigningProtocolConfiguration ilmConfig = ilmSigningProtocolRepository.findByUuid(ilmConfigUuid)
                 .orElseThrow(() -> new NotFoundException("ILM Signing Protocol Configuration not found: " + ilmConfigUuid));
         signingProfile.setIlmSigningProtocolConfiguration(ilmConfig);
@@ -359,6 +377,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Transactional
     public TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspConfigUuid) throws NotFoundException {
         SigningProfile signingProfile = findByUuid(signingProfileUuid);
+        validateSupportedProtocol(signingProfile.getWorkflowType(), SigningProtocol.TSP);
         TspConfiguration tspConfig = tspRepository.findByUuid(tspConfigUuid)
                 .orElseThrow(() -> new NotFoundException("TSP Configuration not found: " + tspConfigUuid));
         signingProfile.setTspConfiguration(tspConfig);
@@ -382,6 +401,13 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private SigningProfile findByUuid(SecuredUUID uuid) throws NotFoundException {
         return signingProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + uuid));
+    }
+
+    private void validateSupportedProtocol(SigningWorkflowType workflowType, SigningProtocol protocol) {
+        Set<SigningProtocol> supported = SUPPORTED_PROTOCOLS.getOrDefault(workflowType, EnumSet.noneOf(SigningProtocol.class));
+        if (!supported.contains(protocol)) {
+            throw new ValidationException(protocol.getCode() + " is not supported for workflow type " + workflowType.getCode());
+        }
     }
 
     private void validateSigningSchemeCoherence(SigningSchemeRequestDto scheme) {

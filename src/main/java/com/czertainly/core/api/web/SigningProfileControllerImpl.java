@@ -6,6 +6,8 @@ import com.czertainly.api.interfaces.core.web.SigningProfileController;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -44,6 +46,12 @@ public class SigningProfileControllerImpl implements SigningProfileController {
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return signingProfileService.getSearchableFieldInformation();
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
+    public List<SigningProtocol> listSupportedProtocols(String workflowType) {
+        return signingProfileService.listSupportedProtocols(SigningWorkflowType.findByCode(workflowType));
     }
 
     @Override
