@@ -159,15 +159,6 @@ class TspConfigurationServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateTspConfiguration_invalidName_throwsValidationException() {
-        TspConfigurationRequestDto request = new TspConfigurationRequestDto();
-        request.setName("invalid name with spaces!");
-
-        Assertions.assertThrows(ValidationException.class,
-                () -> tspService.createTspConfiguration(request));
-    }
-
-    @Test
     void testCreateTspConfiguration_defaultSigningProfileNotFound_throwsNotFoundException() {
         TspConfigurationRequestDto request = new TspConfigurationRequestDto();
         request.setName("tsp-nonexistent-profile");
@@ -231,15 +222,6 @@ class TspConfigurationServiceImplTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class,
                 () -> tspService.updateTspConfiguration(
                         SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), request));
-    }
-
-    @Test
-    void testUpdateTspConfiguration_invalidName_throwsValidationException() {
-        TspConfigurationRequestDto request = new TspConfigurationRequestDto();
-        request.setName("invalid name!");
-
-        Assertions.assertThrows(ValidationException.class,
-                () -> tspService.updateTspConfiguration(savedConfig.getSecuredUuid(), request));
     }
 
     // ──────────────────────────────────────────────────────────────────────────

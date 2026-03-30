@@ -163,15 +163,6 @@ class IlmSigningProtocolConfigurationServiceImplTest extends BaseSpringBootTest 
     }
 
     @Test
-    void testCreateIlmSigningProtocolConfiguration_invalidName_throwsValidationException() {
-        IlmSigningProtocolConfigurationRequestDto request = new IlmSigningProtocolConfigurationRequestDto();
-        request.setName("invalid name with spaces!");
-
-        Assertions.assertThrows(ValidationException.class,
-                () -> ilmService.createIlmSigningProtocolConfiguration(request));
-    }
-
-    @Test
     void testCreateIlmSigningProtocolConfiguration_defaultSigningProfileNotFound_throwsNotFoundException() {
         IlmSigningProtocolConfigurationRequestDto request = new IlmSigningProtocolConfigurationRequestDto();
         request.setName("ilm-nonexistent-profile");
@@ -237,15 +228,6 @@ class IlmSigningProtocolConfigurationServiceImplTest extends BaseSpringBootTest 
         Assertions.assertThrows(NotFoundException.class,
                 () -> ilmService.updateIlmSigningProtocolConfiguration(
                         SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), request));
-    }
-
-    @Test
-    void testUpdateIlmSigningProtocolConfiguration_invalidName_throwsValidationException() {
-        IlmSigningProtocolConfigurationRequestDto request = new IlmSigningProtocolConfigurationRequestDto();
-        request.setName("invalid name!");
-
-        Assertions.assertThrows(ValidationException.class,
-                () -> ilmService.updateIlmSigningProtocolConfiguration(savedConfig.getSecuredUuid(), request));
     }
 
     // ──────────────────────────────────────────────────────────────────────────

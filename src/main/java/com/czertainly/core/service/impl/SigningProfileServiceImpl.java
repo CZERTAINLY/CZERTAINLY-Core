@@ -2,7 +2,6 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
@@ -49,7 +48,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.util.FilterPredicatesBuilder;
-import com.czertainly.core.util.ValidatorUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -156,9 +154,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Transactional
     public SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AttributeException, NotFoundException {
         validateSigningSchemeCoherence(request.getSigningScheme());
-        if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
-            throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
-        }
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
 
         SigningProfile profile = new SigningProfile();
@@ -185,9 +180,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Transactional
     public SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws NotFoundException, AttributeException {
         validateSigningSchemeCoherence(request.getSigningScheme());
-        if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
-            throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
-        }
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
 
         SigningProfile profile = findByUuid(uuid);

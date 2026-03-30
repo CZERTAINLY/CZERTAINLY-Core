@@ -28,7 +28,6 @@ import com.czertainly.core.service.TspConfigurationService;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.util.FilterPredicatesBuilder;
-import com.czertainly.core.util.ValidatorUtil;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -189,18 +188,11 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
     }
 
     private SigningProfile validateCreateUpdateRequest(TspConfigurationRequestDto request) throws NotFoundException, ValidationException {
-        if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
-            throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
-        }
-
         attributeEngine.validateCustomAttributesContent(Resource.TSP_CONFIGURATION, request.getCustomAttributes());
 
         SigningProfile defaultSigningProfile = null;
         if (request.getDefaultSigningProfileUuid() != null) {
             defaultSigningProfile = getSigningProfileEntity(request.getDefaultSigningProfileUuid());
-            if (ValidatorUtil.containsUnreservedCharacters(defaultSigningProfile.getName())) {
-                throw new ValidationException(ValidationError.create("Signing Profile name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
-            }
         }
 
         return defaultSigningProfile;

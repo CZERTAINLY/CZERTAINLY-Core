@@ -404,14 +404,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.get().getEnabled());
     }
 
-    @Test
-    void testCreateSigningProfile_invalidName_throwsValidationException() {
-        SigningProfileRequestDto request = buildDelegatedRawRequest("invalid name with spaces!");
-
-        Assertions.assertThrows(ValidationException.class,
-                () -> signingProfileService.createSigningProfile(request));
-    }
-
     // ──────────────────────────────────────────────────────────────────────────
     // Create – Signing scheme variations
     // ──────────────────────────────────────────────────────────────────────────
@@ -664,14 +656,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class,
                 () -> signingProfileService.updateSigningProfile(
                         SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), request));
-    }
-
-    @Test
-    void testUpdateSigningProfile_invalidName_throwsValidationException() {
-        SigningProfileRequestDto request = buildDelegatedRawRequest("invalid name!");
-
-        Assertions.assertThrows(ValidationException.class,
-                () -> signingProfileService.updateSigningProfile(savedProfile.getSecuredUuid(), request));
     }
 
     @Test
