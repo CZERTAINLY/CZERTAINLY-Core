@@ -609,10 +609,11 @@ public class ComplianceServiceImpl implements ComplianceService {
         query.setParameter("profileUuid", complianceProfileUuid);
         paramSetter.accept(query);
         int updated = query.executeUpdate();
+        String ruleSource = connectorUuid == null ? "internal" : "provider %s/%s".formatted(connectorUuid, kind);
         if (updated > 0) {
-            logger.debug("Removed rules {} from compliance results of {} {} records", ruleUuids, updated, ruleResource.getLabel());
+            logger.debug("Removed {} rules {} from compliance results of {} {} records", ruleSource, ruleUuids, updated, ruleResource.getLabel());
         } else {
-            logger.trace("No {} compliance results contained rules {} — nothing to update", ruleResource.getLabel(), ruleUuids);
+            logger.trace("No {} compliance results contained {} rules {} — nothing to update", ruleResource.getLabel(), ruleSource, ruleUuids);
         }
     }
 
