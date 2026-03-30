@@ -573,7 +573,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                         + " '{internalRules,notAvailable}', " + filterArray.formatted("compliance_result #> '{internalRules,notAvailable}'") + ")";
                 jsonbCondition = "(jsonb_exists_any(compliance_result #> '{internalRules,notCompliant}', string_to_array(:ruleUuids, ','))"
                         + " OR jsonb_exists_any(compliance_result #> '{internalRules,notApplicable}', string_to_array(:ruleUuids, ','))"
-                        + " OR jsonb_exists_any(compliance_result #> '{internalRules,notAvailable}', string_to_array(:ruleUuids, ','))";
+                        + " OR jsonb_exists_any(compliance_result #> '{internalRules,notAvailable}', string_to_array(:ruleUuids, ',')))";
                 // @formatter:on
                 paramSetter = query -> query.setParameter("ruleUuids", ruleUuidsCsv);
             } else {
@@ -625,8 +625,20 @@ public class ComplianceServiceImpl implements ComplianceService {
         return table.name();
     }
 
+    private static String associationSubquery(Resource associationResource) {
+        return ASSOCIATION_SUBQUERY.formatted(associationResource.name());
+    }
+
+    /**
+     * Normalizes rule resource to the actual compliance subject resource whose table stores the compliance_result.
+     * E.g. CRYPTOGRAPHIC_KEY rules target the cryptographic_key_item table, not cryptographic_key.
+     */
+    private Resource normalizeToComplianceSubjectResource(Resource ruleResource) {
+        return ruleResource == Resource.CRYPTOGRAPHIC_KEY ? Resource.CRYPTOGRAPHIC_KEY_ITEM : ruleResource;
+    }
+
     private String getSubjectTableName(Resource ruleResource) {
-        Class<?> entityClass = ResourceToClass.getClassByResource(ruleResource);
+        Class<?> entityClass = ResourceToClass.getClassByResource(normalizeToComplianceSubjectResource(ruleResource));
         if (entityClass == null) {
             throw new ValidationException("Unsupported compliance subject resource: %s".formatted(ruleResource.getLabel()));
         }
@@ -634,16 +646,16 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     private String getSubjectCondition(Resource ruleResource) {
-        return switch (ruleResource) {
+        return switch (normalizeToComplianceSubjectResource(ruleResource)) {
             case CERTIFICATE -> "(ra_profile_uuid IN (%s) OR uuid IN (%s))".formatted(
-                    ASSOCIATION_SUBQUERY.formatted(Resource.RA_PROFILE.name()), ASSOCIATION_SUBQUERY.formatted(Resource.CERTIFICATE.name()));
+                    associationSubquery(Resource.RA_PROFILE), associationSubquery(Resource.CERTIFICATE));
             case CERTIFICATE_REQUEST -> "uuid IN (%s)".formatted(
-                    ASSOCIATION_SUBQUERY.formatted(Resource.CERTIFICATE_REQUEST.name()));
+                    associationSubquery(Resource.CERTIFICATE_REQUEST));
             case CRYPTOGRAPHIC_KEY_ITEM -> "(key_uuid IN (SELECT ck.uuid FROM %s ck JOIN compliance_profile_association cpa ON ck.token_profile_uuid = cpa.object_uuid WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = '%s') OR key_uuid IN (%s) OR uuid IN (%s))".formatted(
                     getTableName(CryptographicKey.class), Resource.TOKEN_PROFILE.name(),
-                    ASSOCIATION_SUBQUERY.formatted(Resource.CRYPTOGRAPHIC_KEY.name()), ASSOCIATION_SUBQUERY.formatted(Resource.CRYPTOGRAPHIC_KEY_ITEM.name()));
+                    associationSubquery(Resource.CRYPTOGRAPHIC_KEY), associationSubquery(Resource.CRYPTOGRAPHIC_KEY_ITEM));
             case SECRET -> "(source_vault_profile_uuid IN (%s) OR uuid IN (%s))".formatted(
-                    ASSOCIATION_SUBQUERY.formatted(Resource.VAULT_PROFILE.name()), ASSOCIATION_SUBQUERY.formatted(Resource.SECRET.name()));
+                    associationSubquery(Resource.VAULT_PROFILE), associationSubquery(Resource.SECRET));
             default -> throw new ValidationException("Unsupported compliance subject resource: %s".formatted(ruleResource.getLabel()));
         };
     }
@@ -652,8 +664,12 @@ public class ComplianceServiceImpl implements ComplianceService {
     public void removeGroupRulesFromComplianceResults(UUID complianceProfileUuid, Resource ruleResource, UUID groupUuid, UUID connectorUuid, String kind) throws ConnectorException, NotFoundException {
         ComplianceRulesGroupsBatchDto batchDto = ruleHandler.getComplianceProviderRulesBatch(connectorUuid, kind, Set.of(), Set.of(groupUuid), true);
         ComplianceGroupBatchResponseDto group = batchDto.getGroups().get(groupUuid);
-        if (group == null || group.getRules() == null || group.getRules().isEmpty()) {
-            logger.warn("Could not fetch rules for group {} from connector {}/{} — skipping compliance result cleanup", groupUuid, connectorUuid, kind);
+        if (group == null) {
+            logger.warn("Compliance group {} was not returned by connector {}/{} — skipping compliance result cleanup", groupUuid, connectorUuid, kind);
+            return;
+        }
+        if (group.getRules() == null || group.getRules().isEmpty()) {
+            logger.debug("Compliance group {} from connector {}/{} has no rules — nothing to clean up in compliance results", groupUuid, connectorUuid, kind);
             return;
         }
         Set<UUID> ruleUuids = group.getRules().stream().map(ComplianceRuleResponseDto::getUuid).collect(Collectors.toSet());
