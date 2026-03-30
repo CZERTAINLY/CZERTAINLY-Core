@@ -31,7 +31,13 @@ public class SigningProfileMapper {
     private SigningProfileMapper() {
     }
 
-    public static SigningProfileDto toDto(SigningProfile profile, List<ResponseAttribute> customAttributes) {
+    /**
+     * Converts a {@link SigningProfile} entity to a full {@link SigningProfileDto}, populating
+     * custom attributes, connector signing-operation attributes, and workflow formatter attributes.
+     */
+    public static SigningProfileDto toDto(SigningProfile profile, List<ResponseAttribute> customAttributes,
+                                          List<ResponseAttribute> signingOperationAttributes,
+                                          List<ResponseAttribute> signatureFormatterConnectorAttributes) {
         SigningProfileDto dto = new SigningProfileDto();
         dto.setUuid(profile.getUuid().toString());
         dto.setName(profile.getName());
@@ -62,6 +68,7 @@ public class SigningProfileMapper {
                     ref.setUuid(profile.getCryptographicKeyUuid().toString());
                     staticDto.setCryptographicKey(ref);
                 }
+                staticDto.setSigningOperationAttributes(signingOperationAttributes != null ? signingOperationAttributes : new ArrayList<>());
                 dto.setSigningScheme(staticDto);
             } else if (profile.getManagedSigningType() == ManagedSigningType.ONE_TIME_KEY) {
                 OneTimeKeyManagedSigningDto oneTimeDto = new OneTimeKeyManagedSigningDto();
@@ -88,10 +95,12 @@ public class SigningProfileMapper {
         if (profile.getWorkflowType() == SigningWorkflowType.CODE_BINARY_SIGNING) {
             CodeBinarySigningWorkflowDto wf = new CodeBinarySigningWorkflowDto();
             setFormatterRef(profile.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
+            wf.setSignatureFormatterConnectorAttributes(signatureFormatterConnectorAttributes != null ? signatureFormatterConnectorAttributes : new ArrayList<>());
             dto.setWorkflow(wf);
         } else if (profile.getWorkflowType() == SigningWorkflowType.DOCUMENT_SIGNING) {
             DocumentSigningWorkflowDto wf = new DocumentSigningWorkflowDto();
             setFormatterRef(profile.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
+            wf.setSignatureFormatterConnectorAttributes(signatureFormatterConnectorAttributes != null ? signatureFormatterConnectorAttributes : new ArrayList<>());
             dto.setWorkflow(wf);
         } else if (profile.getWorkflowType() == SigningWorkflowType.RAW_SIGNING) {
             RawSigningWorkflowDto wf = new RawSigningWorkflowDto();
@@ -100,6 +109,7 @@ public class SigningProfileMapper {
         } else if (profile.getWorkflowType() == SigningWorkflowType.TIMESTAMPING) {
             TimestampingWorkflowDto wf = new TimestampingWorkflowDto();
             setFormatterRef(profile.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
+            wf.setSignatureFormatterConnectorAttributes(signatureFormatterConnectorAttributes != null ? signatureFormatterConnectorAttributes : new ArrayList<>());
             wf.setQualifiedTimestamp(profile.getQualifiedTimestamp());
             wf.setDefaultPolicyId(profile.getDefaultPolicyId());
             wf.setAllowedPolicyIds(profile.getAllowedPolicyIds() != null ? profile.getAllowedPolicyIds() : new ArrayList<>());

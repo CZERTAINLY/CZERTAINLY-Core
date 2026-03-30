@@ -534,7 +534,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return CertificateRequestUtils.byteArrayCsrToString(csr.getEncoded());
     }
 
-    private List<BaseAttribute> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {
+    @Override
+    public List<BaseAttribute> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {
         // we need to list based on the key algorithm
         switch (keyAlgorithm) {
             case RSA -> {

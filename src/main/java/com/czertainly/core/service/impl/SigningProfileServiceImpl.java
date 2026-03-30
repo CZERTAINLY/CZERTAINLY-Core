@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
@@ -14,6 +15,7 @@ import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningRequ
 import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
+import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowRequestDto;
@@ -26,17 +28,22 @@ import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolA
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureListDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
 import com.czertainly.core.dao.entity.signing.TspConfiguration;
+import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
@@ -47,6 +54,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.CryptographicOperationService;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.util.FilterPredicatesBuilder;
@@ -81,6 +89,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             SigningWorkflowType.TIMESTAMPING, EnumSet.of(SigningProtocol.ILM_SIGNING_PROTOCOL, SigningProtocol.TSP)
     );
 
+    private CryptographicOperationService cryptographicOperationService;
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private DigitalSignatureRepository digitalSignatureRepository;
     private IlmSigningProtocolConfigurationRepository ilmSigningProtocolRepository;
     private SigningProfileRepository signingProfileRepository;
@@ -159,7 +169,12 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         }
 
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, uuid.getValue());
-        return SigningProfileMapper.toDto(profile, customAttributes);
+        List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
+                null, AttributeOperation.SIGNING_SCHEME, Resource.SIGNING_PROFILE, uuid.getValue());
+        List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
+                profile.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER,
+                Resource.SIGNING_PROFILE, uuid.getValue());
+        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -185,7 +200,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         saveVersionSnapshot(profile, 1, request.getSigningScheme(), request.getWorkflow(), false);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid(), request.getCustomAttributes());
-        return SigningProfileMapper.toDto(profile, customAttributes);
+        List<ResponseAttribute> signingOperationAttributes = persistSigningOperationAttributes(profile, request.getSigningScheme());
+        List<ResponseAttribute> signatureFormatterConnectorAttributes = persistSignatureFormatterConnectorAttributes(profile, request.getWorkflow());
+        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -216,7 +233,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         saveVersionSnapshot(profile, profile.getLatestVersion(), request.getSigningScheme(), request.getWorkflow(), !bump);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid(), request.getCustomAttributes());
-        return SigningProfileMapper.toDto(profile, customAttributes);
+        List<ResponseAttribute> signingOperationAttributes = persistSigningOperationAttributes(profile, request.getSigningScheme());
+        List<ResponseAttribute> signatureFormatterConnectorAttributes = persistSignatureFormatterConnectorAttributes(profile, request.getWorkflow());
+        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -424,8 +443,13 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     /**
      * Maps request scheme DTO → flat entity columns. Clears previous values first.
      */
-    private void applyScheme(SigningProfile p, SigningSchemeRequestDto scheme) {
-        // :TODO: remove the previous connector attributes as well
+    private void applyScheme(SigningProfile p, SigningSchemeRequestDto scheme) throws AttributeException, NotFoundException {
+        // Delete any previously stored signing-operation attributes before overwriting the scheme.
+        if (p.getUuid() != null) {
+            attributeEngine.deleteOperationObjectAttributesContent(
+                    AttributeType.DATA, AttributeOperation.SIGNING_SCHEME,
+                    new ObjectAttributeContentInfo(null, Resource.SIGNING_PROFILE, p.getUuid()));
+        }
         p.setSigningScheme(scheme.getSigningScheme());
         p.setManagedSigningType(null);
         p.setTokenProfile(null);
@@ -446,17 +470,24 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 p.setRaProfileUuid(s.getRaProfileUuid());
                 p.setCsrTemplateUuid(s.getCsrTemplateUuid());
             }
-            case DelegatedSigningRequestDto s -> p.setDelegatedSignerConnectorUuid(s.getConnectorUuid());
-            default -> {
+            case DelegatedSigningRequestDto s -> {
+                p.setDelegatedSignerConnectorUuid(s.getConnectorUuid());
             }
+            default ->
+                    throw new IllegalStateException("Unexpected type for Signing Scheme: " + scheme.getSigningScheme());
         }
     }
 
     /**
      * Maps request workflow DTO → flat entity columns. Clears previous values first.
      */
-    private void applyWorkflow(SigningProfile p, WorkflowRequestDto workflow) {
-        // :TODO: remove the previous connector attributes as well
+    private void applyWorkflow(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
+        // Delete any previously stored workflow-formatter attributes before overwriting the workflow.
+        if (p.getUuid() != null && p.getSignatureFormatterConnectorUuid() != null) {
+            attributeEngine.deleteOperationObjectAttributesContent(
+                    AttributeType.DATA, AttributeOperation.WORKFLOW_FORMATTER,
+                    new ObjectAttributeContentInfo(p.getSignatureFormatterConnectorUuid(), Resource.SIGNING_PROFILE, p.getUuid()));
+        }
         p.setWorkflowType(workflow.getType());
         p.setSignatureFormatterConnector(null);
         p.setQualifiedTimestamp(null);
@@ -497,7 +528,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         String schemeJson = toJson(scheme);
         String workflowJson = toJson(workflow);
 
-        // :TODO: get attributes from AttributeEngine and save them as well
+        // :TODO: embed connector attribute content in the snapshot so that historical version reads are self-contained
         if (overwrite) {
             signingProfileVersionRepository
                     .findBySigningProfileUuidAndVersion(signingProfile.getUuid(), version)
@@ -539,7 +570,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             applyWorkflow(tmp, workflowReq);
 
             List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, live.getUuid());
-            return SigningProfileMapper.toDto(tmp, customAttributes);
+            // :TODO: deserialize signingOperationAttributes and signatureFormatterConnectorAttributes from the version snapshot JSON
+            return SigningProfileMapper.toDto(tmp, customAttributes, new ArrayList<>(), new ArrayList<>());
         } catch (Exception e) {
             log.error("Failed to load signing profile snapshot v{} for {}: {}",
                     spv.getVersion(), live.getUuid(), e.getMessage());
@@ -555,6 +587,36 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             log.warn("Failed to serialise snapshot object: {}", e.getMessage());
             return "{}";
         }
+    }
+
+    private List<ResponseAttribute> persistSigningOperationAttributes(SigningProfile signingProfile, SigningSchemeRequestDto signingScheme) throws AttributeException, NotFoundException {
+        if (signingScheme instanceof StaticKeyManagedSigningRequestDto staticKeyScheme) {
+            List<RequestAttribute> signingOperationAttributes = staticKeyScheme.getSigningOperationAttributes();
+            List<BaseAttribute> definitions = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(signingProfile.getCryptographicKeyUuid()))
+                    .stream()
+                    .findFirst()
+                    .map(item -> cryptographicOperationService.listSignatureAttributes(item.getKeyAlgorithm()))
+                    .orElse(List.of());
+
+            // The signing operation attributes are Core-internal (not connector-owned), so connectorUuid is null.
+            attributeEngine.validateUpdateDataAttributes(null, AttributeOperation.SIGNING_SCHEME, definitions, signingOperationAttributes);
+            return attributeEngine.updateObjectDataAttributesContent(
+                    null, AttributeOperation.SIGNING_SCHEME, Resource.SIGNING_PROFILE, signingProfile.getUuid(), signingOperationAttributes);
+        }
+        return null;
+    }
+
+    private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
+        return switch (workflow) {
+            case CodeBinarySigningWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
+                    w.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, p.getUuid(), w.getSignatureFormatterConnectorAttributes());
+            case DocumentSigningWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
+                    w.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, p.getUuid(), w.getSignatureFormatterConnectorAttributes());
+            case RawSigningWorkflowRequestDto w -> null;
+            case TimestampingWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
+                    w.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, p.getUuid(), w.getSignatureFormatterConnectorAttributes());
+            default -> throw new IllegalStateException("Unexpected type for Signing Workflow: " + workflow);
+        };
     }
 
     @FunctionalInterface
@@ -578,13 +640,23 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         return results;
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Dependencies
-    // ──────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────
+// Dependencies
+// ──────────────────────────────────────────────────────────────────────────
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setCryptographicOperationService(CryptographicOperationService cryptographicOperationService) {
+        this.cryptographicOperationService = cryptographicOperationService;
+    }
+
+    @Autowired
+    public void setCryptographicKeyItemRepository(CryptographicKeyItemRepository cryptographicKeyItemRepository) {
+        this.cryptographicKeyItemRepository = cryptographicKeyItemRepository;
     }
 
     @Autowired

@@ -3,6 +3,8 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
@@ -11,21 +13,49 @@ import com.czertainly.api.model.client.signing.profile.scheme.DelegatedSigningRe
 import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
+import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.DocumentSigningWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
+import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.signing.SigningProtocol;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
+import com.czertainly.core.attribute.RsaSignatureAttributes;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.TokenInstanceReference;
+import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.entity.signing.DigitalSignature;
 import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TspConfiguration;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
+import com.czertainly.core.dao.repository.CryptographicKeyRepository;
+import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
@@ -50,6 +80,24 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     private SigningProfileService signingProfileService;
 
     @Autowired
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    private ConnectorRepository connectorRepository;
+
+    @Autowired
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+
+    @Autowired
+    private TokenProfileRepository tokenProfileRepository;
+
+    @Autowired
+    private CryptographicKeyRepository cryptographicKeyRepository;
+
+    @Autowired
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+
+    @Autowired
     private SigningProfileRepository signingProfileRepository;
 
     @Autowired
@@ -69,6 +117,23 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
      */
     private SigningProfile savedProfile;
 
+    /**
+     * A token profile used as an FK reference in static-key managed signing scheme requests.
+     */
+    private TokenProfile tokenProfile;
+
+    /**
+     * A CryptographicKey backed by an MLDSA key item (empty signing operation attribute definitions).
+     * Used for generic static-key scheme tests that do not exercise signing operation attributes.
+     */
+    private CryptographicKey cryptographicKey;
+
+    /**
+     * A CryptographicKey backed by an RSA key item (RSA signing operation attribute definitions).
+     * Used for tests that specifically exercise signing operation attribute storage and retrieval.
+     */
+    private CryptographicKey rsaCryptographicKey;
+
     @BeforeEach
     void setUp() {
         savedProfile = new SigningProfile();
@@ -79,6 +144,66 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         savedProfile.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
         savedProfile.setLatestVersion(1);
         savedProfile = signingProfileRepository.save(savedProfile);
+
+        // Shared token instance infrastructure required by the static-key managed scheme
+        Connector connector = new Connector();
+        connector.setName("cryptography-connector");
+        connector.setUrl("http://cryptography-connector");
+        connector.setVersion(ConnectorVersion.V1);
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connector = connectorRepository.save(connector);
+
+        TokenInstanceReference tokenInstanceRef = new TokenInstanceReference();
+        tokenInstanceRef.setName("test-token-instance");
+        tokenInstanceRef.setTokenInstanceUuid(UUID.randomUUID().toString());
+        tokenInstanceRef.setConnector(connector);
+        tokenInstanceRef.setStatus(TokenInstanceStatus.CONNECTED);
+        tokenInstanceRef = tokenInstanceReferenceRepository.saveAndFlush(tokenInstanceRef);
+
+        tokenProfile = new TokenProfile();
+        tokenProfile.setName("test-token-profile");
+        tokenProfile.setTokenInstanceReference(tokenInstanceRef);
+        tokenProfile.setEnabled(true);
+        tokenProfile.setTokenInstanceName("test-token-instance");
+        tokenProfile = tokenProfileRepository.saveAndFlush(tokenProfile);
+
+        // MLDSA key — produces empty attribute definitions; used by generic scheme tests
+        cryptographicKey = new CryptographicKey();
+        cryptographicKey.setName("test-key-mldsa");
+        cryptographicKey.setTokenProfile(tokenProfile);
+        cryptographicKey.setTokenInstanceReference(tokenInstanceRef);
+        cryptographicKey = cryptographicKeyRepository.saveAndFlush(cryptographicKey);
+
+        CryptographicKeyItem mldsaKeyItem = new CryptographicKeyItem();
+        mldsaKeyItem.setKey(cryptographicKey);
+        mldsaKeyItem.setKeyUuid(cryptographicKey.getUuid());
+        mldsaKeyItem.setType(KeyType.PRIVATE_KEY);
+        mldsaKeyItem.setState(KeyState.ACTIVE);
+        mldsaKeyItem.setEnabled(true);
+        mldsaKeyItem.setKeyAlgorithm(KeyAlgorithm.MLDSA);
+        mldsaKeyItem.setLength(2048);
+        mldsaKeyItem = cryptographicKeyItemRepository.saveAndFlush(mldsaKeyItem);
+        mldsaKeyItem.setKeyReferenceUuid(mldsaKeyItem.getUuid());
+        cryptographicKeyItemRepository.saveAndFlush(mldsaKeyItem);
+
+        // RSA key — produces RSA attribute definitions; used by attribute-persistence tests
+        rsaCryptographicKey = new CryptographicKey();
+        rsaCryptographicKey.setName("test-key-rsa");
+        rsaCryptographicKey.setTokenProfile(tokenProfile);
+        rsaCryptographicKey.setTokenInstanceReference(tokenInstanceRef);
+        rsaCryptographicKey = cryptographicKeyRepository.saveAndFlush(rsaCryptographicKey);
+
+        CryptographicKeyItem rsaKeyItem = new CryptographicKeyItem();
+        rsaKeyItem.setKey(rsaCryptographicKey);
+        rsaKeyItem.setKeyUuid(rsaCryptographicKey.getUuid());
+        rsaKeyItem.setType(KeyType.PRIVATE_KEY);
+        rsaKeyItem.setState(KeyState.ACTIVE);
+        rsaKeyItem.setEnabled(true);
+        rsaKeyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
+        rsaKeyItem.setLength(2048);
+        rsaKeyItem = cryptographicKeyItemRepository.saveAndFlush(rsaKeyItem);
+        rsaKeyItem.setKeyReferenceUuid(rsaKeyItem.getUuid());
+        cryptographicKeyItemRepository.saveAndFlush(rsaKeyItem);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -101,14 +226,18 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     /**
      * Builds a request using a MANAGED/STATIC_KEY scheme and RAW_SIGNING workflow.
-     * No FK UUIDs are set so the request is safe to use against any test database.
+     * Uses the shared MLDSA {@link #cryptographicKey} so no signing-operation-attribute
+     * definitions are produced and no attribute content needs to be provided.
      */
     private SigningProfileRequestDto buildManagedStaticKeyRawRequest(String name) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
         request.setEnabled(false);
-        request.setSigningScheme(new StaticKeyManagedSigningRequestDto());
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setTokenProfileUuid(tokenProfile.getUuid());
+        scheme.setCryptographicKeyUuid(cryptographicKey.getUuid());
+        request.setSigningScheme(scheme);
         request.setWorkflow(new RawSigningWorkflowRequestDto());
         return request;
     }
@@ -424,9 +553,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
         Assertions.assertEquals(ManagedSigningType.STATIC_KEY, entity.getManagedSigningType());
-        // No delegated connector when using managed scheme
+        // No delegated connector when using the managed signing scheme
         Assertions.assertNull(entity.getDelegatedSignerConnectorUuid());
-        // No RA profile / CSR template for static key
+        // No RA profile / CSR template for the static key managed signing scheme
         Assertions.assertNull(entity.getRaProfileUuid());
         Assertions.assertNull(entity.getCsrTemplateUuid());
     }
@@ -434,7 +563,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testCreateSigningProfile_oneTimeKeyManaged_assertSchemeAndEntityFields() throws AttributeException, NotFoundException {
         SigningProfileRequestDto request = buildManagedOneTimeKeyRawRequest("one-time-key-profile");
-
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
         // Assert scheme type in DTO
@@ -476,7 +604,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testCreateSigningProfile_documentSigningWorkflow_assertWorkflowTypeAndEntity() throws AttributeException, NotFoundException {
         SigningProfileRequestDto request = buildDelegatedDocumentRequest("document-signing-profile");
-
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
         Assertions.assertNotNull(dto.getWorkflow());
@@ -490,7 +617,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testCreateSigningProfile_codeBinarySigningWorkflow_assertWorkflowTypeAndEntity() throws AttributeException, NotFoundException {
         SigningProfileRequestDto request = buildDelegatedCodeBinaryRequest("code-binary-signing-profile");
-
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
         Assertions.assertNotNull(dto.getWorkflow());
@@ -504,7 +630,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testCreateSigningProfile_timestampingWorkflow_assertWorkflowTypeAndEntity() throws AttributeException, NotFoundException {
         SigningProfileRequestDto request = buildDelegatedTimestampingRequest("timestamping-profile");
-
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
         Assertions.assertNotNull(dto.getWorkflow());
@@ -516,8 +641,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateSigningProfile_timestampingWorkflowWithPoliciesAndAlgorithms_assertEntityFields()
-            throws AttributeException, NotFoundException {
+    void testCreateSigningProfile_timestampingWorkflowWithPoliciesAndAlgorithms_assertEntityFields() throws AttributeException, NotFoundException {
         TimestampingWorkflowRequestDto timestampingWorkflow = new TimestampingWorkflowRequestDto();
         timestampingWorkflow.setDefaultPolicyId("1.2.3.4.5");
         timestampingWorkflow.setAllowedPolicyIds(List.of("1.2.3.4.5", "1.2.3.4.6"));
@@ -543,7 +667,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(tsDto.getAllowedDigestAlgorithms().contains(DigestAlgorithm.SHA_384));
         Assertions.assertFalse(tsDto.getQualifiedTimestamp());
 
-        // Assert entity fields in database
+        // Assert entity fields in the database
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
@@ -558,13 +682,15 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateSigningProfile_managedStaticKey_withDocumentSigningWorkflow_assertBothFields()
-            throws AttributeException, NotFoundException {
+    void testCreateSigningProfile_managedStaticKey_withDocumentSigningWorkflow_assertBothFields() throws AttributeException, NotFoundException {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("managed-document-profile");
         request.setDescription("Managed static-key profile with document signing workflow");
         request.setEnabled(true);
-        request.setSigningScheme(new StaticKeyManagedSigningRequestDto());
+        StaticKeyManagedSigningRequestDto managedDocScheme = new StaticKeyManagedSigningRequestDto();
+        managedDocScheme.setTokenProfileUuid(tokenProfile.getUuid());
+        managedDocScheme.setCryptographicKeyUuid(cryptographicKey.getUuid());
+        request.setSigningScheme(managedDocScheme);
         request.setWorkflow(new DocumentSigningWorkflowRequestDto());
 
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
@@ -1268,5 +1394,437 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileDto after = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
         Assertions.assertFalse(after.getEnabledProtocols().contains(SigningProtocol.TSP),
                 "TSP should be removed from enabledProtocols after deactivation");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Connector attribute persistence — signingOperationAttributes
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Builds a valid RSA {@code signingOperationAttributes} request attribute for use in tests.
+     */
+    private RequestAttributeV2 buildRsaSchemeAttribute(RsaSignatureScheme scheme) {
+        RequestAttributeV2 attr = new RequestAttributeV2();
+        attr.setUuid(UUID.fromString(RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID));
+        attr.setName(RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME);
+        attr.setContentType(AttributeContentType.STRING);
+        StringAttributeContentV2 content = new StringAttributeContentV2(scheme.getLabel(), scheme.getCode());
+        attr.setContent(List.of(content));
+        return attr;
+    }
+
+    /**
+     * Builds a valid digest {@code signingOperationAttributes} request attribute for use in tests.
+     */
+    private RequestAttributeV2 buildDigestAttribute(DigestAlgorithm algorithm) {
+        RequestAttributeV2 attr = new RequestAttributeV2();
+        attr.setUuid(UUID.fromString(RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST_UUID));
+        attr.setName(RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST);
+        attr.setContentType(AttributeContentType.STRING);
+        StringAttributeContentV2 content = new StringAttributeContentV2(algorithm.getLabel(), algorithm.getCode());
+        attr.setContent(List.of(content));
+        return attr;
+    }
+
+    @Test
+    void testCreateSigningProfile_staticKey_signingOperationAttributesPersistedAndReturned()
+            throws AttributeException, NotFoundException {
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setTokenProfileUuid(tokenProfile.getUuid());
+        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("static-key-with-sign-attrs");
+        request.setDescription("Profile with signing operation attributes");
+        request.setEnabled(false);
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        SigningProfileDto dto = signingProfileService.createSigningProfile(request);
+
+        // The returned DTO must expose the persisted signing operation attributes
+        Assertions.assertInstanceOf(StaticKeyManagedSigningDto.class, dto.getSigningScheme());
+        StaticKeyManagedSigningDto schemeDto = (StaticKeyManagedSigningDto) dto.getSigningScheme();
+        Assertions.assertNotNull(schemeDto.getSigningOperationAttributes());
+        Assertions.assertFalse(schemeDto.getSigningOperationAttributes().isEmpty(),
+                "Signing operation attributes should be populated after create");
+        Assertions.assertTrue(
+                schemeDto.getSigningOperationAttributes().stream()
+                        .anyMatch(a -> RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME.equals(a.getName())),
+                "RSA signature scheme attribute should be present in the returned DTO");
+    }
+
+    @Test
+    void testGetSigningProfile_staticKey_signingOperationAttributesLoadedFromEngine()
+            throws AttributeException, NotFoundException {
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setTokenProfileUuid(tokenProfile.getUuid());
+        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("static-key-get-sign-attrs");
+        request.setEnabled(false);
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        SigningProfileDto created = signingProfileService.createSigningProfile(request);
+        SecuredUUID profileUuid = SecuredUUID.fromString(created.getUuid());
+
+        // Re-fetch — attributes must be loaded from AttributeEngine
+        SigningProfileDto fetched = signingProfileService.getSigningProfile(profileUuid, null);
+        Assertions.assertInstanceOf(StaticKeyManagedSigningDto.class, fetched.getSigningScheme());
+        StaticKeyManagedSigningDto schemeDto = (StaticKeyManagedSigningDto) fetched.getSigningScheme();
+        Assertions.assertFalse(schemeDto.getSigningOperationAttributes().isEmpty(),
+                "Signing operation attributes should survive a create→get round-trip");
+    }
+
+    @Test
+    void testUpdateSigningProfile_staticKey_signingOperationAttributesReplacedOnUpdate() throws AttributeException, NotFoundException {
+        // Create with PKCS1-v1_5 / SHA-256
+        StaticKeyManagedSigningRequestDto schemeV1 = new StaticKeyManagedSigningRequestDto();
+        schemeV1.setTokenProfileUuid(tokenProfile.getUuid());
+        schemeV1.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        schemeV1.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+
+        SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
+        createRequest.setName("static-key-update-sign-attrs");
+        createRequest.setEnabled(false);
+        createRequest.setSigningScheme(schemeV1);
+        createRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        SigningProfileDto created = signingProfileService.createSigningProfile(createRequest);
+        SecuredUUID profileUuid = SecuredUUID.fromString(created.getUuid());
+
+        // Update to PSS / SHA-384
+        StaticKeyManagedSigningRequestDto schemeV2 = new StaticKeyManagedSigningRequestDto();
+        schemeV2.setTokenProfileUuid(tokenProfile.getUuid());
+        schemeV2.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        schemeV2.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
+                buildDigestAttribute(DigestAlgorithm.SHA_384)));
+
+        SigningProfileRequestDto updateRequest = new SigningProfileRequestDto();
+        updateRequest.setName("static-key-update-sign-attrs");
+        updateRequest.setEnabled(false);
+        updateRequest.setSigningScheme(schemeV2);
+        updateRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        SigningProfileDto updated = signingProfileService.updateSigningProfile(profileUuid, updateRequest);
+
+        Assertions.assertInstanceOf(StaticKeyManagedSigningDto.class, updated.getSigningScheme());
+        StaticKeyManagedSigningDto schemeDto = (StaticKeyManagedSigningDto) updated.getSigningScheme();
+        Assertions.assertFalse(schemeDto.getSigningOperationAttributes().isEmpty());
+        // The RSA sig-scheme attribute content should reflect the new PSS value, not the old PKCS1-v1_5
+        String updatedSigSchemeValue = schemeDto.getSigningOperationAttributes().stream()
+                .filter(a -> RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME.equals(a.getName()))
+                .map(a -> ((List<?>) a.getContent()).getFirst())
+                .map(c -> ((com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2<?>) c).getData().toString())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("RSA signature scheme attribute not found in updated DTO"));
+        Assertions.assertEquals(RsaSignatureScheme.PSS.getCode(), updatedSigSchemeValue,
+                "Signing operation attributes should be replaced with new value on update");
+    }
+
+    @Test
+    void testUpdateSigningProfile_schemeChangedToNonStaticKey_signingOperationAttributesCleared() throws AttributeException, NotFoundException {
+        // Create a STATIC_KEY profile with signing operation attributes
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setTokenProfileUuid(tokenProfile.getUuid());
+        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+
+        SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
+        createRequest.setName("static-key-to-delegated");
+        createRequest.setEnabled(false);
+        createRequest.setSigningScheme(scheme);
+        createRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        SigningProfileDto created = signingProfileService.createSigningProfile(createRequest);
+        SecuredUUID profileUuid = SecuredUUID.fromString(created.getUuid());
+
+        // Switch to DELEGATED — should clear signing-operation attributes from the engine
+        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedRawRequest("static-key-to-delegated"));
+
+        // Verify nothing remains in AttributeEngine under SIGNING_SCHEME for this profile
+        List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
+                null, AttributeOperation.SIGNING_SCHEME, com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE,
+                UUID.fromString(created.getUuid()));
+        Assertions.assertTrue(remaining.isEmpty(),
+                "Signing-scheme attributes should be deleted when scheme changes away from STATIC_KEY");
+    }
+
+    @Test
+    void testDeleteSigningProfile_removesSigningOperationAttributesFromEngine()
+            throws AttributeException, NotFoundException {
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setTokenProfileUuid(tokenProfile.getUuid());
+        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("delete-clears-sign-attrs");
+        request.setEnabled(false);
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        SigningProfileDto created = signingProfileService.createSigningProfile(request);
+        UUID profileUuid = UUID.fromString(created.getUuid());
+
+        signingProfileService.deleteSigningProfile(SecuredUUID.fromUUID(profileUuid));
+
+        // AttributeEngine should have no attributes left for this profile
+        List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
+                null, AttributeOperation.SIGNING_SCHEME, com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE,
+                profileUuid);
+        Assertions.assertTrue(remaining.isEmpty(),
+                "Signing-scheme attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Connector attribute persistence — signatureFormatterConnectorAttributes
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Creates and persists a minimal {@link Connector} entity for use as a signature formatter connector,
+     * also pre-registering a simple data attribute definition so that AttributeEngine can accept content.
+     */
+    private Connector createFormatterConnector(String name) {
+        Connector connector = new Connector();
+        connector.setName(name);
+        connector.setUrl("http://formatter-connector/" + name);
+        connector.setVersion(ConnectorVersion.V1);
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        return connectorRepository.save(connector);
+    }
+
+    /**
+     * Builds a {@link RequestAttributeV2} to use as a formatter connector attribute in tests.
+     * The UUID and name here are arbitrary but must be pre-registered via
+     * {@link AttributeEngine#updateDataAttributeDefinitions} before being stored.
+     */
+    private RequestAttributeV2 buildFormatterAttribute(UUID attrUuid, String attrName, String value) {
+        RequestAttributeV2 attr = new RequestAttributeV2();
+        attr.setUuid(attrUuid);
+        attr.setName(attrName);
+        attr.setContentType(AttributeContentType.STRING);
+        StringAttributeContentV2 content = new StringAttributeContentV2();
+        content.setData(value);
+        attr.setContent(List.of(content));
+        return attr;
+    }
+
+    @Test
+    void testCreateSigningProfile_documentSigning_formatterAttributesPersistedAndReturned() throws AttributeException, NotFoundException {
+        Connector formatter = createFormatterConnector("formatter-doc-create");
+
+        // Pre-register the attribute definition so the engine can store content for it
+        UUID attrUuid = UUID.randomUUID();
+        String attrName = "data_testFormatterAttr";
+        DataAttributeV2 attrDef = new DataAttributeV2();
+        attrDef.setUuid(attrUuid.toString());
+        attrDef.setName(attrName);
+        attrDef.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Test Formatter Attribute");
+        attrDef.setProperties(props);
+        attributeEngine.updateDataAttributeDefinitions(formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
+
+        DocumentSigningWorkflowRequestDto workflow = new DocumentSigningWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatter.getUuid());
+        workflow.setSignatureFormatterConnectorAttributes(
+                List.of(buildFormatterAttribute(attrUuid, attrName, "testValue")));
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("doc-profile-with-formatter-attrs");
+        request.setEnabled(false);
+        request.setSigningScheme(new DelegatedSigningRequestDto());
+        request.setWorkflow(workflow);
+
+        SigningProfileDto dto = signingProfileService.createSigningProfile(request);
+
+        Assertions.assertInstanceOf(DocumentSigningWorkflowDto.class, dto.getWorkflow());
+        DocumentSigningWorkflowDto wfDto = (DocumentSigningWorkflowDto) dto.getWorkflow();
+        Assertions.assertFalse(wfDto.getSignatureFormatterConnectorAttributes().isEmpty(),
+                "Formatter connector attributes should be populated after create");
+        Assertions.assertEquals(attrName, wfDto.getSignatureFormatterConnectorAttributes().getFirst().getName());
+    }
+
+    @Test
+    void testUpdateSigningProfile_workflowFormatterConnectorChanged_oldAttributesCleared() throws AttributeException, NotFoundException {
+        Connector formatterA = createFormatterConnector("formatter-old");
+        Connector formatterB = createFormatterConnector("formatter-new");
+
+        // Pre-register attribute definition for both connectors
+        UUID attrUuid = UUID.randomUUID();
+        String attrName = "data_switchTest";
+        DataAttributeV2 attrDef = new DataAttributeV2();
+        attrDef.setUuid(attrUuid.toString());
+        attrDef.setName(attrName);
+        attrDef.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Switch Test Attribute");
+        attrDef.setProperties(props);
+        attributeEngine.updateDataAttributeDefinitions(formatterA.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
+        attributeEngine.updateDataAttributeDefinitions(formatterB.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
+
+        // Create with formatterA
+        DocumentSigningWorkflowRequestDto workflowA = new DocumentSigningWorkflowRequestDto();
+        workflowA.setSignatureFormatterConnectorUuid(formatterA.getUuid());
+        workflowA.setSignatureFormatterConnectorAttributes(
+                List.of(buildFormatterAttribute(attrUuid, attrName, "valueA")));
+
+        SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
+        createRequest.setName("workflow-formatter-switch");
+        createRequest.setEnabled(false);
+        createRequest.setSigningScheme(new DelegatedSigningRequestDto());
+        createRequest.setWorkflow(workflowA);
+
+        SigningProfileDto created = signingProfileService.createSigningProfile(createRequest);
+        SecuredUUID profileUuid = SecuredUUID.fromString(created.getUuid());
+        UUID profileUuidRaw = UUID.fromString(created.getUuid());
+
+        // Update with formatterB — old formatter A attributes should be cleared
+        DocumentSigningWorkflowRequestDto workflowB = new DocumentSigningWorkflowRequestDto();
+        workflowB.setSignatureFormatterConnectorUuid(formatterB.getUuid());
+        workflowB.setSignatureFormatterConnectorAttributes(
+                List.of(buildFormatterAttribute(attrUuid, attrName, "valueB")));
+
+        SigningProfileRequestDto updateRequest = new SigningProfileRequestDto();
+        updateRequest.setName("workflow-formatter-switch");
+        updateRequest.setEnabled(false);
+        updateRequest.setSigningScheme(new DelegatedSigningRequestDto());
+        updateRequest.setWorkflow(workflowB);
+
+        signingProfileService.updateSigningProfile(profileUuid, updateRequest);
+
+        // Attributes for old formatterA should be gone
+        List<ResponseAttribute> oldAttrs = attributeEngine.getObjectDataAttributesContent(
+                formatterA.getUuid(), AttributeOperation.WORKFLOW_FORMATTER,
+                com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE, profileUuidRaw);
+        Assertions.assertTrue(oldAttrs.isEmpty(),
+                "Attributes for the old formatter connector should be removed when the connector changes");
+
+        // Attributes for new formatterB should be present
+        List<ResponseAttribute> newAttrs = attributeEngine.getObjectDataAttributesContent(
+                formatterB.getUuid(), AttributeOperation.WORKFLOW_FORMATTER,
+                com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE, profileUuidRaw);
+        Assertions.assertFalse(newAttrs.isEmpty(),
+                "Attributes for the new formatter connector should be stored after the update");
+    }
+
+    @Test
+    void testGetSigningProfile_formatterAttributesReturnedForAllWorkflowTypes() throws AttributeException, NotFoundException {
+        Connector formatter = createFormatterConnector("formatter-multi-workflow");
+
+        UUID attrUuid = UUID.randomUUID();
+        String attrName = "data_multiWorkflowAttr";
+        DataAttributeV2 attrDef = new DataAttributeV2();
+        attrDef.setUuid(attrUuid.toString());
+        attrDef.setName(attrName);
+        attrDef.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Multi Workflow Attribute");
+        attrDef.setProperties(props);
+        attributeEngine.updateDataAttributeDefinitions(formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
+
+        for (SigningWorkflowType workflowLabel : List.of(SigningWorkflowType.CODE_BINARY_SIGNING, SigningWorkflowType.DOCUMENT_SIGNING, SigningWorkflowType.TIMESTAMPING)) {
+            WorkflowRequestDto wfRequest;
+            switch (workflowLabel) {
+                case CODE_BINARY_SIGNING -> {
+                    CodeBinarySigningWorkflowRequestDto wf = new CodeBinarySigningWorkflowRequestDto();
+                    wf.setSignatureFormatterConnectorUuid(formatter.getUuid());
+                    wf.setSignatureFormatterConnectorAttributes(List.of(buildFormatterAttribute(attrUuid, attrName, "val-" + workflowLabel)));
+                    wfRequest = wf;
+                }
+                case DOCUMENT_SIGNING -> {
+                    DocumentSigningWorkflowRequestDto wf = new DocumentSigningWorkflowRequestDto();
+                    wf.setSignatureFormatterConnectorUuid(formatter.getUuid());
+                    wf.setSignatureFormatterConnectorAttributes(List.of(buildFormatterAttribute(attrUuid, attrName, "val-" + workflowLabel)));
+                    wfRequest = wf;
+                }
+                case TIMESTAMPING -> {
+                    TimestampingWorkflowRequestDto wf = new TimestampingWorkflowRequestDto();
+                    wf.setSignatureFormatterConnectorUuid(formatter.getUuid());
+                    wf.setSignatureFormatterConnectorAttributes(List.of(buildFormatterAttribute(attrUuid, attrName, "val-" + workflowLabel)));
+                    wfRequest = wf;
+                }
+                default -> throw new IllegalStateException("Unexpected workflow type: " + workflowLabel);
+            }
+
+            SigningProfileRequestDto request = new SigningProfileRequestDto();
+            request.setName("formatter-attrs-" + workflowLabel);
+            request.setEnabled(false);
+            request.setSigningScheme(new DelegatedSigningRequestDto());
+            request.setWorkflow(wfRequest);
+
+            SigningProfileDto dto = signingProfileService.createSigningProfile(request);
+            SigningProfileDto fetched = signingProfileService.getSigningProfile(
+                    SecuredUUID.fromString(dto.getUuid()), null);
+
+            List<ResponseAttribute> fetchedAttrs;
+            switch (fetched.getWorkflow().getType()) {
+                case CODE_BINARY_SIGNING ->
+                        fetchedAttrs = ((CodeBinarySigningWorkflowDto) fetched.getWorkflow()).getSignatureFormatterConnectorAttributes();
+                case DOCUMENT_SIGNING ->
+                        fetchedAttrs = ((DocumentSigningWorkflowDto) fetched.getWorkflow()).getSignatureFormatterConnectorAttributes();
+                case TIMESTAMPING ->
+                        fetchedAttrs = ((TimestampingWorkflowDto) fetched.getWorkflow()).getSignatureFormatterConnectorAttributes();
+                default ->
+                        throw new IllegalStateException("Unexpected workflow type: " + fetched.getWorkflow().getType());
+            }
+            Assertions.assertFalse(fetchedAttrs.isEmpty(),
+                    "Formatter attributes should be loaded for workflow type: " + workflowLabel);
+            Assertions.assertEquals(attrName, fetchedAttrs.getFirst().getName());
+        }
+    }
+
+    @Test
+    void testDeleteSigningProfile_removesFormatterAttributesFromEngine() throws AttributeException, NotFoundException {
+        Connector formatter = createFormatterConnector("formatter-delete-test");
+
+        UUID attrUuid = UUID.randomUUID();
+        String attrName = "data_deleteFormatterAttr";
+        DataAttributeV2 attrDef = new DataAttributeV2();
+        attrDef.setUuid(attrUuid.toString());
+        attrDef.setName(attrName);
+        attrDef.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Delete Formatter Attribute");
+        attrDef.setProperties(props);
+        attributeEngine.updateDataAttributeDefinitions(formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
+
+        DocumentSigningWorkflowRequestDto workflow = new DocumentSigningWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatter.getUuid());
+        workflow.setSignatureFormatterConnectorAttributes(
+                List.of(buildFormatterAttribute(attrUuid, attrName, "toDelete")));
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("delete-clears-formatter-attrs");
+        request.setEnabled(false);
+        request.setSigningScheme(new DelegatedSigningRequestDto());
+        request.setWorkflow(workflow);
+
+        SigningProfileDto created = signingProfileService.createSigningProfile(request);
+        UUID profileUuid = UUID.fromString(created.getUuid());
+
+        signingProfileService.deleteSigningProfile(SecuredUUID.fromUUID(profileUuid));
+
+        List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
+                formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER,
+                com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE, profileUuid);
+        Assertions.assertTrue(remaining.isEmpty(),
+                "Formatter attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
     }
 }
