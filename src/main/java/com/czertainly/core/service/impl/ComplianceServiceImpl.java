@@ -23,7 +23,9 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.handler.ComplianceProfileRuleHandler;
 import com.czertainly.core.service.handler.ComplianceSubjectHandler;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +36,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -67,7 +71,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     private EventProducer eventProducer;
 
     @PersistenceContext
-    private jakarta.persistence.EntityManager entityManager;
+    private EntityManager entityManager;
 
     @Autowired
     public void setEventProducer(EventProducer eventProducer) {
@@ -505,7 +509,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
 
         String jsonbUpdate;
-        java.util.function.Consumer<jakarta.persistence.Query> paramSetter;
+        Consumer<Query> paramSetter;
         String jsonbCondition;
 
         if (ruleUuids.size() == 1) {
@@ -557,7 +561,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             }
         } else {
             // Multiple UUIDs — use subquery filter to remove all in a single pass, jsonb_exists_any for targeted WHERE
-            String ruleUuidsCsv = ruleUuids.stream().map(UUID::toString).collect(java.util.stream.Collectors.joining(","));
+            String ruleUuidsCsv = ruleUuids.stream().map(UUID::toString).collect(Collectors.joining(","));
             // Filters a JSONB array to exclude elements matching any of the provided rule UUIDs
             String filterArray = "(SELECT COALESCE(jsonb_agg(el), '[]'::jsonb) FROM jsonb_array_elements(%s) el WHERE NOT el #>> '{}' = ANY(string_to_array(:ruleUuids, ',')))";
 
@@ -607,6 +611,8 @@ public class ComplianceServiceImpl implements ComplianceService {
         int updated = query.executeUpdate();
         if (updated > 0) {
             logger.debug("Removed rules {} from compliance results of {} {} records", ruleUuids, updated, ruleResource.getLabel());
+        } else {
+            logger.trace("No {} compliance results contained rules {} — nothing to update", ruleResource.getLabel(), ruleUuids);
         }
     }
 
@@ -649,7 +655,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             logger.warn("Could not fetch rules for group {} from connector {}/{} — skipping compliance result cleanup", groupUuid, connectorUuid, kind);
             return;
         }
-        Set<UUID> ruleUuids = group.getRules().stream().map(ComplianceRuleResponseDto::getUuid).collect(java.util.stream.Collectors.toSet());
+        Set<UUID> ruleUuids = group.getRules().stream().map(ComplianceRuleResponseDto::getUuid).collect(Collectors.toSet());
         removeRulesFromComplianceResults(complianceProfileUuid, ruleResource, ruleUuids, connectorUuid, kind);
     }
 
