@@ -359,6 +359,8 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     @Test
     void testApproveConnector() throws ConnectorException, NotFoundException {
         Connector waitingConnector = new Connector();
+        waitingConnector.setUrl("http://localhost:" + mockServer.port() + "/waiting_connector");
+        waitingConnector.setVersion(ConnectorVersion.V1);
         waitingConnector.setStatus(ConnectorStatus.WAITING_FOR_APPROVAL);
         waitingConnector = connectorRepository.save(waitingConnector);
 
