@@ -328,7 +328,8 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         ComplianceProfileRulesPatchRequestDto dto = new ComplianceProfileRulesPatchRequestDto();
         dto.setRemoval(true);
         dto.setRuleUuid(internalCertificateRuleUuid);
-        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        SecuredUUID complianceProfileUUID = SecuredUUID.fromUUID(complianceProfile.getUuid());
+        complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto);
         Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow();
         Assertions.assertFalse(certificate.getComplianceResult().getInternalRules().getNotApplicable().contains(internalCertificateRuleUuid));
         Assertions.assertTrue(certificate.getComplianceResult().getInternalRules().getNotApplicable().contains(randomUUID));
@@ -336,7 +337,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         dto.setRuleUuid(complianceV2RuleUuid);
         dto.setConnectorUuid(connectorV2.getUuid());
         dto.setKind(KIND_V2);
-        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto);
         certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException("Certificate not found"));
 
         Assertions.assertFalse(certificate.getComplianceResult().getProviderRules().getFirst().getNotApplicable().contains(complianceV2RuleUuid));
@@ -344,29 +345,29 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
 
         dto.setRuleUuid(complianceV2RuleKeyUuid);
         dto.setRemoval(false);
-        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto);
         dto.setRemoval(true);
-        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto));
 
         UUID secretUuid = createSecretWithComplianceResult(randomUUID);
         dto.setConnectorUuid(null);
         dto.setRuleUuid(internalSecretRuleUuid);
-        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+        complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto);
         Secret secret = secretRepository.findByUuid(secretUuid).orElseThrow(() -> new NotFoundException("Secret not found"));
         Assertions.assertFalse(secret.getComplianceResult().getInternalRules().getNotApplicable().contains(internalSecretRuleUuid));
         Assertions.assertTrue(secret.getComplianceResult().getInternalRules().getNotApplicable().contains(randomUUID));
 
         UUID certificateRequestRuleUuid = createRule(Resource.CERTIFICATE_REQUEST);
         dto.setRuleUuid(certificateRequestRuleUuid);
-        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto));
 
         UUID keyItemRuleUuid = createRule(Resource.CRYPTOGRAPHIC_KEY_ITEM);
         dto.setRuleUuid(keyItemRuleUuid);
-        Assertions.assertThrows(ValidationException.class,() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions.assertThrows(ValidationException.class,() -> complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto));
 
         UUID keyRuleUuid = createRule(Resource.CRYPTOGRAPHIC_KEY);
         dto.setRuleUuid(keyRuleUuid);
-        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions.assertDoesNotThrow(() -> complianceProfileService.patchComplianceProfileRules(complianceProfileUUID, dto));
     }
 
     private UUID createRule(Resource resource) {
