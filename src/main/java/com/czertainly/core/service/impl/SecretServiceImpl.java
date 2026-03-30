@@ -57,8 +57,10 @@ import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 @Service(value = Resource.Codes.SECRET)
@@ -657,7 +659,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         long start = System.nanoTime();
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            executor.invokeAll(List.of(
+            List<Future<Void>> futures = executor.invokeAll(List.of(
                     () -> {
                         dto.setSecretStatByType(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.type, null, null));
                         return null;
@@ -679,11 +681,16 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                         return null;
                     }
             ));
-        } catch (Exception e) {
-            logger.error("An error occurred during calculation of secret statistics: {}", e.getMessage());
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
+            for (Future<Void> future : futures) {
+                try {
+                    future.get();
+                } catch (ExecutionException ex) {
+                    logger.error("An error occurred during calculation of secret statistics", ex.getCause());
+                }
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Secret statistics calculation was interrupted", e);
         }
         logger.debug("Secret statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
         return dto;

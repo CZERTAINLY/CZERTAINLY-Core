@@ -70,7 +70,11 @@ public class StatisticsServiceImpl implements StatisticsService {
             dto.setTotalVaultProfiles(0L);
         }
         certificateService.addCertificateStatistics(SecurityFilter.create(), dto, includeArchived);
-        return secretService.addSecretStatistics(SecurityFilter.create(), dto);
+        try {
+            return secretService.addSecretStatistics(SecurityFilter.create(), dto);
+        } catch (AccessDeniedException e) {
+            return dto;
+        }
     }
 
     @Autowired
