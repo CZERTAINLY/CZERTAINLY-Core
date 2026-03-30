@@ -7,6 +7,8 @@ import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import jakarta.persistence.*;
 import lombok.Getter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
@@ -41,6 +43,7 @@ public class NotificationProfileVersion extends UniquelyIdentified {
     private RecipientType recipientType;
 
     @Column(name = "recipient_uuids")
+    @JdbcTypeCode(SqlTypes.ARRAY)
     private List<UUID> recipientUuids;
 
     @Column(name = "notification_instance_ref_uuid")
