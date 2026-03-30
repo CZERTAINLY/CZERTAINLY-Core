@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.SerializationUtils;
 
@@ -93,15 +94,20 @@ class StatisticsServiceTest extends BaseSpringBootTest {
         secretVersion.setSecretUuid(secret.getUuid());
         secretVersionRepository.save(secretVersion);
 
+        // commit setup data so virtual-thread queries in addSecretStatistics can see it
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        TestTransaction.start();
+
         StatisticsDto result = statisticsService.getStatistics(false);
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1L, result.getTotalSecrets());
         Assertions.assertEquals(1L, result.getTotalVaultInstances());
         Assertions.assertEquals(1L, result.getTotalVaultProfiles());
-        // grouped stats run in virtual threads and don't see uncommitted test-transaction data;
-        // asserting non-null is sufficient to verify addSecretStatistics ran without error
-        Assertions.assertNotNull(result.getSecretStatByType());
-        Assertions.assertNotNull(result.getSecretStatByState());
-        Assertions.assertNotNull(result.getSecretStatByComplianceStatus());
+        Assertions.assertEquals(1, result.getSecretStatByType().size());
+        Assertions.assertEquals(1L, result.getSecretStatByType().get(SecretType.BASIC_AUTH.getCode()));
+        Assertions.assertEquals(1, result.getSecretStatByState().size());
+        Assertions.assertEquals(1L, result.getSecretStatByState().get(SecretState.ACTIVE.getCode()));
+        Assertions.assertEquals(1, result.getSecretStatByComplianceStatus().size());
     }
 }
