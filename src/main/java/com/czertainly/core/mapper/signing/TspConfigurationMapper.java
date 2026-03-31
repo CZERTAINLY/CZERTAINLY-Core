@@ -17,6 +17,7 @@ public class TspConfigurationMapper {
         dto.setUuid(configuration.getUuid().toString());
         dto.setName(configuration.getName());
         dto.setDescription(configuration.getDescription());
+        dto.setEnabled(configuration.getEnabled() != null ? configuration.getEnabled() : false);
         dto.setCustomAttributes(customAttributes);
         return dto;
     }
