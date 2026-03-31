@@ -57,12 +57,8 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.LIST)
-    public ApprovalResponseDto listApprovals(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto, Resource resource) {
-        TriFunction<Root<Approval>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = null;
-        if (resource != null) {
-            additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Approval_.RESOURCE), resource);
-        }
-        return listOfApprovals(filter, additionalWhereClause, paginationRequestDto);
+    public ApprovalResponseDto listApprovals(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
+        return listOfApprovals(filter, null, paginationRequestDto);
     }
 
     @Override

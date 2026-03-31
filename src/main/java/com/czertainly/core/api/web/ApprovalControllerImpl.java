@@ -24,8 +24,8 @@ public class ApprovalControllerImpl implements ApprovalController {
 
     @Override
     @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL, operation = Operation.LIST)
-    public ApprovalResponseDto listApprovals(PaginationRequestDto paginationRequestDto, Resource resource) {
-        return approvalService.listApprovals(SecurityFilter.create(), paginationRequestDto, resource);
+    public ApprovalResponseDto listApprovals(PaginationRequestDto paginationRequestDto) {
+        return approvalService.listApprovals(SecurityFilter.create(), paginationRequestDto);
     }
 
     @Override

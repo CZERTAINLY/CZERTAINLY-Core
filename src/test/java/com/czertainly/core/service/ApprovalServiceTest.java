@@ -50,10 +50,7 @@ class ApprovalServiceTest extends ApprovalProfileData {
         approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
         approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
 
-        ApprovalResponseDto responseDto = approvalService.listApprovals(SecurityFilter.create(), new PaginationRequestDto(), null);
-        Assertions.assertEquals(4, responseDto.getApprovals().size());
-
-        responseDto = approvalService.listApprovals(SecurityFilter.create(), new PaginationRequestDto(), Resource.CERTIFICATE);
+        ApprovalResponseDto responseDto = approvalService.listApprovals(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(4, responseDto.getApprovals().size());
     }
 
