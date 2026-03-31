@@ -35,11 +35,11 @@ public class TimeQualityConfiguration extends UniquelyIdentifiedAndAudited {
     @Column(name = "ntp_check_timeout")
     private Duration ntpCheckTimeout;
 
-    @Column(name = "min_reachable")
-    private Integer minReachable;
+    @Column(name = "ntp_servers_min_reachable")
+    private Integer ntpServersMinReachable;
 
-    @Column(name = "max_drift")
-    private Duration maxDrift;
+    @Column(name = "max_clock_drift")
+    private Duration maxClockDrift;
 
     @Column(name = "leap_second_guard")
     private Boolean leapSecondGuard;

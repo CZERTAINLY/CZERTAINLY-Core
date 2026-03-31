@@ -20,8 +20,8 @@ public class TimeQualityConfigurationMapper {
         dto.setNtpCheckInterval(configuration.getNtpCheckInterval());
         dto.setNtpSamplesPerServer(configuration.getNtpSamplesPerServer());
         dto.setNtpCheckTimeout(configuration.getNtpCheckTimeout());
-        dto.setMinReachable(configuration.getMinReachable());
-        dto.setMaxDrift(configuration.getMaxDrift());
+        dto.setNtpServersMinReachable(configuration.getNtpServersMinReachable());
+        dto.setMaxClockDrift(configuration.getMaxClockDrift());
         dto.setLeapSecondGuard(configuration.getLeapSecondGuard());
         dto.setCustomAttributes(customAttributes);
         return dto;

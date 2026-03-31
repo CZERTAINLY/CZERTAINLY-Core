@@ -97,8 +97,8 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
         configuration.setNtpCheckInterval(request.getNtpCheckInterval());
         configuration.setNtpSamplesPerServer(request.getNtpSamplesPerServer());
         configuration.setNtpCheckTimeout(request.getNtpCheckTimeout());
-        configuration.setMinReachable(request.getMinReachable());
-        configuration.setMaxDrift(request.getMaxDrift());
+        configuration.setNtpServersMinReachable(request.getNtpServersMinReachable());
+        configuration.setMaxClockDrift(request.getMaxClockDrift());
         configuration.setLeapSecondGuard(request.isLeapSecondGuard());
         TimeQualityConfiguration saved = timeQualityConfigurationRepository.save(configuration);
 
@@ -118,8 +118,8 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
         configuration.setNtpCheckInterval(request.getNtpCheckInterval());
         configuration.setNtpSamplesPerServer(request.getNtpSamplesPerServer());
         configuration.setNtpCheckTimeout(request.getNtpCheckTimeout());
-        configuration.setMinReachable(request.getMinReachable());
-        configuration.setMaxDrift(request.getMaxDrift());
+        configuration.setNtpServersMinReachable(request.getNtpServersMinReachable());
+        configuration.setMaxClockDrift(request.getMaxClockDrift());
         configuration.setLeapSecondGuard(request.isLeapSecondGuard());
         TimeQualityConfiguration saved = timeQualityConfigurationRepository.save(configuration);
 
