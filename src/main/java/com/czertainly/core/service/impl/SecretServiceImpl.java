@@ -214,7 +214,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setState(SecretState.INACTIVE);
         secret.setType(secretRequest.getSecret().getType());
         SecretVersion secretVersion = new SecretVersion();
-        secretVersion.setSecret(secret);
         secretVersion.setVersion(1);
         String fingerprint;
         try {
@@ -228,6 +227,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setLatestVersion(secretVersion);
         secret.getVersions().add(secretVersion);
         secretRepository.save(secret);
+
+        secretVersion.setSecret(secret);
+        secretVersionRepository.save(secretVersion);
+
         objectAssociationService.setOwnerFromProfile(Resource.SECRET, secret.getUuid());
 
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
@@ -344,6 +347,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         if (!isApproved) {
             checkUpdateSecretPermissions();
         }
+        secret.setState(originalState);
         SecretVersion newVersion = new SecretVersion();
         newVersion.setSecret(secret);
         newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);
@@ -371,8 +375,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 }
             }
         } catch (Exception e) {
-            secret.setState(originalState);
-            throw new SecretOperationException(e.getMessage());
+            throw new SecretOperationException("Failed to update secret: " + e.getMessage());
         }
         secret.setLatestVersion(newVersion);
         secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
@@ -650,6 +653,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         if (!isApproved) {
             checkUpdateSecretPermissions();
         }
+        secret.setState(originalState);
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
         VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()))
                 .orElseThrow(() -> new NotFoundException(VaultProfile.class, request.getSourceVaultProfileUuid()));
