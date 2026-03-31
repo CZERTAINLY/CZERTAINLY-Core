@@ -98,6 +98,8 @@ public class ActionListener {
     private void processApprovalCreated(final ActionMessage actionMessage) throws NotFoundException {
         if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
             clientOperationService.approvalCreatedAction(actionMessage.getResourceUuid());
+        } else if (Objects.requireNonNull(actionMessage.getResource()) == Resource.SECRET) {
+            secretService.approvalCreatedAction(actionMessage.getResourceUuid());
         } else {
             logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }

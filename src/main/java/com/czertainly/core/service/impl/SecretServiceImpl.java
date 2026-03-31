@@ -297,6 +297,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                     actionData = SecretActionData.builder()
                             .attributes(secretRequest.getAttributes())
                             .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(new ObjectMapper().writeValueAsString(secretRequest.getSecret()), SecretEncodingVersion.V1))
+                            .originalState(secret.getState())
                             .build();
                 } catch (JsonProcessingException e) {
                     throw new ValidationException("Unable to encrypt secret: " + e.getMessage());
@@ -373,7 +374,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
                 .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
-        produceActionMessage(null, secret.getSourceVaultProfile(), secret, ResourceAction.DELETE);
+        SecretActionData actionData = SecretActionData.builder().originalState(secret.getState()).build();
+        produceActionMessage(actionData, secret.getSourceVaultProfile(), secret, ResourceAction.DELETE);
     }
 
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
@@ -616,6 +618,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         SecretActionData secretActionData = SecretActionData.builder()
                 .updatedSourceVaultProfileUuid(request.getSourceVaultProfileUuid())
                 .attributes(request.getSecretAttributes())
+                .originalState(secret.getState())
                 .build();
         if (sourceVaultProfileChanged) {
             produceActionMessage(secretActionData, currentSourceVaultProfile, secret, ResourceAction.UPDATE_SOURCE_VAULT_PROFILE);
@@ -686,6 +689,14 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(resourceUuid))
                 .orElseThrow(() -> new NotFoundException(Secret.class, resourceUuid));
         secret.setState(SecretState.REJECTED);
+        secretRepository.save(secret);
+    }
+
+    @Override
+    public void approvalCreatedAction(UUID resourceUuid) throws NotFoundException {
+        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(resourceUuid))
+                .orElseThrow(() -> new NotFoundException(Secret.class, resourceUuid));
+        secret.setState(SecretState.PENDING_APPROVAL);
         secretRepository.save(secret);
     }
 

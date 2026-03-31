@@ -54,4 +54,6 @@ public interface SecretService extends ResourceExtensionService {
     void updateSourceVaultProfile(SecretUpdateObjectsDto request, UUID secretUuid, boolean isApproved) throws NotFoundException, ConnectorException, AttributeException;
 
     void handleSecretCreationRejected(UUID resourceUuid) throws NotFoundException;
+
+    void approvalCreatedAction(UUID resourceUuid) throws NotFoundException;
 }
