@@ -221,7 +221,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(new RawSigningWorkflowRequestDto());
         return request;
@@ -236,7 +235,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
-        request.setEnabled(false);
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
         scheme.setTokenProfileUuid(tokenProfile.getUuid());
         scheme.setCryptographicKeyUuid(cryptographicKey.getUuid());
@@ -253,7 +251,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
-        request.setEnabled(false);
         request.setSigningScheme(new OneTimeKeyManagedSigningRequestDto());
         request.setWorkflow(new RawSigningWorkflowRequestDto());
         return request;
@@ -266,7 +263,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(new DocumentSigningWorkflowRequestDto());
         return request;
@@ -279,7 +275,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(new CodeBinarySigningWorkflowRequestDto());
         return request;
@@ -292,7 +287,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(new TimestampingWorkflowRequestDto());
         return request;
@@ -326,7 +320,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(savedProfile.getName(), listed.getName());
         Assertions.assertEquals(savedProfile.getDescription(), listed.getDescription());
         Assertions.assertEquals(SigningWorkflowType.RAW_SIGNING, listed.getSigningWorkflowType());
-        Assertions.assertFalse(listed.getEnabled());
+        Assertions.assertFalse(listed.isEnabled());
     }
 
     @Test
@@ -375,7 +369,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(savedProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(savedProfile.getName(), dto.getName());
         Assertions.assertEquals(savedProfile.getDescription(), dto.getDescription());
-        Assertions.assertFalse(dto.getEnabled());
+        Assertions.assertFalse(dto.isEnabled());
         Assertions.assertEquals(1, dto.getVersion());
     }
 
@@ -486,7 +480,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto.getUuid());
         Assertions.assertEquals("new-delegated-profile", dto.getName());
         Assertions.assertEquals("Test description for new-delegated-profile", dto.getDescription());
-        Assertions.assertFalse(dto.getEnabled());
+        Assertions.assertFalse(dto.isEnabled());
         Assertions.assertEquals(1, dto.getVersion());
         Assertions.assertNotNull(dto.getSigningScheme());
         Assertions.assertNotNull(dto.getWorkflow());
@@ -523,12 +517,11 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testCreateSigningProfile_enabled_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
         SigningProfileRequestDto request = buildDelegatedRawRequest("enabled-profile");
-        request.setEnabled(true);
 
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
+        Assertions.assertFalse(dto.isEnabled());
 
-        // Assert returned DTO
-        Assertions.assertTrue(dto.getEnabled());
+        signingProfileService.enableSigningProfile(SecuredUUID.fromString(dto.getUuid()));
 
         // Assert entity in database
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(dto.getUuid()));
@@ -654,7 +647,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("timestamping-with-policies");
         request.setDescription("Timestamping profile with policies");
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(timestampingWorkflow);
 
@@ -689,7 +681,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("managed-document-profile");
         request.setDescription("Managed static-key profile with document signing workflow");
-        request.setEnabled(true);
         StaticKeyManagedSigningRequestDto managedDocScheme = new StaticKeyManagedSigningRequestDto();
         managedDocScheme.setTokenProfileUuid(tokenProfile.getUuid());
         managedDocScheme.setCryptographicKeyUuid(cryptographicKey.getUuid());
@@ -700,7 +691,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         Assertions.assertEquals(SigningScheme.MANAGED, dto.getSigningScheme().getSigningScheme());
         Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, dto.getWorkflow().getType());
-        Assertions.assertTrue(dto.getEnabled());
+        Assertions.assertFalse(dto.isEnabled());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
@@ -718,7 +709,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testUpdateSigningProfile_assertDtoAndDbEntity() throws NotFoundException, AttributeException {
         SigningProfileRequestDto request = buildDelegatedRawRequest("updated-profile");
         request.setDescription("Updated description");
-        request.setEnabled(true);
 
         SigningProfileDto dto = signingProfileService.updateSigningProfile(savedProfile.getSecuredUuid(), request);
 
@@ -727,7 +717,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(savedProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals("updated-profile", dto.getName());
         Assertions.assertEquals("Updated description", dto.getDescription());
-        Assertions.assertTrue(dto.getEnabled());
+        Assertions.assertFalse(dto.isEnabled());
         Assertions.assertEquals(1, dto.getVersion()); // no bump — no digital signatures exist
 
         // Assert entity reloaded from the database
@@ -736,7 +726,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals("updated-profile", entity.getName());
         Assertions.assertEquals("Updated description", entity.getDescription());
-        Assertions.assertTrue(entity.getEnabled());
+        Assertions.assertFalse(entity.getEnabled());
         Assertions.assertEquals(1, entity.getLatestVersion());
         Assertions.assertEquals(SigningScheme.DELEGATED, entity.getSigningScheme());
         Assertions.assertEquals(SigningWorkflowType.RAW_SIGNING, entity.getWorkflowType());
@@ -835,7 +825,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("workflow-changed");
         request.setDescription("Changed to timestamping");
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(timestampingWorkflow);
 
@@ -1043,7 +1032,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         signingProfileService.enableSigningProfile(savedProfile.getSecuredUuid());
 
         SigningProfileDto dto = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
-        Assertions.assertTrue(dto.getEnabled());
+        Assertions.assertTrue(dto.isEnabled());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
@@ -1078,7 +1067,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         signingProfileService.disableSigningProfile(savedProfile.getSecuredUuid());
 
         SigningProfileDto dto = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
-        Assertions.assertFalse(dto.getEnabled());
+        Assertions.assertFalse(dto.isEnabled());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
@@ -1143,12 +1132,12 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testBulkDisableSigningProfiles_multipleProfiles() throws AttributeException, NotFoundException {
         // Create two additional enabled profiles
         SigningProfileRequestDto req2 = buildDelegatedRawRequest("second-for-bulk-disable");
-        req2.setEnabled(true);
         SigningProfileDto second = signingProfileService.createSigningProfile(req2);
+        signingProfileService.enableSigningProfile(SecuredUUID.fromString(second.getUuid()));
 
         SigningProfileRequestDto req3 = buildDelegatedDocumentRequest("third-for-bulk-disable");
-        req3.setEnabled(true);
         SigningProfileDto third = signingProfileService.createSigningProfile(req3);
+        signingProfileService.enableSigningProfile(SecuredUUID.fromString(third.getUuid()));
 
         signingProfileService.bulkDisableSigningProfiles(List.of(
                 SecuredUUID.fromString(second.getUuid()),
@@ -1442,7 +1431,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("static-key-with-sign-attrs");
         request.setDescription("Profile with signing operation attributes");
-        request.setEnabled(false);
         request.setSigningScheme(scheme);
         request.setWorkflow(new RawSigningWorkflowRequestDto());
 
@@ -1472,7 +1460,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("static-key-get-sign-attrs");
-        request.setEnabled(false);
         request.setSigningScheme(scheme);
         request.setWorkflow(new RawSigningWorkflowRequestDto());
 
@@ -1499,7 +1486,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
         createRequest.setName("static-key-update-sign-attrs");
-        createRequest.setEnabled(false);
         createRequest.setSigningScheme(schemeV1);
         createRequest.setWorkflow(new RawSigningWorkflowRequestDto());
 
@@ -1516,7 +1502,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto updateRequest = new SigningProfileRequestDto();
         updateRequest.setName("static-key-update-sign-attrs");
-        updateRequest.setEnabled(false);
         updateRequest.setSigningScheme(schemeV2);
         updateRequest.setWorkflow(new RawSigningWorkflowRequestDto());
 
@@ -1557,7 +1542,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
         createRequest.setName("static-key-to-delegated");
-        createRequest.setEnabled(false);
         createRequest.setSigningScheme(scheme);
         createRequest.setWorkflow(new RawSigningWorkflowRequestDto());
 
@@ -1587,7 +1571,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("delete-clears-sign-attrs");
-        request.setEnabled(false);
         request.setSigningScheme(scheme);
         request.setWorkflow(new RawSigningWorkflowRequestDto());
 
@@ -1660,7 +1643,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("doc-profile-with-formatter-attrs");
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(workflow);
 
@@ -1699,7 +1681,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
         createRequest.setName("workflow-formatter-switch");
-        createRequest.setEnabled(false);
         createRequest.setSigningScheme(new DelegatedSigningRequestDto());
         createRequest.setWorkflow(workflowA);
 
@@ -1715,7 +1696,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto updateRequest = new SigningProfileRequestDto();
         updateRequest.setName("workflow-formatter-switch");
-        updateRequest.setEnabled(false);
         updateRequest.setSigningScheme(new DelegatedSigningRequestDto());
         updateRequest.setWorkflow(workflowB);
 
@@ -1777,7 +1757,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
             SigningProfileRequestDto request = new SigningProfileRequestDto();
             request.setName("formatter-attrs-" + workflowLabel);
-            request.setEnabled(false);
             request.setSigningScheme(new DelegatedSigningRequestDto());
             request.setWorkflow(wfRequest);
 
@@ -1824,7 +1803,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("delete-clears-formatter-attrs");
-        request.setEnabled(false);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(workflow);
 

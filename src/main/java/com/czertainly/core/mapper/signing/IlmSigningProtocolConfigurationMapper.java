@@ -25,6 +25,7 @@ public class IlmSigningProtocolConfigurationMapper {
         IlmSigningProtocolConfigurationListDto dto = new IlmSigningProtocolConfigurationListDto();
         dto.setUuid(configuration.getUuid().toString());
         dto.setName(configuration.getName());
+        dto.setEnabled(configuration.getEnabled() != null ? configuration.getEnabled() : false);
         return dto;
     }
 }

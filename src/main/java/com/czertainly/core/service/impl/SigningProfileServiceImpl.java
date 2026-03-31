@@ -191,7 +191,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         SigningProfile profile = new SigningProfile();
         profile.setName(request.getName());
         profile.setDescription(request.getDescription());
-        profile.setEnabled(request.getEnabled() != null ? request.getEnabled() : false);
         profile.setLatestVersion(1);
         applyScheme(profile, request.getSigningScheme());
         applyWorkflow(profile, request.getWorkflow());
@@ -219,7 +218,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         SigningProfile profile = findByUuid(uuid);
         profile.setName(request.getName());
         profile.setDescription(request.getDescription());
-        profile.setEnabled(request.getEnabled());
         applyScheme(profile, request.getSigningScheme());
         applyWorkflow(profile, request.getWorkflow());
 
