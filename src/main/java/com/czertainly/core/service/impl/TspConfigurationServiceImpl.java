@@ -5,17 +5,21 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspConfigurationDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspConfigurationListDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspConfigurationRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
-import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.signing.TspConfiguration;
+import com.czertainly.core.dao.entity.signing.TspConfiguration_;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.repository.signing.TspConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
@@ -45,7 +49,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.TSP_CONFIGURATION)
 @Slf4j
 public class TspConfigurationServiceImpl implements TspConfigurationService {
 
@@ -235,6 +239,33 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
     private SigningProfile getSigningProfileEntity(UUID signingProfileUuid) throws NotFoundException {
         return signingProfileRepository.findById(signingProfileUuid).orElseThrow(() -> new NotFoundException("Signing Profile not found: " + signingProfileUuid));
 
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // ResourceExtensionService
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return tspConfigurationRepository.findResourceObject(objectUuid, TspConfiguration_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_CONFIGURATION, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return tspConfigurationRepository.findResourceObject(objectUuid.getValue(), TspConfiguration_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_CONFIGURATION, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        return tspConfigurationRepository.listResourceObjects(filter, TspConfiguration_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_CONFIGURATION, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getTspConfigurationEntity(uuid.getValue());
     }
 
     @Autowired

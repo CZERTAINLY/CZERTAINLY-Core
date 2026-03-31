@@ -3,6 +3,9 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
@@ -10,9 +13,21 @@ import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolC
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolConfigurationListDto;
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolConfigurationRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceObjectDto;
+import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.dao.entity.AttributeRelation;
 import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
+import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -29,14 +44,26 @@ import java.util.UUID;
 
 class IlmSigningProtocolConfigurationServiceImplTest extends BaseSpringBootTest {
 
+    private static final String CUSTOM_ATTR_UUID = "a1b2c3d4-0001-0002-0003-000000000001";
+    private static final String CUSTOM_ATTR_NAME = "ilmTestAttribute";
+
     @Autowired
     private IlmSigningProtocolConfigurationService ilmService;
+
+    @Autowired
+    private ResourceService resourceService;
 
     @Autowired
     private IlmSigningProtocolConfigurationRepository ilmRepository;
 
     @Autowired
     private SigningProfileRepository signingProfileRepository;
+
+    @Autowired
+    private AttributeDefinitionRepository attributeDefinitionRepository;
+
+    @Autowired
+    private AttributeRelationRepository attributeRelationRepository;
 
     private IlmSigningProtocolConfiguration savedConfig;
     private SigningProfile savedSigningProfile;
@@ -58,6 +85,34 @@ class IlmSigningProtocolConfigurationServiceImplTest extends BaseSpringBootTest 
         savedConfig.setName("existing-ilm-config");
         savedConfig.setDescription("Existing ILM config description");
         savedConfig = ilmRepository.save(savedConfig);
+
+        // Register a custom attribute available for ILM Signing Protocol Configuration resources
+        CustomAttributeV3 attrDef = new CustomAttributeV3();
+        attrDef.setUuid(CUSTOM_ATTR_UUID);
+        attrDef.setName(CUSTOM_ATTR_NAME);
+        attrDef.setDescription("test custom attribute for ILM config");
+        attrDef.setContentType(AttributeContentType.STRING);
+        CustomAttributeProperties props = new CustomAttributeProperties();
+        props.setReadOnly(false);
+        props.setRequired(false);
+        attrDef.setProperties(props);
+
+        AttributeDefinition attributeDefinition = new AttributeDefinition();
+        attributeDefinition.setUuid(UUID.fromString(CUSTOM_ATTR_UUID));
+        attributeDefinition.setName(CUSTOM_ATTR_NAME);
+        attributeDefinition.setAttributeUuid(UUID.fromString(CUSTOM_ATTR_UUID));
+        attributeDefinition.setContentType(AttributeContentType.STRING);
+        attributeDefinition.setLabel(CUSTOM_ATTR_NAME);
+        attributeDefinition.setType(AttributeType.CUSTOM);
+        attributeDefinition.setDefinition(attrDef);
+        attributeDefinition.setEnabled(true);
+        attributeDefinition.setVersion(3);
+        attributeDefinitionRepository.save(attributeDefinition);
+
+        AttributeRelation attributeRelation = new AttributeRelation();
+        attributeRelation.setResource(Resource.ILM_SIGNING_PROTOCOL_CONFIGURATION);
+        attributeRelation.setAttributeDefinitionUuid(attributeDefinition.getUuid());
+        attributeRelationRepository.save(attributeRelation);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -379,5 +434,53 @@ class IlmSigningProtocolConfigurationServiceImplTest extends BaseSpringBootTest 
         Assertions.assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
         Assertions.assertFalse(ilmRepository.findById(savedConfig.getUuid()).orElseThrow().getEnabled());
         Assertions.assertFalse(ilmRepository.findById(second.getUuid()).orElseThrow().getEnabled());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Custom attributes
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testCreateIlmSigningProtocolConfiguration_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("ilm-value-on-create")));
+
+        IlmSigningProtocolConfigurationRequestDto request = new IlmSigningProtocolConfigurationRequestDto();
+        request.setName("ilm-with-custom-attr");
+        request.setCustomAttributes(List.of(customAttr));
+
+        IlmSigningProtocolConfigurationDto dto = ilmService.createIlmSigningProtocolConfiguration(request);
+
+        Assertions.assertNotNull(dto.getCustomAttributes());
+        Assertions.assertFalse(dto.getCustomAttributes().isEmpty(),
+                "Custom attributes should be returned in the create DTO");
+        Assertions.assertEquals("ilm-value-on-create",
+                ((ResponseAttributeV3) dto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+    }
+
+    @Test
+    void testUpdateIlmSigningProtocolConfiguration_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+        RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("initial-value")));
+        IlmSigningProtocolConfigurationRequestDto createRequest = new IlmSigningProtocolConfigurationRequestDto();
+        createRequest.setName("ilm-update-custom-attr");
+        createRequest.setCustomAttributes(List.of(createAttr));
+        IlmSigningProtocolConfigurationDto created = ilmService.createIlmSigningProtocolConfiguration(createRequest);
+
+        RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("updated-value")));
+        IlmSigningProtocolConfigurationRequestDto updateRequest = new IlmSigningProtocolConfigurationRequestDto();
+        updateRequest.setName("ilm-update-custom-attr");
+        updateRequest.setCustomAttributes(List.of(updateAttr));
+        IlmSigningProtocolConfigurationDto updated = ilmService.updateIlmSigningProtocolConfiguration(
+                SecuredUUID.fromString(created.getUuid()), updateRequest);
+
+        Assertions.assertNotNull(updated.getCustomAttributes());
+        Assertions.assertFalse(updated.getCustomAttributes().isEmpty());
+        Assertions.assertEquals("updated-value",
+                ((ResponseAttributeV3) updated.getCustomAttributes().getFirst()).getContent().getFirst().getData());
     }
 }

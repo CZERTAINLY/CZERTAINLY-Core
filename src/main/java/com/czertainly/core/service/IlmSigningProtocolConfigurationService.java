@@ -14,7 +14,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface IlmSigningProtocolConfigurationService {
+public interface IlmSigningProtocolConfigurationService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 

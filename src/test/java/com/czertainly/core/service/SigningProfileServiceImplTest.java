@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV2;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
@@ -30,6 +31,17 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeVersion;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceObjectDto;
+import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.dao.entity.AttributeRelation;
+import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
@@ -79,8 +91,14 @@ import java.util.UUID;
 
 class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
+    private static final String CUSTOM_ATTR_UUID = "a1b2c3d4-0001-0002-0003-000000000003";
+    private static final String CUSTOM_ATTR_NAME = "signingProfileTestAttribute";
+
     @Autowired
     private SigningProfileService signingProfileService;
+
+    @Autowired
+    private ResourceService resourceService;
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -114,6 +132,12 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Autowired
     private TspConfigurationRepository tspRepository;
+
+    @Autowired
+    private AttributeDefinitionRepository attributeDefinitionRepository;
+
+    @Autowired
+    private AttributeRelationRepository attributeRelationRepository;
 
     /**
      * A signing profile saved directly via repository, used as pre-existing data in tests.
@@ -207,6 +231,34 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         rsaKeyItem = cryptographicKeyItemRepository.saveAndFlush(rsaKeyItem);
         rsaKeyItem.setKeyReferenceUuid(rsaKeyItem.getUuid());
         cryptographicKeyItemRepository.saveAndFlush(rsaKeyItem);
+
+        // Register a custom attribute available for Signing Profile resources
+        CustomAttributeV3 attrDef = new CustomAttributeV3();
+        attrDef.setUuid(CUSTOM_ATTR_UUID);
+        attrDef.setName(CUSTOM_ATTR_NAME);
+        attrDef.setDescription("test custom attribute for signing profile");
+        attrDef.setContentType(AttributeContentType.STRING);
+        CustomAttributeProperties props = new CustomAttributeProperties();
+        props.setReadOnly(false);
+        props.setRequired(false);
+        attrDef.setProperties(props);
+
+        AttributeDefinition attributeDefinition = new AttributeDefinition();
+        attributeDefinition.setUuid(UUID.fromString(CUSTOM_ATTR_UUID));
+        attributeDefinition.setName(CUSTOM_ATTR_NAME);
+        attributeDefinition.setAttributeUuid(UUID.fromString(CUSTOM_ATTR_UUID));
+        attributeDefinition.setContentType(AttributeContentType.STRING);
+        attributeDefinition.setLabel(CUSTOM_ATTR_NAME);
+        attributeDefinition.setType(AttributeType.CUSTOM);
+        attributeDefinition.setDefinition(attrDef);
+        attributeDefinition.setEnabled(true);
+        attributeDefinition.setVersion(3);
+        attributeDefinitionRepository.save(attributeDefinition);
+
+        AttributeRelation attributeRelation = new AttributeRelation();
+        attributeRelation.setResource(Resource.SIGNING_PROFILE);
+        attributeRelation.setAttributeDefinitionUuid(attributeDefinition.getUuid());
+        attributeRelationRepository.save(attributeRelation);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -1816,5 +1868,50 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE, profileUuid);
         Assertions.assertTrue(remaining.isEmpty(),
                 "Formatter attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Custom attributes via ResourceExtensionService
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testCreateSigningProfile_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("profile-value-on-create")));
+
+        SigningProfileRequestDto request = buildDelegatedRawRequest("profile-with-custom-attr");
+        request.setCustomAttributes(List.of(customAttr));
+
+        SigningProfileDto dto = signingProfileService.createSigningProfile(request);
+
+        Assertions.assertNotNull(dto.getCustomAttributes());
+        Assertions.assertFalse(dto.getCustomAttributes().isEmpty(),
+                "Custom attributes should be returned in the create DTO");
+        Assertions.assertEquals("profile-value-on-create",
+                ((ResponseAttributeV3) dto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+    }
+
+    @Test
+    void testUpdateSigningProfile_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+        RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("initial-value")));
+        SigningProfileRequestDto createRequest = buildDelegatedRawRequest("profile-update-custom-attr");
+        createRequest.setCustomAttributes(List.of(createAttr));
+        SigningProfileDto created = signingProfileService.createSigningProfile(createRequest);
+
+        RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("updated-value")));
+        SigningProfileRequestDto updateRequest = buildDelegatedRawRequest("profile-update-custom-attr");
+        updateRequest.setCustomAttributes(List.of(updateAttr));
+        SigningProfileDto updated = signingProfileService.updateSigningProfile(
+                SecuredUUID.fromString(created.getUuid()), updateRequest);
+
+        Assertions.assertNotNull(updated.getCustomAttributes());
+        Assertions.assertFalse(updated.getCustomAttributes().isEmpty());
+        Assertions.assertEquals("updated-value",
+                ((ResponseAttributeV3) updated.getCustomAttributes().getFirst()).getContent().getFirst().getData());
     }
 }

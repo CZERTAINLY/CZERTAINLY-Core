@@ -14,7 +14,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface TspConfigurationService {
+public interface TspConfigurationService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 

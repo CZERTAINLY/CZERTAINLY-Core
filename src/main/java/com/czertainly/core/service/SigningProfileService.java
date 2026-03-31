@@ -23,7 +23,7 @@ import com.czertainly.core.service.model.SecuredList;
 import java.util.List;
 import java.util.UUID;
 
-public interface SigningProfileService {
+public interface SigningProfileService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
