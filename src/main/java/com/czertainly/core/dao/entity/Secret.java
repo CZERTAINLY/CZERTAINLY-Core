@@ -50,7 +50,7 @@ public class Secret extends UniquelyIdentifiedAndAudited implements ComplianceSu
     @JsonBackReference
     private SecretVersion latestVersion;
 
-    @Column(name = "latest_version_uuid")
+    @Column(name = "latest_version_uuid", nullable = false)
     private UUID latestVersionUuid;
 
     @OneToMany(mappedBy = "secret", fetch = FetchType.LAZY)

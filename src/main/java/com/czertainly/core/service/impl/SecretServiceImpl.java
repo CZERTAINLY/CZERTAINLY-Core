@@ -209,8 +209,22 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setName(secretRequest.getName());
         secret.setDescription(secretRequest.getDescription());
         secret.setSourceVaultProfile(vaultProfile);
-        secret.setState(SecretState.PENDING_APPROVAL);
+        secret.setState(SecretState.INACTIVE);
         secret.setType(secretRequest.getSecret().getType());
+        SecretVersion secretVersion = new SecretVersion();
+        secretVersion.setSecret(secret);
+        secretVersion.setVersion(1);
+        String fingerprint;
+        try {
+            fingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
+        } catch (NoSuchAlgorithmException | JsonProcessingException e) {
+            throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
+        }
+        secretVersion.setFingerprint(fingerprint);
+        secretVersionRepository.save(secretVersion);
+
+        secret.setLatestVersion(secretVersion);
+        secret.getVersions().add(secretVersion);
         secretRepository.save(secret);
         objectAssociationService.setOwnerFromProfile(Resource.SECRET, secret.getUuid());
 
@@ -246,22 +260,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
         UUID connectorUuid = vaultProfile.getVaultInstance().getConnectorUuid();
         SecretResponseDto secretResponseDto = createSecretInVault(connectorUuid, vaultProfile.getVaultInstanceUuid(), secretRequest.getSecret().getType(), vaultProfile.getUuid(), secretRequest);
-        SecretVersion secretVersion = new SecretVersion();
-        secretVersion.setSecret(secret);
-        secretVersion.setVersion(1);
-        String fingerprint;
-        try {
-            fingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
-        } catch (NoSuchAlgorithmException | JsonProcessingException e) {
-            throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
-        }
-        secretVersion.setFingerprint(fingerprint);
+        SecretVersion secretVersion = secret.getLatestVersion();
         secretVersion.setVaultInstanceUuid(vaultProfile.getVaultInstanceUuid());
         secretVersion.setVaultVersion(secretResponseDto.getVersion());
         secretVersionRepository.save(secretVersion);
         secret.setState(SecretState.ACTIVE);
-        secret.setLatestVersion(secretVersion);
-        secret.getVersions().add(secretVersion);
         attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, vaultProfile.getUuid(), vaultProfile.getName()));
         secretRepository.save(secret);
     }
