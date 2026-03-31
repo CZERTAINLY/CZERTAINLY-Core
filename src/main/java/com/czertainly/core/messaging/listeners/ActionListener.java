@@ -105,52 +105,13 @@ public class ActionListener {
         }
     }
 
-    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException, JsonProcessingException {
+    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException, JsonProcessingException, SecretOperationException {
         if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
             processCertificateAction(actionMessage, hasApproval, isApproved);
         } else if (Objects.requireNonNull(actionMessage.getResource()) == Resource.SECRET) {
-            processSecretAction(actionMessage, hasApproval, isApproved);
+            secretService.processSecretAction(actionMessage, hasApproval, isApproved);
         } else {
             logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
-        }
-    }
-
-    private void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
-        // handle rejected actions
-        if (hasApproval && !isApproved) {
-            if (actionMessage.getResourceAction() == ResourceAction.CREATE) {
-                secretService.handleSecretCreationRejected(actionMessage.getResourceUuid());
-            } else {
-                logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
-            }
-            return;
-        }
-
-        SecretActionData secretActionData = mapper.convertValue(actionMessage.getData(), SecretActionData.class);
-        switch (actionMessage.getResourceAction()) {
-            case CREATE ->  {
-                SecretRequestDto secretRequestDto = new SecretRequestDto();
-                secretRequestDto.setName(secretActionData.name());
-                secretRequestDto.setSecret(mapper.readValue(SecretsUtil.decodeAndDecryptSecretString(secretActionData.encryptedContent(), SecretEncodingVersion.V1), SecretContent.class));
-                secretRequestDto.setAttributes(secretActionData.attributes());
-                secretService.createSecretAction(actionMessage.getResourceUuid(), secretRequestDto, isApproved);
-            }
-            case UPDATE ->  {
-                SecretUpdateRequestDto secretUpdateRequestDto = new SecretUpdateRequestDto();
-                secretUpdateRequestDto.setSecret(mapper.readValue(SecretsUtil.decodeAndDecryptSecretString(secretActionData.encryptedContent(), SecretEncodingVersion.V1), SecretContent.class));
-                secretUpdateRequestDto.setAttributes(secretActionData.attributes());
-                secretService.updateSecretAction(actionMessage.getResourceUuid(), secretUpdateRequestDto, isApproved);
-            }
-            case DELETE ->
-                secretService.deleteSecretAction(actionMessage.getResourceUuid(), isApproved);
-            case UPDATE_SOURCE_VAULT_PROFILE -> {
-                SecretUpdateObjectsDto secretUpdateObjectsDto = new SecretUpdateObjectsDto();
-                secretUpdateObjectsDto.setSourceVaultProfileUuid(secretActionData.updatedSourceVaultProfileUuid());
-                secretUpdateObjectsDto.setSecretAttributes(secretActionData.attributes());
-                secretService.updateSourceVaultProfile(secretUpdateObjectsDto, actionMessage.getResourceUuid(), isApproved);
-            }
-            default ->
-                logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
         }
     }
 

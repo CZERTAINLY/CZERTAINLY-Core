@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
@@ -27,9 +28,13 @@ import com.czertainly.api.model.core.secret.*;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.messaging.listeners.ActionListener;
+import com.czertainly.core.messaging.model.ActionMessage;
+import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.SecretsUtil;
@@ -42,12 +47,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.util.SerializationUtils;
 
 import java.io.Serializable;
@@ -88,6 +95,12 @@ class SecretServiceTest extends BaseSpringBootTest {
     private GroupRepository groupRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
+    @Autowired
+    private ActionListener actionListener;
+    @MockitoBean
+    private ActionProducer actionProducer;
+    @MockitoBean
+    private AuthHelper authHelper;
 
     private Secret secret;
     private VaultProfile vaultProfile;
@@ -97,6 +110,18 @@ class SecretServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException, JsonProcessingException {
+
+        // Process message instead of sending it to the queue and set approval status to approved to bypass approval in tests
+        Mockito.doAnswer(invocation -> {
+                    ActionMessage msg = invocation.getArgument(0);
+                    msg.setApprovalStatus(ApprovalStatusEnum.APPROVED);
+                    msg.setApprovalUuid(UUID.randomUUID());
+                    actionListener.processMessage(msg);
+                    return null; // because produceMessage returns void
+                }
+        ).when(actionProducer).produceMessage(any());
+        Mockito.doNothing().when(authHelper).authenticateAsUser(any());
+
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -220,12 +245,11 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, secretDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), secretDetailDto.getCustomAttributes().getFirst().getName());
         Assertions.assertEquals("data", ((List<AttributeContent>) secretDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+        Assertions.assertEquals(1, secretDetailDto.getVersion());
 
-        secretService.createSecretAction(UUID.fromString(secretDetailDto.getUuid()), request, true);
-
+        // Reload secret details since it was created separately
         secretDetailDto = secretService.getSecretDetails(UUID.fromString(secretDetailDto.getUuid()));
         Assertions.assertEquals(SecretType.BASIC_AUTH, secretDetailDto.getType());
-        Assertions.assertEquals(1, secretDetailDto.getVersion());
 
         Assertions.assertNotNull(secretDetailDto.getMetadata());
         Assertions.assertEquals(1, secretDetailDto.getMetadata().size());
@@ -255,7 +279,6 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(attribute.getName(), secretDetailDto.getCustomAttributes().getFirst().getName());
         Assertions.assertEquals("data2", ((List<AttributeContent>) secretDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
 
-        secretService.updateSecretAction(secret.getUuid(), request, true);
         secretDetailDto = secretService.getSecretDetails(secret.getUuid());
         Assertions.assertEquals(2, secretDetailDto.getVersion());
 
@@ -294,7 +317,6 @@ class SecretServiceTest extends BaseSpringBootTest {
         secret.getLatestVersion().setSecret(null);
         secretVersionRepository.save(secret.getLatestVersion());
         secretService.deleteSecret(secret.getUuid());
-        secretService.deleteSecretAction(secret.getUuid(), true);
         Assertions.assertThrows(NotFoundException.class, () -> secretService.deleteSecret(secret.getUuid()));
         secret.setLatestVersion(latestVersion);
         secretRepository.save(secret);
@@ -424,7 +446,6 @@ class SecretServiceTest extends BaseSpringBootTest {
         secretRepository.save(secret);
 
         secretService.updateSecretObjects(secretUuid, updateObjectsDto);
-        secretService.updateSourceVaultProfile(updateObjectsDto, secretUuid, true);
         Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertEquals(newVaultProfile.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
         Assertions.assertEquals(1, reloadedSecret.getLatestVersion().getVersion());
@@ -442,7 +463,6 @@ class SecretServiceTest extends BaseSpringBootTest {
 
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile2.getUuid());
         secretService.updateSecretObjects(secretUuid, updateObjectsDto);
-        secretService.updateSourceVaultProfile(updateObjectsDto, secretUuid, true);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertEquals(newVaultProfile2.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
         Assertions.assertEquals(2, reloadedSecret.getLatestVersion().getVersion());
@@ -453,7 +473,6 @@ class SecretServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.CONFLICT.value())
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
         secretService.updateSecretObjects(secretUuid, updateObjectsDto);
-        secretService.updateSourceVaultProfile(updateObjectsDto, secretUuid, true);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertEquals(newVaultProfile.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
         Assertions.assertFalse(secret2SyncVaultProfileRepository.findById(new Secret2SyncVaultProfileId(secretUuid, newVaultProfile.getUuid())).isPresent());
@@ -512,7 +531,8 @@ class SecretServiceTest extends BaseSpringBootTest {
     void getSecretContent_whenFingerprintCalcThrows_shouldThrowValidationException() {
         try (MockedStatic<SecretsUtil> mocked = mockStatic(SecretsUtil.class)) {
             mocked.when(() -> SecretsUtil.calculateSecretContentFingerprint(any()))
-                    .thenThrow(new JsonProcessingException("boom") {});
+                    .thenThrow(new JsonProcessingException("boom") {
+                    });
 
             // act + assert
             UUID secretUuid = secret.getUuid();
