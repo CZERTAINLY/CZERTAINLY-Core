@@ -288,6 +288,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
         secret.setDescription(secretRequest.getDescription());
 
+
+        SecretDetailDto secretDetailDto = secret.mapToDetailDto();
+        secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
+        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
+
         if (secretRequest.getSecret() != null) {
             if (invalidSecretState(secret)) {
                 throw new ValidationException("Secret %s is in state %s and cannot be updated".formatted(secret.getName(), secret.getState().getLabel()));
@@ -315,11 +321,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 produceActionMessage(actionData, currentSourceVaultProfile, secret, ResourceAction.UPDATE);
             }
         }
-
-        SecretDetailDto secretDetailDto = secret.mapToDetailDto();
-        secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
-        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
 
         return secretDetailDto;
     }
@@ -610,9 +611,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
     public void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException {
         Secret secret = getSecretEntity(uuid);
-        if (request.getSourceVaultProfileUuid() != null) {
-            updateSourceVaultProfileAction(request, secret);
-        }
         if (request.getGroupUuids() != null) {
             // check if there is change in groups compared to the current state
             Set<UUID> currentGroups = secret.getGroups().stream().map(Group::getUuid).collect(Collectors.toSet());
@@ -630,6 +628,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 secretRepository.save(secret);
             }
             objectAssociationService.setOwner(Resource.SECRET, secret.getUuid(), request.getOwnerUuid().isEmpty() ? null : UUID.fromString(request.getOwnerUuid()));
+        }
+        if (request.getSourceVaultProfileUuid() != null) {
+            updateSourceVaultProfileAction(request, secret);
         }
     }
 
