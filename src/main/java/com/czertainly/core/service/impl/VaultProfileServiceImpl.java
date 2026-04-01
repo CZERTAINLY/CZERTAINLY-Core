@@ -263,4 +263,11 @@ public class VaultProfileServiceImpl implements VaultProfileService {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(VaultProfile.class, uuid));
         permissionEvaluator.vaultInstance(vaultProfile.getVaultInstance().getSecuredUuid());
     }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST, parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
+    public Long statisticsVaultProfileCount(SecurityFilter filter) {
+        filter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
+        return vaultProfileRepository.countUsingSecurityFilter(filter, null);
+    }
 }

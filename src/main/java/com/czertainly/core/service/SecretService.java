@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.connector.secrets.content.SecretContent;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -47,4 +48,7 @@ public interface SecretService extends ResourceExtensionService {
     void approvalCreatedAction(UUID resourceUuid) throws NotFoundException;
 
     void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException, SecretOperationException;
+    Long statisticsSecretCount(SecurityFilter filter);
+
+    StatisticsDto addSecretStatistics(SecurityFilter filter, StatisticsDto dto);
 }

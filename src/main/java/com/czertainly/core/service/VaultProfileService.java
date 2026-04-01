@@ -35,4 +35,6 @@ public interface VaultProfileService extends ResourceExtensionService {
     List<BaseAttribute> listSecretAttributes(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException, AttributeException;
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
+
+    Long statisticsVaultProfileCount(SecurityFilter filter);
 }

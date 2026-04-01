@@ -38,4 +38,6 @@ public interface VaultInstanceService {
     List<BaseAttribute> listVaultProfileAttributes(SecuredUUID vaultInstanceUuid) throws ConnectorException, NotFoundException, AttributeException;
 
     void loadAttributesForSecretOperation(ApiClientConnectorInfo connector, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretOperationRequest secretOperationRequest) throws NotFoundException, ConnectorException, AttributeException;
+
+    Long statisticsVaultInstanceCount(SecurityFilter filter);
 }
