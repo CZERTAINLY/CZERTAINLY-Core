@@ -290,7 +290,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
         if (secretRequest.getSecret() != null) {
             if (invalidSecretState(secret)) {
-                throw new ValidationException("Secret %s is in state %s and cannot be updated".formatted(secret.getName(), secret.getState().getCode()));
+                throw new ValidationException("Secret %s is in state %s and cannot be updated".formatted(secret.getName(), secret.getState().getLabel()));
             }
             SecretVersion latestVersion = secret.getLatestVersion();
             String newFingerprint;
@@ -404,19 +404,21 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             checkDeleteSecretPermissions();
         }
         // Delete secret from vaults
-        Set<UUID> vaultInstanceUuids = new HashSet<>();
-        try {
-            deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-            vaultInstanceUuids.add(secret.getSourceVaultProfile().getVaultInstance().getUuid());
-            for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
-                if (!vaultInstanceUuids.contains(profile.getVaultProfile().getVaultInstance().getUuid())) {
-                    deleteSecretFromVault(profile.getVaultProfile(), secret, profile.getSecretAttributes());
-                    vaultInstanceUuids.add(profile.getVaultProfile().getVaultInstance().getUuid());
+        if (!invalidSecretState(secret)) {
+            Set<UUID> vaultInstanceUuids = new HashSet<>();
+            try {
+                deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+                vaultInstanceUuids.add(secret.getSourceVaultProfile().getVaultInstance().getUuid());
+                for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
+                    if (!vaultInstanceUuids.contains(profile.getVaultProfile().getVaultInstance().getUuid())) {
+                        deleteSecretFromVault(profile.getVaultProfile(), secret, profile.getSecretAttributes());
+                        vaultInstanceUuids.add(profile.getVaultProfile().getVaultInstance().getUuid());
+                    }
                 }
+            } catch (Exception e) {
+                secret.setState(originalState);
+                throw new SecretOperationException("Failed to delete secret from vault: " + e.getMessage());
             }
-        } catch (Exception e) {
-            secret.setState(originalState);
-            throw new SecretOperationException("Failed to delete secret from vault: " + e.getMessage());
         }
         Set<SecretVersion> secretVersions = new HashSet<>(secret.getVersions());
         secret.setOwner(null);
@@ -448,7 +450,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     public void enableSecret(UUID uuid) throws NotFoundException {
         Secret secret = getSecretEntity(uuid);
         if (invalidSecretState(secret)) {
-            throw new ValidationException("Secret %s is in state %s and cannot be enabled".formatted(secret.getName(), secret.getState().getCode()));
+            throw new ValidationException("Secret %s is in state %s and cannot be enabled".formatted(secret.getName(), secret.getState().getLabel()));
         }
         secret.setEnabled(true);
         secretRepository.save(secret);
@@ -479,7 +481,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             throw new ValidationException("Vault Profile with UUID %s is already a sync vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
         }
         if (invalidSecretState(secret)) {
-            throw new ValidationException("Secret %s is in state %s and cannot be updated".formatted(secret.getName(), secret.getState().getCode()));
+            throw new ValidationException("Secret %s is in state %s and sync profile cannot be added".formatted(secret.getName(), secret.getState().getLabel()));
         }
 
         VaultProfile addedVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(vaultProfileUuid))
@@ -566,6 +568,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
     public SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(uuid);
+        if (invalidSecretState(secret)) {
+            throw new ValidationException("Secret %s is in state %s and cannot be retrieved".formatted(secret.getName(), secret.getState().getLabel()));
+        }
         if (!secret.getSourceVaultProfile().isEnabled()) {
             throw new ValidationException("Source vault profile" + secret.getSourceVaultProfile().getName() + " is not enabled");
         }
@@ -630,7 +635,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     private void updateSourceVaultProfileAction(SecretUpdateObjectsDto request, Secret secret) {
         if (invalidSecretState(secret)) {
-            throw new ValidationException("Secret %s is in state %s and source vault profile cannot be updated".formatted(secret.getName(), secret.getState().getCode()));
+            throw new ValidationException("Secret %s is in state %s and source vault profile cannot be updated".formatted(secret.getName(), secret.getState().getLabel()));
         }
         UUID currentSourceVaultProfileUuid = secret.getSourceVaultProfile().getUuid();
         // Evaluate vault profile membership for current source profile
