@@ -777,9 +777,6 @@ class ComplianceServiceTest extends BaseComplianceTest {
                 .filter(p -> p.getConnectorUuid().equals(connectorV2.getUuid()) && p.getKind().equals(KIND_V2))
                 .findFirst().orElseThrow();
         Assertions.assertFalse(updatedProvider.getNotCompliant().contains(groupRuleUuid), "Group rule UUID should be removed from compliance result");
-
-        // Restore original mock
-        mockComplianceProviderResponses(true);
     }
 
     @Test

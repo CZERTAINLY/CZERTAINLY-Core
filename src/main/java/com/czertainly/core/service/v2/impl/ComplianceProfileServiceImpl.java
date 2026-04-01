@@ -433,7 +433,15 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             ComplianceProfileRule profileRule = complianceProfileRuleRepository.findByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid())
                     .orElseThrow(() -> new NotFoundException("Compliance profile does not have assigned group with UUID %s from connector %s and kind %s".formatted(request.getGroupUuid(), request.getConnectorUuid(), request.getKind())));
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid());
-            complianceService.removeGroupRulesFromComplianceResults(uuid.getValue(), profileRule.getResource(), request.getGroupUuid(), request.getConnectorUuid(), request.getKind());
+            // Best-effort cleanup of compliance results; do not fail group removal on connector issues
+            try {
+                complianceService.removeGroupRulesFromComplianceResults(uuid.getValue(), profileRule.getResource(), request.getGroupUuid(), request.getConnectorUuid(), request.getKind());
+            } catch (ConnectorException | NotFoundException e) {
+                logger.warn(
+                        "Failed to remove group rules from compliance results for compliance profile '{}' (group '{}', connector '{}', kind '{}'). Removed only group association",
+                        uuid.getValue(), request.getGroupUuid(), request.getConnectorUuid(), request.getKind(), e
+                );
+            }
         } else {
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid());
             ComplianceGroupResponseDto providerGroup = ruleHandler.getProviderGroup(request.getConnectorUuid(), request.getKind(), request.getGroupUuid());
