@@ -1,18 +1,17 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.connector.secrets.content.SecretContent;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.secret.*;
+import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.util.List;
 import java.util.UUID;
@@ -44,4 +43,8 @@ public interface SecretService extends ResourceExtensionService {
     SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, AttributeException;
 
     void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException;
+
+    void approvalCreatedAction(UUID resourceUuid) throws NotFoundException;
+
+    void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException, SecretOperationException;
 }
