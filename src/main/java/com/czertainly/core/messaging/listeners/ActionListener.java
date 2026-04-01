@@ -16,8 +16,10 @@ import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
+import com.czertainly.core.service.SecretService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,8 @@ public class ActionListener {
     private ApprovalService approvalService;
 
     private ClientOperationService clientOperationService;
+
+    private SecretService secretService;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -87,14 +91,18 @@ public class ActionListener {
     private void processApprovalCreated(final ActionMessage actionMessage) throws NotFoundException {
         if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
             clientOperationService.approvalCreatedAction(actionMessage.getResourceUuid());
+        } else if (Objects.requireNonNull(actionMessage.getResource()) == Resource.SECRET) {
+            secretService.approvalCreatedAction(actionMessage.getResourceUuid());
         } else {
             logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
     }
 
-    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
+    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException, JsonProcessingException, SecretOperationException {
         if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
             processCertificateAction(actionMessage, hasApproval, isApproved);
+        } else if (Objects.requireNonNull(actionMessage.getResource()) == Resource.SECRET) {
+            secretService.processSecretAction(actionMessage, hasApproval, isApproved);
         } else {
             logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
@@ -156,5 +164,10 @@ public class ActionListener {
     @Autowired
     public void setAuthHelper(AuthHelper authHelper) {
         this.authHelper = authHelper;
+    }
+
+    @Autowired
+    public void setSecretService(SecretService secretService) {
+        this.secretService = secretService;
     }
 }

@@ -7,7 +7,6 @@ import com.czertainly.api.model.client.approval.ApprovalResponseDto;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDetailDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRequestDto;
-import com.czertainly.api.model.client.approvalprofile.ApprovalProfileUpdateRequestDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
@@ -23,7 +22,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -52,7 +50,7 @@ class ApprovalServiceTest extends ApprovalProfileData {
         approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
         approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
 
-        final ApprovalResponseDto responseDto = approvalService.listApprovals(SecurityFilter.create(), new PaginationRequestDto());
+        ApprovalResponseDto responseDto = approvalService.listApprovals(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(4, responseDto.getApprovals().size());
     }
 
