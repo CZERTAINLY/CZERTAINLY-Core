@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.signing;
 import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -66,13 +67,13 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
     @ToString.Exclude
     private TokenProfile tokenProfile;
 
-    @Column(name = "cryptographic_key_uuid")
-    private UUID cryptographicKeyUuid;
+    @Column(name = "certificate_uuid")
+    private UUID certificateUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cryptographic_key_uuid", insertable = false, updatable = false)
+    @JoinColumn(name = "certificate_uuid", insertable = false, updatable = false)
     @ToString.Exclude
-    private CryptographicKey cryptographicKey;
+    private Certificate certificate;
 
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
@@ -152,9 +153,9 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
         this.tokenProfileUuid = tokenProfile != null ? tokenProfile.getUuid() : null;
     }
 
-    public void setCryptographicKey(CryptographicKey cryptographicKey) {
-        this.cryptographicKey = cryptographicKey;
-        this.cryptographicKeyUuid = cryptographicKey != null ? cryptographicKey.getUuid() : null;
+    public void setCertificate(Certificate certificate) {
+        this.certificate = certificate;
+        this.certificateUuid = certificate != null ? certificate.getUuid() : null;
     }
 
     public void setRaProfile(RaProfile raProfile) {

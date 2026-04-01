@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
@@ -1805,6 +1806,16 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
+    public List<CertificateDto> listDigitalSigningCertificates(SecurityFilter filter, SigningWorkflowType signingWorkflowType) {
+        setupSecurityFilter(filter);
+
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"),
+                CertificateUtil.constructQueryDigitalSigningCertAcceptable(signingWorkflowType));
+        return certificates.stream().map(Certificate::mapToListDto).toList();
+    }
+
+    @Override
     public int handleExpiringCertificates() {
         List<UUID> expiringCertificates = certificateRepository.findExpiringCertificatesWithoutRenewal();
         for (UUID uuid : expiringCertificates) {
@@ -2200,7 +2211,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         ResourceCertificateContentData contentData = new ResourceCertificateContentData();
         contentData.setCertificateType(CertificateType.X509);
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
-        if (certificate.getCertificateContent() == null) throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
+        if (certificate.getCertificateContent() == null)
+            throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
         contentData.setContent(certificate.getCertificateContent().getContent());
         return contentData;
     }

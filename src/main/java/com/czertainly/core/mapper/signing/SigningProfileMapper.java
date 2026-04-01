@@ -17,7 +17,9 @@ import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolA
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -58,15 +60,8 @@ public class SigningProfileMapper {
         } else if (profile.getSigningScheme() == SigningScheme.MANAGED && profile.getManagedSigningType() != null) {
             if (profile.getManagedSigningType() == ManagedSigningType.STATIC_KEY) {
                 StaticKeyManagedSigningDto staticDto = new StaticKeyManagedSigningDto();
-                if (profile.getTokenProfileUuid() != null) {
-                    NameAndUuidDto ref = new NameAndUuidDto();
-                    ref.setUuid(profile.getTokenProfileUuid().toString());
-                    staticDto.setTokenProfile(ref);
-                }
-                if (profile.getCryptographicKeyUuid() != null) {
-                    NameAndUuidDto ref = new NameAndUuidDto();
-                    ref.setUuid(profile.getCryptographicKeyUuid().toString());
-                    staticDto.setCryptographicKey(ref);
+                if (profile.getCertificateUuid() != null) {
+                    staticDto.setCertificate(profile.getCertificate().mapToSimpleDto(null));
                 }
                 staticDto.setSigningOperationAttributes(signingOperationAttributes != null ? signingOperationAttributes : new ArrayList<>());
                 dto.setSigningScheme(staticDto);

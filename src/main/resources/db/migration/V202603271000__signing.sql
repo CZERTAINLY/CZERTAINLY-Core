@@ -29,7 +29,7 @@ CREATE TABLE "signing_profile" (
     "latest_version"                        INTEGER      NOT NULL DEFAULT 1,
     -- scheme columns (type-conditional, nullable)
     "token_profile_uuid"                    UUID,
-    "cryptographic_key_uuid"                UUID,
+    "certificate_uuid"                      UUID,
     "ra_profile_uuid"                       UUID,
     "csr_template_uuid"                     UUID, -- no FK, entity TBD
     "delegated_connector_uuid"              UUID,

@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
@@ -1150,6 +1151,41 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + commonName + "' acceptance mismatch");
     }
 
+    @ParameterizedTest
+    @MethodSource("com.czertainly.core.util.CertificateTestData#provideDigitalSigningAcceptableTestData")
+    public void testListDigitalSigningCertificates(
+            String testCaseName,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean withTokenProfile, List<String> extendedKeyUsages, SigningWorkflowType workflowType,
+            boolean shouldBeAccepted
+    ) {
+        CryptographicKey key = null;
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
+            key = createCryptographicKey(testCaseName + " Key");
+            for (CertificateTestData.KeyItemData keyItemData : publicKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
+            }
+            for (CertificateTestData.KeyItemData keyItemData : privateKeys) {
+                createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
+            }
+            if (withTokenProfile) {
+                key.setTokenProfileUuid(UUID.randomUUID());
+                cryptographicKeyRepository.save(key);
+            }
+        }
+
+        Certificate cert = createCertificateEntity(testCaseName, key, certificateState, validationStatus, archived);
+        if (!extendedKeyUsages.isEmpty()) {
+            cert.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsages));
+            certificateRepository.save(cert);
+        }
+
+        List<CertificateDto> certificates = certificateService.listDigitalSigningCertificates(SecurityFilter.create(), workflowType);
+        boolean isPresent = certificates.stream().anyMatch(c -> c.getCommonName().equals(testCaseName));
+        Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + testCaseName + "' acceptance mismatch");
+    }
 
     private CryptographicKey createCryptographicKey(String name) {
         CryptographicKey key = new CryptographicKey();
@@ -1170,7 +1206,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         cryptographicKeyRepository.save(key);
     }
 
-    private void createCertificateEntity(String commonName, CryptographicKey key, CertificateState state, CertificateValidationStatus validationStatus, boolean archived) {
+    private Certificate createCertificateEntity(String commonName, CryptographicKey key, CertificateState state, CertificateValidationStatus validationStatus, boolean archived) {
         Certificate cert = new Certificate();
         cert.setCommonName(commonName);
         String serialNumber = commonName.toLowerCase().replace(" ", "-") + "-serial" + UUID.randomUUID();
@@ -1180,7 +1216,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         cert.setState(state);
         cert.setValidationStatus(validationStatus);
         cert.setArchived(archived);
-        certificateRepository.save(cert);
+        return certificateRepository.save(cert);
     }
 
     @NotNull

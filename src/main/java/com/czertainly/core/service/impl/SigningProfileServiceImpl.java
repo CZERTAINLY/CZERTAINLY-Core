@@ -17,7 +17,6 @@ import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningRequ
 import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
-import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowRequestDto;
@@ -42,11 +41,13 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Audited_;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.SigningProfile_;
 import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
 import com.czertainly.core.dao.entity.signing.TspConfiguration;
+import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
@@ -61,6 +62,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CryptographicOperationService;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.model.SecuredList;
+import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -94,6 +96,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     );
 
     private CryptographicOperationService cryptographicOperationService;
+    private CertificateRepository certificateRepository;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private DigitalSignatureRepository digitalSignatureRepository;
     private IlmSigningProtocolConfigurationRepository ilmSigningProtocolRepository;
@@ -455,7 +458,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         p.setSigningScheme(scheme.getSigningScheme());
         p.setManagedSigningType(null);
         p.setTokenProfile(null);
-        p.setCryptographicKey(null);
+        p.setCertificate(null);
         p.setRaProfile(null);
         p.setCsrTemplateUuid(null);
         p.setDelegatedSignerConnector(null);
@@ -463,8 +466,14 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         switch (scheme) {
             case StaticKeyManagedSigningRequestDto s -> {
                 p.setManagedSigningType(ManagedSigningType.STATIC_KEY);
-                p.setTokenProfileUuid(s.getTokenProfileUuid());
-                p.setCryptographicKeyUuid(s.getCryptographicKeyUuid());
+                Certificate certificate = certificateRepository.findWithAssociationsByUuid(s.getCertificateUuid())
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, s.getCertificateUuid()));
+                if (CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, p.getWorkflowType())) {
+                    p.setCertificate(certificate);
+                } else {
+                    throw new ValidationException("Certificate " + certificate.getUuid() + " is not eligible for signing workflow type " + p.getWorkflowType());
+                }
+                p.setCertificate(certificate);
             }
             case OneTimeKeyManagedSigningRequestDto s -> {
                 p.setManagedSigningType(ManagedSigningType.ONE_TIME_KEY);
@@ -594,7 +603,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private List<ResponseAttribute> persistSigningOperationAttributes(SigningProfile signingProfile, SigningSchemeRequestDto signingScheme) throws AttributeException, NotFoundException {
         if (signingScheme instanceof StaticKeyManagedSigningRequestDto staticKeyScheme) {
             List<RequestAttribute> signingOperationAttributes = staticKeyScheme.getSigningOperationAttributes();
-            List<BaseAttribute> definitions = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(signingProfile.getCryptographicKeyUuid()))
+            List<BaseAttribute> definitions = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(signingProfile.getCertificate().getKey().getUuid()))
                     .stream()
                     .findFirst()
                     .map(item -> cryptographicOperationService.listSignatureAttributes(item.getKeyAlgorithm()))
@@ -681,6 +690,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Autowired
     public void setCryptographicOperationService(CryptographicOperationService cryptographicOperationService) {
         this.cryptographicOperationService = cryptographicOperationService;
+    }
+
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
     }
 
     @Autowired

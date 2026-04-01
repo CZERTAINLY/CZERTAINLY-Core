@@ -1,10 +1,12 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.TokenProfile;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -174,5 +176,55 @@ class CertificateUtilTest {
         }
 
         Assertions.assertEquals(expectedResult, CertificateUtil.isCertificateScepCaCertAcceptable(certificate, intuneEnabled), "Test case '" + testCaseName + "' failed");
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.czertainly.core.util.CertificateTestData#provideDigitalSigningAcceptableTestData")
+    void testIsCertificateDigitalSigningAcceptable(
+            String testCaseName,
+            List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys,
+            CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
+            boolean withTokenProfile, List<String> extendedKeyUsages, SigningWorkflowType workflowType,
+            boolean expectedResult
+    ) {
+        Certificate certificate = new Certificate();
+        certificate.setState(certificateState);
+        certificate.setValidationStatus(validationStatus);
+        certificate.setArchived(archived);
+
+        if (!extendedKeyUsages.isEmpty()) {
+            certificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsages));
+        }
+
+        if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
+            CryptographicKey key = new CryptographicKey();
+            Set<CryptographicKeyItem> items = new HashSet<>();
+            for (CertificateTestData.KeyItemData keyData : publicKeys) {
+                CryptographicKeyItem item = new CryptographicKeyItem();
+                item.setType(keyData.type());
+                item.setKeyAlgorithm(keyData.algorithm());
+                item.setUsage(keyData.usage());
+                item.setState(keyData.state());
+                item.setKey(key);
+                items.add(item);
+            }
+            for (CertificateTestData.KeyItemData keyData : privateKeys) {
+                CryptographicKeyItem item = new CryptographicKeyItem();
+                item.setType(keyData.type());
+                item.setKeyAlgorithm(keyData.algorithm());
+                item.setUsage(keyData.usage());
+                item.setState(keyData.state());
+                item.setKey(key);
+                items.add(item);
+            }
+            key.setItems(items);
+            if (withTokenProfile) {
+                key.setTokenProfile(new TokenProfile());
+            }
+            certificate.setKey(key);
+        }
+
+        Assertions.assertEquals(expectedResult, CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, workflowType), "Test case '" + testCaseName + "' failed");
     }
 }

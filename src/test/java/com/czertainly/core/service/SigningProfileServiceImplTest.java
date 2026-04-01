@@ -51,12 +51,16 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -66,6 +70,7 @@ import com.czertainly.core.dao.entity.signing.DigitalSignature;
 import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TspConfiguration;
+import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
@@ -119,6 +124,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
     @Autowired
+    private CertificateRepository certificateRepository;
+
+    @Autowired
     private SigningProfileRepository signingProfileRepository;
 
     @Autowired
@@ -160,6 +168,20 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
      * Used for tests that specifically exercise signing operation attribute storage and retrieval.
      */
     private CryptographicKey rsaCryptographicKey;
+
+    /**
+     * A Certificate associated with {@link #cryptographicKey} (MLDSA key).
+     * Satisfies all conditions of constructQueryDigitalSigningCertAcceptable:
+     * not archived, state=ISSUED, validationStatus=VALID, key has a private key that is ACTIVE
+     * with SIGN usage, and the associated key has a Token Profile assigned.
+     */
+    private Certificate certificate;
+
+    /**
+     * A Certificate associated with {@link #rsaCryptographicKey} (RSA key).
+     * Satisfies the same conditions as {@link #certificate}.
+     */
+    private Certificate rsaCertificate;
 
     @BeforeEach
     void setUp() {
@@ -209,9 +231,17 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         mldsaKeyItem.setEnabled(true);
         mldsaKeyItem.setKeyAlgorithm(KeyAlgorithm.MLDSA);
         mldsaKeyItem.setLength(2048);
+        mldsaKeyItem.setUsage(List.of(KeyUsage.SIGN));
         mldsaKeyItem = cryptographicKeyItemRepository.saveAndFlush(mldsaKeyItem);
         mldsaKeyItem.setKeyReferenceUuid(mldsaKeyItem.getUuid());
         cryptographicKeyItemRepository.saveAndFlush(mldsaKeyItem);
+
+        // Certificate associated with the MLDSA key; satisfies constructQueryDigitalSigningCertAcceptable conditions
+        certificate = new Certificate();
+        certificate.setKey(cryptographicKey);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
+        certificate = certificateRepository.saveAndFlush(certificate);
 
         // RSA key — produces RSA attribute definitions; used by attribute-persistence tests
         rsaCryptographicKey = new CryptographicKey();
@@ -228,9 +258,17 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         rsaKeyItem.setEnabled(true);
         rsaKeyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
         rsaKeyItem.setLength(2048);
+        rsaKeyItem.setUsage(List.of(KeyUsage.SIGN));
         rsaKeyItem = cryptographicKeyItemRepository.saveAndFlush(rsaKeyItem);
         rsaKeyItem.setKeyReferenceUuid(rsaKeyItem.getUuid());
         cryptographicKeyItemRepository.saveAndFlush(rsaKeyItem);
+
+        // Certificate associated with the RSA key; satisfies constructQueryDigitalSigningCertAcceptable conditions
+        rsaCertificate = new Certificate();
+        rsaCertificate.setKey(rsaCryptographicKey);
+        rsaCertificate.setState(CertificateState.ISSUED);
+        rsaCertificate.setValidationStatus(CertificateValidationStatus.VALID);
+        rsaCertificate = certificateRepository.saveAndFlush(rsaCertificate);
 
         // Register a custom attribute available for Signing Profile resources
         CustomAttributeV3 attrDef = new CustomAttributeV3();
@@ -288,8 +326,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         request.setName(name);
         request.setDescription("Test description for " + name);
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setTokenProfileUuid(tokenProfile.getUuid());
-        scheme.setCryptographicKeyUuid(cryptographicKey.getUuid());
+        scheme.setCertificateUuid(certificate.getUuid());
         request.setSigningScheme(scheme);
         request.setWorkflow(new RawSigningWorkflowRequestDto());
         return request;
@@ -625,8 +662,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(ManagedSigningType.ONE_TIME_KEY, entity.getManagedSigningType());
         // No delegated connector when using managed scheme
         Assertions.assertNull(entity.getDelegatedSignerConnectorUuid());
-        // Static key UUID is not set for one-time key type
-        Assertions.assertNull(entity.getCryptographicKeyUuid());
+        // Certificate UUID is not set for one-time key type
+        Assertions.assertNull(entity.getCertificateUuid());
     }
 
     @Test
@@ -734,8 +771,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         request.setName("managed-document-profile");
         request.setDescription("Managed static-key profile with document signing workflow");
         StaticKeyManagedSigningRequestDto managedDocScheme = new StaticKeyManagedSigningRequestDto();
-        managedDocScheme.setTokenProfileUuid(tokenProfile.getUuid());
-        managedDocScheme.setCryptographicKeyUuid(cryptographicKey.getUuid());
+        managedDocScheme.setCertificateUuid(certificate.getUuid());
         request.setSigningScheme(managedDocScheme);
         request.setWorkflow(new DocumentSigningWorkflowRequestDto());
 
@@ -861,9 +897,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningScheme.DELEGATED, entity.getSigningScheme());
         // managedSigningType must have been cleared by applyScheme
         Assertions.assertNull(entity.getManagedSigningType());
-        // token profile and key references must have been cleared
-        Assertions.assertNull(entity.getTokenProfileUuid());
-        Assertions.assertNull(entity.getCryptographicKeyUuid());
+        // token profile and certificate references must have been cleared
+        Assertions.assertNull(entity.getCertificateUuid());
     }
 
     @Test
@@ -1471,11 +1506,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateSigningProfile_staticKey_signingOperationAttributesPersistedAndReturned()
-            throws AttributeException, NotFoundException {
+    void testCreateSigningProfile_staticKey_signingOperationAttributesPersistedAndReturned() throws AttributeException, NotFoundException {
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setTokenProfileUuid(tokenProfile.getUuid());
-        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setCertificateUuid(rsaCertificate.getUuid());
         scheme.setSigningOperationAttributes(List.of(
                 buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
@@ -1501,11 +1534,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetSigningProfile_staticKey_signingOperationAttributesLoadedFromEngine()
-            throws AttributeException, NotFoundException {
+    void testGetSigningProfile_staticKey_signingOperationAttributesLoadedFromEngine() throws AttributeException, NotFoundException {
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setTokenProfileUuid(tokenProfile.getUuid());
-        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setCertificateUuid(rsaCertificate.getUuid());
         scheme.setSigningOperationAttributes(List.of(
                 buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
@@ -1530,8 +1561,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testUpdateSigningProfile_staticKey_signingOperationAttributesReplacedOnUpdate() throws AttributeException, NotFoundException {
         // Create with PKCS1-v1_5 / SHA-256
         StaticKeyManagedSigningRequestDto schemeV1 = new StaticKeyManagedSigningRequestDto();
-        schemeV1.setTokenProfileUuid(tokenProfile.getUuid());
-        schemeV1.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        schemeV1.setCertificateUuid(rsaCertificate.getUuid());
         schemeV1.setSigningOperationAttributes(List.of(
                 buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
@@ -1546,8 +1576,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         // Update to PSS / SHA-384
         StaticKeyManagedSigningRequestDto schemeV2 = new StaticKeyManagedSigningRequestDto();
-        schemeV2.setTokenProfileUuid(tokenProfile.getUuid());
-        schemeV2.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        schemeV2.setCertificateUuid(rsaCertificate.getUuid());
         schemeV2.setSigningOperationAttributes(List.of(
                 buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
                 buildDigestAttribute(DigestAlgorithm.SHA_384)));
@@ -1586,8 +1615,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testUpdateSigningProfile_schemeChangedToNonStaticKey_signingOperationAttributesCleared() throws AttributeException, NotFoundException {
         // Create a STATIC_KEY profile with signing operation attributes
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setTokenProfileUuid(tokenProfile.getUuid());
-        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setCertificateUuid(rsaCertificate.getUuid());
         scheme.setSigningOperationAttributes(List.of(
                 buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
@@ -1615,8 +1643,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testDeleteSigningProfile_removesSigningOperationAttributesFromEngine()
             throws AttributeException, NotFoundException {
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setTokenProfileUuid(tokenProfile.getUuid());
-        scheme.setCryptographicKeyUuid(rsaCryptographicKey.getUuid());
+        scheme.setCertificateUuid(rsaCertificate.getUuid());
         scheme.setSigningOperationAttributes(List.of(
                 buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));

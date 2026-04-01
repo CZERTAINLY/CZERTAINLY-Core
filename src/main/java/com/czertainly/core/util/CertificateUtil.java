@@ -13,8 +13,11 @@ import com.czertainly.api.model.core.oid.SystemOid;
 import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Certificate_;
+import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.entity.CryptographicKey_;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.CryptographicKeyItem_;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
@@ -77,6 +80,8 @@ import java.util.stream.Collectors;
 
 public class CertificateUtil {
     public static final String EMPTY_COMMON_NAME_PLACEHOLDER = "<empty>";
+    /** RFC 3161 Time Stamping extended key usage OID (id-kp-timeStamping). */
+    public static final String TSA_EKU_OID = "1.3.6.1.5.5.7.3.8";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
     private static final Map<String, KeyAlgorithm> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
@@ -773,6 +778,95 @@ public class CertificateUtil {
             }
         }
         return privateKeyAvailable;
+    }
+
+    /*
+     * Constructed Query Graph for Digital Signing Certificate Filtering:
+     *
+     * Certificate (root)
+     * |-- NOT archived
+     * |-- keyUuid IS NOT NULL
+     * |-- state == ISSUED
+     * |-- validationStatus IN (VALID, EXPIRING)
+     * |-- key.tokenProfileUuid IS NOT NULL  (associated Token Profile)
+     * |-- AT LEAST ONE private key must exist
+     * |-- ALL private keys must meet criteria
+     *     |-- state=ACTIVE AND usage & SIGN
+     * |-- (TIMESTAMPING only) extendedKeyUsage contains TSA OID (RFC 3161)
+     */
+    public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryDigitalSigningCertAcceptable(SigningWorkflowType workflowType) {
+        return (root, cb, cr) -> {
+            // Subquery to ensure at least one private key exists.
+            Subquery<Integer> privateKeySubquery = cr.subquery(Integer.class);
+            Root<CryptographicKeyItem> pkSubRoot = privateKeySubquery.from(CryptographicKeyItem.class);
+            privateKeySubquery.select(cb.literal(1));
+            privateKeySubquery.where(
+                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
+                    cb.equal(pkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY)
+            );
+
+            // Subquery to check if there are any private keys that DO NOT meet criteria.
+            Subquery<Integer> invalidPrivateKeySubquery = cr.subquery(Integer.class);
+            Root<CryptographicKeyItem> invPkSubRoot = invalidPrivateKeySubquery.from(CryptographicKeyItem.class);
+            invalidPrivateKeySubquery.select(cb.literal(1));
+            invalidPrivateKeySubquery.where(
+                    cb.equal(invPkSubRoot.get(CryptographicKeyItem_.KEY_UUID), root.get(Certificate_.KEY_UUID)),
+                    cb.equal(invPkSubRoot.get(CryptographicKeyItem_.TYPE), KeyType.PRIVATE_KEY),
+                    cb.not(constructKeyItemPredicate(cb, invPkSubRoot, null, KeyState.ACTIVE, KeyUsage.SIGN.getBit()))
+            );
+
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.not(root.get(Certificate_.ARCHIVED)));
+            predicates.add(cb.isNotNull(root.get(Certificate_.KEY_UUID)));
+            predicates.add(cb.equal(root.get(Certificate_.STATE), CertificateState.ISSUED));
+            predicates.add(root.get(Certificate_.VALIDATION_STATUS).in(List.of(CertificateValidationStatus.VALID, CertificateValidationStatus.EXPIRING)));
+            predicates.add(cb.exists(privateKeySubquery));
+            predicates.add(cb.not(cb.exists(invalidPrivateKeySubquery)));
+            // The associated CryptographicKey must have a Token Profile assigned.
+            predicates.add(cb.isNotNull(root.get(Certificate_.KEY).get(CryptographicKey_.TOKEN_PROFILE_UUID)));
+
+            // RFC 3161: TSA certificates must carry the id-kp-timeStamping EKU.
+            if (workflowType == SigningWorkflowType.TIMESTAMPING) {
+                predicates.add(cb.like(root.get(Certificate_.EXTENDED_KEY_USAGE), "%" + TSA_EKU_OID + "%"));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    public static boolean isCertificateDigitalSigningAcceptable(Certificate certificate, SigningWorkflowType workflowType) {
+        if (certificate.isArchived()) return false;
+        if (certificate.getKey() == null ||
+                !certificate.getState().equals(CertificateState.ISSUED) ||
+                (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)
+                        && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))
+        ) {
+            return false;
+        }
+
+        // The associated CryptographicKey must have a Token Profile assigned.
+        if (certificate.getKey().getTokenProfile() == null) return false;
+
+        // All private keys must be ACTIVE and carry the SIGN usage.
+        // Other key types (split keys, secret keys) do not apply to certificate signing.
+        boolean privateKeyAvailable = false;
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if (item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (item.getState() != KeyState.ACTIVE || !item.getUsage().contains(KeyUsage.SIGN)) {
+                    return false;
+                }
+                privateKeyAvailable = true;
+            }
+        }
+        if (!privateKeyAvailable) return false;
+
+        // RFC 3161: TSA certificates must carry the id-kp-timeStamping EKU.
+        if (workflowType == SigningWorkflowType.TIMESTAMPING) {
+            List<String> ekuOids = MetaDefinitions.deserializeArrayString(certificate.getExtendedKeyUsage());
+            if (!ekuOids.contains(TSA_EKU_OID)) return false;
+        }
+
+        return true;
     }
 
     public static String generateRandomX509CertificateBase64(KeyPair keyPair) throws CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
