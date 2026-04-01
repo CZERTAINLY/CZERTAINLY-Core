@@ -5,6 +5,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
@@ -20,6 +21,7 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.secret.*;
 import com.czertainly.api.model.core.secret.SecretRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -57,6 +59,10 @@ import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 @Service(value = Resource.Codes.SECRET)
@@ -157,6 +163,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 SearchHelper.prepareSearch(FilterField.SECRET_TYPE, Arrays.stream(com.czertainly.api.model.connector.secrets.SecretType.values()).map(com.czertainly.api.model.connector.secrets.SecretType::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_STATE, Arrays.stream(SecretState.values()).map(SecretState::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_ENABLED),
+                SearchHelper.prepareSearch(FilterField.SECRET_COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_SOURCE_VAULT_PROFILE, vaultProfileRepository.findAllNames()),
                 SearchHelper.prepareSearch(FilterField.SECRET_SYNC_VAULT_PROFILE, vaultProfileRepository.findAllNames())
         ));
@@ -842,6 +849,56 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
 
         return loadSecretOperationRequest(connectorUuid, vaultProfile.getVaultInstanceUuid(), vaultProfile.getUuid(), secret.getType(), secretAttributes, secretRequestDto);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    public Long statisticsSecretCount(SecurityFilter filter) {
+        filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
+        return secretRepository.countUsingSecurityFilter(filter, null);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    public StatisticsDto addSecretStatistics(SecurityFilter filter, StatisticsDto dto) {
+        filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
+        long start = System.nanoTime();
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Void>> futures = executor.invokeAll(List.of(
+                    () -> {
+                        dto.setSecretStatByType(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.type, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByState(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.state, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByComplianceStatus(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.complianceStatus, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByVaultProfile(secretRepository.countGroupedUsingSecurityFilter(filter, Secret_.sourceVaultProfile, VaultProfile_.name, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByGroup(secretRepository.countGroupedUsingSecurityFilter(filter, Secret_.groups, Group_.name, null, null));
+                        return null;
+                    }
+            ));
+            for (Future<Void> future : futures) {
+                try {
+                    future.get();
+                } catch (ExecutionException ex) {
+                    logger.error("An error occurred during calculation of secret statistics", ex.getCause());
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Secret statistics calculation was interrupted", e);
+        }
+        logger.debug("Secret statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
+        return dto;
     }
 
     private ConnectorDetailDto loadSecretOperationRequest(UUID connectorUuid, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretType type, List<RequestAttribute> secretAttributes, SecretOperationRequest secretOperationRequest) throws ConnectorException, NotFoundException, AttributeException {
