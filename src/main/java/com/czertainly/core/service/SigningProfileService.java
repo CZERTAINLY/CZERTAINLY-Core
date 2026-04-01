@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
@@ -57,6 +58,8 @@ public interface SigningProfileService extends ResourceExtensionService {
     void associateWithApprovalProfile(SecuredUUID signingProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
 
     void disassociateFromApprovalProfile(SecuredUUID signingProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
+
+    List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType);
 
     PaginationResponseDto<DigitalSignatureListDto> listDigitalSignaturesForSigningProfile(SecuredUUID uuid, SearchRequestDto request, SecurityFilter filter) throws NotFoundException;
 

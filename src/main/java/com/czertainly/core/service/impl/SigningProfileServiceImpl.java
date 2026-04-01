@@ -33,6 +33,7 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
@@ -59,6 +60,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.CryptographicOperationService;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.model.SecuredList;
@@ -97,6 +99,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     private CryptographicOperationService cryptographicOperationService;
     private CertificateRepository certificateRepository;
+    private CertificateService certificateService;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private DigitalSignatureRepository digitalSignatureRepository;
     private IlmSigningProtocolConfigurationRepository ilmSigningProtocolRepository;
@@ -157,6 +160,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspConfigurationUuid, SecurityFilter filter) {
         List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTspConfigurationUuid(tspConfigurationUuid);
         return SecuredList.fromFilter(filter, signingProfiles);
+    }
+
+    @Override
+    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType) {
+        return certificateService.listDigitalSigningCertificates(SecurityFilter.create(), signingWorkflowType);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -695,6 +703,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
     }
 
     @Autowired

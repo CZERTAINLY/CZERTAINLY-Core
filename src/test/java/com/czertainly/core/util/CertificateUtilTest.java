@@ -185,7 +185,8 @@ class CertificateUtilTest {
             List<CertificateTestData.KeyItemData> publicKeys,
             List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
-            boolean withTokenProfile, List<String> extendedKeyUsages, SigningWorkflowType workflowType,
+            boolean withTokenProfile, List<String> extendedKeyUsages, boolean extendedKeyUsageCritical,
+            SigningWorkflowType workflowType,
             boolean expectedResult
     ) {
         Certificate certificate = new Certificate();
@@ -196,6 +197,7 @@ class CertificateUtilTest {
         if (!extendedKeyUsages.isEmpty()) {
             certificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsages));
         }
+        certificate.setExtendedKeyUsageCritical(extendedKeyUsageCritical);
 
         if (!publicKeys.isEmpty() || !privateKeys.isEmpty()) {
             CryptographicKey key = new CryptographicKey();

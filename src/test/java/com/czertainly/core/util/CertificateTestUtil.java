@@ -78,4 +78,42 @@ public class CertificateTestUtil {
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(defaultKeyPair.getPrivate());
         return converter.getCertificate(certBuilder.build(signer));
     }
+
+    public static X509Certificate createCertificateWithEku(boolean critical) throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        ensureBouncyCastleProvider();
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        Date notBefore = new Date();
+        Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+                new X500Name("CN=test"), BigInteger.ONE, notBefore, notAfter, new X500Name("CN=test"), keyPair.getPublic());
+        certBuilder.addExtension(Extension.extendedKeyUsage, critical,
+                new ExtendedKeyUsage(new KeyPurposeId[]{KeyPurposeId.id_kp_serverAuth}));
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+        return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(signer));
+    }
+
+    public static X509Certificate createCertificateWithoutEku() throws NoSuchAlgorithmException, OperatorCreationException, CertificateException {
+        ensureBouncyCastleProvider();
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        Date notBefore = new Date();
+        Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+                new X500Name("CN=test"), BigInteger.ONE, notBefore, notAfter, new X500Name("CN=test"), keyPair.getPublic());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+        return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(signer));
+    }
+
+    private static void ensureBouncyCastleProvider() {
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.addProvider(new BouncyCastleProvider());
+        }
+    }
 }

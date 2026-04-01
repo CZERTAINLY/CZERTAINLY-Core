@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
@@ -130,6 +131,12 @@ public class SigningProfileControllerImpl implements SigningProfileController {
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.UPDATE)
     public void disassociateFromApprovalProfile(@LogResource(uuid = true) UUID signingProfileUuid, @LogResource(uuid = true, affiliated = true) UUID approvalProfileUuid) throws NotFoundException {
         signingProfileService.disassociateFromApprovalProfile(SecuredUUID.fromUUID(signingProfileUuid), SecuredUUID.fromUUID(approvalProfileUuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
+    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType) {
+        return signingProfileService.listSigningCertificates(signingWorkflowType);
     }
 
     @Override

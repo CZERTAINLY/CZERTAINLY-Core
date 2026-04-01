@@ -115,6 +115,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
     @Autowired
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     @Autowired
+    private TokenProfileRepository tokenProfileRepository;
+    @Autowired
     private AttributeService attributeService;
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
@@ -1158,7 +1160,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
             List<CertificateTestData.KeyItemData> publicKeys,
             List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
-            boolean withTokenProfile, List<String> extendedKeyUsages, SigningWorkflowType workflowType,
+            boolean withTokenProfile, List<String> extendedKeyUsages, boolean extendedKeyUsageCritical,
+            SigningWorkflowType workflowType,
             boolean shouldBeAccepted
     ) {
         CryptographicKey key = null;
@@ -1171,7 +1174,11 @@ class CertificateServiceTest extends BaseSpringBootTest {
                 createCryptographicKeyItem(key, keyItemData.type(), keyItemData.algorithm(), keyItemData.usage(), keyItemData.state());
             }
             if (withTokenProfile) {
-                key.setTokenProfileUuid(UUID.randomUUID());
+                TokenProfile tokenProfile = new TokenProfile();
+                tokenProfile.setName(testCaseName + " Token Profile");
+                tokenProfile.setEnabled(true);
+                tokenProfile = tokenProfileRepository.save(tokenProfile);
+                key.setTokenProfile(tokenProfile);
                 cryptographicKeyRepository.save(key);
             }
         }
@@ -1179,8 +1186,9 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Certificate cert = createCertificateEntity(testCaseName, key, certificateState, validationStatus, archived);
         if (!extendedKeyUsages.isEmpty()) {
             cert.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsages));
-            certificateRepository.save(cert);
         }
+        cert.setExtendedKeyUsageCritical(extendedKeyUsageCritical);
+        certificateRepository.save(cert);
 
         List<CertificateDto> certificates = certificateService.listDigitalSigningCertificates(SecurityFilter.create(), workflowType);
         boolean isPresent = certificates.stream().anyMatch(c -> c.getCommonName().equals(testCaseName));

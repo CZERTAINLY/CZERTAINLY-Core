@@ -80,8 +80,6 @@ import java.util.stream.Collectors;
 
 public class CertificateUtil {
     public static final String EMPTY_COMMON_NAME_PLACEHOLDER = "<empty>";
-    /** RFC 3161 Time Stamping extended key usage OID (id-kp-timeStamping). */
-    public static final String TSA_EKU_OID = "1.3.6.1.5.5.7.3.8";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
     private static final Map<String, KeyAlgorithm> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
@@ -443,7 +441,13 @@ public class CertificateUtil {
         } catch (CertificateParsingException e) {
             logger.warn("Unable to get the extended key usage for certificate with serial number {} and subject DN {}: {}", modal.getSerialNumber(), modal.getSubjectDn(), e.getMessage());
         }
-        if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
+        if (extendedKeyUsage != null) {
+            modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
+            // OID 2.5.29.37 is the Extended Key Usage extension
+            modal.setExtendedKeyUsageCritical(
+                    certificate.getCriticalExtensionOIDs() != null
+                    && certificate.getCriticalExtensionOIDs().contains("2.5.29.37"));
+        }
         modal.setKeyUsage(
                CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()));
         modal.setSubjectType(subjectType);
@@ -792,7 +796,8 @@ public class CertificateUtil {
      * |-- AT LEAST ONE private key must exist
      * |-- ALL private keys must meet criteria
      *     |-- state=ACTIVE AND usage & SIGN
-     * |-- (TIMESTAMPING only) extendedKeyUsage contains TSA OID (RFC 3161)
+     * |-- (TIMESTAMPING only) extendedKeyUsage is exclusively the TSA OID (RFC 3161)
+     * |-- (TIMESTAMPING only) extendedKeyUsageCritical is true (RFC 3161)
      */
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryDigitalSigningCertAcceptable(SigningWorkflowType workflowType) {
         return (root, cb, cr) -> {
@@ -825,9 +830,11 @@ public class CertificateUtil {
             // The associated CryptographicKey must have a Token Profile assigned.
             predicates.add(cb.isNotNull(root.get(Certificate_.KEY).get(CryptographicKey_.TOKEN_PROFILE_UUID)));
 
-            // RFC 3161: TSA certificates must carry the id-kp-timeStamping EKU.
+            // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
             if (workflowType == SigningWorkflowType.TIMESTAMPING) {
-                predicates.add(cb.like(root.get(Certificate_.EXTENDED_KEY_USAGE), "%" + TSA_EKU_OID + "%"));
+                String exclusiveTsaEku = MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid()));
+                predicates.add(cb.equal(root.get(Certificate_.EXTENDED_KEY_USAGE), exclusiveTsaEku));
+                predicates.add(cb.isTrue(root.get(Certificate_.EXTENDED_KEY_USAGE_CRITICAL)));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -860,10 +867,12 @@ public class CertificateUtil {
         }
         if (!privateKeyAvailable) return false;
 
-        // RFC 3161: TSA certificates must carry the id-kp-timeStamping EKU.
+        // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
         if (workflowType == SigningWorkflowType.TIMESTAMPING) {
             List<String> ekuOids = MetaDefinitions.deserializeArrayString(certificate.getExtendedKeyUsage());
-            if (!ekuOids.contains(TSA_EKU_OID)) return false;
+            return ekuOids.size() == 1
+                    && ekuOids.contains(SystemOid.TIME_STAMPING.getOid())
+                    && Boolean.TRUE.equals(certificate.getExtendedKeyUsageCritical());
         }
 
         return true;
