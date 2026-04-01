@@ -30,14 +30,13 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.messaging.listeners.ActionListener;
 import com.czertainly.core.messaging.model.ActionMessage;
+import com.czertainly.core.messaging.model.SecretActionData;
 import com.czertainly.core.messaging.producers.ActionProducer;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.util.AuthHelper;
-import com.czertainly.core.util.BaseSpringBootTest;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.SecretsUtil;
+import com.czertainly.core.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -48,6 +47,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -55,6 +55,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.util.SerializationUtils;
 
 import java.io.Serializable;
@@ -255,6 +256,63 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, secretDetailDto.getMetadata().size());
         Assertions.assertEquals("label", secretDetailDto.getMetadata().getFirst().getItems().getFirst().getLabel());
         Assertions.assertEquals(vaultProfile.getName(), secretDetailDto.getMetadata().getFirst().getItems().getFirst().getSourceObjects().getFirst().getName());
+    }
+
+    @Test
+    void testSecretOperationFailed() throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException, JsonProcessingException {
+        // Remove stubbing to cause failure in secret operations
+        mockServer.resetAll();
+        Mockito.doNothing().when(actionProducer).produceMessage(any());
+        VaultInstance newVaultInstance = new VaultInstance();
+        newVaultInstance.setName("newVaultInstance");
+        newVaultInstance.setConnector(connector);
+        vaultInstanceRepository.save(newVaultInstance);
+        VaultProfile newVaultProfileWithNewInstance = new VaultProfile();
+        newVaultProfileWithNewInstance.setName("newVaultProfileNewInstance");
+        newVaultProfileWithNewInstance.setVaultInstance(newVaultInstance);
+        vaultProfileRepository.save(newVaultProfileWithNewInstance);
+
+        SecretRequestDto request = new SecretRequestDto();
+        request.setName("newSecret");
+        request.setSecret(new BasicAuthSecretContent());
+        SecretDetailDto secretDetailDto = secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), vaultInstance.getSecuredUuid());
+        ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setResourceUuid(UUID.fromString(secretDetailDto.getUuid()));
+        actionMessage.setResourceAction(ResourceAction.CREATE);
+        actionMessage.setData(SecretActionData.builder()
+                .name(request.getName())
+                .originalState(SecretState.ACTIVE)
+                        .updatedSourceVaultProfileUuid(newVaultProfileWithNewInstance.getUuid())
+                .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(new ObjectMapper().writeValueAsString(request.getSecret()), SecretEncodingVersion.V1))
+                .build());
+        Assertions.assertThrows(SecretOperationException.class, () -> secretService.processSecretAction(actionMessage, true, true));
+        Secret newSecret = secretRepository.findWithAssociationsByUuid(UUID.fromString(secretDetailDto.getUuid())).orElseThrow();
+        Assertions.assertEquals(SecretState.FAILED, newSecret.getState());
+
+        SecretUpdateRequestDto updateRequest = new SecretUpdateRequestDto();
+        updateRequest.setSecret(new BasicAuthSecretContent());
+        SecretState originalState = secret.getState();
+        actionMessage.setResourceAction(ResourceAction.UPDATE);
+        actionMessage.setResourceUuid(secret.getUuid());
+        Assertions.assertThrows(SecretOperationException.class, () -> secretService.processSecretAction(actionMessage, true, true));
+        Secret secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(originalState, secretReloaded.getState());
+
+        actionMessage.setResourceAction(ResourceAction.DELETE);
+        Assertions.assertThrows(SecretOperationException.class, () -> secretService.processSecretAction(actionMessage, true, true));
+        secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(originalState, secretReloaded.getState());
+
+        actionMessage.setResourceAction(ResourceAction.UPDATE_SOURCE_VAULT_PROFILE);
+        Assertions.assertThrows(SecretOperationException.class, () -> secretService.processSecretAction(actionMessage, true, true));
+        secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(originalState, secretReloaded.getState());
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets/content"))
+                .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(new BasicAuthSecretContent()))));
+        Assertions.assertThrows(SecretOperationException.class, () -> secretService.processSecretAction(actionMessage, true, true));
+        secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(originalState, secretReloaded.getState());
     }
 
     @Test
@@ -554,6 +612,14 @@ class SecretServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testGetSecretContent() {
+        secret.setState(SecretState.FAILED);
+        secretRepository.save(secret);
+        UUID secretUuid = secret.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> secretService.getSecretContent(secretUuid));
+    }
+
+    @Test
     void testListResourceObjects() {
         List<NameAndUuidDto> secrets = secretService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, secrets.size());
@@ -569,6 +635,21 @@ class SecretServiceTest extends BaseSpringBootTest {
         nameAndUuidDto = secretService.getResourceObjectExternal(secret.getSecuredUuid());
         Assertions.assertEquals(secret.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(secret.getName(), nameAndUuidDto.getName());
+    }
+
+    @Test
+    void testHandlingRejectedSecret() throws SecretOperationException, ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
+        ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setResourceUuid(secret.getUuid());
+        actionMessage.setResourceAction(ResourceAction.CREATE);
+        actionMessage.setData(SecretActionData.builder().originalState(SecretState.ACTIVE).build());
+        secretService.processSecretAction(actionMessage, true, false);
+        secret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(SecretState.REJECTED, secret.getState());
+        actionMessage.setResourceAction(ResourceAction.UPDATE);
+        secretService.processSecretAction(actionMessage, true, false);
+        secret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+        Assertions.assertEquals(SecretState.ACTIVE, secret.getState());
     }
 
 }

@@ -686,7 +686,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             SecretRequestDto secretRequest = new SecretRequestDto();
             secretRequest.setName(secret.getName());
             secretRequest.setAttributes(request.getSecretAttributes());
-            secretRequest.setSecret(getSecretContent(secret.getUuid()));
+            try {
+                secretRequest.setSecret(getSecretContent(secret.getUuid()));
+            } catch (Exception e) {
+                secret.setState(originalState);
+                throw new SecretOperationException("Could not retrieve secret content to create secret in vault: " + e.getMessage());
+            }
             SecretResponseDto secretResponseDto = null;
             try {
                 secretResponseDto = createSecretInVault(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), updatedSourceVaultProfile.getVaultInstanceUuid(), secret.getType(), updatedSourceVaultProfile.getUuid(), secretRequest);
