@@ -16,6 +16,7 @@ import com.czertainly.api.model.common.error.ErrorCode;
 import com.czertainly.api.model.connector.secrets.*;
 import com.czertainly.api.model.connector.secrets.content.*;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -35,6 +36,7 @@ import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.SecretActionData;
 import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -81,6 +83,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     private SecretRepository secretRepository;
     private SecretVersionRepository secretVersionRepository;
     private Secret2SyncVaultProfileRepository secret2SyncVaultProfileRepository;
+
+    private GroupRepository groupRepository;
+    private UserManagementApiClient userManagementApiClient;
 
     private ResourceObjectAssociationService objectAssociationService;
     private ConnectorService connectorService;
@@ -155,6 +160,16 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         this.vaultInstanceRepository = vaultInstanceRepository;
     }
 
+    @Autowired
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
+
+    @Autowired
+    public void setGroupRepository(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
+
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.SECRET, false);
@@ -164,6 +179,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 SearchHelper.prepareSearch(FilterField.SECRET_STATE, Arrays.stream(SecretState.values()).map(SecretState::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_ENABLED),
                 SearchHelper.prepareSearch(FilterField.SECRET_COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.SECRET_GROUP_NAME, groupRepository.findAll().stream().map(Group::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.SECRET_OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_SOURCE_VAULT_PROFILE, vaultProfileRepository.findAllNames()),
                 SearchHelper.prepareSearch(FilterField.SECRET_SYNC_VAULT_PROFILE, vaultProfileRepository.findAllNames())
         ));
