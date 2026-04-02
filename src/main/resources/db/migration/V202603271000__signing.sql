@@ -32,7 +32,7 @@ CREATE TABLE "signing_profile" (
     "certificate_uuid"                      UUID,
     "ra_profile_uuid"                       UUID,
     "csr_template_uuid"                     UUID, -- no FK, entity TBD
-    "delegated_connector_uuid"              UUID,
+    "delegated_signer_connector_uuid"       UUID,
     -- workflow columns (type-conditional, nullable)
     "signature_formatter_connector_uuid"    UUID,
     "qualified_timestamp"                   BOOLEAN,
