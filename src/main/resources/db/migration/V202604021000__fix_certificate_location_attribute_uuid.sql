@@ -6,7 +6,16 @@
 -- UUID.fromString() in AttributeEngine.getResponseAttributesFromBaseAttributes()
 -- throws an exception for such values, so we replace them with a default UUID.
 
-UPDATE certificate_location
+WITH push_data AS (
+    SELECT location_uuid,
+           certificate_uuid,
+           push_attributes::jsonb AS val
+    FROM certificate_location
+    WHERE push_attributes IS NOT NULL
+      AND push_attributes NOT IN ('null', '[]')
+      AND jsonb_typeof(push_attributes::jsonb) IN ('array', 'object')
+)
+UPDATE certificate_location cl
 SET push_attributes = (
     SELECT jsonb_agg(
         CASE
@@ -18,20 +27,20 @@ SET push_attributes = (
         END
     )::text
     FROM jsonb_array_elements(
-        CASE WHEN jsonb_typeof(push_attributes::jsonb) = 'array'
-             THEN push_attributes::jsonb
-             ELSE jsonb_build_array(push_attributes::jsonb)
+        CASE WHEN jsonb_typeof(d.val) = 'array'
+             THEN d.val
+             ELSE jsonb_build_array(d.val)
         END
     ) AS elem
 )
-WHERE push_attributes IS NOT NULL
-  AND push_attributes NOT IN ('null', '[]')
-  AND jsonb_typeof(push_attributes::jsonb) IN ('array', 'object')
+FROM push_data d
+WHERE cl.location_uuid = d.location_uuid
+  AND cl.certificate_uuid = d.certificate_uuid
   AND CASE
-    WHEN jsonb_typeof(push_attributes::jsonb) = 'object' THEN true
-    WHEN jsonb_typeof(push_attributes::jsonb) = 'array' THEN EXISTS (
+    WHEN jsonb_typeof(d.val) = 'object' THEN true
+    WHEN jsonb_typeof(d.val) = 'array' THEN EXISTS (
         SELECT 1
-        FROM jsonb_array_elements(push_attributes::jsonb) AS elem
+        FROM jsonb_array_elements(d.val) AS elem
         WHERE NOT (elem ? 'uuid')
            OR (elem->>'uuid') IS NULL
            OR trim(elem->>'uuid') = ''
@@ -39,7 +48,16 @@ WHERE push_attributes IS NOT NULL
     ELSE false
   END;
 
-UPDATE certificate_location
+WITH csr_data AS (
+    SELECT location_uuid,
+           certificate_uuid,
+           csr_attributes::jsonb AS val
+    FROM certificate_location
+    WHERE csr_attributes IS NOT NULL
+      AND csr_attributes NOT IN ('null', '[]')
+      AND jsonb_typeof(csr_attributes::jsonb) IN ('array', 'object')
+)
+UPDATE certificate_location cl
 SET csr_attributes = (
     SELECT jsonb_agg(
         CASE
@@ -51,20 +69,20 @@ SET csr_attributes = (
         END
     )::text
     FROM jsonb_array_elements(
-        CASE WHEN jsonb_typeof(csr_attributes::jsonb) = 'array'
-             THEN csr_attributes::jsonb
-             ELSE jsonb_build_array(csr_attributes::jsonb)
+        CASE WHEN jsonb_typeof(d.val) = 'array'
+             THEN d.val
+             ELSE jsonb_build_array(d.val)
         END
     ) AS elem
 )
-WHERE csr_attributes IS NOT NULL
-  AND csr_attributes NOT IN ('null', '[]')
-  AND jsonb_typeof(csr_attributes::jsonb) IN ('array', 'object')
+FROM csr_data d
+WHERE cl.location_uuid = d.location_uuid
+  AND cl.certificate_uuid = d.certificate_uuid
   AND CASE
-    WHEN jsonb_typeof(csr_attributes::jsonb) = 'object' THEN true
-    WHEN jsonb_typeof(csr_attributes::jsonb) = 'array' THEN EXISTS (
+    WHEN jsonb_typeof(d.val) = 'object' THEN true
+    WHEN jsonb_typeof(d.val) = 'array' THEN EXISTS (
         SELECT 1
-        FROM jsonb_array_elements(csr_attributes::jsonb) AS elem
+        FROM jsonb_array_elements(d.val) AS elem
         WHERE NOT (elem ? 'uuid')
            OR (elem->>'uuid') IS NULL
            OR trim(elem->>'uuid') = ''
