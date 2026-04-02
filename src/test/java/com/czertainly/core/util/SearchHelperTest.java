@@ -84,7 +84,7 @@ class SearchHelperTest extends BaseSpringBootTest {
 
     @Test
     void testPrepareSearchCount() {
-        Set<FilterField> shouldHaveCountOperator = Set.of(FilterField.CONNECTOR_FUNCTION_GROUP, FilterField.CONNECTOR_INTERFACE, FilterField.GROUP_NAME, FilterField.SUCCEEDING_CERTIFICATES, FilterField.PRECEDING_CERTIFICATES, FilterField.CERT_LOCATION_NAME, FilterField.CK_GROUP, FilterField.SECRET_SYNC_VAULT_PROFILE);
+        Set<FilterField> shouldHaveCountOperator = Set.of(FilterField.CONNECTOR_FUNCTION_GROUP, FilterField.CONNECTOR_INTERFACE, FilterField.GROUP_NAME, FilterField.SUCCEEDING_CERTIFICATES, FilterField.PRECEDING_CERTIFICATES, FilterField.CERT_LOCATION_NAME, FilterField.CK_GROUP, FilterField.SECRET_SYNC_VAULT_PROFILE, FilterField.SECRET_GROUP_NAME);
         Set<FilterField> withCountOperator = new HashSet<>();
         for (FilterField filterField : FilterField.values()) {
             SearchFieldDataDto searchFieldDataDto = SearchHelper.prepareSearch(filterField, List.of("sampleValue"));
