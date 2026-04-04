@@ -108,6 +108,11 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Autowired
+    public void setCertificateRelationRepository(CertificateRelationRepository certificateRelationRepository) {
+        this.certificateRelationRepository = certificateRelationRepository;
+    }
+
+    @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
         this.raProfileRepository = raProfileRepository;
     }
@@ -237,7 +242,7 @@ public class LocationServiceImpl implements LocationService {
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), location.getName());
 
         try {
-            updateLocation(location, entityInstanceRef, dto, locationDetailResponseDto);
+            location = updateLocation(location, entityInstanceRef, dto, locationDetailResponseDto);
         } catch (CertificateException e) {
             logger.debug("Failed to update Location {}, {} content: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to update Location content: " + location.getName() + ", " + location.getUuid());
@@ -245,11 +250,12 @@ public class LocationServiceImpl implements LocationService {
 
         logger.info("Location with name {} and UUID {} updated", location.getName(), location.getUuid());
 
+        UUID updatedLocationUuid = location.getUuid();
         LocationDto locationDto = mapLocationToDto(location);
-        locationDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.LOCATION, location.getUuid())));
-        locationDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.LOCATION, location.getUuid(), dto.getCustomAttributes()));
-        locationDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(entityInstanceRef.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), dto.getAttributes()));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(entityInstanceRef.getConnectorUuid(), Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        locationDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.LOCATION, updatedLocationUuid)));
+        locationDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.LOCATION, updatedLocationUuid, dto.getCustomAttributes()));
+        locationDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(entityInstanceRef.getConnectorUuid(), null, Resource.LOCATION, updatedLocationUuid, dto.getAttributes()));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(entityInstanceRef.getConnectorUuid(), Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, updatedLocationUuid))));
         return locationDto;
     }
 
@@ -614,7 +620,7 @@ public class LocationServiceImpl implements LocationService {
         }
 
         try {
-            updateLocationContent(location, locationDetailResponseDto);
+            location = updateLocationContent(location, locationDetailResponseDto);
         } catch (CertificateException e) { // TODO: do it like this?
             logger.debug("Failed to update Location {}, {} content: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to update content for Location " + location.getName());
@@ -625,9 +631,10 @@ public class LocationServiceImpl implements LocationService {
 
         logger.info("Location with name {} and UUID {} synced", location.getName(), location.getUuid());
 
+        UUID syncedLocationUuid = location.getUuid();
         LocationDto locationDto = mapLocationToDto(location);
-        locationDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, location.getUuid()));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(entityInstanceRef.getConnectorUuid(), Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        locationDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, syncedLocationUuid));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(entityInstanceRef.getConnectorUuid(), Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, syncedLocationUuid))));
 
         return locationDto;
     }
@@ -704,7 +711,7 @@ public class LocationServiceImpl implements LocationService {
 
         return locationDto;
     }
-    
+
     private LocationDto mapLocationToDto(Location location) {
         LocationDto locationDto = location.mapToDto();
         for (CertificateLocation certificateLocation : location.getCertificates()) {
@@ -819,8 +826,12 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes, List<MetadataAttribute> certificateMetadata) throws LocationException, AttributeException {
-        //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
-        //stored in the database
+        upsertCertificateLocation(location, certificate, pushAttributes, csrAttributes);
+        locationRepository.save(location);
+        attributeEngine.updateMetadataAttributes(certificateMetadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
+    }
+
+    private CertificateLocation upsertCertificateLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes) throws LocationException {
         List<BaseAttribute> fullPushAttributes;
         List<BaseAttribute> fullCsrAttributes;
         try {
@@ -831,16 +842,10 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
         }
 
-        List<BaseAttribute> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
-        List<BaseAttribute> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
-
-        // check if this location already has a CertificateLocation for `certificate`
-        CertificateLocation certificateLocation = location.getCertificates().stream()
-                .filter(cl -> cl.getCertificate().getUuid().equals(certificate.getUuid()))
-                .findFirst()
+        CertificateLocation certificateLocation = certificateLocationRepository
+                .findById(new CertificateLocationId(location.getUuid(), certificate.getUuid()))
                 .orElse(null);
 
-        // if it doesn't exist, create it and add it to location
         if (certificateLocation == null) {
             certificateLocation = new CertificateLocation();
             certificateLocation.setLocation(location);
@@ -848,14 +853,10 @@ public class LocationServiceImpl implements LocationService {
             location.getCertificates().add(certificateLocation);
         }
 
-        // update push/CSR attributes on either the existing or new CertificateLocation
-        certificateLocation.setPushAttributes(mergedPushAttributes);
-        certificateLocation.setCsrAttributes(mergedCsrAttributes);
+        certificateLocation.setPushAttributes(AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes));
+        certificateLocation.setCsrAttributes(AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes));
 
-        // just do one save operation – rely on cascade (assuming cascade on Location → CertificateLocation)
-        locationRepository.save(location);
-
-        attributeEngine.updateMetadataAttributes(certificateMetadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
+        return certificateLocation;
     }
 
     private void pushCertificateToLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes) throws LocationException, AttributeException {
@@ -892,33 +893,8 @@ public class LocationServiceImpl implements LocationService {
                     " to Location " + location.getName() + ". Reason: " + e.getMessage());
         }
 
-        //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
-        //stored in the database
-        List<BaseAttribute> fullPushAttributes;
-        List<BaseAttribute> fullCsrAttributes;
-        try {
-            fullPushAttributes = listPushAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
-            fullCsrAttributes = listCsrAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
-        } catch (NotFoundException e) {
-            logger.error("Unable to find the location with uuid: {}", location.getUuid());
-            throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
-        }
-
-        List<BaseAttribute> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
-        List<BaseAttribute> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
-
-        CertificateLocation certificateLocation = new CertificateLocation();
-        certificateLocation.setLocation(location);
-        certificateLocation.setCertificate(certificate);
+        CertificateLocation certificateLocation = upsertCertificateLocation(location, certificate, pushAttributes, csrAttributes);
         certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
-        certificateLocation.setPushAttributes(mergedPushAttributes);
-        certificateLocation.setCsrAttributes(mergedCsrAttributes);
-
-        // TODO: response with the indication if the key is available for pushed certificate
-
-        certificateLocation = certificateLocationRepository.save(certificateLocation);
-        location.getCertificates().add(certificateLocation);
-
         locationRepository.save(location);
 
         attributeEngine.updateMetadataAttributes(pushCertificateResponseDto.getCertificateMetadata(), new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
@@ -1012,7 +988,7 @@ public class LocationServiceImpl implements LocationService {
         entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
         entity.setEntityInstanceName(entityInstanceRef.getName());
         locationRepository.save(entity);
-        updateContent(entity,
+        entity = updateContent(entity,
                 locationDetailResponseDto.isMultipleEntries(),
                 locationDetailResponseDto.isSupportKeyManagement(),
                 locationDetailResponseDto.getMetadata(),
@@ -1021,7 +997,7 @@ public class LocationServiceImpl implements LocationService {
         return entity;
     }
 
-    private void updateLocation(Location entity, EntityInstanceReference entityInstanceRef, EditLocationRequestDto dto, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException, AttributeException {
+    private Location updateLocation(Location entity, EntityInstanceReference entityInstanceRef, EditLocationRequestDto dto, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException, AttributeException {
         entity.setDescription(dto.getDescription());
         entity.setEntityInstanceReference(entityInstanceRef);
         if (dto.isEnabled() != null) {
@@ -1029,63 +1005,80 @@ public class LocationServiceImpl implements LocationService {
         }
         entity.setEntityInstanceName(entityInstanceRef.getName());
 
-        updateContent(entity,
+        return updateContent(entity,
                 locationDetailResponseDto.isMultipleEntries(),
                 locationDetailResponseDto.isSupportKeyManagement(),
                 locationDetailResponseDto.getMetadata(),
                 locationDetailResponseDto.getCertificates());
     }
 
-    private void updateLocationContent(Location entity, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException, AttributeException {
-        updateContent(entity,
+    private Location updateLocationContent(Location entity, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException, AttributeException {
+        return updateContent(entity,
                 locationDetailResponseDto.isMultipleEntries(),
                 locationDetailResponseDto.isSupportKeyManagement(),
                 locationDetailResponseDto.getMetadata(),
                 locationDetailResponseDto.getCertificates());
     }
 
-    private void updateContent(Location location, boolean supportMultipleEntries, boolean supportKeyManagement,
-                               List<MetadataAttribute> metadata, List<CertificateLocationDto> certificates) throws CertificateException, AttributeException {
+    private Location updateContent(Location location, boolean supportMultipleEntries, boolean supportKeyManagement,
+                                   List<MetadataAttribute> metadata, List<CertificateLocationDto> certificates) throws CertificateException, AttributeException {
+        logger.debug("Syncing location content. Received {} certificates. Location has {} certificates", certificates.size(), location.getCertificates().size());
+
+        UUID connectorUuid = location.getEntityInstanceReference().getConnectorUuid();
+        UUID locationUuid = location.getUuid();
+        String locationName = location.getName();
+
+        // Drop all existing metadata and certificate-location rows for this location
+        attributeEngine.deleteObjectAttributesContent(AttributeType.META,
+                new ObjectAttributeContentInfo(connectorUuid, Resource.LOCATION, locationUuid));
+        attributeEngine.deleteObjectAttributesContentBySource(AttributeType.META, connectorUuid, Resource.CERTIFICATE, Resource.LOCATION, locationUuid);
+
+        // clearAutomatically on this query evicts stale CertificateLocation references
+        // from the session (reachable via Certificate.locations) to prevent identity conflicts
+        certificateLocationRepository.deleteByLocationUuid(locationUuid);
+
+        // Re-fetch location evicted by the session clear
+        location = locationRepository.findByUuid(locationUuid)
+                .orElseThrow(() -> new IllegalStateException("Location " + locationUuid + " could not be reloaded after clearing certificate-location mappings"));
         location.setSupportMultipleEntries(supportMultipleEntries);
         location.setSupportKeyManagement(supportKeyManagement);
 
-        attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.LOCATION, location.getUuid()));
-        attributeEngine.updateMetadataAttributes(metadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.LOCATION, location.getUuid()));
-        Map<UUID, CertificateLocation> cls = new HashMap<>();
-        for (CertificateLocationDto certificateLocationDto : certificates) {
-            CertificateLocation cl = new CertificateLocation();
-            cl.setWithKey(certificateLocationDto.isWithKey());
-            cl.setCertificate(certificateService.createCertificate(certificateLocationDto.getCertificateData(), certificateLocationDto.getCertificateType()));
-            cl.setLocation(location);
-            cl.setPushAttributes(certificateLocationDto.getPushAttributes());
-            cl.setCsrAttributes(certificateLocationDto.getCsrAttributes());
-            cls.put(cl.getCertificate().getUuid(), cl);
+        // Deduplicate by certificate UUID — JPA identity is (locationUuid, certificateUuid)
+        // so only one row per certificate can exist. Metadata accumulates across all alias
+        // occurrences via overwrite=false on the alias attribute definition.
+        int duplicatesCount = 0;
+        Set<UUID> processedCertUuids = new HashSet<>();
+        for (CertificateLocationDto dto : certificates) {
+            Certificate certificate = certificateService.createCertificate(dto.getCertificateData(), dto.getCertificateType());
+            UUID certUuid = certificate.getUuid();
 
-            attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, cl.getCertificate().getUuid(), Resource.LOCATION, location.getUuid()));
-            attributeEngine.updateMetadataAttributes(certificateLocationDto.getMetadata(), new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, cl.getCertificate().getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
-        }
-
-        Iterator<CertificateLocation> iterator = location.getCertificates().iterator();
-        while (iterator.hasNext()) {
-            CertificateLocation cl = iterator.next();
-
-            CertificateLocation lc = cls.get(cl.getId().getCertificateUuid());
-            if (lc == null) {
-                certificateLocationRepository.delete(cl);
-                iterator.remove();
+            if (processedCertUuids.add(certUuid)) {
+                CertificateLocation cl = new CertificateLocation();
+                cl.setWithKey(dto.isWithKey());
+                cl.setCertificate(certificate);
+                cl.setLocation(location);
+                cl.setPushAttributes(dto.getPushAttributes());
+                cl.setCsrAttributes(dto.getCsrAttributes());
+                location.getCertificates().add(cl);
             } else {
-                cl.setCsrAttributes(lc.getCsrAttributes());
-                cl.setPushAttributes(lc.getPushAttributes());
-                cl.setWithKey(lc.isWithKey());
-                certificateLocationRepository.save(cl);
-                cls.remove(cl.getId().getCertificateUuid());
+                duplicatesCount++;
             }
+
+            attributeEngine.updateMetadataAttributes(dto.getMetadata(),
+                    new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certUuid,
+                            Resource.LOCATION, locationUuid, locationName));
         }
 
-        location.getCertificates().addAll(cls.values());
+        attributeEngine.updateMetadataAttributes(metadata,
+                new ObjectAttributeContentInfo(connectorUuid, Resource.LOCATION, locationUuid));
+
         locationRepository.save(location);
 
-        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, null, null, location.getUuid(), location.getName()));
+        logger.debug("Sync finished. Location has {} certificates. Encountered {} duplicate certificates", location.getCertificates().size(), duplicatesCount);
+
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, null, null, locationUuid, locationName));
+
+        return location;
     }
 
     private void authorityPreChecks(RaProfile raProfile) throws ValidationException {
@@ -1131,7 +1124,7 @@ public class LocationServiceImpl implements LocationService {
                 throw new ValidationException(ValidationError.create("Location with same attributes already exists"));
             }
         }
-        
+
     }
 
     @Override
