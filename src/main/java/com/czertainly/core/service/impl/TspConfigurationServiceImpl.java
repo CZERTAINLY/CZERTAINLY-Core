@@ -196,7 +196,9 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
 
         SigningProfile defaultSigningProfile = null;
         if (request.getDefaultSigningProfileUuid() != null) {
-            defaultSigningProfile = getSigningProfileEntity(request.getDefaultSigningProfileUuid());
+            UUID defaultSigningProfileUuid = request.getDefaultSigningProfileUuid();
+            defaultSigningProfile = signingProfileRepository.findByUuid(SecuredUUID.fromUUID(defaultSigningProfileUuid))
+                    .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + defaultSigningProfileUuid));
         }
 
         return defaultSigningProfile;
@@ -234,11 +236,6 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
     private TspConfiguration getTspConfigurationEntity(UUID uuid) throws NotFoundException {
         return tspConfigurationRepository.findById(uuid)
                 .orElseThrow(() -> new NotFoundException("TSP Configuration not found: " + uuid));
-    }
-
-    private SigningProfile getSigningProfileEntity(UUID signingProfileUuid) throws NotFoundException {
-        return signingProfileRepository.findById(signingProfileUuid).orElseThrow(() -> new NotFoundException("Signing Profile not found: " + signingProfileUuid));
-
     }
 
     // ──────────────────────────────────────────────────────────────────────────

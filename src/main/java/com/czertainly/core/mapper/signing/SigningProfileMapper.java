@@ -3,6 +3,7 @@ package com.czertainly.core.mapper.signing;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
+import com.czertainly.api.model.client.signing.profile.SimplifiedSigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.scheme.DelegatedSigningDto;
 import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningDto;
@@ -142,22 +143,38 @@ public class SigningProfileMapper {
 
     public static IlmSigningProtocolActivationDetailDto toIlmSigningProtocolActivationDto(SigningProfile profile) {
         IlmSigningProtocolActivationDetailDto dto = new IlmSigningProtocolActivationDetailDto();
-        dto.setAvailable(profile.getIlmSigningProtocolConfiguration() != null);
         if (profile.getIlmSigningProtocolConfiguration() != null) {
+            dto.setUuid(profile.getIlmSigningProtocolConfiguration().getUuid().toString());
+            dto.setName(profile.getIlmSigningProtocolConfiguration().getName());
+            dto.setAvailable(true);
             dto.setSigningUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + "/v1/protocols/ilm/signingProfile/" + profile.getName() + "/sign");
+        } else {
+            dto.setAvailable(false);
         }
         return dto;
     }
 
     public static TspActivationDetailDto toTspActivationDto(SigningProfile profile) {
         TspActivationDetailDto dto = new TspActivationDetailDto();
-        dto.setAvailable(profile.getTspConfiguration() != null);
         if (profile.getTspConfiguration() != null) {
+            dto.setUuid(profile.getTspConfiguration().getUuid().toString());
+            dto.setName(profile.getTspConfiguration().getName());
+            dto.setAvailable(true);
             dto.setSigningUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + "/v1/protocols/tsp/signingProfile/" + profile.getName() + "/sign");
+        } else {
+            dto.setAvailable(false);
         }
         return dto;
+    }
+
+    public static SimplifiedSigningProfileDto toSimpleDto(SigningProfile signingProfile) {
+        SimplifiedSigningProfileDto signingProfileDto = new SimplifiedSigningProfileDto();
+        signingProfileDto.setUuid(signingProfile.getUuid().toString());
+        signingProfileDto.setName(signingProfile.getName());
+        signingProfileDto.setEnabled(Boolean.TRUE.equals(signingProfile.getEnabled()));
+        return signingProfileDto;
     }
 
     private static void setFormatterRef(UUID signatureFormatterConnectorUuid, Consumer<NameAndUuidDto> setter) {
