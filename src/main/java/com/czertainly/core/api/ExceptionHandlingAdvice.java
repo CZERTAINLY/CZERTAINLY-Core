@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -318,6 +319,18 @@ public class ExceptionHandlingAdvice {
 
         ErrorMessageDto errorMessageDto = ErrorMessageDto.getInstance(errorMessage);
         return ResponseEntity.status(ex.getProblemDetail().getStatus()).body(errorMessageDto);
+    }
+
+    /**
+     * Handler for {@link HttpMediaTypeNotSupportedException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public ErrorMessageDto handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
+        LOG.info("HTTP 415: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance("Content-Type is not supported");
     }
 
     /**
