@@ -167,6 +167,20 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         return certificateService.listDigitalSigningCertificates(SecurityFilter.create(), signingWorkflowType);
     }
 
+    @Override
+    public List<BaseAttribute> listSignatureAttributesForCertificate(UUID certificateUuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        if (certificate.getKey() == null) {
+            return List.of();
+        }
+        return cryptographicKeyItemRepository.findByKeyUuidIn(List.of(certificate.getKey().getUuid()))
+                .stream()
+                .findFirst()
+                .map(item -> cryptographicOperationService.listSignatureAttributes(item.getKeyAlgorithm()))
+                .orElse(List.of());
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Get (with optional version)
     // ──────────────────────────────────────────────────────────────────────────
@@ -207,8 +221,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         profile.setName(request.getName());
         profile.setDescription(request.getDescription());
         profile.setLatestVersion(1);
-        applyScheme(profile, request.getSigningScheme());
         applyWorkflow(profile, request.getWorkflow());
+        applyScheme(profile, request.getSigningScheme());
         profile = signingProfileRepository.save(profile);
 
         saveVersionSnapshot(profile, 1, request.getSigningScheme(), request.getWorkflow(), false);
@@ -233,8 +247,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         SigningProfile profile = findByUuid(uuid);
         profile.setName(request.getName());
         profile.setDescription(request.getDescription());
-        applyScheme(profile, request.getSigningScheme());
         applyWorkflow(profile, request.getWorkflow());
+        applyScheme(profile, request.getSigningScheme());
 
         // Lenient version bump: only bump if signatures exist for the current latest version
         boolean bump = digitalSignatureRepository.existsBySigningProfileUuidAndSigningProfileVersion(profile.getUuid(), profile.getLatestVersion());
@@ -585,8 +599,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             tmp.setDescription(live.getDescription());
             tmp.setEnabled(live.getEnabled());
             tmp.setLatestVersion(spv.getVersion());
-            applyScheme(tmp, schemeReq);
             applyWorkflow(tmp, workflowReq);
+            applyScheme(tmp, schemeReq);
 
             List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, live.getUuid());
             // :TODO: deserialize signingOperationAttributes and signatureFormatterConnectorAttributes from the version snapshot JSON

@@ -827,7 +827,6 @@ public class CertificateUtil {
             predicates.add(root.get(Certificate_.VALIDATION_STATUS).in(List.of(CertificateValidationStatus.VALID, CertificateValidationStatus.EXPIRING)));
             predicates.add(cb.exists(privateKeySubquery));
             predicates.add(cb.not(cb.exists(invalidPrivateKeySubquery)));
-            // The associated CryptographicKey must have a Token Profile assigned.
             predicates.add(cb.isNotNull(root.get(Certificate_.KEY).get(CryptographicKey_.TOKEN_PROFILE_UUID)));
 
             // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.

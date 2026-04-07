@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
@@ -26,7 +27,10 @@ import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SigningProfileService;
+import com.czertainly.core.util.converter.SigningWorkflowTypeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -36,6 +40,11 @@ import java.util.UUID;
 public class SigningProfileControllerImpl implements SigningProfileController {
 
     private final SigningProfileService signingProfileService;
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(SigningWorkflowType.class, new SigningWorkflowTypeConverter());
+    }
 
     @Autowired
     public SigningProfileControllerImpl(SigningProfileService signingProfileService) {
@@ -137,6 +146,12 @@ public class SigningProfileControllerImpl implements SigningProfileController {
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
     public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType) {
         return signingProfileService.listSigningCertificates(signingWorkflowType);
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
+    public List<BaseAttribute> listSignatureAttributesForCertificate(@LogResource(uuid = true) UUID certificateUuid) throws NotFoundException {
+        return signingProfileService.listSignatureAttributesForCertificate(certificateUuid);
     }
 
     @Override

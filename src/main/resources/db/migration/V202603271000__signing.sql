@@ -86,6 +86,9 @@ CREATE TABLE "signing_profile_version" (
     "scheme_snapshot"       JSONB        NOT NULL, -- serialised flat columns at version-bump
     "workflow_snapshot"     JSONB        NOT NULL, -- serialised flat columns at version-bump
     "created_at"            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    "i_author"              VARCHAR,
+    "i_cre"                 TIMESTAMP  DEFAULT NOW(),
+    "i_upd"                 TIMESTAMP  DEFAULT NOW(),
     PRIMARY KEY ("uuid"),
     UNIQUE ("signing_profile_uuid", "version"),
     FOREIGN KEY ("signing_profile_uuid") REFERENCES "signing_profile" ("uuid") ON DELETE CASCADE
@@ -100,6 +103,9 @@ CREATE TABLE "digital_signature" (
     "signing_time"            TIMESTAMPTZ  NOT NULL,
     "created_at"              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     "signature_value"         BYTEA,
+    "i_author"                VARCHAR,
+    "i_cre"                   TIMESTAMP  DEFAULT NOW(),
+    "i_upd"                   TIMESTAMP  DEFAULT NOW(),
     PRIMARY KEY ("uuid"),
     FOREIGN KEY ("signing_profile_uuid") REFERENCES "signing_profile" ("uuid") ON DELETE SET NULL
 );
