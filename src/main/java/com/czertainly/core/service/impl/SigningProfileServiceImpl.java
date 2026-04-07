@@ -199,7 +199,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, uuid.getValue());
         List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
-                null, AttributeOperation.SIGNING_SCHEME, Resource.SIGNING_PROFILE, uuid.getValue());
+                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, uuid.getValue());
         List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
                 profile.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER,
                 Resource.SIGNING_PROFILE, uuid.getValue());
@@ -473,8 +473,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private void applyScheme(SigningProfile p, SigningSchemeRequestDto scheme) throws AttributeException, NotFoundException {
         // Delete any previously stored signing-operation attributes before overwriting the scheme.
         if (p.getUuid() != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(
-                    AttributeType.DATA, AttributeOperation.SIGNING_SCHEME,
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.SIGN,
                     new ObjectAttributeContentInfo(null, Resource.SIGNING_PROFILE, p.getUuid()));
         }
         p.setSigningScheme(scheme.getSigningScheme());
@@ -517,8 +516,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private void applyWorkflow(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
         // Delete any previously stored workflow-formatter attributes before overwriting the workflow.
         if (p.getUuid() != null && p.getSignatureFormatterConnectorUuid() != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(
-                    AttributeType.DATA, AttributeOperation.WORKFLOW_FORMATTER,
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.WORKFLOW_FORMATTER,
                     new ObjectAttributeContentInfo(p.getSignatureFormatterConnectorUuid(), Resource.SIGNING_PROFILE, p.getUuid()));
         }
         p.setWorkflowType(workflow.getType());
@@ -632,9 +630,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                     .orElse(List.of());
 
             // The signing operation attributes are Core-internal (not connector-owned), so connectorUuid is null.
-            attributeEngine.validateUpdateDataAttributes(null, AttributeOperation.SIGNING_SCHEME, definitions, signingOperationAttributes);
+            attributeEngine.validateUpdateDataAttributes(null, AttributeOperation.SIGN, definitions, signingOperationAttributes);
             return attributeEngine.updateObjectDataAttributesContent(
-                    null, AttributeOperation.SIGNING_SCHEME, Resource.SIGNING_PROFILE, signingProfile.getUuid(), signingOperationAttributes);
+                    null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, signingProfile.getUuid(), signingOperationAttributes);
         }
         return null;
     }

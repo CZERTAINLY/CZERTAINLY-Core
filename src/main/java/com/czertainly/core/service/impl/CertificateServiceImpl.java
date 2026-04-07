@@ -409,8 +409,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         }
         if (dto.getCertificateRequest() != null) {
             dto.getCertificateRequest().setAttributes(attributeEngine.getObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
-            dto.getCertificateRequest().setSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
-            dto.getCertificateRequest().setAltSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
+            dto.getCertificateRequest().setSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
+            dto.getCertificateRequest().setAltSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
         }
         // if has RA profile with authority and connector
         if (certificate.getRaProfile() != null && certificate.getRaProfile().getAuthorityInstanceReference() != null && certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid() != null) {
@@ -1580,10 +1580,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
             );
             requestSignatureAttributes = attributeEngine.getObjectDataAttributesContent(
-                    null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
+                    null, AttributeOperation.SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
             );
             requestAltSignatureAttributes = attributeEngine.getObjectDataAttributesContent(
-                    null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
+                    null, AttributeOperation.SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
             );
             if (requestAttributes.isEmpty() && csrAttributes != null && !csrAttributes.isEmpty()) {
                 requestAttributes = attributeEngine.updateObjectDataAttributesContent(
@@ -1592,13 +1592,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             }
             if (requestSignatureAttributes.isEmpty() && signatureAttributes != null && !signatureAttributes.isEmpty()) {
                 requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
-                        null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
+                        null, AttributeOperation.SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
                 );
             }
 
             if (requestAltSignatureAttributes.isEmpty() && altSignatureAttributes != null && !altSignatureAttributes.isEmpty()) {
                 requestAltSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
-                        null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), altSignatureAttributes
+                        null, AttributeOperation.SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), altSignatureAttributes
                 );
             }
         } else {
@@ -1612,10 +1612,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
             );
             requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
-                    null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
+                    null, AttributeOperation.SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
             );
             requestAltSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
-                    null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), altSignatureAttributes
+                    null, AttributeOperation.SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), altSignatureAttributes
             );
         }
 
@@ -1772,8 +1772,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         CertificateDetailDto dto = certificate.mapToDto();
         if (dto.getCertificateRequest() != null) {
             dto.getCertificateRequest().setAttributes(attributeEngine.getObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
-            dto.getCertificateRequest().setSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
-            dto.getCertificateRequest().setAltSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
+            dto.getCertificateRequest().setSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
+            dto.getCertificateRequest().setAltSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
         }
         dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid())));
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid()));

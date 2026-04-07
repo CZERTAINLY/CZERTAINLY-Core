@@ -614,7 +614,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             signatureAttributes = request.getSignatureAttributes();
         } else {
             if (oldCertificate.getCertificateRequest() != null)
-                signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+                signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
             else signatureAttributes = null;
         }
 
@@ -628,7 +628,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 altSignatureAttributes = request.getAltSignatureAttributes();
             } else {
                 if (oldCertificate.getCertificateRequest() != null)
-                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
             }
             altTokenProfileUuid = getAltTokenProfileUuid(request.getAltTokenProfileUuid(), oldCertificate);
 

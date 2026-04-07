@@ -35,11 +35,10 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.other.ResourceObjectDto;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.entity.AttributeRelation;
+import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
@@ -101,9 +100,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Autowired
     private SigningProfileService signingProfileService;
-
-    @Autowired
-    private ResourceService resourceService;
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -594,8 +590,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
         UUID profileUuid = UUID.fromString(dto.getUuid());
-        Optional<com.czertainly.core.dao.entity.signing.SigningProfileVersion> snapshot =
-                signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuid, 1);
+        Optional<SigningProfileVersion> snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuid, 1);
 
         Assertions.assertTrue(snapshot.isPresent(), "Version 1 snapshot should be created on profile creation");
         Assertions.assertEquals(1, snapshot.get().getVersion());
@@ -673,8 +668,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         for (String uuidStr : List.of(staticKeyDto.getUuid(), oneTimeKeyDto.getUuid())) {
             UUID profileUuid = UUID.fromString(uuidStr);
-            Optional<com.czertainly.core.dao.entity.signing.SigningProfileVersion> snapshot =
-                    signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuid, 1);
+            Optional<SigningProfileVersion> snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuid, 1);
             Assertions.assertTrue(snapshot.isPresent(),
                     "Version 1 snapshot should exist for profile " + uuidStr);
             Assertions.assertNotNull(snapshot.get().getSchemeSnapshot());
@@ -851,8 +845,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 "Version should be bumped when digital signatures exist for the current version");
 
         // A new snapshot for version 2 should have been created
-        Optional<com.czertainly.core.dao.entity.signing.SigningProfileVersion> v2snapshot =
-                signingProfileVersionRepository.findBySigningProfileUuidAndVersion(savedProfile.getUuid(), 2);
+        Optional<SigningProfileVersion> v2snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(savedProfile.getUuid(), 2);
         Assertions.assertTrue(v2snapshot.isPresent(), "Version 2 snapshot should be created after bump");
     }
 
@@ -938,8 +931,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         signingProfileService.updateSigningProfile(profileUuid, buildDelegatedDocumentRequest("overwrite-snapshot-profile"));
 
         // Still only one snapshot (version 1) — overwritten
-        Optional<com.czertainly.core.dao.entity.signing.SigningProfileVersion> v1Snapshot =
-                signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 1);
+        Optional<SigningProfileVersion> v1Snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 1);
         Assertions.assertTrue(v1Snapshot.isPresent(), "Version 1 snapshot should still exist after in-place overwrite");
         Assertions.assertFalse(
                 signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 2).isPresent(),
@@ -1633,8 +1625,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         // Verify nothing remains in AttributeEngine under SIGNING_SCHEME for this profile
         List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
-                null, AttributeOperation.SIGNING_SCHEME, com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE,
-                UUID.fromString(created.getUuid()));
+                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, UUID.fromString(created.getUuid()));
         Assertions.assertTrue(remaining.isEmpty(),
                 "Signing-scheme attributes should be deleted when scheme changes away from STATIC_KEY");
     }
@@ -1660,8 +1651,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         // AttributeEngine should have no attributes left for this profile
         List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
-                null, AttributeOperation.SIGNING_SCHEME, com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE,
-                profileUuid);
+                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, profileUuid);
         Assertions.assertTrue(remaining.isEmpty(),
                 "Signing-scheme attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
     }
@@ -1782,15 +1772,13 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         // Attributes for old formatterA should be gone
         List<ResponseAttribute> oldAttrs = attributeEngine.getObjectDataAttributesContent(
-                formatterA.getUuid(), AttributeOperation.WORKFLOW_FORMATTER,
-                com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE, profileUuidRaw);
+                formatterA.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuidRaw);
         Assertions.assertTrue(oldAttrs.isEmpty(),
                 "Attributes for the old formatter connector should be removed when the connector changes");
 
         // Attributes for new formatterB should be present
         List<ResponseAttribute> newAttrs = attributeEngine.getObjectDataAttributesContent(
-                formatterB.getUuid(), AttributeOperation.WORKFLOW_FORMATTER,
-                com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE, profileUuidRaw);
+                formatterB.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuidRaw);
         Assertions.assertFalse(newAttrs.isEmpty(),
                 "Attributes for the new formatter connector should be stored after the update");
     }
@@ -1891,8 +1879,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         signingProfileService.deleteSigningProfile(SecuredUUID.fromUUID(profileUuid));
 
         List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
-                formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER,
-                com.czertainly.api.model.core.auth.Resource.SIGNING_PROFILE, profileUuid);
+                formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuid);
         Assertions.assertTrue(remaining.isEmpty(),
                 "Formatter attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
     }
