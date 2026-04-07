@@ -437,6 +437,18 @@ public class ExceptionHandlingAdvice {
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
+    /**
+     * Handler for {@link SecretOperationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(SecretOperationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleSecretOperationException(SecretOperationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
 
     /**
      * Handler for {@link AuthenticationServiceException}.

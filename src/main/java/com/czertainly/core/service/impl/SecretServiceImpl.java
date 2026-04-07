@@ -3,9 +3,9 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
@@ -16,11 +16,13 @@ import com.czertainly.api.model.common.error.ErrorCode;
 import com.czertainly.api.model.connector.secrets.*;
 import com.czertainly.api.model.connector.secrets.content.*;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.secret.*;
 import com.czertainly.api.model.core.secret.SecretRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -30,17 +32,20 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.messaging.model.ActionMessage;
+import com.czertainly.core.messaging.model.SecretActionData;
+import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ConnectorService;
-import com.czertainly.core.util.FilterPredicatesBuilder;
-import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.SecretsUtil;
+import com.czertainly.core.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -56,12 +61,18 @@ import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 @Service(value = Resource.Codes.SECRET)
 @Transactional
 public class SecretServiceImpl implements SecretService, AttributeResourceService {
     private static final Logger logger = LoggerFactory.getLogger(SecretServiceImpl.class);
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private AttributeEngine attributeEngine;
     private ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder;
@@ -73,11 +84,21 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     private SecretVersionRepository secretVersionRepository;
     private Secret2SyncVaultProfileRepository secret2SyncVaultProfileRepository;
 
+    private GroupRepository groupRepository;
+    private UserManagementApiClient userManagementApiClient;
+
     private ResourceObjectAssociationService objectAssociationService;
     private ConnectorService connectorService;
     private VaultInstanceService vaultInstanceService;
 
     private SecretApiClient secretApiClient;
+
+    private ActionProducer actionProducer;
+
+    @Autowired
+    public void setActionProducer(ActionProducer actionProducer) {
+        this.actionProducer = actionProducer;
+    }
 
     @Autowired
     public void setVaultInstanceService(VaultInstanceService vaultInstanceService) {
@@ -139,6 +160,16 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         this.vaultInstanceRepository = vaultInstanceRepository;
     }
 
+    @Autowired
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
+
+    @Autowired
+    public void setGroupRepository(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
+
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.SECRET, false);
@@ -147,6 +178,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 SearchHelper.prepareSearch(FilterField.SECRET_TYPE, Arrays.stream(com.czertainly.api.model.connector.secrets.SecretType.values()).map(com.czertainly.api.model.connector.secrets.SecretType::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_STATE, Arrays.stream(SecretState.values()).map(SecretState::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_ENABLED),
+                SearchHelper.prepareSearch(FilterField.SECRET_COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.SECRET_GROUP_NAME, groupRepository.findAll().stream().map(Group::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.SECRET_OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
                 SearchHelper.prepareSearch(FilterField.SECRET_SOURCE_VAULT_PROFILE, vaultProfileRepository.findAllNames()),
                 SearchHelper.prepareSearch(FilterField.SECRET_SYNC_VAULT_PROFILE, vaultProfileRepository.findAllNames())
         ));
@@ -179,7 +213,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
-    public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID sourceVaultProfileUuid, SecuredUUID vaultInstanceUuid) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
+    public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID sourceVaultProfileUuid, SecuredUUID vaultInstanceUuid) throws NotFoundException, AttributeException, AlreadyExistException {
         if (secretRepository.existsByName(secretRequest.getName())) {
             throw new AlreadyExistException("Secret with name '" + secretRequest.getName() + "' already exists");
         }
@@ -194,7 +228,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         VaultInstance vaultInstance = vaultInstanceRepository.findByUuid(vaultInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(VaultInstance.class, vaultInstanceUuid.toString()));
 
-        SecretResponseDto secretResponseDto = createSecretInVault(vaultInstance.getConnectorUuid(), vaultProfile.getVaultInstanceUuid(), secretRequest.getSecret().getType(), vaultProfile.getUuid(), secretRequest);
 
         attributeEngine.validateCustomAttributesContent(Resource.SECRET, secretRequest.getCustomAttributes());
 
@@ -202,11 +235,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setName(secretRequest.getName());
         secret.setDescription(secretRequest.getDescription());
         secret.setSourceVaultProfile(vaultProfile);
-        secret.setState(SecretState.ACTIVE);
+        secret.setState(SecretState.INACTIVE);
         secret.setType(secretRequest.getSecret().getType());
-
         SecretVersion secretVersion = new SecretVersion();
-        secretVersion.setSecret(secret);
         secretVersion.setVersion(1);
         String fingerprint;
         try {
@@ -214,10 +245,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         } catch (NoSuchAlgorithmException | JsonProcessingException e) {
             throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
         }
-
         secretVersion.setFingerprint(fingerprint);
-        secretVersion.setVaultInstance(vaultInstance);
-        secretVersion.setVaultVersion(secretResponseDto.getVersion());
         secretVersionRepository.save(secretVersion);
 
         secret.setLatestVersion(secretVersion);
@@ -228,27 +256,72 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secretVersionRepository.save(secretVersion);
 
         objectAssociationService.setOwnerFromProfile(Resource.SECRET, secret.getUuid());
-        attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(vaultInstance.getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, vaultProfile.getUuid(), vaultProfile.getName()));
 
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
         secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
         secretDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), secretRequest.getAttributes()));
-        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
 
+        SecretActionData actionData;
+        try {
+            actionData = SecretActionData.builder()
+                    .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(MAPPER.writeValueAsString(secretRequest.getSecret()), SecretEncodingVersion.V1))
+                    .name(secretRequest.getName())
+                    .attributes(secretRequest.getAttributes())
+                    .build();
+        } catch (JsonProcessingException e) {
+            throw new ValidationException("Unable to encrypt secret: " + e.getMessage());
+        }
+        produceActionMessage(actionData, vaultProfile, secret, ResourceAction.CREATE);
         return secretDetailDto;
+    }
+
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    private void checkCreateSecretPermissions(SecuredParentUUID vaultInstanceUuid, SecuredUUID sourceVaultProfileUuid) {
+        // empty to evaluate permissions
+    }
+
+    private void createSecretAction(UUID secretUuid, SecretRequestDto secretRequest, boolean isApproved) throws NotFoundException, AttributeException, SecretOperationException {
+        Secret secret = getSecretEntity(secretUuid);
+        VaultProfile vaultProfile = secret.getSourceVaultProfile();
+        if (!isApproved) {
+            checkCreateSecretPermissions(SecuredParentUUID.fromUUID(vaultProfile.getVaultInstanceUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()));
+        }
+        UUID connectorUuid = vaultProfile.getVaultInstance().getConnectorUuid();
+        SecretResponseDto secretResponseDto;
+        try {
+            secretResponseDto = createSecretInVault(connectorUuid, vaultProfile.getVaultInstanceUuid(), secretRequest.getSecret().getType(), vaultProfile.getUuid(), secretRequest);
+        } catch (Exception e) {
+            secret.setState(SecretState.FAILED);
+            throw new SecretOperationException("Failed to create secret in vault: " + e.getMessage());
+        }
+        SecretVersion secretVersion = secret.getLatestVersion();
+        secretVersion.setVaultInstanceUuid(vaultProfile.getVaultInstanceUuid());
+        secretVersion.setVaultVersion(secretResponseDto.getVersion());
+        secretVersionRepository.save(secretVersion);
+        secret.setState(SecretState.ACTIVE);
+        attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, vaultProfile.getUuid(), vaultProfile.getName()));
+        secretRepository.save(secret);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
-    public SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException, ConnectorException {
+    public SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException {
         Secret secret = getSecretEntity(uuid);
 
         attributeEngine.validateCustomAttributesContent(Resource.SECRET, secretRequest.getCustomAttributes());
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
         secret.setDescription(secretRequest.getDescription());
 
-        List<ResponseAttribute> updatedAttributes = null;
+
+        SecretDetailDto secretDetailDto = secret.mapToDetailDto();
+        secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
+        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
+
         if (secretRequest.getSecret() != null) {
+            if (invalidSecretState(secret)) {
+                throw new ValidationException("Secret %s is in state %s and cannot be updated".formatted(secret.getName(), secret.getState().getLabel()));
+            }
             SecretVersion latestVersion = secret.getLatestVersion();
             String newFingerprint;
             try {
@@ -259,53 +332,117 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
             boolean contentChanged = !newFingerprint.equals(latestVersion.getFingerprint());
             if (contentChanged) {
-                SecretVersion newVersion = new SecretVersion();
-                newVersion.setSecret(secret);
-                newVersion.setVersion(latestVersion.getVersion() + 1);
-                newVersion.setFingerprint(newFingerprint);
-                newVersion.setVaultInstance(currentSourceVaultProfile.getVaultInstance());
-                secretVersionRepository.save(newVersion);
-                Set<UUID> processedVaultInstanceUuids = new HashSet<>();
-                processedVaultInstanceUuids.add(currentSourceVaultProfile.getVaultInstance().getUuid());
-                SecretResponseDto sourceVaultProfileResponse = updateSecretInVault(secret, secret.getSourceVaultProfile(), secretRequest, secretRequest.getAttributes());
-                attributeEngine.updateMetadataAttributes(sourceVaultProfileResponse.getMetadata(), new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, currentSourceVaultProfile.getUuid(), currentSourceVaultProfile.getName()));
-                for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
-                    VaultProfile syncVaultProfile = profile.getVaultProfile();
-                    if (!processedVaultInstanceUuids.contains(syncVaultProfile.getVaultInstance().getUuid())) {
-                        SecretResponseDto syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
-                        attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
-                        processedVaultInstanceUuids.add(syncVaultProfile.getVaultInstance().getUuid());
-                    }
+                SecretActionData actionData;
+                try {
+                    actionData = SecretActionData.builder()
+                            .attributes(secretRequest.getAttributes())
+                            .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(MAPPER.writeValueAsString(secretRequest.getSecret()), SecretEncodingVersion.V1))
+                            .originalState(secret.getState())
+                            .build();
+                } catch (JsonProcessingException e) {
+                    throw new ValidationException("Unable to encrypt secret: " + e.getMessage());
                 }
-                secret.setLatestVersion(newVersion);
-                secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
-                secret.getVersions().add(newVersion);
-                updatedAttributes = attributeEngine.updateObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), secretRequest.getAttributes());
+                produceActionMessage(actionData, currentSourceVaultProfile, secret, ResourceAction.UPDATE);
             }
         }
-
-        SecretDetailDto secretDetailDto = secret.mapToDetailDto();
-        secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
-        secretDetailDto.setAttributes(updatedAttributes == null ? attributeEngine.getObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()) : updatedAttributes);
-        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
 
         return secretDetailDto;
     }
 
+    private void produceActionMessage(SecretActionData secretActionData, VaultProfile currentSourceVaultProfile, Secret secret, ResourceAction resourceAction) {
+        final ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setApprovalProfileResource(Resource.VAULT_PROFILE);
+        actionMessage.setApprovalProfileResourceUuid(currentSourceVaultProfile.getUuid());
+        actionMessage.setData(secretActionData);
+        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
+        actionMessage.setResource(Resource.SECRET);
+        actionMessage.setResourceAction(resourceAction);
+        actionMessage.setResourceUuid(secret.getUuid());
+        actionProducer.produceMessage(actionMessage);
+    }
+
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
+    private void checkUpdateSecretPermissions() {
+        // empty to evaluate permissions
+    }
+
+    private void updateSecretAction(UUID secretUuid, SecretUpdateRequestDto secretRequest, boolean isApproved, SecretState originalState) throws NotFoundException, AttributeException, SecretOperationException {
+        Secret secret = getSecretEntity(secretUuid);
+        VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
+        if (!isApproved) {
+            checkUpdateSecretPermissions();
+        }
+        secret.setState(originalState);
+        SecretVersion newVersion = new SecretVersion();
+        newVersion.setSecret(secret);
+        newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);
+        String newFingerprint;
+        try {
+            newFingerprint = SecretsUtil.calculateSecretContentFingerprint(secretRequest.getSecret());
+        } catch (NoSuchAlgorithmException | JsonProcessingException e) {
+            throw new ValidationException("Unable to calculate secret fingerprint: " + e.getMessage());
+        }
+        newVersion.setFingerprint(newFingerprint);
+        newVersion.setVaultInstance(currentSourceVaultProfile.getVaultInstance());
+        secretVersionRepository.save(newVersion);
+        Set<UUID> processedVaultInstanceUuids = new HashSet<>();
+        processedVaultInstanceUuids.add(currentSourceVaultProfile.getVaultInstance().getUuid());
+        SecretResponseDto sourceVaultProfileResponse = null;
+        try {
+            sourceVaultProfileResponse = updateSecretInVault(secret, secret.getSourceVaultProfile(), secretRequest, secretRequest.getAttributes());
+            attributeEngine.updateMetadataAttributes(sourceVaultProfileResponse.getMetadata(), new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, currentSourceVaultProfile.getUuid(), currentSourceVaultProfile.getName()));
+            for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
+                VaultProfile syncVaultProfile = profile.getVaultProfile();
+                if (!processedVaultInstanceUuids.contains(syncVaultProfile.getVaultInstance().getUuid())) {
+                    SecretResponseDto syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
+                    attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
+                    processedVaultInstanceUuids.add(syncVaultProfile.getVaultInstance().getUuid());
+                }
+            }
+        } catch (Exception e) {
+            throw new SecretOperationException("Failed to update secret: " + e.getMessage());
+        }
+        secret.setLatestVersion(newVersion);
+        secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
+        secret.getVersions().add(newVersion);
+        attributeEngine.updateObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), secretRequest.getAttributes());
+    }
+
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
-    public void deleteSecret(UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
+    public void deleteSecret(UUID uuid) throws NotFoundException {
         Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
                 .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
+        SecretActionData actionData = SecretActionData.builder().originalState(secret.getState()).build();
+        produceActionMessage(actionData, secret.getSourceVaultProfile(), secret, ResourceAction.DELETE);
+    }
+
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
+    private void checkDeleteSecretPermissions() {
+        // empty to evaluate permissions
+    }
+
+    private void deleteSecretAction(UUID secretUuid, boolean isApproved, SecretState originalState) throws NotFoundException, SecretOperationException {
+        Secret secret = getSecretEntity(secretUuid);
+        if (!isApproved) {
+            checkDeleteSecretPermissions();
+        }
         // Delete secret from vaults
-        Set<UUID> vaultInstanceUuids = new HashSet<>();
-        deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-        vaultInstanceUuids.add(secret.getSourceVaultProfile().getVaultInstance().getUuid());
-        for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
-            if (!vaultInstanceUuids.contains(profile.getVaultProfile().getVaultInstance().getUuid())) {
-                deleteSecretFromVault(profile.getVaultProfile(), secret, profile.getSecretAttributes());
-                vaultInstanceUuids.add(profile.getVaultProfile().getVaultInstance().getUuid());
+        if (!invalidSecretState(secret)) {
+            Set<UUID> vaultInstanceUuids = new HashSet<>();
+            try {
+                deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+                vaultInstanceUuids.add(secret.getSourceVaultProfile().getVaultInstance().getUuid());
+                for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
+                    if (!vaultInstanceUuids.contains(profile.getVaultProfile().getVaultInstance().getUuid())) {
+                        deleteSecretFromVault(profile.getVaultProfile(), secret, profile.getSecretAttributes());
+                        vaultInstanceUuids.add(profile.getVaultProfile().getVaultInstance().getUuid());
+                    }
+                }
+            } catch (Exception e) {
+                secret.setState(originalState);
+                throw new SecretOperationException("Failed to delete secret from vault: " + e.getMessage());
             }
         }
         Set<SecretVersion> secretVersions = new HashSet<>(secret.getVersions());
@@ -337,8 +474,15 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.ENABLE)
     public void enableSecret(UUID uuid) throws NotFoundException {
         Secret secret = getSecretEntity(uuid);
+        if (invalidSecretState(secret)) {
+            throw new ValidationException("Secret %s is in state %s and cannot be enabled".formatted(secret.getName(), secret.getState().getLabel()));
+        }
         secret.setEnabled(true);
         secretRepository.save(secret);
+    }
+
+    private static boolean invalidSecretState(Secret secret) {
+        return secret.getState() == SecretState.FAILED || secret.getState() == SecretState.PENDING_APPROVAL || secret.getState() == SecretState.REJECTED;
     }
 
     @Override
@@ -360,6 +504,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
         if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid))) {
             throw new ValidationException("Vault Profile with UUID %s is already a sync vault profile for secret with UUID %s".formatted(vaultProfileUuid, uuid));
+        }
+        if (invalidSecretState(secret)) {
+            throw new ValidationException("Secret %s is in state %s and sync profile cannot be added".formatted(secret.getName(), secret.getState().getLabel()));
         }
 
         VaultProfile addedVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(vaultProfileUuid))
@@ -446,6 +593,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.GET_SECRET_CONTENT)
     public SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(uuid);
+        if (invalidSecretState(secret)) {
+            throw new ValidationException("Secret %s is in state %s and cannot be retrieved".formatted(secret.getName(), secret.getState().getLabel()));
+        }
         if (!secret.getSourceVaultProfile().isEnabled()) {
             throw new ValidationException("Source vault profile" + secret.getSourceVaultProfile().getName() + " is not enabled");
         }
@@ -483,12 +633,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
-    public void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws
-            NotFoundException, ConnectorException, AttributeException {
+    public void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException {
         Secret secret = getSecretEntity(uuid);
-        if (request.getSourceVaultProfileUuid() != null) {
-            updateSourceVaultProfile(request, secret);
-        }
         if (request.getGroupUuids() != null) {
             // check if there is change in groups compared to the current state
             Set<UUID> currentGroups = secret.getGroups().stream().map(Group::getUuid).collect(Collectors.toSet());
@@ -507,67 +653,148 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             }
             objectAssociationService.setOwner(Resource.SECRET, secret.getUuid(), request.getOwnerUuid().isEmpty() ? null : UUID.fromString(request.getOwnerUuid()));
         }
+        if (request.getSourceVaultProfileUuid() != null) {
+            updateSourceVaultProfileAction(request, secret);
+        }
     }
 
-    private void updateSourceVaultProfile(SecretUpdateObjectsDto request, Secret secret) throws
-            NotFoundException, ConnectorException, AttributeException {
+    private void updateSourceVaultProfileAction(SecretUpdateObjectsDto request, Secret secret) {
+        if (invalidSecretState(secret)) {
+            throw new ValidationException("Secret %s is in state %s and source vault profile cannot be updated".formatted(secret.getName(), secret.getState().getLabel()));
+        }
         UUID currentSourceVaultProfileUuid = secret.getSourceVaultProfile().getUuid();
         // Evaluate vault profile membership for current source profile
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(currentSourceVaultProfileUuid));
         VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
 
         boolean sourceVaultProfileChanged = !request.getSourceVaultProfileUuid().equals(currentSourceVaultProfileUuid);
+        SecretActionData secretActionData = SecretActionData.builder()
+                .updatedSourceVaultProfileUuid(request.getSourceVaultProfileUuid())
+                .attributes(request.getSecretAttributes())
+                .originalState(secret.getState())
+                .build();
         if (sourceVaultProfileChanged) {
-            VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()))
-                    .orElseThrow(() -> new NotFoundException(VaultProfile.class, request.getSourceVaultProfileUuid()));
-            permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()));
-            // Move original source vault profile to sync vault profiles
-            Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
-            secret2SyncVaultProfile.setSecretAttributes(attributeEngine.getRequestObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-            secret2SyncVaultProfile.setId(new Secret2SyncVaultProfileId(secret.getUuid(), currentSourceVaultProfile.getUuid()));
-            secret2SyncVaultProfile.setVaultProfile(currentSourceVaultProfile);
-            secret2SyncVaultProfile.setSecret(secret);
-            secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
+            produceActionMessage(secretActionData, currentSourceVaultProfile, secret, ResourceAction.UPDATE_SOURCE_VAULT_PROFILE);
+        }
+    }
 
-            // If new source vault profile was in sync vault profiles, remove association
-            if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getVaultProfile().getUuid().equals(updatedSourceVaultProfile.getUuid()))) {
-                secret2SyncVaultProfileRepository.deleteById(new Secret2SyncVaultProfileId(secret.getUuid(), updatedSourceVaultProfile.getUuid()));
-                secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(updatedSourceVaultProfile.getUuid()));
-            }
+    private void updateSourceVaultProfile(SecretUpdateObjectsDto request, UUID secretUuid, boolean isApproved, SecretState originalState) throws NotFoundException, ConnectorException, AttributeException, SecretOperationException {
+        Secret secret = getSecretEntity(secretUuid);
+        if (!isApproved) {
+            checkUpdateSecretPermissions();
+        }
+        secret.setState(originalState);
+        VaultProfile currentSourceVaultProfile = secret.getSourceVaultProfile();
+        VaultProfile updatedSourceVaultProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()))
+                .orElseThrow(() -> new NotFoundException(VaultProfile.class, request.getSourceVaultProfileUuid()));
+        permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()));
+        // Move original source vault profile to sync vault profiles
+        Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
+        secret2SyncVaultProfile.setSecretAttributes(attributeEngine.getRequestObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+        secret2SyncVaultProfile.setId(new Secret2SyncVaultProfileId(secret.getUuid(), currentSourceVaultProfile.getUuid()));
+        secret2SyncVaultProfile.setVaultProfile(currentSourceVaultProfile);
+        secret2SyncVaultProfile.setSecret(secret);
+        secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
 
-            if (updatedSourceVaultProfile.getVaultInstance() != currentSourceVaultProfile.getVaultInstance()) {
-                attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
-                SecretVersion newVersion = new SecretVersion();
-                newVersion.setSecret(secret);
-                newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);
-                newVersion.setVaultInstance(updatedSourceVaultProfile.getVaultInstance());
-                SecretRequestDto secretRequest = new SecretRequestDto();
-                secretRequest.setName(secret.getName());
-                secretRequest.setAttributes(request.getSecretAttributes());
+        // If new source vault profile was in sync vault profiles, remove association
+        if (secret.getSyncVaultProfiles().stream().anyMatch(profile -> profile.getVaultProfile().getUuid().equals(updatedSourceVaultProfile.getUuid()))) {
+            secret2SyncVaultProfileRepository.deleteById(new Secret2SyncVaultProfileId(secret.getUuid(), updatedSourceVaultProfile.getUuid()));
+            secret.getSyncVaultProfiles().removeIf(profile -> profile.getVaultProfile().getUuid().equals(updatedSourceVaultProfile.getUuid()));
+        }
+
+        if (updatedSourceVaultProfile.getVaultInstance() != currentSourceVaultProfile.getVaultInstance()) {
+            attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
+            SecretVersion newVersion = new SecretVersion();
+            newVersion.setSecret(secret);
+            newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);
+            newVersion.setVaultInstance(updatedSourceVaultProfile.getVaultInstance());
+            SecretRequestDto secretRequest = new SecretRequestDto();
+            secretRequest.setName(secret.getName());
+            secretRequest.setAttributes(request.getSecretAttributes());
+            try {
                 secretRequest.setSecret(getSecretContent(secret.getUuid()));
-                SecretResponseDto secretResponseDto = null;
-                try {
-                    secretResponseDto = createSecretInVault(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), updatedSourceVaultProfile.getVaultInstanceUuid(), secret.getType(), updatedSourceVaultProfile.getUuid(), secretRequest);
-                } catch (ConnectorProblemException e) {
-                    if (e.getProblemDetail().getErrorCode() == ErrorCode.RESOURCE_ALREADY_EXISTS) {
-                        logger.warn("Secret {} already exists in the vault {}", secret.getName(), updatedSourceVaultProfile.getVaultInstance().getName());
-                        newVersion.setVaultVersion(secret.getLatestVersion().getVaultVersion());
-                    } else {
-                        throw e;
-                    }
-                }
-                if (secretResponseDto != null) {
-                    attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, updatedSourceVaultProfile.getUuid(), updatedSourceVaultProfile.getName()));
-                    newVersion.setVaultVersion(secretResponseDto.getVersion());
-                }
-                attributeEngine.updateObjectDataAttributesContent(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), request.getSecretAttributes());
-                newVersion.setFingerprint(secret.getLatestVersion().getFingerprint());
-                secretVersionRepository.save(newVersion);
-                secret.setLatestVersion(newVersion);
-                secret.getVersions().add(newVersion);
-                secretRepository.save(secret);
+            } catch (Exception e) {
+                secret.setState(originalState);
+                throw new SecretOperationException("Could not retrieve secret content to create secret in vault: " + e.getMessage());
             }
-            secret.setSourceVaultProfile(updatedSourceVaultProfile);
+            SecretResponseDto secretResponseDto = null;
+            try {
+                secretResponseDto = createSecretInVault(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), updatedSourceVaultProfile.getVaultInstanceUuid(), secret.getType(), updatedSourceVaultProfile.getUuid(), secretRequest);
+            } catch (ConnectorProblemException e) {
+                if (e.getProblemDetail().getErrorCode() == ErrorCode.RESOURCE_ALREADY_EXISTS) {
+                    logger.warn("Secret {} already exists in the vault {}", secret.getName(), updatedSourceVaultProfile.getVaultInstance().getName());
+                    newVersion.setVaultVersion(secret.getLatestVersion().getVaultVersion());
+                } else  {
+                    secret.setState(originalState);
+                    throw new SecretOperationException("Failed to create secret in vault: " + e.getMessage());
+                }
+            }
+            if (secretResponseDto != null) {
+                attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, updatedSourceVaultProfile.getUuid(), updatedSourceVaultProfile.getName()));
+                newVersion.setVaultVersion(secretResponseDto.getVersion());
+            }
+            attributeEngine.updateObjectDataAttributesContent(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), request.getSecretAttributes());
+            newVersion.setFingerprint(secret.getLatestVersion().getFingerprint());
+            secretVersionRepository.save(newVersion);
+            secret.setLatestVersion(newVersion);
+            secret.getVersions().add(newVersion);
+            secretRepository.save(secret);
+        }
+        secret.setSourceVaultProfile(updatedSourceVaultProfile);
+    }
+
+    private void handleSecretRejected(UUID resourceUuid, ResourceAction action, SecretState originalState) throws NotFoundException {
+        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(resourceUuid))
+                .orElseThrow(() -> new NotFoundException(Secret.class, resourceUuid));
+        if (action == ResourceAction.CREATE) {
+            secret.setState(SecretState.REJECTED);
+        } else {
+            secret.setState(originalState);
+        }
+        secretRepository.save(secret);
+    }
+
+    @Override
+    public void approvalCreatedAction(UUID resourceUuid) throws NotFoundException {
+        Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(resourceUuid))
+                .orElseThrow(() -> new NotFoundException(Secret.class, resourceUuid));
+        secret.setState(SecretState.PENDING_APPROVAL);
+        secretRepository.save(secret);
+    }
+
+    @Override
+    public void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException, SecretOperationException {
+        SecretActionData secretActionData = MAPPER.convertValue(actionMessage.getData(), SecretActionData.class);
+
+        // handle rejected actions
+        if (hasApproval && !isApproved) {
+            handleSecretRejected(actionMessage.getResourceUuid(), actionMessage.getResourceAction(), secretActionData.originalState());
+            return;
+        }
+
+        switch (actionMessage.getResourceAction()) {
+            case CREATE -> {
+                SecretRequestDto secretRequestDto = new SecretRequestDto();
+                secretRequestDto.setName(secretActionData.name());
+                secretRequestDto.setSecret(MAPPER.readValue(SecretsUtil.decodeAndDecryptSecretString(secretActionData.encryptedContent(), SecretEncodingVersion.V1), SecretContent.class));
+                secretRequestDto.setAttributes(secretActionData.attributes());
+                createSecretAction(actionMessage.getResourceUuid(), secretRequestDto, isApproved);
+            }
+            case UPDATE -> {
+                SecretUpdateRequestDto secretUpdateRequestDto = new SecretUpdateRequestDto();
+                secretUpdateRequestDto.setSecret(MAPPER.readValue(SecretsUtil.decodeAndDecryptSecretString(secretActionData.encryptedContent(), SecretEncodingVersion.V1), SecretContent.class));
+                secretUpdateRequestDto.setAttributes(secretActionData.attributes());
+                updateSecretAction(actionMessage.getResourceUuid(), secretUpdateRequestDto, isApproved, secretActionData.originalState());
+            }
+            case DELETE -> deleteSecretAction(actionMessage.getResourceUuid(), isApproved, secretActionData.originalState());
+            case UPDATE_SOURCE_VAULT_PROFILE -> {
+                SecretUpdateObjectsDto secretUpdateObjectsDto = new SecretUpdateObjectsDto();
+                secretUpdateObjectsDto.setSourceVaultProfileUuid(secretActionData.updatedSourceVaultProfileUuid());
+                secretUpdateObjectsDto.setSecretAttributes(secretActionData.attributes());
+                updateSourceVaultProfile(secretUpdateObjectsDto, actionMessage.getResourceUuid(), isApproved, secretActionData.originalState());
+            }
+            default ->
+                    logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
         }
     }
 
@@ -639,6 +866,56 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
 
         return loadSecretOperationRequest(connectorUuid, vaultProfile.getVaultInstanceUuid(), vaultProfile.getUuid(), secret.getType(), secretAttributes, secretRequestDto);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    public Long statisticsSecretCount(SecurityFilter filter) {
+        filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
+        return secretRepository.countUsingSecurityFilter(filter, null);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    public StatisticsDto addSecretStatistics(SecurityFilter filter, StatisticsDto dto) {
+        filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
+        long start = System.nanoTime();
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Void>> futures = executor.invokeAll(List.of(
+                    () -> {
+                        dto.setSecretStatByType(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.type, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByState(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.state, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByComplianceStatus(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.complianceStatus, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByVaultProfile(secretRepository.countGroupedUsingSecurityFilter(filter, Secret_.sourceVaultProfile, VaultProfile_.name, null, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setSecretStatByGroup(secretRepository.countGroupedUsingSecurityFilter(filter, Secret_.groups, Group_.name, null, null));
+                        return null;
+                    }
+            ));
+            for (Future<Void> future : futures) {
+                try {
+                    future.get();
+                } catch (ExecutionException ex) {
+                    logger.error("An error occurred during calculation of secret statistics", ex.getCause());
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Secret statistics calculation was interrupted", e);
+        }
+        logger.debug("Secret statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
+        return dto;
     }
 
     private ConnectorDetailDto loadSecretOperationRequest(UUID connectorUuid, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretType type, List<RequestAttribute> secretAttributes, SecretOperationRequest secretOperationRequest) throws ConnectorException, NotFoundException, AttributeException {
