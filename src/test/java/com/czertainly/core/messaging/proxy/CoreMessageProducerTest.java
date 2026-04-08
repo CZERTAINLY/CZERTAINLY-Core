@@ -20,6 +20,7 @@ import org.springframework.retry.support.RetryTemplate;
 import java.time.Duration;
 import java.time.Instant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -226,6 +227,30 @@ class CoreMessageProducerTest {
         postProcessorCaptor.getValue().postProcessMessage(mockMessage);
 
         verify(mockMessage).setJMSCorrelationID("unique-correlation-123");
+    }
+
+    // ==================== Reply-To Tests ====================
+
+    @Test
+    void send_setsJMSReplyToWithInstanceId() throws JMSException {
+        when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.RABBITMQ);
+
+        CoreMessage message = createCoreMessage("corr-1");
+        producer.send(message, "proxy-001");
+
+        verify(jmsTemplate).convertAndSend(
+                any(String.class),
+                eq(message),
+                postProcessorCaptor.capture()
+        );
+
+        Message mockMessage = mock(Message.class);
+        postProcessorCaptor.getValue().postProcessMessage(mockMessage);
+
+        ArgumentCaptor<jakarta.jms.Destination> destCaptor = ArgumentCaptor.forClass(jakarta.jms.Destination.class);
+        verify(mockMessage).setJMSReplyTo(destCaptor.capture());
+        assertThat(destCaptor.getValue()).isInstanceOf(org.apache.qpid.jms.JmsQueue.class);
+        assertThat(destCaptor.getValue().toString()).contains("test-instance");
     }
 
     // ==================== Helper Methods ====================

@@ -4,6 +4,7 @@ import com.czertainly.api.clients.mq.model.CoreMessage;
 import com.czertainly.core.messaging.jms.configuration.MessagingProperties;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.qpid.jms.JmsQueue;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
@@ -61,6 +62,7 @@ public class CoreMessageProducer {
                         msg.setJMSType(routingKey);
                         // Set JMS correlation ID for request/response matching
                         msg.setJMSCorrelationID(message.getCorrelationId());
+                        msg.setJMSReplyTo(new JmsQueue(proxyProperties.instanceId()));
                         return msg;
                     });
 
