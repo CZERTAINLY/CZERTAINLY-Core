@@ -117,7 +117,7 @@ public class SigningProfileMapper {
         if (profile.getIlmSigningProtocolConfigurationUuid() != null) {
             dto.getEnabledProtocols().add(SigningProtocol.ILM_SIGNING_PROTOCOL);
         }
-        if (profile.getTspConfigurationUuid() != null) {
+        if (profile.getTspProfileUuid() != null) {
             dto.getEnabledProtocols().add(SigningProtocol.TSP);
         }
 
@@ -151,9 +151,9 @@ public class SigningProfileMapper {
 
     public static TspActivationDetailDto toTspActivationDto(SigningProfile profile) {
         TspActivationDetailDto dto = new TspActivationDetailDto();
-        if (profile.getTspConfiguration() != null) {
-            dto.setUuid(profile.getTspConfiguration().getUuid().toString());
-            dto.setName(profile.getTspConfiguration().getName());
+        if (profile.getTspProfile() != null) {
+            dto.setUuid(profile.getTspProfile().getUuid().toString());
+            dto.setName(profile.getTspProfile().getName());
             dto.setAvailable(true);
             dto.setSigningUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + "/v1/protocols/tsp/signingProfile/" + profile.getName() + "/sign");

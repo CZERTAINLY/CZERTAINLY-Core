@@ -1,0 +1,287 @@
+package com.czertainly.core.service.impl;
+
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileDto;
+import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileListDto;
+import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileRequestDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.Audited_;
+import com.czertainly.core.dao.entity.signing.TspProfile;
+import com.czertainly.core.dao.entity.signing.TspProfile_;
+import com.czertainly.core.dao.entity.signing.SigningProfile;
+import com.czertainly.core.dao.repository.signing.TspProfileRepository;
+import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
+import com.czertainly.core.mapper.signing.TspProfileMapper;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.TspProfileService;
+import com.czertainly.core.service.SigningProfileService;
+import com.czertainly.core.service.model.SecuredList;
+import com.czertainly.core.util.FilterPredicatesBuilder;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.function.TriFunction;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service(Resource.Codes.TSP_PROFILE)
+@Slf4j
+public class TspProfileServiceImpl implements TspProfileService {
+
+    private AttributeEngine attributeEngine;
+    private SigningProfileRepository signingProfileRepository;
+    private SigningProfileService signingProfileService;
+    private TspProfileRepository tspProfileRepository;
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST)
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return new ArrayList<>();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST)
+    @Transactional
+    public PaginationResponseDto<TspProfileListDto> listTspProfiles(SearchRequestDto request, SecurityFilter filter) {
+        Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        TriFunction<Root<TspProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+        List<TspProfileListDto> profiles = tspProfileRepository.findUsingSecurityFilter(filter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+                .stream()
+                .map(TspProfileMapper::toListDto)
+                .toList();
+        PaginationResponseDto<TspProfileListDto> response = new PaginationResponseDto<>();
+        response.setItems(profiles);
+        response.setPageNumber(request.getPageNumber());
+        response.setItemsPerPage(request.getItemsPerPage());
+        response.setTotalItems(tspProfileRepository.countUsingSecurityFilter(filter, predicate));
+        response.setTotalPages((int) Math.ceil((double) response.getTotalItems() / request.getItemsPerPage()));
+        return response;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL)
+    @Transactional
+    public TspProfileDto getTspProfile(SecuredUUID uuid) throws NotFoundException {
+        TspProfile profile = getTspProfileEntity(uuid.getValue());
+        List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.TSP_PROFILE, uuid.getValue());
+        return TspProfileMapper.toDto(profile, customAttributes);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.CREATE)
+    @Transactional
+    public TspProfileDto createTspProfile(TspProfileRequestDto request) throws AttributeException, NotFoundException {
+        SigningProfile defaultSigningProfile = validateCreateUpdateRequest(request);
+        TspProfile profile = new TspProfile();
+        return updateAndMapToDto(profile, request, defaultSigningProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.UPDATE)
+    @Transactional
+    public TspProfileDto updateTspProfile(SecuredUUID uuid, TspProfileRequestDto request) throws NotFoundException, AttributeException {
+        TspProfile profile = getTspProfileEntity(uuid.getValue());
+
+        SigningProfile defaultSigningProfile = validateCreateUpdateRequest(request);
+        return updateAndMapToDto(profile, request, defaultSigningProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DELETE)
+    @Transactional
+    public void deleteTspProfile(SecuredUUID uuid) throws NotFoundException {
+        TspProfile profile = getTspProfileEntity(uuid.getValue());
+        deleteTspProfile(profile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DELETE)
+    @Transactional
+    public List<BulkActionMessageDto> bulkDeleteTspProfiles(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            TspProfile profile = null;
+            try {
+                profile = getTspProfileEntity(uuid.getValue());
+                deleteTspProfile(profile);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), profile != null ? profile.getName() : "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Enable / disable
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.ENABLE)
+    @Transactional
+    public void enableTspProfile(SecuredUUID uuid) throws NotFoundException {
+        TspProfile profile = getTspProfileEntity(uuid.getValue());
+        profile.setEnabled(true);
+        tspProfileRepository.save(profile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.ENABLE)
+    @Transactional
+    public List<BulkActionMessageDto> bulkEnableTspProfiles(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            try {
+                enableTspProfile(uuid);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.ENABLE)
+    @Transactional
+    public void disableTspProfile(SecuredUUID uuid) throws NotFoundException {
+        TspProfile profile = getTspProfileEntity(uuid.getValue());
+        profile.setEnabled(false);
+        tspProfileRepository.save(profile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.ENABLE)
+    @Transactional
+    public List<BulkActionMessageDto> bulkDisableTspProfiles(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            try {
+                disableTspProfile(uuid);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), "", e.getMessage()));
+            }
+        }
+        return messages;
+    }
+
+    private SigningProfile validateCreateUpdateRequest(TspProfileRequestDto request) throws NotFoundException, ValidationException {
+        attributeEngine.validateCustomAttributesContent(Resource.TSP_PROFILE, request.getCustomAttributes());
+
+        SigningProfile defaultSigningProfile = null;
+        if (request.getDefaultSigningProfileUuid() != null) {
+            UUID defaultSigningProfileUuid = request.getDefaultSigningProfileUuid();
+            defaultSigningProfile = signingProfileRepository.findByUuid(SecuredUUID.fromUUID(defaultSigningProfileUuid))
+                    .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + defaultSigningProfileUuid));
+        }
+
+        return defaultSigningProfile;
+    }
+
+    private TspProfileDto updateAndMapToDto(TspProfile profile, TspProfileRequestDto request, SigningProfile defaultSigningProfile) throws AttributeException, NotFoundException {
+        profile.setName(request.getName());
+        profile.setDescription(request.getDescription());
+        profile.setDefaultSigningProfile(defaultSigningProfile);
+        TspProfile saved = tspProfileRepository.save(profile);
+
+        List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.TSP_PROFILE, saved.getUuid(), request.getCustomAttributes());
+        return TspProfileMapper.toDto(saved, customAttributes);
+
+    }
+
+    private void deleteTspProfile(TspProfile profile) {
+        SecuredList<SigningProfile> signingProfiles = signingProfileService.listSigningProfilesAssociatedWithTsp(profile.getUuid(), SecurityFilter.create());
+        if (!signingProfiles.isEmpty()) {
+            throw new ValidationException(
+                    ValidationError.create(String.format(
+                                    "Cannot delete TSP Profile: associated with Signing Profiles (%d): %s",
+                                    signingProfiles.size(),
+                                    signingProfiles.getAllowed().stream().map(SigningProfile::getName).collect(Collectors.joining(","))
+                            )
+                    )
+            );
+        }
+
+        attributeEngine.deleteAllObjectAttributeContent(Resource.TSP_PROFILE, profile.getUuid());
+        tspProfileRepository.delete(profile);
+    }
+
+
+    private TspProfile getTspProfileEntity(UUID uuid) throws NotFoundException {
+        return tspProfileRepository.findById(uuid)
+                .orElseThrow(() -> new NotFoundException("TSP Profile not found: " + uuid));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // ResourceExtensionService
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return tspProfileRepository.findResourceObject(objectUuid, TspProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return tspProfileRepository.findResourceObject(objectUuid.getValue(), TspProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        return tspProfileRepository.listResourceObjects(filter, TspProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getTspProfileEntity(uuid.getValue());
+    }
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setTspProfileRepository(TspProfileRepository tspProfileRepository) {
+        this.tspProfileRepository = tspProfileRepository;
+    }
+
+    @Autowired
+    public void setSigningProfileRepository(SigningProfileRepository signingProfileRepository) {
+        this.signingProfileRepository = signingProfileRepository;
+    }
+
+    @Autowired
+    public void setSigningProfileService(SigningProfileService signingProfileService) {
+        this.signingProfileService = signingProfileService;
+    }
+}

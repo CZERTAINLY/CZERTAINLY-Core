@@ -46,14 +46,14 @@ import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.SigningProfile_;
 import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
-import com.czertainly.core.dao.entity.signing.TspConfiguration;
+import com.czertainly.core.dao.entity.signing.TspProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
-import com.czertainly.core.dao.repository.signing.TspConfigurationRepository;
+import com.czertainly.core.dao.repository.signing.TspProfileRepository;
 import com.czertainly.core.mapper.signing.SigningProfileMapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -104,7 +104,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private IlmSigningProtocolConfigurationRepository ilmSigningProtocolRepository;
     private SigningProfileRepository signingProfileRepository;
     private SigningProfileVersionRepository signingProfileVersionRepository;
-    private TspConfigurationRepository tspRepository;
+    private TspProfileRepository tspRepository;
 
     private AttributeEngine attributeEngine;
     private ObjectMapper objectMapper;
@@ -164,8 +164,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
     @Transactional
-    public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspConfigurationUuid, SecurityFilter filter) {
-        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTspConfigurationUuid(tspConfigurationUuid);
+    public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspProfileUuid, SecurityFilter filter) {
+        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTspProfileUuid(tspProfileUuid);
         return SecuredList.fromFilter(filter, signingProfiles);
     }
 
@@ -428,12 +428,12 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
     @Transactional
-    public TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspConfigUuid) throws NotFoundException {
+    public TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspProfileUuid) throws NotFoundException {
         SigningProfile signingProfile = findByUuid(signingProfileUuid);
         validateSupportedProtocol(signingProfile.getWorkflowType(), SigningProtocol.TSP);
-        TspConfiguration tspConfig = tspRepository.findByUuid(tspConfigUuid)
-                .orElseThrow(() -> new NotFoundException("TSP Configuration not found: " + tspConfigUuid));
-        signingProfile.setTspConfiguration(tspConfig);
+        TspProfile tspProfile = tspRepository.findByUuid(tspProfileUuid)
+                .orElseThrow(() -> new NotFoundException("TSP Profile not found: " + tspProfileUuid));
+        signingProfile.setTspProfile(tspProfile);
         signingProfileRepository.save(signingProfile);
         return SigningProfileMapper.toTspActivationDto(signingProfile);
     }
@@ -443,7 +443,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Transactional
     public void deactivateTsp(SecuredUUID uuid) throws NotFoundException {
         SigningProfile profile = findByUuid(uuid);
-        profile.setTspConfiguration(null);
+        profile.setTspProfile(null);
         signingProfileRepository.save(profile);
     }
 
@@ -755,7 +755,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Autowired
-    public void setTspRepository(TspConfigurationRepository tspConfigurationRepository) {
-        this.tspRepository = tspConfigurationRepository;
+    public void setTspRepository(TspProfileRepository tspProfileRepository) {
+        this.tspRepository = tspProfileRepository;
     }
 }

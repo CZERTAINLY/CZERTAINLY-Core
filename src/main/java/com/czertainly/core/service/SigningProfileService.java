@@ -35,7 +35,7 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     SecuredList<SigningProfile> listSigningProfilesAssociatedTimeQualityConfiguration(UUID timeQualityConfigurationUuid, SecurityFilter filter);
 
-    SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspConfigurationUuid, SecurityFilter filter);
+    SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspProfileUuid, SecurityFilter filter);
 
     SigningProfileDto getSigningProfile(SecuredUUID uuid, Integer version) throws NotFoundException;
 
@@ -77,7 +77,7 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     TspActivationDetailDto getTspActivationDetails(SecuredUUID uuid) throws NotFoundException;
 
-    TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspConfigUuid) throws NotFoundException;
+    TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspProfileUuid) throws NotFoundException;
 
     void deactivateTsp(SecuredUUID uuid) throws NotFoundException;
 }

@@ -43,7 +43,7 @@ CREATE TABLE "signing_profile" (
     "allowed_digest_algorithms"             TEXT[],
     -- protocol activation (nullable, FKs added below)
     "ilm_signing_protocol_configuration_uuid" UUID,
-    "tsp_configuration_uuid"                UUID,
+    "tsp_profile_uuid"                      UUID,
     "i_author"                              VARCHAR,
     "i_cre"                                 TIMESTAMP    DEFAULT NOW(),
     "i_upd"                                 TIMESTAMP    DEFAULT NOW(),
@@ -65,8 +65,8 @@ CREATE TABLE "ilm_signing_protocol_configuration" (
     UNIQUE ("name")
 );
 
--- ── 4. tsp_configuration
-CREATE TABLE "tsp_configuration" (
+-- ── 4. tsp_profile
+CREATE TABLE "tsp_profile" (
     "uuid"                          UUID       NOT NULL,
     "name"                          VARCHAR    NOT NULL,
     "description"                   TEXT,
@@ -115,25 +115,25 @@ CREATE INDEX idx_ds_profile_version ON "digital_signature" ("signing_profile_uui
 
 
 -- ── 5. Circular FK resolution: signing_profile ↔ ilm/tsp ──────────────────────
--- signing_profile → ilm/tsp (SET NULL: activations auto-clear if config deleted;
+-- signing_profile → ilm/tsp (SET NULL: activations auto-clear if protocol profile deleted;
 -- app layer prevents this via dependency check, but DB stays consistent)
 ALTER TABLE "signing_profile"
-    ADD CONSTRAINT fk_sp_ilm_config
+    ADD CONSTRAINT fk_signing_profile_ilm_config
         FOREIGN KEY ("ilm_signing_protocol_configuration_uuid")
             REFERENCES "ilm_signing_protocol_configuration" ("uuid") ON DELETE SET NULL;
 
 ALTER TABLE "signing_profile"
-    ADD CONSTRAINT fk_sp_tsp_config
-        FOREIGN KEY ("tsp_configuration_uuid")
-            REFERENCES "tsp_configuration" ("uuid") ON DELETE SET NULL;
+    ADD CONSTRAINT fk_signing_profile_tsp_profile
+        FOREIGN KEY ("tsp_profile_uuid")
+            REFERENCES "tsp_profile" ("uuid") ON DELETE SET NULL;
 
 -- ilm/tsp → signing_profile (RESTRICT: a profile used as default cannot be deleted)
 ALTER TABLE "ilm_signing_protocol_configuration"
-    ADD CONSTRAINT fk_ilm_default_sp
+    ADD CONSTRAINT fk_ilm_default_signing_profile
         FOREIGN KEY ("default_signing_profile_uuid")
             REFERENCES "signing_profile" ("uuid") ON DELETE RESTRICT;
 
-ALTER TABLE "tsp_configuration"
-    ADD CONSTRAINT fk_tsp_default_sp
+ALTER TABLE "tsp_profile"
+    ADD CONSTRAINT fk_tsp_default_signing_profile
         FOREIGN KEY ("default_signing_profile_uuid")
             REFERENCES "signing_profile" ("uuid") ON DELETE RESTRICT;

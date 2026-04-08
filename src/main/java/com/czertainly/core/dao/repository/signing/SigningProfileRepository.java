@@ -12,7 +12,7 @@ import java.util.UUID;
 public interface SigningProfileRepository extends SecurityFilterRepository<SigningProfile, UUID> {
     List<SigningProfile> findAllByIlmSigningProtocolConfigurationUuid(UUID ilmSigningProtocolConfigurationUuid);
 
-    List<SigningProfile> findAllByTspConfigurationUuid(UUID tspConfigurationUuid);
+    List<SigningProfile> findAllByTspProfileUuid(UUID tspProfileUuid);
 
     List<SigningProfile> findAllByTimeQualityConfigurationUuid(UUID timeQualityConfigurationUuid);
 }

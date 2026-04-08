@@ -769,8 +769,8 @@ class AuthServiceTest extends BaseSpringBootTest {
                     },
                     {
                         "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7897",
-                        "name": "tspConfigurations",
-                        "displayName": "TSP Configuration",
+                        "name": "tspProfiles",
+                        "displayName": "TSP Profile",
                         "objectAccess": true,
                         "actions": [
                             {

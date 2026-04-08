@@ -66,7 +66,7 @@ import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.entity.signing.DigitalSignature;
 import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
-import com.czertainly.core.dao.entity.signing.TspConfiguration;
+import com.czertainly.core.dao.entity.signing.TspProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
@@ -77,7 +77,7 @@ import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
-import com.czertainly.core.dao.repository.signing.TspConfigurationRepository;
+import com.czertainly.core.dao.repository.signing.TspProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -133,7 +133,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     private IlmSigningProtocolConfigurationRepository ilmRepository;
 
     @Autowired
-    private TspConfigurationRepository tspRepository;
+    private TspProfileRepository tspRepository;
 
     @Autowired
     private AttributeDefinitionRepository attributeDefinitionRepository;
@@ -517,12 +517,12 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         ilmConfig.setName("ilm-for-dto-test");
         ilmConfig = ilmRepository.save(ilmConfig);
 
-        TspConfiguration tspConfig = new TspConfiguration();
-        tspConfig.setName("tsp-for-dto-test");
-        tspConfig = tspRepository.save(tspConfig);
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("tsp-for-dto-test");
+        tspProfile = tspRepository.save(tspProfile);
 
         savedProfile.setIlmSigningProtocolConfiguration(ilmConfig);
-        savedProfile.setTspConfiguration(tspConfig);
+        savedProfile.setTspProfile(tspProfile);
         signingProfileRepository.save(savedProfile);
 
         SigningProfileDto dto = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
@@ -1004,21 +1004,21 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDeleteSigningProfile_usedAsDefaultInTspConfig_clearsReferenceAndDeletes() throws NotFoundException {
-        TspConfiguration tspConfig = new TspConfiguration();
-        tspConfig.setName("blocking-tsp-config");
-        tspConfig.setDefaultSigningProfile(savedProfile);
-        tspConfig = tspRepository.save(tspConfig);
-        final UUID tspConfigUuid = tspConfig.getUuid();
+    void testDeleteSigningProfile_usedAsDefaultIntspProfile_clearsReferenceAndDeletes() throws NotFoundException {
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("blocking-tsp-profile");
+        tspProfile.setDefaultSigningProfile(savedProfile);
+        tspProfile = tspRepository.save(tspProfile);
+        final UUID tspProfileUuid = tspProfile.getUuid();
 
         signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid());
 
         // Profile should be removed from the database
         Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
-        // The TSP config's default signing profile reference should be cleared
-        TspConfiguration reloadedTsp = tspRepository.findById(tspConfigUuid).orElseThrow();
+        // The TSP profile's default signing profile reference should be cleared
+        TspProfile reloadedTsp = tspRepository.findById(tspProfileUuid).orElseThrow();
         Assertions.assertNull(reloadedTsp.getDefaultSigningProfileUuid(),
-                "TSP config's default signing profile UUID should be cleared after profile deletion");
+                "TSP profile's default signing profile UUID should be cleared after profile deletion");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -1317,29 +1317,29 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testActivateTsp_linksConfigToProfile() throws AttributeException, NotFoundException {
+    void testActivateTsp_linksProfiles() throws AttributeException, NotFoundException {
         SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-tsp-activate"));
         SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
 
-        TspConfiguration tspConfig = new TspConfiguration();
-        tspConfig.setName("test-tsp-config");
-        tspConfig = tspRepository.save(tspConfig);
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("test-tsp-profile");
+        tspProfile = tspRepository.save(tspProfile);
 
-        var activationDto = signingProfileService.activateTsp(profileUuid, tspConfig.getSecuredUuid());
+        var activationDto = signingProfileService.activateTsp(profileUuid, tspProfile.getSecuredUuid());
         Assertions.assertTrue(activationDto.isAvailable());
         Assertions.assertNotNull(activationDto.getSigningUrl());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertEquals(tspConfig.getUuid(), fromDb.get().getTspConfigurationUuid());
+        Assertions.assertEquals(tspProfile.getUuid(), fromDb.get().getTspProfileUuid());
     }
 
     @Test
     void testActivateTsp_profileNotFound_throwsNotFoundException() {
-        TspConfiguration tspConfig = new TspConfiguration();
-        tspConfig.setName("tsp-for-not-found-test");
-        tspConfig = tspRepository.save(tspConfig);
-        final UUID tspUuid = tspConfig.getUuid();
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("tsp-for-not-found-test");
+        tspProfile = tspRepository.save(tspProfile);
+        final UUID tspUuid = tspProfile.getUuid();
 
         Assertions.assertThrows(NotFoundException.class,
                 () -> signingProfileService.activateTsp(
@@ -1348,7 +1348,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testActivateTsp_tspConfigNotFound_throwsNotFoundException() throws AttributeException, NotFoundException {
+    void testActivateTsp_tspProfileNotFound_throwsNotFoundException() throws AttributeException, NotFoundException {
         SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-tsp-not-found"));
         SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
 
@@ -1363,48 +1363,48 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-tsp-replace"));
         SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
 
-        TspConfiguration tspConfig1 = new TspConfiguration();
-        tspConfig1.setName("tsp-config-1");
-        tspConfig1 = tspRepository.save(tspConfig1);
+        TspProfile tspProfile1 = new TspProfile();
+        tspProfile1.setName("tsp-profile-1");
+        tspProfile1 = tspRepository.save(tspProfile1);
 
-        TspConfiguration tspConfig2 = new TspConfiguration();
-        tspConfig2.setName("tsp-config-2");
-        tspConfig2 = tspRepository.save(tspConfig2);
+        TspProfile tspProfile2 = new TspProfile();
+        tspProfile2.setName("tsp-profile-2");
+        tspProfile2 = tspRepository.save(tspProfile2);
 
-        // Link the first config
-        signingProfileService.activateTsp(profileUuid, tspConfig1.getSecuredUuid());
-        // Replace it with the second config
-        signingProfileService.activateTsp(profileUuid, tspConfig2.getSecuredUuid());
+        // Link the first [rpfo;e
+        signingProfileService.activateTsp(profileUuid, tspProfile1.getSecuredUuid());
+        // Replace it with the second profile
+        signingProfileService.activateTsp(profileUuid, tspProfile2.getSecuredUuid());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertEquals(tspConfig2.getUuid(), fromDb.get().getTspConfigurationUuid(),
-                "The profile should reference the second TSP config after replacement");
+        Assertions.assertEquals(tspProfile2.getUuid(), fromDb.get().getTspProfileUuid(),
+                "The profile should reference the second TSP profile after replacement");
     }
 
     @Test
-    void testDeactivateTsp_unlinksConfigFromProfile() throws NotFoundException {
-        TspConfiguration tspConfig = new TspConfiguration();
-        tspConfig.setName("test-tsp-config");
-        tspConfig = tspRepository.save(tspConfig);
+    void testDeactivateTsp_unlinksProfiles() throws NotFoundException {
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("test-tsp-profile");
+        tspProfile = tspRepository.save(tspProfile);
 
-        savedProfile.setTspConfiguration(tspConfig);
+        savedProfile.setTspProfile(tspProfile);
         signingProfileRepository.save(savedProfile);
 
         signingProfileService.deactivateTsp(savedProfile.getSecuredUuid());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertNull(fromDb.get().getTspConfigurationUuid());
+        Assertions.assertNull(fromDb.get().getTspProfileUuid());
     }
 
     @Test
     void testActivateTsp_unsupportedWorkflowType_throwsValidationException() {
         // savedProfile uses RAW_SIGNING which does not support TSP
-        TspConfiguration tspConfig = new TspConfiguration();
-        tspConfig.setName("tsp-config-unsupported-workflow");
-        tspConfig = tspRepository.save(tspConfig);
-        final SecuredUUID tspUuid = tspConfig.getSecuredUuid();
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("tsp-profile-unsupported-workflow");
+        tspProfile = tspRepository.save(tspProfile);
+        final SecuredUUID tspUuid = tspProfile.getSecuredUuid();
 
         Assertions.assertThrows(ValidationException.class,
                 () -> signingProfileService.activateTsp(savedProfile.getSecuredUuid(), tspUuid));
@@ -1419,11 +1419,11 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testDeactivateTsp_removesFromEnabledProtocols() throws NotFoundException {
-        TspConfiguration tspConfig = new TspConfiguration();
-        tspConfig.setName("tsp-to-deactivate");
-        tspConfig = tspRepository.save(tspConfig);
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("tsp-to-deactivate");
+        tspProfile = tspRepository.save(tspProfile);
 
-        savedProfile.setTspConfiguration(tspConfig);
+        savedProfile.setTspProfile(tspProfile);
         signingProfileRepository.save(savedProfile);
 
         // Verify TSP is listed as an enabled protocol before deactivation

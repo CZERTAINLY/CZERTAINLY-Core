@@ -132,13 +132,13 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
     @ToString.Exclude
     private IlmSigningProtocolConfiguration ilmSigningProtocolConfiguration;
 
-    @Column(name = "tsp_configuration_uuid")
-    private UUID tspConfigurationUuid;
+    @Column(name = "tsp_profile_uuid")
+    private UUID tspProfileUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tsp_configuration_uuid", insertable = false, updatable = false)
+    @JoinColumn(name = "tsp_profile_uuid", insertable = false, updatable = false)
     @ToString.Exclude
-    private TspConfiguration tspConfiguration;
+    private TspProfile tspProfile;
 
     @OneToMany(mappedBy = "signingProfile", fetch = FetchType.LAZY)
     @ToString.Exclude
@@ -183,8 +183,8 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
         this.ilmSigningProtocolConfigurationUuid = ilmSigningProtocolConfiguration != null ? ilmSigningProtocolConfiguration.getUuid() : null;
     }
 
-    public void setTspConfiguration(TspConfiguration tspConfiguration) {
-        this.tspConfiguration = tspConfiguration;
-        this.tspConfigurationUuid = tspConfiguration != null ? tspConfiguration.getUuid() : null;
+    public void setTspProfile(TspProfile tspProfile) {
+        this.tspProfile = tspProfile;
+        this.tspProfileUuid = tspProfile != null ? tspProfile.getUuid() : null;
     }
 }

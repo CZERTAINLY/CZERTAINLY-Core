@@ -16,8 +16,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "tsp_configuration")
-public class TspConfiguration extends UniquelyIdentifiedAndAudited {
+@Table(name = "tsp_profile")
+public class TspProfile extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "name", nullable = false)
     private String name;
