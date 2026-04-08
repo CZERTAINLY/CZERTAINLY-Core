@@ -38,17 +38,14 @@ class RedisResponseDistributorTest {
 
     @BeforeEach
     void setUp() {
-        ProxyProperties.RedisProperties redisProps = new ProxyProperties.RedisProperties(
-                "proxy:test-responses",
-                true
-        );
+        // TODO: Redis module will be removed in Task 5
         ProxyProperties proxyProperties = new ProxyProperties(
                 "test-exchange",
                 "test-queue",
+                "test-instance",
                 Duration.ofSeconds(30),
                 1000,
-                null,
-                redisProps
+                null
         );
 
         distributor = new RedisResponseDistributor(redisTemplate, objectMapper, proxyProperties);

@@ -54,9 +54,9 @@ class ProxyClientImplTest {
         proxyProperties = new ProxyProperties(
                 "test-exchange",
                 "test-queue",
+                "test-instance",
                 Duration.ofSeconds(30),
                 1000,
-                null,
                 null
         );
 

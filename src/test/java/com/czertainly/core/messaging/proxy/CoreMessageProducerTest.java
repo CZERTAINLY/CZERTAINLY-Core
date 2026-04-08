@@ -51,9 +51,9 @@ class CoreMessageProducerTest {
         proxyProperties = new ProxyProperties(
                 "czertainly-proxy",  // exchange
                 "core",              // responseQueue
+                "test-instance",     // instanceId
                 Duration.ofSeconds(30),
                 1000,
-                null,
                 null
         );
 

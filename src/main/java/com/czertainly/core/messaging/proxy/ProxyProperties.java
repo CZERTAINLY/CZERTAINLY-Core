@@ -3,6 +3,8 @@ package com.czertainly.core.messaging.proxy;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 
 /**
@@ -20,10 +22,19 @@ public record ProxyProperties(
         String exchange,
 
         /**
-         * Azure Service Bus subscription / RabbitMQ queue name for receiving responses from proxy.
+         * Azure Service Bus subscription / RabbitMQ queue name for receiving
+         * fire-and-forget messages (health checks, connector registration).
          * Default: core
          */
         String responseQueue,
+
+        /**
+         * Unique identifier for this Core instance.
+         * Used as the AMQP reply-to address and as the per-instance queue/subscription name.
+         * Defaults to the local hostname (pod name in Kubernetes).
+         * Must not contain dots (breaks topic routing key segmentation).
+         */
+        String instanceId,
 
         /**
          * Default request timeout duration.
@@ -42,48 +53,26 @@ public record ProxyProperties(
          * JMS listener concurrency for proxy response messages.
          * Default: 1
          */
-        String concurrency,
-
-        /**
-         * Redis configuration for distributed response coordination.
-         */
-        RedisProperties redis
+        String concurrency
 ) {
-    /**
-     * Redis configuration for multi-instance proxy response distribution.
-     */
-    public record RedisProperties(
-            /**
-             * Redis pub/sub channel name for distributing proxy responses.
-             * Default: proxy:responses
-             */
-            String channel,
-
-            /**
-             * Whether Redis-based response distribution is enabled.
-             * Default: true
-             */
-            Boolean enabled
-    ) {
-        public RedisProperties {
-            if (channel == null) {
-                channel = "proxy:responses";
-            }
-            if (enabled == null) {
-                enabled = true;
-            }
-        }
-    }
-
-    /**
-     * Default constructor with default values.
-     */
     public ProxyProperties {
         if (exchange == null) {
             exchange = "czertainly-proxy";
         }
         if (responseQueue == null) {
             responseQueue = "core";
+        }
+        if (instanceId == null || instanceId.isBlank()) {
+            try {
+                instanceId = InetAddress.getLocalHost().getHostName();
+            } catch (UnknownHostException e) {
+                throw new IllegalStateException("Cannot resolve hostname for proxy instance ID. "
+                        + "Set PROXY_INSTANCE_ID explicitly.", e);
+            }
+        }
+        if (instanceId.contains(".")) {
+            throw new IllegalArgumentException(
+                    "proxy.instance-id must not contain dots (breaks topic routing): " + instanceId);
         }
         if (requestTimeout == null) {
             requestTimeout = Duration.ofSeconds(30);
@@ -93,9 +82,6 @@ public record ProxyProperties(
         }
         if (concurrency == null) {
             concurrency = "1";
-        }
-        if (redis == null) {
-            redis = new RedisProperties(null, null);
         }
     }
 

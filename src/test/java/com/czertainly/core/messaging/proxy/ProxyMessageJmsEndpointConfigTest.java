@@ -40,9 +40,9 @@ class ProxyMessageJmsEndpointConfigTest {
         proxyProperties = new ProxyProperties(
             "test-proxy-exchange",
                 "test-core-queue",
+                "test-instance",
                 Duration.ofSeconds(30),
                 1000,
-                null,
                 null
         );
     }

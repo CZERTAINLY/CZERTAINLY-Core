@@ -33,7 +33,8 @@ public class RedisResponseDistributor {
             ProxyProperties proxyProperties) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
-        this.channel = proxyProperties.redis().channel();
+        // TODO: Redis module will be removed in Task 5
+        this.channel = "proxy:responses";
         log.info("RedisResponseDistributor initialized with channel: {}", channel);
     }
 

@@ -30,9 +30,9 @@ class ProxyMessageCorrelatorTest {
         proxyProperties = new ProxyProperties(
                 "test-exchange",
                 "test-queue",
+                "test-instance",
                 Duration.ofSeconds(30),
                 100, // low max pending for testing capacity
-                null,
                 null
         );
         correlator = new ProxyMessageCorrelator(proxyProperties);

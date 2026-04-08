@@ -30,13 +30,8 @@ public class RedisProxyConfig {
     public RedisProxyConfig(ProxyProperties proxyProperties) {
         this.proxyProperties = proxyProperties;
 
-        if (proxyProperties.redis() == null ||
-            proxyProperties.redis().channel() == null ||
-            proxyProperties.redis().channel().isBlank()) {
-            throw new IllegalArgumentException("Redis channel must be configured when proxy.redis is enabled");
-        }
-
-        log.info("Initializing Redis proxy config with channel: {}", proxyProperties.redis().channel());
+        // TODO: Redis module will be removed in Task 5
+        log.info("Initializing Redis proxy config");
     }
 
     /**
@@ -44,7 +39,8 @@ public class RedisProxyConfig {
      */
     @Bean
     public ChannelTopic proxyResponseTopic() {
-        return new ChannelTopic(proxyProperties.redis().channel());
+        // TODO: Redis module will be removed in Task 5
+        return new ChannelTopic("proxy:responses");
     }
 
     /**
