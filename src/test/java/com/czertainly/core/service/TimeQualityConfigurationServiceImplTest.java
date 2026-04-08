@@ -3,17 +3,30 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.dao.entity.AttributeRelation;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
+import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -31,6 +44,9 @@ import java.util.UUID;
 
 class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
+    private static final String CUSTOM_ATTR_UUID = "b1c2d3e4-0001-0002-0003-000000000003";
+    private static final String CUSTOM_ATTR_NAME = "tqcTestAttribute";
+
     @Autowired
     private TimeQualityConfigurationService timeQualityConfigurationService;
 
@@ -39,6 +55,12 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Autowired
     private SigningProfileRepository signingProfileRepository;
+
+    @Autowired
+    private AttributeDefinitionRepository attributeDefinitionRepository;
+
+    @Autowired
+    private AttributeRelationRepository attributeRelationRepository;
 
     /**
      * A pre-existing TimeQualityConfiguration saved directly via repository.
@@ -58,6 +80,34 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
         savedConfiguration.setMaxClockDrift(Duration.ofSeconds(1));
         savedConfiguration.setLeapSecondGuard(true);
         savedConfiguration = timeQualityConfigurationRepository.save(savedConfiguration);
+
+        // Register a custom attribute available for Time Quality Configuration resources
+        CustomAttributeV3 attrDef = new CustomAttributeV3();
+        attrDef.setUuid(CUSTOM_ATTR_UUID);
+        attrDef.setName(CUSTOM_ATTR_NAME);
+        attrDef.setDescription("test custom attribute for Time Quality config");
+        attrDef.setContentType(AttributeContentType.STRING);
+        CustomAttributeProperties props = new CustomAttributeProperties();
+        props.setReadOnly(false);
+        props.setRequired(false);
+        attrDef.setProperties(props);
+
+        AttributeDefinition attributeDefinition = new AttributeDefinition();
+        attributeDefinition.setUuid(UUID.fromString(CUSTOM_ATTR_UUID));
+        attributeDefinition.setName(CUSTOM_ATTR_NAME);
+        attributeDefinition.setAttributeUuid(UUID.fromString(CUSTOM_ATTR_UUID));
+        attributeDefinition.setContentType(AttributeContentType.STRING);
+        attributeDefinition.setLabel(CUSTOM_ATTR_NAME);
+        attributeDefinition.setType(AttributeType.CUSTOM);
+        attributeDefinition.setDefinition(attrDef);
+        attributeDefinition.setEnabled(true);
+        attributeDefinition.setVersion(3);
+        attributeDefinitionRepository.save(attributeDefinition);
+
+        AttributeRelation attributeRelation = new AttributeRelation();
+        attributeRelation.setResource(Resource.TIME_QUALITY_CONFIGURATION);
+        attributeRelation.setAttributeDefinitionUuid(attributeDefinition.getUuid());
+        attributeRelationRepository.save(attributeRelation);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -452,5 +502,87 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
                 "Free configuration should have been deleted");
         Assertions.assertTrue(timeQualityConfigurationRepository.findById(savedConfiguration.getUuid()).isPresent(),
                 "Blocked configuration should still exist");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Custom attributes
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testCreateTimeQualityConfiguration_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("tq-value-on-create")));
+
+        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("tq-with-custom-attr");
+        request.setCustomAttributes(List.of(customAttr));
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
+
+        Assertions.assertNotNull(dto.getCustomAttributes());
+        Assertions.assertFalse(dto.getCustomAttributes().isEmpty(),
+                "Custom attributes should be returned in the create DTO");
+        Assertions.assertEquals("tq-value-on-create",
+                ((ResponseAttributeV3) dto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+    }
+
+    @Test
+    void testUpdateTimeQualityConfiguration_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+        RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("initial-value")));
+        TimeQualityConfigurationCreateRequestDto createRequest = buildCreateRequest("tq-update-custom-attr");
+        createRequest.setCustomAttributes(List.of(createAttr));
+        TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
+
+        RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("updated-value")));
+        TimeQualityConfigurationUpdateRequestDto updateRequest = buildUpdateRequest("tq-update-custom-attr");
+        updateRequest.setCustomAttributes(List.of(updateAttr));
+        TimeQualityConfigurationDto updated = timeQualityConfigurationService.updateTimeQualityConfiguration(
+                SecuredUUID.fromString(created.getUuid()), updateRequest);
+
+        Assertions.assertNotNull(updated.getCustomAttributes());
+        Assertions.assertFalse(updated.getCustomAttributes().isEmpty());
+        Assertions.assertEquals("updated-value",
+                ((ResponseAttributeV3) updated.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+    }
+
+    @Test
+    void testGetTimeQualityConfiguration_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("get-test-value")));
+
+        TimeQualityConfigurationCreateRequestDto createRequest = buildCreateRequest("tq-get-custom-attr");
+        createRequest.setCustomAttributes(List.of(customAttr));
+        TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
+
+        TimeQualityConfigurationDto fetched = timeQualityConfigurationService.getTimeQualityConfiguration(
+                SecuredUUID.fromString(created.getUuid()));
+
+        Assertions.assertNotNull(fetched.getCustomAttributes());
+        Assertions.assertFalse(fetched.getCustomAttributes().isEmpty(),
+                "Custom attributes should be returned in the get DTO");
+        Assertions.assertEquals("get-test-value",
+                ((ResponseAttributeV3) fetched.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+    }
+
+    @Test
+    void testDeleteTimeQualityConfiguration_customAttributesAreRemoved() throws AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
+                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("to-be-deleted-value")));
+
+        TimeQualityConfigurationCreateRequestDto createRequest = buildCreateRequest("tq-delete-custom-attr");
+        createRequest.setCustomAttributes(List.of(customAttr));
+        TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
+
+        SecuredUUID uuid = SecuredUUID.fromString(created.getUuid());
+        timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid);
+
+        Assertions.assertTrue(timeQualityConfigurationRepository.findById(UUID.fromString(created.getUuid())).isEmpty(),
+                "Configuration should be deleted from the repository");
     }
 }

@@ -16,7 +16,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface TimeQualityConfigurationService {
+public interface TimeQualityConfigurationService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
