@@ -226,10 +226,10 @@ public class TspConfigurationServiceImpl implements TspConfigurationService {
                             )
                     )
             );
-        } else {
-            attributeEngine.deleteAllObjectAttributeContent(Resource.TSP_CONFIGURATION, configuration.getUuid());
-            tspConfigurationRepository.delete(configuration);
         }
+
+        attributeEngine.deleteAllObjectAttributeContent(Resource.TSP_CONFIGURATION, configuration.getUuid());
+        tspConfigurationRepository.delete(configuration);
     }
 
 

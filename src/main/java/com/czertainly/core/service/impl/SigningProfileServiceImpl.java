@@ -157,6 +157,14 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
     @Transactional
+    public SecuredList<SigningProfile> listSigningProfilesAssociatedTimeQualityConfiguration(UUID timeQualityConfigurationUuid, SecurityFilter filter) {
+        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTimeQualityConfigurationUuid(timeQualityConfigurationUuid);
+        return SecuredList.fromFilter(filter, signingProfiles);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
+    @Transactional
     public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspConfigurationUuid, SecurityFilter filter) {
         List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTspConfigurationUuid(tspConfigurationUuid);
         return SecuredList.fromFilter(filter, signingProfiles);
@@ -494,7 +502,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 } else {
                     throw new ValidationException("Certificate " + certificate.getUuid() + " is not eligible for signing workflow type " + p.getWorkflowType());
                 }
-                p.setCertificate(certificate);
             }
             case OneTimeKeyManagedSigningRequestDto s -> {
                 p.setManagedSigningType(ManagedSigningType.ONE_TIME_KEY);

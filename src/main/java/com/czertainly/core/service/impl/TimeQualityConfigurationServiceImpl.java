@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
@@ -29,7 +30,9 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.TimeQualityConfigurationService;
+import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -37,6 +40,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.function.TriFunction;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,14 +49,16 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service(Resource.Codes.TIME_QUALITY_CONFIGURATION)
 @Transactional
 public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigurationService {
 
-    private TimeQualityConfigurationRepository timeQualityConfigurationRepository;
-    private SigningProfileRepository signingProfileRepository;
     private AttributeEngine attributeEngine;
+    private SigningProfileService signingProfileService;
+    private TimeQualityConfigurationRepository timeQualityConfigurationRepository;
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
@@ -133,17 +139,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DELETE)
     public void deleteTimeQualityConfiguration(SecuredUUID uuid) throws NotFoundException {
-        TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));
-
-        List<SigningProfile> profiles = signingProfileRepository.findAllByTimeQualityConfigurationUuid(configuration.getUuid());
-        if (!profiles.isEmpty()) {
-            // :TODO: report at least one Signing Profile. Use the same approach as in TSP Configuration service.
-            throw new ValidationException("Cannot delete Time Quality Configuration: it is in use by " + profiles.size() + " signing profile(s)");
-        }
-
-        timeQualityConfigurationRepository.delete(configuration);
-        attributeEngine.deleteAllObjectAttributeContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
+        deleteTimeQualityConfiguration(getTimeQualityConfigurationEntity(uuid));
     }
 
     @Override
@@ -151,13 +147,13 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     public List<BulkActionMessageDto> bulkDeleteTimeQualityConfigurations(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
+            TimeQualityConfiguration configuration = null;
             try {
-                deleteTimeQualityConfiguration(uuid);
+                configuration = getTimeQualityConfigurationEntity(uuid);
+                deleteTimeQualityConfiguration(configuration);
             } catch (Exception e) {
-                BulkActionMessageDto message = new BulkActionMessageDto();
-                message.setUuid(uuid.getValue().toString());
-                message.setMessage(e.getMessage());
-                messages.add(message);
+                log.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), configuration != null ? configuration.getName() : "", e.getMessage()));
             }
         }
         return messages;
@@ -191,18 +187,44 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));
     }
 
-    @Autowired
-    public void setTimeQualityConfigurationRepository(TimeQualityConfigurationRepository timeQualityConfigurationRepository) {
-        this.timeQualityConfigurationRepository = timeQualityConfigurationRepository;
+    // ──────────────────────────────────────────────────────────────────────────
+    // Private helpers
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private TimeQualityConfiguration getTimeQualityConfigurationEntity(SecuredUUID uuid) throws NotFoundException {
+        return timeQualityConfigurationRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found: " + uuid));
     }
 
-    @Autowired
-    public void setSigningProfileRepository(SigningProfileRepository signingProfileRepository) {
-        this.signingProfileRepository = signingProfileRepository;
+    private void deleteTimeQualityConfiguration(TimeQualityConfiguration configuration) {
+        SecuredList<SigningProfile> signingProfiles = signingProfileService.listSigningProfilesAssociatedTimeQualityConfiguration(configuration.getUuid(), SecurityFilter.create());
+        if (!signingProfiles.isEmpty()) {
+            throw new ValidationException(
+                    ValidationError.create(String.format(
+                                    "Cannot delete Time Quality Configuration: associated with Signing Profiles (%d): %s",
+                                    signingProfiles.size(),
+                                    signingProfiles.getAllowed().stream().map(SigningProfile::getName).collect(Collectors.joining(","))
+                            )
+                    )
+            );
+        }
+
+        attributeEngine.deleteAllObjectAttributeContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
+        timeQualityConfigurationRepository.delete(configuration);
     }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setSigningProfileService(SigningProfileService signingProfileService) {
+        this.signingProfileService = signingProfileService;
+    }
+
+    @Autowired
+    public void setTimeQualityConfigurationRepository(TimeQualityConfigurationRepository timeQualityConfigurationRepository) {
+        this.timeQualityConfigurationRepository = timeQualityConfigurationRepository;
     }
 }

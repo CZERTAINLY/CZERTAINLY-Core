@@ -32,6 +32,9 @@ public interface SigningProfileService extends ResourceExtensionService {
     PaginationResponseDto<SigningProfileListDto> listSigningProfiles(SearchRequestDto request, SecurityFilter filter);
 
     SecuredList<SigningProfile> listSigningProfilesAssociatedWithIlmSigningProtocol(UUID ilmSigningProtocolConfigurationUuid, SecurityFilter filter);
+
+    SecuredList<SigningProfile> listSigningProfilesAssociatedTimeQualityConfiguration(UUID timeQualityConfigurationUuid, SecurityFilter filter);
+
     SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspConfigurationUuid, SecurityFilter filter);
 
     SigningProfileDto getSigningProfile(SecuredUUID uuid, Integer version) throws NotFoundException;
