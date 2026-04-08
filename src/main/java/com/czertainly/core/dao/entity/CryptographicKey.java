@@ -121,7 +121,16 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     }
 
     ComplianceStatus getComplianceStatus() {
-        List<ComplianceStatus> statuses = items.stream().map(CryptographicKeyItem::getComplianceStatus).toList();
+        if (items.isEmpty()) {
+            return ComplianceStatus.NOT_CHECKED;
+        }
+        List<ComplianceStatus> statuses = items.stream()
+                .map(CryptographicKeyItem::getComplianceStatus)
+                .filter(Objects::nonNull)
+                .toList();
+        if (statuses.isEmpty()) {
+            return ComplianceStatus.NOT_CHECKED;
+        }
         if (statuses.contains(ComplianceStatus.FAILED)) {
             return ComplianceStatus.FAILED;
         } else if (statuses.contains(ComplianceStatus.NOK)) {
