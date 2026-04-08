@@ -69,6 +69,8 @@ public record ProxyProperties(
                 throw new IllegalStateException("Cannot resolve hostname for proxy instance ID. "
                         + "Set PROXY_INSTANCE_ID explicitly.", e);
             }
+        } else {
+            instanceId = instanceId.strip();
         }
         if (instanceId.contains(".")) {
             throw new IllegalArgumentException(
