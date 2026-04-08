@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -115,7 +116,23 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         }
         dto.setItems(getKeyItemsSummary());
         dto.setAssociations((items.size() - 1) + certificates.size() + altCertificates.size());
+        dto.setComplianceStatus(getComplianceStatus());
         return dto;
+    }
+
+    ComplianceStatus getComplianceStatus() {
+        List<ComplianceStatus> statuses = items.stream().map(CryptographicKeyItem::getComplianceStatus).toList();
+        if (statuses.contains(ComplianceStatus.FAILED)) {
+            return ComplianceStatus.FAILED;
+        } else if (statuses.contains(ComplianceStatus.NOK)) {
+            return ComplianceStatus.NOK;
+        } else if (statuses.contains(ComplianceStatus.NA)) {
+            return ComplianceStatus.NA;
+        } else if (statuses.contains(ComplianceStatus.NOT_CHECKED)) {
+            return ComplianceStatus.NOT_CHECKED;
+        } else {
+            return ComplianceStatus.OK;
+        }
     }
 
     public KeyDetailDto mapToDetailDto() {
@@ -124,6 +141,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
         dto.setCreationTime(created);
+        dto.setComplianceStatus(getComplianceStatus());
         if (tokenProfile != null) {
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());

@@ -142,6 +142,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Complian
         dto.setUsage(getUsage());
         dto.setReason(reason);
         dto.setKeyData(keyData);
+        dto.setComplianceStatus(complianceStatus);
         return dto;
     }
 
@@ -159,6 +160,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Complian
         dto.setUsage(getUsage());
         dto.setKeyWrapperUuid(key.getUuid().toString());
         dto.setDescription(key.getDescription());
+        dto.setComplianceStatus(complianceStatus);
         if (key.getGroups() != null) {
             dto.setGroups(key.getGroups().stream().map(Group::mapToDto).toList());
         }

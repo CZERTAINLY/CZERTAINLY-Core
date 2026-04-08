@@ -307,6 +307,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
             certificateRequestDto.setSubjectAlternativeNames(CertificateUtil.deserializeSans(this.certificateRequestEntity.getSubjectAlternativeNames()));
             certificateRequestDto.setKeyUuid(this.certificateRequestEntity.getKeyUuid() != null ? this.certificateRequestEntity.getKeyUuid().toString() : null);
             certificateRequestDto.setAltKeyUuid(this.certificateRequestEntity.getAltKeyUuid() != null ? this.certificateRequestEntity.getAltKeyUuid().toString() : null);
+            certificateRequestDto.setComplianceStatus(certificateRequestEntity.getComplianceStatus());
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()
