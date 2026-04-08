@@ -122,7 +122,7 @@ public class ProxyMessageCorrelator {
 
     /**
      * Try to complete a pending request if the correlation ID exists locally.
-     * Used by Redis subscriber and JMS listener to check if this instance owns the request.
+     * Used by JMS listener to check if this instance owns the request.
      *
      * <p>This method is safe to call from any instance - it only completes the request
      * if this instance has a pending request with the matching correlation ID.</p>
