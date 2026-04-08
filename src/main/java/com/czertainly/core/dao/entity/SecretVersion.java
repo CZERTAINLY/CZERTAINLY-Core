@@ -69,9 +69,9 @@ public class SecretVersion extends UniquelyIdentified {
         this.secretUuid = secret == null ? null : secret.getUuid();
     }
 
-    public void setVaultProfile(VaultProfile vaultInstance) {
-        this.vaultProfile = vaultInstance;
-        this.vaultProfileUuid = vaultInstance.getUuid();
+    public void setVaultProfile(VaultProfile vaultProfile) {
+        this.vaultProfile = vaultProfile;
+        this.vaultProfileUuid = vaultProfile == null ? null : vaultProfile.getUuid();
     }
 
 }
