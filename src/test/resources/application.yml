@@ -138,6 +138,9 @@ settings:
   cache:
     refresh-interval: 30
 
+proxy:
+  instance-id: test-instance
+
 provisioning:
   api:
     url: http://localhost:8080
