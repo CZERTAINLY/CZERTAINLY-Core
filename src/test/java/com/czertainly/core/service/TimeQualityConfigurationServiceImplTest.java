@@ -1,0 +1,456 @@
+package com.czertainly.core.service;
+
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationUpdateRequestDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.core.dao.entity.signing.SigningProfile;
+import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
+import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
+import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
+
+    @Autowired
+    private TimeQualityConfigurationService timeQualityConfigurationService;
+
+    @Autowired
+    private TimeQualityConfigurationRepository timeQualityConfigurationRepository;
+
+    @Autowired
+    private SigningProfileRepository signingProfileRepository;
+
+    /**
+     * A pre-existing TimeQualityConfiguration saved directly via repository.
+     */
+    private TimeQualityConfiguration savedConfiguration;
+
+    @BeforeEach
+    void setUp() {
+        savedConfiguration = new TimeQualityConfiguration();
+        savedConfiguration.setName("existing-tq-config");
+        savedConfiguration.setAccuracy(Duration.ofSeconds(1));
+        savedConfiguration.setNtpServers(List.of("pool.ntp.org"));
+        savedConfiguration.setNtpCheckInterval(Duration.ofSeconds(30));
+        savedConfiguration.setNtpSamplesPerServer(4);
+        savedConfiguration.setNtpCheckTimeout(Duration.ofSeconds(5));
+        savedConfiguration.setNtpServersMinReachable(1);
+        savedConfiguration.setMaxClockDrift(Duration.ofSeconds(1));
+        savedConfiguration.setLeapSecondGuard(true);
+        savedConfiguration = timeQualityConfigurationRepository.save(savedConfiguration);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private TimeQualityConfigurationCreateRequestDto buildCreateRequest(String name) {
+        TimeQualityConfigurationCreateRequestDto request = new TimeQualityConfigurationCreateRequestDto();
+        request.setName(name);
+        request.setAccuracy(Duration.ofSeconds(1));
+        request.setNtpServers(List.of("pool.ntp.org", "time.google.com"));
+        request.setNtpCheckInterval(Duration.ofSeconds(30));
+        request.setNtpSamplesPerServer(4);
+        request.setNtpCheckTimeout(Duration.ofSeconds(5));
+        request.setNtpServersMinReachable(1);
+        request.setMaxClockDrift(Duration.ofSeconds(1));
+        request.setLeapSecondGuard(true);
+        return request;
+    }
+
+    private TimeQualityConfigurationUpdateRequestDto buildUpdateRequest(String name) {
+        TimeQualityConfigurationUpdateRequestDto request = new TimeQualityConfigurationUpdateRequestDto();
+        request.setName(name);
+        request.setAccuracy(Duration.ofMillis(500));
+        request.setNtpServers(List.of("time.cloudflare.com"));
+        request.setNtpCheckInterval(Duration.ofSeconds(60));
+        request.setNtpSamplesPerServer(8);
+        request.setNtpCheckTimeout(Duration.ofSeconds(10));
+        request.setNtpServersMinReachable(2);
+        request.setMaxClockDrift(Duration.ofMillis(500));
+        request.setLeapSecondGuard(false);
+        return request;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // List
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testListTimeQualityConfigurations_returnsExistingEntry() {
+        SearchRequestDto request = new SearchRequestDto();
+        PaginationResponseDto<TimeQualityConfigurationListDto> response =
+                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(1, response.getTotalItems());
+        TimeQualityConfigurationListDto listed = response.getItems().getFirst();
+        Assertions.assertEquals(savedConfiguration.getUuid().toString(), listed.getUuid());
+        Assertions.assertEquals("existing-tq-config", listed.getName());
+        Assertions.assertEquals(List.of("pool.ntp.org"), listed.getNtpServers());
+    }
+
+    @Test
+    void testListTimeQualityConfigurations_emptyWhenNoneExist() {
+        timeQualityConfigurationRepository.delete(savedConfiguration);
+
+        SearchRequestDto request = new SearchRequestDto();
+        PaginationResponseDto<TimeQualityConfigurationListDto> response =
+                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(0, response.getTotalItems());
+        Assertions.assertTrue(response.getItems().isEmpty());
+    }
+
+    @Test
+    void testListTimeQualityConfigurations_multipleEntries() throws AttributeException, NotFoundException {
+        timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-alpha"));
+        timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-beta"));
+
+        SearchRequestDto request = new SearchRequestDto();
+        PaginationResponseDto<TimeQualityConfigurationListDto> response =
+                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+
+        Assertions.assertEquals(3, response.getTotalItems());
+        List<String> names = response.getItems().stream().map(TimeQualityConfigurationListDto::getName).toList();
+        Assertions.assertTrue(names.contains("existing-tq-config"));
+        Assertions.assertTrue(names.contains("config-alpha"));
+        Assertions.assertTrue(names.contains("config-beta"));
+    }
+
+    @Test
+    void testListTimeQualityConfigurations_paginationMetadataIsCorrect() throws AttributeException, NotFoundException {
+        timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-page-1"));
+        timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-page-2"));
+
+        SearchRequestDto request = new SearchRequestDto();
+        request.setPageNumber(1);
+        request.setItemsPerPage(2);
+        PaginationResponseDto<TimeQualityConfigurationListDto> response =
+                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+
+        Assertions.assertEquals(1, response.getPageNumber());
+        Assertions.assertEquals(2, response.getItemsPerPage());
+        Assertions.assertEquals(3, response.getTotalItems());
+        Assertions.assertEquals(2, response.getTotalPages());
+        Assertions.assertEquals(2, response.getItems().size());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Get
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testGetTimeQualityConfiguration_returnsCorrectDto() throws NotFoundException {
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.getTimeQualityConfiguration(savedConfiguration.getSecuredUuid());
+
+        Assertions.assertNotNull(dto);
+        Assertions.assertEquals(savedConfiguration.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals("existing-tq-config", dto.getName());
+        Assertions.assertEquals(Duration.ofSeconds(1), dto.getAccuracy());
+        Assertions.assertEquals(List.of("pool.ntp.org"), dto.getNtpServers());
+        Assertions.assertEquals(Duration.ofSeconds(30), dto.getNtpCheckInterval());
+        Assertions.assertEquals(4, dto.getNtpSamplesPerServer());
+        Assertions.assertEquals(Duration.ofSeconds(5), dto.getNtpCheckTimeout());
+        Assertions.assertEquals(1, dto.getNtpServersMinReachable());
+        Assertions.assertEquals(Duration.ofSeconds(1), dto.getMaxClockDrift());
+        Assertions.assertTrue(dto.isLeapSecondGuard());
+    }
+
+    @Test
+    void testGetTimeQualityConfiguration_notFound_throwsNotFoundException() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> timeQualityConfigurationService.getTimeQualityConfiguration(
+                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Create
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testCreateTimeQualityConfiguration_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
+        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("new-tq-config");
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
+
+        // Assert returned DTO
+        Assertions.assertNotNull(dto);
+        Assertions.assertNotNull(dto.getUuid());
+        Assertions.assertEquals("new-tq-config", dto.getName());
+        Assertions.assertEquals(Duration.ofSeconds(1), dto.getAccuracy());
+        Assertions.assertEquals(List.of("pool.ntp.org", "time.google.com"), dto.getNtpServers());
+        Assertions.assertEquals(Duration.ofSeconds(30), dto.getNtpCheckInterval());
+        Assertions.assertEquals(4, dto.getNtpSamplesPerServer());
+        Assertions.assertEquals(Duration.ofSeconds(5), dto.getNtpCheckTimeout());
+        Assertions.assertEquals(1, dto.getNtpServersMinReachable());
+        Assertions.assertEquals(Duration.ofSeconds(1), dto.getMaxClockDrift());
+        Assertions.assertTrue(dto.isLeapSecondGuard());
+
+        // Assert entity reloaded from the database
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Assertions.assertTrue(fromDb.isPresent());
+        TimeQualityConfiguration entity = fromDb.get();
+        Assertions.assertEquals("new-tq-config", entity.getName());
+        Assertions.assertEquals(Duration.ofSeconds(1), entity.getAccuracy());
+        Assertions.assertEquals(List.of("pool.ntp.org", "time.google.com"), entity.getNtpServers());
+        Assertions.assertEquals(Duration.ofSeconds(30), entity.getNtpCheckInterval());
+        Assertions.assertEquals(4, entity.getNtpSamplesPerServer());
+        Assertions.assertEquals(Duration.ofSeconds(5), entity.getNtpCheckTimeout());
+        Assertions.assertEquals(1, entity.getNtpServersMinReachable());
+        Assertions.assertEquals(Duration.ofSeconds(1), entity.getMaxClockDrift());
+        Assertions.assertTrue(entity.getLeapSecondGuard());
+    }
+
+    @Test
+    void testCreateTimeQualityConfiguration_withLeapSecondGuardFalse_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
+        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("no-leap-guard");
+        request.setLeapSecondGuard(false);
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
+
+        Assertions.assertFalse(dto.isLeapSecondGuard());
+
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Assertions.assertTrue(fromDb.isPresent());
+        Assertions.assertFalse(fromDb.get().getLeapSecondGuard());
+    }
+
+    @Test
+    void testCreateTimeQualityConfiguration_multipleNtpServers_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
+        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("multi-ntp");
+        request.setNtpServers(List.of("ntp1.example.com", "ntp2.example.com", "ntp3.example.com"));
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
+
+        Assertions.assertEquals(3, dto.getNtpServers().size());
+        Assertions.assertTrue(dto.getNtpServers().contains("ntp1.example.com"));
+        Assertions.assertTrue(dto.getNtpServers().contains("ntp2.example.com"));
+        Assertions.assertTrue(dto.getNtpServers().contains("ntp3.example.com"));
+
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Assertions.assertTrue(fromDb.isPresent());
+        Assertions.assertEquals(3, fromDb.get().getNtpServers().size());
+    }
+
+    @Test
+    void testCreateTimeQualityConfiguration_customAccuracyAndDrift_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
+        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("custom-accuracy");
+        request.setAccuracy(Duration.ofMillis(100));
+        request.setMaxClockDrift(Duration.ofMillis(200));
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
+
+        Assertions.assertEquals(Duration.ofMillis(100), dto.getAccuracy());
+        Assertions.assertEquals(Duration.ofMillis(200), dto.getMaxClockDrift());
+
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Assertions.assertTrue(fromDb.isPresent());
+        Assertions.assertEquals(Duration.ofMillis(100), fromDb.get().getAccuracy());
+        Assertions.assertEquals(Duration.ofMillis(200), fromDb.get().getMaxClockDrift());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Update
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testUpdateTimeQualityConfiguration_assertDtoAndDbEntity() throws NotFoundException, AttributeException {
+        TimeQualityConfigurationUpdateRequestDto request = buildUpdateRequest("updated-tq-config");
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
+                savedConfiguration.getSecuredUuid(), request);
+
+        // Assert returned DTO
+        Assertions.assertNotNull(dto);
+        Assertions.assertEquals(savedConfiguration.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals("updated-tq-config", dto.getName());
+        Assertions.assertEquals(Duration.ofMillis(500), dto.getAccuracy());
+        Assertions.assertEquals(List.of("time.cloudflare.com"), dto.getNtpServers());
+        Assertions.assertEquals(Duration.ofSeconds(60), dto.getNtpCheckInterval());
+        Assertions.assertEquals(8, dto.getNtpSamplesPerServer());
+        Assertions.assertEquals(Duration.ofSeconds(10), dto.getNtpCheckTimeout());
+        Assertions.assertEquals(2, dto.getNtpServersMinReachable());
+        Assertions.assertEquals(Duration.ofMillis(500), dto.getMaxClockDrift());
+        Assertions.assertFalse(dto.isLeapSecondGuard());
+
+        // Assert entity reloaded from the database
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(savedConfiguration.getUuid());
+        Assertions.assertTrue(fromDb.isPresent());
+        TimeQualityConfiguration entity = fromDb.get();
+        Assertions.assertEquals("updated-tq-config", entity.getName());
+        Assertions.assertEquals(Duration.ofMillis(500), entity.getAccuracy());
+        Assertions.assertEquals(List.of("time.cloudflare.com"), entity.getNtpServers());
+        Assertions.assertEquals(Duration.ofSeconds(60), entity.getNtpCheckInterval());
+        Assertions.assertEquals(8, entity.getNtpSamplesPerServer());
+        Assertions.assertEquals(Duration.ofSeconds(10), entity.getNtpCheckTimeout());
+        Assertions.assertEquals(2, entity.getNtpServersMinReachable());
+        Assertions.assertEquals(Duration.ofMillis(500), entity.getMaxClockDrift());
+        Assertions.assertFalse(entity.getLeapSecondGuard());
+    }
+
+    @Test
+    void testUpdateTimeQualityConfiguration_notFound_throwsNotFoundException() {
+        TimeQualityConfigurationUpdateRequestDto request = buildUpdateRequest("does-not-matter");
+
+        Assertions.assertThrows(NotFoundException.class,
+                () -> timeQualityConfigurationService.updateTimeQualityConfiguration(
+                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), request));
+    }
+
+    @Test
+    void testUpdateTimeQualityConfiguration_preservesUuid() throws NotFoundException, AttributeException {
+        UUID originalUuid = savedConfiguration.getUuid();
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
+                savedConfiguration.getSecuredUuid(), buildUpdateRequest("renamed-config"));
+
+        Assertions.assertEquals(originalUuid.toString(), dto.getUuid());
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository.findById(originalUuid);
+        Assertions.assertTrue(fromDb.isPresent());
+    }
+
+    @Test
+    void testUpdateTimeQualityConfiguration_ntpServersReplaced_assertDtoAndDbEntity() throws NotFoundException, AttributeException {
+        TimeQualityConfigurationUpdateRequestDto request = buildUpdateRequest("servers-replaced");
+        request.setNtpServers(List.of("ntp-a.example.com", "ntp-b.example.com"));
+
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
+                savedConfiguration.getSecuredUuid(), request);
+
+        Assertions.assertEquals(2, dto.getNtpServers().size());
+        Assertions.assertTrue(dto.getNtpServers().contains("ntp-a.example.com"));
+        Assertions.assertFalse(dto.getNtpServers().contains("pool.ntp.org"),
+                "Original NTP server should be replaced after update");
+
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(savedConfiguration.getUuid());
+        Assertions.assertTrue(fromDb.isPresent());
+        Assertions.assertEquals(List.of("ntp-a.example.com", "ntp-b.example.com"), fromDb.get().getNtpServers());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Delete
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testDeleteTimeQualityConfiguration_removesEntity() throws NotFoundException {
+        timeQualityConfigurationService.deleteTimeQualityConfiguration(savedConfiguration.getSecuredUuid());
+
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(savedConfiguration.getUuid());
+        Assertions.assertTrue(fromDb.isEmpty(), "Entity should be removed from the database after deletion");
+    }
+
+    @Test
+    void testDeleteTimeQualityConfiguration_notFound_throwsNotFoundException() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(
+                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+    }
+
+    @Test
+    void testDeleteTimeQualityConfiguration_inUseBySigningProfile_throwsValidationException() throws AttributeException, NotFoundException {
+        // Link savedConfiguration to a signing profile, so deletion is blocked
+        SigningProfile profile = new SigningProfile();
+        profile.setName("profile-using-tq-config");
+        profile.setEnabled(false);
+        profile.setSigningScheme(SigningScheme.DELEGATED);
+        profile.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
+        profile.setTimeQualityConfiguration(savedConfiguration);
+        profile.setLatestVersion(1);
+        signingProfileRepository.save(profile);
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(
+                        savedConfiguration.getSecuredUuid()));
+
+        // Entity must still be present
+        Optional<TimeQualityConfiguration> fromDb =
+                timeQualityConfigurationRepository.findById(savedConfiguration.getUuid());
+        Assertions.assertTrue(fromDb.isPresent(), "Entity should not be deleted when it is in use");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Bulk Delete
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testBulkDeleteTimeQualityConfigurations_deletesAll() throws AttributeException, NotFoundException {
+        TimeQualityConfigurationDto second = timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("bulk-delete-second"));
+
+        List<BulkActionMessageDto> messages = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
+                List.of(savedConfiguration.getSecuredUuid(), SecuredUUID.fromString(second.getUuid())));
+
+        Assertions.assertTrue(messages.isEmpty(), "No error messages expected when all deletions succeed");
+        Assertions.assertEquals(0, timeQualityConfigurationRepository.count());
+    }
+
+    @Test
+    void testBulkDeleteTimeQualityConfigurations_nonExistentUuid_returnsErrorMessage() {
+        SecuredUUID nonExistent = SecuredUUID.fromString("00000000-0000-0000-0000-000000000099");
+
+        List<BulkActionMessageDto> messages = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
+                List.of(nonExistent));
+
+        Assertions.assertEquals(1, messages.size());
+        Assertions.assertEquals("00000000-0000-0000-0000-000000000099", messages.getFirst().getUuid());
+        Assertions.assertNotNull(messages.getFirst().getMessage());
+    }
+
+    @Test
+    void testBulkDeleteTimeQualityConfigurations_mixedSuccessAndFailure_returnsErrorsForFailures() throws AttributeException, NotFoundException {
+        TimeQualityConfigurationDto free =
+                timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("bulk-free"));
+
+        // Link savedConfiguration to a signing profile, so its deletion is blocked
+        SigningProfile profile = new SigningProfile();
+        profile.setName("bulk-blocking-profile");
+        profile.setEnabled(false);
+        profile.setSigningScheme(SigningScheme.DELEGATED);
+        profile.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
+        profile.setTimeQualityConfiguration(savedConfiguration);
+        profile.setLatestVersion(1);
+        signingProfileRepository.save(profile);
+
+        List<BulkActionMessageDto> messages = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
+                List.of(savedConfiguration.getSecuredUuid(),
+                        SecuredUUID.fromString(free.getUuid())));
+
+        Assertions.assertEquals(1, messages.size(),
+                "Only the blocked configuration should produce an error message");
+        Assertions.assertEquals(savedConfiguration.getUuid().toString(), messages.getFirst().getUuid());
+
+        // The free configuration must be gone; the blocked one must remain
+        Assertions.assertTrue(timeQualityConfigurationRepository.findById(UUID.fromString(free.getUuid())).isEmpty(),
+                "Free configuration should have been deleted");
+        Assertions.assertTrue(timeQualityConfigurationRepository.findById(savedConfiguration.getUuid()).isPresent(),
+                "Blocked configuration should still exist");
+    }
+}

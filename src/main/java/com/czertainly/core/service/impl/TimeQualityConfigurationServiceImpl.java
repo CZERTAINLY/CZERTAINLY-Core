@@ -14,6 +14,7 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
 import com.czertainly.core.mapper.signing.TimeQualityConfigurationMapper;
@@ -24,8 +25,16 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.TimeQualityConfigurationService;
+import com.czertainly.core.util.FilterPredicatesBuilder;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -63,17 +72,18 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
     public PaginationResponseDto<TimeQualityConfigurationListDto> listTimeQualityConfigurations(SearchRequestDto request, SecurityFilter filter) {
-        List<TimeQualityConfiguration> configurations = timeQualityConfigurationRepository.findUsingSecurityFilter(filter);
-        List<TimeQualityConfigurationListDto> dtos = configurations.stream()
+        Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        TriFunction<Root<TimeQualityConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+        List<TimeQualityConfigurationListDto> configurations = timeQualityConfigurationRepository.findUsingSecurityFilter(filter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+                .stream()
                 .map(TimeQualityConfigurationMapper::toListDto)
                 .toList();
         PaginationResponseDto<TimeQualityConfigurationListDto> response = new PaginationResponseDto<>();
-        // :TODO: this is completely wrong
-        response.setItemsPerPage(dtos.size());
-        response.setPageNumber(1);
-        response.setTotalItems(dtos.size());
-        response.setTotalPages(1);
-        response.setItems(dtos);
+        response.setItems(configurations);
+        response.setPageNumber(request.getPageNumber());
+        response.setItemsPerPage(request.getItemsPerPage());
+        response.setTotalItems(timeQualityConfigurationRepository.countUsingSecurityFilter(filter, predicate));
+        response.setTotalPages((int) Math.ceil((double) response.getTotalItems() / request.getItemsPerPage()));
         return response;
     }
 
@@ -93,6 +103,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
         TimeQualityConfiguration configuration = new TimeQualityConfiguration();
         configuration.setName(request.getName());
+        configuration.setAccuracy(request.getAccuracy());
         configuration.setNtpServers(request.getNtpServers());
         configuration.setNtpCheckInterval(request.getNtpCheckInterval());
         configuration.setNtpSamplesPerServer(request.getNtpSamplesPerServer());
@@ -114,6 +125,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
         attributeEngine.validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
 
         configuration.setName(request.getName());
+        configuration.setAccuracy(request.getAccuracy());
         configuration.setNtpServers(request.getNtpServers());
         configuration.setNtpCheckInterval(request.getNtpCheckInterval());
         configuration.setNtpSamplesPerServer(request.getNtpSamplesPerServer());

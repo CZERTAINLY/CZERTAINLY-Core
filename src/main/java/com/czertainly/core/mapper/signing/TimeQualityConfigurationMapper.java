@@ -16,6 +16,7 @@ public class TimeQualityConfigurationMapper {
         TimeQualityConfigurationDto dto = new TimeQualityConfigurationDto();
         dto.setUuid(configuration.getUuid().toString());
         dto.setName(configuration.getName());
+        dto.setAccuracy(configuration.getAccuracy());
         dto.setNtpServers(configuration.getNtpServers());
         dto.setNtpCheckInterval(configuration.getNtpCheckInterval());
         dto.setNtpSamplesPerServer(configuration.getNtpSamplesPerServer());
