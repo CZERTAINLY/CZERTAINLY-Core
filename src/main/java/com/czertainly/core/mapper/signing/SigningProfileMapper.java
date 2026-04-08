@@ -9,8 +9,7 @@ import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningType
 import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
-import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowDto;
-import com.czertainly.api.model.client.signing.profile.workflow.DocumentSigningWorkflowDto;
+import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
@@ -88,13 +87,8 @@ public class SigningProfileMapper {
         }
 
         // Build workflow DTO
-        if (profile.getWorkflowType() == SigningWorkflowType.CODE_BINARY_SIGNING) {
-            CodeBinarySigningWorkflowDto wf = new CodeBinarySigningWorkflowDto();
-            setFormatterRef(profile.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
-            wf.setSignatureFormatterConnectorAttributes(signatureFormatterConnectorAttributes != null ? signatureFormatterConnectorAttributes : new ArrayList<>());
-            dto.setWorkflow(wf);
-        } else if (profile.getWorkflowType() == SigningWorkflowType.DOCUMENT_SIGNING) {
-            DocumentSigningWorkflowDto wf = new DocumentSigningWorkflowDto();
+        if (profile.getWorkflowType() == SigningWorkflowType.CONTENT_SIGNING) {
+            ContentSigningWorkflowDto wf = new ContentSigningWorkflowDto();
             setFormatterRef(profile.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
             wf.setSignatureFormatterConnectorAttributes(signatureFormatterConnectorAttributes != null ? signatureFormatterConnectorAttributes : new ArrayList<>());
             dto.setWorkflow(wf);

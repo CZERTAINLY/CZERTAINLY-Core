@@ -19,8 +19,7 @@ import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedS
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
-import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowRequestDto;
-import com.czertainly.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
@@ -535,9 +534,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         p.setAllowedDigestAlgorithms(new ArrayList<>());
 
         switch (workflow) {
-            case CodeBinarySigningWorkflowRequestDto w ->
-                    p.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
-            case DocumentSigningWorkflowRequestDto w ->
+            case ContentSigningWorkflowRequestDto w ->
                     p.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
             case RawSigningWorkflowRequestDto w -> {
                 // no formatter for raw signing
@@ -646,9 +643,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
         return switch (workflow) {
-            case CodeBinarySigningWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
-                    w.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, p.getUuid(), w.getSignatureFormatterConnectorAttributes());
-            case DocumentSigningWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
+            case ContentSigningWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
                     w.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, p.getUuid(), w.getSignatureFormatterConnectorAttributes());
             case RawSigningWorkflowRequestDto w -> null;
             case TimestampingWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(

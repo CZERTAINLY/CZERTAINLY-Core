@@ -26,7 +26,7 @@ CREATE TABLE "signing_profile" (
     "enabled"                               BOOLEAN      NOT NULL DEFAULT FALSE,
     "signing_scheme"                        VARCHAR      NOT NULL, -- MANAGED | DELEGATED
     "managed_signing_type"                  VARCHAR,               -- STATIC_KEY | ONE_TIME_KEY | NULL
-    "workflow_type"                         VARCHAR      NOT NULL, -- CODE_BINARY_SIGNING | DOCUMENT_SIGNING | RAW_SIGNING | TIMESTAMPING
+    "workflow_type"                         VARCHAR      NOT NULL, -- CONTENT_SIGNING | RAW_SIGNING | TIMESTAMPING
     "latest_version"                        INTEGER      NOT NULL DEFAULT 1,
     -- scheme columns (type-conditional, nullable)
     "token_profile_uuid"                    UUID,

@@ -18,10 +18,8 @@ import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedS
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
-import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowDto;
-import com.czertainly.api.model.client.signing.profile.workflow.CodeBinarySigningWorkflowRequestDto;
-import com.czertainly.api.model.client.signing.profile.workflow.DocumentSigningWorkflowDto;
-import com.czertainly.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
+import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWorkflowDto;
+import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
@@ -342,26 +340,14 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a request using a DELEGATED scheme and DOCUMENT_SIGNING workflow.
+     * Builds a request using a DELEGATED scheme and CONTENT_SIGNING workflow.
      */
-    private SigningProfileRequestDto buildDelegatedDocumentRequest(String name) {
+    private SigningProfileRequestDto buildDelegatedContentRequest(String name) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
         request.setSigningScheme(new DelegatedSigningRequestDto());
-        request.setWorkflow(new DocumentSigningWorkflowRequestDto());
-        return request;
-    }
-
-    /**
-     * Builds a request using a DELEGATED scheme and CODE_BINARY_SIGNING workflow.
-     */
-    private SigningProfileRequestDto buildDelegatedCodeBinaryRequest(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        request.setSigningScheme(new DelegatedSigningRequestDto());
-        request.setWorkflow(new CodeBinarySigningWorkflowRequestDto());
+        request.setWorkflow(new ContentSigningWorkflowRequestDto());
         return request;
     }
 
@@ -423,22 +409,20 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testListSigningProfiles_multipleProfilesWithDifferentWorkflowTypes() throws AttributeException, NotFoundException {
         // Create additional profiles with different workflow types
-        signingProfileService.createSigningProfile(buildDelegatedDocumentRequest("document-profile"));
-        signingProfileService.createSigningProfile(buildDelegatedCodeBinaryRequest("code-binary-profile"));
+        signingProfileService.createSigningProfile(buildDelegatedContentRequest("content-profile"));
         signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-profile"));
 
         SearchRequestDto request = new SearchRequestDto();
         PaginationResponseDto<SigningProfileListDto> response = signingProfileService.listSigningProfiles(request, SecurityFilter.create());
 
         Assertions.assertNotNull(response);
-        Assertions.assertEquals(4, response.getTotalItems());
+        Assertions.assertEquals(3, response.getTotalItems());
 
         List<SigningWorkflowType> returnedTypes = response.getItems().stream()
                 .map(SigningProfileListDto::getSigningWorkflowType)
                 .toList();
         Assertions.assertTrue(returnedTypes.contains(SigningWorkflowType.RAW_SIGNING));
-        Assertions.assertTrue(returnedTypes.contains(SigningWorkflowType.DOCUMENT_SIGNING));
-        Assertions.assertTrue(returnedTypes.contains(SigningWorkflowType.CODE_BINARY_SIGNING));
+        Assertions.assertTrue(returnedTypes.contains(SigningWorkflowType.CONTENT_SIGNING));
         Assertions.assertTrue(returnedTypes.contains(SigningWorkflowType.TIMESTAMPING));
     }
 
@@ -503,18 +487,18 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         // Add a digital signature so that the next update triggers a version bump
         createDigitalSignatureFor(entity, 1);
 
-        // Update to DELEGATED + DOCUMENT_SIGNING → should bump to version 2
-        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedDocumentRequest("profile-history"));
+        // Update to DELEGATED + CONTENT_SIGNING → should bump to version 2
+        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedContentRequest("profile-history"));
 
         // Version 1 snapshot must still report RAW_SIGNING
         SigningProfileDto v1 = signingProfileService.getSigningProfile(profileUuid, 1);
         Assertions.assertEquals(1, v1.getVersion());
         Assertions.assertEquals(SigningWorkflowType.RAW_SIGNING, v1.getWorkflow().getType());
 
-        // Latest (version 2) must report DOCUMENT_SIGNING
+        // Latest (version 2) must report CONTENT_SIGNING
         SigningProfileDto latest = signingProfileService.getSigningProfile(profileUuid, null);
         Assertions.assertEquals(2, latest.getVersion());
-        Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, latest.getWorkflow().getType());
+        Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, latest.getWorkflow().getType());
     }
 
     @Test
@@ -681,29 +665,16 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testCreateSigningProfile_documentSigningWorkflow_assertWorkflowTypeAndEntity() throws AttributeException, NotFoundException {
-        SigningProfileRequestDto request = buildDelegatedDocumentRequest("document-signing-profile");
+    void testCreateSigningProfile_contentSigningWorkflow_assertWorkflowTypeAndEntity() throws AttributeException, NotFoundException {
+        SigningProfileRequestDto request = buildDelegatedContentRequest("content-signing-profile");
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
         Assertions.assertNotNull(dto.getWorkflow());
-        Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, dto.getWorkflow().getType());
+        Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, dto.getWorkflow().getType());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, fromDb.get().getWorkflowType());
-    }
-
-    @Test
-    void testCreateSigningProfile_codeBinarySigningWorkflow_assertWorkflowTypeAndEntity() throws AttributeException, NotFoundException {
-        SigningProfileRequestDto request = buildDelegatedCodeBinaryRequest("code-binary-signing-profile");
-        SigningProfileDto dto = signingProfileService.createSigningProfile(request);
-
-        Assertions.assertNotNull(dto.getWorkflow());
-        Assertions.assertEquals(SigningWorkflowType.CODE_BINARY_SIGNING, dto.getWorkflow().getType());
-
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(dto.getUuid()));
-        Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertEquals(SigningWorkflowType.CODE_BINARY_SIGNING, fromDb.get().getWorkflowType());
+        Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, fromDb.get().getWorkflowType());
     }
 
     @Test
@@ -760,19 +731,19 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateSigningProfile_managedStaticKey_withDocumentSigningWorkflow_assertBothFields() throws AttributeException, NotFoundException {
+    void testCreateSigningProfile_managedStaticKey_withContentSigningWorkflow_assertBothFields() throws AttributeException, NotFoundException {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName("managed-document-profile");
-        request.setDescription("Managed static-key profile with document signing workflow");
-        StaticKeyManagedSigningRequestDto managedDocScheme = new StaticKeyManagedSigningRequestDto();
-        managedDocScheme.setCertificateUuid(certificate.getUuid());
-        request.setSigningScheme(managedDocScheme);
-        request.setWorkflow(new DocumentSigningWorkflowRequestDto());
+        request.setName("managed-content-profile");
+        request.setDescription("Managed static-key profile with content signing workflow");
+        StaticKeyManagedSigningRequestDto managedContentScheme = new StaticKeyManagedSigningRequestDto();
+        managedContentScheme.setCertificateUuid(certificate.getUuid());
+        request.setSigningScheme(managedContentScheme);
+        request.setWorkflow(new ContentSigningWorkflowRequestDto());
 
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
         Assertions.assertEquals(SigningScheme.MANAGED, dto.getSigningScheme().getSigningScheme());
-        Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, dto.getWorkflow().getType());
+        Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, dto.getWorkflow().getType());
         Assertions.assertFalse(dto.isEnabled());
 
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(dto.getUuid()));
@@ -780,7 +751,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
         Assertions.assertEquals(ManagedSigningType.STATIC_KEY, entity.getManagedSigningType());
-        Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, entity.getWorkflowType());
+        Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, entity.getWorkflowType());
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -928,7 +899,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         UUID profileUuidRaw = UUID.fromString(created.getUuid());
 
         // Update without digital signatures (no bump — snapshot is overwritten in place)
-        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedDocumentRequest("overwrite-snapshot-profile"));
+        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedContentRequest("overwrite-snapshot-profile"));
 
         // Still only one snapshot (version 1) — overwritten
         Optional<SigningProfileVersion> v1Snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 1);
@@ -940,7 +911,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         // Fetching version 1 should now return the updated workflow type
         SigningProfileDto v1 = signingProfileService.getSigningProfile(profileUuid, 1);
-        Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, v1.getWorkflow().getType(),
+        Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, v1.getWorkflow().getType(),
                 "Overwritten v1 snapshot should reflect the new workflow type");
     }
 
@@ -954,30 +925,30 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         // Trigger first bump: add sig for v1, then update → v2
         createDigitalSignatureFor(entity, 1);
-        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedDocumentRequest("multi-bump-profile"));
+        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedContentRequest("multi-bump-profile"));
 
         // Trigger second bump: add sig for v2, then update → v3
         entity = signingProfileRepository.findById(profileUuidRaw).orElseThrow();
         createDigitalSignatureFor(entity, 2);
-        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedCodeBinaryRequest("multi-bump-profile"));
+        signingProfileService.updateSigningProfile(profileUuid, buildDelegatedTimestampingRequest("multi-bump-profile"));
 
         // Verify three snapshot versions exist
         Assertions.assertTrue(signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 1).isPresent());
         Assertions.assertTrue(signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 2).isPresent());
         Assertions.assertTrue(signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 3).isPresent());
 
-        // Verify latest is version 3 with CODE_BINARY_SIGNING
+        // Verify latest is version 3 with TIMESTAMPING
         SigningProfileDto latest = signingProfileService.getSigningProfile(profileUuid, null);
         Assertions.assertEquals(3, latest.getVersion());
-        Assertions.assertEquals(SigningWorkflowType.CODE_BINARY_SIGNING, latest.getWorkflow().getType());
+        Assertions.assertEquals(SigningWorkflowType.TIMESTAMPING, latest.getWorkflow().getType());
 
         // Verify version 1 still has RAW_SIGNING
         SigningProfileDto v1 = signingProfileService.getSigningProfile(profileUuid, 1);
         Assertions.assertEquals(SigningWorkflowType.RAW_SIGNING, v1.getWorkflow().getType());
 
-        // Verify version 2 has DOCUMENT_SIGNING
+        // Verify version 2 has CONTENT_SIGNING
         SigningProfileDto v2 = signingProfileService.getSigningProfile(profileUuid, 2);
-        Assertions.assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, v2.getWorkflow().getType());
+        Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, v2.getWorkflow().getType());
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -1194,7 +1165,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testBulkEnableSigningProfiles_multipleProfiles() throws AttributeException, NotFoundException {
         SigningProfileDto second = signingProfileService.createSigningProfile(buildDelegatedRawRequest("second-for-bulk-enable"));
-        SigningProfileDto third = signingProfileService.createSigningProfile(buildDelegatedDocumentRequest("third-for-bulk-enable"));
+        SigningProfileDto third = signingProfileService.createSigningProfile(buildDelegatedContentRequest("third-for-bulk-enable"));
 
         signingProfileService.bulkEnableSigningProfiles(List.of(
                 savedProfile.getSecuredUuid(),
@@ -1214,7 +1185,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileDto second = signingProfileService.createSigningProfile(req2);
         signingProfileService.enableSigningProfile(SecuredUUID.fromString(second.getUuid()));
 
-        SigningProfileRequestDto req3 = buildDelegatedDocumentRequest("third-for-bulk-disable");
+        SigningProfileRequestDto req3 = buildDelegatedContentRequest("third-for-bulk-disable");
         SigningProfileDto third = signingProfileService.createSigningProfile(req3);
         signingProfileService.enableSigningProfile(SecuredUUID.fromString(third.getUuid()));
 
@@ -1690,8 +1661,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateSigningProfile_documentSigning_formatterAttributesPersistedAndReturned() throws AttributeException, NotFoundException {
-        Connector formatter = createFormatterConnector("formatter-doc-create");
+    void testCreateSigningProfile_contentSigning_formatterAttributesPersistedAndReturned() throws AttributeException, NotFoundException {
+        Connector formatter = createFormatterConnector("formatter-content-create");
 
         // Pre-register the attribute definition so the engine can store content for it
         UUID attrUuid = UUID.randomUUID();
@@ -1705,7 +1676,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         attrDef.setProperties(props);
         attributeEngine.updateDataAttributeDefinitions(formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
 
-        DocumentSigningWorkflowRequestDto workflow = new DocumentSigningWorkflowRequestDto();
+        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
         workflow.setSignatureFormatterConnectorUuid(formatter.getUuid());
         workflow.setSignatureFormatterConnectorAttributes(
                 List.of(buildFormatterAttribute(attrUuid, attrName, "testValue")));
@@ -1717,8 +1688,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
-        Assertions.assertInstanceOf(DocumentSigningWorkflowDto.class, dto.getWorkflow());
-        DocumentSigningWorkflowDto wfDto = (DocumentSigningWorkflowDto) dto.getWorkflow();
+        Assertions.assertInstanceOf(ContentSigningWorkflowDto.class, dto.getWorkflow());
+        ContentSigningWorkflowDto wfDto = (ContentSigningWorkflowDto) dto.getWorkflow();
         Assertions.assertFalse(wfDto.getSignatureFormatterConnectorAttributes().isEmpty(),
                 "Formatter connector attributes should be populated after create");
         Assertions.assertEquals(attrName, wfDto.getSignatureFormatterConnectorAttributes().getFirst().getName());
@@ -1743,7 +1714,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         attributeEngine.updateDataAttributeDefinitions(formatterB.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
 
         // Create with formatterA
-        DocumentSigningWorkflowRequestDto workflowA = new DocumentSigningWorkflowRequestDto();
+        ContentSigningWorkflowRequestDto workflowA = new ContentSigningWorkflowRequestDto();
         workflowA.setSignatureFormatterConnectorUuid(formatterA.getUuid());
         workflowA.setSignatureFormatterConnectorAttributes(
                 List.of(buildFormatterAttribute(attrUuid, attrName, "valueA")));
@@ -1758,7 +1729,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         UUID profileUuidRaw = UUID.fromString(created.getUuid());
 
         // Update with formatterB — old formatter A attributes should be cleared
-        DocumentSigningWorkflowRequestDto workflowB = new DocumentSigningWorkflowRequestDto();
+        ContentSigningWorkflowRequestDto workflowB = new ContentSigningWorkflowRequestDto();
         workflowB.setSignatureFormatterConnectorUuid(formatterB.getUuid());
         workflowB.setSignatureFormatterConnectorAttributes(
                 List.of(buildFormatterAttribute(attrUuid, attrName, "valueB")));
@@ -1798,17 +1769,11 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         attrDef.setProperties(props);
         attributeEngine.updateDataAttributeDefinitions(formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
 
-        for (SigningWorkflowType workflowLabel : List.of(SigningWorkflowType.CODE_BINARY_SIGNING, SigningWorkflowType.DOCUMENT_SIGNING, SigningWorkflowType.TIMESTAMPING)) {
+        for (SigningWorkflowType workflowLabel : List.of(SigningWorkflowType.CONTENT_SIGNING, SigningWorkflowType.TIMESTAMPING)) {
             WorkflowRequestDto wfRequest;
             switch (workflowLabel) {
-                case CODE_BINARY_SIGNING -> {
-                    CodeBinarySigningWorkflowRequestDto wf = new CodeBinarySigningWorkflowRequestDto();
-                    wf.setSignatureFormatterConnectorUuid(formatter.getUuid());
-                    wf.setSignatureFormatterConnectorAttributes(List.of(buildFormatterAttribute(attrUuid, attrName, "val-" + workflowLabel)));
-                    wfRequest = wf;
-                }
-                case DOCUMENT_SIGNING -> {
-                    DocumentSigningWorkflowRequestDto wf = new DocumentSigningWorkflowRequestDto();
+                case CONTENT_SIGNING -> {
+                    ContentSigningWorkflowRequestDto wf = new ContentSigningWorkflowRequestDto();
                     wf.setSignatureFormatterConnectorUuid(formatter.getUuid());
                     wf.setSignatureFormatterConnectorAttributes(List.of(buildFormatterAttribute(attrUuid, attrName, "val-" + workflowLabel)));
                     wfRequest = wf;
@@ -1833,10 +1798,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
             List<ResponseAttribute> fetchedAttrs;
             switch (fetched.getWorkflow().getType()) {
-                case CODE_BINARY_SIGNING ->
-                        fetchedAttrs = ((CodeBinarySigningWorkflowDto) fetched.getWorkflow()).getSignatureFormatterConnectorAttributes();
-                case DOCUMENT_SIGNING ->
-                        fetchedAttrs = ((DocumentSigningWorkflowDto) fetched.getWorkflow()).getSignatureFormatterConnectorAttributes();
+                case CONTENT_SIGNING ->
+                        fetchedAttrs = ((ContentSigningWorkflowDto) fetched.getWorkflow()).getSignatureFormatterConnectorAttributes();
                 case TIMESTAMPING ->
                         fetchedAttrs = ((TimestampingWorkflowDto) fetched.getWorkflow()).getSignatureFormatterConnectorAttributes();
                 default ->
@@ -1863,7 +1826,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         attrDef.setProperties(props);
         attributeEngine.updateDataAttributeDefinitions(formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, List.of(attrDef));
 
-        DocumentSigningWorkflowRequestDto workflow = new DocumentSigningWorkflowRequestDto();
+        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
         workflow.setSignatureFormatterConnectorUuid(formatter.getUuid());
         workflow.setSignatureFormatterConnectorAttributes(
                 List.of(buildFormatterAttribute(attrUuid, attrName, "toDelete")));

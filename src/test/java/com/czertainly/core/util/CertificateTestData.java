@@ -342,19 +342,19 @@ public class CertificateTestData {
                         true),
 
                 // 2. ECDSA cert, token profile present, non-TSP workflow → accepted
-                Arguments.of("ECDSA Cert CODE_BINARY_SIGNING",
+                Arguments.of("ECDSA Cert CONTENT_SIGNING",
                         List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
-                        true, List.of(), false, SigningWorkflowType.CODE_BINARY_SIGNING,
+                        true, List.of(), false, SigningWorkflowType.CONTENT_SIGNING,
                         true),
 
-                // 3. Expiring cert, token profile present, DOCUMENT_SIGNING → accepted
-                Arguments.of("Expiring Cert DOCUMENT_SIGNING",
+                // 3. Expiring cert, token profile present, CONTENT_SIGNING → accepted
+                Arguments.of("Expiring Cert CONTENT_SIGNING",
                         List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false,
-                        true, List.of(), false, SigningWorkflowType.DOCUMENT_SIGNING,
+                        true, List.of(), false, SigningWorkflowType.CONTENT_SIGNING,
                         true),
 
                 // 4. Falcon cert, token profile present, RAW_SIGNING → accepted
