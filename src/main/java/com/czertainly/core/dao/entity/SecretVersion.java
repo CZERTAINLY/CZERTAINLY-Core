@@ -30,12 +30,12 @@ public class SecretVersion extends UniquelyIdentified {
     @Column(name = "fingerprint", nullable = false)
     private String fingerprint;
 
-    @Column(name = "vault_instance_uuid")
-    private UUID vaultInstanceUuid;
+    @Column(name = "vault_profile_uuid")
+    private UUID vaultProfileUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vault_instance_uuid", insertable = false, updatable = false)
-    private VaultInstance vaultInstance;
+    @JoinColumn(name = "vault_profile_uuid", insertable = false, updatable = false)
+    private VaultProfile vaultProfile;
 
     @Column(name = "vault_version")
     private String vaultVersion;
@@ -69,9 +69,9 @@ public class SecretVersion extends UniquelyIdentified {
         this.secretUuid = secret == null ? null : secret.getUuid();
     }
 
-    public void setVaultInstance(VaultInstance vaultInstance) {
-        this.vaultInstance = vaultInstance;
-        this.vaultInstanceUuid = vaultInstance.getUuid();
+    public void setVaultProfile(VaultProfile vaultInstance) {
+        this.vaultProfile = vaultInstance;
+        this.vaultProfileUuid = vaultInstance.getUuid();
     }
 
 }
