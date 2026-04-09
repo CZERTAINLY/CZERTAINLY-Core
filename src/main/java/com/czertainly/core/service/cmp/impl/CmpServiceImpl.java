@@ -27,6 +27,7 @@ import com.czertainly.core.service.cmp.configurations.variants.CmpConfigurationC
 import com.czertainly.core.service.cmp.configurations.variants.Mobile3gppProfileContext;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
@@ -368,8 +369,8 @@ public class CmpServiceImpl implements CmpService {
             if (raProfile == null) {
                 return;
             }
-            issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.CMP_PROFILE, cmpProfile.getUuid());
-            revokeAttributes = attributeEngine.getRequestObjectDataAttributesContent(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.CMP_PROFILE, cmpProfile.getUuid());
+            issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build());
+            revokeAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build());
         }
         LOG.debug("PN={} | CMP service initialized: isRaProfileBased: {}, raProfile: {}, cmpProfile: {}", profileName, raProfileBased, raProfile, cmpProfile);
     }

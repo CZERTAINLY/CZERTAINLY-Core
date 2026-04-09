@@ -168,7 +168,7 @@ class DiscoveryHistorySearchTest extends BaseSpringBootTest {
         metadataAttribute.setProperties(metadataAttributeProperties);
         metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
 
-        attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.DISCOVERY, discoveryHistory.getUuid()));
+        attributeEngine.updateMetadataAttribute(metadataAttribute, ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).connector(connector.getUuid()).build());
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
@@ -208,7 +208,7 @@ class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     void testInsertedAttributes() {
         var customAttrs = attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid());
-        var metaAttrs = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(Resource.DISCOVERY, discoveryHistory.getUuid()));
+        var metaAttrs = attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).build());
         Assertions.assertEquals(1, customAttrs.size());
         Assertions.assertEquals(1, metaAttrs.size());
     }

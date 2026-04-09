@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.vaultprofile.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.SecretRepository;
@@ -122,7 +123,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
         VaultProfile vaultProfile = vaultProfileRepository.findByUuid(vaultProfileUuid).orElseThrow(() -> new NotFoundException(VaultProfile.class, vaultProfileUuid));
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
         if (vaultProfile.getVaultInstance().getConnectorUuid() != null) {
-            detailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.VAULT_PROFILE, vaultProfile.getUuid()));
+            detailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT_PROFILE, vaultProfile.getUuid()).connector(vaultProfile.getVaultInstance().getConnectorUuid()).build()));
         }
         detailDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfileUuid.getValue()));
         return detailDto;
@@ -142,7 +143,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
         vaultProfileRepository.save(vaultProfile);
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
-        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getAttributes()));
+        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT_PROFILE, vaultProfile.getUuid()).connector(vaultProfile.getVaultInstance().getConnectorUuid()).build(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getCustomAttributes()));
         return detailDto;
     }
@@ -184,7 +185,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
 
         VaultProfileDetailDto detailDto = vaultProfile.mapToDetailDto();
         // Store vault profile data and custom attributes
-        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getAttributes()));
+        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT_PROFILE, vaultProfile.getUuid()).connector(vaultInstance.getConnectorUuid()).build(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT_PROFILE, vaultProfile.getUuid(), request.getCustomAttributes()));
 
         return detailDto;

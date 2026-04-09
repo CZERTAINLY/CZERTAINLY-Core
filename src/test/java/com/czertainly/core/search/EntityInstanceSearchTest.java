@@ -200,7 +200,7 @@ class EntityInstanceSearchTest extends BaseSpringBootTest {
         metadataAttributeProperties.setLabel("Test meta");
         metadataAttribute.setProperties(metadataAttributeProperties);        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
 
-        attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.ENTITY, entityInstanceReference.getUuid()));
+        attributeEngine.updateMetadataAttribute(metadataAttribute, ObjectAttributeContentInfo.builder(Resource.ENTITY, entityInstanceReference.getUuid()).connector(connector.getUuid()).build());
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {

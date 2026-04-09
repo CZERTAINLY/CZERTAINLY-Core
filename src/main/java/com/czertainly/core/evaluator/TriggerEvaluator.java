@@ -264,7 +264,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         AttributeContentType fieldAttributeContentType = AttributeContentType.valueOf(split[1]);
         String fieldIdentifierName = split[0];
         // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on these, return true for the first satisfying attribute, otherwise continue wit next
-        List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(resource, objectUuid));
+        List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(resource, objectUuid).build());
         for (List<ResponseMetadata> responseMetadata : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
             for (ResponseMetadata responseAttributeDto : responseMetadata) {
                 // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object

@@ -8,6 +8,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeDefinitionCon
 import com.czertainly.core.dao.entity.AttributeContent2Object;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,7 +17,27 @@ import java.util.UUID;
 @Repository
 public interface AttributeContent2ObjectRepository extends SecurityFilterRepository<AttributeContent2Object, String> {
 
-    List<AttributeContent2Object> getByConnectorUuidAndAttributeContentItemUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(UUID connectorUuid, UUID attributeContentItemUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+    // ── Deduplication check — version-aware and purpose-aware ───────────────
+    @Query("""
+            SELECT aco FROM AttributeContent2Object aco
+                WHERE ((:connectorUuid IS NULL AND aco.connectorUuid IS NULL) OR aco.connectorUuid = :connectorUuid)
+                    AND aco.attributeContentItemUuid = :contentItemUuid
+                    AND aco.objectType = :objectType
+                    AND aco.objectUuid = :objectUuid
+                    AND ((:objectVersion IS NULL AND aco.objectVersion IS NULL) OR aco.objectVersion = :objectVersion)
+                    AND ((:sourceObjectType IS NULL AND aco.sourceObjectType IS NULL) OR aco.sourceObjectType = :sourceObjectType)
+                    AND ((:sourceObjectUuid IS NULL AND aco.sourceObjectUuid IS NULL) OR aco.sourceObjectUuid = :sourceObjectUuid)
+                    AND ((:purpose IS NULL AND aco.purpose IS NULL) OR aco.purpose = :purpose)
+            """)
+    List<AttributeContent2Object> findExistingContentMapping(
+            @Param("connectorUuid") UUID connectorUuid,
+            @Param("contentItemUuid") UUID contentItemUuid,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("objectVersion") Integer objectVersion,
+            @Param("sourceObjectType") Resource sourceObjectType,
+            @Param("sourceObjectUuid") UUID sourceObjectUuid,
+            @Param("purpose") String purpose);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -24,12 +45,22 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.enabled = true AND aco.objectType = ?2 AND aco.objectUuid = ?3
-                    AND (COALESCE(?4) IS NULL OR aci.attributeDefinitionUuid IN (?4))
-                    AND (COALESCE(?5) IS NULL OR aci.attributeDefinitionUuid NOT IN (?5))
+                WHERE ad.type = :attributeType AND ad.enabled = true AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND (:allowedDefinitionUuids IS NULL OR aci.attributeDefinitionUuid IN (:allowedDefinitionUuids))
+                    AND (:forbiddenDefinitionUuids IS NULL OR aci.attributeDefinitionUuid NOT IN (:forbiddenDefinitionUuids))
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectCustomAttributesContent(AttributeType attributeType, Resource objectType, UUID objectUuid, List<UUID> allowedDefinitionUuids, List<UUID> forbiddenDefinitionUuids);
+    List<ObjectAttributeContent> getObjectCustomAttributesContent(
+            @Param("attributeType") AttributeType attributeType,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("allowedDefinitionUuids") List<UUID> allowedDefinitionUuids,
+            @Param("forbiddenDefinitionUuids") List<UUID> forbiddenDefinitionUuids);
+
+    // ── Data attribute read queries — all version-aware ──────────────────────
+    // objectVersion uses the same null-matching idiom as purpose:
+    //   null  → matches rows WHERE object_version IS NULL  (unversioned, backward-compatible)
+    //   N     → matches rows WHERE object_version = N      (specific version)
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -37,11 +68,19 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.operation = ?3 AND ((?4 IS NULL AND aco.purpose IS NULL) OR aco.purpose = ?4)
-                    AND aco.connectorUuid = ?2 AND aco.objectType = ?5 AND aco.objectUuid = ?6
+                WHERE ad.type = :attributeType AND ad.operation = :operation AND ((:purpose IS NULL AND aco.purpose IS NULL) OR aco.purpose = :purpose)
+                    AND aco.connectorUuid = :connectorUuid AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND ((:objectVersion IS NULL AND aco.objectVersion IS NULL) OR aco.objectVersion = :objectVersion)
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectDataAttributesContent(AttributeType attributeType, UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getObjectDataAttributesContent(
+            @Param("attributeType") AttributeType attributeType,
+            @Param("connectorUuid") UUID connectorUuid,
+            @Param("operation") String operation,
+            @Param("purpose") String purpose,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("objectVersion") Integer objectVersion);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -49,11 +88,17 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.operation IS NULL
-                    AND aco.connectorUuid = ?2 AND aco.objectType = ?3 AND aco.objectUuid = ?4
+                WHERE ad.type = :attributeType AND ad.operation IS NULL
+                    AND aco.connectorUuid = :connectorUuid AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND ((:objectVersion IS NULL AND aco.objectVersion IS NULL) OR aco.objectVersion = :objectVersion)
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectDataAttributesContentNoOperation(AttributeType attributeType, UUID connectorUuid, Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getObjectDataAttributesContentNoOperation(
+            @Param("attributeType") AttributeType attributeType,
+            @Param("connectorUuid") UUID connectorUuid,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("objectVersion") Integer objectVersion);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -61,11 +106,18 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.operation = ?2 AND ((?3 IS NULL AND aco.purpose IS NULL) OR aco.purpose = ?3)
-                    AND aco.connectorUuid IS NULL AND aco.objectType = ?4 AND aco.objectUuid = ?5
+                WHERE ad.type = :attributeType AND ad.operation = :operation AND ((:purpose IS NULL AND aco.purpose IS NULL) OR aco.purpose = :purpose)
+                    AND aco.connectorUuid IS NULL AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND ((:objectVersion IS NULL AND aco.objectVersion IS NULL) OR aco.objectVersion = :objectVersion)
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectDataAttributesContentNoConnector(AttributeType attributeType, String operation, String purpose, Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getObjectDataAttributesContentNoConnector(
+            @Param("attributeType") AttributeType attributeType,
+            @Param("operation") String operation,
+            @Param("purpose") String purpose,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("objectVersion") Integer objectVersion);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -73,11 +125,16 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.operation IS NULL
-                    AND aco.connectorUuid IS NULL AND aco.objectType = ?2 AND aco.objectUuid = ?3
+                WHERE ad.type = :attributeType AND ad.operation IS NULL
+                    AND aco.connectorUuid IS NULL AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND ((:objectVersion IS NULL AND aco.objectVersion IS NULL) OR aco.objectVersion = :objectVersion)
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectDataAttributesContentNoConnectorNoOperation(AttributeType attributeType, Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getObjectDataAttributesContentNoConnectorNoOperation(
+            @Param("attributeType") AttributeType attributeType,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("objectVersion") Integer objectVersion);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -85,10 +142,11 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?#{T(com.czertainly.api.model.common.attribute.common.AttributeType).DATA} AND aco.objectType = ?1 AND aco.objectUuid = ?2
+                WHERE ad.type = com.czertainly.api.model.common.attribute.common.AttributeType.DATA
+                    AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getAllObjectDataAttributesContent(Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getAllObjectDataAttributesContent(@Param("objectType") Resource objectType, @Param("objectUuid") UUID objectUuid);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContentDetail(
@@ -97,12 +155,21 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 LEFT JOIN Connector c ON c.uuid = aco.connectorUuid
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND (CAST(?2 AS java.util.UUID) IS NULL OR aco.connectorUuid = ?2) AND (?3 IS NULL OR ad.operation = ?3)
-                    AND aco.objectType = ?4 AND aco.objectUuid = ?5
-                    AND (?6 IS NULL OR aco.sourceObjectType = ?6) AND (CAST(?7 AS java.util.UUID) IS NULL OR aco.sourceObjectUuid = ?7)
+                WHERE ad.type = :attributeType AND (CAST(:connectorUuid AS java.util.UUID) IS NULL OR aco.connectorUuid = :connectorUuid) AND (:operation IS NULL OR ad.operation = :operation)
+                    AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND (:sourceObjectType IS NULL OR aco.sourceObjectType = :sourceObjectType) AND (CAST(:sourceObjectUuid AS java.util.UUID) IS NULL OR aco.sourceObjectUuid = :sourceObjectUuid)
+                    AND ((:objectVersion IS NULL AND aco.objectVersion IS NULL) OR aco.objectVersion = :objectVersion)
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContentDetail> getObjectAttributeContentDetail(AttributeType attributeType, UUID connectorUuid, String operation, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+    List<ObjectAttributeContentDetail> getObjectAttributeContentDetail(
+            @Param("attributeType") AttributeType attributeType,
+            @Param("connectorUuid") UUID connectorUuid,
+            @Param("operation") String operation,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("sourceObjectType") Resource sourceObjectType,
+            @Param("sourceObjectUuid") UUID sourceObjectUuid,
+            @Param("objectVersion") Integer objectVersion);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeDefinitionContent(
@@ -110,18 +177,102 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND (CAST(?2 AS java.util.UUID) IS NULL OR aco.connectorUuid = ?2) AND (?3 IS NULL OR ad.operation = ?3)
-                    AND aco.objectType = ?4 AND aco.objectUuid = ?5
-                    AND (?6 IS NULL OR aco.sourceObjectType = ?6) AND (CAST(?7 AS java.util.UUID) IS NULL OR aco.sourceObjectUuid = ?7)
+                WHERE ad.type = :attributeType AND (CAST(:connectorUuid AS java.util.UUID) IS NULL OR aco.connectorUuid = :connectorUuid) AND (:operation IS NULL OR ad.operation = :operation)
+                    AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND (:sourceObjectType IS NULL OR aco.sourceObjectType = :sourceObjectType) AND (CAST(:sourceObjectUuid AS java.util.UUID) IS NULL OR aco.sourceObjectUuid = :sourceObjectUuid)
+                    AND ((:objectVersion IS NULL AND aco.objectVersion IS NULL) OR aco.objectVersion = :objectVersion)
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeDefinitionContent> getObjectAttributeDefinitionContent(AttributeType attributeType, UUID connectorUuid, String operation, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+    List<ObjectAttributeDefinitionContent> getObjectAttributeDefinitionContent(
+            @Param("attributeType") AttributeType attributeType,
+            @Param("connectorUuid") UUID connectorUuid,
+            @Param("operation") String operation,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("sourceObjectType") Resource sourceObjectType,
+            @Param("sourceObjectUuid") UUID sourceObjectUuid,
+            @Param("objectVersion") Integer objectVersion);
 
     @Modifying
-    @Query("UPDATE AttributeContent2Object aco SET aco.connectorUuid = NULL WHERE aco.connectorUuid = ?1")
-    void removeConnectorByConnectorUuid(UUID connectorUuid);
+    @Query("UPDATE AttributeContent2Object aco SET aco.connectorUuid = NULL WHERE aco.connectorUuid = :connectorUuid")
+    void removeConnectorByConnectorUuid(@Param("connectorUuid") UUID connectorUuid);
+
+    // ── Versioned delete — used only when objectVersion is non-null ──────────
+    @Modifying
+    @Query("""
+            DELETE FROM AttributeContent2Object aco
+                WHERE aco.attributeContentItem.attributeDefinition.type = :type
+                    AND ((:operation IS NULL AND aco.attributeContentItem.attributeDefinition.operation IS NULL) OR aco.attributeContentItem.attributeDefinition.operation = :operation)
+                    AND ((:purpose IS NULL AND aco.purpose IS NULL) OR aco.purpose = :purpose)
+                    AND ((:connectorUuid IS NULL AND aco.connectorUuid IS NULL) OR aco.connectorUuid = :connectorUuid)
+                    AND aco.objectType = :objectType
+                    AND aco.objectUuid = :objectUuid
+                    AND aco.objectVersion = :objectVersion
+                    AND ((:sourceObjectType IS NULL AND aco.sourceObjectType IS NULL) OR aco.sourceObjectType = :sourceObjectType)
+                    AND ((:sourceObjectUuid IS NULL AND aco.sourceObjectUuid IS NULL) OR aco.sourceObjectUuid = :sourceObjectUuid)
+            """)
+    Long deleteOperationObjectAttributesByVersion(
+            @Param("type") AttributeType type,
+            @Param("operation") String operation,
+            @Param("purpose") String purpose,
+            @Param("connectorUuid") UUID connectorUuid,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("objectVersion") Integer objectVersion,
+            @Param("sourceObjectType") Resource sourceObjectType,
+            @Param("sourceObjectUuid") UUID sourceObjectUuid
+    );
+
+    // ── Wide versioned delete — removes ALL rows for a version+operation+purpose, ignoring connectorUuid.
+    @Modifying
+    @Query("""
+            DELETE FROM AttributeContent2Object aco
+                WHERE aco.attributeContentItem.attributeDefinition.type = :type
+                    AND aco.attributeContentItem.attributeDefinition.operation = :operation
+                    AND ((:purpose IS NULL AND aco.purpose IS NULL) OR aco.purpose = :purpose)
+                    AND aco.objectType = :objectType
+                    AND aco.objectUuid = :objectUuid
+                    AND aco.objectVersion = :objectVersion
+            """)
+    Long deleteAllOperationAttributesByVersion(
+            @Param("type") AttributeType type,
+            @Param("operation") String operation,
+            @Param("purpose") String purpose,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("objectVersion") Integer objectVersion
+    );
+
+    // ── Unversioned delete — null-safe operation/purpose matching, scoped to objectVersion IS NULL ──
+    @Modifying
+    @Query("""
+            DELETE FROM AttributeContent2Object aco
+                WHERE aco.attributeContentItem.attributeDefinition.type = :type
+                    AND ((:operation IS NULL AND aco.attributeContentItem.attributeDefinition.operation IS NULL) OR aco.attributeContentItem.attributeDefinition.operation = :operation)
+                    AND ((:purpose IS NULL AND aco.purpose IS NULL) OR aco.purpose = :purpose)
+                    AND ((:connectorUuid IS NULL AND aco.connectorUuid IS NULL) OR aco.connectorUuid = :connectorUuid)
+                    AND aco.objectType = :objectType
+                    AND aco.objectUuid = :objectUuid
+                    AND aco.objectVersion IS NULL
+                    AND ((:sourceObjectType IS NULL AND aco.sourceObjectType IS NULL) OR aco.sourceObjectType = :sourceObjectType)
+                    AND ((:sourceObjectUuid IS NULL AND aco.sourceObjectUuid IS NULL) OR aco.sourceObjectUuid = :sourceObjectUuid)
+            """)
+    Long deleteOperationObjectAttributesUnversioned(
+            @Param("type") AttributeType type,
+            @Param("operation") String operation,
+            @Param("purpose") String purpose,
+            @Param("connectorUuid") UUID connectorUuid,
+            @Param("objectType") Resource objectType,
+            @Param("objectUuid") UUID objectUuid,
+            @Param("sourceObjectType") Resource sourceObjectType,
+            @Param("sourceObjectUuid") UUID sourceObjectUuid
+    );
 
     Long deleteByObjectTypeAndObjectUuid(Resource objectType, UUID objectUuid);
+
+    // Version-scoped bulk delete — removes all attribute rows for one specific version of a resource.
+    Long deleteByObjectTypeAndObjectUuidAndObjectVersion(Resource objectType, UUID objectUuid, Integer objectVersion);
+
     Long deleteByObjectTypeAndObjectUuidIn(Resource objectType, List<UUID> objectUuids);
 
     void deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
@@ -140,8 +291,5 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     Long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, UUID connectorUuid, Resource objectType, Resource sourceObjectType, UUID sourceObjectUuid);
 
-    Long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
-
-    Long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndPurposeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, String purpose, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
-
 }
+
