@@ -24,6 +24,8 @@ import com.czertainly.api.model.connector.secrets.content.BasicAuthSecretContent
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.secret.*;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -58,6 +60,7 @@ import org.springframework.util.SerializationUtils;
 
 import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -648,6 +651,83 @@ class SecretServiceTest extends BaseSpringBootTest {
         secretService.processSecretAction(actionMessage, true, false);
         secret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
         Assertions.assertEquals(SecretState.ACTIVE, secret.getState());
+    }
+
+    @Test
+    void testGetSearchableFieldInformation() {
+        // Arrange: start an auth-service mock to handle the getUsers() call
+        WireMockServer authServiceMock = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
+        authServiceMock.start();
+        WireMock.configureFor("localhost", authServiceMock.port());
+        authServiceMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/auth/users"))
+                .willReturn(WireMock.okJson("{ \"data\": [{\"username\": \"testOwner\"}] }")));
+
+        try {
+            // Act
+            List<SearchFieldDataByGroupDto> result = secretService.getSearchableFieldInformation();
+
+            // Assert – result is present
+            Assertions.assertNotNull(result);
+            Assertions.assertFalse(result.isEmpty());
+
+            // One PROPERTY group and one CUSTOM group (custom attribute was created in setUp)
+            Assertions.assertEquals(1, result.stream()
+                    .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY).count());
+            Assertions.assertEquals(1, result.stream()
+                    .filter(g -> g.getFilterFieldSource() == FilterFieldSource.CUSTOM).count());
+
+            // Collect all SearchFieldDataDtos from the PROPERTY group
+            List<SearchFieldDataDto> propertyFields = result.stream()
+                    .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY)
+                    .map(SearchFieldDataByGroupDto::getSearchFieldData)
+                    .flatMap(List::stream)
+                    .toList();
+
+            Assertions.assertEquals(FilterField.getEnumsForResource(Resource.SECRET).size(), propertyFields.size());
+
+            // SECRET_TYPE values contain all SecretType codes
+            SearchFieldDataDto secretTypeField = propertyFields.stream()
+                    .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_TYPE.name()))
+                    .findFirst()
+                    .orElseThrow();
+            List<String> secretTypeCodes = Arrays.stream(com.czertainly.api.model.connector.secrets.SecretType.values())
+                    .map(com.czertainly.api.model.connector.secrets.SecretType::getCode)
+                    .toList();
+            Assertions.assertTrue(((List<?>) secretTypeField.getValue()).containsAll(secretTypeCodes));
+
+            // SECRET_STATE values contain all SecretState codes
+            SearchFieldDataDto secretStateField = propertyFields.stream()
+                    .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_STATE.name()))
+                    .findFirst()
+                    .orElseThrow();
+            List<String> secretStateCodes = Arrays.stream(SecretState.values())
+                    .map(SecretState::getCode)
+                    .toList();
+            Assertions.assertTrue(((List<?>) secretStateField.getValue()).containsAll(secretStateCodes));
+
+            // SECRET_SOURCE_VAULT_PROFILE and SECRET_SYNC_VAULT_PROFILE contain the existing vault profile name
+            SearchFieldDataDto sourceVaultProfileField = propertyFields.stream()
+                    .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_SOURCE_VAULT_PROFILE.name()))
+                    .findFirst()
+                    .orElseThrow();
+            Assertions.assertTrue(((List<?>) sourceVaultProfileField.getValue()).contains(vaultProfile.getName()));
+
+            SearchFieldDataDto syncVaultProfileField = propertyFields.stream()
+                    .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_SYNC_VAULT_PROFILE.name()))
+                    .findFirst()
+                    .orElseThrow();
+            Assertions.assertTrue(((List<?>) syncVaultProfileField.getValue()).contains(vaultProfile.getName()));
+
+            // SECRET_OWNER values contain the stubbed username
+            SearchFieldDataDto ownerField = propertyFields.stream()
+                    .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_OWNER.name()))
+                    .findFirst()
+                    .orElseThrow();
+            Assertions.assertTrue(((List<?>) ownerField.getValue()).contains("testOwner"));
+
+        } finally {
+            authServiceMock.stop();
+        }
     }
 
 }
