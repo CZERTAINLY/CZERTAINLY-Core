@@ -23,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,9 +36,6 @@ public class BaseSpringBootTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    private static String truncateTablesSql;
-    
 
     @BeforeEach
     public void setupAuth() throws SQLException {
@@ -57,23 +55,22 @@ public class BaseSpringBootTest {
         }
 
         try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
-            if (truncateTablesSql == null) {
-                var tables = connection.getMetaData().getTables(connection.getCatalog(),"core", null, new String[]{"TABLE"});
-                int counter = 0;
-                StringBuilder stringBuilder = new StringBuilder("TRUNCATE ");
-                while (tables.next()) {
-                    String tableName = "core.\"%s\"".formatted(tables.getString("TABLE_NAME"));
+            var tables = connection.getMetaData().getTables(
+                    connection.getCatalog(),
+                    "core",
+                    null,
+                    new String[]{"TABLE"}
+            );
 
-                    if (counter == 0) {
-                        stringBuilder.append(tableName);
-                    } else {
-                        stringBuilder.append(", ").append(tableName);
-                    }
-                    ++counter;
-                }
-                truncateTablesSql = stringBuilder.toString();
+            List<String> tableNames = new ArrayList<>();
+            while (tables.next()) {
+                tableNames.add("core.\"%s\"".formatted(tables.getString("TABLE_NAME")));
             }
-            connection.prepareStatement(truncateTablesSql).execute();
+
+            if (!tableNames.isEmpty()) {
+                String truncateSql = "TRUNCATE " + String.join(", ", tableNames);
+                connection.prepareStatement(truncateSql).execute();
+            }
         }
     }
 
