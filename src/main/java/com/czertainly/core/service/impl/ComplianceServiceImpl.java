@@ -36,7 +36,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +45,8 @@ public class ComplianceServiceImpl implements ComplianceService {
     private static final Logger logger = LoggerFactory.getLogger(ComplianceServiceImpl.class);
     private static final String COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE = "Cannot check compliance for resource %s. Resource does not support compliance check";
     private static final String ASSOCIATION_SUBQUERY = "SELECT cpa.object_uuid FROM compliance_profile_association cpa WHERE cpa.compliance_profile_uuid = :profileUuid AND cpa.resource = '%s'";
+    private static final List<String> NEGATIVE_RESULT_STATUSES = List.of("notCompliant", "notApplicable", "notAvailable");
+    private static final String FILTER_ARRAY_SQL = "(SELECT COALESCE(jsonb_agg(el), '[]'::jsonb) FROM jsonb_array_elements(%s) el WHERE NOT el #>> '{}' = ANY(string_to_array(:ruleUuids, ',')))";
 
     private ComplianceApiClient complianceApiClient;
     private com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1;
@@ -508,113 +509,68 @@ public class ComplianceServiceImpl implements ComplianceService {
             return;
         }
 
-        String jsonbUpdate;
-        Consumer<Query> paramSetter;
-        String jsonbCondition;
+        String ruleUuidsCsv = ruleUuids.stream().map(UUID::toString).collect(Collectors.joining(","));
+        boolean isInternal = connectorUuid == null;
 
-        if (ruleUuids.size() == 1) {
-            // Single UUID — use the efficient built-in `-` operator and jsonb_exists for targeted WHERE
-            String ruleUuidStr = ruleUuids.iterator().next().toString();
-            if (connectorUuid == null) {
-                // @formatter:off
-                jsonbUpdate = """
-                        jsonb_set(jsonb_set(jsonb_set(compliance_result,
-                            '{internalRules,notCompliant}', COALESCE((compliance_result #> '{internalRules,notCompliant}') - :ruleUuid, '[]'::jsonb)),
-                            '{internalRules,notApplicable}', COALESCE((compliance_result #> '{internalRules,notApplicable}') - :ruleUuid, '[]'::jsonb)),
-                            '{internalRules,notAvailable}', COALESCE((compliance_result #> '{internalRules,notAvailable}') - :ruleUuid, '[]'::jsonb))
-                        """;
-                jsonbCondition = """
-                        (jsonb_exists(compliance_result #> '{internalRules,notCompliant}', :ruleUuid)
-                        OR jsonb_exists(compliance_result #> '{internalRules,notApplicable}', :ruleUuid)
-                        OR jsonb_exists(compliance_result #> '{internalRules,notAvailable}', :ruleUuid))
-                        """;
-                // @formatter:on
-                paramSetter = query -> query.setParameter("ruleUuid", ruleUuidStr);
-            } else {
-                // @formatter:off
-                jsonbUpdate = """
-                        jsonb_set(compliance_result, '{providerRules}', COALESCE(
-                            (SELECT jsonb_agg(
-                                CASE WHEN elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind
-                                THEN jsonb_set(jsonb_set(jsonb_set(elem,
-                                    '{notCompliant}', COALESCE((elem -> 'notCompliant') - :ruleUuid, '[]'::jsonb)),
-                                    '{notApplicable}', COALESCE((elem -> 'notApplicable') - :ruleUuid, '[]'::jsonb)),
-                                    '{notAvailable}', COALESCE((elem -> 'notAvailable') - :ruleUuid, '[]'::jsonb))
-                                ELSE elem END
-                            ) FROM jsonb_array_elements(compliance_result -> 'providerRules') AS elem),
-                            '[]'::jsonb))
-                        """;
-                jsonbCondition = """
-                        EXISTS (SELECT 1 FROM jsonb_array_elements(compliance_result -> 'providerRules') elem
-                            WHERE elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind
-                            AND (jsonb_exists(elem -> 'notCompliant', :ruleUuid)
-                                OR jsonb_exists(elem -> 'notApplicable', :ruleUuid)
-                                OR jsonb_exists(elem -> 'notAvailable', :ruleUuid)))
-                        """;
-                // @formatter:on
-                String connectorUuidStr = connectorUuid.toString();
-                paramSetter = query -> {
-                    query.setParameter("ruleUuid", ruleUuidStr);
-                    query.setParameter("connectorUuid", connectorUuidStr);
-                    query.setParameter("kind", kind);
-                };
-            }
-        } else {
-            // Multiple UUIDs — use subquery filter to remove all in a single pass, jsonb_exists_any for targeted WHERE
-            String ruleUuidsCsv = ruleUuids.stream().map(UUID::toString).collect(Collectors.joining(","));
-            // Filters a JSONB array to exclude elements matching any of the provided rule UUIDs
-            String filterArray = "(SELECT COALESCE(jsonb_agg(el), '[]'::jsonb) FROM jsonb_array_elements(%s) el WHERE NOT el #>> '{}' = ANY(string_to_array(:ruleUuids, ',')))";
-
-            if (connectorUuid == null) {
-                // @formatter:off
-                jsonbUpdate = "jsonb_set(jsonb_set(jsonb_set(compliance_result,"
-                        + " '{internalRules,notCompliant}', " + filterArray.formatted("compliance_result #> '{internalRules,notCompliant}'") + "),"
-                        + " '{internalRules,notApplicable}', " + filterArray.formatted("compliance_result #> '{internalRules,notApplicable}'") + "),"
-                        + " '{internalRules,notAvailable}', " + filterArray.formatted("compliance_result #> '{internalRules,notAvailable}'") + ")";
-                jsonbCondition = "(jsonb_exists_any(compliance_result #> '{internalRules,notCompliant}', string_to_array(:ruleUuids, ','))"
-                        + " OR jsonb_exists_any(compliance_result #> '{internalRules,notApplicable}', string_to_array(:ruleUuids, ','))"
-                        + " OR jsonb_exists_any(compliance_result #> '{internalRules,notAvailable}', string_to_array(:ruleUuids, ',')))";
-                // @formatter:on
-                paramSetter = query -> query.setParameter("ruleUuids", ruleUuidsCsv);
-            } else {
-                // @formatter:off
-                jsonbUpdate = "jsonb_set(compliance_result, '{providerRules}', COALESCE("
-                        + " (SELECT jsonb_agg("
-                        + "     CASE WHEN elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind"
-                        + "     THEN jsonb_set(jsonb_set(jsonb_set(elem,"
-                        + "         '{notCompliant}', " + filterArray.formatted("elem -> 'notCompliant'") + "),"
-                        + "         '{notApplicable}', " + filterArray.formatted("elem -> 'notApplicable'") + "),"
-                        + "         '{notAvailable}', " + filterArray.formatted("elem -> 'notAvailable'") + ")"
-                        + "     ELSE elem END"
-                        + " ) FROM jsonb_array_elements(compliance_result -> 'providerRules') AS elem),"
-                        + " '[]'::jsonb))";
-                jsonbCondition = "EXISTS (SELECT 1 FROM jsonb_array_elements(compliance_result -> 'providerRules') elem"
-                        + " WHERE elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind"
-                        + " AND (jsonb_exists_any(elem -> 'notCompliant', string_to_array(:ruleUuids, ','))"
-                        + " OR jsonb_exists_any(elem -> 'notApplicable', string_to_array(:ruleUuids, ','))"
-                        + " OR jsonb_exists_any(elem -> 'notAvailable', string_to_array(:ruleUuids, ','))))";
-                // @formatter:on
-                String connectorUuidStr = connectorUuid.toString();
-                paramSetter = query -> {
-                    query.setParameter("ruleUuids", ruleUuidsCsv);
-                    query.setParameter("connectorUuid", connectorUuidStr);
-                    query.setParameter("kind", kind);
-                };
-            }
-        }
+        String jsonbUpdate = isInternal ? buildInternalRulesUpdate() : buildProviderRulesUpdate();
+        String jsonbCondition = isInternal ? buildInternalRulesCondition() : buildProviderRulesCondition();
 
         String sql = "UPDATE %s SET compliance_result = %s WHERE compliance_result IS NOT NULL AND %s AND %s".formatted(
                 getSubjectTableName(ruleResource), jsonbUpdate, jsonbCondition, getSubjectCondition(ruleResource));
         var query = entityManager.createNativeQuery(sql);
         query.setParameter("profileUuid", complianceProfileUuid);
-        paramSetter.accept(query);
+        query.setParameter("ruleUuids", ruleUuidsCsv);
+        if (!isInternal) {
+            query.setParameter("connectorUuid", connectorUuid.toString());
+            query.setParameter("kind", kind);
+        }
+
         int updated = query.executeUpdate();
-        String ruleSource = connectorUuid == null ? "internal" : "provider %s/%s".formatted(connectorUuid, kind);
+        String ruleSource = isInternal ? "internal" : "provider %s/%s".formatted(connectorUuid, kind);
         if (updated > 0) {
             logger.debug("Removed {} rules {} from compliance results of {} {} records", ruleSource, ruleUuids, updated, ruleResource.getLabel());
         } else {
             logger.trace("No {} compliance results contained {} rules {} — nothing to update", ruleResource.getLabel(), ruleSource, ruleUuids);
         }
+    }
+
+    private static String buildInternalRulesUpdate() {
+        String result = "compliance_result";
+        for (String status : NEGATIVE_RESULT_STATUSES) {
+            result = "jsonb_set(%s, '{internalRules,%s}', %s)".formatted(
+                    result, status, FILTER_ARRAY_SQL.formatted("compliance_result #> '{internalRules,%s}'".formatted(status)));
+        }
+        return result;
+    }
+
+    private static String buildInternalRulesCondition() {
+        return NEGATIVE_RESULT_STATUSES.stream()
+                .map(status -> "jsonb_exists_any(compliance_result #> '{internalRules,%s}', string_to_array(:ruleUuids, ','))".formatted(status))
+                .collect(Collectors.joining(" OR ", "(", ")"));
+    }
+
+    private static String buildProviderRulesUpdate() {
+        String innerUpdate = "elem";
+        for (String status : NEGATIVE_RESULT_STATUSES) {
+            innerUpdate = "jsonb_set(%s, '{%s}', %s)".formatted(
+                    innerUpdate, status, FILTER_ARRAY_SQL.formatted("elem -> '%s'".formatted(status)));
+        }
+        return ("jsonb_set(compliance_result, '{providerRules}', COALESCE("
+                + " (SELECT jsonb_agg("
+                + " CASE WHEN elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind"
+                + " THEN %s"
+                + " ELSE elem END"
+                + " ) FROM jsonb_array_elements(compliance_result -> 'providerRules') AS elem),"
+                + " '[]'::jsonb))").formatted(innerUpdate);
+    }
+
+    private static String buildProviderRulesCondition() {
+        String innerCondition = NEGATIVE_RESULT_STATUSES.stream()
+                .map(status -> "jsonb_exists_any(elem -> '%s', string_to_array(:ruleUuids, ','))".formatted(status))
+                .collect(Collectors.joining(" OR "));
+        return ("EXISTS (SELECT 1 FROM jsonb_array_elements(compliance_result -> 'providerRules') elem"
+                + " WHERE elem ->> 'connectorUuid' = :connectorUuid AND elem ->> 'kind' = :kind"
+                + " AND (%s))").formatted(innerCondition);
     }
 
     private static String getTableName(Class<?> entityClass) {

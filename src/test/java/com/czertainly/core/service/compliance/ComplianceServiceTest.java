@@ -559,7 +559,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
     }
 
     @Test
-    void testRemoveMultipleRuleUuids_usesMultiUuidBranch() throws Exception {
+    void testRemoveMultipleProviderRuleUuids() throws Exception {
         UUID rule1 = complianceV2RuleUuid;
         UUID rule2 = complianceV2Rule2Uuid;
         UUID rule3 = complianceV2RuleKeyUuid;
@@ -577,7 +577,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
 
         Certificate cert = createCertificateWithComplianceResult(result);
 
-        // remove rule1 and rule3 in one call — exercises multi-UUID branch (jsonb_exists_any + jsonb_agg filter)
+        // remove rule1 and rule3 in one call
         complianceService.removeRulesFromComplianceResults(complianceProfile.getUuid(), Resource.CERTIFICATE, Set.of(rule1, rule3), connectorV2.getUuid(), KIND_V2);
 
         ComplianceResultDto updated = reloadComplianceResult(cert.getUuid());
@@ -683,7 +683,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
 
         Certificate cert = createCertificateWithComplianceResult(result);
 
-        // Remove rule1 and rule2 in one call — exercises multi-UUID internal rules branch (jsonb_exists_any + jsonb_agg filter)
+        // Remove rule1 and rule2 in one call
         complianceService.removeRulesFromComplianceResults(complianceProfile.getUuid(), Resource.CERTIFICATE, Set.of(rule1, rule2), null, null);
 
         ComplianceResultDto updated = reloadComplianceResult(cert.getUuid());
