@@ -193,7 +193,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
         secretContent.setPassword("testPassword");
         secretContent.setUsername("testUsername");
-        secretVersion.setFingerprint(CertificateUtil.getThumbprint(SerializationUtils.serialize(secretContent)));
+        secretVersion.setFingerprint(SecretsUtil.calculateSecretContentFingerprint(secretContent));
         secretVersionRepository.save(secretVersion);
 
         secret.setLatestVersion(secretVersion);
