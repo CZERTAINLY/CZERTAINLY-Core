@@ -388,15 +388,20 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         SecretResponseDto sourceVaultProfileResponse;
         try {
             sourceVaultProfileResponse = updateSecretInVault(secret, secret.getSourceVaultProfile(), secretRequest, secretRequest.getAttributes());
-            attributeEngine.updateMetadataAttributes(sourceVaultProfileResponse.getMetadata(), new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, currentSourceVaultProfile.getUuid(), currentSourceVaultProfile.getName()));
+        } catch (Exception e) {
+            throw new SecretOperationException(String.format("Failed to update secret %s for vault profile %s: %s", secret.getName(), secret.getSourceVaultProfile().getName(), e.getMessage()));
+        }
+        attributeEngine.updateMetadataAttributes(sourceVaultProfileResponse.getMetadata(), new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, currentSourceVaultProfile.getUuid(), currentSourceVaultProfile.getName()));
             for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
                 VaultProfile syncVaultProfile = profile.getVaultProfile();
-                SecretResponseDto syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
+                SecretResponseDto syncResponse;
+                try {
+                    syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
+                } catch (ConnectorException e) {
+                    throw new SecretOperationException(String.format("Failed to update secret %s for vault profile %s: %s", secret.getName(), secret.getSourceVaultProfile().getName(), e.getMessage()));
+                }
                 attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
             }
-        } catch (Exception e) {
-            throw new SecretOperationException("Failed to update secret: " + e.getMessage());
-        }
         secret.setLatestVersion(newVersion);
         secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
         secret.getVersions().add(newVersion);
@@ -405,7 +410,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
-    public void deleteSecret(UUID uuid) throws NotFoundException {
+    public void deleteSecret(UUID uuid, Boolean deleteInVaults) throws NotFoundException {
         Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
                 .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
@@ -418,22 +423,23 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         // empty to evaluate permissions
     }
 
-    private void deleteSecretAction(UUID secretUuid, boolean isApproved, SecretState originalState) throws NotFoundException, SecretOperationException {
+    private void deleteSecretAction(UUID secretUuid, boolean isApproved, SecretState originalState, Boolean deleteInVaults) throws NotFoundException, SecretOperationException {
         Secret secret = getSecretEntity(secretUuid);
         if (!isApproved) {
             checkDeleteSecretPermissions();
         }
         // Delete secret from vaults
-        if (!invalidSecretState(secret)) {
-            try {
-                deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-                for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
-                    deleteSecretFromVault(profile.getVaultProfile(), secret, profile.getSecretAttributes());
+        if (!invalidSecretState(secret) && Boolean.TRUE.equals(deleteInVaults)) {
+            List<VaultProfile> vaultProfiles = new ArrayList<>(secret.getSyncVaultProfiles().stream().map(Secret2SyncVaultProfile::getVaultProfile).toList());
+            vaultProfiles.add(secret.getSourceVaultProfile());
+                for (VaultProfile vaultProfile : vaultProfiles) {
+                    try {
+                        deleteSecretFromVault(vaultProfile, secret, attributeEngine.getRequestObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+                    } catch (Exception e) {
+                        secret.setState(originalState);
+                        throw new SecretOperationException("Failed to delete secret %s from vault profile %s: %s".formatted(secret.getName(), vaultProfile.getVaultInstance().getName(), e.getMessage()));
+                    }
                 }
-            } catch (Exception e) {
-                secret.setState(originalState);
-                throw new SecretOperationException("Failed to delete secret from vault: " + e.getMessage());
-            }
         }
         Set<SecretVersion> secretVersions = new HashSet<>(secret.getVersions());
         secret.setOwner(null);
@@ -532,7 +538,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
-    public void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws
+    public void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid, Boolean deleteInVault) throws
             NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(uuid);
         if (secret.getSyncVaultProfiles().stream().noneMatch(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid))) {
@@ -543,7 +549,9 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         ).getVaultProfile();
         Secret2SyncVaultProfile secret2SyncVaultProfile = secret2SyncVaultProfileRepository.getReferenceById(new Secret2SyncVaultProfileId(secret.getUuid(), removedVaultProfile.getUuid()));
         // Remove the secret from the vault
+        if (Boolean.TRUE.equals(deleteInVault)) {
             deleteSecretFromVault(removedVaultProfile, secret, secret2SyncVaultProfile.getSecretAttributes());
+        }
 
         secret.getSyncVaultProfiles().remove(secret2SyncVaultProfile);
         secretRepository.save(secret);
@@ -772,7 +780,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 updateSecretAction(actionMessage.getResourceUuid(), secretUpdateRequestDto, isApproved, secretActionData.originalState());
             }
             case DELETE ->
-                    deleteSecretAction(actionMessage.getResourceUuid(), isApproved, secretActionData.originalState());
+                    deleteSecretAction(actionMessage.getResourceUuid(), isApproved, secretActionData.originalState(), secretActionData.deleteInVault());
             case UPDATE_SOURCE_VAULT_PROFILE -> {
                 SecretUpdateObjectsDto secretUpdateObjectsDto = new SecretUpdateObjectsDto();
                 secretUpdateObjectsDto.setSourceVaultProfileUuid(secretActionData.updatedSourceVaultProfileUuid());

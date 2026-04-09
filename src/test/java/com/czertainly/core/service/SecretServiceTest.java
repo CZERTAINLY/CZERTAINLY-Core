@@ -283,8 +283,9 @@ class SecretServiceTest extends BaseSpringBootTest {
         actionMessage.setData(SecretActionData.builder()
                 .name(request.getName())
                 .originalState(SecretState.ACTIVE)
-                        .updatedSourceVaultProfileUuid(newVaultProfileWithNewInstance.getUuid())
+                .updatedSourceVaultProfileUuid(newVaultProfileWithNewInstance.getUuid())
                 .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(new ObjectMapper().writeValueAsString(request.getSecret()), SecretEncodingVersion.V1))
+                .deleteInVault(Boolean.TRUE)
                 .build());
         Assertions.assertThrows(SecretOperationException.class, () -> secretService.processSecretAction(actionMessage, true, true));
         Secret newSecret = secretRepository.findWithAssociationsByUuid(UUID.fromString(secretDetailDto.getUuid())).orElseThrow();
@@ -375,14 +376,14 @@ class SecretServiceTest extends BaseSpringBootTest {
         SecretVersion latestVersion = secret.getLatestVersion();
         secret.getLatestVersion().setSecret(null);
         secretVersionRepository.save(secret.getLatestVersion());
-        secretService.deleteSecret(secret.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> secretService.deleteSecret(secret.getUuid()));
+        secretService.deleteSecret(secret.getUuid(), false);
+        Assertions.assertThrows(NotFoundException.class, () -> secretService.deleteSecret(secret.getUuid(), false));
         secret.setLatestVersion(latestVersion);
         secretRepository.save(secret);
         WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
                 .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_NOT_FOUND, "", null, null), HttpStatus.NOT_FOUND.value())
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
-        Assertions.assertDoesNotThrow(() -> secretService.deleteSecret(secret.getUuid()));
+        Assertions.assertDoesNotThrow(() -> secretService.deleteSecret(secret.getUuid(), false));
     }
 
     @Test
@@ -457,14 +458,14 @@ class SecretServiceTest extends BaseSpringBootTest {
         Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().anyMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileUuid)));
 
-        Assertions.assertThrows(ValidationException.class, () -> secretService.removeVaultProfileFromSecret(secretUuid, sourceVaultProfileUuid));
-        secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileUuid);
+        Assertions.assertThrows(ValidationException.class, () -> secretService.removeVaultProfileFromSecret(secretUuid, sourceVaultProfileUuid, false));
+        secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileUuid, false);
 
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertFalse(reloadedSecret.getSyncVaultProfiles().contains(secret2SyncVaultProfile));
 
         // Test removing vault profile when it is the only one with the new vault instance
-        secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileWithNewInstance.getUuid());
+        secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), Boolean.TRUE);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().noneMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileWithNewInstance.getUuid())));
 
