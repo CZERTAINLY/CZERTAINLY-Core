@@ -131,10 +131,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         if (statuses.isEmpty()) {
             return ComplianceStatus.NOT_CHECKED;
         }
-        if (statuses.contains(ComplianceStatus.FAILED)) {
-            return ComplianceStatus.FAILED;
-        } else if (statuses.contains(ComplianceStatus.NOK)) {
+        if (statuses.contains(ComplianceStatus.NOK)) {
             return ComplianceStatus.NOK;
+        } else if (statuses.contains(ComplianceStatus.FAILED)) {
+            return ComplianceStatus.FAILED;
         } else if (statuses.contains(ComplianceStatus.NA)) {
             return ComplianceStatus.NA;
         } else if (statuses.contains(ComplianceStatus.NOT_CHECKED)) {
