@@ -37,6 +37,7 @@ public class BaseSpringBootTest {
     private JdbcTemplate jdbcTemplate;
 
     private static String truncateTablesSql;
+    
 
     @BeforeEach
     public void setupAuth() throws SQLException {
