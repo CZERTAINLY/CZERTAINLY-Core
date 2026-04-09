@@ -10,6 +10,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.model.Securable;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -124,14 +125,6 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> allowedDigestAlgorithms = new ArrayList<>();
 
-    @Column(name = "ilm_signing_protocol_configuration_uuid")
-    private UUID ilmSigningProtocolConfigurationUuid;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ilm_signing_protocol_configuration_uuid", insertable = false, updatable = false)
-    @ToString.Exclude
-    private IlmSigningProtocolConfiguration ilmSigningProtocolConfiguration;
-
     @Column(name = "tsp_profile_uuid")
     private UUID tspProfileUuid;
 
@@ -176,11 +169,6 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
     public void setTimeQualityConfiguration(TimeQualityConfiguration timeQualityConfiguration) {
         this.timeQualityConfiguration = timeQualityConfiguration;
         this.timeQualityConfigurationUuid = timeQualityConfiguration != null ? timeQualityConfiguration.getUuid() : null;
-    }
-
-    public void setIlmSigningProtocolConfiguration(IlmSigningProtocolConfiguration ilmSigningProtocolConfiguration) {
-        this.ilmSigningProtocolConfiguration = ilmSigningProtocolConfiguration;
-        this.ilmSigningProtocolConfigurationUuid = ilmSigningProtocolConfiguration != null ? ilmSigningProtocolConfiguration.getUuid() : null;
     }
 
     public void setTspProfile(TspProfile tspProfile) {

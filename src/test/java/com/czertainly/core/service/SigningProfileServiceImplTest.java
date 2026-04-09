@@ -64,7 +64,6 @@ import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.entity.signing.DigitalSignature;
-import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TspProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
@@ -74,7 +73,6 @@ import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
-import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
@@ -128,9 +126,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Autowired
     private DigitalSignatureRepository digitalSignatureRepository;
-
-    @Autowired
-    private IlmSigningProtocolConfigurationRepository ilmRepository;
 
     @Autowired
     private TspProfileRepository tspRepository;
@@ -503,7 +498,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testGetSigningProfile_noProtocolsLinked_enabledProtocolsIsEmpty() throws NotFoundException {
-        // savedProfile has no ILM or TSP linked
+        // savedProfile has no TSP linked
         SigningProfileDto dto = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
 
         Assertions.assertNotNull(dto.getEnabledProtocols());
@@ -512,24 +507,17 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetSigningProfile_withBothProtocolsLinked_enabledProtocolsContainsBoth() throws NotFoundException {
-        IlmSigningProtocolConfiguration ilmConfig = new IlmSigningProtocolConfiguration();
-        ilmConfig.setName("ilm-for-dto-test");
-        ilmConfig = ilmRepository.save(ilmConfig);
-
+    void testGetSigningProfile_withTspLinked_enabledProtocolsContainsTsp() throws NotFoundException {
         TspProfile tspProfile = new TspProfile();
         tspProfile.setName("tsp-for-dto-test");
         tspProfile = tspRepository.save(tspProfile);
 
-        savedProfile.setIlmSigningProtocolConfiguration(ilmConfig);
         savedProfile.setTspProfile(tspProfile);
         signingProfileRepository.save(savedProfile);
 
         SigningProfileDto dto = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
 
         Assertions.assertNotNull(dto.getEnabledProtocols());
-        Assertions.assertTrue(dto.getEnabledProtocols().contains(SigningProtocol.ILM_SIGNING_PROTOCOL),
-                "ILM_SIGNING_PROTOCOL should appear in enabledProtocols");
         Assertions.assertTrue(dto.getEnabledProtocols().contains(SigningProtocol.TSP),
                 "TSP should appear in enabledProtocols");
     }
@@ -986,24 +974,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDeleteSigningProfile_usedAsDefaultInIlmConfig_clearsReferenceAndDeletes() throws NotFoundException {
-        IlmSigningProtocolConfiguration ilmConfig = new IlmSigningProtocolConfiguration();
-        ilmConfig.setName("blocking-ilm-config");
-        ilmConfig.setDefaultSigningProfile(savedProfile);
-        ilmConfig = ilmRepository.save(ilmConfig);
-        final UUID ilmConfigUuid = ilmConfig.getUuid();
-
-        signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid());
-
-        // Profile should be removed from the database
-        Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
-        // The ILM config's default signing profile reference should be cleared
-        IlmSigningProtocolConfiguration reloadedIlm = ilmRepository.findById(ilmConfigUuid).orElseThrow();
-        Assertions.assertNull(reloadedIlm.getDefaultSigningProfileUuid(),
-                "ILM config's default signing profile UUID should be cleared after profile deletion");
-    }
-
-    @Test
     void testDeleteSigningProfile_usedAsDefaultIntspProfile_clearsReferenceAndDeletes() throws NotFoundException {
         TspProfile tspProfile = new TspProfile();
         tspProfile.setName("blocking-tsp-profile");
@@ -1196,120 +1166,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         Assertions.assertFalse(signingProfileRepository.findById(UUID.fromString(second.getUuid())).map(SigningProfile::getEnabled).orElse(true));
         Assertions.assertFalse(signingProfileRepository.findById(UUID.fromString(third.getUuid())).map(SigningProfile::getEnabled).orElse(true));
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Protocol activation — ILM
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Test
-    void testActivateIlmSigningProtocol_linksConfigToProfile() throws AttributeException, NotFoundException {
-        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-ilm-activate"));
-        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
-
-        IlmSigningProtocolConfiguration ilmConfig = new IlmSigningProtocolConfiguration();
-        ilmConfig.setName("test-ilm-config");
-        ilmConfig = ilmRepository.save(ilmConfig);
-
-        var activationDto = signingProfileService.activateIlmSigningProtocol(profileUuid, ilmConfig.getSecuredUuid());
-        Assertions.assertTrue(activationDto.isAvailable());
-        Assertions.assertNotNull(activationDto.getSigningUrl());
-
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
-        Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertEquals(ilmConfig.getUuid(), fromDb.get().getIlmSigningProtocolConfigurationUuid());
-    }
-
-    @Test
-    void testActivateIlmSigningProtocol_profileNotFound_throwsNotFoundException() {
-        IlmSigningProtocolConfiguration ilmConfig = new IlmSigningProtocolConfiguration();
-        ilmConfig.setName("ilm-for-not-found-test");
-        ilmConfig = ilmRepository.save(ilmConfig);
-        final UUID ilmUuid = ilmConfig.getUuid();
-
-        Assertions.assertThrows(NotFoundException.class,
-                () -> signingProfileService.activateIlmSigningProtocol(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"),
-                        SecuredUUID.fromUUID(ilmUuid)));
-    }
-
-    @Test
-    void testActivateIlmSigningProtocol_ilmConfigNotFound_throwsNotFoundException() throws AttributeException, NotFoundException {
-        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-ilm-not-found"));
-        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
-
-        Assertions.assertThrows(NotFoundException.class,
-                () -> signingProfileService.activateIlmSigningProtocol(
-                        profileUuid,
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000002")));
-    }
-
-    @Test
-    void testActivateIlmSigningProtocol_replacesExistingLink() throws AttributeException, NotFoundException {
-        SigningProfileDto profileDto = signingProfileService.createSigningProfile(buildDelegatedTimestampingRequest("timestamping-for-ilm-replace"));
-        SecuredUUID profileUuid = SecuredUUID.fromString(profileDto.getUuid());
-
-        IlmSigningProtocolConfiguration ilmConfig1 = new IlmSigningProtocolConfiguration();
-        ilmConfig1.setName("ilm-config-1");
-        ilmConfig1 = ilmRepository.save(ilmConfig1);
-
-        IlmSigningProtocolConfiguration ilmConfig2 = new IlmSigningProtocolConfiguration();
-        ilmConfig2.setName("ilm-config-2");
-        ilmConfig2 = ilmRepository.save(ilmConfig2);
-
-        // Link the first config
-        signingProfileService.activateIlmSigningProtocol(profileUuid, ilmConfig1.getSecuredUuid());
-        // Replace it with the second config
-        signingProfileService.activateIlmSigningProtocol(profileUuid, ilmConfig2.getSecuredUuid());
-
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(profileDto.getUuid()));
-        Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertEquals(ilmConfig2.getUuid(), fromDb.get().getIlmSigningProtocolConfigurationUuid(),
-                "The profile should reference the second ILM config after replacement");
-    }
-
-    @Test
-    void testDeactivateIlmSigningProtocol_unlinksConfigFromProfile() throws NotFoundException {
-        IlmSigningProtocolConfiguration ilmConfig = new IlmSigningProtocolConfiguration();
-        ilmConfig.setName("test-ilm-config");
-        ilmConfig = ilmRepository.save(ilmConfig);
-
-        savedProfile.setIlmSigningProtocolConfiguration(ilmConfig);
-        signingProfileRepository.save(savedProfile);
-
-        signingProfileService.deactivateIlmSigningProtocol(savedProfile.getSecuredUuid());
-
-        Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
-        Assertions.assertTrue(fromDb.isPresent());
-        Assertions.assertNull(fromDb.get().getIlmSigningProtocolConfigurationUuid());
-    }
-
-    @Test
-    void testDeactivateIlmSigningProtocol_profileNotFound_throwsNotFoundException() {
-        Assertions.assertThrows(NotFoundException.class,
-                () -> signingProfileService.deactivateIlmSigningProtocol(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
-    }
-
-    @Test
-    void testDeactivateIlmSigningProtocol_removesFromEnabledProtocols() throws NotFoundException {
-        IlmSigningProtocolConfiguration ilmConfig = new IlmSigningProtocolConfiguration();
-        ilmConfig.setName("ilm-to-deactivate");
-        ilmConfig = ilmRepository.save(ilmConfig);
-
-        savedProfile.setIlmSigningProtocolConfiguration(ilmConfig);
-        signingProfileRepository.save(savedProfile);
-
-        // Verify ILM is listed as an enabled protocol before deactivation
-        SigningProfileDto before = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
-        Assertions.assertTrue(before.getEnabledProtocols().contains(SigningProtocol.ILM_SIGNING_PROTOCOL));
-
-        signingProfileService.deactivateIlmSigningProtocol(savedProfile.getSecuredUuid());
-
-        // After deactivation, ILM should no longer appear in enabled protocols
-        SigningProfileDto after = signingProfileService.getSigningProfile(savedProfile.getSecuredUuid(), null);
-        Assertions.assertFalse(after.getEnabledProtocols().contains(SigningProtocol.ILM_SIGNING_PROTOCOL),
-                "ILM_SIGNING_PROTOCOL should be removed from enabledProtocols after deactivation");
     }
 
     // ──────────────────────────────────────────────────────────────────────────

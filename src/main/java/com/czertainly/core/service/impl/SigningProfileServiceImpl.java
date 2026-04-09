@@ -24,7 +24,6 @@ import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkfl
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
-import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
@@ -42,7 +41,6 @@ import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.signing.IlmSigningProtocolConfiguration;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.SigningProfile_;
 import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
@@ -50,7 +48,6 @@ import com.czertainly.core.dao.entity.signing.TspProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
-import com.czertainly.core.dao.repository.signing.IlmSigningProtocolConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
@@ -93,7 +90,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
      * Defines which signing protocols are allowed for each workflow type.
      */
     private static final Map<SigningWorkflowType, Set<SigningProtocol>> SUPPORTED_PROTOCOLS = Map.of(
-            SigningWorkflowType.TIMESTAMPING, EnumSet.of(SigningProtocol.ILM_SIGNING_PROTOCOL, SigningProtocol.TSP)
+            SigningWorkflowType.TIMESTAMPING, EnumSet.of(SigningProtocol.TSP)
     );
 
     private CryptographicOperationService cryptographicOperationService;
@@ -101,7 +98,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private CertificateService certificateService;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private DigitalSignatureRepository digitalSignatureRepository;
-    private IlmSigningProtocolConfigurationRepository ilmSigningProtocolRepository;
     private SigningProfileRepository signingProfileRepository;
     private SigningProfileVersionRepository signingProfileVersionRepository;
     private TspProfileRepository tspRepository;
@@ -143,14 +139,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         response.setTotalItems(signingProfileRepository.countUsingSecurityFilter(filter, predicate));
         response.setTotalPages((int) Math.ceil((double) response.getTotalItems() / request.getItemsPerPage()));
         return response;
-    }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
-    @Transactional
-    public SecuredList<SigningProfile> listSigningProfilesAssociatedWithIlmSigningProtocol(UUID ilmSigningProtocolConfigurationUuid, SecurityFilter filter) {
-        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByIlmSigningProtocolConfigurationUuid(ilmSigningProtocolConfigurationUuid);
-        return SecuredList.fromFilter(filter, signingProfiles);
     }
 
     @Override
@@ -293,7 +281,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     private void deleteSigningProfile(SigningProfile signingProfile) {
         digitalSignatureRepository.clearSigningProfileUuid(signingProfile.getUuid());
-        ilmSigningProtocolRepository.clearDefaultSigningProfileUuid(signingProfile.getUuid());
         tspRepository.clearDefaultSigningProfileUuid(signingProfile.getUuid());
         signingProfileVersionRepository.deleteAllBySigningProfileUuid(signingProfile.getUuid());
         signingProfileRepository.delete(signingProfile);
@@ -377,40 +364,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             SecuredUUID uuid, SearchRequestDto request, SecurityFilter filter) throws NotFoundException {
         // :TODO:
         return null;
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Protocol activation — ILM Signing Protocol
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
-    @Transactional
-    public IlmSigningProtocolActivationDetailDto getIlmSigningProtocolActivationDetails(SecuredUUID uuid) throws NotFoundException {
-        SigningProfile signingProfile = findByUuid(uuid);
-        return SigningProfileMapper.toIlmSigningProtocolActivationDto(signingProfile);
-    }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
-    @Transactional
-    public IlmSigningProtocolActivationDetailDto activateIlmSigningProtocol(SecuredUUID signingProfileUuid, SecuredUUID ilmConfigUuid) throws NotFoundException {
-        SigningProfile signingProfile = findByUuid(signingProfileUuid);
-        validateSupportedProtocol(signingProfile.getWorkflowType(), SigningProtocol.ILM_SIGNING_PROTOCOL);
-        IlmSigningProtocolConfiguration ilmConfig = ilmSigningProtocolRepository.findByUuid(ilmConfigUuid)
-                .orElseThrow(() -> new NotFoundException("ILM Signing Protocol Configuration not found: " + ilmConfigUuid));
-        signingProfile.setIlmSigningProtocolConfiguration(ilmConfig);
-        signingProfileRepository.save(signingProfile);
-        return SigningProfileMapper.toIlmSigningProtocolActivationDto(signingProfile);
-    }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
-    @Transactional
-    public void deactivateIlmSigningProtocol(SecuredUUID uuid) throws NotFoundException {
-        SigningProfile signingProfile = findByUuid(uuid);
-        signingProfile.setIlmSigningProtocolConfiguration(null);
-        signingProfileRepository.save(signingProfile);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -732,11 +685,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Autowired
     public void setDigitalSignatureRepository(DigitalSignatureRepository digitalSignatureRepository) {
         this.digitalSignatureRepository = digitalSignatureRepository;
-    }
-
-    @Autowired
-    public void setIlmSigningProtocolRepository(IlmSigningProtocolConfigurationRepository ilmSigningProtocolConfigurationRepository) {
-        this.ilmSigningProtocolRepository = ilmSigningProtocolConfigurationRepository;
     }
 
     @Autowired

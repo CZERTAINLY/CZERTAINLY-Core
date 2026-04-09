@@ -75,7 +75,6 @@ public enum Resource {
 
     // SIGNING
     SIGNING_PROFILE("signingProfiles"),
-    ILM_SIGNING_PROTOCOL_CONFIGURATION("ilmSigningProtocolConfigurations"),
     TSP_PROFILE("tspProfiles"),
     TIME_QUALITY_CONFIGURATION("timeQualityConfigurations"),
     DIGITAL_SIGNATURE("digitalSignatures")

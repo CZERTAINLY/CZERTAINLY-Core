@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowT
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
-import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
@@ -30,8 +29,6 @@ public interface SigningProfileService extends ResourceExtensionService {
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
     PaginationResponseDto<SigningProfileListDto> listSigningProfiles(SearchRequestDto request, SecurityFilter filter);
-
-    SecuredList<SigningProfile> listSigningProfilesAssociatedWithIlmSigningProtocol(UUID ilmSigningProtocolConfigurationUuid, SecurityFilter filter);
 
     SecuredList<SigningProfile> listSigningProfilesAssociatedTimeQualityConfiguration(UUID timeQualityConfigurationUuid, SecurityFilter filter);
 
@@ -68,12 +65,6 @@ public interface SigningProfileService extends ResourceExtensionService {
     List<BaseAttribute> listSignatureAttributesForCertificate(UUID certificateUuid) throws NotFoundException;
 
     PaginationResponseDto<DigitalSignatureListDto> listDigitalSignaturesForSigningProfile(SecuredUUID uuid, SearchRequestDto request, SecurityFilter filter) throws NotFoundException;
-
-    IlmSigningProtocolActivationDetailDto getIlmSigningProtocolActivationDetails(SecuredUUID uuid) throws NotFoundException;
-
-    IlmSigningProtocolActivationDetailDto activateIlmSigningProtocol(SecuredUUID signingProfileUuid, SecuredUUID ilmConfigUuid) throws NotFoundException;
-
-    void deactivateIlmSigningProtocol(SecuredUUID uuid) throws NotFoundException;
 
     TspActivationDetailDto getTspActivationDetails(SecuredUUID uuid) throws NotFoundException;
 

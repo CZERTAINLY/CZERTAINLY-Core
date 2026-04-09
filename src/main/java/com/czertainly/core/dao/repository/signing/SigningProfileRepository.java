@@ -10,8 +10,6 @@ import java.util.UUID;
 
 @Repository
 public interface SigningProfileRepository extends SecurityFilterRepository<SigningProfile, UUID> {
-    List<SigningProfile> findAllByIlmSigningProtocolConfigurationUuid(UUID ilmSigningProtocolConfigurationUuid);
-
     List<SigningProfile> findAllByTspProfileUuid(UUID tspProfileUuid);
 
     List<SigningProfile> findAllByTimeQualityConfigurationUuid(UUID timeQualityConfigurationUuid);

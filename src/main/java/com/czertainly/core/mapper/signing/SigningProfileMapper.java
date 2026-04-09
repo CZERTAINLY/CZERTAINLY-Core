@@ -13,7 +13,6 @@ import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWo
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
-import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
@@ -114,9 +113,6 @@ public class SigningProfileMapper {
         }
 
         // Enabled protocols
-        if (profile.getIlmSigningProtocolConfigurationUuid() != null) {
-            dto.getEnabledProtocols().add(SigningProtocol.ILM_SIGNING_PROTOCOL);
-        }
         if (profile.getTspProfileUuid() != null) {
             dto.getEnabledProtocols().add(SigningProtocol.TSP);
         }
@@ -132,20 +128,6 @@ public class SigningProfileMapper {
         dto.setVersion(profile.getLatestVersion() != null ? profile.getLatestVersion() : 1);
         dto.setSigningWorkflowType(profile.getWorkflowType());
         dto.setEnabled(profile.getEnabled() != null ? profile.getEnabled() : false);
-        return dto;
-    }
-
-    public static IlmSigningProtocolActivationDetailDto toIlmSigningProtocolActivationDto(SigningProfile profile) {
-        IlmSigningProtocolActivationDetailDto dto = new IlmSigningProtocolActivationDetailDto();
-        if (profile.getIlmSigningProtocolConfiguration() != null) {
-            dto.setUuid(profile.getIlmSigningProtocolConfiguration().getUuid().toString());
-            dto.setName(profile.getIlmSigningProtocolConfiguration().getName());
-            dto.setAvailable(true);
-            dto.setSigningUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + "/v1/protocols/ilm/signingProfile/" + profile.getName() + "/sign");
-        } else {
-            dto.setAvailable(false);
-        }
         return dto;
     }
 
