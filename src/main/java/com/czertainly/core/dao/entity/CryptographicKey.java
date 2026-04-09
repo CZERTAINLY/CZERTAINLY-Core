@@ -120,7 +120,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         return dto;
     }
 
-    ComplianceStatus getComplianceStatus() {
+    private ComplianceStatus getComplianceStatus() {
         if (items.isEmpty()) {
             return ComplianceStatus.NOT_CHECKED;
         }
