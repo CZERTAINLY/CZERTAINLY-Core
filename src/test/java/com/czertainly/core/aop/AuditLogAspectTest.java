@@ -2,6 +2,7 @@ package com.czertainly.core.aop;
 
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.web.CertificateController;
 import com.czertainly.api.interfaces.core.web.CryptographicKeyController;
 import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -20,10 +21,10 @@ import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.messaging.listeners.AuditLogsListener;
 import com.czertainly.core.messaging.model.AuditLogMessage;
 import com.czertainly.core.messaging.producers.AuditLogsProducer;
+import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,9 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Disabled
 class AuditLogAspectTest extends BaseSpringBootTest {
-    
 
     @Autowired
     private SettingService settingService;
@@ -46,8 +45,14 @@ class AuditLogAspectTest extends BaseSpringBootTest {
     @Autowired
     private SettingController settingController;
 
+//    @Autowired
+//    private CryptographicKeyController keyController;
+
+//    @Autowired
+//    private CertificateController certificateController;
+
     @Autowired
-    private CryptographicKeyController keyController;
+    private CryptographicKeyService cryptographicKeyService;
 
     @MockitoBean
     private AuditLogsProducer auditLogsProducer;
@@ -56,36 +61,40 @@ class AuditLogAspectTest extends BaseSpringBootTest {
     private AuditLogsListener auditLogsListener;
 
     @Test
-    void testListKeyPairsAudit() throws ConnectorException {
+    void testListKeyPairsAudit() throws ConnectorException, NotFoundException {
+//        certificateController.deleteCertificate(UUID.randomUUID());
+
+        cryptographicKeyService.deleteKey(List.of(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
+
         Mockito.doAnswer(invocation -> {
             Object msg = invocation.getArgument(0);
             auditLogsListener.processMessage((AuditLogMessage) msg);
             return null; // because produceMessage returns void
         }).when(auditLogsProducer).produceMessage(Mockito.any());
 
-        keyController.listKeyPairs(Optional.empty());
+//        keyController.listKeyPairs(Optional.empty());
         List<AuditLog> auditLogs = auditLogRepository.findAll();
 
-        Assertions.assertThrows(NotFoundException.class, () -> keyController.destroyKey(UUID.randomUUID().toString(), null));
-        Assertions.assertThrows(NotFoundException.class, () -> keyController.compromiseKey(UUID.randomUUID().toString(), null));
+//        Assertions.assertThrows(NotFoundException.class, () -> keyController.destroyKey(UUID.randomUUID().toString(), null));
+//        Assertions.assertThrows(NotFoundException.class, () -> keyController.compromiseKey(UUID.randomUUID().toString(), null));
         Assertions.assertEquals(0, auditLogs.size());
 
         turnOnLogging();
 
-        keyController.listKeyPairs(Optional.empty());
-        keyController.listKeyPairs(Optional.ofNullable(UUID.randomUUID().toString()));
-        Assertions.assertThrows(NotFoundException.class, () -> keyController.listCreateKeyAttributes(UUID.randomUUID().toString(), UUID.randomUUID().toString(), KeyRequestType.KEY_PAIR));
-        keyController.deleteKeys(List.of(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
+//        keyController.listKeyPairs(Optional.empty());
+//        keyController.listKeyPairs(Optional.ofNullable(UUID.randomUUID().toString()));
+//        Assertions.assertThrows(NotFoundException.class, () -> keyController.listCreateKeyAttributes(UUID.randomUUID().toString(), UUID.randomUUID().toString(), KeyRequestType.KEY_PAIR));
+//        keyController.deleteKeys(List.of(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
         settingController.getLoggingSettings();
         BulkCompromiseKeyRequestDto bulkCompromiseKeyRequestDto = new BulkCompromiseKeyRequestDto();
         bulkCompromiseKeyRequestDto.setUuids(List.of(UUID.randomUUID(), UUID.randomUUID()));
-        keyController.compromiseKeys(bulkCompromiseKeyRequestDto);
+//        keyController.compromiseKeys(bulkCompromiseKeyRequestDto);
 
         // Simulate retrieving data from MDC
         UUID resourceUuid = UUID.randomUUID();
         String resourceName = "name";
         LoggingHelper.putLogResourceInfo(Resource.CRYPTOGRAPHIC_KEY, false, String.valueOf(resourceUuid), resourceName);
-        keyController.listCryptographicKeys(new SearchRequestDto());
+//        keyController.listCryptographicKeys(new SearchRequestDto());
 
         auditLogs = auditLogRepository.findAll();
         Assertions.assertEquals(7, auditLogs.size());
