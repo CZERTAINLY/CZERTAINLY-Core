@@ -48,7 +48,7 @@ class AuditLogAspectTest extends BaseSpringBootTest {
     @Autowired
     private CryptographicKeyController keyController;
 
-    @MockitoBean
+    @Autowired
     private AuditLogsProducer auditLogsProducer;
 
     @Autowired
