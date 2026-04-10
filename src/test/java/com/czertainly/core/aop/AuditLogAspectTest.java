@@ -48,19 +48,19 @@ class AuditLogAspectTest extends BaseSpringBootTest {
     @Autowired
     private CryptographicKeyController keyController;
 
-//    @MockitoBean
-//    private AuditLogsProducer auditLogsProducer;
+    @MockitoBean
+    private AuditLogsProducer auditLogsProducer;
 
     @Autowired
     private AuditLogsListener auditLogsListener;
 
     @Test
     void testListKeyPairsAudit() throws ConnectorException {
-//        Mockito.doAnswer(invocation -> {
-//            Object msg = invocation.getArgument(0);
-//            auditLogsListener.processMessage((AuditLogMessage) msg);
-//            return null; // because produceMessage returns void
-//        }).when(auditLogsProducer).produceMessage(Mockito.any());
+        Mockito.doAnswer(invocation -> {
+            Object msg = invocation.getArgument(0);
+            auditLogsListener.processMessage((AuditLogMessage) msg);
+            return null; // because produceMessage returns void
+        }).when(auditLogsProducer).produceMessage(Mockito.any());
 
         keyController.listKeyPairs(Optional.empty());
         List<AuditLog> auditLogs = auditLogRepository.findAll();
