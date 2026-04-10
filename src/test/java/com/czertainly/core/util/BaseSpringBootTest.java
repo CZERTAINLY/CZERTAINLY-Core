@@ -58,21 +58,22 @@ public class BaseSpringBootTest {
         }
 
         try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
-            var tables = connection.getMetaData().getTables(
+            List<String> tableNames = new ArrayList<>();
+            try (var tables = connection.getMetaData().getTables(
                     connection.getCatalog(),
                     "core",
                     null,
                     new String[]{"TABLE"}
-            );
-
-            List<String> tableNames = new ArrayList<>();
-            while (tables.next()) {
-                tableNames.add("core.\"%s\"".formatted(tables.getString("TABLE_NAME")));
+            )) {
+                while (tables.next()) {
+                    tableNames.add("core.\"%s\"".formatted(tables.getString("TABLE_NAME")));
+                }
             }
-
             if (!tableNames.isEmpty()) {
                 String truncateSql = "TRUNCATE " + String.join(", ", tableNames);
-                connection.prepareStatement(truncateSql).execute();
+                try (var statement = connection.prepareStatement(truncateSql)) {
+                    statement.execute();
+                }
             }
         }
     }
