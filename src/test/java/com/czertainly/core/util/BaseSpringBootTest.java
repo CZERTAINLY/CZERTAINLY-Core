@@ -30,10 +30,9 @@ import java.util.List;
 import java.util.UUID;
 
 @SpringBootTest
-@Import(SpringBootTestContext.class)
 public class BaseSpringBootTest {
 
-    @Autowired
+    @MockitoBean
     protected OpaClient opaClient;
 
     @MockitoBean
