@@ -53,6 +53,7 @@ import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepositor
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
 import com.czertainly.core.mapper.signing.SigningProfileMapper;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.signing.SigningProfileModel;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -199,6 +200,20 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 profile.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER,
                 Resource.SIGNING_PROFILE, uuid.getValue());
         return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
+    }
+
+    @Override
+    @Transactional
+    public SigningProfileModel<?, ?> getSigningProfileModel(String name) throws NotFoundException {
+        SigningProfile profile = signingProfileRepository.findByName(name)
+                .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + name));
+        UUID profileUuid = profile.getUuid();
+        List<RequestAttribute> signingOperationAttributes = attributeEngine
+                .getRequestObjectDataAttributesContent(null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, profileUuid);
+        List<RequestAttribute> signatureFormatterConnectorAttributes = attributeEngine
+                .getRequestObjectDataAttributesContent(profile.getSignatureFormatterConnectorUuid(),
+                        AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuid);
+        return SigningProfileMapper.toModel(profile, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

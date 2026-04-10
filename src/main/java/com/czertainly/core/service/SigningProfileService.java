@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.czertainly.core.model.signing.SigningProfileModel;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
@@ -35,6 +36,11 @@ public interface SigningProfileService extends ResourceExtensionService {
     SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspProfileUuid, SecurityFilter filter);
 
     SigningProfileDto getSigningProfile(SecuredUUID uuid, Integer version) throws NotFoundException;
+
+    /**
+     * Resolves a Signing Profile by name and returns it as the typed model layer.
+     */
+    SigningProfileModel<?, ?> getSigningProfileModel(String name) throws NotFoundException;
 
     List<SigningProtocol> listSupportedProtocols(SigningWorkflowType workflowType);
 

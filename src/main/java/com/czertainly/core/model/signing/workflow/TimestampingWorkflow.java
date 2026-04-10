@@ -1,0 +1,41 @@
+package com.czertainly.core.model.signing.workflow;
+
+import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
+
+import java.util.List;
+
+/**
+ * Sealed interface for the {@code TIMESTAMPING} workflow model.
+ *
+ * <p>Common validation fields ({@code defaultPolicyId}, {@code allowedPolicyIds},
+ * {@code allowedDigestAlgorithms}, {@code validateTokenSignature}) are accessible on this
+ * interface for both managed and delegated signing. Fields that are only relevant for
+ * ILM-managed signing (Signature Formatter Connector reference, {@code qualifiedTimestamp},
+ * {@code timeQualityConfiguration}) are scoped to {@link ManagedTimestampingWorkflow} only.</p>
+ *
+ * <p>Use pattern matching to access managed-only fields:</p>
+ * <pre>{@code
+ * switch (profile.getWorkflow()) {
+ *     case ManagedTimestampingWorkflow m -> m.signatureFormatterConnectorUuid();
+ *     case DelegatedTimestampingWorkflow d -> { /* formatter not available *\/ }
+ * }
+ * }</pre>
+ */
+public sealed interface TimestampingWorkflow extends SigningWorkflow
+        permits ManagedTimestampingWorkflow, DelegatedTimestampingWorkflow {
+
+    @Override
+    default SigningWorkflowType getWorkflowType() {
+        return SigningWorkflowType.TIMESTAMPING;
+    }
+
+    // -------------------------------------------------------------------------
+    // Common fields — available for both managed and delegated signing
+    // -------------------------------------------------------------------------
+
+    String defaultPolicyId();
+    List<String> allowedPolicyIds();
+    List<DigestAlgorithm> allowedDigestAlgorithms();
+    Boolean validateTokenSignature();
+}

@@ -25,6 +25,7 @@ import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowT
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
+import com.czertainly.api.model.core.oid.SystemOid;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeVersion;
@@ -76,9 +77,16 @@ import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
+import com.czertainly.core.model.signing.workflow.ManagedContentSigningWorkflow;
+import com.czertainly.core.model.signing.workflow.ManagedRawSigningWorkflow;
+import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
+import com.czertainly.core.model.signing.SigningProfileModel;
+import com.czertainly.core.model.signing.workflow.TimestampingWorkflow;
+import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.MetaDefinitions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -172,6 +180,12 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
      */
     private Certificate rsaCertificate;
 
+    /**
+     * A Certificate specifically configured for TIMESTAMPING workflow type.
+     * Contains the id-kp-timeStamping EKU and is marked as critical.
+     */
+    private Certificate tsaCertificate;
+
     @BeforeEach
     void setUp() {
         savedProfile = new SigningProfile();
@@ -258,6 +272,15 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         rsaCertificate.setState(CertificateState.ISSUED);
         rsaCertificate.setValidationStatus(CertificateValidationStatus.VALID);
         rsaCertificate = certificateRepository.saveAndFlush(rsaCertificate);
+
+        // Certificate specifically configured for TIMESTAMPING; satisfies RFC 3161 requirements
+        tsaCertificate = new Certificate();
+        tsaCertificate.setKey(rsaCryptographicKey);
+        tsaCertificate.setState(CertificateState.ISSUED);
+        tsaCertificate.setValidationStatus(CertificateValidationStatus.VALID);
+        tsaCertificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid())));
+        tsaCertificate.setExtendedKeyUsageCritical(true);
+        tsaCertificate = certificateRepository.saveAndFlush(tsaCertificate);
 
         // Register a custom attribute available for Signing Profile resources
         CustomAttributeV3 attrDef = new CustomAttributeV3();
@@ -355,6 +378,63 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         request.setDescription("Test description for " + name);
         request.setSigningScheme(new DelegatedSigningRequestDto());
         request.setWorkflow(new TimestampingWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/STATIC_KEY scheme and CONTENT_SIGNING workflow,
+     * optionally setting a Signature Formatter Connector UUID on the workflow.
+     */
+    private SigningProfileRequestDto buildManagedStaticKeyContentRequest(String name, UUID formatterConnectorUuid) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(certificate.getUuid());
+        request.setSigningScheme(scheme);
+        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnectorUuid);
+        request.setWorkflow(workflow);
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow,
+     * with no additional validation properties set.
+     */
+    private SigningProfileRequestDto buildManagedStaticKeyTimestampingRequest(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(tsaCertificate.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new TimestampingWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow
+     * with a default policy ID, two allowed policy IDs, and SHA-256 as an allowed digest algorithm.
+     */
+    private SigningProfileRequestDto buildManagedStaticKeyTimestampingRequestWithValidationProps(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(tsaCertificate.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        request.setSigningScheme(scheme);
+        TimestampingWorkflowRequestDto wf = new TimestampingWorkflowRequestDto();
+        wf.setDefaultPolicyId("1.2.3.4.5");
+        wf.setAllowedPolicyIds(List.of("1.2.3.4.5", "1.2.3.4.6"));
+        wf.setAllowedDigestAlgorithms(List.of(DigestAlgorithm.SHA_256));
+        request.setWorkflow(wf);
         return request;
     }
 
@@ -1746,5 +1826,126 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertFalse(updated.getCustomAttributes().isEmpty());
         Assertions.assertEquals("updated-value",
                 ((ResponseAttributeV3) updated.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // getSigningProfileModel
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testGetSigningProfileModel_notFound_throwsNotFoundException() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> signingProfileService.getSigningProfileModel("no-such-profile"));
+    }
+
+    @Test
+    void testGetSigningProfileModel_rawSigning_staticKeyScheme_returnsTypedModelWithResolvedCertificate() throws AttributeException, NotFoundException {
+        signingProfileService.createSigningProfile(buildManagedStaticKeyRawRequest("raw-static-key"));
+
+        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("raw-static-key");
+
+        Assertions.assertInstanceOf(ManagedRawSigningWorkflow.class, model.workflow(),
+                "RAW_SIGNING managed profile should produce a ManagedRawSigningWorkflow");
+        Assertions.assertInstanceOf(StaticKeyManagedSigning.class, model.signingScheme(),
+                "STATIC_KEY scheme should produce a StaticKeyManagedSigning");
+        StaticKeyManagedSigning schemeModel = (StaticKeyManagedSigning) model.signingScheme();
+        Assertions.assertNotNull(schemeModel.certificate(),
+                "Certificate entity should be resolved and non-null");
+        Assertions.assertEquals(certificate.getUuid(), schemeModel.certificate().getUuid(),
+                "Resolved certificate UUID must match the one configured on the profile");
+    }
+
+    @Test
+    void testGetSigningProfileModel_contentSigning_staticKeyScheme_returnsTypedModelWithResolvedCertificate() throws AttributeException, NotFoundException {
+        signingProfileService.createSigningProfile(buildManagedStaticKeyContentRequest("content-static-key", null));
+
+        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("content-static-key");
+
+        Assertions.assertInstanceOf(ManagedContentSigningWorkflow.class, model.workflow(),
+                "CONTENT_SIGNING managed profile should produce a ManagedContentSigningWorkflow");
+        Assertions.assertInstanceOf(StaticKeyManagedSigning.class, model.signingScheme());
+        StaticKeyManagedSigning schemeModel = (StaticKeyManagedSigning) model.signingScheme();
+        Assertions.assertNotNull(schemeModel.certificate(),
+                "Certificate entity should be resolved and non-null");
+        Assertions.assertEquals(certificate.getUuid(), schemeModel.certificate().getUuid());
+    }
+
+    @Test
+    void testGetSigningProfileModel_contentSigning_staticKeyScheme_workflowCarriesFormatterConnectorUuid() throws AttributeException, NotFoundException {
+        Connector formatter = createFormatterConnector("formatter-content-create");
+        signingProfileService.createSigningProfile(
+                buildManagedStaticKeyContentRequest("content-static-key-formatter", formatter.getUuid()));
+
+        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("content-static-key-formatter");
+
+        ManagedContentSigningWorkflow wf = (ManagedContentSigningWorkflow) model.workflow();
+        Assertions.assertNotNull(wf.signatureFormatterConnectorUuid(),
+                "Signature Formatter Connector reference should be present when a UUID was configured");
+        Assertions.assertEquals(formatter.getUuid(), wf.signatureFormatterConnectorUuid(),
+                "Workflow model must carry the exact formatter connector UUID set at profile creation");
+    }
+
+    @Test
+    void testGetSigningProfileModel_timestamping_staticKeyScheme_returnsTypedModelWithResolvedCertificate() throws AttributeException, NotFoundException {
+        signingProfileService.createSigningProfile(buildManagedStaticKeyTimestampingRequest("ts-static-key"));
+
+        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("ts-static-key");
+
+        Assertions.assertInstanceOf(ManagedTimestampingWorkflow.class, model.workflow(),
+                "TIMESTAMPING managed profile should produce a ManagedTimestampingWorkflow");
+        Assertions.assertInstanceOf(StaticKeyManagedSigning.class, model.signingScheme());
+        StaticKeyManagedSigning schemeModel = (StaticKeyManagedSigning) model.signingScheme();
+        Assertions.assertNotNull(schemeModel.certificate(),
+                "Certificate entity should be resolved and non-null");
+        Assertions.assertEquals(tsaCertificate.getUuid(), schemeModel.certificate().getUuid());
+    }
+
+    @Test
+    void testGetSigningProfileModel_timestamping_staticKeyScheme_workflowCarriesValidationProperties() throws AttributeException, NotFoundException {
+        signingProfileService.createSigningProfile(
+                buildManagedStaticKeyTimestampingRequestWithValidationProps("ts-static-key-validation"));
+
+        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("ts-static-key-validation");
+
+        TimestampingWorkflow wf = (TimestampingWorkflow) model.workflow();
+        Assertions.assertEquals("1.2.3.4.5", wf.defaultPolicyId(),
+                "Default policy ID must round-trip through create → model");
+        Assertions.assertEquals(List.of("1.2.3.4.5", "1.2.3.4.6"), wf.allowedPolicyIds(),
+                "Allowed policy IDs must round-trip through create → model");
+        Assertions.assertEquals(List.of(DigestAlgorithm.SHA_256), wf.allowedDigestAlgorithms(),
+                "Allowed digest algorithms must round-trip through create → model");
+    }
+
+    @Test
+    void testGetSigningProfileModel_baseFieldsArePropagatedToModel() throws AttributeException, NotFoundException {
+        SigningProfileRequestDto request = buildManagedStaticKeyRawRequest("raw-base-fields");
+        request.setDescription("expected description");
+        SigningProfileDto created = signingProfileService.createSigningProfile(request);
+
+        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("raw-base-fields");
+
+        Assertions.assertEquals("raw-base-fields", model.name());
+        Assertions.assertEquals("expected description", model.description());
+        Assertions.assertEquals(UUID.fromString(created.getUuid()), model.uuid());
+        Assertions.assertEquals(1, model.version());
+        Assertions.assertFalse(model.enabled(),
+                "Newly created profiles are disabled by default");
+    }
+
+    @Test
+    void testGetSigningProfileModel_withTspLinked_enabledProtocolsContainsTsp() throws AttributeException, NotFoundException {
+        signingProfileService.createSigningProfile(buildManagedStaticKeyTimestampingRequest("ts-tsp-linked"));
+
+        SigningProfile entity = signingProfileRepository.findByName("ts-tsp-linked").orElseThrow();
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("tsp-for-model-test");
+        tspProfile = tspRepository.save(tspProfile);
+        entity.setTspProfile(tspProfile);
+        signingProfileRepository.save(entity);
+
+        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("ts-tsp-linked");
+
+        Assertions.assertTrue(model.enabledProtocols().contains(SigningProtocol.TSP),
+                "TSP should appear in enabledProtocols when a TSP Profile is linked");
     }
 }
