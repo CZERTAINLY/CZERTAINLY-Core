@@ -78,5 +78,3 @@ spring:
   sql:
     init:
       mode: always
-  cache:
-    type: none
