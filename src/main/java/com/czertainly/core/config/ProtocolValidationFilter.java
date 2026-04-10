@@ -58,6 +58,10 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
             logger.info("CMPv2 Request from " + request.getRemoteAddr() + " for " + requestUri);
             authHelper.authenticateAsSystemUser(AuthHelper.CMP_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
+        } else if (requestUri.matches(prefixRegex + "tsp/.*$")) {
+            logger.info("TSP Request from " + request.getRemoteAddr() + " for " + requestUri);
+            authHelper.authenticateAsSystemUser(AuthHelper.TSP_USERNAME);
+            filterChain.doFilter(requestWrapper, responseWrapper);
         } else {
             resolver.resolveException(request, response, null, new ValidationException("Invalid protocol request"));
         }

@@ -57,6 +57,7 @@ public class AuthHelper {
     public static final String ACME_USERNAME = "acme";
     public static final String SCEP_USERNAME = "scep";
     public static final String CMP_USERNAME = "cmp";
+    public static final String TSP_USERNAME = "tsp";
 
     public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");
     public static final List<String> OAUTH2_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/oauth2/**", "/v?/health/**", "/v?/connector/register");
@@ -68,7 +69,7 @@ public class AuthHelper {
     private UserManagementApiClient userManagementApiClient;
     private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 
-    private static final Set<String> protocolUsers = Set.of(ACME_USERNAME, SCEP_USERNAME, CMP_USERNAME);
+    private static final Set<String> protocolUsers = Set.of(ACME_USERNAME, SCEP_USERNAME, CMP_USERNAME, TSP_USERNAME);
 
     @Autowired
     public void setOpaClient(OpaClient opaClient) {

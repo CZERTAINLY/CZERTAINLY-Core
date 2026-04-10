@@ -169,6 +169,15 @@ public class AttributeEngine {
         ).toList();
     }
 
+    public static List<RequestAttribute> getRequestAttributesFromResponseAttributes(List<ResponseAttribute> attributes) {
+        if (attributes == null || attributes.isEmpty()) return List.of();
+        return attributes.stream().map(
+                attribute ->
+                        AttributeVersionHelper.getRequestAttribute(attribute.getUuid(), attribute.getName(),
+                                attribute.getContent(), attribute.getContentType(), attribute.getVersion().getVersion())
+        ).toList();
+    }
+
 
     public List<CustomAttribute> getCustomAttributesByResource(Resource resource, SecurityResourceFilter securityResourceFilter) {
         List<AttributeRelation> relations = attributeRelationRepository.findByResourceAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(resource, AttributeType.CUSTOM, true);

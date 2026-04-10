@@ -22,6 +22,8 @@ public interface TspProfileService extends ResourceExtensionService {
 
     TspProfileDto getTspProfile(SecuredUUID uuid) throws NotFoundException;
 
+    TspProfileDto getTspProfile(String name) throws NotFoundException;
+
     TspProfileDto createTspProfile(TspProfileRequestDto request) throws AttributeException, NotFoundException;
 
     TspProfileDto updateTspProfile(SecuredUUID uuid, TspProfileRequestDto request) throws NotFoundException, AttributeException;

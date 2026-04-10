@@ -1,0 +1,32 @@
+package com.czertainly.core.service.tsa;
+
+import java.security.cert.X509Certificate;
+import java.util.List;
+
+/**
+ * A certificate chain where the first element is the end-entity (signing) certificate,
+ * followed by any CA certificates in the chain.
+ *
+ * @param signingCertificate the end-entity certificate used for signing
+ * @param chain              the full chain including the signing certificate as the first element
+ */
+public record CertificateChain(X509Certificate signingCertificate, List<X509Certificate> chain) {
+
+    public CertificateChain {
+        if (signingCertificate == null) {
+            throw new IllegalArgumentException("signingCertificate must not be null");
+        }
+        chain = List.copyOf(chain);
+        if (chain.isEmpty() || !chain.getFirst().equals(signingCertificate)) {
+            throw new IllegalArgumentException("chain must start with the signing certificate");
+        }
+    }
+
+    public static CertificateChain of(X509Certificate signingCertificate) {
+        return new CertificateChain(signingCertificate, List.of(signingCertificate));
+    }
+
+    public static CertificateChain of(List<X509Certificate> chain) {
+        return new CertificateChain(chain.getFirst(), chain);
+    }
+}

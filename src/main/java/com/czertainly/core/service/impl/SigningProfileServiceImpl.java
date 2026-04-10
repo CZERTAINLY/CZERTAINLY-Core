@@ -75,14 +75,10 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service(Resource.Codes.SIGNING_PROFILE)
 @Slf4j
@@ -178,6 +174,22 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Get (by name)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Override
+//    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
+    @Transactional
+    public SigningProfileDto getSigningProfile(String name) throws NotFoundException {
+        Optional<SigningProfile> signingProfileOptional = signingProfileRepository.findByName(name);
+        if (signingProfileOptional.isEmpty()) {
+            throw new NotFoundException("Signing profile with name '" + name + "' not found");
+        }
+        SigningProfile signingProfile = signingProfileOptional.get();
+        return buildDtoFromProfile(signingProfile);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Get (with optional version)
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -191,15 +203,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                     .findBySigningProfileUuidAndVersion(profile.getUuid(), version)
                     .orElseThrow(() -> new NotFoundException("Signing Profile version " + version + " not found"));
             return buildDtoFromSnapshot(profile, spv);
+        } else {
+            return buildDtoFromProfile(profile);
         }
-
-        List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, uuid.getValue());
-        List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
-                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, uuid.getValue());
-        List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
-                profile.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER,
-                Resource.SIGNING_PROFILE, uuid.getValue());
-        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     @Override
@@ -580,6 +586,16 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                     spv.getVersion(), live.getUuid(), e.getMessage());
             throw new IllegalStateException("Cannot deserialize signing profile version snapshot", e);
         }
+    }
+
+    private SigningProfileDto buildDtoFromProfile(SigningProfile profile) {
+        List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid());
+        List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
+                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, profile.getUuid());
+        List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
+                profile.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER,
+                Resource.SIGNING_PROFILE, profile.getUuid());
+        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     private String toJson(Object obj) {

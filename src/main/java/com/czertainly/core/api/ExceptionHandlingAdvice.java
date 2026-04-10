@@ -1,10 +1,12 @@
 package com.czertainly.core.api;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.api.tsp.TSPResponseBuilder;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.AuthHelper;
@@ -604,5 +606,19 @@ public class ExceptionHandlingAdvice {
                 ? ex.getProblemDetail().getDetail()
                 : ex.getMessage();
         return ResponseEntity.status(ex.getProblemDetail().getStatus()).body(new ErrorMessageDto(message));
+    }
+
+    /**
+     * Handler for {@link TspException}.
+     *
+     * @return DER-encoded TimeStampResp with rejection status and failure info per RFC 3161.
+     */
+    @ExceptionHandler(TspException.class)
+    public ResponseEntity<byte[]> handleTspException(TspException ex) {
+        LOG.error("TSP error ({}): {}", ex.getFailureInfo(), ex.getMessage());
+        byte[] body = TSPResponseBuilder.buildRejection(ex.getFailureInfo(), "An unexpected error occurred during timestamping.");
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("application/timestamp-response"))
+                .body(body);
     }
 }

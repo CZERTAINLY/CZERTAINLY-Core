@@ -15,4 +15,6 @@ public interface TspProfileRepository extends SecurityFilterRepository<TspProfil
     @Modifying
     @Query("UPDATE TspProfile tsp SET tsp.defaultSigningProfileUuid = NULL WHERE tsp.defaultSigningProfileUuid = :signingProfileUuid")
     void clearDefaultSigningProfileUuid(UUID signingProfileUuid);
+
+    Optional<TspProfile> findByName(String name);
 }

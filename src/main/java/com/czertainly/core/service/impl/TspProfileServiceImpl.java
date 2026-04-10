@@ -93,6 +93,17 @@ public class TspProfileServiceImpl implements TspProfileService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL)
+    @Transactional
+    public TspProfileDto getTspProfile(String name) throws NotFoundException {
+        TspProfile tspConfiguration = tspProfileRepository.findByName(name)
+                .orElseThrow(() -> new NotFoundException("TSP Configuration not found: " + name));
+
+        List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.TSP_PROFILE, tspConfiguration.getUuid());
+        return TspProfileMapper.toDto(tspConfiguration, customAttributes);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.CREATE)
     @Transactional
     public TspProfileDto createTspProfile(TspProfileRequestDto request) throws AttributeException, NotFoundException {

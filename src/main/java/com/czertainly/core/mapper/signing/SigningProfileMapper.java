@@ -14,6 +14,7 @@ import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWo
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.signing.SigningProtocol;
@@ -35,6 +36,8 @@ import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -222,6 +225,12 @@ public class SigningProfileMapper {
                             .toList()
             );
         }
+        // TODO: Add to entity (and DB) and read from it
+        wf.setValidateTokenSignature(true);
+        // TODO: Use real TimeQualityConfiguration when implemented
+        TimeQualityConfigurationDto tqc = new TimeQualityConfigurationDto();
+        tqc.setAccuracy(Duration.of(1, ChronoUnit.SECONDS));
+        wf.setTimeQualityConfiguration(tqc);
         return wf;
     }
 
