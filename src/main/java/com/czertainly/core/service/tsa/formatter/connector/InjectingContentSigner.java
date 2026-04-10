@@ -15,13 +15,13 @@ import java.util.Objects;
  * produced by an external signing service. The bytes written by BouncyCastle
  * are consumed but not used — the injected signature is returned as-is.
  */
-class InjectingContentSigner implements ExtendedContentSigner {
+public class InjectingContentSigner implements ExtendedContentSigner {
 
     private final SignatureAlgorithm signatureAlgorithm;
     private final byte[] signature;
     private final ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-    InjectingContentSigner(SignatureAlgorithm signatureAlgorithm, byte[] signature) {
+    public InjectingContentSigner(SignatureAlgorithm signatureAlgorithm, byte[] signature) {
         this.signatureAlgorithm = signatureAlgorithm;
         this.signature = Objects.requireNonNull(signature, "signature must not be null").clone();
     }

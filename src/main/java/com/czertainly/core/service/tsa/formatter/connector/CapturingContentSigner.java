@@ -14,13 +14,13 @@ import java.io.OutputStream;
  * <p>Used in DTBS formatting to extract the data-to-be-signed
  * without producing a real signature.
  */
-class CapturingContentSigner implements ExtendedContentSigner {
+public class CapturingContentSigner implements ExtendedContentSigner {
 
     private final SignatureAlgorithm signatureAlgorithm;
     private final ByteArrayOutputStream stream = new ByteArrayOutputStream();
     private byte[] capturedBytes;
 
-    CapturingContentSigner(SignatureAlgorithm signatureAlgorithm) {
+    public CapturingContentSigner(SignatureAlgorithm signatureAlgorithm) {
         this.signatureAlgorithm = signatureAlgorithm;
     }
 
@@ -45,7 +45,7 @@ class CapturingContentSigner implements ExtendedContentSigner {
         return new byte[0];
     }
 
-    byte[] getCapturedBytes() {
+    public byte[] getCapturedBytes() {
         if (capturedBytes == null) {
             throw new IllegalStateException(
                     "Phase 1 not completed: call TimeStampTokenGenerator.generate() first");

@@ -3,7 +3,7 @@ CREATE TABLE "time_quality_configuration" (
     "uuid"                        UUID         NOT NULL,
     "name"                        VARCHAR      NOT NULL,
     "description"                 TEXT,
-    "accuracy"                    INTERVAL,
+    "accuracy"                    INTERVAL     NOT NULL DEFAULT INTERVAL '1 second',
     "ntp_servers"                 TEXT[]       NOT NULL,
     "ntp_check_interval"          INTERVAL     NOT NULL DEFAULT INTERVAL '30 seconds',
     "ntp_samples_per_server"      INTEGER      NOT NULL DEFAULT 4,

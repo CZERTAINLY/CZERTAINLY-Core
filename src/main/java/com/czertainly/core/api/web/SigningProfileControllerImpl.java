@@ -7,7 +7,6 @@ import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
-import com.czertainly.api.model.client.signing.protocols.ilm.IlmSigningProtocolActivationDetailDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
@@ -158,21 +157,6 @@ public class SigningProfileControllerImpl implements SigningProfileController {
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DETAIL)
     public PaginationResponseDto<DigitalSignatureListDto> listDigitalSignaturesForSigningProfile(@LogResource(uuid = true) UUID uuid, SearchRequestDto request) throws NotFoundException {
         return signingProfileService.listDigitalSignaturesForSigningProfile(SecuredUUID.fromUUID(uuid), request, SecurityFilter.create());
-    }
-
-    @Override
-    public IlmSigningProtocolActivationDetailDto getIlmSigningProtocolActivationDetails(UUID uuid) throws NotFoundException {
-        return null;
-    }
-
-    @Override
-    public IlmSigningProtocolActivationDetailDto activateIlmSigningProtocol(UUID signingProfileUuid, UUID ilmSigningProtocolConfigurationUuid) throws NotFoundException {
-        return null;
-    }
-
-    @Override
-    public void deactivateIlmSigningProtocol(UUID uuid) throws NotFoundException {
-
     }
 
     @Override

@@ -35,8 +35,11 @@ public class V202604101200__CreateTspUserAndPermissions extends BaseJavaMigratio
     public void migrate(Context context) throws Exception {
         // seed resources
         Map<Resource, List<ResourceAction>> resources = new EnumMap<>(Resource.class);
-        resources.put(Resource.TSP_PROFILE, List.of(ResourceAction.DETAIL, ResourceAction.LIST));
+        resources.put(Resource.CRYPTOGRAPHIC_KEY, List.of(ResourceAction.SIGN));
         resources.put(Resource.DIGITAL_SIGNATURE, List.of(ResourceAction.SIGN));
+        resources.put(Resource.TOKEN, List.of(ResourceAction.DETAIL));
+        resources.put(Resource.TOKEN_PROFILE, List.of(ResourceAction.DETAIL));
+        resources.put(Resource.TSP_PROFILE, List.of(ResourceAction.DETAIL, ResourceAction.LIST));
         DatabaseAuthMigration.seedResources(resources);
 
         // all permissions needed for TSP operations
