@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -58,9 +57,6 @@ class AuditLogServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AuditLogController auditLogController;
-
-    @MockitoBean
-    private AuditLogsProducer auditLogsProducer;
 
     @Autowired
     private AuditLogsListener auditLogsListener;
