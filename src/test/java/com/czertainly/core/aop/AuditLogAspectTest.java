@@ -35,6 +35,7 @@ import java.util.UUID;
 
 @Disabled
 class AuditLogAspectTest extends BaseSpringBootTest {
+    
 
     @Autowired
     private SettingService settingService;
