@@ -11,6 +11,6 @@ class SpringBootTestContext {
     @MockBean
     OpaClient opaClient;
 
-    @MockitoBean
+    @MockBean
     AuditLogsProducer auditLogsProducer;
 }
