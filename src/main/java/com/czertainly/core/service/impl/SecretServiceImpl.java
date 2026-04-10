@@ -410,11 +410,14 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.DELETE)
-    public void deleteSecret(UUID uuid, Boolean deleteInVaults) throws NotFoundException {
+    public void deleteSecret(UUID uuid, boolean deleteInVaults) throws NotFoundException {
         Secret secret = secretRepository.findByUuid(SecuredUUID.fromUUID(uuid))
                 .orElseThrow(() -> new NotFoundException(Secret.class, uuid));
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(secret.getSourceVaultProfile().getUuid()));
-        SecretActionData actionData = SecretActionData.builder().originalState(secret.getState()).build();
+        SecretActionData actionData = SecretActionData.builder()
+                .deleteInVault(deleteInVaults)
+                .originalState(secret.getState())
+                .build();
         produceActionMessage(actionData, secret.getSourceVaultProfile(), secret, ResourceAction.DELETE);
     }
 
@@ -423,13 +426,13 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         // empty to evaluate permissions
     }
 
-    private void deleteSecretAction(UUID secretUuid, boolean isApproved, SecretState originalState, Boolean deleteInVaults) throws NotFoundException, SecretOperationException {
+    private void deleteSecretAction(UUID secretUuid, boolean isApproved, SecretState originalState, boolean deleteInVaults) throws NotFoundException, SecretOperationException {
         Secret secret = getSecretEntity(secretUuid);
         if (!isApproved) {
             checkDeleteSecretPermissions();
         }
         // Delete secret from vaults
-        if (!invalidSecretState(secret) && Boolean.TRUE.equals(deleteInVaults)) {
+        if (!invalidSecretState(secret) && deleteInVaults) {
             List<VaultProfile> vaultProfiles = new ArrayList<>(secret.getSyncVaultProfiles().stream().map(Secret2SyncVaultProfile::getVaultProfile).toList());
             vaultProfiles.add(secret.getSourceVaultProfile());
                 for (VaultProfile vaultProfile : vaultProfiles) {
@@ -538,7 +541,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
     @Override
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
-    public void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid, Boolean deleteInVault) throws
+    public void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid, boolean deleteInVault) throws
             NotFoundException, ConnectorException, AttributeException {
         Secret secret = getSecretEntity(uuid);
         if (secret.getSyncVaultProfiles().stream().noneMatch(profile -> profile.getVaultProfile().getUuid().equals(vaultProfileUuid))) {
@@ -549,7 +552,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         ).getVaultProfile();
         Secret2SyncVaultProfile secret2SyncVaultProfile = secret2SyncVaultProfileRepository.getReferenceById(new Secret2SyncVaultProfileId(secret.getUuid(), removedVaultProfile.getUuid()));
         // Remove the secret from the vault
-        if (Boolean.TRUE.equals(deleteInVault)) {
+        if (deleteInVault) {
             deleteSecretFromVault(removedVaultProfile, secret, secret2SyncVaultProfile.getSecretAttributes());
         }
 
