@@ -16,6 +16,7 @@ import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.messages.TspResponse;
 import com.czertainly.core.service.tsa.validator.TspRequestValidator;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TspServiceImpl implements TspService {
@@ -33,6 +34,7 @@ public class TspServiceImpl implements TspService {
         this.timestampEngine = timestampEngine;
     }
 
+    @Transactional
     public TspResponse processTspRequestForTspProfile(String tspProfileName, TspRequest request) throws NotFoundException, TspException {
 
         TspProfileDto tspProfile = tspProfileService.getTspProfile(tspProfileName);
@@ -42,6 +44,7 @@ public class TspServiceImpl implements TspService {
         return processTspRequestForSigningProfile(defaultSigningProfile.getName(), request);
     }
 
+    @Transactional
     public TspResponse processTspRequestForSigningProfile(String signingProfileName, TspRequest request) throws NotFoundException, TspException {
         SigningProfileDto signingProfile = signingProfileService.getSigningProfile(signingProfileName);
 

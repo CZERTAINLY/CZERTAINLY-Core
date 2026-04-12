@@ -40,13 +40,14 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
         TimestampingFormatDtbsRequestDto requestDto = new TimestampingFormatDtbsRequestDto();
         requestDto.setData(request.hashedMessage());
         requestDto.setHashAlgorithm(request.hashAlgorithm());
-        requestDto.setPolicy(request.policy().orElse(null));
+        requestDto.setPolicy(request.policy().orElse(timestampingProfile.getDefaultPolicyId()));
         requestDto.setNonce(request.nonce().orElse(null));
         requestDto.setIncludeSignerCertificate(request.includeSignerCertificate());
         requestDto.setRequestExtensions(toExtensionDtos(request.requestExtensions()));
         requestDto.setSerialNumber(serialNumber);
         requestDto.setSigningTime(genTime);
-        requestDto.setAccuracy(timestampingProfile.getTimeQualityConfiguration().getAccuracy());
+        requestDto.setAccuracy(timestampingProfile.getTimeQualityConfiguration() != null
+                ? timestampingProfile.getTimeQualityConfiguration().getAccuracy() : null);
         requestDto.setSignatureAlgorithm(signatureAlgorithm);
         requestDto.setCertificateChain(encodeBase64DerChain(certificateChain));
         requestDto.setFormatAttributes(AttributeEngine.getRequestAttributesFromResponseAttributes(
@@ -70,13 +71,14 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
                 timestampingProfile.getSignatureFormatterConnectorAttributes()));
         requestDto.setData(request.hashedMessage());
         requestDto.setHashAlgorithm(request.hashAlgorithm());
-        requestDto.setPolicy(request.policy().orElse(null));
+        requestDto.setPolicy(request.policy().orElse(timestampingProfile.getDefaultPolicyId()));
         requestDto.setNonce(request.nonce().orElse(null));
         requestDto.setIncludeSignerCertificate(request.includeSignerCertificate());
         requestDto.setRequestExtensions(toExtensionDtos(request.requestExtensions()));
         requestDto.setSerialNumber(serialNumber);
         requestDto.setSigningTime(genTime);
-        requestDto.setAccuracy(timestampingProfile.getTimeQualityConfiguration().getAccuracy());
+        requestDto.setAccuracy(timestampingProfile.getTimeQualityConfiguration() != null
+                ? timestampingProfile.getTimeQualityConfiguration().getAccuracy() : null);
         requestDto.setSignatureAlgorithm(signatureAlgorithm);
 
         var response = tspSignatureFormatter.formatSigningResponse(requestDto);

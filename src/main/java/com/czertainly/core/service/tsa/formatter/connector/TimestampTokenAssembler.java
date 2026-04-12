@@ -157,11 +157,13 @@ public final class TimestampTokenAssembler {
 
             var tsTokenGen = new TimeStampTokenGenerator(signerInfoGen, digestCalc, new ASN1ObjectIdentifier(policyOid));
 
-            var accuracyMs = accuracy.toMillis();
-            var seconds = (int) (accuracyMs / 1000);
-            var millis = (int) (accuracyMs % 1000);
-            if (seconds > 0) tsTokenGen.setAccuracySeconds(seconds);
-            if (millis > 0) tsTokenGen.setAccuracyMillis(millis);
+            if (accuracy != null) {
+                var accuracyMs = accuracy.toMillis();
+                var seconds = (int) (accuracyMs / 1000);
+                var millis = (int) (accuracyMs % 1000);
+                if (seconds > 0) tsTokenGen.setAccuracySeconds(seconds);
+                if (millis > 0) tsTokenGen.setAccuracyMillis(millis);
+            }
 
             if (includeTsaName) {
                 tsTokenGen.setTSA(
