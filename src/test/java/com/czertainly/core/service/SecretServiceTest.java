@@ -464,8 +464,8 @@ class SecretServiceTest extends BaseSpringBootTest {
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertFalse(reloadedSecret.getSyncVaultProfiles().contains(secret2SyncVaultProfile));
 
-        // Test removing vault profile when it is the only one with the new vault instance
-        secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), Boolean.TRUE);
+        // Test removing vault profile with delete in vault set to true
+        secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), true);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().noneMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileWithNewInstance.getUuid())));
 
