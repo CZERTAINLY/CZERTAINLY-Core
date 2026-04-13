@@ -11,7 +11,6 @@ import com.czertainly.core.model.signing.SigningProfileModel;
 import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
-import com.czertainly.core.model.signing.workflow.SigningWorkflow;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
@@ -43,11 +42,6 @@ public interface SigningProfileService extends ResourceExtensionService {
     SigningProfileDto getSigningProfile(String name) throws NotFoundException;
 
     SigningProfileDto getSigningProfile(SecuredUUID uuid, Integer version) throws NotFoundException;
-
-    /**
-     * Resolves a Signing Profile by name and returns it as the typed model layer.
-     */
-    SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> getSigningProfileModel(String name) throws NotFoundException;
 
     /**
      * Resolves a Signing Profile by name, verifying it uses a timestamping workflow.

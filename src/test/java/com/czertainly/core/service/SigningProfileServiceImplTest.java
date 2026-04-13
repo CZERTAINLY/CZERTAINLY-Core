@@ -78,11 +78,9 @@ import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
-import com.czertainly.core.model.signing.workflow.ManagedContentSigningWorkflow;
-import com.czertainly.core.model.signing.workflow.ManagedRawSigningWorkflow;
 import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.czertainly.core.model.signing.SigningProfileModel;
-import com.czertainly.core.model.signing.workflow.TimestampingWorkflow;
 import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -1830,85 +1828,53 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // getSigningProfileModel
+    // getManagedTimestampingProfileModel
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testGetSigningProfileModel_notFound_throwsNotFoundException() {
+    void testGetManagedTimestampingProfileModel_notFound_throwsNotFoundException() {
         Assertions.assertThrows(NotFoundException.class,
-                () -> signingProfileService.getSigningProfileModel("no-such-profile"));
+                () -> signingProfileService.getManagedTimestampingProfileModel("no-such-profile"));
     }
 
     @Test
-    void testGetSigningProfileModel_rawSigning_staticKeyScheme_returnsTypedModelWithResolvedCertificate() throws AlreadyExistException, AttributeException, NotFoundException {
-        signingProfileService.createSigningProfile(buildManagedStaticKeyRawRequest("raw-static-key"));
+    void testGetManagedTimestampingProfileModel_nonTimestampingProfile_throwsNotFoundException() throws AlreadyExistException, AttributeException, NotFoundException {
+        signingProfileService.createSigningProfile(buildManagedStaticKeyRawRequest("raw-profile-for-ts-check"));
 
-        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("raw-static-key");
+        NotFoundException ex = Assertions.assertThrows(NotFoundException.class,
+                () -> signingProfileService.getManagedTimestampingProfileModel("raw-profile-for-ts-check"));
 
-        Assertions.assertInstanceOf(ManagedRawSigningWorkflow.class, model.workflow(),
-                "RAW_SIGNING managed profile should produce a ManagedRawSigningWorkflow");
+        Assertions.assertTrue(ex.getMessage().contains("not configured with a timestamping workflow"),
+                "Exception message must state the profile is not configured with a timestamping workflow");
+    }
+
+    @Test
+    void testGetManagedTimestampingProfileModel_timestamping_staticKeyScheme_returnsTypedModelWithResolvedCertificate() throws AlreadyExistException, AttributeException, NotFoundException {
+        signingProfileService.createSigningProfile(buildManagedStaticKeyTimestampingRequest("ts-managed-model"));
+
+        SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ?> model =
+                signingProfileService.getManagedTimestampingProfileModel("ts-managed-model");
+
+        Assertions.assertInstanceOf(ManagedTimestampingWorkflow.class, model.workflow(),
+                "TIMESTAMPING managed profile should produce a ManagedTimestampingWorkflow");
         Assertions.assertInstanceOf(StaticKeyManagedSigning.class, model.signingScheme(),
                 "STATIC_KEY scheme should produce a StaticKeyManagedSigning");
         StaticKeyManagedSigning schemeModel = (StaticKeyManagedSigning) model.signingScheme();
         Assertions.assertNotNull(schemeModel.certificate(),
                 "Certificate entity should be resolved and non-null");
-        Assertions.assertEquals(certificate.getUuid(), schemeModel.certificate().getUuid(),
-                "Resolved certificate UUID must match the one configured on the profile");
+        Assertions.assertEquals(tsaCertificate.getUuid(), schemeModel.certificate().getUuid(),
+                "Resolved certificate UUID must match the TSA certificate configured on the profile");
     }
 
     @Test
-    void testGetSigningProfileModel_contentSigning_staticKeyScheme_returnsTypedModelWithResolvedCertificate() throws AlreadyExistException, AttributeException, NotFoundException {
-        signingProfileService.createSigningProfile(buildManagedStaticKeyContentRequest("content-static-key", null));
-
-        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("content-static-key");
-
-        Assertions.assertInstanceOf(ManagedContentSigningWorkflow.class, model.workflow(),
-                "CONTENT_SIGNING managed profile should produce a ManagedContentSigningWorkflow");
-        Assertions.assertInstanceOf(StaticKeyManagedSigning.class, model.signingScheme());
-        StaticKeyManagedSigning schemeModel = (StaticKeyManagedSigning) model.signingScheme();
-        Assertions.assertNotNull(schemeModel.certificate(),
-                "Certificate entity should be resolved and non-null");
-        Assertions.assertEquals(certificate.getUuid(), schemeModel.certificate().getUuid());
-    }
-
-    @Test
-    void testGetSigningProfileModel_contentSigning_staticKeyScheme_workflowCarriesFormatterConnectorUuid() throws AlreadyExistException, AttributeException, NotFoundException {
-        Connector formatter = createFormatterConnector("formatter-content-create");
+    void testGetManagedTimestampingProfileModel_validationPropertiesRoundTrip() throws AlreadyExistException, AttributeException, NotFoundException {
         signingProfileService.createSigningProfile(
-                buildManagedStaticKeyContentRequest("content-static-key-formatter", formatter.getUuid()));
+                buildManagedStaticKeyTimestampingRequestWithValidationProps("ts-managed-validation-props"));
 
-        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("content-static-key-formatter");
+        SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ?> model =
+                signingProfileService.getManagedTimestampingProfileModel("ts-managed-validation-props");
 
-        ManagedContentSigningWorkflow wf = (ManagedContentSigningWorkflow) model.workflow();
-        Assertions.assertNotNull(wf.signatureFormatterConnectorUuid(),
-                "Signature Formatter Connector reference should be present when a UUID was configured");
-        Assertions.assertEquals(formatter.getUuid(), wf.signatureFormatterConnectorUuid(),
-                "Workflow model must carry the exact formatter connector UUID set at profile creation");
-    }
-
-    @Test
-    void testGetSigningProfileModel_timestamping_staticKeyScheme_returnsTypedModelWithResolvedCertificate() throws AlreadyExistException, AttributeException, NotFoundException {
-        signingProfileService.createSigningProfile(buildManagedStaticKeyTimestampingRequest("ts-static-key"));
-
-        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("ts-static-key");
-
-        Assertions.assertInstanceOf(ManagedTimestampingWorkflow.class, model.workflow(),
-                "TIMESTAMPING managed profile should produce a ManagedTimestampingWorkflow");
-        Assertions.assertInstanceOf(StaticKeyManagedSigning.class, model.signingScheme());
-        StaticKeyManagedSigning schemeModel = (StaticKeyManagedSigning) model.signingScheme();
-        Assertions.assertNotNull(schemeModel.certificate(),
-                "Certificate entity should be resolved and non-null");
-        Assertions.assertEquals(tsaCertificate.getUuid(), schemeModel.certificate().getUuid());
-    }
-
-    @Test
-    void testGetSigningProfileModel_timestamping_staticKeyScheme_workflowCarriesValidationProperties() throws AlreadyExistException, AttributeException, NotFoundException {
-        signingProfileService.createSigningProfile(
-                buildManagedStaticKeyTimestampingRequestWithValidationProps("ts-static-key-validation"));
-
-        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("ts-static-key-validation");
-
-        TimestampingWorkflow wf = (TimestampingWorkflow) model.workflow();
+        ManagedTimestampingWorkflow<?> wf = model.workflow();
         Assertions.assertEquals("1.2.3.4.5", wf.defaultPolicyId(),
                 "Default policy ID must round-trip through create → model");
         Assertions.assertEquals(List.of("1.2.3.4.5", "1.2.3.4.6"), wf.allowedPolicyIds(),
@@ -1918,36 +1884,20 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetSigningProfileModel_baseFieldsArePropagatedToModel() throws AlreadyExistException, AttributeException, NotFoundException {
-        SigningProfileRequestDto request = buildManagedStaticKeyRawRequest("raw-base-fields");
-        request.setDescription("expected description");
+    void testGetManagedTimestampingProfileModel_baseFieldsArePropagatedToModel() throws AlreadyExistException, AttributeException, NotFoundException {
+        SigningProfileRequestDto request = buildManagedStaticKeyTimestampingRequest("ts-managed-base-fields");
+        request.setDescription("expected ts description");
         SigningProfileDto created = signingProfileService.createSigningProfile(request);
 
-        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("raw-base-fields");
+        SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ?> model =
+                signingProfileService.getManagedTimestampingProfileModel("ts-managed-base-fields");
 
-        Assertions.assertEquals("raw-base-fields", model.name());
-        Assertions.assertEquals("expected description", model.description());
+        Assertions.assertEquals("ts-managed-base-fields", model.name());
+        Assertions.assertEquals("expected ts description", model.description());
         Assertions.assertEquals(UUID.fromString(created.getUuid()), model.uuid());
         Assertions.assertEquals(1, model.version());
         Assertions.assertFalse(model.enabled(),
                 "Newly created profiles are disabled by default");
-    }
-
-    @Test
-    void testGetSigningProfileModel_withTspLinked_enabledProtocolsContainsTsp() throws AlreadyExistException, AttributeException, NotFoundException {
-        signingProfileService.createSigningProfile(buildManagedStaticKeyTimestampingRequest("ts-tsp-linked"));
-
-        SigningProfile entity = signingProfileRepository.findByName("ts-tsp-linked").orElseThrow();
-        TspProfile tspProfile = new TspProfile();
-        tspProfile.setName("tsp-for-model-test");
-        tspProfile = tspRepository.save(tspProfile);
-        entity.setTspProfile(tspProfile);
-        signingProfileRepository.save(entity);
-
-        SigningProfileModel<?, ?> model = signingProfileService.getSigningProfileModel("ts-tsp-linked");
-
-        Assertions.assertTrue(model.enabledProtocols().contains(SigningProtocol.TSP),
-                "TSP should appear in enabledProtocols when a TSP Profile is linked");
     }
 
     // ──────────────────────────────────────────────────────────────────────────

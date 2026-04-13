@@ -125,39 +125,6 @@ public class SigningProfileMapper {
     }
 
     /**
-     * Converts a {@link SigningProfile} entity to the typed {@link SigningProfileModel} hierarchy.
-     * Must be called within a transaction.
-     */
-    public static SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> toModel(SigningProfile profile,
-                                                                            List<RequestAttribute> signingOperationAttributes,
-                                                                            List<RequestAttribute> signatureFormatterConnectorAttributes) {
-        SigningSchemeModel schemeModel = buildSchemeModel(profile, signingOperationAttributes);
-        List<SigningProtocol> protocols = profile.getTspProfileUuid() != null ? List.of(SigningProtocol.TSP) : List.of();
-        int version = profile.getLatestVersion() != null ? profile.getLatestVersion() : 1;
-        boolean enabled = profile.getEnabled() != null ? profile.getEnabled() : false;
-
-        return switch (profile.getWorkflowType()) {
-            case CONTENT_SIGNING -> new SigningProfileModel<>(
-                    profile.getUuid(), profile.getName(), profile.getDescription(),
-                    version, enabled, protocols,
-                    buildContentSigningWorkflow(profile, signatureFormatterConnectorAttributes),
-                    schemeModel);
-            case RAW_SIGNING -> new SigningProfileModel<>(
-                    profile.getUuid(), profile.getName(), profile.getDescription(),
-                    version, enabled, protocols,
-                    buildRawSigningWorkflow(profile),
-                    schemeModel);
-            case TIMESTAMPING -> new SigningProfileModel<>(
-                    profile.getUuid(), profile.getName(), profile.getDescription(),
-                    version, enabled, protocols,
-                    profile.getSigningScheme() == SigningScheme.MANAGED
-                            ? buildManagedTimestampingWorkflow(profile, signatureFormatterConnectorAttributes)
-                            : buildDelegatedTimestampingWorkflow(profile),
-                    schemeModel);
-        };
-    }
-
-    /**
      * Converts a {@link SigningProfile} entity to a {@link SigningProfileModel} typed with
      * {@link ManagedTimestampingWorkflow}. The caller must ensure the profile uses a managed timestamping workflow.
      *
@@ -269,28 +236,6 @@ public class SigningProfileMapper {
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Builds a {@link RawSigningWorkflow} variant based on the signing scheme.
-     */
-    private static RawSigningWorkflow buildRawSigningWorkflow(SigningProfile profile) {
-        return profile.getSigningScheme() == SigningScheme.MANAGED
-                ? new ManagedRawSigningWorkflow()
-                : new DelegatedRawSigningWorkflow();
-    }
-
-    /**
-     * Builds a {@link ContentSigningWorkflow} variant based on the signing scheme.
-     */
-    private static ContentSigningWorkflow buildContentSigningWorkflow(
-            SigningProfile profile, List<RequestAttribute> signatureFormatterConnectorAttributes) {
-        return switch (profile.getSigningScheme()) {
-            case MANAGED -> new ManagedContentSigningWorkflow(
-                    profile.getSignatureFormatterConnectorUuid(),
-                    safeList(signatureFormatterConnectorAttributes));
-            case DELEGATED -> new DelegatedContentSigningWorkflow();
-        };
-    }
-
-    /**
      * Builds a {@link ManagedTimestampingWorkflow} from the entity.
      */
     private static ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> buildManagedTimestampingWorkflow(
@@ -300,17 +245,6 @@ public class SigningProfileMapper {
                 safeList(signatureFormatterConnectorAttributes),
                 profile.getQualifiedTimestamp(),
                 LocalClockTimeQualityConfiguration.INSTANCE, // timeQualityConfiguration — not persisted on the entity yet, so we use a placeholder that represents the default configuration for now
-                profile.getDefaultPolicyId(),
-                safeList(profile.getAllowedPolicyIds()),
-                timestampingDigestAlgorithms(profile),
-                null); // validateTokenSignature — not persisted on the entity yet
-    }
-
-    /**
-     * Builds a {@link DelegatedTimestampingWorkflow} from the entity.
-     */
-    private static DelegatedTimestampingWorkflow buildDelegatedTimestampingWorkflow(SigningProfile profile) {
-        return new DelegatedTimestampingWorkflow(
                 profile.getDefaultPolicyId(),
                 safeList(profile.getAllowedPolicyIds()),
                 timestampingDigestAlgorithms(profile),
