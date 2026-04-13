@@ -107,10 +107,15 @@ public class ConnectorApiFactory {
     private final Optional<com.czertainly.api.clients.mq.v2.InfoApiClient> mqInfoApiClientV2;
     private final Optional<com.czertainly.api.clients.mq.v2.MetricsApiClient> mqMetricsApiClientV2;
 
+    // Vault/Secret clients
+    private final com.czertainly.api.clients.secret.VaultApiClient restVaultApiClient;
+    private final Optional<com.czertainly.api.clients.mq.secret.VaultApiClient> mqVaultApiClient;
+    private final com.czertainly.api.clients.secret.SecretApiClient restSecretApiClient;
+
     @PostConstruct
     void logInitialization() {
-        log.info("ConnectorApiFactory initialized. MQ clients available: attribute={}, authorityInstance={}, certificate={}, certificateV2={}, compliance={}, complianceV2={}, connector={}, discovery={}, endEntity={}, endEntityProfile={}, entityInstance={}, health={}, healthV2={}, infoV2={}, location={}, metricsV2={}, notificationInstance={}, tokenInstance={}, keyManagement={}, cryptographicOperations={}",
-                mqAttributeApiClient.isPresent(), mqAuthorityInstanceApiClient.isPresent(), mqCertificateApiClient.isPresent(), mqCertificateApiClientV2.isPresent(), mqComplianceApiClient.isPresent(), mqComplianceApiClientV2.isPresent(), mqConnectorApiClient.isPresent(), mqDiscoveryApiClient.isPresent(), mqEndEntityApiClient.isPresent(), mqEndEntityProfileApiClient.isPresent(), mqEntityInstanceApiClient.isPresent(), mqHealthApiClient.isPresent(), mqHealthApiClientV2.isPresent(), mqInfoApiClientV2.isPresent(), mqLocationApiClient.isPresent(), mqMetricsApiClientV2.isPresent(), mqNotificationInstanceApiClient.isPresent(), mqTokenInstanceApiClient.isPresent(), mqKeyManagementApiClient.isPresent(), mqCryptographicOperationsApiClient.isPresent());
+        log.info("ConnectorApiFactory initialized. MQ clients available: attribute={}, authorityInstance={}, certificate={}, certificateV2={}, compliance={}, complianceV2={}, connector={}, discovery={}, endEntity={}, endEntityProfile={}, entityInstance={}, health={}, healthV2={}, infoV2={}, location={}, metricsV2={}, notificationInstance={}, tokenInstance={}, keyManagement={}, cryptographicOperations={}, vault={}, secret(REST-only)={}",
+                mqAttributeApiClient.isPresent(), mqAuthorityInstanceApiClient.isPresent(), mqCertificateApiClient.isPresent(), mqCertificateApiClientV2.isPresent(), mqComplianceApiClient.isPresent(), mqComplianceApiClientV2.isPresent(), mqConnectorApiClient.isPresent(), mqDiscoveryApiClient.isPresent(), mqEndEntityApiClient.isPresent(), mqEndEntityProfileApiClient.isPresent(), mqEntityInstanceApiClient.isPresent(), mqHealthApiClient.isPresent(), mqHealthApiClientV2.isPresent(), mqInfoApiClientV2.isPresent(), mqLocationApiClient.isPresent(), mqMetricsApiClientV2.isPresent(), mqNotificationInstanceApiClient.isPresent(), mqTokenInstanceApiClient.isPresent(), mqKeyManagementApiClient.isPresent(), mqCryptographicOperationsApiClient.isPresent(), mqVaultApiClient.isPresent(), true);
     }
 
     /**
@@ -214,6 +219,16 @@ public class ConnectorApiFactory {
         return getClient(connector, restNotificationInstanceApiClient, mqNotificationInstanceApiClient);
     }
 
+    public com.czertainly.api.interfaces.client.v1.secret.VaultSyncApiClient getVaultApiClient(ConnectorDto connector) {
+        return getClient(connector, restVaultApiClient, mqVaultApiClient);
+    }
+
+    public com.czertainly.api.clients.secret.SecretApiClient getSecretApiClient(ConnectorDto connector) {
+        // REST-only — no MQ implementation exists yet
+        Objects.requireNonNull(connector, "connector must not be null");
+        return restSecretApiClient;
+    }
+
     // Overloads accepting ApiClientConnectorInfo (used by ConnectorAdapters)
 
     public com.czertainly.api.interfaces.client.v1.HealthSyncApiClient getHealthApiClient(ApiClientConnectorInfo connector) {
@@ -234,6 +249,17 @@ public class ConnectorApiFactory {
     public InfoSyncApiClient getInfoApiClientV2(ApiClientConnectorInfo connector) {
         Objects.requireNonNull(connector, "connector must not be null");
         return getClient(connector.getProxy(), connector.getName(), restInfoApiClientV2, mqInfoApiClientV2);
+    }
+
+    public com.czertainly.api.interfaces.client.v1.secret.VaultSyncApiClient getVaultApiClient(ApiClientConnectorInfo connector) {
+        Objects.requireNonNull(connector, "connector must not be null");
+        return getClient(connector.getProxy(), connector.getName(), restVaultApiClient, mqVaultApiClient);
+    }
+
+    public com.czertainly.api.clients.secret.SecretApiClient getSecretApiClient(ApiClientConnectorInfo connector) {
+        // REST-only — no MQ implementation exists yet
+        Objects.requireNonNull(connector, "connector must not be null");
+        return restSecretApiClient;
     }
 
     /**
