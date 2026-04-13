@@ -80,7 +80,7 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     void disassociateFromApprovalProfile(SecuredUUID signingProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
 
-    List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType);
+    List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp);
 
     List<BaseAttribute> listSignatureAttributesForCertificate(UUID certificateUuid) throws NotFoundException;
 

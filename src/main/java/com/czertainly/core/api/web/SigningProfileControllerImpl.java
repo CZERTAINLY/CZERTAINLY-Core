@@ -144,8 +144,8 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
-    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType) {
-        return signingProfileService.listSigningCertificates(signingWorkflowType);
+    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp) {
+        return signingProfileService.listSigningCertificates(signingWorkflowType, qualifiedTimestamp);
     }
 
     @Override

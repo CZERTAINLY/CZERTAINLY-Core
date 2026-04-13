@@ -396,9 +396,9 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
 
     /**
      * Builds a self-signed X.509 certificate with critical id-kp-timeStamping EKU.
-     * This satisfies both {@link com.czertainly.core.service.tsa.certificatevalidation.TimestampingEkuValidator}
-     * (run against the decoded X509Certificate) and {@code isCertificateDigitalSigningAcceptable}
-     * (run against the Certificate entity's metadata fields).
+     * The resulting certificate satisfies the requirements checked by
+     * {@link com.czertainly.core.util.CertificateUtil#isCertificateDigitalSigningAcceptable}
+     * for the TIMESTAMPING workflow, as reflected in the {@code Certificate} entity's metadata fields.
      */
     private static X509Certificate buildTsaCertificate(KeyPair keyPair) throws Exception {
         Date notBefore = new Date();

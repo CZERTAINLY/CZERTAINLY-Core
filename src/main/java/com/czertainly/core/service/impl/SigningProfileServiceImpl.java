@@ -159,8 +159,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Override
-    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType) {
-        return certificateService.listDigitalSigningCertificates(SecurityFilter.create(), signingWorkflowType);
+    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp) {
+        return certificateService.listDigitalSigningCertificates(SecurityFilter.create(), signingWorkflowType, qualifiedTimestamp);
     }
 
     @Override
@@ -245,7 +245,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     private SigningProfile findProfileByName(String name) throws NotFoundException {
-        return signingProfileRepository.findByName(name)
+        return signingProfileRepository.findWithAssociationsByName(name)
                 .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + name));
     }
 
@@ -506,7 +506,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 p.setManagedSigningType(ManagedSigningType.STATIC_KEY);
                 Certificate certificate = certificateRepository.findWithAssociationsByUuid(s.getCertificateUuid())
                         .orElseThrow(() -> new NotFoundException(Certificate.class, s.getCertificateUuid()));
-                if (CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, p.getWorkflowType())) {
+                if (CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, p.getWorkflowType(), Boolean.TRUE.equals(p.getQualifiedTimestamp()))) {
                     p.setCertificate(certificate);
                 } else {
                     throw new ValidationException("Certificate " + certificate.getUuid() + " is not eligible for signing workflow type " + p.getWorkflowType());

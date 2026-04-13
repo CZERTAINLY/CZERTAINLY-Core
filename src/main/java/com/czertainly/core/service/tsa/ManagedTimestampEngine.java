@@ -10,8 +10,6 @@ import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.messages.TspResponse;
 import com.czertainly.core.service.tsa.certificateprovider.CertificateProviderFactory;
-import com.czertainly.core.service.tsa.certificatevalidation.CertificateValidationResult;
-import com.czertainly.core.service.tsa.certificatevalidation.SignerCertificateValidationManager;
 import com.czertainly.core.service.tsa.clocksource.ClockSource;
 import com.czertainly.core.service.tsa.serialnumber.ClockDriftException;
 import com.czertainly.core.service.tsa.serialnumber.SerialNumberGenerator;
@@ -36,25 +34,23 @@ public class ManagedTimestampEngine {
     private final TimeQualityRegister timeQualityRegister;
     private final SerialNumberGenerator serialNumberGenerator;
     private final ManagedTimestampTokenGenerator tokenGenerator;
-    private final SignerCertificateValidationManager certValidationManager;
     private final CertificateProviderFactory certificateProviderFactory;
     private final ClockSource clockSource;
 
 
-    public ManagedTimestampEngine(TimeQualityRegister timeQualityRegister, SerialNumberGenerator serialNumberGenerator, ManagedTimestampTokenGenerator tokenGenerator, SignerCertificateValidationManager certValidationManager, CertificateProviderFactory certificateProviderFactory, ClockSource clockSource) {
+    public ManagedTimestampEngine(TimeQualityRegister timeQualityRegister, SerialNumberGenerator serialNumberGenerator, ManagedTimestampTokenGenerator tokenGenerator, CertificateProviderFactory certificateProviderFactory, ClockSource clockSource) {
         this.timeQualityRegister = timeQualityRegister;
         this.serialNumberGenerator = serialNumberGenerator;
         this.tokenGenerator = tokenGenerator;
-        this.certValidationManager = certValidationManager;
         this.certificateProviderFactory = certificateProviderFactory;
         this.clockSource = clockSource;
     }
 
     public TspResponse process(TspRequest request, SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile) throws TspException {
 
-        var certificateProvider = certificateProviderFactory.getProvider(timestampingProfile.signingScheme());
+        SigningSchemeModel signingScheme = timestampingProfile.signingScheme();
+        var certificateProvider = certificateProviderFactory.getProvider(signingScheme);
         var timestampingWorkflow = timestampingProfile.workflow();
-
         var timeQualityConfiguration = timestampingWorkflow.timeQualityConfiguration();
 
         var timeStatus = timeQualityRegister.getStatus(timeQualityConfiguration);
@@ -66,16 +62,11 @@ public class ManagedTimestampEngine {
         }
 
         try {
+            certificateProvider.validate(signingScheme, timestampingWorkflow.isQualifiedTimestamp());
+
             var serialNumber = serialNumberGenerator.generate();
             var genTime = clockSource.wallTimeInstant();
-            var certificateChain = certificateProvider.getCertificateChain(timestampingProfile.signingScheme());
-            var signerCert = certificateChain.signingCertificate();
-
-            var certValidation = certValidationManager.validate(signerCert, timestampingWorkflow.isQualifiedTimestamp());
-            if (certValidation instanceof CertificateValidationResult.Invalid invalid) {
-                logger.error("Signer certificate validation failed: {}", invalid.reason());
-                return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Signer certificate validation failed: " + invalid.reason());
-            }
+            var certificateChain = certificateProvider.getCertificateChain(signingScheme);
 
             var result = tokenGenerator.generate(request, timestampingProfile, certificateChain, serialNumber, genTime);
 
@@ -86,13 +77,12 @@ public class ManagedTimestampEngine {
 
             return TspResponse.granted(result.getEncoded());
 
-        }  catch (ClockDriftException e) {
+        } catch (ClockDriftException e) {
             logger.error("Clock drift detected during timestamp generation", e);
             return TspResponse.rejected(TspFailureInfo.TIME_NOT_AVAILABLE, "Clock drift detected");
         } catch (Exception e) {
             logger.error("Unexpected error during timestamp generation", e);
-            return TspResponse.rejected(
-                    TspFailureInfo.SYSTEM_FAILURE, "Internal error");
+            return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Internal error");
         }
 
     }

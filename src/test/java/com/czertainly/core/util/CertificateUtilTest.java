@@ -187,6 +187,7 @@ class CertificateUtilTest {
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
             boolean withTokenProfile, List<String> extendedKeyUsages, boolean extendedKeyUsageCritical,
             SigningWorkflowType workflowType,
+            boolean qualifiedTimestamp,
             boolean expectedResult
     ) {
         Certificate certificate = new Certificate();
@@ -227,6 +228,6 @@ class CertificateUtilTest {
             certificate.setKey(key);
         }
 
-        Assertions.assertEquals(expectedResult, CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, workflowType), "Test case '" + testCaseName + "' failed");
+        Assertions.assertEquals(expectedResult, CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, workflowType, qualifiedTimestamp), "Test case '" + testCaseName + "' failed");
     }
 }

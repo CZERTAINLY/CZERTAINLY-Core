@@ -1161,7 +1161,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
             List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
             boolean withTokenProfile, List<String> extendedKeyUsages, boolean extendedKeyUsageCritical,
-            SigningWorkflowType workflowType,
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp,
             boolean shouldBeAccepted
     ) {
         CryptographicKey key = null;
@@ -1190,7 +1190,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         cert.setExtendedKeyUsageCritical(extendedKeyUsageCritical);
         certificateRepository.save(cert);
 
-        List<CertificateDto> certificates = certificateService.listDigitalSigningCertificates(SecurityFilter.create(), workflowType);
+        List<CertificateDto> certificates = certificateService.listDigitalSigningCertificates(SecurityFilter.create(), workflowType, qualifiedTimestamp);
         boolean isPresent = certificates.stream().anyMatch(c -> c.getCommonName().equals(testCaseName));
         Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + testCaseName + "' acceptance mismatch");
     }

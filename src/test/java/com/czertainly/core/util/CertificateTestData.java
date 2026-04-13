@@ -330,7 +330,8 @@ public class CertificateTestData {
     }
 
     // Arguments: testCaseName, publicKeys, privateKeys, certState, validationStatus, archived,
-    //            withTokenProfile, extendedKeyUsages, extendedKeyUsageCritical, workflowType, expectedResult
+    //            withTokenProfile, extendedKeyUsages, extendedKeyUsageCritical, workflowType,
+    //            qualifiedTimestamp, expectedResult
     public static Stream<Arguments> provideDigitalSigningAcceptableTestData() {
         return Stream.of(
                 // 1. RSA cert, token profile present, non-TSP workflow → accepted
@@ -339,7 +340,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        true),
+                        false, true),
 
                 // 2. ECDSA cert, token profile present, non-TSP workflow → accepted
                 Arguments.of("ECDSA Cert CONTENT_SIGNING",
@@ -347,7 +348,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.CONTENT_SIGNING,
-                        true),
+                        false, true),
 
                 // 3. Expiring cert, token profile present, CONTENT_SIGNING → accepted
                 Arguments.of("Expiring Cert CONTENT_SIGNING",
@@ -355,7 +356,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false,
                         true, List.of(), false, SigningWorkflowType.CONTENT_SIGNING,
-                        true),
+                        false, true),
 
                 // 4. Falcon cert, token profile present, RAW_SIGNING → accepted
                 Arguments.of("Falcon Cert RAW_SIGNING",
@@ -363,15 +364,15 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.FALCON, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        true),
+                        false, true),
 
-                // 5. Timestamping cert, exclusively TSA EKU, critical → accepted
-                Arguments.of("Timestamping Cert with TSA EKU",
+                // 5. Timestamping cert, exclusively TSA EKU, critical, non-qualified → accepted
+                Arguments.of("Timestamping Cert with TSA EKU (non-qualified)",
                         List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(SystemOid.TIME_STAMPING.getOid()), true, SigningWorkflowType.TIMESTAMPING,
-                        true),
+                        false, true),
 
                 // 6. Timestamping cert, multiple EKUs including TSA OID → rejected (RFC 3161: MUST have only id-kp-timeStamping)
                 Arguments.of("Timestamping Cert with multiple EKUs including TSA",
@@ -379,7 +380,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of("1.3.6.1.5.5.7.3.3", SystemOid.TIME_STAMPING.getOid()), true, SigningWorkflowType.TIMESTAMPING,
-                        false),
+                        false, false),
 
                 // 7. No key → rejected
                 Arguments.of("No Key Cert",
@@ -387,7 +388,7 @@ public class CertificateTestData {
                         List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 8. Archived → rejected
                 Arguments.of("Archived Cert",
@@ -395,7 +396,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, true,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 9. Wrong state → rejected
                 Arguments.of("Wrong State Cert",
@@ -403,7 +404,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.PENDING_APPROVAL, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 10. Wrong validation status → rejected
                 Arguments.of("Invalid Status Cert",
@@ -411,7 +412,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.REVOKED, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 11. No private key → rejected
                 Arguments.of("No Private Key Cert",
@@ -419,7 +420,7 @@ public class CertificateTestData {
                         List.of(),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 12. Inactive private key → rejected
                 Arguments.of("Inactive Private Key Cert",
@@ -427,7 +428,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.DEACTIVATED)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 13. Private key missing SIGN usage → rejected
                 Arguments.of("No Sign Usage Cert",
@@ -435,7 +436,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.DECRYPT), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 14. No token profile → rejected
                 Arguments.of("No Token Profile Cert",
@@ -443,7 +444,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         false, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 15. Timestamping workflow, TSA EKU missing → rejected
                 Arguments.of("Timestamping Cert without TSA EKU",
@@ -451,7 +452,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), true, SigningWorkflowType.TIMESTAMPING,
-                        false),
+                        false, false),
 
                 // 16. Timestamping workflow, only unrelated EKU present → rejected
                 Arguments.of("Timestamping Cert with wrong EKU only",
@@ -459,7 +460,7 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of("1.3.6.1.5.5.7.3.3"), true, SigningWorkflowType.TIMESTAMPING,
-                        false),
+                        false, false),
 
                 // 17. Multiple private keys, all valid, token profile present → accepted
                 Arguments.of("Multiple Valid Private Keys",
@@ -470,7 +471,7 @@ public class CertificateTestData {
                         ),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        true),
+                        false, true),
 
                 // 18. Multiple private keys, one inactive → rejected
                 Arguments.of("Multiple Private Keys, One Inactive",
@@ -481,7 +482,7 @@ public class CertificateTestData {
                         ),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(), false, SigningWorkflowType.RAW_SIGNING,
-                        false),
+                        false, false),
 
                 // 19. Timestamping cert, TSA EKU exclusive but EKU extension not critical → rejected (RFC 3161: MUST be critical)
                 Arguments.of("Timestamping Cert with TSA EKU non-critical",
@@ -489,7 +490,15 @@ public class CertificateTestData {
                         List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
                         true, List.of(SystemOid.TIME_STAMPING.getOid()), false, SigningWorkflowType.TIMESTAMPING,
-                        false)
+                        false, false),
+
+                // 20. Qualified timestamping requested but certificate has no content (no QCStatements parseable) → rejected
+                Arguments.of("Qualified Timestamping Cert without certificate content",
+                        List.of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
+                        List.of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
+                        CertificateState.ISSUED, CertificateValidationStatus.VALID, false,
+                        true, List.of(SystemOid.TIME_STAMPING.getOid()), true, SigningWorkflowType.TIMESTAMPING,
+                        true, false)
         );
     }
 }

@@ -46,6 +46,7 @@ import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.asn1.x509.qualified.QCStatement;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
@@ -443,11 +444,11 @@ public class CertificateUtil {
         }
         if (extendedKeyUsage != null) {
             modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
-            // OID 2.5.29.37 is the Extended Key Usage extension
             modal.setExtendedKeyUsageCritical(
                     certificate.getCriticalExtensionOIDs() != null
-                    && certificate.getCriticalExtensionOIDs().contains("2.5.29.37"));
+                    && certificate.getCriticalExtensionOIDs().contains(Extension.extendedKeyUsage.getId()));
         }
+        modal.setQcCompliance(hasQcComplianceStatement(certificate));
         modal.setKeyUsage(
                CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()));
         modal.setSubjectType(subjectType);
@@ -784,6 +785,32 @@ public class CertificateUtil {
         return privateKeyAvailable;
     }
 
+    /**
+     * Checks whether an {@link X509Certificate} contains the QcCompliance statement (OID 0.4.0.19422.1.1) inside
+     * the QCStatements extension, as required for ETSI qualified electronic timestamps (ETSI EN 319 421).
+     *
+     * @param cert the certificate to inspect
+     * @return {@code true} iff the QCStatements extension is present and contains QcCompliance;
+     *         {@code false} otherwise
+     */
+    public static boolean hasQcComplianceStatement(X509Certificate cert) {
+        byte[] qcStatementsBytes = cert.getExtensionValue(Extension.qCStatements.getId());
+        if (qcStatementsBytes == null) {
+            return false;
+        }
+
+        ASN1OctetString octetString = ASN1OctetString.getInstance(qcStatementsBytes);
+        ASN1Sequence sequence = ASN1Sequence.getInstance(octetString.getOctets());
+        ASN1ObjectIdentifier qcComplianceOid = new ASN1ObjectIdentifier(SystemOid.QC_COMPLIANCE.getOid());
+        for (ASN1Encodable element : sequence) {
+            QCStatement statement = QCStatement.getInstance(element);
+            if (qcComplianceOid.equals(statement.getStatementId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /*
      * Constructed Query Graph for Digital Signing Certificate Filtering:
      *
@@ -798,8 +825,9 @@ public class CertificateUtil {
      *     |-- state=ACTIVE AND usage & SIGN
      * |-- (TIMESTAMPING only) extendedKeyUsage is exclusively the TSA OID (RFC 3161)
      * |-- (TIMESTAMPING only) extendedKeyUsageCritical is true (RFC 3161)
+     * |-- (TIMESTAMPING + qualifiedTimestamp only) qcCompliance is true (ETSI EN 319 421)
      */
-    public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryDigitalSigningCertAcceptable(SigningWorkflowType workflowType) {
+    public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryDigitalSigningCertAcceptable(SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
         return (root, cb, cr) -> {
             // Subquery to ensure at least one private key exists.
             Subquery<Integer> privateKeySubquery = cr.subquery(Integer.class);
@@ -834,13 +862,29 @@ public class CertificateUtil {
                 String exclusiveTsaEku = MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid()));
                 predicates.add(cb.equal(root.get(Certificate_.EXTENDED_KEY_USAGE), exclusiveTsaEku));
                 predicates.add(cb.isTrue(root.get(Certificate_.EXTENDED_KEY_USAGE_CRITICAL)));
+                // ETSI EN 319 421: qualified timestamps additionally require the QcCompliance statement.
+                if (qualifiedTimestamp) {
+                    predicates.add(cb.isTrue(root.get(Certificate_.QC_COMPLIANCE)));
+                }
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 
-    public static boolean isCertificateDigitalSigningAcceptable(Certificate certificate, SigningWorkflowType workflowType) {
+    /**
+     * Determines whether a {@link Certificate} entity is acceptable for digital signing under the given workflow type and qualification level.
+     *
+     * <p>For {@link SigningWorkflowType#TIMESTAMPING}, RFC 3161 requirements are enforced (exclusive, critical extended key usage EKU).
+     * When {@code qualifiedTimestamp} is {@code true}, the certificate is additionally required to carry the QcCompliance statement
+     * (ETSI EN 319 421 / ETSI TS 119 312).
+     *
+     * @param certificate      the entity to evaluate
+     * @param workflowType     the signing workflow
+     * @param qualifiedTimestamp when {@code true} and workflow is TIMESTAMPING, also checks ETSI QcCompliance in QCStatements
+     * @return {@code true} iff all applicable requirements are satisfied
+     */
+    public static boolean isCertificateDigitalSigningAcceptable(Certificate certificate, SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
         if (certificate.isArchived()) return false;
         if (certificate.getKey() == null ||
                 !certificate.getState().equals(CertificateState.ISSUED) ||
@@ -866,12 +910,16 @@ public class CertificateUtil {
         }
         if (!privateKeyAvailable) return false;
 
-        // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
         if (workflowType == SigningWorkflowType.TIMESTAMPING) {
+            // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
             List<String> ekuOids = MetaDefinitions.deserializeArrayString(certificate.getExtendedKeyUsage());
-            return ekuOids.size() == 1
+            boolean ekuCompliant = ekuOids.size() == 1
                     && ekuOids.contains(SystemOid.TIME_STAMPING.getOid())
                     && Boolean.TRUE.equals(certificate.getExtendedKeyUsageCritical());
+            if (!ekuCompliant) return false;
+
+            // ETSI EN 319 421: for qualified timestamps the signer certificate MUST carry the QcCompliance statement.
+            return !qualifiedTimestamp || Boolean.TRUE.equals(certificate.getQcCompliance());
         }
 
         return true;

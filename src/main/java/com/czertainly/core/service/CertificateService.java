@@ -315,9 +315,11 @@ public interface CertificateService extends ResourceExtensionService {
      *
      * @param filter              security filter
      * @param signingWorkflowType digital signing workflow type
+     * @param qualifiedTimestamp  when {@code true} and workflow is TIMESTAMPING, restricts results to certificates that satisfy
+     *                            ETSI EN 319 421 qualified timestamp requirements
      * @return List of available certificates
      */
-    public List<CertificateDto> listDigitalSigningCertificates(SecurityFilter filter, SigningWorkflowType signingWorkflowType);
+    public List<CertificateDto> listDigitalSigningCertificates(SecurityFilter filter, SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp);
 
     /**
      * Find certificates which are expiring and not renewed and trigger event handling these certificates

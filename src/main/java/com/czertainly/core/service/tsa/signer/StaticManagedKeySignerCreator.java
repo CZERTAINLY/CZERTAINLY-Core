@@ -5,10 +5,8 @@ import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
-import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -23,12 +21,9 @@ import java.util.List;
 public class StaticManagedKeySignerCreator implements SignerCreator {
 
     private final CryptographicOperationService cryptographicOperationService;
-    private final CertificateRepository certificateRepository;
 
-    public StaticManagedKeySignerCreator(CryptographicOperationService cryptographicOperationService,
-                                         CertificateRepository certificateRepository) {
+    public StaticManagedKeySignerCreator(CryptographicOperationService cryptographicOperationService) {
         this.cryptographicOperationService = cryptographicOperationService;
-        this.certificateRepository = certificateRepository;
     }
 
     @Override
@@ -40,15 +35,10 @@ public class StaticManagedKeySignerCreator implements SignerCreator {
     public Signer create(SigningSchemeModel signingSchemeModel) throws TspException {
         StaticKeyManagedSigning signingScheme = (StaticKeyManagedSigning) signingSchemeModel;
 
-        Certificate certificate = certificateRepository.findWithAssociationsByUuid(signingScheme.certificate().getUuid())
-                .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                        String.format("Certificate with UUID '%s' not found", signingScheme.certificate().getUuid()),
-                        "Signing key certificate could not be found."));
-
-        CryptographicKey key = certificate.getKey();
+        CryptographicKey key = signingScheme.certificate().getKey();
         if (key == null) {
             throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    String.format("No cryptographic key associated with certificate '%s'", certificate.getCommonName()),
+                    String.format("No cryptographic key associated with certificate '%s'", signingScheme.certificate().getCommonName()),
                     "Signing key could not be found.");
         }
 

@@ -3,6 +3,7 @@ package com.czertainly.core.service.tsa.formatter.connector;
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.czertainly.api.model.core.oid.SystemOid;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.CertificateChain;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -202,7 +203,7 @@ public final class TimestampTokenAssembler {
 
     private static Extensions buildQcExtensions() {
         try {
-            var qcCompliance = new QCStatement(new ASN1ObjectIdentifier("0.4.0.19422.1.1"));
+            var qcCompliance = new QCStatement(new ASN1ObjectIdentifier(SystemOid.QC_COMPLIANCE.getOid()));
             return new Extensions(
                     new Extension(Extension.qCStatements, false,
                             new DERSequence(qcCompliance).getEncoded()));
