@@ -5,6 +5,7 @@ import com.czertainly.core.messaging.jms.configuration.MessagingProperties;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.qpid.jms.JmsQueue;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class CoreMessageProducer {
 
     private final JmsTemplate jmsTemplate;

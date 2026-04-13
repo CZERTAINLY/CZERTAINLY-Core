@@ -9,6 +9,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.clients.ApiClientConnectorInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeoutException;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class ProxyClientImpl implements ProxyClient {
 
     private final CoreMessageProducer producer;

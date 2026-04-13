@@ -14,6 +14,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jms.annotation.JmsListenerConfigurer;
 import org.springframework.jms.config.JmsListenerEndpointRegistrar;
 
+import java.util.Optional;
+
 @Configuration
 @Profile("!test")
 @AllArgsConstructor
@@ -25,8 +27,8 @@ public class JmsListenersConfigurerImpl implements JmsListenerConfigurer {
     private final NotificationJmsEndpointConfig notificationJmsEndpointConfig;
     private final SchedulerJmsEndpointConfig schedulerJmsEndpointConfig;
     private final ValidationJmsEndpointConfig validationJmsEndpointConfig;
-    private final InstanceProxyMessageJmsEndpointConfig instanceProxyMessageJmsEndpointConfig;
-    private final SharedProxyMessageJmsEndpointConfig sharedProxyMessageJmsEndpointConfig;
+    private final Optional<InstanceProxyMessageJmsEndpointConfig> instanceProxyMessageJmsEndpointConfig;
+    private final Optional<SharedProxyMessageJmsEndpointConfig> sharedProxyMessageJmsEndpointConfig;
 
     @Override
     public void configureJmsListeners(JmsListenerEndpointRegistrar registrar) {
@@ -36,7 +38,7 @@ public class JmsListenersConfigurerImpl implements JmsListenerConfigurer {
         registrar.registerEndpoint(notificationJmsEndpointConfig.listenerEndpoint());
         registrar.registerEndpoint(schedulerJmsEndpointConfig.listenerEndpoint());
         registrar.registerEndpoint(validationJmsEndpointConfig.listenerEndpoint());
-        registrar.registerEndpoint(instanceProxyMessageJmsEndpointConfig.listenerEndpoint());
-        registrar.registerEndpoint(sharedProxyMessageJmsEndpointConfig.listenerEndpoint());
+        instanceProxyMessageJmsEndpointConfig.ifPresent(c -> registrar.registerEndpoint(c.listenerEndpoint()));
+        sharedProxyMessageJmsEndpointConfig.ifPresent(c -> registrar.registerEndpoint(c.listenerEndpoint()));
     }
 }

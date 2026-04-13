@@ -209,6 +209,8 @@ messaging:
 
 # Proxy configuration for connector communication via message queue
 proxy:
+  # Feature flag to enable/disable proxy messaging support
+  enabled: ${PROXY_ENABLED:false}
   # Azure Service Bus topic / RabbitMQ exchange name for proxy messages
   exchange: ${BROKER_PROXY_EXCHANGE:czertainly-proxy}
   # Azure Service Bus subscription / RabbitMQ queue name for receiving responses

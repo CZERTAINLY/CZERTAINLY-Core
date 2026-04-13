@@ -10,6 +10,7 @@ import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.clients.ApiClientConnectorInfo;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -22,6 +23,7 @@ import java.util.Map;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class ConnectorAuthConverter {
 
     /**

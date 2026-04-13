@@ -4,6 +4,7 @@ import com.czertainly.api.clients.mq.model.ProxyMessage;
 import com.czertainly.api.exception.MessageHandlingException;
 import com.czertainly.core.messaging.jms.listeners.MessageProcessor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component("instanceProxyMessageListener")
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class InstanceProxyMessageListener implements MessageProcessor<ProxyMessage> {
 
     private final ProxyMessageCorrelator correlator;

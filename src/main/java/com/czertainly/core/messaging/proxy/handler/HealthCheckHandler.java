@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.proxy.ProxyStatus;
 import com.czertainly.core.dao.repository.ProxyRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
@@ -18,6 +19,7 @@ import java.time.OffsetDateTime;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class HealthCheckHandler implements MessageTypeResponseHandler {
 
     private static final String MESSAGE_TYPE = "health.*";

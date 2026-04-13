@@ -139,6 +139,7 @@ settings:
     refresh-interval: 30
 
 proxy:
+  enabled: true
   instance-id: test-instance
 
 provisioning:

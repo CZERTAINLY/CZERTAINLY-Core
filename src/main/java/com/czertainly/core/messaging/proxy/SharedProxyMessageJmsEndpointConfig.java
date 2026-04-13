@@ -6,6 +6,7 @@ import com.czertainly.core.messaging.jms.listeners.AbstractJmsEndpointConfig;
 import com.czertainly.core.messaging.jms.listeners.MessageProcessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jms.config.SimpleJmsListenerEndpoint;
 import org.springframework.retry.support.RetryTemplate;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("!test")
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class SharedProxyMessageJmsEndpointConfig extends AbstractJmsEndpointConfig<ProxyMessage> {
 
     private final ProxyProperties proxyProperties;

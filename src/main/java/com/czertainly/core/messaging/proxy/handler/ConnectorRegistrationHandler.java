@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorRegistrationService;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class ConnectorRegistrationHandler implements MessageTypeResponseHandler {
 
     private static final String MESSAGE_TYPE = "connector.register";

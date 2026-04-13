@@ -15,6 +15,7 @@ import com.czertainly.api.clients.mq.LocationApiClient;
 import com.czertainly.api.clients.mq.NotificationInstanceApiClient;
 import com.czertainly.api.clients.mq.ProxyClient;
 import com.czertainly.api.clients.mq.TokenInstanceApiClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ import org.springframework.context.annotation.Configuration;
  * Automatically registers ProxyProperties configuration.
  */
 @Configuration
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 @EnableConfigurationProperties(ProxyProperties.class)
 public class ProxyClientConfig {
 

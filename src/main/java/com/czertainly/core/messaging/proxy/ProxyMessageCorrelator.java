@@ -4,6 +4,7 @@ import com.czertainly.api.clients.mq.model.ConnectorResponse;
 import com.czertainly.api.clients.mq.model.ProxyMessage;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -23,6 +24,7 @@ import java.util.concurrent.*;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
 public class ProxyMessageCorrelator {
 
     private final ConcurrentHashMap<String, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
