@@ -21,7 +21,6 @@ import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.messaging.listeners.AuditLogsListener;
 import com.czertainly.core.messaging.model.AuditLogMessage;
-import com.czertainly.core.messaging.producers.AuditLogsProducer;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -30,15 +29,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.Serializable;
 import java.time.OffsetDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @SpringBootTest
@@ -58,9 +53,6 @@ class AuditLogServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AuditLogController auditLogController;
-
-    @MockitoBean
-    private AuditLogsProducer auditLogsProducer;
 
     @Autowired
     private AuditLogsListener auditLogsListener;
