@@ -20,7 +20,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureListDto;
+import com.czertainly.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -78,7 +78,7 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     List<BaseAttribute> listSignatureAttributesForCertificate(UUID certificateUuid) throws NotFoundException;
 
-    PaginationResponseDto<DigitalSignatureListDto> listDigitalSignaturesForSigningProfile(SecuredUUID uuid, SearchRequestDto request, SecurityFilter filter) throws NotFoundException;
+    PaginationResponseDto<SigningRecordListDto> listSigningRecordsForSigningProfile(SecuredUUID uuid, SearchRequestDto request, SecurityFilter filter) throws NotFoundException;
 
     TspActivationDetailDto getTspActivationDetails(SecuredUUID uuid) throws NotFoundException;
 

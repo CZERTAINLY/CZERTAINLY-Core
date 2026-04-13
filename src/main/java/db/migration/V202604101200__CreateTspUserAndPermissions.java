@@ -37,23 +37,23 @@ public class V202604101200__CreateTspUserAndPermissions extends BaseJavaMigratio
         // seed resources
         Map<Resource, List<ResourceAction>> resources = new EnumMap<>(Resource.class);
         resources.put(Resource.CRYPTOGRAPHIC_KEY, List.of(ResourceAction.SIGN));
-        resources.put(Resource.DIGITAL_SIGNATURE, List.of(ResourceAction.SIGN));
+        resources.put(Resource.SIGNING_PROFILE, List.of(ResourceAction.DETAIL));
+        resources.put(Resource.SIGNING_RECORD, List.of(ResourceAction.SIGN));
         resources.put(Resource.TOKEN, List.of(ResourceAction.DETAIL));
         resources.put(Resource.TOKEN_PROFILE, List.of(ResourceAction.DETAIL));
         resources.put(Resource.TSP_PROFILE, List.of(ResourceAction.DETAIL, ResourceAction.LIST));
-        resources.put(Resource.SIGNING_PROFILE, List.of(ResourceAction.DETAIL));
         DatabaseAuthMigration.seedResources(resources);
 
         // all permissions needed for TSP operations
         Map<Resource, List<ResourceAction>> roleResourceActions = new EnumMap<>(Resource.class);
-        roleResourceActions.put(Resource.TSP_PROFILE, List.of(ResourceAction.DETAIL, ResourceAction.LIST));
-        roleResourceActions.put(Resource.SIGNING_PROFILE, List.of(ResourceAction.DETAIL));
-        roleResourceActions.put(Resource.DIGITAL_SIGNATURE, List.of(ResourceAction.SIGN));
         roleResourceActions.put(Resource.CERTIFICATE, List.of(ResourceAction.DETAIL));
         roleResourceActions.put(Resource.CRYPTOGRAPHIC_KEY, List.of(ResourceAction.SIGN));
+        roleResourceActions.put(Resource.SIGNING_PROFILE, List.of(ResourceAction.DETAIL));
+        roleResourceActions.put(Resource.SIGNING_RECORD, List.of(ResourceAction.SIGN));
+        roleResourceActions.put(Resource.RA_PROFILE, List.of(ResourceAction.MEMBERS));
         roleResourceActions.put(Resource.TOKEN, List.of(ResourceAction.DETAIL));
         roleResourceActions.put(Resource.TOKEN_PROFILE, List.of(ResourceAction.DETAIL));
-        roleResourceActions.put(Resource.RA_PROFILE, List.of(ResourceAction.MEMBERS));
+        roleResourceActions.put(Resource.TSP_PROFILE, List.of(ResourceAction.DETAIL, ResourceAction.LIST));
 
         // check if TSP role already exists
         Map<String, String> rolesMapping = DatabaseAuthMigration.getSystemRolesMapping();

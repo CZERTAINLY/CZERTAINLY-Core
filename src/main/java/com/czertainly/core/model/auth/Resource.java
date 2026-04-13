@@ -77,7 +77,7 @@ public enum Resource {
     SIGNING_PROFILE("signingProfiles"),
     TSP_PROFILE("tspProfiles"),
     TIME_QUALITY_CONFIGURATION("timeQualityConfigurations"),
-    DIGITAL_SIGNATURE("digitalSignatures")
+    SIGNING_RECORD("signingRecords")
     ;
 
     @Schema(description = "Resource Name",

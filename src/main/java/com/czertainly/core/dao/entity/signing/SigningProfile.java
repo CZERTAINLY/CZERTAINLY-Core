@@ -139,7 +139,7 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
 
     @OneToMany(mappedBy = "signingProfile", fetch = FetchType.LAZY)
     @ToString.Exclude
-    private List<DigitalSignature> digitalSignatures = new ArrayList<>();
+    private List<SigningRecord> signingRecords = new ArrayList<>();
 
     public void setTokenProfile(TokenProfile tokenProfile) {
         this.tokenProfile = tokenProfile;

@@ -79,13 +79,13 @@ class AuthServiceTest extends BaseSpringBootTest {
         injectLocalhostUserProfileToContext();
 
         UserProfileDetailDto userProfileDto = authService.getAuthProfile();
-        var expected = List.of(Resource.CERTIFICATE, Resource.DIGITAL_SIGNATURE, Resource.CRYPTOGRAPHIC_KEY, Resource.SECRET, Resource.SETTINGS);
+        var expected = List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.SECRET, Resource.SETTINGS, Resource.SIGNING_RECORD);
         Assertions.assertIterableEquals(expected, userProfileDto.getPermissions().getAllowedListings());
 
         // allow also users through group object member permissions
         injectLocalhostUserProfileChangedToContext();
         userProfileDto = authService.getAuthProfile();
-        expected = List.of(Resource.CERTIFICATE, Resource.DIGITAL_SIGNATURE, Resource.GROUP, Resource.CRYPTOGRAPHIC_KEY, Resource.SECRET, Resource.SETTINGS, Resource.USER);
+        expected = List.of(Resource.CERTIFICATE, Resource.GROUP, Resource.CRYPTOGRAPHIC_KEY, Resource.SECRET, Resource.SETTINGS, Resource.SIGNING_RECORD, Resource.USER);
         Assertions.assertIterableEquals(expected, userProfileDto.getPermissions().getAllowedListings());
 
     }
@@ -717,8 +717,8 @@ class AuthServiceTest extends BaseSpringBootTest {
                     },
                     {
                         "uuid": "d1c8e5b4-9c3a-4c8e-9b0c-1f2a5e6f7893",
-                        "name": "digitalSignatures",
-                        "displayName": "Digital Signature",
+                        "name": "signingRecords",
+                        "displayName": "Signing Record",
                         "objectAccess": true,
                         "actions": [
                             {

@@ -65,7 +65,7 @@ import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
-import com.czertainly.core.dao.entity.signing.DigitalSignature;
+import com.czertainly.core.dao.entity.signing.SigningRecord;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TspProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
@@ -74,7 +74,7 @@ import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.TokenProfileRepository;
-import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
+import com.czertainly.core.dao.repository.signing.SigningRecordRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
@@ -132,7 +132,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     private SigningProfileVersionRepository signingProfileVersionRepository;
 
     @Autowired
-    private DigitalSignatureRepository digitalSignatureRepository;
+    private SigningRecordRepository signingRecordRepository;
 
     @Autowired
     private TspProfileRepository tspRepository;
@@ -438,15 +438,15 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     /**
-     * Persists a DigitalSignature that references the given signing profile and version,
+     * Persists a SigningRecord that references the given signing profile and version,
      * simulating a signature that was produced using that profile version.
      */
-    private void createDigitalSignatureFor(SigningProfile profile, int version) {
-        DigitalSignature sig = new DigitalSignature();
+    private void createSigningRecordFor(SigningProfile profile, int version) {
+        SigningRecord sig = new SigningRecord();
         sig.setSigningProfile(profile);
         sig.setSigningProfileVersion(version);
         sig.setSigningTime(OffsetDateTime.now());
-        digitalSignatureRepository.save(sig);
+        signingRecordRepository.save(sig);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -558,8 +558,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SecuredUUID profileUuid = SecuredUUID.fromString(created.getUuid());
         SigningProfile entity = signingProfileRepository.findById(UUID.fromString(created.getUuid())).orElseThrow();
 
-        // Add a digital signature so that the next update triggers a version bump
-        createDigitalSignatureFor(entity, 1);
+        // Add a signing record so that the next update triggers a version bump
+        createSigningRecordFor(entity, 1);
 
         // Update to DELEGATED + CONTENT_SIGNING → should bump to version 2
         signingProfileService.updateSigningProfile(profileUuid, buildDelegatedContentRequest("profile-history"));
@@ -838,7 +838,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals("updated-profile", dto.getName());
         Assertions.assertEquals("Updated description", dto.getDescription());
         Assertions.assertFalse(dto.isEnabled());
-        Assertions.assertEquals(1, dto.getVersion()); // no bump — no digital signatures exist
+        Assertions.assertEquals(1, dto.getVersion()); // no bump — no signing records exist
 
         // Assert entity reloaded from the database
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
@@ -853,7 +853,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateSigningProfile_noDigitalSignatures_doesNotBumpVersion() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testUpdateSigningProfile_noSigningRecords_doesNotBumpVersion() throws AlreadyExistException, AttributeException, NotFoundException {
         Assertions.assertEquals(1, savedProfile.getLatestVersion());
 
         SigningProfileRequestDto request = buildDelegatedRawRequest("profile-no-bump");
@@ -862,13 +862,13 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(1, fromDb.get().getLatestVersion(),
-                "Version should not be bumped when no digital signatures exist");
+                "Version should not be bumped when no signing records exist");
     }
 
     @Test
-    void testUpdateSigningProfile_withDigitalSignaturesOnCurrentVersion_bumpsVersion() throws AlreadyExistException, AttributeException, NotFoundException {
-        // Create a digital signature linked to version 1 of the profile
-        createDigitalSignatureFor(savedProfile, 1);
+    void testUpdateSigningProfile_withSigningRecordsOnCurrentVersion_bumpsVersion() throws AlreadyExistException, AttributeException, NotFoundException {
+        // Create a signing record linked to version 1 of the profile
+        createSigningRecordFor(savedProfile, 1);
 
         SigningProfileRequestDto request = buildDelegatedRawRequest("profile-with-bump");
         SigningProfileDto dto = signingProfileService.updateSigningProfile(savedProfile.getSecuredUuid(), request);
@@ -880,7 +880,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(savedProfile.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(2, fromDb.get().getLatestVersion(),
-                "Version should be bumped when digital signatures exist for the current version");
+                "Version should be bumped when signing records exist for the current version");
 
         // A new snapshot for version 2 should have been created
         Optional<SigningProfileVersion> v2snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(savedProfile.getUuid(), 2);
@@ -965,7 +965,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SecuredUUID profileUuid = SecuredUUID.fromString(created.getUuid());
         UUID profileUuidRaw = UUID.fromString(created.getUuid());
 
-        // Update without digital signatures (no bump — snapshot is overwritten in place)
+        // Update without signing records (no bump — snapshot is overwritten in place)
         signingProfileService.updateSigningProfile(profileUuid, buildDelegatedContentRequest("overwrite-snapshot-profile"));
 
         // Still only one snapshot (version 1) — overwritten
@@ -991,12 +991,12 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfile entity = signingProfileRepository.findById(profileUuidRaw).orElseThrow();
 
         // Trigger first bump: add sig for v1, then update → v2
-        createDigitalSignatureFor(entity, 1);
+        createSigningRecordFor(entity, 1);
         signingProfileService.updateSigningProfile(profileUuid, buildDelegatedContentRequest("multi-bump-profile"));
 
         // Trigger second bump: add sig for v2, then update → v3
         entity = signingProfileRepository.findById(profileUuidRaw).orElseThrow();
-        createDigitalSignatureFor(entity, 2);
+        createSigningRecordFor(entity, 2);
         signingProfileService.updateSigningProfile(profileUuid, buildDelegatedTimestampingRequest("multi-bump-profile"));
 
         // Verify three snapshot versions exist
@@ -1039,17 +1039,17 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDeleteSigningProfile_withDigitalSignatures_clearsReferencesAndDeletes() throws NotFoundException {
-        createDigitalSignatureFor(savedProfile, 1);
+    void testDeleteSigningProfile_withSigningRecords_clearsReferencesAndDeletes() throws NotFoundException {
+        createSigningRecordFor(savedProfile, 1);
 
         signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid());
 
         // Profile should be removed from the database
         Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
-        // Digital signatures should have their signing profile UUID cleared (not pointing to the deleted profile)
+        // Signing records should have their signing profile UUID cleared (not pointing to the deleted profile)
         Assertions.assertFalse(
-                digitalSignatureRepository.existsBySigningProfileUuidAndSigningProfileVersion(savedProfile.getUuid(), 1),
-                "Digital signature should no longer reference the deleted profile UUID");
+                signingRecordRepository.existsBySigningProfileUuidAndSigningProfileVersion(savedProfile.getUuid(), 1),
+                "Signing record should no longer reference the deleted profile UUID");
     }
 
     @Test
@@ -1089,10 +1089,10 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testBulkDeleteSigningProfiles_withDigitalSignatures_clearsReferencesAndDeletesAll()
+    void testBulkDeleteSigningProfiles_withSigningRecords_clearsReferencesAndDeletesAll()
             throws AlreadyExistException, AttributeException, NotFoundException {
-        // Attach a digital signature to the savedProfile — deletion should still succeed
-        createDigitalSignatureFor(savedProfile, 1);
+        // Attach a signing record to the savedProfile — deletion should still succeed
+        createSigningRecordFor(savedProfile, 1);
 
         // Create a second profile with no dependencies
         SigningProfileDto second = signingProfileService.createSigningProfile(buildDelegatedRawRequest("second-profile-no-deps"));
@@ -1106,10 +1106,10 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(messages.isEmpty(), "Expected no errors: silently clears references before deleting");
         Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
         Assertions.assertFalse(signingProfileRepository.findById(UUID.fromString(second.getUuid())).isPresent());
-        // Digital signatures should have their signing profile UUID cleared
+        // Signing records should have their signing profile UUID cleared
         Assertions.assertFalse(
-                digitalSignatureRepository.existsBySigningProfileUuidAndSigningProfileVersion(savedProfile.getUuid(), 1),
-                "Digital signature should no longer reference the deleted profile UUID");
+                signingRecordRepository.existsBySigningProfileUuidAndSigningProfileVersion(savedProfile.getUuid(), 1),
+                "Signing record should no longer reference the deleted profile UUID");
     }
 
     @Test

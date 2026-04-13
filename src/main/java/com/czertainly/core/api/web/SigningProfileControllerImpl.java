@@ -20,7 +20,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureListDto;
+import com.czertainly.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
@@ -156,8 +156,8 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DETAIL)
-    public PaginationResponseDto<DigitalSignatureListDto> listDigitalSignaturesForSigningProfile(@LogResource(uuid = true) UUID uuid, SearchRequestDto request) throws NotFoundException {
-        return signingProfileService.listDigitalSignaturesForSigningProfile(SecuredUUID.fromUUID(uuid), request, SecurityFilter.create());
+    public PaginationResponseDto<SigningRecordListDto> listSigningRecordsForSigningProfile(@LogResource(uuid = true) UUID uuid, SearchRequestDto request) throws NotFoundException {
+        return signingProfileService.listSigningRecordsForSigningProfile(SecuredUUID.fromUUID(uuid), request, SecurityFilter.create());
     }
 
     @Override

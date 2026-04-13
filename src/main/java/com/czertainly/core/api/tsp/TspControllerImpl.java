@@ -30,7 +30,7 @@ public class TspControllerImpl implements TspController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.DIGITAL_SIGNATURE, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.SIGN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.SIGN)
     public ResponseEntity<byte[]> timestamp(String tspProfileName, byte[] request) throws TspException {
         byte[] responseBytes;
         try {

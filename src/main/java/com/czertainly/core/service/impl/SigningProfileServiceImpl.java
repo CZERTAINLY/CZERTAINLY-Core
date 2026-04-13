@@ -39,7 +39,7 @@ import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
-import com.czertainly.api.model.core.signing.digitalsignature.DigitalSignatureListDto;
+import com.czertainly.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -51,7 +51,7 @@ import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
 import com.czertainly.core.dao.entity.signing.TspProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
-import com.czertainly.core.dao.repository.signing.DigitalSignatureRepository;
+import com.czertainly.core.dao.repository.signing.SigningRecordRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
@@ -97,7 +97,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private CertificateRepository certificateRepository;
     private CertificateService certificateService;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
-    private DigitalSignatureRepository digitalSignatureRepository;
+    private SigningRecordRepository signingRecordRepository;
     private SigningProfileRepository signingProfileRepository;
     private SigningProfileVersionRepository signingProfileVersionRepository;
     private TspProfileRepository tspRepository;
@@ -288,7 +288,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         applyScheme(profile, request.getSigningScheme());
 
         // Lenient version bump: only bump if signatures exist for the current latest version
-        boolean bump = digitalSignatureRepository.existsBySigningProfileUuidAndSigningProfileVersion(profile.getUuid(), profile.getLatestVersion());
+        boolean bump = signingRecordRepository.existsBySigningProfileUuidAndSigningProfileVersion(profile.getUuid(), profile.getLatestVersion());
         if (bump) {
             profile.setLatestVersion(profile.getLatestVersion() + 1); // :TODO: this is a potential race condition, we should use advisory locking
         }
@@ -322,7 +322,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     private void deleteSigningProfile(SigningProfile signingProfile) {
-        digitalSignatureRepository.clearSigningProfileUuid(signingProfile.getUuid());
+        signingRecordRepository.clearSigningProfileUuid(signingProfile.getUuid());
         tspRepository.clearDefaultSigningProfileUuid(signingProfile.getUuid());
         signingProfileVersionRepository.deleteAllBySigningProfileUuid(signingProfile.getUuid());
         signingProfileRepository.delete(signingProfile);
@@ -396,13 +396,13 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Digital signatures scoped to profile (stub list)
+    // Signing records scoped to profile (stub list)
     // ──────────────────────────────────────────────────────────────────────────
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
     @Transactional
-    public PaginationResponseDto<DigitalSignatureListDto> listDigitalSignaturesForSigningProfile(
+    public PaginationResponseDto<SigningRecordListDto> listSigningRecordsForSigningProfile(
             SecuredUUID uuid, SearchRequestDto request, SecurityFilter filter) throws NotFoundException {
         // :TODO:
         return null;
@@ -735,8 +735,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Autowired
-    public void setDigitalSignatureRepository(DigitalSignatureRepository digitalSignatureRepository) {
-        this.digitalSignatureRepository = digitalSignatureRepository;
+    public void setSigningRecordRepository(SigningRecordRepository signingRecordRepository) {
+        this.signingRecordRepository = signingRecordRepository;
     }
 
     @Autowired
