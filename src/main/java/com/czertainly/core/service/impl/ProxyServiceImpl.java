@@ -175,8 +175,13 @@ public class ProxyServiceImpl implements ProxyService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return proxyRepository.findResourceObject(objectUuid, Proxy_.name);
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
     }
 
     @Override

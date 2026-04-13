@@ -211,6 +211,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connector.setName("testConnector");
         connector.setUrl("http://localhost:8080");
+        connector.setVersion(com.czertainly.api.model.client.connector.v2.ConnectorVersion.V1);
         connector.setProxy(proxyWithConnector);
         connectorRepository.save(connector);
 
