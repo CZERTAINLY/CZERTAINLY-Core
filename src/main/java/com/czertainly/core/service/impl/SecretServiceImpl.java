@@ -384,7 +384,6 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
         newVersion.setFingerprint(newFingerprint);
         newVersion.setVaultInstance(currentSourceVaultProfile.getVaultInstance());
-        secretVersionRepository.save(newVersion);
         SecretResponseDto sourceVaultProfileResponse;
         try {
             sourceVaultProfileResponse = updateSecretInVault(secret, secret.getSourceVaultProfile(), secretRequest, secretRequest.getAttributes());
@@ -402,6 +401,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 }
                 attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
             }
+        secretVersionRepository.save(newVersion);
         secret.setLatestVersion(newVersion);
         secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
         secret.getVersions().add(newVersion);
