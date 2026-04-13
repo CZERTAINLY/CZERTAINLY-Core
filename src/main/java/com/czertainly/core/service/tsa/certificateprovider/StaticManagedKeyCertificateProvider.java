@@ -3,9 +3,10 @@ package com.czertainly.core.service.tsa.certificateprovider;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
-import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeDto;
-import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
 import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
+import com.czertainly.core.model.signing.scheme.ManagedSigning;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
+import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.tsa.CertificateChain;
@@ -31,9 +32,9 @@ public class StaticManagedKeyCertificateProvider implements CertificateProvider 
     }
 
     @Override
-    public CertificateChain getCertificateChain(SigningSchemeDto signingScheme) throws TspException {
-        if (signingScheme instanceof StaticKeyManagedSigningDto signingSchemeDto) {
-            UUID certificateUUID = signingSchemeDto.getCertificate().getUuid();
+    public CertificateChain getCertificateChain(SigningSchemeModel signingScheme) throws TspException {
+        if (signingScheme instanceof StaticKeyManagedSigning staticKeyManagedSigning) {
+            UUID certificateUUID = staticKeyManagedSigning.certificate().getUuid();
                 return fetchCertificateChain(certificateUUID);
 
         } else {
@@ -43,8 +44,8 @@ public class StaticManagedKeyCertificateProvider implements CertificateProvider 
     }
 
     @Override
-    public boolean supports(SigningSchemeDto signingScheme) {
-        return signingScheme instanceof StaticKeyManagedSigningDto;
+    public boolean supports(SigningSchemeModel signingScheme) {
+        return signingScheme instanceof StaticKeyManagedSigning;
     }
 
     private CertificateChain fetchCertificateChain(UUID certificateUUID) throws TspException {

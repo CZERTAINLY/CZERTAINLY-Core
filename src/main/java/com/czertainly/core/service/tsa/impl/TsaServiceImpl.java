@@ -2,39 +2,33 @@ package com.czertainly.core.service.tsa.impl;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
-import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
-import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SimplifiedSigningProfileDto;
-import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
-import com.czertainly.api.model.client.signing.profile.workflow.WorkflowDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileDto;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.TspProfileService;
-import com.czertainly.core.service.tsa.TimestampEngine;
-import com.czertainly.core.service.tsa.TspService;
+import com.czertainly.core.service.tsa.ManagedTimestampEngine;
+import com.czertainly.core.service.tsa.TsaService;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.messages.TspResponse;
 import com.czertainly.core.service.tsa.validator.TspRequestValidator;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class TspServiceImpl implements TspService {
+public class TsaServiceImpl implements TsaService {
 
     private final TspRequestValidator tspRequestValidator;
     private final TspProfileService tspProfileService;
     private final SigningProfileService signingProfileService;
-    private final TimestampEngine timestampEngine;
+    private final ManagedTimestampEngine managedTimestampEngine;
 
 
-    public TspServiceImpl(TspRequestValidator tspRequestValidator, SigningProfileService signingProfileService, TspProfileService tspProfileService, TimestampEngine timestampEngine) {
+    public TsaServiceImpl(TspRequestValidator tspRequestValidator, SigningProfileService signingProfileService, TspProfileService tspProfileService, ManagedTimestampEngine managedTimestampEngine) {
         this.tspRequestValidator = tspRequestValidator;
         this.signingProfileService = signingProfileService;
         this.tspProfileService = tspProfileService;
-        this.timestampEngine = timestampEngine;
+        this.managedTimestampEngine = managedTimestampEngine;
     }
 
-    @Transactional
     public TspResponse processTspRequestForTspProfile(String tspProfileName, TspRequest request) throws NotFoundException, TspException {
 
         TspProfileDto tspProfile = tspProfileService.getTspProfile(tspProfileName);
@@ -44,17 +38,11 @@ public class TspServiceImpl implements TspService {
         return processTspRequestForSigningProfile(defaultSigningProfile.getName(), request);
     }
 
-    @Transactional
     public TspResponse processTspRequestForSigningProfile(String signingProfileName, TspRequest request) throws NotFoundException, TspException {
-        SigningProfileDto signingProfile = signingProfileService.getSigningProfile(signingProfileName);
+        var signingProfile = signingProfileService.getManagedTimestampingProfileModel(signingProfileName);
 
-        WorkflowDto workflow = signingProfile.getWorkflow();
-        if (workflow instanceof TimestampingWorkflowDto timestampingWorkflow) {
-            tspRequestValidator.validate(timestampingWorkflow, request);
-        } else {
-            throw new TspException(TspFailureInfo.BAD_REQUEST, "Can't timestamp with signing profile '%s'".formatted(signingProfileName), "The signing profile '%s' is not configured with timestamping workflow.".formatted(signingProfileName));
-        }
+        tspRequestValidator.validate(signingProfile.workflow(), request);
 
-        return timestampEngine.process(request, signingProfile);
+        return managedTimestampEngine.process(request, signingProfile);
     }
 }

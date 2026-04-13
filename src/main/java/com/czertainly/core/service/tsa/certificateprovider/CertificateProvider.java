@@ -2,7 +2,7 @@ package com.czertainly.core.service.tsa.certificateprovider;
 
 
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
-import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeDto;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.service.tsa.CertificateChain;
 
 /**
@@ -10,7 +10,7 @@ import com.czertainly.core.service.tsa.CertificateChain;
  */
 public interface CertificateProvider {
 
-    boolean supports(SigningSchemeDto signingScheme);
+    boolean supports(SigningSchemeModel signingScheme);
 
-    CertificateChain getCertificateChain(SigningSchemeDto signingScheme) throws TspException;
+    CertificateChain getCertificateChain(SigningSchemeModel signingScheme) throws TspException;
 }

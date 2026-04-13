@@ -24,6 +24,10 @@ import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWo
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
+import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
+import com.czertainly.core.model.signing.workflow.SigningWorkflow;
 import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -76,7 +80,6 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -210,17 +213,40 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
     @Transactional
-    public SigningProfileModel<?, ?> getSigningProfileModel(String name) throws NotFoundException {
-        SigningProfile profile = signingProfileRepository.findByName(name)
-                .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + name));
+    public SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> getSigningProfileModel(String name) throws NotFoundException {
+        return buildModel(name, SigningProfileMapper::toModel);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
+    @Transactional
+    public SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> getManagedTimestampingProfileModel(String name) throws NotFoundException {
+        SigningProfile profile = findProfileByName(name);
+        if (profile.getWorkflowType() != SigningWorkflowType.TIMESTAMPING) {
+            throw new NotFoundException("Signing Profile '%s' is not configured with a timestamping workflow".formatted(name));
+        }
+        return buildModel(profile, SigningProfileMapper::toManagedTimestampingModel);
+    }
+
+    private <T> T buildModel(String name, SigningProfileMapper.SigningProfileModelFactory<T> factory) throws NotFoundException {
+        return buildModel(findProfileByName(name), factory);
+    }
+
+    private <T> T buildModel(SigningProfile profile, SigningProfileMapper.SigningProfileModelFactory<T> factory) {
         UUID profileUuid = profile.getUuid();
         List<RequestAttribute> signingOperationAttributes = attributeEngine
                 .getRequestObjectDataAttributesContent(null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, profileUuid);
         List<RequestAttribute> signatureFormatterConnectorAttributes = attributeEngine
                 .getRequestObjectDataAttributesContent(profile.getSignatureFormatterConnectorUuid(),
                         AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuid);
-        return SigningProfileMapper.toModel(profile, signingOperationAttributes, signatureFormatterConnectorAttributes);
+        return factory.create(profile, signingOperationAttributes, signatureFormatterConnectorAttributes);
+    }
+
+    private SigningProfile findProfileByName(String name) throws NotFoundException {
+        return signingProfileRepository.findByName(name)
+                .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + name));
     }
 
     // ──────────────────────────────────────────────────────────────────────────

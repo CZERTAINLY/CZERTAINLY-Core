@@ -3,15 +3,14 @@ package com.czertainly.core.service.tsa.signer;
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeDto;
-import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
-import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
+import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CryptographicOperationService;
@@ -33,17 +32,17 @@ public class StaticManagedKeySignerCreator implements SignerCreator {
     }
 
     @Override
-    public boolean supports(SigningSchemeDto signingScheme) {
-        return signingScheme instanceof StaticKeyManagedSigningDto;
+    public boolean supports(SigningSchemeModel signingScheme) {
+        return signingScheme instanceof StaticKeyManagedSigning;
     }
 
     @Override
-    public Signer create(SigningSchemeDto signingSchemeDto) throws TspException {
-        StaticKeyManagedSigningDto signingScheme = (StaticKeyManagedSigningDto) signingSchemeDto;
+    public Signer create(SigningSchemeModel signingSchemeModel) throws TspException {
+        StaticKeyManagedSigning signingScheme = (StaticKeyManagedSigning) signingSchemeModel;
 
-        Certificate certificate = certificateRepository.findByUuid(signingScheme.getCertificate().getUuid())
+        Certificate certificate = certificateRepository.findWithAssociationsByUuid(signingScheme.certificate().getUuid())
                 .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                        String.format("Certificate with UUID '%s' not found", signingScheme.getCertificate().getUuid()),
+                        String.format("Certificate with UUID '%s' not found", signingScheme.certificate().getUuid()),
                         "Signing key certificate could not be found."));
 
         CryptographicKey key = certificate.getKey();
@@ -67,8 +66,7 @@ public class StaticManagedKeySignerCreator implements SignerCreator {
                         String.format("No public key item found for key '%s'", key.getUuid()),
                         "Signing key could not be found."));
 
-        List<RequestAttribute> requestAttributes =
-                AttributeEngine.getRequestAttributesFromResponseAttributes(signingScheme.getSigningOperationAttributes());
+        List<RequestAttribute> requestAttributes = signingScheme.signingOperationAttributes();
 
         String algorithmName = CryptographyUtil.resolveSignatureAlgorithmName(
                 privateKeyItem.getKeyAlgorithm(), publicKeyItem.getKeyData(), requestAttributes);

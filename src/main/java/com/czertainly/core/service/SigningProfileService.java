@@ -8,6 +8,10 @@ import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.core.model.signing.SigningProfileModel;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
+import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
+import com.czertainly.core.model.signing.workflow.SigningWorkflow;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.signing.SigningProtocol;
@@ -43,7 +47,14 @@ public interface SigningProfileService extends ResourceExtensionService {
     /**
      * Resolves a Signing Profile by name and returns it as the typed model layer.
      */
-    SigningProfileModel<?, ?> getSigningProfileModel(String name) throws NotFoundException;
+    SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> getSigningProfileModel(String name) throws NotFoundException;
+
+    /**
+     * Resolves a Signing Profile by name, verifying it uses a timestamping workflow.
+     *
+     * @throws NotFoundException if the profile does not exist or is not configured with a timestamping workflow
+     */
+    SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> getManagedTimestampingProfileModel(String name) throws NotFoundException;
 
     List<SigningProtocol> listSupportedProtocols(SigningWorkflowType workflowType);
 

@@ -5,7 +5,7 @@ import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.messages.TspResponse;
 
-public interface TspService {
+public interface TsaService {
 
     TspResponse processTspRequestForTspProfile(String tspProfileName, TspRequest request) throws NotFoundException, TspException;
 

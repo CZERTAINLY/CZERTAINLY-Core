@@ -35,6 +35,7 @@ import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.api.tsp.TspControllerImpl;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.TspProfileService;
+import com.czertainly.core.service.tsa.ManagedTimestampEngine;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -101,7 +102,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
  * timestamp token carries a cryptographically valid CMS signature.
  * Signature verification is enabled via {@code validateTokenSignature = true} on the
  * signing profile workflow, exercising the full end-to-end path including
- * {@link com.czertainly.core.service.tsa.TimestampEngine} token validation.
+ * {@link ManagedTimestampEngine} token validation.
  */
 public class TspProtocolFlowITest extends BaseSpringBootTest {
 

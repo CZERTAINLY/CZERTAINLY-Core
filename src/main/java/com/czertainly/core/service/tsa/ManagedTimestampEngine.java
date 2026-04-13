@@ -1,0 +1,99 @@
+package com.czertainly.core.service.tsa;
+
+
+import com.czertainly.api.interfaces.core.tsp.error.TspException;
+import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
+import com.czertainly.core.model.signing.SigningProfileModel;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
+import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
+import com.czertainly.core.service.tsa.messages.TspRequest;
+import com.czertainly.core.service.tsa.messages.TspResponse;
+import com.czertainly.core.service.tsa.certificateprovider.CertificateProviderFactory;
+import com.czertainly.core.service.tsa.certificatevalidation.CertificateValidationResult;
+import com.czertainly.core.service.tsa.certificatevalidation.SignerCertificateValidationManager;
+import com.czertainly.core.service.tsa.clocksource.ClockSource;
+import com.czertainly.core.service.tsa.serialnumber.ClockDriftException;
+import com.czertainly.core.service.tsa.serialnumber.SerialNumberGenerator;
+import com.czertainly.core.service.tsa.timequality.TimeQualityRegister;
+import com.czertainly.core.service.tsa.timequality.TimeQualityStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+/**
+ * Core engine that processes RFC 3161 timestamp requests.
+ *
+ * <p>Validates time quality, generates a serial number, delegates token creation
+ * to {@link ManagedTimestampTokenGenerator}, verifies the signer certificate, and optionally
+ * validates the token signature before returning the response.
+ */
+@Component
+public class ManagedTimestampEngine {
+
+    private static final Logger logger = LoggerFactory.getLogger(ManagedTimestampEngine.class);
+
+    private final TimeQualityRegister timeQualityRegister;
+    private final SerialNumberGenerator serialNumberGenerator;
+    private final ManagedTimestampTokenGenerator tokenGenerator;
+    private final SignerCertificateValidationManager certValidationManager;
+    private final CertificateProviderFactory certificateProviderFactory;
+    private final ClockSource clockSource;
+
+
+    public ManagedTimestampEngine(TimeQualityRegister timeQualityRegister, SerialNumberGenerator serialNumberGenerator, ManagedTimestampTokenGenerator tokenGenerator, SignerCertificateValidationManager certValidationManager, CertificateProviderFactory certificateProviderFactory, ClockSource clockSource) {
+        this.timeQualityRegister = timeQualityRegister;
+        this.serialNumberGenerator = serialNumberGenerator;
+        this.tokenGenerator = tokenGenerator;
+        this.certValidationManager = certValidationManager;
+        this.certificateProviderFactory = certificateProviderFactory;
+        this.clockSource = clockSource;
+    }
+
+    public TspResponse process(TspRequest request, SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile) throws TspException {
+
+        var certificateProvider = certificateProviderFactory.getProvider(timestampingProfile.signingScheme());
+        var timestampingWorkflow = timestampingProfile.workflow();
+
+        var timeQualityConfiguration = timestampingWorkflow.timeQualityConfiguration();
+
+        var timeStatus = timeQualityRegister.getStatus(timeQualityConfiguration);
+        if (timeStatus == TimeQualityStatus.DEGRADED) {
+            logger.warn("Rejecting timestamp request for timestampingProfile '{}' using timeQualityProfile '{}': time quality degraded", timestampingProfile.name(), timeQualityConfiguration.getName());
+            return TspResponse.rejected(TspFailureInfo.TIME_NOT_AVAILABLE, "Time quality is degraded for timestampingProfile '%s'".formatted(timestampingProfile.name()));
+        } else {
+            logger.info("Time quality status for profile '{}': {}", timeQualityConfiguration.getName(), timeStatus);
+        }
+
+        try {
+            var serialNumber = serialNumberGenerator.generate();
+            var genTime = clockSource.wallTimeInstant();
+            var certificateChain = certificateProvider.getCertificateChain(timestampingProfile.signingScheme());
+            var signerCert = certificateChain.signingCertificate();
+
+            var certValidation = certValidationManager.validate(signerCert, timestampingWorkflow.isQualifiedTimestamp());
+            if (certValidation instanceof CertificateValidationResult.Invalid invalid) {
+                logger.error("Signer certificate validation failed: {}", invalid.reason());
+                return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Signer certificate validation failed: " + invalid.reason());
+            }
+
+            var result = tokenGenerator.generate(request, timestampingProfile, certificateChain, serialNumber, genTime);
+
+//                if (timestampingWorkflow.getValidateTokenSignature()) {
+//                    var verifier = new JcaSimpleSignerInfoVerifierBuilder().build(certificateChain.signingCertificate());
+//                    result.validate(verifier);
+//                }
+
+            return TspResponse.granted(result.getEncoded());
+
+        }  catch (ClockDriftException e) {
+            logger.error("Clock drift detected during timestamp generation", e);
+            return TspResponse.rejected(TspFailureInfo.TIME_NOT_AVAILABLE, "Clock drift detected");
+        } catch (Exception e) {
+            logger.error("Unexpected error during timestamp generation", e);
+            return TspResponse.rejected(
+                    TspFailureInfo.SYSTEM_FAILURE, "Internal error");
+        }
+
+    }
+}

@@ -12,6 +12,7 @@ import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
 import com.czertainly.api.model.client.signing.profile.workflow.ContentSigningWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkflowDto;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
@@ -19,18 +20,11 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
-import com.czertainly.core.model.signing.workflow.ContentSigningWorkflow;
-import com.czertainly.core.model.signing.workflow.DelegatedContentSigningWorkflow;
-import com.czertainly.core.model.signing.workflow.DelegatedRawSigningWorkflow;
-import com.czertainly.core.model.signing.workflow.DelegatedTimestampingWorkflow;
-import com.czertainly.core.model.signing.workflow.ManagedContentSigningWorkflow;
-import com.czertainly.core.model.signing.workflow.ManagedRawSigningWorkflow;
-import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
-import com.czertainly.core.model.signing.workflow.RawSigningWorkflow;
+import com.czertainly.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
+import com.czertainly.core.model.signing.workflow.*;
 import com.czertainly.core.model.signing.SigningProfileModel;
-import com.czertainly.core.model.signing.workflow.TimestampingWorkflow;
 import com.czertainly.core.model.signing.scheme.DelegatedSigning;
-import com.czertainly.core.model.signing.scheme.ManagedSigning;
 import com.czertainly.core.model.signing.scheme.OneTimeKeyManagedSigning;
 import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
@@ -124,13 +118,19 @@ public class SigningProfileMapper {
     // Public mappers — model layer
     // ──────────────────────────────────────────────────────────────────────────
 
+    @FunctionalInterface
+    public interface SigningProfileModelFactory<T> {
+        T create(SigningProfile profile, List<RequestAttribute> signingOperationAttributes,
+                 List<RequestAttribute> signatureFormatterConnectorAttributes);
+    }
+
     /**
      * Converts a {@link SigningProfile} entity to the typed {@link SigningProfileModel} hierarchy.
      * Must be called within a transaction.
      */
-    public static SigningProfileModel<?, ?> toModel(SigningProfile profile,
-                                                    List<RequestAttribute> signingOperationAttributes,
-                                                    List<RequestAttribute> signatureFormatterConnectorAttributes) {
+    public static SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> toModel(SigningProfile profile,
+                                                                            List<RequestAttribute> signingOperationAttributes,
+                                                                            List<RequestAttribute> signatureFormatterConnectorAttributes) {
         SigningSchemeModel schemeModel = buildSchemeModel(profile, signingOperationAttributes);
         List<SigningProtocol> protocols = profile.getTspProfileUuid() != null ? List.of(SigningProtocol.TSP) : List.of();
         int version = profile.getLatestVersion() != null ? profile.getLatestVersion() : 1;
@@ -150,9 +150,39 @@ public class SigningProfileMapper {
             case TIMESTAMPING -> new SigningProfileModel<>(
                     profile.getUuid(), profile.getName(), profile.getDescription(),
                     version, enabled, protocols,
-                    buildTimestampingWorkflow(profile, signatureFormatterConnectorAttributes),
+                    profile.getSigningScheme() == SigningScheme.MANAGED
+                            ? buildManagedTimestampingWorkflow(profile, signatureFormatterConnectorAttributes)
+                            : buildDelegatedTimestampingWorkflow(profile),
                     schemeModel);
         };
+    }
+
+    /**
+     * Converts a {@link SigningProfile} entity to a {@link SigningProfileModel} typed with
+     * {@link ManagedTimestampingWorkflow}. The caller must ensure the profile uses a managed timestamping workflow.
+     *
+     * @throws IllegalArgumentException if the profile's workflow type is not {@code TIMESTAMPING} or its signing scheme is not {@code MANAGED}
+     */
+    public static SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, SigningSchemeModel> toManagedTimestampingModel(
+            SigningProfile profile,
+            List<RequestAttribute> signingOperationAttributes,
+            List<RequestAttribute> signatureFormatterConnectorAttributes) {
+        if (profile.getWorkflowType() != SigningWorkflowType.TIMESTAMPING) {
+            throw new IllegalArgumentException("Signing Profile '%s' does not use a timestamping workflow".formatted(profile.getName()));
+        }
+        if (profile.getSigningScheme() != SigningScheme.MANAGED) {
+            throw new IllegalArgumentException("Signing Profile '%s' does not use a managed signing scheme".formatted(profile.getName()));
+        }
+        SigningSchemeModel schemeModel = buildSchemeModel(profile, signingOperationAttributes);
+        List<SigningProtocol> protocols = profile.getTspProfileUuid() != null ? List.of(SigningProtocol.TSP) : List.of();
+        int version = profile.getLatestVersion() != null ? profile.getLatestVersion() : 1;
+        boolean enabled = profile.getEnabled() != null ? profile.getEnabled() : false;
+
+        return new SigningProfileModel<>(
+                profile.getUuid(), profile.getName(), profile.getDescription(),
+                version, enabled, protocols,
+                buildManagedTimestampingWorkflow(profile, signatureFormatterConnectorAttributes),
+                schemeModel);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -261,29 +291,36 @@ public class SigningProfileMapper {
     }
 
     /**
-     * Builds a {@link TimestampingWorkflow} variant based on the signing scheme.
+     * Builds a {@link ManagedTimestampingWorkflow} from the entity.
      */
-    private static TimestampingWorkflow buildTimestampingWorkflow(
+    private static ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> buildManagedTimestampingWorkflow(
             SigningProfile profile, List<RequestAttribute> signatureFormatterConnectorAttributes) {
-        List<DigestAlgorithm> algos = profile.getAllowedDigestAlgorithms() != null
+        return new ManagedTimestampingWorkflow<>(
+                profile.getSignatureFormatterConnectorUuid(),
+                safeList(signatureFormatterConnectorAttributes),
+                profile.getQualifiedTimestamp(),
+                LocalClockTimeQualityConfiguration.INSTANCE, // timeQualityConfiguration — not persisted on the entity yet, so we use a placeholder that represents the default configuration for now
+                profile.getDefaultPolicyId(),
+                safeList(profile.getAllowedPolicyIds()),
+                timestampingDigestAlgorithms(profile),
+                null); // validateTokenSignature — not persisted on the entity yet
+    }
+
+    /**
+     * Builds a {@link DelegatedTimestampingWorkflow} from the entity.
+     */
+    private static DelegatedTimestampingWorkflow buildDelegatedTimestampingWorkflow(SigningProfile profile) {
+        return new DelegatedTimestampingWorkflow(
+                profile.getDefaultPolicyId(),
+                safeList(profile.getAllowedPolicyIds()),
+                timestampingDigestAlgorithms(profile),
+                null); // validateTokenSignature — not persisted on the entity yet
+    }
+
+    private static List<DigestAlgorithm> timestampingDigestAlgorithms(SigningProfile profile) {
+        return profile.getAllowedDigestAlgorithms() != null
                 ? profile.getAllowedDigestAlgorithms().stream().map(DigestAlgorithm::findByCode).toList()
                 : List.of();
-        return switch (profile.getSigningScheme()) {
-            case MANAGED -> new ManagedTimestampingWorkflow(
-                    profile.getSignatureFormatterConnectorUuid(),
-                    safeList(signatureFormatterConnectorAttributes),
-                    profile.getQualifiedTimestamp(),
-                    null, // timeQualityConfiguration — not persisted on the entity yet
-                    profile.getDefaultPolicyId(),
-                    safeList(profile.getAllowedPolicyIds()),
-                    algos,
-                    null); // validateTokenSignature — not persisted on the entity yet
-            case DELEGATED -> new DelegatedTimestampingWorkflow(
-                    profile.getDefaultPolicyId(),
-                    safeList(profile.getAllowedPolicyIds()),
-                    algos,
-                    null); // validateTokenSignature — not persisted on the entity yet
-        };
     }
 
     // ──────────────────────────────────────────────────────────────────────────

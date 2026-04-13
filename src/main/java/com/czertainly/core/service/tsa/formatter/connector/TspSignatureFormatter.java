@@ -33,7 +33,7 @@ public class TspSignatureFormatter {
     static final String ATTR_INCLUDE_TSA_NAME = "includeTsaName";
     static final String ATTR_INCLUDE_CMS_ALGORITHM_PROTECTION = "includeCMSAlgorithmProtection";
     static final String ATTR_INCLUDE_SIGNING_TIME = "includeSigningTimeAttribute";
-    static final String ATTR_QUALIFIED_TIMESTAMP = "qualifiedTimestamp";
+    static final String ATTR_QUALIFIED_TIMESTAMP = "isQualifiedTimestamp";
 
     public FormatDtbsResponseDto formatDtbs(FormatDtbsRequestDto request) {
         var tsRequest = (TimestampingFormatDtbsRequestDto) request;

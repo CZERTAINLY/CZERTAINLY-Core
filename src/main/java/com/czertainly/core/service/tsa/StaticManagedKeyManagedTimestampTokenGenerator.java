@@ -2,9 +2,11 @@ package com.czertainly.core.service.tsa;
 
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
-import com.czertainly.api.model.client.signing.profile.scheme.SigningSchemeDto;
-import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.czertainly.core.model.signing.SigningProfileModel;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
+import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.formatter.SignatureFormatterClient;
 import com.czertainly.core.service.tsa.signer.Signer;
@@ -20,29 +22,29 @@ import java.math.BigInteger;
 import java.time.Instant;
 
 @Component
-public class StaticManagedKeyTimestampTokenGenerator implements TimestampTokenGenerator {
+public class StaticManagedKeyManagedTimestampTokenGenerator implements ManagedTimestampTokenGenerator {
 
     private final SignerFactory signerFactory;
 
     private final SignatureFormatterClient formatter;
 
-    public StaticManagedKeyTimestampTokenGenerator(SignerFactory signerFactory, SignatureFormatterClient formatter) {
+    public StaticManagedKeyManagedTimestampTokenGenerator(SignerFactory signerFactory, SignatureFormatterClient formatter) {
         this.signerFactory = signerFactory;
         this.formatter = formatter;
     }
 
     @Override
-    public TimeStampToken generate(TspRequest request, TimestampingWorkflowDto profile, SigningSchemeDto signingScheme, CertificateChain certificateChain, BigInteger serialNumber, Instant genTime) throws TspException {
+    public TimeStampToken generate(TspRequest request, SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile, CertificateChain certificateChain, BigInteger serialNumber, Instant genTime) throws TspException {
 
-        Signer signer = signerFactory.create(signingScheme);
+        Signer signer = signerFactory.create(timestampingProfile.signingScheme());
         SignatureAlgorithm signatureAlgorithm = signer.getSignatureAlgorithm();
 
-        byte[] dtbs = formatter.formatDtbs(request, profile, serialNumber, genTime,
+        byte[] dtbs = formatter.formatDtbs(request, timestampingProfile, serialNumber, genTime,
                 certificateChain, signatureAlgorithm);
 
         byte[] signature = signer.sign(dtbs);
 
-        byte[] tokenBytes = formatter.formatSigningResponse(request, profile, serialNumber, genTime, certificateChain, dtbs, signature, signatureAlgorithm);
+        byte[] tokenBytes = formatter.formatSigningResponse(request, timestampingProfile, serialNumber, genTime, certificateChain, dtbs, signature, signatureAlgorithm);
 
         try {
             return new TimeStampToken(new CMSSignedData(tokenBytes));

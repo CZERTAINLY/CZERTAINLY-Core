@@ -9,7 +9,7 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.api.tsp.parser.TspRequestParser;
-import com.czertainly.core.service.tsa.TspService;
+import com.czertainly.core.service.tsa.TsaService;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.messages.TspResponse;
 import org.slf4j.Logger;
@@ -21,12 +21,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TspControllerImpl implements TspController {
 
-    private TspService tspService;
+    private TsaService tsaService;
     private static final Logger LOG = LoggerFactory.getLogger(TspControllerImpl.class);
 
     @Autowired
-    public void setTspService(TspService tspService) {
-        this.tspService = tspService;
+    public void setTspService(TsaService tsaService) {
+        this.tsaService = tsaService;
     }
 
     @Override
@@ -35,7 +35,7 @@ public class TspControllerImpl implements TspController {
         byte[] responseBytes;
         try {
             TspRequest parsedRequest = TspRequestParser.parse(request);
-            TspResponse response = tspService.processTspRequestForTspProfile(tspProfileName, parsedRequest);
+            TspResponse response = tsaService.processTspRequestForTspProfile(tspProfileName, parsedRequest);
 
             responseBytes = TSPResponseBuilder.fromEngineResponse(response);
         } catch (TspException e) {

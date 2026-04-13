@@ -1,17 +1,17 @@
 package com.czertainly.core.service.tsa.validator;
 
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
-import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
+import com.czertainly.core.model.signing.workflow.TimestampingWorkflow;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TspRequestValidator {
 
-    public void validate(TimestampingWorkflowDto profile, TspRequest request) throws TspRequestValidationException {
+    public void validate(TimestampingWorkflow timestampingWorkflow, TspRequest request) throws TspRequestValidationException {
         validateExtensions(request);
-        validateHashAlgorithm(profile, request);
-        validatePolicy(profile, request);
+        validateHashAlgorithm(timestampingWorkflow, request);
+        validatePolicy(timestampingWorkflow, request);
     }
 
     private void validateExtensions(TspRequest request) throws TspRequestValidationException {
@@ -23,8 +23,8 @@ public class TspRequestValidator {
         }
     }
 
-    private void validateHashAlgorithm(TimestampingWorkflowDto profile, TspRequest request) throws TspRequestValidationException {
-        var allowed = profile.getAllowedDigestAlgorithms();
+    private void validateHashAlgorithm(TimestampingWorkflow timestampingWorkflow, TspRequest request) throws TspRequestValidationException {
+        var allowed = timestampingWorkflow.allowedDigestAlgorithms();
         if (!allowed.isEmpty() && !allowed.contains(request.hashAlgorithm())) {
             throw new TspRequestValidationException(
                     TspFailureInfo.BAD_ALG,
@@ -33,8 +33,8 @@ public class TspRequestValidator {
         }
     }
 
-    private void validatePolicy(TimestampingWorkflowDto profile, TspRequest request) throws TspRequestValidationException {
-        if (profile.getAllowedPolicyIds().isEmpty()) {
+    private void validatePolicy(TimestampingWorkflow timestampingWorkflow, TspRequest request) throws TspRequestValidationException {
+        if (timestampingWorkflow.allowedPolicyIds().isEmpty()) {
             return;
         }
 
@@ -42,7 +42,7 @@ public class TspRequestValidator {
             return;
         }
         var requestedPolicy = request.policy().get();
-        if (!profile.getAllowedPolicyIds().contains(requestedPolicy)) {
+        if (!timestampingWorkflow.allowedPolicyIds().contains(requestedPolicy)) {
             throw new TspRequestValidationException(
                     TspFailureInfo.UNACCEPTED_POLICY,
                     "Policy ID is not accepted by the chosen profile",

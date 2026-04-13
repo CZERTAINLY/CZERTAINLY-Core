@@ -1,14 +1,16 @@
 package com.czertainly.core.service.tsa.formatter;
 
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
-import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.connector.signatures.formatter.ExtensionDto;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.czertainly.api.model.connector.signatures.formatter.TimestampingFormatDtbsRequestDto;
 import com.czertainly.api.model.connector.signatures.formatter.TimestampingFormatResponseRequestDto;
+import com.czertainly.core.model.signing.SigningProfileModel;
+import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
+import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.czertainly.core.service.tsa.formatter.connector.TspSignatureFormatter;
 import com.czertainly.core.service.tsa.messages.TspRequest;
-import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.service.tsa.CertificateChain;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
@@ -34,51 +36,52 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
     }
 
     @Override
-    public byte[] formatDtbs(TspRequest request, TimestampingWorkflowDto timestampingProfile, BigInteger serialNumber,
+    public byte[] formatDtbs(TspRequest request, SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile, BigInteger serialNumber,
                              Instant genTime, CertificateChain certificateChain,
                              SignatureAlgorithm signatureAlgorithm) {
+
+        ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> workflow = timestampingProfile.workflow();
+
         TimestampingFormatDtbsRequestDto requestDto = new TimestampingFormatDtbsRequestDto();
         requestDto.setData(request.hashedMessage());
         requestDto.setHashAlgorithm(request.hashAlgorithm());
-        requestDto.setPolicy(request.policy().orElse(timestampingProfile.getDefaultPolicyId()));
+        requestDto.setPolicy(request.policy().orElse(workflow.defaultPolicyId()));
         requestDto.setNonce(request.nonce().orElse(null));
         requestDto.setIncludeSignerCertificate(request.includeSignerCertificate());
         requestDto.setRequestExtensions(toExtensionDtos(request.requestExtensions()));
         requestDto.setSerialNumber(serialNumber);
         requestDto.setSigningTime(genTime);
-        requestDto.setAccuracy(timestampingProfile.getTimeQualityConfiguration() != null
-                ? timestampingProfile.getTimeQualityConfiguration().getAccuracy() : null);
+        requestDto.setAccuracy(workflow.timeQualityConfiguration().getAccuracy().orElse(null));
         requestDto.setSignatureAlgorithm(signatureAlgorithm);
         requestDto.setCertificateChain(encodeBase64DerChain(certificateChain));
-        requestDto.setFormatAttributes(AttributeEngine.getRequestAttributesFromResponseAttributes(
-                timestampingProfile.getSignatureFormatterConnectorAttributes()));
+        requestDto.setFormatAttributes(workflow.signatureFormatterConnectorAttributes());
 
         var response = tspSignatureFormatter.formatDtbs(requestDto);
         return response.getDtbs();
     }
 
     @Override
-    public byte[] formatSigningResponse(TspRequest request, TimestampingWorkflowDto timestampingProfile,
+    public byte[] formatSigningResponse(TspRequest request, SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile,
                                         BigInteger serialNumber, Instant genTime, CertificateChain certificateChain,
                                         byte[] dtbs, byte[] signature,
                                         SignatureAlgorithm signatureAlgorithm) throws TspException {
+
+        ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> workflow = timestampingProfile.workflow();
 
         TimestampingFormatResponseRequestDto requestDto = new TimestampingFormatResponseRequestDto();
         requestDto.setDtbs(dtbs);
         requestDto.setSignature(signature);
         requestDto.setCertificateChain(encodeBase64DerChain(certificateChain));
-        requestDto.setFormatAttributes(AttributeEngine.getRequestAttributesFromResponseAttributes(
-                timestampingProfile.getSignatureFormatterConnectorAttributes()));
+        requestDto.setFormatAttributes(workflow.signatureFormatterConnectorAttributes());
         requestDto.setData(request.hashedMessage());
         requestDto.setHashAlgorithm(request.hashAlgorithm());
-        requestDto.setPolicy(request.policy().orElse(timestampingProfile.getDefaultPolicyId()));
+        requestDto.setPolicy(request.policy().orElse(workflow.defaultPolicyId()));
         requestDto.setNonce(request.nonce().orElse(null));
         requestDto.setIncludeSignerCertificate(request.includeSignerCertificate());
         requestDto.setRequestExtensions(toExtensionDtos(request.requestExtensions()));
         requestDto.setSerialNumber(serialNumber);
         requestDto.setSigningTime(genTime);
-        requestDto.setAccuracy(timestampingProfile.getTimeQualityConfiguration() != null
-                ? timestampingProfile.getTimeQualityConfiguration().getAccuracy() : null);
+        requestDto.setAccuracy(workflow.timeQualityConfiguration().getAccuracy().orElse(null));
         requestDto.setSignatureAlgorithm(signatureAlgorithm);
 
         var response = tspSignatureFormatter.formatSigningResponse(requestDto);

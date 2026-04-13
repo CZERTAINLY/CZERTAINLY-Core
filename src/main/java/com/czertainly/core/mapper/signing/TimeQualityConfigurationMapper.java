@@ -4,6 +4,9 @@ import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
+import com.czertainly.core.model.signing.timequality.ExplicitTimeQualityConfiguration;
+import com.czertainly.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
+import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
 
 import java.util.List;
 
@@ -26,6 +29,24 @@ public class TimeQualityConfigurationMapper {
         dto.setLeapSecondGuard(configuration.getLeapSecondGuard());
         dto.setCustomAttributes(customAttributes);
         return dto;
+    }
+
+    public static TimeQualityConfigurationModel toModel(TimeQualityConfiguration configuration) {
+        if (configuration == null) {
+            return LocalClockTimeQualityConfiguration.INSTANCE;
+        }
+        return new ExplicitTimeQualityConfiguration(
+                configuration.getUuid(),
+                configuration.getName(),
+                configuration.getAccuracy(),
+                configuration.getNtpServers(),
+                configuration.getNtpCheckInterval(),
+                configuration.getNtpSamplesPerServer(),
+                configuration.getNtpCheckTimeout(),
+                configuration.getNtpServersMinReachable(),
+                configuration.getMaxClockDrift(),
+                configuration.getLeapSecondGuard()
+        );
     }
 
     public static TimeQualityConfigurationListDto toListDto(TimeQualityConfiguration configuration) {

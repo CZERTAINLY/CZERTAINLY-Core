@@ -11,7 +11,7 @@ import java.util.List;
  * <p>Common validation fields ({@code defaultPolicyId}, {@code allowedPolicyIds},
  * {@code allowedDigestAlgorithms}, {@code validateTokenSignature}) are accessible on this
  * interface for both managed and delegated signing. Fields that are only relevant for
- * ILM-managed signing (Signature Formatter Connector reference, {@code qualifiedTimestamp},
+ * ILM-managed signing (Signature Formatter Connector reference, {@code isQualifiedTimestamp},
  * {@code timeQualityConfiguration}) are scoped to {@link ManagedTimestampingWorkflow} only.</p>
  *
  * <p>Use pattern matching to access managed-only fields:</p>

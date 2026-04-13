@@ -18,6 +18,7 @@ import java.util.*;
  * <p>
  * Permissions:
  * - TSP_PROFILE: DETAIL, LIST
+ * - SIGNING_PROFILE: DETAIL
  * - DIGITAL_SIGNATURE: SIGN
  * - CERTIFICATE: DETAIL
  * - CRYPTOGRAPHIC_KEY: SIGN
@@ -40,11 +41,13 @@ public class V202604101200__CreateTspUserAndPermissions extends BaseJavaMigratio
         resources.put(Resource.TOKEN, List.of(ResourceAction.DETAIL));
         resources.put(Resource.TOKEN_PROFILE, List.of(ResourceAction.DETAIL));
         resources.put(Resource.TSP_PROFILE, List.of(ResourceAction.DETAIL, ResourceAction.LIST));
+        resources.put(Resource.SIGNING_PROFILE, List.of(ResourceAction.DETAIL));
         DatabaseAuthMigration.seedResources(resources);
 
         // all permissions needed for TSP operations
         Map<Resource, List<ResourceAction>> roleResourceActions = new EnumMap<>(Resource.class);
         roleResourceActions.put(Resource.TSP_PROFILE, List.of(ResourceAction.DETAIL, ResourceAction.LIST));
+        roleResourceActions.put(Resource.SIGNING_PROFILE, List.of(ResourceAction.DETAIL));
         roleResourceActions.put(Resource.DIGITAL_SIGNATURE, List.of(ResourceAction.SIGN));
         roleResourceActions.put(Resource.CERTIFICATE, List.of(ResourceAction.DETAIL));
         roleResourceActions.put(Resource.CRYPTOGRAPHIC_KEY, List.of(ResourceAction.SIGN));
