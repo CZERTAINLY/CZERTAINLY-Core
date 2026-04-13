@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -166,7 +167,7 @@ class TspProfileServiceImplTest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testCreateTspProfile_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
+    void testCreateTspProfile_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("new-tsp-profile");
         request.setDescription("New TSP profile description");
@@ -189,7 +190,7 @@ class TspProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateTspProfile_withDefaultSigningProfile_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
+    void testCreateTspProfile_withDefaultSigningProfile_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("tsp-with-default-profile");
         request.setDescription("TSP with default signing profile");
@@ -225,7 +226,7 @@ class TspProfileServiceImplTest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testUpdateTspProfile_assertDtoAndDbEntity() throws NotFoundException, AttributeException {
+    void testUpdateTspProfile_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("updated-tsp-profile");
         request.setDescription("Updated description");
@@ -248,7 +249,7 @@ class TspProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateTspProfile_withDefaultSigningProfile_assertDtoAndDbEntity() throws NotFoundException, AttributeException {
+    void testUpdateTspProfile_withDefaultSigningProfile_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("updated-tsp-with-profile");
         request.setDescription("Updated with default profile");
@@ -432,7 +433,7 @@ class TspProfileServiceImplTest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testCreateTspProfile_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+    void testCreateTspProfile_withCustomAttributes_returnedInDto() throws AlreadyExistException, AttributeException, NotFoundException {
         RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
                 CUSTOM_ATTR_NAME, AttributeContentType.STRING,
                 List.of(new StringAttributeContentV3("tsp-value-on-create")));
@@ -451,7 +452,7 @@ class TspProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateTspProfile_withCustomAttributes_returnedInDto() throws AttributeException, NotFoundException {
+    void testUpdateTspProfile_withCustomAttributes_returnedInDto() throws AlreadyExistException, AttributeException, NotFoundException {
         RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
                 CUSTOM_ATTR_NAME, AttributeContentType.STRING,
                 List.of(new StringAttributeContentV3("initial-value")));
@@ -473,5 +474,43 @@ class TspProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertFalse(updated.getCustomAttributes().isEmpty());
         Assertions.assertEquals("updated-value",
                 ((ResponseAttributeV3) updated.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Name uniqueness
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testCreateTspProfile_duplicateName_throwsAlreadyExistException() {
+        TspProfileRequestDto request = new TspProfileRequestDto();
+        request.setName(savedTspProfile.getName());
+
+        Assertions.assertThrows(AlreadyExistException.class,
+                () -> tspService.createTspProfile(request));
+    }
+
+    @Test
+    void testUpdateTspProfile_toExistingNameOfAnotherProfile_throwsAlreadyExistException() throws AttributeException, NotFoundException {
+        TspProfile second = new TspProfile();
+        second.setName("second-tsp-profile");
+        tspRepository.save(second);
+
+        TspProfileRequestDto request = new TspProfileRequestDto();
+        request.setName(savedTspProfile.getName());
+
+        Assertions.assertThrows(AlreadyExistException.class,
+                () -> tspService.updateTspProfile(second.getSecuredUuid(), request));
+    }
+
+    @Test
+    void testUpdateTspProfile_keepingSameName_succeeds() throws AlreadyExistException, AttributeException, NotFoundException {
+        TspProfileRequestDto request = new TspProfileRequestDto();
+        request.setName(savedTspProfile.getName());
+        request.setDescription("updated description");
+
+        TspProfileDto dto = tspService.updateTspProfile(savedTspProfile.getSecuredUuid(), request);
+
+        Assertions.assertEquals(savedTspProfile.getName(), dto.getName());
+        Assertions.assertEquals("updated description", dto.getDescription());
     }
 }

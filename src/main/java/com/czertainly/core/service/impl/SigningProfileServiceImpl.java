@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -229,7 +230,10 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.CREATE)
     @Transactional
-    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AttributeException, NotFoundException {
+    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+        if (signingProfileRepository.findByName(request.getName()).isPresent()) {
+            throw new AlreadyExistException("Signing Profile with name '" + request.getName() + "' already exists.");
+        }
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
 
@@ -256,11 +260,17 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
     @Transactional
-    public SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws NotFoundException, AttributeException {
+    public SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
 
         SigningProfile profile = findByUuid(uuid);
+
+        Optional<SigningProfile> existingWithSameName = signingProfileRepository.findByName(request.getName());
+        if (existingWithSameName.isPresent() && !existingWithSameName.get().getUuid().equals(profile.getUuid())) {
+            throw new AlreadyExistException("Signing Profile with name '" + request.getName() + "' already exists.");
+        }
+
         profile.setName(request.getName());
         profile.setDescription(request.getDescription());
         applyWorkflow(profile, request.getWorkflow());

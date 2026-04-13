@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.SigningProfileController;
@@ -77,13 +78,13 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.CREATE)
-    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AttributeException, NotFoundException {
+    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         return signingProfileService.createSigningProfile(request);
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.UPDATE)
-    public SigningProfileDto updateSigningProfile(@LogResource(uuid = true) UUID uuid, SigningProfileRequestDto request) throws NotFoundException, AttributeException {
+    public SigningProfileDto updateSigningProfile(@LogResource(uuid = true) UUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         return signingProfileService.updateSigningProfile(SecuredUUID.fromUUID(uuid), request);
     }
 

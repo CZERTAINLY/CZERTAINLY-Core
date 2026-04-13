@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
@@ -46,6 +47,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -106,7 +108,10 @@ public class TspProfileServiceImpl implements TspProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.CREATE)
     @Transactional
-    public TspProfileDto createTspProfile(TspProfileRequestDto request) throws AttributeException, NotFoundException {
+    public TspProfileDto createTspProfile(TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+        if (tspProfileRepository.findByName(request.getName()).isPresent()) {
+            throw new AlreadyExistException("TSP Profile with name '" + request.getName() + "' already exists.");
+        }
         SigningProfile defaultSigningProfile = validateCreateUpdateRequest(request);
         TspProfile profile = new TspProfile();
         return updateAndMapToDto(profile, request, defaultSigningProfile);
@@ -115,8 +120,13 @@ public class TspProfileServiceImpl implements TspProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.UPDATE)
     @Transactional
-    public TspProfileDto updateTspProfile(SecuredUUID uuid, TspProfileRequestDto request) throws NotFoundException, AttributeException {
+    public TspProfileDto updateTspProfile(SecuredUUID uuid, TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfile profile = getTspProfileEntity(uuid.getValue());
+
+        Optional<TspProfile> existingWithSameName = tspProfileRepository.findByName(request.getName());
+        if (existingWithSameName.isPresent() && !existingWithSameName.get().getUuid().equals(profile.getUuid())) {
+            throw new AlreadyExistException("TSP Profile with name '" + request.getName() + "' already exists.");
+        }
 
         SigningProfile defaultSigningProfile = validateCreateUpdateRequest(request);
         return updateAndMapToDto(profile, request, defaultSigningProfile);

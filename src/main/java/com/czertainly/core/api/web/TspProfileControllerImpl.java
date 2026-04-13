@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.TspProfileController;
@@ -57,13 +58,13 @@ public class TspProfileControllerImpl implements TspProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE, operation = Operation.CREATE)
-    public TspProfileDto createTspProfile(@Valid TspProfileRequestDto request) throws AttributeException, NotFoundException {
+    public TspProfileDto createTspProfile(@Valid TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         return tspProfileService.createTspProfile(request);
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE, operation = Operation.UPDATE)
-    public TspProfileDto updateTspProfile(@LogResource(uuid = true) UUID uuid, @Valid TspProfileRequestDto request) throws NotFoundException, AttributeException {
+    public TspProfileDto updateTspProfile(@LogResource(uuid = true) UUID uuid, @Valid TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         return tspProfileService.updateTspProfile(SecuredUUID.fromUUID(uuid), request);
     }
 

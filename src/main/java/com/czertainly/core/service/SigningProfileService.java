@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
@@ -46,9 +47,9 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     List<SigningProtocol> listSupportedProtocols(SigningWorkflowType workflowType);
 
-    SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AttributeException, NotFoundException;
+    SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 
-    SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws NotFoundException, AttributeException;
+    SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 
     void deleteSigningProfile(SecuredUUID uuid) throws NotFoundException;
 

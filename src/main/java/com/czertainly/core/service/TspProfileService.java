@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileDto;
@@ -24,9 +25,9 @@ public interface TspProfileService extends ResourceExtensionService {
 
     TspProfileDto getTspProfile(String name) throws NotFoundException;
 
-    TspProfileDto createTspProfile(TspProfileRequestDto request) throws AttributeException, NotFoundException;
+    TspProfileDto createTspProfile(TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 
-    TspProfileDto updateTspProfile(SecuredUUID uuid, TspProfileRequestDto request) throws NotFoundException, AttributeException;
+    TspProfileDto updateTspProfile(SecuredUUID uuid, TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 
     void deleteTspProfile(SecuredUUID uuid) throws NotFoundException;
 
