@@ -156,7 +156,7 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
                           'NOT_CHECKED', E'{"na":["40f084cc-ddc1-11ec-9d7f-34cff65c6ee3"], "nok":["40f08544-ddc1-11ec-9378-34cff65c6ee3"]}'
                         );
                 
-                        INSERT INTO connector (uuid, i_author, i_cre, i_upd, auth_type, name, status, url) VALUES ('80490584-ec68-48af-915e-9d2aed8ee471', 'superadmin', '2023-11-22 16:07:19.212517', '2023-11-22 16:07:19.212517', 'NONE', 'X509-Compliance-Provider', 'CONNECTED', 'http://localhost:8250');
+                        INSERT INTO connector (uuid, i_author, i_cre, i_upd, auth_type, name, status, url, version) VALUES ('80490584-ec68-48af-915e-9d2aed8ee471', 'superadmin', '2023-11-22 16:07:19.212517', '2023-11-22 16:07:19.212517', 'NONE', 'X509-Compliance-Provider', 'CONNECTED', 'http://localhost:8250', 'V1');
                         INSERT INTO compliance_profile (uuid, i_author, i_cre, i_upd, name, description) VALUES ('44ce3ecf-ecd5-43cc-a836-8171b42ca2af', 'superadmin', '2023-11-30 16:33:30.855932', '2023-11-30 16:33:30.855932', 'BasicComplianceProfile', '');
                         INSERT INTO ra_profile_2_compliance_profile (ra_profile_uuid, compliance_profile_uuid) VALUES ('9e834b25-3c44-4251-8745-3bd8c0d99ff4', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af');
                 

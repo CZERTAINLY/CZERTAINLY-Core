@@ -54,4 +54,17 @@ public class AuthPermissionEvaluationServiceImpl implements PermissionEvaluator 
     public void vaultProfileMembers(SecuredUUID securedUUID) {
         // Method empty to only evaluate permissions based on ExternalAuthorization annotation
     }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DETAIL)
+    public void acmeProfile(SecuredUUID uuid) throws NotFoundException {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.DETAIL)
+    public void vaultInstance(SecuredUUID uuid) {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
+
 }

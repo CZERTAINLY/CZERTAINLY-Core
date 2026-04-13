@@ -320,8 +320,14 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return authorityInstanceReferenceRepository.findResourceObject(objectUuid, AuthorityInstanceReference_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return authorityInstanceReferenceRepository.findResourceObject(objectUuid.getValue(), AuthorityInstanceReference_.name);
     }
 
     @Override

@@ -271,19 +271,27 @@ public class ConnectorServiceImpl implements ConnectorService {
         apiClientDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         apiClientDto.setProxy(request.getProxy());
         for (ConnectorAdapter connectorAdapter : connectorAdapters.values()) {
-            ConnectInfo connectInfo;
+            ConnectInfo connectInfo = null;
             try {
-                connectInfo = connectorAdapter.validateConnection(apiClientDto);
-            } catch (ConnectorException e) {
-                if (e instanceof ConnectorCommunicationException || e instanceof ConnectorEntityNotFoundException) {
+                connectInfo = connectorAdapter.checkConnection(apiClientDto);
+                connectorAdapter.validateConnection(connectInfo);
+            } catch (ConnectorException | ValidationException e) {
+                if (e instanceof ConnectorCommunicationException || e instanceof ConnectorEntityNotFoundException || e instanceof ConnectorServerException) {
                     logger.debug("No connector of version {} is running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
                     continue;
                 }
-                logger.error("Unable to connect to connector of version {} running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
-                connectInfo = ConnectInfo.fromError(connectorAdapter.getVersion(), e.getMessage());
-            } catch (ValidationException e) {
-                logger.error("Validation error when connecting to connector of version {} with the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage());
-                connectInfo = ConnectInfo.fromError(connectorAdapter.getVersion(), e.getMessage());
+
+                if (e instanceof ValidationException) {
+                    logger.error("Validation error when connecting to connector of version {} with the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage());
+                } else {
+                    logger.error("Unable to connect to connector of version {} running on the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage(), e);
+                }
+
+                if (connectInfo == null) {
+                    connectInfo = ConnectInfo.fromError(connectorAdapter.getVersion(), e.getMessage());
+                } else {
+                    connectInfo.setErrorMessage(e.getMessage());
+                }
             }
 
             var connector = connectorRepository.findByUrlAndVersion(request.getUrl(), connectorAdapter.getVersion());
@@ -386,8 +394,14 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return connectorRepository.findResourceObject(objectUuid, Connector_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return connectorRepository.findResourceObject(objectUuid.getValue(), Connector_.name);
     }
 
     @Override

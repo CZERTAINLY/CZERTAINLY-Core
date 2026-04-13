@@ -1,20 +1,19 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.connector.secrets.content.SecretContent;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.secret.*;
+import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,7 +27,7 @@ public interface SecretService extends ResourceExtensionService {
 
     SecretDetailDto updateSecret(UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException, ConnectorException;
 
-    void deleteSecret(UUID uuid) throws NotFoundException, ConnectorException;
+    void deleteSecret(UUID uuid) throws NotFoundException, ConnectorException, AttributeException;
 
     void enableSecret(UUID uuid) throws NotFoundException;
 
@@ -36,13 +35,20 @@ public interface SecretService extends ResourceExtensionService {
 
     void addVaultProfileToSecret(UUID uuid, UUID vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws NotFoundException, ConnectorException, AttributeException;
 
-    void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException, ConnectorException;
+    void removeVaultProfileFromSecret(UUID uuid, UUID vaultProfileUuid) throws NotFoundException, ConnectorException, AttributeException;
 
     SecretDetailDto getSecretDetails(UUID uuid) throws NotFoundException;
 
     List<SecretVersionDto> getSecretVersions(UUID uuid) throws NotFoundException;
 
-    SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, NoSuchAlgorithmException;
+    SecretContent getSecretContent(UUID uuid) throws NotFoundException, ConnectorException, AttributeException;
 
     void updateSecretObjects(UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException;
+
+    void approvalCreatedAction(UUID resourceUuid) throws NotFoundException;
+
+    void processSecretAction(ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException, SecretOperationException;
+    Long statisticsSecretCount(SecurityFilter filter);
+
+    StatisticsDto addSecretStatistics(SecurityFilter filter, StatisticsDto dto);
 }

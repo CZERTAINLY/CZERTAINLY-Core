@@ -34,13 +34,22 @@ public interface ResourceService {
     List<ResourceDto> listResources();
 
     /**
-     * Function to get the object for specified resource
+     * Function to get the object for specified resource, for external use with authorization check
      *
      * @param resource   resource
      * @param objectUuid object UUID
      * @return ResourceObjectDto object
      */
     ResourceObjectDto getResourceObject(Resource resource, UUID objectUuid) throws NotFoundException;
+
+    /**
+     * Function to get the object for specified resource, for internal use without authorization
+     *
+     * @param resource   resource
+     * @param objectUuid object UUID
+     * @return ResourceObjectDto object
+     */
+    ResourceObjectDto getResourceObjectInternal(Resource resource, UUID objectUuid) throws NotFoundException;
 
     /**
      * Function to get the list of objects available to be displayed for object level access for Access Control

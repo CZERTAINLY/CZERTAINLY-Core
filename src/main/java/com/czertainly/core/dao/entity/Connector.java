@@ -31,7 +31,9 @@ import java.util.Set;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "connector")
+@Table(name = "connector", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_connector_url_version", columnNames = {"url", "version"})
+})
 public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<com.czertainly.api.model.core.connector.ConnectorDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Serial
@@ -40,7 +42,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "name")
     private String name;
 
-    @Column(name = "version")
+    @Column(name = "version", nullable = false)
     @Enumerated(EnumType.STRING)
     private ConnectorVersion version;
 

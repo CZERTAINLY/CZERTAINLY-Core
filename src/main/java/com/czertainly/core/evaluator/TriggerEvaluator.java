@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.metadata.ResponseMetadata;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -213,9 +214,13 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         FilterFieldType fieldType = filterField.getType().getFieldType();
 
+
         // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
         try {
             if (!(objectValue instanceof Collection<?> objectValues)) {
+                if (objectValue != null && filterField.getEnumClass() != null) {
+                    objectValue = ((IPlatformEnum) objectValue).getCode();
+                }
                 return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
             }
 

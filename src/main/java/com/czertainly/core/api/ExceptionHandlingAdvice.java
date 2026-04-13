@@ -10,6 +10,7 @@ import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BeautificationUtil;
 import jakarta.validation.ConstraintViolationException;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -96,9 +97,9 @@ public class ExceptionHandlingAdvice {
      * @return
      */
     @ExceptionHandler(AlreadyExistException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorMessageDto handleAlreadyExistException(AlreadyExistException ex) {
-        LOG.info("HTTP 400: {}", ex.getMessage());
+        LOG.info("HTTP 409: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
@@ -423,6 +424,18 @@ public class ExceptionHandlingAdvice {
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
+    /**
+     * Handler for {@link SecretOperationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(SecretOperationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleSecretOperationException(SecretOperationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
 
     /**
      * Handler for {@link AuthenticationServiceException}.
@@ -571,7 +584,12 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(CbomRepositoryException.class)
     public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException(CbomRepositoryException ex) {
         LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail());
-        return ResponseEntity.status(ex.getProblemDetail().getStatus())
-                .body(new ErrorMessageDto(ex.getMessage()));
+        if (ex.getProblemDetail() == null) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorMessageDto(ex.getMessage()));
+        }
+        String message = StringUtils.isNotBlank(ex.getProblemDetail().getDetail())
+                ? ex.getProblemDetail().getDetail()
+                : ex.getMessage();
+        return ResponseEntity.status(ex.getProblemDetail().getStatus()).body(new ErrorMessageDto(message));
     }
 }

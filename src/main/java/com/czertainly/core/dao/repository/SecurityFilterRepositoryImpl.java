@@ -213,7 +213,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                 )
         ).where(cb.equal(root.get("uuid"), uuid));
 
-        return entityManager.createQuery(query).getResultList().stream().findFirst().orElseThrow(() -> new NotFoundException(this.entityInformation.getClass(), uuid));
+        return entityManager.createQuery(query).getResultList().stream().findFirst().orElseThrow(() -> new NotFoundException(this.entityInformation.getJavaType(), uuid));
     }
 
     private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {

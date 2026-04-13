@@ -22,6 +22,7 @@ import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.acme.AcmeProfile_;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
+import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -49,6 +50,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     private static final Logger logger = LoggerFactory.getLogger(AcmeProfileServiceImpl.class);
     private final AcmeProfileRepository acmeProfileRepository;
+    private AcmeAccountRepository acmeAccountRepository;
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
     private AttributeEngine attributeEngine;
@@ -62,6 +64,11 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @Autowired
     public AcmeProfileServiceImpl(AcmeProfileRepository acmeProfileRepository) {
         this.acmeProfileRepository = acmeProfileRepository;
+    }
+
+    @Autowired
+    public void setAcmeAccountRepository(AcmeAccountRepository acmeAccountRepository) {
+        this.acmeAccountRepository = acmeAccountRepository;
     }
 
     @Autowired
@@ -192,6 +199,13 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
         }
 
+        if (raProfile == null && acmeAccountRepository.existsByAcmeProfileUuidAndIsDefaultRaProfileTrue(acmeProfile.getUuid())) {
+            throw new ValidationException(ValidationError.create(
+                    "Cannot remove the RA Profile from ACME Profile '" + acmeProfile.getName() + "' because " +
+                            "there are existing ACME accounts registered under this profile. " +
+                            "Removing the RA Profile would invalidate those accounts."));
+        }
+
         // delete old connector data attributes content
         UUID oldConnectorUuid = acmeProfile.getRaProfile() == null ? null : acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
         if (oldConnectorUuid != null) {
@@ -239,6 +253,11 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setCertificateAssociationsUuid(certificateAssociationUuid);
 
         acmeProfile = acmeProfileRepository.save(acmeProfile);
+
+        if (raProfile != null) {
+            // Keep as the last because it will flush and evict all entities from the Hibernate first-level cache.
+            acmeAccountRepository.updateRaProfileForDefaultAccounts(acmeProfile.getUuid(), raProfile.getUuid());
+        }
 
         return updateAndMapDtoAttributes(
                 acmeProfile,
@@ -389,8 +408,10 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
     public void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        acmeProfile.setRaProfile(getRaProfile(raProfileUuid));
+        RaProfile newRaProfile = getRaProfile(raProfileUuid);
+        acmeProfile.setRaProfile(newRaProfile);
         acmeProfileRepository.save(acmeProfile);
+        acmeAccountRepository.updateRaProfileForDefaultAccounts(acmeProfile.getUuid(), newRaProfile.getUuid());
     }
 
     @Override
@@ -414,8 +435,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return acmeProfileRepository.findResourceObject(objectUuid, AcmeProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return acmeProfileRepository.findResourceObject(objectUuid.getValue(), AcmeProfile_.name);
     }
 
     @Override

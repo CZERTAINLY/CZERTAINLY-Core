@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,9 +44,6 @@ class AuditLogAspectTest extends BaseSpringBootTest {
 
     @Autowired
     private CryptographicKeyController keyController;
-
-    @MockitoBean
-    private AuditLogsProducer auditLogsProducer;
 
     @Autowired
     private AuditLogsListener auditLogsListener;

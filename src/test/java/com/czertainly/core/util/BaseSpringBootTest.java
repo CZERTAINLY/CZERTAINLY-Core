@@ -3,6 +3,7 @@ package com.czertainly.core.util;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
+import com.czertainly.core.messaging.producers.AuditLogsProducer;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -20,9 +21,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,13 +33,14 @@ import java.util.UUID;
 @ActiveProfiles("test")
 public class BaseSpringBootTest {
 
-    @Autowired
+    @MockitoBean
     protected OpaClient opaClient;
+
+    @MockitoBean
+    protected AuditLogsProducer auditLogsProducer;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    private static String truncateTablesSql;
 
     @BeforeEach
     public void setupAuth() throws SQLException {
@@ -56,23 +60,23 @@ public class BaseSpringBootTest {
         }
 
         try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
-            if (truncateTablesSql == null) {
-                var tables = connection.getMetaData().getTables(connection.getCatalog(),"core", null, new String[]{"TABLE"});
-                int counter = 0;
-                StringBuilder stringBuilder = new StringBuilder("TRUNCATE ");
+            List<String> tableNames = new ArrayList<>();
+            try (var tables = connection.getMetaData().getTables(
+                    connection.getCatalog(),
+                    "core",
+                    null,
+                    new String[]{"TABLE"}
+            )) {
                 while (tables.next()) {
-                    String tableName = "core.\"%s\"".formatted(tables.getString("TABLE_NAME"));
-
-                    if (counter == 0) {
-                        stringBuilder.append(tableName);
-                    } else {
-                        stringBuilder.append(", ").append(tableName);
-                    }
-                    ++counter;
+                    tableNames.add("core.\"%s\"".formatted(tables.getString("TABLE_NAME")));
                 }
-                truncateTablesSql = stringBuilder.toString();
             }
-            connection.prepareStatement(truncateTablesSql).execute();
+            if (!tableNames.isEmpty()) {
+                String truncateSql = "TRUNCATE " + String.join(", ", tableNames);
+                try (var statement = connection.prepareStatement(truncateSql)) {
+                    statement.execute();
+                }
+            }
         }
     }
 

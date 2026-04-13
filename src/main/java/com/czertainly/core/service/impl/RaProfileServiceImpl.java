@@ -32,6 +32,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.ApprovalProfileService;
 import com.czertainly.core.service.v2.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.PermissionEvaluator;
@@ -42,13 +43,8 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.ValidatorUtil;
 import com.czertainly.core.util.X509ObjectToString;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopContext;
@@ -80,8 +76,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ScepProfileRepository scepProfileRepository;
     private CmpProfileRepository cmpProfileRepository;
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
-    private ApprovalProfileRepository approvalProfileRepository;
     private CertificateContentRepository certificateContentRepository;
+    private ApprovalProfileService approvalProfileService;
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
@@ -541,8 +537,16 @@ public class RaProfileServiceImpl implements RaProfileService {
 
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return raProfileRepository.findResourceObject(objectUuid, RaProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        RaProfile raProfile = raProfileRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(RaProfile.class, objectUuid.getValue()));
+        permissionEvaluator.authorityInstance(raProfile.getAuthorityInstanceReference().getSecuredUuid());
+        return new NameAndUuidDto(String.valueOf(objectUuid), raProfile.getName());
     }
 
     @Override
@@ -575,15 +579,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     public List<ApprovalProfileDto> getAssociatedApprovalProfiles(final String authorityInstanceUuid, final String raProfileUuid, final SecurityFilter securityFilter) throws NotFoundException {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
-
-        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> {
-            final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
-            final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
-            return cb.and(resourcePredicate, resourceUuidPredicate);
-        };
-
-        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(securityFilter, List.of("approvalProfile"), additionalWhereClause);
-        return approvalProfileRelations.stream().map(apr -> apr.getApprovalProfile().getTheLatestApprovalProfileVersion().mapToDto()).toList();
+        return approvalProfileService.getAssociatedApprovalProfiles(Resource.RA_PROFILE, UUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -591,27 +587,15 @@ public class RaProfileServiceImpl implements RaProfileService {
     public ApprovalProfileRelationDto associateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
-
-        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository.findByUuid(approvalProfileUuid);
-        if (approvalProfileOptional.isEmpty()) {
-            throw new NotFoundException("There is no such approval profile: " + approvalProfileUuid.getValue());
+        try {
+            approvalProfileService.associateApprovalProfile(approvalProfileUuid, Resource.RA_PROFILE, UUID.fromString(raProfileUuid));
+        } catch (AlreadyExistException e) {
+            throw new ValidationException(e.getMessage());
         }
-
-        final Optional<List<ApprovalProfileRelation>> approvalProfileRelationsOptional = approvalProfileRelationRepository.findByResourceUuid(UUID.fromString(raProfileUuid));
-        if (approvalProfileRelationsOptional.isPresent() && !approvalProfileRelationsOptional.get().isEmpty()) {
-            throw new ValidationException(ValidationError.create("There is not possible to have more than ONE associated approval profile for the RA profile uuid: " + raProfileUuid));
-        }
-
-        final ApprovalProfileRelation approvalProfileRelation = new ApprovalProfileRelation();
-        approvalProfileRelation.setApprovalProfile(approvalProfileOptional.get());
-        approvalProfileRelation.setApprovalProfileUuid(approvalProfileOptional.get().getUuid());
-        approvalProfileRelation.setResource(Resource.RA_PROFILE);
-        approvalProfileRelation.setResourceUuid(UUID.fromString(raProfileUuid));
-        approvalProfileRelationRepository.save(approvalProfileRelation);
-
         logger.info("There was registered new relation between Approval profile {} and RA profile {}", approvalProfileUuid.getValue(), raProfileUuid);
-
-        return approvalProfileRelation.mapToDto();
+        List<ApprovalProfileRelation> approvalProfileRelation = approvalProfileRelationRepository.findByResourceUuidAndResource(UUID.fromString(raProfileUuid), Resource.RA_PROFILE)
+                .orElseThrow(() -> new NotFoundException(String.format("Approval profile relation for RA Profile with UUID %s and Approval Profile with UUID %s not found", raProfileUuid, approvalProfileUuid.getValue())));
+        return approvalProfileRelation.getFirst().mapToDto();
     }
 
     @Override
@@ -619,22 +603,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void disassociateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
-
-        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> {
-            final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
-            final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
-            final Predicate approvalProfileUuidPredicate = cb.equal(root.get("approvalProfileUuid"), approvalProfileUuid.getValue());
-            return cb.and(resourcePredicate, resourceUuidPredicate, approvalProfileUuidPredicate);
-        };
-
-        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of("approvalProfile"), additionalWhereClause);
-
-        if (approvalProfileRelations == null || approvalProfileRelations.isEmpty()) {
-            throw new NotFoundException("There is no such approval profile (" + approvalProfileUuid.getValue() + ") associated with Ra profile (" + raProfileUuid + ")");
-        }
-
-        approvalProfileRelations.stream().forEach(approvalProfileRelation -> logger.info("There will be removed approval profile {} from ra profile {}", approvalProfileRelation.getApprovalProfileUuid(), approvalProfileRelation.getResourceUuid()));
-        approvalProfileRelationRepository.deleteAll(approvalProfileRelations);
+        approvalProfileService.disassociateApprovalProfile(approvalProfileUuid, Resource.RA_PROFILE, UUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -824,11 +793,6 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Autowired
-    public void setApprovalProfileRepository(ApprovalProfileRepository approvalProfileRepository) {
-        this.approvalProfileRepository = approvalProfileRepository;
-    }
-
-    @Autowired
     public void setCertificateContentRepository(CertificateContentRepository certificateContentRepository) {
         this.certificateContentRepository = certificateContentRepository;
     }
@@ -836,5 +800,10 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setApprovalProfileService(ApprovalProfileService approvalProfileService) {
+        this.approvalProfileService = approvalProfileService;
     }
 }

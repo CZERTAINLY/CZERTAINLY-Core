@@ -932,8 +932,15 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return cryptographicKeyRepository.findResourceObject(objectUuid, CryptographicKey_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        CryptographicKey key = checkKeyRequestToken(objectUuid.getValue(), "get detail of", true, true);
+        return new NameAndUuidDto(objectUuid.getValue(), key.getName());
     }
 
     @Override

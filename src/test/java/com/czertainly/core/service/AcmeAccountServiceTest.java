@@ -1,8 +1,10 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
@@ -81,6 +83,7 @@ class AcmeAccountServiceTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setVersion(ConnectorVersion.V1);
         connector = connectorRepository.save(connector);
 
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
@@ -206,5 +209,16 @@ class AcmeAccountServiceTest extends BaseSpringBootTest {
     void testBulkDisable() throws NotFoundException {
         acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getSecuredUuid()));
         Assertions.assertFalse(acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).isEnabled());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = acmeAccountService.getResourceObjectInternal(acmeAccount.getUuid());
+        Assertions.assertEquals(acmeAccount.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(acmeAccount.getAccountId(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = acmeAccountService.getResourceObjectExternal(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(acmeAccount.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(acmeAccount.getAccountId(), nameAndUuidDto.getName());
     }
 }

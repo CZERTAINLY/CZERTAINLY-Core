@@ -1476,8 +1476,15 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return certificateRepository.findResourceObject(objectUuid, Certificate_.serialNumber);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        Certificate certificate = getCertificateEntity(objectUuid);
+        return new NameAndUuidDto(certificate.getUuid(), certificate.getSerialNumber());
     }
 
     @Override

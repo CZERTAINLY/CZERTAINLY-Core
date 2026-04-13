@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
+import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.api.model.client.connector.v2.FeatureFlag;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
@@ -27,6 +28,7 @@ import com.czertainly.core.dao.entity.VaultInstance;
 import com.czertainly.core.dao.entity.VaultProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -87,6 +89,7 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         connector = new Connector();
         connector.setName("testConnector");
         connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
         connectorRepository.save(connector);
 
         // Add connector interface
@@ -225,6 +228,44 @@ class VaultInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, vaultInstanceDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), vaultInstanceDetailDto.getCustomAttributes().getFirst().getName());
         Assertions.assertEquals("data", ((List<AttributeContent>) vaultInstanceDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+    }
+
+    @Test
+    void testListVaultProfileAttributes_notFound() {
+        SecuredUUID nonExistentUuid = SecuredUUID.fromUUID(UUID.randomUUID());
+        Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.listVaultProfileAttributes(nonExistentUuid));
+    }
+
+    @Test
+    void testListVaultProfileAttributes_noConnector() {
+        VaultInstance vaultInstanceWithoutConnector = new VaultInstance();
+        vaultInstanceWithoutConnector.setName("noConnectorVaultInstance");
+        // connectorUuid intentionally not set
+        vaultInstanceRepository.save(vaultInstanceWithoutConnector);
+
+        SecuredUUID uuid = SecuredUUID.fromUUID(vaultInstanceWithoutConnector.getUuid());
+        Assertions.assertThrows(ValidationException.class, () -> vaultInstanceService.listVaultProfileAttributes(uuid));
+    }
+
+    @Test
+    void testListVaultProfileAttributes() throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
+        DataAttributeV3 profileAttribute = new DataAttributeV3();
+        profileAttribute.setName("profileAttr");
+        profileAttribute.setUuid(UUID.randomUUID().toString());
+        profileAttribute.setContentType(AttributeContentType.STRING);
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("Profile Attribute Label");
+        profileAttribute.setProperties(properties);
+
+        mockServer.stubFor(
+                WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
+                        .willReturn(WireMock.jsonResponse(new ObjectMapper().writeValueAsString(List.of(profileAttribute)), HttpStatus.OK.value()))
+        );
+
+        List<BaseAttribute> attributes = vaultInstanceService.listVaultProfileAttributes(SecuredUUID.fromUUID(vaultInstance.getUuid()));
+        Assertions.assertNotNull(attributes);
+        Assertions.assertEquals(1, attributes.size());
+        Assertions.assertEquals(profileAttribute.getName(), attributes.getFirst().getName());
     }
 
     @Test

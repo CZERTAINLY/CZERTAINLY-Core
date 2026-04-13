@@ -135,4 +135,15 @@ public class GroupServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = groupService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = groupService.getResourceObjectInternal(group.getUuid());
+        Assertions.assertEquals(group.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(group.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = groupService.getResourceObjectExternal(group.getSecuredUuid());
+        Assertions.assertEquals(group.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(group.getName(), nameAndUuidDto.getName());
+    }
 }

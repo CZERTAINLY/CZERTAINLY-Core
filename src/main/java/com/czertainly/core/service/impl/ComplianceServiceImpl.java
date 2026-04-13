@@ -48,11 +48,13 @@ public class ComplianceServiceImpl implements ComplianceService {
     private CertificateRequestRepository certificateRequestRepository;
     private CryptographicKeyRepository cryptographicKeyRepository;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+    private SecretRepository secretRepository;
 
     // since only checking condition items, not necessary CertificateTriggerEvaluator that implements special logic for setting properties
     private TriggerEvaluator<Certificate> certificateTriggerEvaluator;
     private TriggerEvaluator<CertificateRequestEntity> certificateRequestTriggerEvaluator;
     private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyItemTriggerEvaluator;
+    private TriggerEvaluator<Secret> secretTriggerEvaluator;
 
     private ComplianceProfileRuleHandler ruleHandler;
 
@@ -63,6 +65,10 @@ public class ComplianceServiceImpl implements ComplianceService {
         this.eventProducer = eventProducer;
     }
 
+    @Autowired
+    public void setSecretRepository(SecretRepository secretRepository) {
+        this.secretRepository = secretRepository;
+    }
 
     @Autowired
     public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
@@ -121,6 +127,11 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Autowired
+    public void setSecretTriggerEvaluator(TriggerEvaluator<Secret> secretTriggerEvaluator) {
+        this.secretTriggerEvaluator = secretTriggerEvaluator;
+    }
+
+    @Autowired
     public void setRuleHandler(ComplianceProfileRuleHandler ruleHandler) {
         this.ruleHandler = ruleHandler;
     }
@@ -139,6 +150,8 @@ public class ComplianceServiceImpl implements ComplianceService {
                     certificateRequestRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CertificateRequestEntity.class, objectUuid));
             case CRYPTOGRAPHIC_KEY_ITEM ->
                     cryptographicKeyItemRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, objectUuid));
+            case SECRET ->
+                    secretRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Secret.class, objectUuid));
             default ->
                     throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
         };
@@ -282,10 +295,13 @@ public class ComplianceServiceImpl implements ComplianceService {
                 case CERTIFICATE -> certificateRepository.existsById(objectUuid);
                 case CRYPTOGRAPHIC_KEY -> cryptographicKeyRepository.existsById(objectUuid);
                 case CRYPTOGRAPHIC_KEY_ITEM -> cryptographicKeyItemRepository.existsById(objectUuid);
+                case SECRET -> secretRepository.existsById(objectUuid);
                 case RA_PROFILE ->
                         complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.RA_PROFILE, objectUuid) > 0;
                 case TOKEN_PROFILE ->
                         complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.TOKEN_PROFILE, objectUuid) > 0;
+                case VAULT_PROFILE ->
+                    complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.VAULT_PROFILE, objectUuid) > 0;
                 default ->
                         throw new ValidationException(COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
             };
@@ -363,6 +379,12 @@ public class ComplianceServiceImpl implements ComplianceService {
                     loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.TOKEN_PROFILE, keyItem.getKey().getTokenProfileUuid(), Resource.CRYPTOGRAPHIC_KEY, List.of(keyItem));
                 }
             }
+            case SECRET -> {
+                List<Secret> secrets = secretRepository.findByUuidIn(objectUuids);
+                for (Secret secret : secrets) {
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.VAULT_PROFILE, secret.getSourceVaultProfileUuid(), Resource.SECRET, List.of(secret));
+                }
+            }
             case RA_PROFILE -> {
                 for (UUID associationObjectUuid : objectUuids) {
                     if (complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.RA_PROFILE, associationObjectUuid) == 0) {
@@ -379,6 +401,15 @@ public class ComplianceServiceImpl implements ComplianceService {
                     }
                     List<CryptographicKeyItem> keyItems = cryptographicKeyItemRepository.findByKeyTokenProfileUuid(associationObjectUuid);
                     loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.TOKEN_PROFILE, associationObjectUuid, Resource.CRYPTOGRAPHIC_KEY, new ArrayList<>(keyItems));
+                }
+            }
+            case VAULT_PROFILE -> {
+                for (UUID associationObjectUuid : objectUuids) {
+                    if (complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.VAULT_PROFILE, associationObjectUuid) == 0) {
+                        continue;
+                    }
+                    List<Secret> secrets = secretRepository.findBySourceVaultProfileUuid(associationObjectUuid);
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.VAULT_PROFILE, associationObjectUuid, Resource.SECRET, new ArrayList<>(secrets));
                 }
             }
             default ->
@@ -417,6 +448,8 @@ public class ComplianceServiceImpl implements ComplianceService {
                     associationResource == Resource.CERTIFICATE || associationResource == Resource.CERTIFICATE_REQUEST || associationResource == Resource.RA_PROFILE;
             case CRYPTOGRAPHIC_KEY, CRYPTOGRAPHIC_KEY_ITEM ->
                     associationResource == Resource.CRYPTOGRAPHIC_KEY || associationResource == Resource.CRYPTOGRAPHIC_KEY_ITEM || associationResource == Resource.TOKEN_PROFILE;
+            case SECRET ->
+                    associationResource == Resource.VAULT_PROFILE || associationResource == Resource.SECRET;
             default -> false;
         };
     }
@@ -426,6 +459,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             case CERTIFICATE, RA_PROFILE -> Resource.CERTIFICATE;
             case CERTIFICATE_REQUEST -> Resource.CERTIFICATE_REQUEST;
             case CRYPTOGRAPHIC_KEY, CRYPTOGRAPHIC_KEY_ITEM, TOKEN_PROFILE -> Resource.CRYPTOGRAPHIC_KEY;
+            case SECRET, VAULT_PROFILE -> Resource.SECRET;
             default ->
                     throw new ValidationException("Cannot determine compliance subject resource for association resource %s".formatted(associationResource.getLabel()));
         };
@@ -441,9 +475,11 @@ public class ComplianceServiceImpl implements ComplianceService {
             case CRYPTOGRAPHIC_KEY -> cryptographicKeyItemRepository.findByKeyUuidIn(List.of(associationObjectUuid));
             case CRYPTOGRAPHIC_KEY_ITEM ->
                     cryptographicKeyItemRepository.findByUuid(associationObjectUuid).map(List::of).orElse(List.of());
+            case SECRET -> secretRepository.findByUuidIn(List.of(associationObjectUuid));
             case RA_PROFILE ->
                     certificateRepository.findByRaProfileUuidAndCertificateContentIdNotNullAndArchivedFalse(associationObjectUuid);
             case TOKEN_PROFILE -> cryptographicKeyItemRepository.findByKeyTokenProfileUuid(associationObjectUuid);
+            case VAULT_PROFILE -> secretRepository.findBySourceVaultProfileUuid(associationObjectUuid);
             default -> List.of();
         };
     }
@@ -453,6 +489,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE, certificateTriggerEvaluator, certificateRepository));
         map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE_REQUEST, certificateRequestTriggerEvaluator, certificateRequestRepository));
         map.put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CRYPTOGRAPHIC_KEY_ITEM, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
+        map.put(Resource.SECRET, new ComplianceSubjectHandler<>(checkByProfiles, Resource.SECRET, secretTriggerEvaluator, secretRepository));
 
         return map;
     }

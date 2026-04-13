@@ -38,7 +38,10 @@ import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
+import com.czertainly.core.security.authz.opa.dto.OpaResourceAccessResult;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -46,7 +49,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -394,6 +399,66 @@ class ResourceServiceTest extends BaseSpringBootTest {
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
 
     }
+
+    @Test
+    void  testGetResourceWithAuthorization() throws NotFoundException {
+        forbidGetResourceWithAuthorization();
+        List<Resource> allowedResources = List.of(
+                Resource.ACME_PROFILE,
+                Resource.AUTHORITY,
+                Resource.ATTRIBUTE,
+                Resource.COMPLIANCE_PROFILE,
+                Resource.CONNECTOR,
+                Resource.CERTIFICATE,
+                Resource.CREDENTIAL,
+                Resource.ENTITY,
+                Resource.GROUP,
+                Resource.LOCATION,
+                Resource.SCEP_PROFILE,
+                Resource.TOKEN_PROFILE,
+                Resource.TOKEN,
+                Resource.CMP_PROFILE
+        );
+
+        List<Resource> notAllowedResources = List.of(
+                Resource.RA_PROFILE,
+                Resource.SECRET
+        );
+
+        UUID objectUuid = UUID.randomUUID();
+        for (Resource resource : allowedResources) {
+            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObject(resource, objectUuid));
+            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObjectInternal(resource, objectUuid));
+        }
+
+        for (Resource resource : notAllowedResources) {
+            Assertions.assertThrows(AuthorizationDeniedException.class, () -> resourceService.getResourceObject(resource, objectUuid));
+            Assertions.assertThrows(NotFoundException.class, () -> resourceService.getResourceObjectInternal(resource, objectUuid));
+        }
+    }
+
+    void forbidGetResourceWithAuthorization() {
+        OpaResourceAccessResult resourceAccessNotAllowed = new OpaResourceAccessResult(false, List.of());
+
+        Mockito.when(
+                opaClient.checkResourceAccess(Mockito.any(),
+                        Mockito.argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE)), Mockito.any(), Mockito.any())
+        ).thenReturn(resourceAccessNotAllowed);
+
+        Mockito.when(
+                opaClient.checkResourceAccess(Mockito.any(),  Mockito.argThat(req ->
+                        isRequestForResourceAction(req, Resource.SECRET)
+                ), Mockito.any(), Mockito.any())
+        ).thenReturn(resourceAccessNotAllowed);
+
+    }
+
+    private static boolean isRequestForResourceAction(OpaRequestedResource requestedResource, Resource resource) {
+        return requestedResource != null && requestedResource.getProperties() != null &&
+                (requestedResource.getProperties().containsKey("name") && requestedResource.getProperties().get("name").equals(resource.getCode())) &&
+                (requestedResource.getProperties().containsKey("action") && requestedResource.getProperties().get("action").equals(ResourceAction.DETAIL.getCode()));
+    }
+
 
     private static void assertCorrectBodyData(RequestAttributeCallback requestAttributeCallback, AttributeCallbackMapping resourceMapping, AuthorityInstanceReference authorityInstance) {
         ResourceSimpleContentData data = (ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo());

@@ -33,6 +33,7 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
+import com.nimbusds.jose.util.Base64URL;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,11 +42,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.InitialDirContext;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -539,20 +547,34 @@ class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testNewAccount() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_acmeProfileBased_withExistingKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, false);
+        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false);
         assertNewAccount(account);
     }
 
     @Test
-    void testNewAccount_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_raProfileBased_withExistingKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, true);
+        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, true);
         assertNewAccount(account);
     }
 
-    private String buildNewAccountRequestJSON(URI requestUri) throws JOSEException {
+    @Test
+    void testNewAccount_acmeProfileBased_withNewKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
+        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, false);
+        assertNewAccount(account);
+    }
+
+    @Test
+    void testNewAccount_raProfileBased_withNewKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
+        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, true);
+        assertNewAccount(account);
+    }
+
+    private String buildNewAccountRequestJSON_withExistingKey(URI requestUri) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
         jwsObjectJSON.sign(
                 new JWSHeader.Builder(JWSAlgorithm.RS256)
@@ -561,6 +583,19 @@ class AcmeServiceTest extends BaseSpringBootTest {
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
                         .build(),
                 rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private String buildNewAccountRequestJSON_withNewKey(URI requestUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(newRsa2048PublicJWK)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                newRsa2048Signer
         );
         return jwsObjectJSON.serializeFlattened();
     }
@@ -645,14 +680,14 @@ class AcmeServiceTest extends BaseSpringBootTest {
     void testNewAccountOnExisting_wrongConfiguration() throws URISyntaxException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME_2 + "/new-account");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(ACME_PROFILE_NAME_2, buildNewAccountRequestJSON(requestUri), requestUri, false));
+                () -> acmeService.newAccount(ACME_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false));
     }
 
     @Test
     void testNewAccountOnExisting_wrongConfiguration_raProfileBased() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME_2 + "/new-account");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(RA_PROFILE_NAME_2, buildNewAccountRequestJSON(requestUri), requestUri, true));
+                () -> acmeService.newAccount(RA_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, true));
     }
 
     @Test
@@ -925,7 +960,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     void testUpdateAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/update");
-        acmeService.updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, buildNewAccountRequestJSON(requestUri), requestUri, false);
+        acmeService.updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false);
         AcmeAccount acmeAccount = acmeAccountRepository.findByAccountId(ACME_ACCOUNT_ID_VALID).orElseThrow();
         Assertions.assertEquals(1, acmeAccount.getFailedOrders());
     }
@@ -1094,5 +1129,53 @@ class AcmeServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
         // contains Link header
         Assertions.assertNotNull(response.getHeaders().get("Link"));
+    }
+
+    @Test
+    void testValidateChallenge_Dns01() throws AcmeProblemDocumentException, JOSEException, NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, NamingException {
+        AcmeAuthorization authorization = new AcmeAuthorization();
+        authorization.setAuthorizationId("authDns01");
+        authorization.setStatus(AuthorizationStatus.PENDING);
+        authorization.setIdentifier("{\"type\":\"dns\",\"value\":\"example.com\"}");
+        authorization.setOrderUuid(order1.getUuid());
+        authorization.setOrder(order1);
+        acmeAuthorizationRepository.save(authorization);
+
+        AcmeChallenge challenge = new AcmeChallenge();
+        challenge.setChallengeId("challengeDns01");
+        challenge.setStatus(ChallengeStatus.PENDING);
+        challenge.setType(ChallengeType.DNS01);
+        challenge.setToken("tokenDns01");
+        challenge.setAuthorizationUuid(authorization.getUuid());
+        challenge.setAuthorization(authorization);
+        acmeChallengeRepository.save(challenge);
+
+        String keyAuthorization = AcmeCommonHelper.createKeyAuthorization(challenge.getToken(), rsa2048PublicJWK.toPublicKey());
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        final byte[] encodedHashOfExpectedKeyAuthorization = digest.digest(keyAuthorization.getBytes(StandardCharsets.UTF_8));
+        String expectedDnsValidationToken = Base64URL.encode(encodedHashOfExpectedKeyAuthorization).toString();
+
+        try (var mockedContext = Mockito.mockConstruction(InitialDirContext.class, (mock, context) -> {
+            Attributes attrs = Mockito.mock(Attributes.class);
+            Attribute attr = Mockito.mock(Attribute.class);
+            @SuppressWarnings("unchecked")
+            NamingEnumeration<Attribute> enumeration = (NamingEnumeration<Attribute>) Mockito.mock(NamingEnumeration.class);
+
+            Mockito.when(mock.getAttributes(Mockito.anyString(), Mockito.any(String[].class))).thenReturn(attrs);
+            Mockito.doReturn(enumeration).when(attrs).getAll();
+            Mockito.when(enumeration.hasMore()).thenReturn(true, false);
+            Mockito.when(enumeration.next()).thenReturn(attr);
+            Mockito.when(attr.get()).thenReturn(expectedDnsValidationToken);
+        })) {
+            URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/chall/" + challenge.getChallengeId());
+            ResponseEntity<Challenge> response = acmeService.validateChallenge(ACME_PROFILE_NAME, challenge.getChallengeId(), requestUri, false);
+
+            Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
+            Assertions.assertEquals(ChallengeStatus.VALID, Objects.requireNonNull(response.getBody()).getStatus());
+
+            AcmeChallenge updatedChallenge = acmeChallengeRepository.findByChallengeId(challenge.getChallengeId()).orElseThrow();
+            Assertions.assertEquals(ChallengeStatus.VALID, updatedChallenge.getStatus());
+            Assertions.assertNotNull(updatedChallenge.getValidated());
+        }
     }
 }

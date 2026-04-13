@@ -1111,6 +1111,17 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(shouldBeAccepted, isPresent, "Certificate '" + commonName + "' acceptance mismatch");
     }
 
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = certificateService.getResourceObjectInternal(certificate.getUuid());
+        Assertions.assertEquals(certificate.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(certificate.getSerialNumber(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = certificateService.getResourceObjectExternal(certificate.getSecuredUuid());
+        Assertions.assertEquals(certificate.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(certificate.getSerialNumber(), nameAndUuidDto.getName());
+    }
+
 
     @ParameterizedTest
     @MethodSource("com.czertainly.core.util.CertificateTestData#provideScepCaCertificateTestData")

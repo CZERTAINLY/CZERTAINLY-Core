@@ -357,7 +357,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return tokenInstanceReferenceRepository.findResourceObject(objectUuid, TokenInstanceReference_.name);
     }
 
@@ -365,6 +365,12 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return tokenInstanceReferenceRepository.listResourceObjects(filter, TokenInstanceReference_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
     }
 
     @Override

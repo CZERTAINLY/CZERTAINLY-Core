@@ -78,12 +78,12 @@ class AuthServiceTest extends BaseSpringBootTest {
         injectLocalhostUserProfileToContext();
 
         UserProfileDetailDto userProfileDto = authService.getAuthProfile();
-        Assertions.assertEquals(3, userProfileDto.getPermissions().getAllowedListings().size());
+        Assertions.assertEquals(4, userProfileDto.getPermissions().getAllowedListings().size());
 
         // allow also users through group object member permissions
         injectLocalhostUserProfileChangedToContext();
         userProfileDto = authService.getAuthProfile();
-        Assertions.assertEquals(5, userProfileDto.getPermissions().getAllowedListings().size());
+        Assertions.assertEquals(6, userProfileDto.getPermissions().getAllowedListings().size());
 
     }
 

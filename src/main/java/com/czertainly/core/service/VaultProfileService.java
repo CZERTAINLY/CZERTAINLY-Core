@@ -16,7 +16,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface VaultProfileService {
+public interface VaultProfileService extends ResourceExtensionService {
 
     PaginationResponseDto<VaultProfileDto> listVaultProfiles(SearchRequestDto searchRequest, SecurityFilter securityFilter);
 
@@ -32,7 +32,9 @@ public interface VaultProfileService {
 
     void disableVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID) throws NotFoundException;
 
-    List<BaseAttribute> getAttributesForCreatingSecret(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException, AttributeException;
+    List<BaseAttribute> listSecretAttributes(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID, SecretType secretType) throws NotFoundException, ConnectorException, AttributeException;
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
+
+    Long statisticsVaultProfileCount(SecurityFilter filter);
 }

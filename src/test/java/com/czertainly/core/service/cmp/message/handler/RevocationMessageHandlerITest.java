@@ -103,6 +103,7 @@ class RevocationMessageHandlerITest extends BaseSpringBootTest {
         connector2FunctionGroupRepository.save(c2fg);
 
         connector.getFunctionGroups().add(c2fg);
+        connector.setVersion(ConnectorVersion.V2);
         connectorRepository.save(connector);
 
         AuthorityInstanceReference authorityInstance = new AuthorityInstanceReference();

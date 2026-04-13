@@ -20,7 +20,6 @@ public class AuditLogsListener implements MessageProcessor<AuditLogMessage> {
     @Override
     public void processMessage(final AuditLogMessage auditLogMessage) {
         LogRecord logRecord = auditLogMessage.getLogRecord();
-
         LogRecord.LogRecordBuilder builder = LogRecord.builder()
                 .audited(true)
                 .timestamp(logRecord.timestamp())

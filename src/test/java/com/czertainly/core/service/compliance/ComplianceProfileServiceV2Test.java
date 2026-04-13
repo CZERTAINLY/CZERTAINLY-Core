@@ -37,7 +37,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         var objects = complianceProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(2, objects.size());
 
-        var profileInfo = complianceProfileService.getResourceObject(complianceProfile.getUuid());
+        var profileInfo = complianceProfileService.getResourceObjectInternal(complianceProfile.getUuid());
         Assertions.assertEquals(complianceProfile.getName(), profileInfo.getName());
     }
 
@@ -48,7 +48,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         Assertions.assertEquals(1, dtos.size());
         Assertions.assertEquals(complianceProfile.getName(), dtos.getFirst().getName());
         Assertions.assertEquals(complianceProfile.getUuid(), dtos.getFirst().getUuid());
-        Assertions.assertEquals(1, dtos.getFirst().getInternalRulesCount());
+        Assertions.assertEquals(2, dtos.getFirst().getInternalRulesCount());
         Assertions.assertEquals(1, dtos.getFirst().getProviderRulesCount());
         Assertions.assertEquals(1, dtos.getFirst().getProviderGroupsCount());
     }
@@ -300,7 +300,8 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
 
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
         ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
-        Assertions.assertEquals(0, complianceProfileDto.getInternalRules().size());
+        Assertions.assertEquals(1, complianceProfileDto.getInternalRules().size());
+        Assertions.assertTrue(complianceProfileDto.getInternalRules().stream().noneMatch(r -> r.getUuid().equals(internalCertificateRuleUuid)));
     }
 
     @Test
@@ -436,9 +437,11 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     @Test
     void getAssociations() throws NotFoundException {
         var associations = complianceProfileService.getAssociations(SecuredUUID.fromUUID(complianceProfile.getUuid()));
-        Assertions.assertEquals(1, associations.size());
+        Assertions.assertEquals(2, associations.size());
         Assertions.assertEquals(Resource.RA_PROFILE, associations.getFirst().getResource());
         Assertions.assertEquals(associatedRaProfileUuid, associations.getFirst().getObjectUuid());
+        Assertions.assertEquals(Resource.VAULT_PROFILE, associations.get(1).getResource());
+        Assertions.assertEquals(vaultProfileUuid, associations.get(1).getObjectUuid());
 
         var complianceProfiles = complianceProfileService.getAssociatedComplianceProfiles(Resource.RA_PROFILE, associatedRaProfileUuid);
         Assertions.assertEquals(1, complianceProfiles.size());
@@ -451,7 +454,8 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         complianceProfileService.associateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE, unassociatedRaProfileUuid);
 
         var associations = complianceProfileService.getAssociations(SecuredUUID.fromUUID(complianceProfile.getUuid()));
-        Assertions.assertEquals(2, associations.size());
+        Assertions.assertEquals(3, associations.size());
+        Assertions.assertTrue(associations.stream().anyMatch(a -> a.getResource() == Resource.RA_PROFILE && a.getObjectUuid().equals(unassociatedRaProfileUuid)));
     }
 
     @Test
@@ -478,7 +482,8 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         complianceProfileService.disassociateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE, associatedRaProfileUuid);
 
         var associations = complianceProfileService.getAssociations(SecuredUUID.fromUUID(complianceProfile.getUuid()));
-        Assertions.assertEquals(0, associations.size());
+        Assertions.assertEquals(1, associations.size());
+        Assertions.assertTrue(associations.stream().noneMatch(a -> a.getResource() == Resource.RA_PROFILE && a.getObjectUuid().equals(associatedRaProfileUuid)));
 
         // later when compliance check is redone, the status will be set to NOT_CHECKED and assertion will pass
     }
@@ -491,7 +496,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     @Test
     void getComplianceRulesTest() throws ConnectorException, NotFoundException {
         var rules = complianceProfileService.getComplianceRules(null, null, null, null, null);
-        Assertions.assertEquals(4, rules.size());
+        Assertions.assertEquals(5, rules.size());
 
         rules = complianceProfileService.getComplianceRules(null, null, Resource.CERTIFICATE_REQUEST, null, null);
         Assertions.assertEquals(1, rules.size());

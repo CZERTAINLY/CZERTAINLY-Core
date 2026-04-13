@@ -249,4 +249,16 @@ class AuthorityInstanceServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = authorityInstanceService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = authorityInstanceService.getResourceObjectInternal(authorityInstance.getUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(authorityInstance.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = authorityInstanceService.getResourceObjectExternal(authorityInstance.getSecuredUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(authorityInstance.getName(), nameAndUuidDto.getName());
+
+    }
 }

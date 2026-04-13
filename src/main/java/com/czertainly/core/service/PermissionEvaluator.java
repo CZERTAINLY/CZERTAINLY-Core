@@ -48,4 +48,8 @@ public interface PermissionEvaluator {
     void tokenProfiles(List<SecuredUUID> uuids);
 
     void vaultProfileMembers(SecuredUUID securedUUID);
+
+    void acmeProfile(SecuredUUID uuid) throws NotFoundException;
+
+    void vaultInstance(SecuredUUID uuid);
 }

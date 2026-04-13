@@ -284,6 +284,14 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
         // Connector with same function group (CREDENTIAL_PROVIDER) and kind (ApiKey) already exists
         Assertions.assertThrows(ValidationException.class, () -> connectorService.createConnector(request));
+
+        ConnectRequestDto connectRequest = new ConnectRequestDto();
+        connectRequest.setUrl(request.getUrl());
+        connectRequest.setAuthType(AuthType.NONE);
+        connectRequest.setUuid(connector.getUuid().toString());
+
+        // Even though the function group and kind are duplicate, it should not throw exception on connect as the connector is already created and connected successfully
+        Assertions.assertDoesNotThrow(() -> connectorService.connect(connectRequest));
     }
 
     @Test
@@ -372,6 +380,8 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     @Test
     void testApproveConnector() throws ConnectorException, NotFoundException {
         Connector waitingConnector = new Connector();
+        waitingConnector.setUrl("http://localhost:" + mockServer.port() + "/waiting_connector");
+        waitingConnector.setVersion(ConnectorVersion.V1);
         waitingConnector.setStatus(ConnectorStatus.WAITING_FOR_APPROVAL);
         waitingConnector = connectorRepository.save(waitingConnector);
 
@@ -604,5 +614,16 @@ class ConnectorServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto.getProxy());
         Assertions.assertEquals(proxy.getUuid().toString(), dto.getProxy().getUuid());
         Assertions.assertEquals(proxy.getName(), dto.getProxy().getName());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        NameAndUuidDto nameAndUuidDto = connectorService.getResourceObjectInternal(connector.getUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(connector.getName(), nameAndUuidDto.getName());
+
+        nameAndUuidDto = connectorService.getResourceObjectExternal(connector.getSecuredUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(connector.getName(), nameAndUuidDto.getName());
     }
 }
