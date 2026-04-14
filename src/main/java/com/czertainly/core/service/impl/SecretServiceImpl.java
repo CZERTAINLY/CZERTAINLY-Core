@@ -718,6 +718,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, updatedSourceVaultProfile.getUuid(), updatedSourceVaultProfile.getName()));
             newVersion.setVaultVersion(secretResponseDto.getVersion());
         }
+        List<RequestAttribute> previousSourceVaultProfileAttributes = attributeEngine.getRequestObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid());
         attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
         attributeEngine.updateObjectDataAttributesContent(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), request.getSecretAttributes());
         newVersion.setFingerprint(secret.getLatestVersion().getFingerprint());
@@ -728,7 +729,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
         // Move original source vault profile to sync vault profiles
         Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
-        secret2SyncVaultProfile.setSecretAttributes(attributeEngine.getRequestObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+        secret2SyncVaultProfile.setSecretAttributes(previousSourceVaultProfileAttributes);
         secret2SyncVaultProfile.setId(new Secret2SyncVaultProfileId(secret.getUuid(), currentSourceVaultProfile.getUuid()));
         secret2SyncVaultProfile.setVaultProfile(currentSourceVaultProfile);
         secret2SyncVaultProfile.setSecret(secret);
