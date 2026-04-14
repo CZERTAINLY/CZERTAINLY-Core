@@ -332,6 +332,8 @@ class SecretServiceTest extends BaseSpringBootTest {
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data2")));
         request.setCustomAttributes(List.of(attribute));
         SecretDetailDto secretDetailDto = secretService.updateSecret(secret.getUuid(), request);
+        var served = mockServer.findAll(WireMock.postRequestedFor(WireMock.anyUrl()));
+        Assertions.assertEquals(2, served.size());
 
         Assertions.assertEquals(request.getDescription(), secretDetailDto.getDescription());
         Assertions.assertNotNull(secretDetailDto.getCustomAttributes());
@@ -380,10 +382,13 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> secretService.deleteSecret(secret.getUuid(), false));
         secret.setLatestVersion(latestVersion);
         secretRepository.save(secret);
+        addSyncVaultProfile(secret);
         WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
                 .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_NOT_FOUND, "", null, null), HttpStatus.NOT_FOUND.value())
                         .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
-        Assertions.assertDoesNotThrow(() -> secretService.deleteSecret(secret.getUuid(), false));
+        Assertions.assertDoesNotThrow(() -> secretService.deleteSecret(secret.getUuid(), true));
+        var served = mockServer.findAll(WireMock.deleteRequestedFor(WireMock.anyUrl()));
+        Assertions.assertEquals(2, served.size());
     }
 
     @Test
@@ -439,7 +444,6 @@ class SecretServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, createSecretAttributes));
 
         secret2SyncVaultProfileRepository.delete(secret2SyncVaultProfile);
-
         secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, createSecretAttributes);
 
         VaultInstance newVaultInstance = new VaultInstance();
