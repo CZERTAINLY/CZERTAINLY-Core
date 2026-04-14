@@ -31,14 +31,14 @@ public class TspRequestParser {
             digestAlgorithm = DigestAlgorithm.findByOid(algorithmOid);
         } catch (ValidationException e) {
             throw new TspRequestParsingException(TspFailureInfo.BAD_ALG,
-                    "Unsupported hash algorithm", "Unsupported hash algorithm OID: " + algorithmOid);
+                    "Unsupported hash algorithm OID: " + algorithmOid, "Unsupported hash algorithm");
         }
 
         var hashedMessage = bcRequest.getMessageImprintDigest();
         if (hashedMessage.length != digestAlgorithm.getDigestSizeBytes()) {
             throw new TspRequestParsingException(TspFailureInfo.BAD_DATA_FORMAT,
-                    "Invalid hash length",
-                    "Hash length %d does not match expected %d for %s".formatted(hashedMessage.length, digestAlgorithm.getDigestSizeBytes(), digestAlgorithm.getCode()));
+                    "Hash length %d does not match expected %d for %s".formatted(hashedMessage.length, digestAlgorithm.getDigestSizeBytes(), digestAlgorithm.getCode()),
+                    "Invalid hash length");
         }
 
         Optional<String> policy = resolvePolicy(bcRequest);
@@ -68,8 +68,8 @@ public class TspRequestParser {
             bcRequest = new TimeStampRequest(body);
         } catch (IOException e) {
 
-            throw new TspRequestParsingException(TspFailureInfo.BAD_REQUEST,
-                    "Malformed request", "Malformed request: " + e.getMessage());
+            throw new TspRequestParsingException(TspFailureInfo.BAD_REQUEST, "Malformed request: " + e.getMessage(),
+                    "Malformed request");
         }
         return bcRequest;
     }

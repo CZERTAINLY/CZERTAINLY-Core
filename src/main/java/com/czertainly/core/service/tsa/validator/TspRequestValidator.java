@@ -18,8 +18,8 @@ public class TspRequestValidator {
         if (request.requestExtensions() != null) {
             throw new TspRequestValidationException(
                     TspFailureInfo.UNACCEPTED_EXTENSION,
-                    "Extensions are not supported by the chosen profile",
-                    "Request contains extensions, but no extensions are configured as allowed by the profile");
+                    "Request contains extensions, but no extensions are configured as allowed by the profile",
+                    "Extensions are not supported by the chosen profile");
         }
     }
 
@@ -28,8 +28,8 @@ public class TspRequestValidator {
         if (!allowed.isEmpty() && !allowed.contains(request.hashAlgorithm())) {
             throw new TspRequestValidationException(
                     TspFailureInfo.BAD_ALG,
-                    "Hash algorithm is not accepted by the chosen profile",
-                    "Hash algorithm '%s' is not accepted by the profile".formatted(request.hashAlgorithm().getCode()));
+                    "Hash algorithm '%s' is not accepted by the profile".formatted(request.hashAlgorithm().getCode()),
+                    "Hash algorithm is not accepted by the chosen profile");
         }
     }
 
@@ -45,8 +45,8 @@ public class TspRequestValidator {
         if (!timestampingWorkflow.allowedPolicyIds().contains(requestedPolicy)) {
             throw new TspRequestValidationException(
                     TspFailureInfo.UNACCEPTED_POLICY,
-                    "Policy ID is not accepted by the chosen profile",
-                    "Policy '%s' is not accepted by the profile".formatted(requestedPolicy));
+                    "Policy '%s' is not accepted by the profile".formatted(requestedPolicy),
+                    "Policy ID is not accepted by the chosen profile");
         }
     }
 

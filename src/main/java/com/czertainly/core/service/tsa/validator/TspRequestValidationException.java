@@ -5,7 +5,7 @@ import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 
 public class TspRequestValidationException extends TspException {
 
-    public TspRequestValidationException(TspFailureInfo failureInfo, String clientMessage, String logMessage) {
-        super(failureInfo, clientMessage, logMessage);
+    public TspRequestValidationException(TspFailureInfo failureInfo, String logMessage, String clientMessage) {
+        super(failureInfo, logMessage, clientMessage);
     }
 }

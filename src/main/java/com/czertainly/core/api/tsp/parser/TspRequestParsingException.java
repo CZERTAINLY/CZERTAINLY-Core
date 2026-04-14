@@ -5,8 +5,8 @@ import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 
 public class TspRequestParsingException extends TspException {
 
-    TspRequestParsingException(TspFailureInfo failureInfo, String clientMessage, String logMessage) {
-        super(failureInfo, clientMessage, logMessage);
+    TspRequestParsingException(TspFailureInfo failureInfo, String logMessage, String clientMessage) {
+        super(failureInfo, logMessage, clientMessage);
     }
 
 }
