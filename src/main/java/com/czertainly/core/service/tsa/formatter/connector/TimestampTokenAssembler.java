@@ -203,10 +203,12 @@ public final class TimestampTokenAssembler {
 
     private static Extensions buildQcExtensions() {
         try {
-            var qcCompliance = new QCStatement(new ASN1ObjectIdentifier(SystemOid.QC_COMPLIANCE.getOid()));
+            // ETSI EN 319 422 Annex B: esi4-qtstStatement1 (OID 0.4.0.19422.1.1) MUST be present in the
+            // qcStatements extension of a time-stamp token that is claimed to be a qualified electronic time-stamp.
+            var qtstStatement = new QCStatement(new ASN1ObjectIdentifier(SystemOid.QTST_STATEMENT_1.getOid()));
             return new Extensions(
                     new Extension(Extension.qCStatements, false,
-                            new DERSequence(qcCompliance).getEncoded()));
+                            new DERSequence(qtstStatement).getEncoded()));
         } catch (IOException e) {
             throw new IllegalStateException("Failed to build QC extensions", e);
         }
