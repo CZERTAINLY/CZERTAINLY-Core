@@ -29,7 +29,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     Certificate findFirstByUuidIn(List<UUID> uuids);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items", "raProfile"})
+    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items", "raProfile", "complianceResult"})
     Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
 
     @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items", "raProfile"})
@@ -259,4 +259,119 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             ORDER BY c.created DESC
             """)
     List<CertificateDto> findCertificateDtosByUuidsIn(List<UUID> uuids);
+
+    @Modifying
+    @Query(value = """
+            WITH affected_by_profile AS (
+                SELECT DISTINCT c.uuid
+                FROM {h-schema}certificate c
+                JOIN {h-schema}ra_profile ra
+                    ON c.ra_profile_uuid = ra.uuid
+                JOIN {h-schema}compliance_profile_association cpa
+                    ON cpa.object_uuid = ra.uuid
+                JOIN {h-schema}compliance_profile_rule cpr
+                    ON cpr.compliance_profile_uuid = cpa.compliance_profile_uuid
+                WHERE cpa.resource = 'RA_PROFILE'
+                  AND cpr.internal_rule_uuid = :ruleUuid
+                  AND c.compliance_status IN ('NOK', 'NA', 'FAILED')
+            )
+            UPDATE {h-schema}certificate c
+            SET compliance_result =
+                jsonb_set(
+                    jsonb_set(
+                        jsonb_set(
+                            c.compliance_result,
+                            '{internalRules,notCompliant}',
+                            COALESCE((c.compliance_result #> '{internalRules,notCompliant}') - CAST(:ruleUuid AS text), '[]'::jsonb),
+                            true
+                        ),
+                        '{internalRules,notApplicable}',
+                        COALESCE((c.compliance_result #> '{internalRules,notApplicable}') - CAST(:ruleUuid AS text), '[]'::jsonb),
+                        true
+                    ),
+                    '{internalRules,notAvailable}',
+                    COALESCE((c.compliance_result #> '{internalRules,notAvailable}') - CAST(:ruleUuid AS text), '[]'::jsonb),
+                    true
+                )
+            WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM affected_by_profile ap
+                            WHERE ap.uuid = c.uuid
+                        )
+                AND jsonb_exists(
+                       COALESCE(c.compliance_result -> 'internalRules' -> 'notCompliant', '{}'::jsonb)
+                       || COALESCE(c.compliance_result -> 'internalRules' -> 'notApplicable', '{}'::jsonb)
+                       || COALESCE(c.compliance_result -> 'internalRules' -> 'notAvailable', '{}'::jsonb),
+                       CAST(:ruleUuid AS text)
+                        )
+            """, nativeQuery = true)
+    void removeInternalRuleFromComplianceResult(@Param("ruleUuid") UUID ruleUuid);
+
+
+
+    @Modifying
+    @Query(value = """
+            WITH affected_by_profile AS (
+                SELECT DISTINCT c.uuid
+                FROM {h-schema}certificate c
+                JOIN {h-schema}ra_profile ra
+                    ON c.ra_profile_uuid = ra.uuid
+                JOIN {h-schema}compliance_profile_association cpa
+                    ON cpa.object_uuid = ra.uuid
+                JOIN {h-schema}compliance_profile_rule cpr
+                    ON cpr.compliance_profile_uuid = cpa.compliance_profile_uuid
+                WHERE cpa.resource = 'RA_PROFILE'
+                  AND cpr.compliance_rule_uuid = :ruleUuid
+                  AND cpr.connector_uuid = :connectorUuid
+                  AND c.compliance_status IN ('NOK', 'NA', 'FAILED')
+            )
+            UPDATE {h-schema}certificate c
+            SET compliance_result =
+                jsonb_set(
+                             c.compliance_result,
+                             '{providerRules}',
+                             (
+                                 SELECT jsonb_agg(
+                                     CASE
+                                         WHEN pr ->> 'connectorUuid' = CAST(:connectorUuid AS text) THEN
+                                             jsonb_set(
+                                                 jsonb_set(
+                                                     jsonb_set(
+                                                         pr,
+                                                         '{notCompliant}',
+                                                         COALESCE((pr -> 'notCompliant') - CAST(:ruleUuid AS text), '[]'::jsonb),
+                                                         true
+                                                     ),
+                                                     '{notApplicable}',
+                                                     COALESCE((pr -> 'notApplicable') - CAST(:ruleUuid AS text), '[]'::jsonb),
+                                                     true
+                                                 ),
+                                                 '{notAvailable}',
+                                                 COALESCE((pr -> 'notAvailable') - CAST(:ruleUuid AS text), '[]'::jsonb),
+                                                 true
+                                             )
+                                         ELSE pr
+                                     END
+                                 )
+                                 FROM jsonb_array_elements(COALESCE(c.compliance_result -> 'providerRules', '[]'::jsonb)) AS pr
+                             ),
+                             true
+                 )
+            WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM affected_by_profile ap
+                            WHERE ap.uuid = c.uuid
+                        )
+                AND EXISTS (
+                      SELECT 1
+                      FROM jsonb_array_elements(c.compliance_result -> 'providerRules') AS pr
+                      WHERE pr ->> 'connectorUuid' = CAST(:connectorUuid AS text)
+                        AND jsonb_exists(
+                            COALESCE(pr -> 'notCompliant', '[]'::jsonb)
+                            || COALESCE(pr -> 'notApplicable', '[]'::jsonb)
+                            || COALESCE(pr -> 'notAvailable', '[]'::jsonb),
+                       CAST(:ruleUuid AS text))
+                  )
+            """, nativeQuery = true)
+    void removeProviderRuleFromComplianceResult(@Param("ruleUuid") UUID ruleUuid, @Param("connectorUuid") UUID connectorUuid);
 }

@@ -54,9 +54,23 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     private ConnectorRepository connectorRepository;
     private ComplianceInternalRuleRepository internalRuleRepository;
     private ConditionItemRepository conditionItemRepository;
+    private CertificateRepository certificateRepository;
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+    private SecretRepository secretRepository;
+    private CertificateRequestRepository certificateRequestRepository;
 
     private AttributeEngine attributeEngine;
     private ComplianceProfileRuleHandler ruleHandler;
+
+    @Autowired
+    public void setCryptographicKeyRepository(CryptographicKeyItemRepository cryptographicKeyItemRepository) {
+        this.cryptographicKeyItemRepository = cryptographicKeyItemRepository;
+    }
+
+    @Autowired
+    public void setSecretRepository(SecretRepository secretRepository) {
+        this.secretRepository = secretRepository;
+    }
 
     @Autowired
     public void setComplianceApiClient(ComplianceApiClient complianceApiClient) {
@@ -101,6 +115,16 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Autowired
     public void setConditionItemRepository(ConditionItemRepository conditionItemRepository) {
         this.conditionItemRepository = conditionItemRepository;
+    }
+
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
+
+    @Autowired
+    public void setCertificateRequestRepository(CertificateRequestRepository certificateRequestRepository) {
+        this.certificateRequestRepository = certificateRequestRepository;
     }
 
     @Autowired
@@ -398,6 +422,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndInternalRuleUuid(uuid.getValue(), request.getRuleUuid());
             if (!request.isRemoval()) {
                 ruleHandler.createComplianceProfileInternalRuleAssoc(uuid.getValue(), request.getRuleUuid());
+            } else {
+                removeRulesWithoutComplianceProfileFromComplianceResult(request);
             }
         } else {
             // provider rule
@@ -406,10 +432,41 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             }
 
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
+            ComplianceRuleResponseDto providerRule = ruleHandler.getProviderRule(request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
             if (!request.isRemoval()) {
-                ComplianceRuleResponseDto providerRule = ruleHandler.getProviderRule(request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
                 ruleHandler.createComplianceProfileProviderRuleAssoc(uuid.getValue(), request.getConnectorUuid(), request.getKind(), providerRule, request.getAttributes());
+            } else {
+                switch (providerRule.getResource()) {
+                    case CERTIFICATE ->
+                            certificateRepository.removeProviderRuleFromComplianceResult(request.getRuleUuid(), request.getConnectorUuid());
+                    case CRYPTOGRAPHIC_KEY ->
+                            cryptographicKeyItemRepository.removeProviderRuleFromComplianceResult(request.getRuleUuid(), request.getConnectorUuid());
+                    case SECRET ->
+                            secretRepository.removeProviderRuleFromComplianceResult(request.getRuleUuid(), request.getConnectorUuid());
+                    case CERTIFICATE_REQUEST ->
+                            certificateRequestRepository.removeProviderRuleFromComplianceResult(request.getRuleUuid(), request.getConnectorUuid());
+                    default ->
+                            throw new ValidationException("Unsupported resource type %s for the provider rule".formatted(providerRule.getResource()));
+                }
             }
+        }
+
+
+    }
+
+    private void removeRulesWithoutComplianceProfileFromComplianceResult(ComplianceProfileRulesPatchRequestDto request) throws NotFoundException {
+        // Remove orphaned internal rules from the compliance result that are not part of any profile anymore
+        ComplianceInternalRule internalRule = internalRuleRepository.findByUuid(request.getRuleUuid()).orElseThrow(() -> new NotFoundException(ComplianceInternalRule.class, request.getRuleUuid()));
+        switch (internalRule.getResource()) {
+            case CERTIFICATE ->
+                    certificateRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            case CRYPTOGRAPHIC_KEY ->
+                    cryptographicKeyItemRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            case SECRET -> secretRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            case CERTIFICATE_REQUEST ->
+                    certificateRequestRepository.removeInternalRuleFromComplianceResult(internalRule.getUuid());
+            default ->
+                    throw new ValidationException("Unsupported resource type %s for the internal rule".formatted(internalRule.getResource()));
         }
     }
 
