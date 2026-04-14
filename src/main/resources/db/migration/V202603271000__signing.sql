@@ -80,11 +80,11 @@ CREATE TABLE "signing_profile_version" (
     FOREIGN KEY ("signing_profile_uuid") REFERENCES "signing_profile" ("uuid") ON DELETE CASCADE
 );
 
--- ── 6. digital_signature: records of signing operations
-CREATE TABLE "digital_signature" (
+-- ── 6. signing_record
+CREATE TABLE "signing_record" (
     "uuid"                    UUID         NOT NULL,
     "name"                    VARCHAR,
-    "signing_profile_uuid"    UUID,  -- nullable so we can delete signing profiles but keep signatures
+    "signing_profile_uuid"    UUID,  -- nullable so we can delete signing profiles but keep signing records
     "signing_profile_version" INTEGER      NOT NULL,
     "signing_time"            TIMESTAMPTZ  NOT NULL,
     "created_at"              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -96,7 +96,7 @@ CREATE TABLE "digital_signature" (
     FOREIGN KEY ("signing_profile_uuid") REFERENCES "signing_profile" ("uuid") ON DELETE SET NULL
 );
 
-CREATE INDEX idx_ds_profile_version ON "digital_signature" ("signing_profile_uuid", "signing_profile_version");
+CREATE INDEX idx_sr_profile_version ON "signing_record" ("signing_profile_uuid", "signing_profile_version");
 
 
 -- ── 5. Circular FK resolution: signing_profile ↔ tsp ──────────────────────

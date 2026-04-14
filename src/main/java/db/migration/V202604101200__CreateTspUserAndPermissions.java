@@ -17,14 +17,14 @@ import java.util.*;
  * or updates permissions on the existing role.
  * <p>
  * Permissions:
- * - TSP_PROFILE: DETAIL, LIST
- * - SIGNING_PROFILE: DETAIL
- * - DIGITAL_SIGNATURE: SIGN
  * - CERTIFICATE: DETAIL
  * - CRYPTOGRAPHIC_KEY: SIGN
+ * - SIGNING_PROFILE: DETAIL
+ * - RA_PROFILE: MEMBERS
+ * - SIGNING_RECORD: SIGN
  * - TOKEN: DETAIL
  * - TOKEN_PROFILE: DETAIL
- * - RA_PROFILE: MEMBERS
+ * - TSP_PROFILE: DETAIL, LIST
  */
 public class V202604101200__CreateTspUserAndPermissions extends BaseJavaMigration {
 

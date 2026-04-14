@@ -18,7 +18,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "digital_signature")
+@Table(name = "signing_record")
 public class SigningRecord extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "name")
