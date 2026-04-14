@@ -397,7 +397,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 try {
                     syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
                 } catch (ConnectorException e) {
-                    throw new SecretOperationException(String.format("Failed to update secret %s for vault profile %s: %s", secret.getName(), secret.getSourceVaultProfile().getName(), e.getMessage()));
+                    throw new SecretOperationException(String.format("Failed to update secret %s for vault profile %s: %s", secret.getName(), profile.getVaultProfile().getName(), e.getMessage()));
                 }
                 attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
             }
