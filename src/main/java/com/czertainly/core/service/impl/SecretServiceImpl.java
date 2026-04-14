@@ -391,16 +391,16 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
             throw new SecretOperationException(String.format("Failed to update secret %s for vault profile %s: %s", secret.getName(), secret.getSourceVaultProfile().getName(), e.getMessage()));
         }
         attributeEngine.updateMetadataAttributes(sourceVaultProfileResponse.getMetadata(), new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, currentSourceVaultProfile.getUuid(), currentSourceVaultProfile.getName()));
-            for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
-                VaultProfile syncVaultProfile = profile.getVaultProfile();
-                SecretResponseDto syncResponse;
-                try {
-                    syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
-                } catch (ConnectorException e) {
-                    throw new SecretOperationException(String.format("Failed to update secret %s for vault profile %s: %s", secret.getName(), profile.getVaultProfile().getName(), e.getMessage()));
-                }
-                attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
+        for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
+            VaultProfile syncVaultProfile = profile.getVaultProfile();
+            SecretResponseDto syncResponse;
+            try {
+                syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
+            } catch (ConnectorException e) {
+                throw new SecretOperationException(String.format("Failed to update secret %s for vault profile %s: %s", secret.getName(), profile.getVaultProfile().getName(), e.getMessage()));
             }
+            attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
+        }
         secretVersionRepository.save(newVersion);
         secret.setLatestVersion(newVersion);
         secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
@@ -435,14 +435,14 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         if (!invalidSecretState(secret) && deleteInVaults) {
             List<VaultProfile> vaultProfiles = new ArrayList<>(secret.getSyncVaultProfiles().stream().map(Secret2SyncVaultProfile::getVaultProfile).toList());
             vaultProfiles.add(secret.getSourceVaultProfile());
-                for (VaultProfile vaultProfile : vaultProfiles) {
-                    try {
-                        deleteSecretFromVault(vaultProfile, secret, attributeEngine.getRequestObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-                    } catch (Exception e) {
-                        secret.setState(originalState);
-                        throw new SecretOperationException("Failed to delete secret %s from vault profile %s: %s".formatted(secret.getName(), vaultProfile.getVaultInstance().getName(), e.getMessage()));
-                    }
+            for (VaultProfile vaultProfile : vaultProfiles) {
+                try {
+                    deleteSecretFromVault(vaultProfile, secret, attributeEngine.getRequestObjectDataAttributesContent(vaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+                } catch (Exception e) {
+                    secret.setState(originalState);
+                    throw new SecretOperationException("Failed to delete secret %s from vault profile %s: %s".formatted(secret.getName(), vaultProfile.getVaultInstance().getName(), e.getMessage()));
                 }
+            }
         }
         Set<SecretVersion> secretVersions = new HashSet<>(secret.getVersions());
         secret.setOwner(null);
