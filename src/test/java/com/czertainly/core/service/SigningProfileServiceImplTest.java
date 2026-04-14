@@ -197,6 +197,13 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         savedProfile.setLatestVersion(1);
         savedProfile = signingProfileRepository.save(savedProfile);
 
+        SigningProfileVersion savedProfileV1 = new SigningProfileVersion();
+        savedProfileV1.setSigningProfile(savedProfile);
+        savedProfileV1.setVersion(1);
+        savedProfileV1.setSigningScheme(SigningScheme.DELEGATED);
+        savedProfileV1.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
+        signingProfileVersionRepository.save(savedProfileV1);
+
         // Shared token instance infrastructure required by the static-key managed scheme
         Connector connector = new Connector();
         connector.setName("cryptography-connector");
@@ -471,7 +478,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testListSigningProfiles_emptyWhenNoneExist() {
-        signingProfileRepository.delete(savedProfile);
+        signingProfileService.bulkDeleteSigningProfiles(List.of(savedProfile.getSecuredUuid()));
 
         SearchRequestDto request = new SearchRequestDto();
         PaginationResponseDto<SigningProfileListDto> response = signingProfileService.listSigningProfiles(request, SecurityFilter.create());
@@ -632,7 +639,11 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningScheme.DELEGATED, entity.getSigningScheme());
         Assertions.assertEquals(SigningWorkflowType.RAW_SIGNING, entity.getWorkflowType());
         Assertions.assertEquals(1, entity.getLatestVersion());
-        Assertions.assertNull(entity.getDelegatedSignerConnectorUuid());
+
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+        // For delegated scheme without connector UUID in request, it should be null
+        Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
     }
 
     @Test
@@ -644,10 +655,10 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         UUID profileUuid = UUID.fromString(dto.getUuid());
         Optional<SigningProfileVersion> snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuid, 1);
 
-        Assertions.assertTrue(snapshot.isPresent(), "Version 1 snapshot should be created on profile creation");
+        Assertions.assertTrue(snapshot.isPresent(), "Version 1 should be created on profile creation");
         Assertions.assertEquals(1, snapshot.get().getVersion());
-        Assertions.assertNotNull(snapshot.get().getSchemeSnapshot());
-        Assertions.assertNotNull(snapshot.get().getWorkflowSnapshot());
+        Assertions.assertNotNull(snapshot.get().getSigningScheme());
+        Assertions.assertNotNull(snapshot.get().getWorkflowType());
     }
 
     @Test
@@ -684,12 +695,15 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
-        Assertions.assertEquals(ManagedSigningType.STATIC_KEY, entity.getManagedSigningType());
+
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+        Assertions.assertEquals(ManagedSigningType.STATIC_KEY, currentVersion.getManagedSigningType());
         // No delegated connector when using the managed signing scheme
-        Assertions.assertNull(entity.getDelegatedSignerConnectorUuid());
+        Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
         // No RA profile / CSR template for the static key managed signing scheme
-        Assertions.assertNull(entity.getRaProfileUuid());
-        Assertions.assertNull(entity.getCsrTemplateUuid());
+        Assertions.assertNull(currentVersion.getRaProfileUuid());
+        Assertions.assertNull(currentVersion.getCsrTemplateUuid());
     }
 
     @Test
@@ -706,11 +720,14 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
-        Assertions.assertEquals(ManagedSigningType.ONE_TIME_KEY, entity.getManagedSigningType());
+
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+        Assertions.assertEquals(ManagedSigningType.ONE_TIME_KEY, currentVersion.getManagedSigningType());
         // No delegated connector when using managed scheme
-        Assertions.assertNull(entity.getDelegatedSignerConnectorUuid());
+        Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
         // Certificate UUID is not set for one-time key type
-        Assertions.assertNull(entity.getCertificateUuid());
+        Assertions.assertNull(currentVersion.getCertificateUuid());
     }
 
     @Test
@@ -722,9 +739,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
             UUID profileUuid = UUID.fromString(uuidStr);
             Optional<SigningProfileVersion> snapshot = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuid, 1);
             Assertions.assertTrue(snapshot.isPresent(),
-                    "Version 1 snapshot should exist for profile " + uuidStr);
-            Assertions.assertNotNull(snapshot.get().getSchemeSnapshot());
-            Assertions.assertNotNull(snapshot.get().getWorkflowSnapshot());
+                    "Version 1 should exist for profile " + uuidStr);
+            Assertions.assertNotNull(snapshot.get().getSigningScheme());
+            Assertions.assertNotNull(snapshot.get().getWorkflowType());
         }
     }
 
@@ -789,13 +806,16 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningWorkflowType.TIMESTAMPING, entity.getWorkflowType());
-        Assertions.assertEquals("1.2.3.4.5", entity.getDefaultPolicyId());
-        Assertions.assertEquals(List.of("1.2.3.4.5", "1.2.3.4.6"), entity.getAllowedPolicyIds());
+
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+        Assertions.assertEquals("1.2.3.4.5", currentVersion.getDefaultPolicyId());
+        Assertions.assertEquals(List.of("1.2.3.4.5", "1.2.3.4.6"), currentVersion.getAllowedPolicyIds());
         Assertions.assertEquals(
                 List.of(DigestAlgorithm.SHA_256.getCode(), DigestAlgorithm.SHA_384.getCode()),
-                entity.getAllowedDigestAlgorithms()
+                currentVersion.getAllowedDigestAlgorithms()
         );
-        Assertions.assertFalse(entity.getQualifiedTimestamp());
+        Assertions.assertFalse(currentVersion.getQualifiedTimestamp());
     }
 
     @Test
@@ -818,8 +838,11 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
-        Assertions.assertEquals(ManagedSigningType.STATIC_KEY, entity.getManagedSigningType());
         Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, entity.getWorkflowType());
+
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+        Assertions.assertEquals(ManagedSigningType.STATIC_KEY, currentVersion.getManagedSigningType());
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -909,7 +932,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                         .operation(AttributeOperation.SIGN).version(1).build());
         Assertions.assertFalse(v1Attrs.isEmpty(), "Version 1 signing-op attributes should be stored");
 
-        // Trigger version bump: create signing record for v1, then update with different signing attrs
+        // Trigger version bump: create a signing record for v1, then update with different signing attrs
         SigningProfile profileEntity = signingProfileRepository.findById(profileUuid).orElseThrow();
         createSigningRecordFor(profileEntity, 1);
 
@@ -1024,9 +1047,12 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
-        Assertions.assertEquals(ManagedSigningType.STATIC_KEY, entity.getManagedSigningType());
+
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+        Assertions.assertEquals(ManagedSigningType.STATIC_KEY, currentVersion.getManagedSigningType());
         // Previous delegated connector reference must have been cleared
-        Assertions.assertNull(entity.getDelegatedSignerConnectorUuid());
+        Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
     }
 
     @Test
@@ -1042,10 +1068,13 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningScheme.DELEGATED, entity.getSigningScheme());
+
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         // managedSigningType must have been cleared by applyScheme
-        Assertions.assertNull(entity.getManagedSigningType());
+        Assertions.assertNull(currentVersion.getManagedSigningType());
         // token profile and certificate references must have been cleared
-        Assertions.assertNull(entity.getCertificateUuid());
+        Assertions.assertNull(currentVersion.getCertificateUuid());
     }
 
     @Test
@@ -1070,8 +1099,10 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(fromDb.isPresent());
         SigningProfile entity = fromDb.get();
         Assertions.assertEquals(SigningWorkflowType.TIMESTAMPING, entity.getWorkflowType());
-        Assertions.assertEquals("1.2.3.4.5", entity.getDefaultPolicyId());
-        Assertions.assertFalse(entity.getQualifiedTimestamp());
+        SigningProfileVersion currentVersion = signingProfileVersionRepository
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+        Assertions.assertEquals("1.2.3.4.5", currentVersion.getDefaultPolicyId());
+        Assertions.assertFalse(currentVersion.getQualifiedTimestamp());
     }
 
     @Test
@@ -1120,7 +1151,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 2).isPresent());
         Assertions.assertTrue(signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profileUuidRaw, 3).isPresent());
 
-        // Verify latest is version 3 with TIMESTAMPING
+        // Verify the latest is version 3 with TIMESTAMPING
         SigningProfileDto latest = signingProfileService.getSigningProfile(profileUuid, null);
         Assertions.assertEquals(3, latest.getVersion());
         Assertions.assertEquals(SigningWorkflowType.TIMESTAMPING, latest.getWorkflow().getType());

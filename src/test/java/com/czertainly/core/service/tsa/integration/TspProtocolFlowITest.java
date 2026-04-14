@@ -137,6 +137,7 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
 
     // ── Per-test state ────────────────────────────────────────────────────────
 
+    private UUID signingProfileUuid;
     private WireMockServer wireMockServer;
     /** In-memory RSA key pair used to build the TSA certificate. */
     private KeyPair tsaKeyPair;
@@ -364,7 +365,7 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         request.setSigningScheme(scheme);
         request.setWorkflow(workflow);
 
-        signingProfileService.createSigningProfile(request);
+        signingProfileUuid = UUID.fromString(signingProfileService.createSigningProfile(request).getUuid());
     }
 
     private void createTspProfile() throws Exception {
@@ -372,10 +373,7 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         request.setName(TSP_PROFILE_NAME);
         request.setDescription("TSP integration test profile");
 
-        // Resolve the signing profile UUID by name via service
-        com.czertainly.api.model.client.signing.profile.SigningProfileDto signingProfile =
-                signingProfileService.getSigningProfile(SIGNING_PROFILE_NAME);
-        request.setDefaultSigningProfileUuid(UUID.fromString(signingProfile.getUuid()));
+        request.setDefaultSigningProfileUuid(signingProfileUuid);
 
         tspProfileService.createTspProfile(request);
     }

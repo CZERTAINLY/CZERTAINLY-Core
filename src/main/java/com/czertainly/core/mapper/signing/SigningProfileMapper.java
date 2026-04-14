@@ -20,6 +20,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
+import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
 import com.czertainly.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
 import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.czertainly.core.model.signing.workflow.*;
@@ -47,67 +48,68 @@ public class SigningProfileMapper {
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Converts a {@link SigningProfile} entity to a full {@link SigningProfileDto}, populating
-     * custom attributes, connector signing-operation attributes, and workflow formatter attributes.
+     * Converts a {@link SigningProfile} and {@link SigningProfileVersion} entities to a full {@link SigningProfileDto},
+     * populating custom attributes, connector signing-operation attributes, and workflow formatter attributes.
      */
-    public static SigningProfileDto toDto(SigningProfile profile, List<ResponseAttribute> customAttributes,
+    public static SigningProfileDto toDto(SigningProfile header, SigningProfileVersion version,
+                                          List<ResponseAttribute> customAttributes,
                                           List<ResponseAttribute> signingOperationAttributes,
                                           List<ResponseAttribute> signatureFormatterConnectorAttributes) {
         SigningProfileDto dto = new SigningProfileDto();
-        dto.setUuid(profile.getUuid().toString());
-        dto.setName(profile.getName());
-        dto.setDescription(profile.getDescription());
-        dto.setVersion(profile.getLatestVersion() != null ? profile.getLatestVersion() : 1);
-        dto.setEnabled(profile.getEnabled() != null ? profile.getEnabled() : false);
+        dto.setUuid(header.getUuid().toString());
+        dto.setName(header.getName());
+        dto.setDescription(header.getDescription());
+        dto.setVersion(version.getVersion() != null ? version.getVersion() : 1);
+        dto.setEnabled(header.getEnabled() != null ? header.getEnabled() : false);
         dto.setCustomAttributes(safeList(customAttributes));
 
-        // Build signing scheme DTO
-        if (profile.getSigningScheme() == SigningScheme.DELEGATED) {
+        // Build signing scheme DTO from version
+        if (version.getSigningScheme() == SigningScheme.DELEGATED) {
             DelegatedSigningDto delegatedDto = new DelegatedSigningDto();
-            if (profile.getDelegatedSignerConnectorUuid() != null) {
+            if (version.getDelegatedSignerConnectorUuid() != null) {
                 NameAndUuidDto ref = new NameAndUuidDto();
-                ref.setUuid(profile.getDelegatedSignerConnectorUuid().toString());
+                ref.setUuid(version.getDelegatedSignerConnectorUuid().toString());
                 delegatedDto.setConnector(ref);
             }
             dto.setSigningScheme(delegatedDto);
-        } else if (profile.getSigningScheme() == SigningScheme.MANAGED && profile.getManagedSigningType() != null) {
-            if (profile.getManagedSigningType() == ManagedSigningType.STATIC_KEY) {
+        } else if (version.getSigningScheme() == SigningScheme.MANAGED && version.getManagedSigningType() != null) {
+            if (version.getManagedSigningType() == ManagedSigningType.STATIC_KEY) {
                 StaticKeyManagedSigningDto staticDto = new StaticKeyManagedSigningDto();
-                if (profile.getCertificateUuid() != null) {
-                    staticDto.setCertificate(profile.getCertificate().mapToSimpleDto(null));
+                if (version.getCertificateUuid() != null && version.getCertificate() != null) {
+                    staticDto.setCertificate(version.getCertificate().mapToSimpleDto(null));
                 }
                 staticDto.setSigningOperationAttributes(safeList(signingOperationAttributes));
                 dto.setSigningScheme(staticDto);
-            } else if (profile.getManagedSigningType() == ManagedSigningType.ONE_TIME_KEY) {
+            } else if (version.getManagedSigningType() == ManagedSigningType.ONE_TIME_KEY) {
                 OneTimeKeyManagedSigningDto oneTimeDto = new OneTimeKeyManagedSigningDto();
-                if (profile.getTokenProfileUuid() != null) {
+                if (version.getTokenProfileUuid() != null) {
                     NameAndUuidDto ref = new NameAndUuidDto();
-                    ref.setUuid(profile.getTokenProfileUuid().toString());
+                    ref.setUuid(version.getTokenProfileUuid().toString());
                     oneTimeDto.setTokenProfile(ref);
                 }
-                if (profile.getRaProfileUuid() != null) {
+                if (version.getRaProfileUuid() != null) {
                     NameAndUuidDto ref = new NameAndUuidDto();
-                    ref.setUuid(profile.getRaProfileUuid().toString());
+                    ref.setUuid(version.getRaProfileUuid().toString());
                     oneTimeDto.setRaProfile(ref);
                 }
-                if (profile.getCsrTemplateUuid() != null) {
+                if (version.getCsrTemplateUuid() != null) {
                     NameAndUuidDto ref = new NameAndUuidDto();
-                    ref.setUuid(profile.getCsrTemplateUuid().toString());
+                    ref.setUuid(version.getCsrTemplateUuid().toString());
                     oneTimeDto.setCsrTemplate(ref);
                 }
                 dto.setSigningScheme(oneTimeDto);
             }
         }
 
-        // Build workflow DTO — delegates to shared helpers
-        dto.setWorkflow(switch (profile.getWorkflowType()) {
-            case CONTENT_SIGNING -> buildContentSigningWorkflowDto(profile, signatureFormatterConnectorAttributes);
+        // Build workflow DTO from version
+        dto.setWorkflow(switch (version.getWorkflowType()) {
+            case CONTENT_SIGNING -> buildContentSigningWorkflowDto(version, signatureFormatterConnectorAttributes);
             case RAW_SIGNING -> new RawSigningWorkflowDto();
-            case TIMESTAMPING -> buildTimestampingWorkflowDto(profile, signatureFormatterConnectorAttributes);
+            case TIMESTAMPING -> buildTimestampingWorkflowDto(version, signatureFormatterConnectorAttributes);
         });
 
-        // Enabled protocols
-        if (profile.getTspProfileUuid() != null) {
+        // Enabled protocols from header (unversioned)
+        if (header.getTspProfileUuid() != null) {
             dto.getEnabledProtocols().add(SigningProtocol.TSP);
         }
 
@@ -120,36 +122,38 @@ public class SigningProfileMapper {
 
     @FunctionalInterface
     public interface SigningProfileModelFactory<T> {
-        T create(SigningProfile profile, List<RequestAttribute> signingOperationAttributes,
+        T create(SigningProfile header, SigningProfileVersion version,
+                 List<RequestAttribute> signingOperationAttributes,
                  List<RequestAttribute> signatureFormatterConnectorAttributes);
     }
 
     /**
-     * Converts a {@link SigningProfile} entity to a {@link SigningProfileModel} typed with
+     * Converts a {@link SigningProfile} and {@link SigningProfileVersion} entities to a {@link SigningProfileModel} typed with
      * {@link ManagedTimestampingWorkflow}. The caller must ensure the profile uses a managed timestamping workflow.
      *
      * @throws IllegalArgumentException if the profile's workflow type is not {@code TIMESTAMPING} or its signing scheme is not {@code MANAGED}
      */
     public static SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, SigningSchemeModel> toManagedTimestampingModel(
-            SigningProfile profile,
+            SigningProfile header,
+            SigningProfileVersion version,
             List<RequestAttribute> signingOperationAttributes,
             List<RequestAttribute> signatureFormatterConnectorAttributes) {
-        if (profile.getWorkflowType() != SigningWorkflowType.TIMESTAMPING) {
-            throw new IllegalArgumentException("Signing Profile '%s' does not use a timestamping workflow".formatted(profile.getName()));
+        if (version.getWorkflowType() != SigningWorkflowType.TIMESTAMPING) {
+            throw new IllegalArgumentException("Signing Profile '%s' does not use a timestamping workflow".formatted(header.getName()));
         }
-        if (profile.getSigningScheme() != SigningScheme.MANAGED) {
-            throw new IllegalArgumentException("Signing Profile '%s' does not use a managed signing scheme".formatted(profile.getName()));
+        if (version.getSigningScheme() != SigningScheme.MANAGED) {
+            throw new IllegalArgumentException("Signing Profile '%s' does not use a managed signing scheme".formatted(header.getName()));
         }
-        SigningSchemeModel schemeModel = buildSchemeModel(profile, signingOperationAttributes);
-        List<SigningProtocol> protocols = profile.getTspProfileUuid() != null ? List.of(SigningProtocol.TSP) : List.of();
-        int version = profile.getLatestVersion() != null ? profile.getLatestVersion() : 1;
-        boolean enabled = profile.getEnabled() != null ? profile.getEnabled() : false;
+
+        List<SigningProtocol> protocols = header.getTspProfileUuid() != null ? List.of(SigningProtocol.TSP) : List.of();
+        int ver = version.getVersion() != null ? version.getVersion() : 1;
+        boolean enabled = header.getEnabled() != null ? header.getEnabled() : false;
 
         return new SigningProfileModel<>(
-                profile.getUuid(), profile.getName(), profile.getDescription(),
-                version, enabled, protocols,
-                buildManagedTimestampingWorkflow(profile, signatureFormatterConnectorAttributes),
-                schemeModel);
+                header.getUuid(), header.getName(), header.getDescription(),
+                ver, enabled, protocols,
+                buildManagedTimestampingWorkflow(version, signatureFormatterConnectorAttributes),
+                buildSchemeModel(version, signingOperationAttributes));
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -190,34 +194,28 @@ public class SigningProfileMapper {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // DTO builders
+    // DTO builders (read from version)
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Builds a {@link ContentSigningWorkflowDto} from the entity and pre-loaded formatter attributes.
-     */
     private static ContentSigningWorkflowDto buildContentSigningWorkflowDto(
-            SigningProfile profile, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
+            SigningProfileVersion version, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
         ContentSigningWorkflowDto wf = new ContentSigningWorkflowDto();
-        setFormatterRef(profile.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
+        setFormatterRef(version.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
         wf.setSignatureFormatterConnectorAttributes(safeList(signatureFormatterConnectorAttributes));
         return wf;
     }
 
-    /**
-     * Builds a {@link TimestampingWorkflowDto} from the entity and pre-loaded formatter attributes.
-     */
     private static TimestampingWorkflowDto buildTimestampingWorkflowDto(
-            SigningProfile profile, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
+            SigningProfileVersion version, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
         TimestampingWorkflowDto wf = new TimestampingWorkflowDto();
-        setFormatterRef(profile.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
+        setFormatterRef(version.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
         wf.setSignatureFormatterConnectorAttributes(safeList(signatureFormatterConnectorAttributes));
-        wf.setQualifiedTimestamp(profile.getQualifiedTimestamp());
-        wf.setDefaultPolicyId(profile.getDefaultPolicyId());
-        wf.setAllowedPolicyIds(safeList(profile.getAllowedPolicyIds()));
-        if (profile.getAllowedDigestAlgorithms() != null && !profile.getAllowedDigestAlgorithms().isEmpty()) {
+        wf.setQualifiedTimestamp(version.getQualifiedTimestamp());
+        wf.setDefaultPolicyId(version.getDefaultPolicyId());
+        wf.setAllowedPolicyIds(safeList(version.getAllowedPolicyIds()));
+        if (version.getAllowedDigestAlgorithms() != null && !version.getAllowedDigestAlgorithms().isEmpty()) {
             wf.setAllowedDigestAlgorithms(
-                    profile.getAllowedDigestAlgorithms().stream()
+                    version.getAllowedDigestAlgorithms().stream()
                             .map(DigestAlgorithm::findByCode)
                             .toList()
             );
@@ -232,58 +230,50 @@ public class SigningProfileMapper {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Model-layer workflow builders
+    // Model-layer workflow builders (read from version)
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Builds a {@link ManagedTimestampingWorkflow} from the entity.
-     */
     private static ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> buildManagedTimestampingWorkflow(
-            SigningProfile profile, List<RequestAttribute> signatureFormatterConnectorAttributes) {
+            SigningProfileVersion version, List<RequestAttribute> signatureFormatterConnectorAttributes) {
         return new ManagedTimestampingWorkflow<>(
-                profile.getSignatureFormatterConnectorUuid(),
+                version.getSignatureFormatterConnectorUuid(),
                 safeList(signatureFormatterConnectorAttributes),
-                profile.getQualifiedTimestamp(),
+                version.getQualifiedTimestamp(),
                 LocalClockTimeQualityConfiguration.INSTANCE, // timeQualityConfiguration — not persisted on the entity yet, so we use a placeholder that represents the default configuration for now
-                profile.getDefaultPolicyId(),
-                safeList(profile.getAllowedPolicyIds()),
-                timestampingDigestAlgorithms(profile),
+                version.getDefaultPolicyId(),
+                safeList(version.getAllowedPolicyIds()),
+                timestampingDigestAlgorithms(version),
                 null); // validateTokenSignature — not persisted on the entity yet
     }
 
-    private static List<DigestAlgorithm> timestampingDigestAlgorithms(SigningProfile profile) {
-        return profile.getAllowedDigestAlgorithms() != null
-                ? profile.getAllowedDigestAlgorithms().stream().map(DigestAlgorithm::findByCode).toList()
+    private static List<DigestAlgorithm> timestampingDigestAlgorithms(SigningProfileVersion version) {
+        return version.getAllowedDigestAlgorithms() != null
+                ? version.getAllowedDigestAlgorithms().stream().map(DigestAlgorithm::findByCode).toList()
                 : List.of();
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Model-layer helpers
+    // Model-layer scheme builder (read from version)
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Builds a concrete {@link SigningSchemeModel} record from the entity, resolving DAO associations
-     * ({@code Certificate}, {@code RaProfile}, {@code TokenProfile}) that are already loaded on the entity via JPA lazy initialization.
-     */
-    private static SigningSchemeModel buildSchemeModel(SigningProfile profile,
+    private static SigningSchemeModel buildSchemeModel(SigningProfileVersion version,
                                                        List<RequestAttribute> signingOperationAttributes) {
-        return switch (profile.getSigningScheme()) {
+        return switch (version.getSigningScheme()) {
             case DELEGATED -> new DelegatedSigning(
-                    profile.getDelegatedSignerConnectorUuid(),
-                    List.of()); // connector attributes are not persisted separately at this stage
+                    version.getDelegatedSignerConnectorUuid(),
+                    List.of());
             case MANAGED -> {
-                if (profile.getManagedSigningType() == null) {
-                    throw new IllegalStateException(
-                            "MANAGED signing profile " + profile.getUuid() + " has no managedSigningType");
+                if (version.getManagedSigningType() == null) {
+                    throw new IllegalStateException("MANAGED signing profile version has no managedSigningType");
                 }
-                yield switch (profile.getManagedSigningType()) {
+                yield switch (version.getManagedSigningType()) {
                     case STATIC_KEY -> new StaticKeyManagedSigning(
-                            profile.getCertificate(),
+                            version.getCertificate(),
                             safeList(signingOperationAttributes));
                     case ONE_TIME_KEY -> new OneTimeKeyManagedSigning(
-                            profile.getRaProfile(),
-                            profile.getTokenProfile(),
-                            profile.getCsrTemplateUuid(),
+                            version.getRaProfile(),
+                            version.getTokenProfile(),
+                            version.getCsrTemplateUuid(),
                             safeList(signingOperationAttributes));
                 };
             }

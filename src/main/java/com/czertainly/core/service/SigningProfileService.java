@@ -39,8 +39,6 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspProfileUuid, SecurityFilter filter);
 
-    SigningProfileDto getSigningProfile(String name) throws NotFoundException;
-
     SigningProfileDto getSigningProfile(SecuredUUID uuid, Integer version) throws NotFoundException;
 
     /**

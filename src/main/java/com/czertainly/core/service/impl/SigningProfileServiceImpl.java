@@ -67,8 +67,6 @@ import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.FilterPredicatesBuilder;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -86,6 +84,7 @@ import java.util.*;
 @Service(Resource.Codes.SIGNING_PROFILE)
 @Slf4j
 public class SigningProfileServiceImpl implements SigningProfileService {
+
     /**
      * Defines which signing protocols are allowed for each workflow type.
      */
@@ -100,11 +99,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private SigningRecordRepository signingRecordRepository;
     private SigningProfileRepository signingProfileRepository;
     private SigningProfileVersionRepository signingProfileVersionRepository;
-    private TspProfileRepository tspRepository;
-
+    private TspProfileRepository tspProfileRepository;
     private AttributeEngine attributeEngine;
-    private ObjectMapper objectMapper;
-
 
     // ──────────────────────────────────────────────────────────────────────────
     // List / search
@@ -177,22 +173,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Get (by name)
-    // ──────────────────────────────────────────────────────────────────────────
-
-    @Override
-//    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
-    @Transactional
-    public SigningProfileDto getSigningProfile(String name) throws NotFoundException {
-        Optional<SigningProfile> signingProfileOptional = signingProfileRepository.findByName(name);
-        if (signingProfileOptional.isEmpty()) {
-            throw new NotFoundException("Signing profile with name '" + name + "' not found");
-        }
-        SigningProfile signingProfile = signingProfileOptional.get();
-        return buildDtoFromProfile(signingProfile);
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
     // Get (with optional version)
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -205,7 +185,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             SigningProfileVersion spv = signingProfileVersionRepository
                     .findBySigningProfileUuidAndVersion(profile.getUuid(), version)
                     .orElseThrow(() -> new NotFoundException("Signing Profile version " + version + " not found"));
-            return buildDtoFromSnapshot(profile, spv);
+            return buildDtoFromVersion(profile, spv);
         } else {
             return buildDtoFromProfile(profile);
         }
@@ -215,27 +195,30 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
     @Transactional
     public SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> getManagedTimestampingProfileModel(String name) throws NotFoundException {
-        SigningProfile profile = signingProfileRepository.findWithAssociationsByName(name)
+        SigningProfile profile = signingProfileRepository.findByName(name)
                 .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + name));
 
         if (profile.getWorkflowType() != SigningWorkflowType.TIMESTAMPING) {
             throw new NotFoundException("Signing Profile '%s' is not configured with a timestamping workflow".formatted(name));
         }
-        return buildModel(profile, SigningProfileMapper::toManagedTimestampingModel);
+        SigningProfileVersion version = signingProfileVersionRepository
+                .findWithAssociationsBySigningProfileUuidAndVersion(profile.getUuid(), profile.getLatestVersion())
+                .orElseThrow(() -> new IllegalStateException("No version row for profile " + profile.getUuid()));
+        return buildModel(profile, version, SigningProfileMapper::toManagedTimestampingModel);
     }
 
-    private <T> T buildModel(SigningProfile profile, SigningProfileMapper.SigningProfileModelFactory<T> factory) {
+    private <T> T buildModel(SigningProfile profile, SigningProfileVersion version, SigningProfileMapper.SigningProfileModelFactory<T> factory) {
         UUID profileUuid = profile.getUuid();
         List<RequestAttribute> signingOperationAttributes = attributeEngine
                 .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
                         .operation(AttributeOperation.SIGN)
-                        .version(profile.getLatestVersion()).build());
+                        .version(version.getVersion()).build());
         List<RequestAttribute> signatureFormatterConnectorAttributes = attributeEngine
                 .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
-                        .connector(profile.getSignatureFormatterConnectorUuid())
+                        .connector(version.getSignatureFormatterConnectorUuid())
                         .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                        .version(profile.getLatestVersion()).build());
-        return factory.create(profile, signingOperationAttributes, signatureFormatterConnectorAttributes);
+                        .version(version.getVersion()).build());
+        return factory.create(profile, version, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -256,20 +239,26 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         profile.setName(request.getName());
         profile.setDescription(request.getDescription());
         profile.setLatestVersion(1);
-        applyWorkflow(profile, request.getWorkflow());
-        applyScheme(profile, request.getSigningScheme());
+        profile.setSigningScheme(request.getSigningScheme().getSigningScheme());
+        profile.setWorkflowType(request.getWorkflow().getType());
         profile = signingProfileRepository.save(profile);
 
-        saveVersionSnapshot(profile, 1, request.getSigningScheme(), request.getWorkflow(), false);
+        SigningProfileVersion v1 = new SigningProfileVersion();
+        v1.setSigningProfile(profile);
+        v1.setVersion(1);
+        applyWorkflow(profile, v1, request.getWorkflow());
+        applyScheme(profile, v1, request.getSigningScheme());
+        profile = signingProfileRepository.save(profile);
+        signingProfileVersionRepository.save(v1);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid(), request.getCustomAttributes());
-        List<ResponseAttribute> signingOperationAttributes = persistSigningOperationAttributes(profile, request.getSigningScheme());
-        List<ResponseAttribute> signatureFormatterConnectorAttributes = persistSignatureFormatterConnectorAttributes(profile, request.getWorkflow());
-        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
+        List<ResponseAttribute> signingOperationAttributes = persistSigningOperationAttributes(profile, v1, request.getSigningScheme());
+        List<ResponseAttribute> signatureFormatterConnectorAttributes = persistSignatureFormatterConnectorAttributes(profile, v1, request.getWorkflow());
+        return SigningProfileMapper.toDto(profile, v1, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Update (lenient version bump)
+    // Update (lenient version bump with advisory locking)
     // ──────────────────────────────────────────────────────────────────────────
 
     @Override
@@ -278,6 +267,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     public SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
+
+        // Acquire advisory lock before the bump decision to prevent race conditions
+        signingProfileVersionRepository.acquireAdvisoryLock("signing-profile:" + uuid.getValue());
 
         SigningProfile profile = findByUuid(uuid);
 
@@ -288,22 +280,38 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
         profile.setName(request.getName());
         profile.setDescription(request.getDescription());
-        applyWorkflow(profile, request.getWorkflow());
-        applyScheme(profile, request.getSigningScheme());
 
-        // Lenient version bump: only bump if signatures exist for the current latest version
+        // Lenient version bump: only bump if signing records exist for the current latest version
         boolean bump = signingRecordRepository.existsBySigningProfileUuidAndSigningProfileVersion(profile.getUuid(), profile.getLatestVersion());
         if (bump) {
-            profile.setLatestVersion(profile.getLatestVersion() + 1); // :TODO: this is a potential race condition, we should use advisory locking
+            profile.setLatestVersion(profile.getLatestVersion() + 1);
         }
-        profile = signingProfileRepository.save(profile);
 
-        saveVersionSnapshot(profile, profile.getLatestVersion(), request.getSigningScheme(), request.getWorkflow(), !bump);
+        SigningProfileVersion version;
+        if (bump) {
+            version = new SigningProfileVersion();
+            version.setSigningProfile(profile);
+            version.setVersion(profile.getLatestVersion());
+        } else {
+            final SigningProfile profileRef = profile;
+            version = signingProfileVersionRepository.findBySigningProfileUuidAndVersion(profile.getUuid(), profile.getLatestVersion())
+                    .orElseGet(() -> {
+                        SigningProfileVersion v = new SigningProfileVersion();
+                        v.setSigningProfile(profileRef);
+                        v.setVersion(profileRef.getLatestVersion());
+                        return v;
+                    });
+        }
+
+        applyWorkflow(profile, version, request.getWorkflow());
+        applyScheme(profile, version, request.getSigningScheme());
+        profile = signingProfileRepository.save(profile);
+        signingProfileVersionRepository.save(version);
 
         List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid(), request.getCustomAttributes());
-        List<ResponseAttribute> signingOperationAttributes = persistSigningOperationAttributes(profile, request.getSigningScheme());
-        List<ResponseAttribute> signatureFormatterConnectorAttributes = persistSignatureFormatterConnectorAttributes(profile, request.getWorkflow());
-        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
+        List<ResponseAttribute> signingOperationAttributes = persistSigningOperationAttributes(profile, version, request.getSigningScheme());
+        List<ResponseAttribute> signatureFormatterConnectorAttributes = persistSignatureFormatterConnectorAttributes(profile, version, request.getWorkflow());
+        return SigningProfileMapper.toDto(profile, version, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -327,12 +335,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     private void deleteSigningProfile(SigningProfile signingProfile) {
         signingRecordRepository.clearSigningProfileUuid(signingProfile.getUuid());
-        tspRepository.clearDefaultSigningProfileUuid(signingProfile.getUuid());
+        tspProfileRepository.clearDefaultSigningProfileUuid(signingProfile.getUuid());
         signingProfileVersionRepository.deleteAllBySigningProfileUuid(signingProfile.getUuid());
         signingProfileRepository.delete(signingProfile);
         attributeEngine.deleteAllObjectAttributeContent(Resource.SIGNING_PROFILE, signingProfile.getUuid());
     }
-
 
     // ──────────────────────────────────────────────────────────────────────────
     // Enable / disable
@@ -430,7 +437,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     public TspActivationDetailDto activateTsp(SecuredUUID signingProfileUuid, SecuredUUID tspProfileUuid) throws NotFoundException {
         SigningProfile signingProfile = findByUuid(signingProfileUuid);
         validateSupportedProtocol(signingProfile.getWorkflowType(), SigningProtocol.TSP);
-        TspProfile tspProfile = tspRepository.findByUuid(tspProfileUuid)
+        TspProfile tspProfile = tspProfileRepository.findByUuid(tspProfileUuid)
                 .orElseThrow(() -> new NotFoundException("TSP Profile not found: " + tspProfileUuid));
         signingProfile.setTspProfile(tspProfile);
         signingProfileRepository.save(signingProfile);
@@ -474,42 +481,37 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     /**
-     * Maps request scheme DTO → flat entity columns. Clears previous values first.
+     * Applies the signing scheme request to both the profile header (cache column) and the version entity (authoritative).
      */
-    private void applyScheme(SigningProfile p, SigningSchemeRequestDto scheme) throws AttributeException, NotFoundException {
-        // Delete any previously stored signing-operation attributes before overwriting the scheme.
-        if (p.getUuid() != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
-                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
-                            .operation(AttributeOperation.SIGN).build());
-        }
-        p.setSigningScheme(scheme.getSigningScheme());
-        p.setManagedSigningType(null);
-        p.setTokenProfile(null);
-        p.setCertificate(null);
-        p.setRaProfile(null);
-        p.setCsrTemplateUuid(null);
-        p.setDelegatedSignerConnector(null);
+    private void applyScheme(SigningProfile p, SigningProfileVersion version, SigningSchemeRequestDto scheme) throws NotFoundException {
+        p.setSigningScheme(scheme.getSigningScheme()); // cache column
+        version.setSigningScheme(scheme.getSigningScheme());
+        version.setManagedSigningType(null);
+        version.setTokenProfile(null);
+        version.setCertificate(null);
+        version.setRaProfile(null);
+        version.setCsrTemplateUuid(null);
+        version.setDelegatedSignerConnector(null);
 
         switch (scheme) {
             case StaticKeyManagedSigningRequestDto s -> {
-                p.setManagedSigningType(ManagedSigningType.STATIC_KEY);
+                version.setManagedSigningType(ManagedSigningType.STATIC_KEY);
                 Certificate certificate = certificateRepository.findWithAssociationsByUuid(s.getCertificateUuid())
                         .orElseThrow(() -> new NotFoundException(Certificate.class, s.getCertificateUuid()));
-                if (CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, p.getWorkflowType(), Boolean.TRUE.equals(p.getQualifiedTimestamp()))) {
-                    p.setCertificate(certificate);
+                if (CertificateUtil.isCertificateDigitalSigningAcceptable(certificate, p.getWorkflowType(), Boolean.TRUE.equals(version.getQualifiedTimestamp()))) {
+                    version.setCertificate(certificate);
                 } else {
                     throw new ValidationException("Certificate " + certificate.getUuid() + " is not eligible for signing workflow type " + p.getWorkflowType());
                 }
             }
             case OneTimeKeyManagedSigningRequestDto s -> {
-                p.setManagedSigningType(ManagedSigningType.ONE_TIME_KEY);
-                p.setTokenProfileUuid(s.getTokenProfileUuid());
-                p.setRaProfileUuid(s.getRaProfileUuid());
-                p.setCsrTemplateUuid(s.getCsrTemplateUuid());
+                version.setManagedSigningType(ManagedSigningType.ONE_TIME_KEY);
+                version.setTokenProfileUuid(s.getTokenProfileUuid());
+                version.setRaProfileUuid(s.getRaProfileUuid());
+                version.setCsrTemplateUuid(s.getCsrTemplateUuid());
             }
             case DelegatedSigningRequestDto s -> {
-                p.setDelegatedSignerConnectorUuid(s.getConnectorUuid());
+                version.setDelegatedSignerConnectorUuid(s.getConnectorUuid());
             }
             default ->
                     throw new IllegalStateException("Unexpected type for Signing Scheme: " + scheme.getSigningScheme());
@@ -517,38 +519,30 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     /**
-     * Maps request workflow DTO → flat entity columns. Clears previous values first.
+     * Applies the workflow request to both the profile header (cache column) and the version entity (authoritative).
      */
-    private void applyWorkflow(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
-        // Delete any previously stored workflow-formatter attributes before overwriting the workflow.
-        if (p.getUuid() != null && p.getSignatureFormatterConnectorUuid() != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
-                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
-                            .connector(p.getSignatureFormatterConnectorUuid())
-                            .operation(AttributeOperation.WORKFLOW_FORMATTER).build());
-        }
-        p.setWorkflowType(workflow.getType());
-        p.setSignatureFormatterConnector(null);
-        p.setQualifiedTimestamp(null);
-        p.setTimeQualityConfiguration(null);
-        p.setDefaultPolicyId(null);
-        p.setAllowedPolicyIds(new ArrayList<>());
-        p.setAllowedDigestAlgorithms(new ArrayList<>());
+    private void applyWorkflow(SigningProfile p, SigningProfileVersion version, WorkflowRequestDto workflow) {
+        p.setWorkflowType(workflow.getType()); // cache column
+        version.setWorkflowType(workflow.getType());
+        version.setSignatureFormatterConnector(null);
+        version.setQualifiedTimestamp(null);
+        version.setDefaultPolicyId(null);
+        version.setAllowedPolicyIds(new ArrayList<>());
+        version.setAllowedDigestAlgorithms(new ArrayList<>());
 
         switch (workflow) {
             case ContentSigningWorkflowRequestDto w ->
-                    p.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
+                    version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
             case RawSigningWorkflowRequestDto w -> {
                 // no formatter for raw signing
             }
             case TimestampingWorkflowRequestDto w -> {
-                p.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
-                p.setQualifiedTimestamp(w.getQualifiedTimestamp());
-                p.setTimeQualityConfigurationUuid(w.getTimeQualityConfigurationUuid());
-                p.setDefaultPolicyId(w.getDefaultPolicyId());
-                p.setAllowedPolicyIds(w.getAllowedPolicyIds() != null ? w.getAllowedPolicyIds() : new ArrayList<>());
+                version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
+                version.setQualifiedTimestamp(w.getQualifiedTimestamp());
+                version.setDefaultPolicyId(w.getDefaultPolicyId());
+                version.setAllowedPolicyIds(w.getAllowedPolicyIds() != null ? w.getAllowedPolicyIds() : new ArrayList<>());
                 if (w.getAllowedDigestAlgorithms() != null) {
-                    p.setAllowedDigestAlgorithms(w.getAllowedDigestAlgorithms().stream().map(DigestAlgorithm::getCode).toList());
+                    version.setAllowedDigestAlgorithms(w.getAllowedDigestAlgorithms().stream().map(DigestAlgorithm::getCode).toList());
                 }
             }
             default -> throw new IllegalStateException("Unexpected type for Signing Workflow: " + workflow);
@@ -556,101 +550,33 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     /**
-     * Saves (or overwrites) a SigningProfileVersion snapshot.
-     *
-     * @param overwrite if true, updates the existing row; if false, inserts a new row
+     * Builds a full DTO from a version row. Reads attributes from AttributeEngine using the version number.
      */
-    private void saveVersionSnapshot(SigningProfile signingProfile, int version,
-                                     SigningSchemeRequestDto scheme, WorkflowRequestDto workflow, boolean overwrite) {
-        String schemeJson = toJson(scheme);
-        String workflowJson = toJson(workflow);
-
-        if (overwrite) {
-            signingProfileVersionRepository
-                    .findBySigningProfileUuidAndVersion(signingProfile.getUuid(), version)
-                    .ifPresentOrElse(spv -> {
-                        spv.setSchemeSnapshot(schemeJson);
-                        spv.setWorkflowSnapshot(workflowJson);
-                        signingProfileVersionRepository.save(spv);
-                    }, () -> insertSnapshot(signingProfile, version, schemeJson, workflowJson));
-        } else {
-            insertSnapshot(signingProfile, version, schemeJson, workflowJson);
-        }
-    }
-
-    private void insertSnapshot(SigningProfile signingProfile, int version, String schemeJson, String
-            workflowJson) {
-        SigningProfileVersion spv = new SigningProfileVersion();
-        spv.setSigningProfile(signingProfile);
-        spv.setVersion(version);
-        spv.setSchemeSnapshot(schemeJson);
-        spv.setWorkflowSnapshot(workflowJson);
-        signingProfileVersionRepository.save(spv);
-    }
-
-    /**
-     * Reconstructs a SigningProfileDto from a version snapshot.
-     */
-    private SigningProfileDto buildDtoFromSnapshot(SigningProfile live, SigningProfileVersion spv) {
-        try {
-            SigningSchemeRequestDto schemeReq = objectMapper.readValue(spv.getSchemeSnapshot(), SigningSchemeRequestDto.class);
-            WorkflowRequestDto workflowReq = objectMapper.readValue(spv.getWorkflowSnapshot(), WorkflowRequestDto.class);
-
-            SigningProfile tmp = new SigningProfile();
-            tmp.setUuid(live.getUuid());
-            tmp.setName(live.getName());
-            tmp.setDescription(live.getDescription());
-            tmp.setEnabled(live.getEnabled());
-            tmp.setLatestVersion(spv.getVersion());
-            applyWorkflow(tmp, workflowReq);
-            applyScheme(tmp, schemeReq);
-
-            List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, live.getUuid());
-            List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
-                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, live.getUuid())
-                            .operation(AttributeOperation.SIGN)
-                            .version(spv.getVersion()).build());
-            List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
-                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, live.getUuid())
-                            .connector(tmp.getSignatureFormatterConnectorUuid())
-                            .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                            .version(spv.getVersion()).build());
-            return SigningProfileMapper.toDto(tmp, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
-        } catch (Exception e) {
-            log.error("Failed to load signing profile snapshot v{} for {}: {}",
-                    spv.getVersion(), live.getUuid(), e.getMessage());
-            throw new IllegalStateException("Cannot deserialize signing profile version snapshot", e);
-        }
-    }
-
-    private SigningProfileDto buildDtoFromProfile(SigningProfile profile) {
+    private SigningProfileDto buildDtoFromVersion(SigningProfile profile, SigningProfileVersion spv) {
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid());
         List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
                 ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profile.getUuid())
                         .operation(AttributeOperation.SIGN)
-                        .version(profile.getLatestVersion()).build());
+                        .version(spv.getVersion()).build());
         List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
                 ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profile.getUuid())
-                        .connector(profile.getSignatureFormatterConnectorUuid())
+                        .connector(spv.getSignatureFormatterConnectorUuid())
                         .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                        .version(profile.getLatestVersion()).build());
-        return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
+                        .version(spv.getVersion()).build());
+        return SigningProfileMapper.toDto(profile, spv, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
-    private String toJson(Object obj) {
-        if (obj == null) return "{}";
-        try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to serialise snapshot object: {}", e.getMessage());
-            return "{}";
-        }
+    private SigningProfileDto buildDtoFromProfile(SigningProfile profile) {
+        SigningProfileVersion current = signingProfileVersionRepository
+                .findBySigningProfileUuidAndVersion(profile.getUuid(), profile.getLatestVersion())
+                .orElseThrow(() -> new IllegalStateException("No version row found for signing profile " + profile.getUuid() + " version " + profile.getLatestVersion()));
+        return buildDtoFromVersion(profile, current);
     }
 
-    private List<ResponseAttribute> persistSigningOperationAttributes(SigningProfile signingProfile, SigningSchemeRequestDto signingScheme) throws AttributeException, NotFoundException {
+    private List<ResponseAttribute> persistSigningOperationAttributes(SigningProfile signingProfile, SigningProfileVersion version, SigningSchemeRequestDto signingScheme) throws AttributeException, NotFoundException {
         if (signingScheme instanceof StaticKeyManagedSigningRequestDto staticKeyScheme) {
             List<RequestAttribute> signingOperationAttributes = staticKeyScheme.getSigningOperationAttributes();
-            List<BaseAttribute> definitions = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(signingProfile.getCertificate().getKey().getUuid()))
+            List<BaseAttribute> definitions = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(version.getCertificate().getKey().getUuid()))
                     .stream()
                     .findFirst()
                     .map(item -> cryptographicOperationService.listSignatureAttributes(item.getKeyAlgorithm()))
@@ -661,39 +587,38 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             return attributeEngine.replaceVersionedOperationAttributeContent(
                     ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, signingProfile.getUuid())
                             .operation(AttributeOperation.SIGN)
-                            .version(signingProfile.getLatestVersion()).build(),
+                            .version(version.getVersion()).build(),
                     signingOperationAttributes);
         }
-        // For non-STATIC_KEY schemes there are no signing-op attributes; clean up any that may
-        // remain for the current version (e.g. when switching scheme type in an in-place update).
+        // For non-STATIC_KEY schemes, clean up any attributes that may remain for the current version.
         attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
                 ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, signingProfile.getUuid())
                         .operation(AttributeOperation.SIGN)
-                        .version(signingProfile.getLatestVersion()).build());
+                        .version(version.getVersion()).build());
         return null;
     }
 
-    private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
+    private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, SigningProfileVersion version, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
         return switch (workflow) {
             case ContentSigningWorkflowRequestDto w -> attributeEngine.replaceVersionedOperationAttributeContent(
                     ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
                             .connector(w.getSignatureFormatterConnectorUuid())
                             .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                            .version(p.getLatestVersion()).build(),
+                            .version(version.getVersion()).build(),
                     w.getSignatureFormatterConnectorAttributes());
             case RawSigningWorkflowRequestDto w -> {
-                // Raw signing has no formatter; clean up any formatter attrs that may remain for this version.
+                // Raw signing has no formatter; clean up any formatter attributes that may remain for this version.
                 attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
                         ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
                                 .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                                .version(p.getLatestVersion()).build());
+                                .version(version.getVersion()).build());
                 yield null;
             }
             case TimestampingWorkflowRequestDto w -> attributeEngine.replaceVersionedOperationAttributeContent(
                     ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
                             .connector(w.getSignatureFormatterConnectorUuid())
                             .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                            .version(p.getLatestVersion()).build(),
+                            .version(version.getVersion()).build(),
                     w.getSignatureFormatterConnectorAttributes());
             default -> throw new IllegalStateException("Unexpected type for Signing Workflow: " + workflow);
         };
@@ -720,9 +645,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         return results;
     }
 
-// ──────────────────────────────────────────────────────────────────────────
-// ResourceExtensionService
-// ──────────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────────
+    // ResourceExtensionService
+    // ──────────────────────────────────────────────────────────────────────────
 
     @Override
     public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
@@ -747,9 +672,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         findByUuid(uuid);
     }
 
-// ──────────────────────────────────────────────────────────────────────────
-// Dependencies
-// ──────────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────────
+    // Dependencies
+    // ──────────────────────────────────────────────────────────────────────────
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -782,11 +707,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Autowired
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
-
-    @Autowired
     public void setSigningProfileRepository(SigningProfileRepository signingProfileRepository) {
         this.signingProfileRepository = signingProfileRepository;
     }
@@ -797,7 +717,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Autowired
-    public void setTspRepository(TspProfileRepository tspProfileRepository) {
-        this.tspRepository = tspProfileRepository;
+    public void setTspProfileRepository(TspProfileRepository tspProfileRepository) {
+        this.tspProfileRepository = tspProfileRepository;
     }
 }
