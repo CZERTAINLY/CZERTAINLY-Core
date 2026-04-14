@@ -208,10 +208,10 @@ public class LocationServiceImpl implements LocationService {
         logger.info("Location with name {} and UUID {} created", location.getName(), location.getUuid());
 
         LocationDto locationDto = mapLocationToDto(location);
-        locationDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.LOCATION, location.getUuid())));
+        locationDto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).build()));
         locationDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.LOCATION, location.getUuid(), dto.getCustomAttributes()));
-        locationDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(entityInstanceRef.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), dto.getAttributes()));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(entityInstanceRef.getConnectorUuid(), Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        locationDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(entityInstanceRef.getConnectorUuid()).build(), dto.getAttributes()));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).connector(entityInstanceRef.getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).build())));
 
         return locationDto;
     }
@@ -222,10 +222,10 @@ public class LocationServiceImpl implements LocationService {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
         LocationDto dto = mapLocationToDto(location);
-        dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.LOCATION, location.getUuid())));
+        dto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).build()));
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, location.getUuid()));
-        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
-        dto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).build()));
+        dto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).source(Resource.LOCATION, location.getUuid()).build())));
         return dto;
     }
 
@@ -252,10 +252,10 @@ public class LocationServiceImpl implements LocationService {
 
         UUID updatedLocationUuid = location.getUuid();
         LocationDto locationDto = mapLocationToDto(location);
-        locationDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.LOCATION, updatedLocationUuid)));
+        locationDto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, updatedLocationUuid).build()));
         locationDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.LOCATION, updatedLocationUuid, dto.getCustomAttributes()));
-        locationDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(entityInstanceRef.getConnectorUuid(), null, Resource.LOCATION, updatedLocationUuid, dto.getAttributes()));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(entityInstanceRef.getConnectorUuid(), Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, updatedLocationUuid))));
+        locationDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, updatedLocationUuid).connector(entityInstanceRef.getConnectorUuid()).build(), dto.getAttributes()));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).connector(entityInstanceRef.getConnectorUuid()).source(Resource.LOCATION, updatedLocationUuid).build())));
         return locationDto;
     }
 
@@ -378,7 +378,7 @@ public class LocationServiceImpl implements LocationService {
         logger.info("Certificate {} removed from Location {}", certificateUuid, location.getName());
         LocationDto locationDto = mapLocationToDto(location);
         locationDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, location.getUuid()));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).source(Resource.LOCATION, location.getUuid()).build())));
         return locationDto;
     }
 
@@ -405,19 +405,13 @@ public class LocationServiceImpl implements LocationService {
         Certificate certificate = certificateLocation.getCertificate();
         Location location = certificateLocation.getLocation();
 
-        List<MetadataAttribute> metadata = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(
-                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
-                Resource.CERTIFICATE, certificate.getUuid(),
-                Resource.LOCATION, location.getUuid()));
+        List<MetadataAttribute> metadata = attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).build());
 
         removeStash(location, metadata);
 
         certificateLocationRepository.delete(certificateLocation);
 
-        attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(
-                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
-                Resource.CERTIFICATE, certificate.getUuid(),
-                Resource.LOCATION, location.getUuid()));
+        attributeEngine.deleteObjectAttributesContent(AttributeType.META, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).build());
 
         location.getCertificates().remove(certificateLocation);
 
@@ -471,7 +465,7 @@ public class LocationServiceImpl implements LocationService {
 
         final LocationDto dto = mapLocationToDto(location);
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, location.getUuid()));
-        dto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        dto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).source(Resource.LOCATION, location.getUuid()).build())));
         return dto;
     }
 
@@ -484,7 +478,7 @@ public class LocationServiceImpl implements LocationService {
         pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
         // TODO: support for different types of certificate
         pushCertificateRequestDto.setCertificateType(CertificateType.X509);
-        pushCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
+        pushCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).build()));
         pushCertificateRequestDto.setPushAttributes(AttributeDefinitionUtils.getClientAttributes(certificateLocation.getPushAttributes()));
 
         PushCertificateResponseDto pushCertificateResponseDto;
@@ -514,7 +508,7 @@ public class LocationServiceImpl implements LocationService {
 
         certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
         certificateLocationRepository.save(certificateLocation);
-        attributeEngine.updateMetadataAttributes(pushCertificateResponseDto.getCertificateMetadata(), new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
+        attributeEngine.updateMetadataAttributes(pushCertificateResponseDto.getCertificateMetadata(), ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).sourceName(location.getName()).build());
 
         // TODO: response with the indication if the key is available for pushed certificate
 
@@ -595,7 +589,7 @@ public class LocationServiceImpl implements LocationService {
 
         LocationDto locationDto = mapLocationToDto(location);
         locationDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, location.getUuid()));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).source(Resource.LOCATION, location.getUuid()).build())));
         return locationDto;
     }
 
@@ -608,7 +602,7 @@ public class LocationServiceImpl implements LocationService {
         EntityInstanceReference entityInstanceRef = location.getEntityInstanceReference();
 
         LocationDetailRequestDto locationDetailRequestDto = new LocationDetailRequestDto();
-        locationDetailRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(entityInstanceRef.getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
+        locationDetailRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(entityInstanceRef.getConnectorUuid()).build()));
 
         LocationDetailResponseDto locationDetailResponseDto;
         try {
@@ -634,7 +628,7 @@ public class LocationServiceImpl implements LocationService {
         UUID syncedLocationUuid = location.getUuid();
         LocationDto locationDto = mapLocationToDto(location);
         locationDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, syncedLocationUuid));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(entityInstanceRef.getConnectorUuid(), Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, syncedLocationUuid))));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).connector(entityInstanceRef.getConnectorUuid()).source(Resource.LOCATION, syncedLocationUuid).build())));
 
         return locationDto;
     }
@@ -707,7 +701,7 @@ public class LocationServiceImpl implements LocationService {
 
         LocationDto locationDto = mapLocationToDto(location);
         locationDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.LOCATION, location.getUuid()));
-        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid()), Resource.LOCATION, location.getUuid()))));
+        locationDto.getCertificates().forEach(e -> e.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, UUID.fromString(e.getCertificateUuid())).source(Resource.LOCATION, location.getUuid()).build())));
 
         return locationDto;
     }
@@ -761,7 +755,7 @@ public class LocationServiceImpl implements LocationService {
 
     private GenerateCsrResponseDto generateCsrLocation(Location location, List<RequestAttribute> csrAttributes, Boolean isRenewalRequest) throws LocationException {
         GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
-        generateCsrRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
+        generateCsrRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).build()));
         generateCsrRequestDto.setCsrAttributes(csrAttributes);
         generateCsrRequestDto.setRenewal(isRenewalRequest);
 
@@ -828,7 +822,7 @@ public class LocationServiceImpl implements LocationService {
     private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes, List<MetadataAttribute> certificateMetadata) throws LocationException, AttributeException {
         upsertCertificateLocation(location, certificate, pushAttributes, csrAttributes);
         locationRepository.save(location);
-        attributeEngine.updateMetadataAttributes(certificateMetadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
+        attributeEngine.updateMetadataAttributes(certificateMetadata, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).sourceName(location.getName()).build());
     }
 
     private CertificateLocation upsertCertificateLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes) throws LocationException {
@@ -864,7 +858,7 @@ public class LocationServiceImpl implements LocationService {
         pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
         // TODO: support for different types of certificate
         pushCertificateRequestDto.setCertificateType(CertificateType.X509);
-        pushCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
+        pushCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).build()));
         pushCertificateRequestDto.setPushAttributes(pushAttributes);
 
         PushCertificateResponseDto pushCertificateResponseDto;
@@ -897,7 +891,7 @@ public class LocationServiceImpl implements LocationService {
         certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
         locationRepository.save(location);
 
-        attributeEngine.updateMetadataAttributes(pushCertificateResponseDto.getCertificateMetadata(), new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
+        attributeEngine.updateMetadataAttributes(pushCertificateResponseDto.getCertificateMetadata(), ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).sourceName(location.getName()).build());
 
         // save record into the certificate history
         String message = "Pushed to Location " + location.getName();
@@ -941,10 +935,7 @@ public class LocationServiceImpl implements LocationService {
         Location location = certificateLocation.getLocation();
         Certificate certificate = certificateLocation.getCertificate();
 
-        List<MetadataAttribute> metadata = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(
-                location.getEntityInstanceReference().getConnectorUuid(),
-                Resource.CERTIFICATE, certificate.getUuid(),
-                Resource.LOCATION, location.getUuid()));
+        List<MetadataAttribute> metadata = attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).build());
 
         logger.info("Removing certificate {} from location {} in entity provider", certificate, location.getName());
 
@@ -952,10 +943,7 @@ public class LocationServiceImpl implements LocationService {
 
         certificateLocationRepository.delete(certificateLocation);
 
-        attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(
-                location.getEntityInstanceReference().getConnectorUuid(),
-                Resource.CERTIFICATE, certificate.getUuid(),
-                Resource.LOCATION, location.getUuid()));
+        attributeEngine.deleteObjectAttributesContent(AttributeType.META, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).source(Resource.LOCATION, location.getUuid()).build());
 
         location.getCertificates().remove(certificateLocation);
 
@@ -1030,7 +1018,7 @@ public class LocationServiceImpl implements LocationService {
 
         // Drop all existing metadata and certificate-location rows for this location
         attributeEngine.deleteObjectAttributesContent(AttributeType.META,
-                new ObjectAttributeContentInfo(connectorUuid, Resource.LOCATION, locationUuid));
+                ObjectAttributeContentInfo.builder(Resource.LOCATION, locationUuid).connector(connectorUuid).build());
         attributeEngine.deleteObjectAttributesContentBySource(AttributeType.META, connectorUuid, Resource.CERTIFICATE, Resource.LOCATION, locationUuid);
 
         // clearAutomatically on this query evicts stale CertificateLocation references
@@ -1065,12 +1053,11 @@ public class LocationServiceImpl implements LocationService {
             }
 
             attributeEngine.updateMetadataAttributes(dto.getMetadata(),
-                    new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certUuid,
-                            Resource.LOCATION, locationUuid, locationName));
+                    ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certUuid).connector(connectorUuid).source(Resource.LOCATION, locationUuid).sourceName(locationName).build());
         }
 
         attributeEngine.updateMetadataAttributes(metadata,
-                new ObjectAttributeContentInfo(connectorUuid, Resource.LOCATION, locationUuid));
+                ObjectAttributeContentInfo.builder(Resource.LOCATION, locationUuid).connector(connectorUuid).build());
 
         locationRepository.save(location);
 
@@ -1109,7 +1096,7 @@ public class LocationServiceImpl implements LocationService {
 
     private void removeStash(Location location, List<MetadataAttribute> metadata) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
-        removeCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
+        removeCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).build()));
         removeCertificateRequestDto.setCertificateMetadata(metadata);
         locationApiClient.removeCertificateFromLocation(location.getEntityInstanceReference().getConnector().mapToDto(),
                 location.getEntityInstanceReference().getEntityInstanceUuid(),

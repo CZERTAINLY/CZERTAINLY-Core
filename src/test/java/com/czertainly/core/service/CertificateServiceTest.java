@@ -227,7 +227,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         meta.add(tst);
 
         UUID connectorUuid = raProfileOld.getAuthorityInstanceReference().getConnectorUuid();
-        attributeEngine.updateMetadataAttributes(meta, new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certificate.getUuid()));
+        attributeEngine.updateMetadataAttributes(meta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorUuid).build());
 
         raProfile = new RaProfile();
         raProfile.setName("Test RA profile");

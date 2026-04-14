@@ -175,9 +175,9 @@ public class AttributeEngine {
         // filter definitions that are not allowed for user
         if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
             return relations.stream()
-                .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
-                .map(AttributeEngine::getCustomAttributeWithDecryptedContentFromRelation)
-                .toList();
+                    .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
+                    .map(AttributeEngine::getCustomAttributeWithDecryptedContentFromRelation)
+                    .toList();
         } else {
             return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(AttributeEngine::getCustomAttributeWithDecryptedContentFromRelation).toList();
         }
@@ -217,7 +217,7 @@ public class AttributeEngine {
 
     public List<MetadataAttribute> getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo contentInfo) {
         // TODO: use also operation?
-        List<ObjectAttributeDefinitionContent> objectDefinitionContents = attributeContent2ObjectRepository.getObjectAttributeDefinitionContent(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
+        List<ObjectAttributeDefinitionContent> objectDefinitionContents = attributeContent2ObjectRepository.getObjectAttributeDefinitionContent(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid(), contentInfo.objectVersion());
 
         Map<String, MetadataAttribute> mapping = new HashMap<>();
 
@@ -248,7 +248,7 @@ public class AttributeEngine {
 
     // TODO: make it generic to be used also for DATA attributes and update DTOs accordingly
     public List<MetadataResponseDto> getMappedMetadataContent(ObjectAttributeContentInfo contentInfo) {
-        List<ObjectAttributeContentDetail> objectMetadataContents = attributeContent2ObjectRepository.getObjectAttributeContentDetail(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
+        List<ObjectAttributeContentDetail> objectMetadataContents = attributeContent2ObjectRepository.getObjectAttributeContentDetail(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid(), contentInfo.objectVersion());
 
         Map<UUID, String> connectorMapping = new HashMap<>();
         Map<UUID, Map<Resource, Map<UUID, ResponseMetadata>>> mapping = new HashMap<>();
@@ -414,8 +414,7 @@ public class AttributeEngine {
             }
             attributeDefinition.setEncryptedData(encryptedContents);
             return encryptedContentItems;
-        }
-        else {
+        } else {
             return baseAttribute.getContent();
         }
     }
@@ -622,7 +621,7 @@ public class AttributeEngine {
 
     public List<DataAttribute> getDefinitionObjectAttributeContent(AttributeType attributeType, UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
         logger.debug("Getting the {} attributes for {} with UUID: {}", attributeType.getLabel(), objectType.getLabel(), objectUuid);
-        List<ObjectAttributeDefinitionContent> objectDefinitionContents = attributeContent2ObjectRepository.getObjectAttributeDefinitionContent(attributeType, connectorUuid, operation, objectType, objectUuid, null, null);
+        List<ObjectAttributeDefinitionContent> objectDefinitionContents = attributeContent2ObjectRepository.getObjectAttributeDefinitionContent(attributeType, connectorUuid, operation, objectType, objectUuid, null, null, null);
 
         Map<String, DataAttribute> mapping = new HashMap<>();
         for (ObjectAttributeDefinitionContent objectDefinitionContent : objectDefinitionContents) {
@@ -738,28 +737,22 @@ public class AttributeEngine {
         return getResponseAttributes(objectContents);
     }
 
-    public List<ResponseAttribute> getObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
-        return getObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
-    }
-
     public List<ResponseAttribute> getObjectDataAttributesContent(Resource objectType, UUID objectUuid) {
         List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository.getAllObjectDataAttributesContent(objectType, objectUuid);
         return getResponseAttributes(objectContents);
     }
 
-    public List<ResponseAttribute> getObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
-        logger.debug("Getting the data attributes for {} with UUID {} from connector {} and operation {} for purpose {}.", objectType.getLabel(), objectUuid, connectorUuid, operation, purpose);
-        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
+    public List<ResponseAttribute> getObjectDataAttributesContent(ObjectAttributeContentInfo info) {
+        logger.debug("Getting the data attributes for {} with UUID {} from connector {} and operation {} for purpose {} version {}.",
+                info.objectType().getLabel(), info.objectUuid(), info.connectorUuid(), info.operation(), info.purpose(), info.objectVersion());
+        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(info);
         return getResponseAttributes(objectContents);
     }
 
-    public List<RequestAttribute> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
-        return getRequestObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
-    }
-
-    public List<RequestAttribute> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
-        logger.debug("Getting the request data attributes for {} with UUID {} from connector {} and operation {}.", objectType.getLabel(), objectUuid, connectorUuid, operation);
-        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
+    public List<RequestAttribute> getRequestObjectDataAttributesContent(ObjectAttributeContentInfo info) {
+        logger.debug("Getting the request data attributes for {} with UUID {} from connector {} and operation {} version {}.",
+                info.objectType().getLabel(), info.objectUuid(), info.connectorUuid(), info.operation(), info.objectVersion());
+        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(info);
         return getRequestAttributes(objectContents);
     }
 
@@ -778,16 +771,16 @@ public class AttributeEngine {
         return dataAttributes;
     }
 
-    private List<ObjectAttributeContent> loadDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
+    private List<ObjectAttributeContent> loadDataAttributesContent(ObjectAttributeContentInfo info) {
         List<ObjectAttributeContent> objectContents;
-        if (operation != null && connectorUuid != null) {
-            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorUuid, operation, purpose, objectType, objectUuid);
-        } else if (operation != null) {
-            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoConnector(AttributeType.DATA, operation, purpose, objectType, objectUuid);
-        } else if (connectorUuid != null) {
-            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorUuid, objectType, objectUuid);
+        if (info.operation() != null && info.connectorUuid() != null) {
+            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, info.connectorUuid(), info.operation(), info.purpose(), info.objectType(), info.objectUuid(), info.objectVersion());
+        } else if (info.operation() != null) {
+            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoConnector(AttributeType.DATA, info.operation(), info.purpose(), info.objectType(), info.objectUuid(), info.objectVersion());
+        } else if (info.connectorUuid() != null) {
+            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, info.connectorUuid(), info.objectType(), info.objectUuid(), info.objectVersion());
         } else {
-            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoConnectorNoOperation(AttributeType.DATA, objectType, objectUuid);
+            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoConnectorNoOperation(AttributeType.DATA, info.objectType(), info.objectUuid(), info.objectVersion());
         }
 
         return objectContents;
@@ -826,25 +819,75 @@ public class AttributeEngine {
         return mapping.values().stream().toList();
     }
 
-    public List<ResponseAttribute> updateObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid, List<RequestAttribute> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
-        return updateObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid, requestAttributes);
-    }
-
-    public List<ResponseAttribute> updateObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid, List<RequestAttribute> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
-        logger.debug("Updating the content of data attributes for resource {} with UUID: {}", objectType.getLabel(), objectUuid);
+    public List<ResponseAttribute> updateObjectDataAttributesContent(ObjectAttributeContentInfo info, List<RequestAttribute> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
+        logger.debug("Updating the content of data attributes for resource {} with UUID: {} version: {}", info.objectType().getLabel(), info.objectUuid(), info.objectVersion());
         if (requestAttributes == null) {
             requestAttributes = new ArrayList<>();
         }
 
-        // delete all content for operation
-        ObjectAttributeContentInfo objectAttributeContentInfo = new ObjectAttributeContentInfo(connectorUuid, objectType, objectUuid, purpose);
-        deleteOperationObjectAttributesContent(AttributeType.DATA, operation, purpose, objectAttributeContentInfo);
+        deleteOperationObjectAttributesContent(AttributeType.DATA, info);
         for (RequestAttribute requestAttribute : requestAttributes) {
-            AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
-            createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, requestAttribute.getContent());
+            AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, info.connectorUuid(), requestAttribute.getUuid(), requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
+            createObjectAttributeContent(attributeDefinition, info, requestAttribute.getContent());
         }
 
-        return getObjectDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
+        return getObjectDataAttributesContent(info);
+    }
+
+    /**
+     * Atomically replaces attribute content for the given versioned object, operation, and purpose,
+     * regardless of which connector originally stored the rows.
+     *
+     * <p>Use this method instead of {@link #updateObjectDataAttributesContent} when <em>both</em>
+     * of the following conditions hold:
+     * <ol>
+     *   <li>{@code info.objectVersion()} is non-null (versioned objects only).</li>
+     *   <li>The connector contributing attributes for the operation may have changed since the version was last written
+     *   — for example, when a versioned resource is updated in-place (no version bump) and the resource can also change
+     *   from connector A to connector B.</li>
+     * </ol>
+     *
+     * <p>Callers where the connector is guaranteed not to change between writes (e.g. first-time
+     * creation of a resource version) may continue to use {@link #updateObjectDataAttributesContent}.
+     */
+    public List<ResponseAttribute> replaceVersionedOperationAttributeContent(
+            ObjectAttributeContentInfo info, List<RequestAttribute> requestAttributes)
+            throws ValidationException, NotFoundException, AttributeException {
+        if (info.objectVersion() == null) {
+            throw new IllegalArgumentException(
+                    "replaceVersionedOperationAttributeContent requires a non-null objectVersion; " +
+                            "use updateObjectDataAttributesContent for unversioned objects");
+        }
+        if (info.operation() == null) {
+            throw new IllegalArgumentException(
+                    "replaceVersionedOperationAttributeContent requires a non-null operation");
+        }
+        logger.debug("Replacing versioned operation attribute content for resource {} UUID {} version {} operation {}.",
+                info.objectType().getLabel(), info.objectUuid(), info.objectVersion(), info.operation());
+
+        if (requestAttributes == null) {
+            requestAttributes = new ArrayList<>();
+        }
+
+        // Wide pre-delete: removes every row for this (objectType, objectUuid, objectVersion, operation, purpose)
+        // tuple irrespective of connectorUuid, preventing stale rows when the connector changes between in-place overwrites
+        // of the same version.
+        Long deleted = attributeContent2ObjectRepository.deleteAllOperationAttributesByVersion(
+                AttributeType.DATA, info.operation(), info.purpose(),
+                info.objectType(), info.objectUuid(), info.objectVersion());
+        logger.debug("Removed {} stale attribute row(s) before replace for resource {} UUID {} version {} operation {} purpose {}.",
+                deleted, info.objectType().getLabel(), info.objectUuid(), info.objectVersion(), info.operation(), info.purpose());
+
+        for (RequestAttribute requestAttribute : requestAttributes) {
+            AttributeDefinition attributeDefinition = attributeDefinitionRepository
+                    .findByTypeAndConnectorUuidAndAttributeUuidAndName(
+                            AttributeType.DATA, info.connectorUuid(),
+                            requestAttribute.getUuid(), requestAttribute.getName())
+                    .orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
+            createObjectAttributeContent(attributeDefinition, info, requestAttribute.getContent());
+        }
+
+        return getObjectDataAttributesContent(info);
     }
 
     public List<ResponseAttribute> updateObjectCustomAttributesContent(Resource objectType, UUID objectUuid, List<RequestAttribute> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
@@ -863,7 +906,7 @@ public class AttributeEngine {
             for (RequestAttribute requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
                 List<? extends AttributeContent> attributeContent = requestAttribute.getVersion() == AttributeVersion.V3 ? ((RequestAttributeV3) requestAttribute).getContent() : ((RequestAttributeV2) requestAttribute).getContent().stream().map(ac -> AttributeVersionHelper.convertAttributeContentToV3(ac, requestAttribute.getContentType())).toList();
-                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), attributeContent);
+                createObjectAttributeContent(attributeDefinition, ObjectAttributeContentInfo.builder(objectType, objectUuid).build(), attributeContent);
             }
         } else {
             // delete only content of allowed attributes
@@ -873,7 +916,7 @@ public class AttributeEngine {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
                 checkCustomAttributeUpdatePermissions(securityResourceFilter, attributeDefinition);
 
-                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
+                createObjectAttributeContent(attributeDefinition, ObjectAttributeContentInfo.builder(objectType, objectUuid).build(), requestAttribute.getContent());
             }
         }
 
@@ -918,7 +961,7 @@ public class AttributeEngine {
         if (attributeContentItems != null && !attributeContentItems.isEmpty()) {
             List<BaseAttributeContentV3<?>> contentV3s = AttributeVersionHelper.getBaseAttributeContentV3s(attributeContentItems, attributeDefinition);
             validateAttributeContent(attributeDefinition, contentV3s);
-            createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), contentV3s);
+            createObjectAttributeContent(attributeDefinition, ObjectAttributeContentInfo.builder(objectType, objectUuid).build(), contentV3s);
         }
     }
 
@@ -1162,10 +1205,42 @@ public class AttributeEngine {
         attributeDefinitionRepository.delete(definition);
     }
 
+    /**
+     * Deletes <em>all</em> attribute content rows for the given object across every version, including unversioned rows.
+     *
+     * <p>This is the correct method when the owning entity is being permanently removed and its entire attribute history
+     * should be purged. To delete only the attribute content that belongs to one specific version (e.g. when pruning old version history),
+     * use {@link #deleteObjectAttributeContentForVersion} instead.
+     */
     public void deleteAllObjectAttributeContent(Resource objectType, UUID objectUuid) {
         logger.debug("Deleting the attribute content for resource {} with UUID: {}", objectType.getLabel(), objectUuid);
         Long deletedCount = attributeContent2ObjectRepository.deleteByObjectTypeAndObjectUuid(objectType, objectUuid);
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
+    }
+
+    /**
+     * Deletes all attribute content rows that belong to a single version of a versioned object, leaving every other
+     * version (and any unversioned rows) untouched.
+     *
+     * <p>This is the version-scoped complement of {@link #deleteAllObjectAttributeContent}. Use it when you want to
+     * prune attribute data for one specific version without affecting the rest of the object's attribute history
+     * — for example, when rolling back or expiring an old resource version.
+     *
+     * <p>{@link #deleteAllObjectAttributeContent} remains the correct choice for full
+     * object deletion, because it removes every attribute row regardless of version.
+     */
+    public void deleteObjectAttributeContentForVersion(Resource objectType, UUID objectUuid, Integer version) {
+        if (version == null) {
+            throw new IllegalArgumentException(
+                    "deleteObjectAttributeContentForVersion requires a non-null version; " +
+                            "use deleteAllObjectAttributeContent to remove content across all versions");
+        }
+        logger.debug("Deleting attribute content for resource {} with UUID: {} version: {}",
+                objectType.getLabel(), objectUuid, version);
+        Long deletedCount = attributeContent2ObjectRepository
+                .deleteByObjectTypeAndObjectUuidAndObjectVersion(objectType, objectUuid, version);
+        logger.debug("Deleted {} attribute content items for {} with UUID {} version {}",
+                deletedCount, objectType.getLabel(), objectUuid, version);
     }
 
     public void bulkDeleteObjectAttributeContent(Resource objectType, List<UUID> objectUuids) {
@@ -1186,16 +1261,26 @@ public class AttributeEngine {
         logger.debug("Deleted {} attribute content items for {} objects with source {} {}", deletedCount, objectType.getLabel(), sourceObjectType.getLabel(), sourceObjectUuid);
     }
 
-    public void deleteOperationObjectAttributesContent(AttributeType attributeType, String operation, ObjectAttributeContentInfo contentInfo) {
-        logger.debug("Deleting the {} attribute content of operation {} for resource {} with UUID {}. Info: {}", attributeType.getLabel(), operation, contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
-        Long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(attributeType, operation, contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
-        logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, contentInfo.objectType().getLabel(), contentInfo.objectUuid());
-    }
-
-    public void deleteOperationObjectAttributesContent(AttributeType attributeType, String operation, String purpose, ObjectAttributeContentInfo contentInfo) {
-        logger.debug("Deleting the {} attribute content of operation {} for resource {} with UUID {}. Info: {}", attributeType.getLabel(), operation, contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
-        Long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndPurposeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(attributeType, operation, purpose, contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
-        logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, contentInfo.objectType().getLabel(), contentInfo.objectUuid());
+    public void deleteOperationObjectAttributesContent(AttributeType attributeType, ObjectAttributeContentInfo contentInfo) {
+        logger.debug("Deleting the {} attribute content of operation {} for resource {} with UUID {} version {}. Info: {}", attributeType.getLabel(), contentInfo.operation(), contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo.objectVersion(), contentInfo);
+        Long deletedCount;
+        if (contentInfo.objectVersion() != null) {
+            // Versioned: target only the specified version's rows via the @Modifying @Query.
+            deletedCount = attributeContent2ObjectRepository.deleteOperationObjectAttributesByVersion(
+                    attributeType, contentInfo.operation(), contentInfo.purpose(),
+                    contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(),
+                    contentInfo.objectVersion(),
+                    contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
+        } else {
+            // Unversioned (with or without purpose): use the explicit @Modifying @Query that
+            // (a) handles null operation via IS NULL matching instead of equality,
+            // (b) is scoped to objectVersion IS NULL so it cannot accidentally remove versioned rows.
+            deletedCount = attributeContent2ObjectRepository.deleteOperationObjectAttributesUnversioned(
+                    attributeType, contentInfo.operation(), contentInfo.purpose(),
+                    contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(),
+                    contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
+        }
+        logger.debug("Deleted {} attribute content items for {} with UUID {} version {}", deletedCount, contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo.objectVersion());
     }
 
     private void createObjectAttributeContent(AttributeDefinition attributeDefinition, ObjectAttributeContentInfo objectAttributeContentInfo, List<? extends AttributeContent> attributeContentItems) throws AttributeException {
@@ -1218,9 +1303,14 @@ public class AttributeEngine {
 
             // check if content item for this attribute definition exists to don't create duplicate items
             if (contentItemEntity != null) {
-                // check if that content item is not already assigned to same object for meta attribute
+                // check if that content item is not already assigned to same object+version for meta attribute
                 // TODO: do we need to allow duplicate content items for one attribute definition? Maybe if attribute is list or do this check just for META attributes?
-                var aco = attributeContent2ObjectRepository.getByConnectorUuidAndAttributeContentItemUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(objectAttributeContentInfo.connectorUuid(), contentItemEntity.getUuid(), objectAttributeContentInfo.objectType(), objectAttributeContentInfo.objectUuid(), objectAttributeContentInfo.sourceObjectType(), objectAttributeContentInfo.sourceObjectUuid());
+                var aco = attributeContent2ObjectRepository.findExistingContentMapping(
+                        objectAttributeContentInfo.connectorUuid(), contentItemEntity.getUuid(),
+                        objectAttributeContentInfo.objectType(), objectAttributeContentInfo.objectUuid(),
+                        objectAttributeContentInfo.objectVersion(),
+                        objectAttributeContentInfo.sourceObjectType(), objectAttributeContentInfo.sourceObjectUuid(),
+                        objectAttributeContentInfo.purpose());
                 if (!aco.isEmpty()) {
                     continue;
                 }
@@ -1240,6 +1330,7 @@ public class AttributeEngine {
             objectContentItem.setSourceObjectType(objectAttributeContentInfo.sourceObjectType());
             objectContentItem.setSourceObjectName(objectAttributeContentInfo.sourceObjectName());
             objectContentItem.setPurpose(objectAttributeContentInfo.purpose());
+            objectContentItem.setObjectVersion(objectAttributeContentInfo.objectVersion());
             objectContentItem.setOrder(i);
             objectContentItem.setAttributeContentItem(contentItemEntity);
             attributeContent2ObjectRepository.save(objectContentItem);

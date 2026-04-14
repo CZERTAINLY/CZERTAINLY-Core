@@ -290,10 +290,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         CryptographicKey key = checkKeyRequestToken(uuid.getValue(), "get detail of", true, true);
         KeyDetailDto dto = key.mapToDetailDto();
         if (key.getTokenInstanceReferenceUuid() != null) {
-            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(key.getTokenInstanceReference().getConnectorUuid(), null, Resource.CRYPTOGRAPHIC_KEY, key.getUuid()));
+            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, key.getUuid()).connector(key.getTokenInstanceReference().getConnectorUuid()).build()));
         }
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid()));
-        dto.getItems().forEach(k -> k.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(k.getUuid())))));
+        dto.getItems().forEach(k -> k.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(k.getUuid())).build())));
         logger.debug("Key details with attributes {}", dto);
         return dto;
     }
@@ -311,7 +311,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         );
         KeyItemDetailDto dto = item.mapToDto();
         logger.debug("Key details: {}", dto);
-        dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CRYPTOGRAPHIC_KEY, item.getUuid())));
+        dto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, item.getUuid()).build()));
         logger.debug("Key details with attributes {}", dto);
         return dto;
     }
@@ -346,7 +346,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.debug("Connector details: {}", connector);
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         createKeyRequestDto.setCreateKeyAttributes(request.getAttributes());
-        createKeyRequestDto.setTokenProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(tokenProfile.getTokenInstanceReference().getConnectorUuid(), null, Resource.TOKEN_PROFILE, tokenProfile.getUuid()));
+        createKeyRequestDto.setTokenProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenProfile.getTokenInstanceReference().getConnectorUuid()).build()));
 
         CryptographicKey key;
         if (type.equals(KeyRequestType.KEY_PAIR)) {
@@ -374,7 +374,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.debug("Key creation is successful. UUID is {}", key.getUuid());
         KeyDetailDto keyDetailDto = key.mapToDetailDto();
         keyDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getCustomAttributes()));
-        keyDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(tokenInstanceReference.getConnectorUuid(), null, Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getAttributes()));
+        keyDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, key.getUuid()).connector(tokenInstanceReference.getConnectorUuid()).build(), request.getAttributes()));
 
         logger.debug("Key details: {}", keyDetailDto);
         return keyDetailDto;
@@ -1077,7 +1077,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 keyItem.getUuid()
         );
 
-        attributeEngine.updateMetadataAttributes(keyData.getMetadata(), new ObjectAttributeContentInfo(connectorUuid, Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(keyItem.getUuid().toString()), Resource.CRYPTOGRAPHIC_KEY, cryptographicKey.getUuid(), cryptographicKey.getName()));
+        attributeEngine.updateMetadataAttributes(keyData.getMetadata(), ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(keyItem.getUuid().toString())).connector(connectorUuid).source(Resource.CRYPTOGRAPHIC_KEY, cryptographicKey.getUuid()).sourceName(cryptographicKey.getName()).build());
         if (keyData.getType().equals(KeyType.PUBLIC_KEY)) {
             certificateService.updateCertificateKeys(cryptographicKey.getUuid(), keyItem.getFingerprint());
         }

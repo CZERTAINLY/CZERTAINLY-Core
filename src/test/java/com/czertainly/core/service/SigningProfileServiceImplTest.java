@@ -59,6 +59,7 @@ import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
@@ -888,6 +889,121 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testUpdateSigningProfile_versionBump_oldVersionAttributesPreservedInEngine() throws AlreadyExistException, AttributeException, NotFoundException {
+        // Create a STATIC_KEY profile (version 1) with known signing-op attributes
+        StaticKeyManagedSigningRequestDto schemeV1 = new StaticKeyManagedSigningRequestDto();
+        schemeV1.setCertificateUuid(rsaCertificate.getUuid());
+        schemeV1.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
+        createRequest.setName("versioned-sign-attrs-preserved");
+        createRequest.setSigningScheme(schemeV1);
+        createRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+        SigningProfileDto created = signingProfileService.createSigningProfile(createRequest);
+        UUID profileUuid = UUID.fromString(created.getUuid());
+
+        // Verify v1 signing-op attributes are readable with version=1
+        List<ResponseAttribute> v1Attrs = attributeEngine.getObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
+                        .operation(AttributeOperation.SIGN).version(1).build());
+        Assertions.assertFalse(v1Attrs.isEmpty(), "Version 1 signing-op attributes should be stored");
+
+        // Trigger version bump: create signing record for v1, then update with different signing attrs
+        SigningProfile profileEntity = signingProfileRepository.findById(profileUuid).orElseThrow();
+        createSigningRecordFor(profileEntity, 1);
+
+        StaticKeyManagedSigningRequestDto schemeV2 = new StaticKeyManagedSigningRequestDto();
+        schemeV2.setCertificateUuid(rsaCertificate.getUuid());
+        schemeV2.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
+                buildDigestAttribute(DigestAlgorithm.SHA_512)));
+        SigningProfileRequestDto updateRequest = new SigningProfileRequestDto();
+        updateRequest.setName("versioned-sign-attrs-preserved");
+        updateRequest.setSigningScheme(schemeV2);
+        updateRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+        SigningProfileDto updated = signingProfileService.updateSigningProfile(SecuredUUID.fromUUID(profileUuid), updateRequest);
+        Assertions.assertEquals(2, updated.getVersion());
+
+        // Version 1 attributes must still be readable (historical record preserved)
+        List<ResponseAttribute> v1AttrAfterBump = attributeEngine.getObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
+                        .operation(AttributeOperation.SIGN).version(1).build());
+        Assertions.assertFalse(v1AttrAfterBump.isEmpty(),
+                "Version 1 signing-op attributes must be preserved after a version bump");
+
+        // Version 2 must have the new attributes
+        List<ResponseAttribute> v2Attrs = attributeEngine.getObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
+                        .operation(AttributeOperation.SIGN).version(2).build());
+        Assertions.assertFalse(v2Attrs.isEmpty(),
+                "Version 2 signing-op attributes should be stored after bump");
+    }
+
+    @Test
+    void testGetSigningProfile_specificVersion_returnsVersionedSigningOperationAttributes() throws AlreadyExistException, AttributeException, NotFoundException {
+        // Create a STATIC_KEY profile (version 1) with PSS signing attributes
+        StaticKeyManagedSigningRequestDto schemeV1 = new StaticKeyManagedSigningRequestDto();
+        schemeV1.setCertificateUuid(rsaCertificate.getUuid());
+        schemeV1.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PSS),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
+        createRequest.setName("versioned-get-sign-attrs");
+        createRequest.setSigningScheme(schemeV1);
+        createRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+        SigningProfileDto created = signingProfileService.createSigningProfile(createRequest);
+        SecuredUUID profileUuid = SecuredUUID.fromString(created.getUuid());
+
+        // Trigger version bump: add signing record, then update to PKCS1_v1_5
+        SigningProfile profileEntity = signingProfileRepository.findById(UUID.fromString(created.getUuid())).orElseThrow();
+        createSigningRecordFor(profileEntity, 1);
+
+        StaticKeyManagedSigningRequestDto schemeV2 = new StaticKeyManagedSigningRequestDto();
+        schemeV2.setCertificateUuid(rsaCertificate.getUuid());
+        schemeV2.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        SigningProfileRequestDto updateRequest = new SigningProfileRequestDto();
+        updateRequest.setName("versioned-get-sign-attrs");
+        updateRequest.setSigningScheme(schemeV2);
+        updateRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+        signingProfileService.updateSigningProfile(profileUuid, updateRequest);
+
+        // getSigningProfile with version=1 must return PSS attributes
+        SigningProfileDto v1Dto = signingProfileService.getSigningProfile(profileUuid, 1);
+        Assertions.assertInstanceOf(StaticKeyManagedSigningDto.class, v1Dto.getSigningScheme());
+        StaticKeyManagedSigningDto v1SchemeDto = (StaticKeyManagedSigningDto) v1Dto.getSigningScheme();
+        Assertions.assertFalse(v1SchemeDto.getSigningOperationAttributes().isEmpty(),
+                "Version 1 DTO must include signing-op attributes");
+        Assertions.assertTrue(
+                v1SchemeDto.getSigningOperationAttributes().stream()
+                        .anyMatch(a -> RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME.equals(a.getName())),
+                "Version 1 must contain RSA signature scheme attribute");
+
+        // getSigningProfile with version=2 (latest) must return PKCS1_v1_5 attributes
+        SigningProfileDto v2Dto = signingProfileService.getSigningProfile(profileUuid, 2);
+        Assertions.assertInstanceOf(StaticKeyManagedSigningDto.class, v2Dto.getSigningScheme());
+        StaticKeyManagedSigningDto v2SchemeDto = (StaticKeyManagedSigningDto) v2Dto.getSigningScheme();
+        Assertions.assertFalse(v2SchemeDto.getSigningOperationAttributes().isEmpty(),
+                "Version 2 DTO must include signing-op attributes");
+        Assertions.assertTrue(
+                v2SchemeDto.getSigningOperationAttributes().stream()
+                        .anyMatch(a -> RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME.equals(a.getName())),
+                "Version 2 must contain RSA signature scheme attribute");
+
+        // The content stored for v1 (PSS) and v2 (PKCS1_v1_5) must differ in the engine
+        List<ResponseAttribute> v1SignAttrs = attributeEngine.getObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, UUID.fromString(created.getUuid()))
+                        .operation(AttributeOperation.SIGN).version(1).build());
+        List<ResponseAttribute> v2SignAttrs = attributeEngine.getObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, UUID.fromString(created.getUuid()))
+                        .operation(AttributeOperation.SIGN).version(2).build());
+        Assertions.assertFalse(v1SignAttrs.isEmpty(), "Engine must hold v1 sign attrs");
+        Assertions.assertFalse(v2SignAttrs.isEmpty(), "Engine must hold v2 sign attrs");
+    }
+
+    @Test
     void testUpdateSigningProfile_notFound_throwsNotFoundException() {
         SigningProfileRequestDto request = buildDelegatedRawRequest("does-not-matter");
 
@@ -1529,9 +1645,10 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         // Switch to DELEGATED — should clear signing-operation attributes from the engine
         signingProfileService.updateSigningProfile(profileUuid, buildDelegatedRawRequest("static-key-to-delegated"));
 
-        // Verify nothing remains in AttributeEngine under SIGNING_SCHEME for this profile
+        // Verify nothing remains in AttributeEngine under SIGNING_SCHEME for this profile (version 1, in-place overwrite)
         List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
-                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, UUID.fromString(created.getUuid()));
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, UUID.fromString(created.getUuid()))
+                        .operation(AttributeOperation.SIGN).version(1).build());
         Assertions.assertTrue(remaining.isEmpty(),
                 "Signing-scheme attributes should be deleted when scheme changes away from STATIC_KEY");
     }
@@ -1557,7 +1674,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         // AttributeEngine should have no attributes left for this profile
         List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
-                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, profileUuid);
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
+                        .operation(AttributeOperation.SIGN).version(1).build());
         Assertions.assertTrue(remaining.isEmpty(),
                 "Signing-scheme attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
     }
@@ -1676,15 +1794,19 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         signingProfileService.updateSigningProfile(profileUuid, updateRequest);
 
-        // Attributes for old formatterA should be gone
+        // Attributes for old formatterA should be gone (version 1, in-place overwrite)
         List<ResponseAttribute> oldAttrs = attributeEngine.getObjectDataAttributesContent(
-                formatterA.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuidRaw);
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuidRaw)
+                        .connector(formatterA.getUuid())
+                        .operation(AttributeOperation.WORKFLOW_FORMATTER).version(1).build());
         Assertions.assertTrue(oldAttrs.isEmpty(),
                 "Attributes for the old formatter connector should be removed when the connector changes");
 
         // Attributes for new formatterB should be present
         List<ResponseAttribute> newAttrs = attributeEngine.getObjectDataAttributesContent(
-                formatterB.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuidRaw);
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuidRaw)
+                        .connector(formatterB.getUuid())
+                        .operation(AttributeOperation.WORKFLOW_FORMATTER).version(1).build());
         Assertions.assertFalse(newAttrs.isEmpty(),
                 "Attributes for the new formatter connector should be stored after the update");
     }
@@ -1777,7 +1899,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         signingProfileService.deleteSigningProfile(SecuredUUID.fromUUID(profileUuid));
 
         List<ResponseAttribute> remaining = attributeEngine.getObjectDataAttributesContent(
-                formatter.getUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuid);
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
+                        .connector(formatter.getUuid())
+                        .operation(AttributeOperation.WORKFLOW_FORMATTER).version(1).build());
         Assertions.assertTrue(remaining.isEmpty(),
                 "Formatter attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
     }

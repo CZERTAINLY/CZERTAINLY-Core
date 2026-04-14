@@ -259,7 +259,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
         secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
-        secretDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), secretRequest.getAttributes()));
+        secretDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(vaultInstance.getConnectorUuid()).build(), secretRequest.getAttributes()));
 
         SecretActionData actionData;
         try {
@@ -299,7 +299,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secretVersion.setVaultVersion(secretResponseDto.getVersion());
         secretVersionRepository.save(secretVersion);
         secret.setState(SecretState.ACTIVE);
-        attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, vaultProfile.getUuid(), vaultProfile.getName()));
+        attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(connectorUuid).source(Resource.VAULT_PROFILE, vaultProfile.getUuid()).sourceName(vaultProfile.getName()).build());
         secretRepository.save(secret);
     }
 
@@ -315,8 +315,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
 
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
         secretDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SECRET, secret.getUuid(), secretRequest.getCustomAttributes()));
-        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
+        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(currentSourceVaultProfile.getVaultInstance().getConnectorUuid()).build()));
+        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).build()));
 
         if (secretRequest.getSecret() != null) {
             if (invalidSecretState(secret)) {
@@ -390,12 +390,12 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         SecretResponseDto sourceVaultProfileResponse = null;
         try {
             sourceVaultProfileResponse = updateSecretInVault(secret, secret.getSourceVaultProfile(), secretRequest, secretRequest.getAttributes());
-            attributeEngine.updateMetadataAttributes(sourceVaultProfileResponse.getMetadata(), new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, currentSourceVaultProfile.getUuid(), currentSourceVaultProfile.getName()));
+            attributeEngine.updateMetadataAttributes(sourceVaultProfileResponse.getMetadata(), ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(currentSourceVaultProfile.getVaultInstance().getConnectorUuid()).source(Resource.VAULT_PROFILE, currentSourceVaultProfile.getUuid()).sourceName(currentSourceVaultProfile.getName()).build());
             for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
                 VaultProfile syncVaultProfile = profile.getVaultProfile();
                 if (!processedVaultInstanceUuids.contains(syncVaultProfile.getVaultInstance().getUuid())) {
                     SecretResponseDto syncResponse = updateSecretInVault(secret, syncVaultProfile, secretRequest, profile.getSecretAttributes());
-                    attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), new ObjectAttributeContentInfo(syncVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, syncVaultProfile.getUuid(), syncVaultProfile.getName()));
+                    attributeEngine.updateMetadataAttributes(syncResponse.getMetadata(), ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(syncVaultProfile.getVaultInstance().getConnectorUuid()).source(Resource.VAULT_PROFILE, syncVaultProfile.getUuid()).sourceName(syncVaultProfile.getName()).build());
                     processedVaultInstanceUuids.add(syncVaultProfile.getVaultInstance().getUuid());
                 }
             }
@@ -405,7 +405,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         secret.setLatestVersion(newVersion);
         secret.getLatestVersion().setVaultVersion(sourceVaultProfileResponse.getVersion());
         secret.getVersions().add(newVersion);
-        attributeEngine.updateObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), secretRequest.getAttributes());
+        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(currentSourceVaultProfile.getVaultInstance().getConnectorUuid()).build(), secretRequest.getAttributes());
     }
 
     @Override
@@ -432,7 +432,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         if (!invalidSecretState(secret)) {
             Set<UUID> vaultInstanceUuids = new HashSet<>();
             try {
-                deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+                deleteSecretFromVault(secret.getSourceVaultProfile(), secret, attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid()).build()));
                 vaultInstanceUuids.add(secret.getSourceVaultProfile().getVaultInstance().getUuid());
                 for (Secret2SyncVaultProfile profile : secret.getSyncVaultProfiles()) {
                     if (!vaultInstanceUuids.contains(profile.getVaultProfile().getVaultInstance().getUuid())) {
@@ -529,7 +529,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 }
             }
             if (secretResponseDto != null) {
-                attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(addedVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, addedVaultProfile.getUuid(), addedVaultProfile.getName()));
+                attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(addedVaultProfile.getVaultInstance().getConnectorUuid()).source(Resource.VAULT_PROFILE, addedVaultProfile.getUuid()).sourceName(addedVaultProfile.getName()).build());
             }
         }
         Secret2SyncVaultProfileId secret2SyncVaultProfileId = new Secret2SyncVaultProfileId(secret.getUuid(), addedVaultProfile.getUuid());
@@ -570,8 +570,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         Secret secret = getSecretEntity(uuid);
         SecretDetailDto secretDetailDto = secret.mapToDetailDto();
         secretDetailDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.SECRET, secret.getUuid()));
-        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
-        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.SECRET, secret.getUuid())));
+        secretDetailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid()).build()));
+        secretDetailDto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).build()));
         return secretDetailDto;
     }
 
@@ -607,7 +607,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         UUID connectorUuid = secret.getSourceVaultProfile().getVaultInstance().getConnectorUuid();
 
         var secretRequestDto = new com.czertainly.api.model.connector.secrets.SecretRequestDto();
-        var secretAttributes = attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.SECRET, secret.getUuid());
+        var secretAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(connectorUuid).build());
         ConnectorDetailDto connectorDetailDto = loadSecretRequestDto(connectorUuid, secret.getSourceVaultProfile(), secret, secretAttributes, secretRequestDto);
         SecretContentResponseDto secretContent = secretApiClient.getSecretContent(connectorDetailDto, secretRequestDto, latestVersion.getVaultVersion());
         String secretContentFingerprint = null;
@@ -690,7 +690,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         permissionEvaluator.vaultProfileMembers(SecuredUUID.fromUUID(request.getSourceVaultProfileUuid()));
         // Move original source vault profile to sync vault profiles
         Secret2SyncVaultProfile secret2SyncVaultProfile = new Secret2SyncVaultProfile();
-        secret2SyncVaultProfile.setSecretAttributes(attributeEngine.getRequestObjectDataAttributesContent(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid()));
+        secret2SyncVaultProfile.setSecretAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(currentSourceVaultProfile.getVaultInstance().getConnectorUuid()).build()));
         secret2SyncVaultProfile.setId(new Secret2SyncVaultProfileId(secret.getUuid(), currentSourceVaultProfile.getUuid()));
         secret2SyncVaultProfile.setVaultProfile(currentSourceVaultProfile);
         secret2SyncVaultProfile.setSecret(secret);
@@ -703,7 +703,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         }
 
         if (updatedSourceVaultProfile.getVaultInstance() != currentSourceVaultProfile.getVaultInstance()) {
-            attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, new ObjectAttributeContentInfo(currentSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid()));
+            attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(currentSourceVaultProfile.getVaultInstance().getConnectorUuid()).build());
             SecretVersion newVersion = new SecretVersion();
             newVersion.setSecret(secret);
             newVersion.setVersion(secret.getLatestVersion().getVersion() + 1);
@@ -730,10 +730,10 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                 }
             }
             if (secretResponseDto != null) {
-                attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), new ObjectAttributeContentInfo(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), Resource.SECRET, secret.getUuid(), Resource.VAULT_PROFILE, updatedSourceVaultProfile.getUuid(), updatedSourceVaultProfile.getName()));
+                attributeEngine.updateMetadataAttributes(secretResponseDto.getMetadata(), ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid()).source(Resource.VAULT_PROFILE, updatedSourceVaultProfile.getUuid()).sourceName(updatedSourceVaultProfile.getName()).build());
                 newVersion.setVaultVersion(secretResponseDto.getVersion());
             }
-            attributeEngine.updateObjectDataAttributesContent(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid(), null, Resource.SECRET, secret.getUuid(), request.getSecretAttributes());
+            attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(updatedSourceVaultProfile.getVaultInstance().getConnectorUuid()).build(), request.getSecretAttributes());
             newVersion.setFingerprint(secret.getLatestVersion().getFingerprint());
             secretVersionRepository.save(newVersion);
             secret.setLatestVersion(newVersion);
@@ -853,7 +853,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         UpdateSecretRequestDto updateSecretRequestDto = new UpdateSecretRequestDto();
         updateSecretRequestDto.setName(secret.getName());
         updateSecretRequestDto.setSecret(secretRequest.getSecret());
-        updateSecretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
+        updateSecretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(connectorUuid).build()));
 
         ConnectorDetailDto connectorDetailDto = loadSecretOperationRequest(connectorUuid, vaultProfile.getVaultInstanceUuid(), vaultProfile.getUuid(), secret.getType(), secretAttributes, updateSecretRequestDto);
 
@@ -863,7 +863,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     private ConnectorDetailDto loadSecretRequestDto(UUID connectorUuid, VaultProfile vaultProfile, Secret secret, List<RequestAttribute> secretAttributes, com.czertainly.api.model.connector.secrets.SecretRequestDto secretRequestDto) throws ConnectorException, NotFoundException, AttributeException {
         secretRequestDto.setName(secret.getName());
         secretRequestDto.setType(secret.getType());
-        secretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(connectorUuid, Resource.SECRET, secret.getUuid())));
+        secretRequestDto.setMetadata(attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.SECRET, secret.getUuid()).connector(connectorUuid).build()));
 
         return loadSecretOperationRequest(connectorUuid, vaultProfile.getVaultInstanceUuid(), vaultProfile.getUuid(), secret.getType(), secretAttributes, secretRequestDto);
     }

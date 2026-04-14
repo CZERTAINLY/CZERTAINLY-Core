@@ -22,6 +22,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.entity.Credential_;
 import com.czertainly.core.dao.repository.CredentialRepository;
@@ -98,7 +99,7 @@ public class CredentialServiceImpl implements CredentialService {
     public CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = getCredentialEntity(uuid);
         CredentialDto credentialDto = credential.mapToDto();
-        credentialDto.setAttributes(attributeEngine.getObjectDataAttributesContent(credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid()));
+        credentialDto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CREDENTIAL, credential.getUuid()).connector(credential.getConnectorUuid()).build()));
         credentialDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CREDENTIAL, uuid.getValue()));
         return credentialDto;
     }
@@ -130,7 +131,7 @@ public class CredentialServiceImpl implements CredentialService {
 
         CredentialDto credentialDto = credential.mapToDto();
         credentialDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CREDENTIAL, credential.getUuid(), request.getCustomAttributes()));
-        credentialDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid(), request.getAttributes()));
+        credentialDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CREDENTIAL, credential.getUuid()).connector(credential.getConnectorUuid()).build(), request.getAttributes()));
 
         return credentialDto;
     }
@@ -147,7 +148,7 @@ public class CredentialServiceImpl implements CredentialService {
 
         CredentialDto credentialDto = credential.mapToDto();
         credentialDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CREDENTIAL, credential.getUuid(), request.getCustomAttributes()));
-        credentialDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid(), request.getAttributes()));
+        credentialDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CREDENTIAL, credential.getUuid()).connector(credential.getConnectorUuid()).build(), request.getAttributes()));
 
         return credentialDto;
     }

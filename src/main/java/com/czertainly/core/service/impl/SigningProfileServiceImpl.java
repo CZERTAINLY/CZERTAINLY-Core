@@ -227,10 +227,14 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private <T> T buildModel(SigningProfile profile, SigningProfileMapper.SigningProfileModelFactory<T> factory) {
         UUID profileUuid = profile.getUuid();
         List<RequestAttribute> signingOperationAttributes = attributeEngine
-                .getRequestObjectDataAttributesContent(null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, profileUuid);
+                .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
+                        .operation(AttributeOperation.SIGN)
+                        .version(profile.getLatestVersion()).build());
         List<RequestAttribute> signatureFormatterConnectorAttributes = attributeEngine
-                .getRequestObjectDataAttributesContent(profile.getSignatureFormatterConnectorUuid(),
-                        AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, profileUuid);
+                .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
+                        .connector(profile.getSignatureFormatterConnectorUuid())
+                        .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                        .version(profile.getLatestVersion()).build());
         return factory.create(profile, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
@@ -475,8 +479,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private void applyScheme(SigningProfile p, SigningSchemeRequestDto scheme) throws AttributeException, NotFoundException {
         // Delete any previously stored signing-operation attributes before overwriting the scheme.
         if (p.getUuid() != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.SIGN,
-                    new ObjectAttributeContentInfo(null, Resource.SIGNING_PROFILE, p.getUuid()));
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
+                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
+                            .operation(AttributeOperation.SIGN).build());
         }
         p.setSigningScheme(scheme.getSigningScheme());
         p.setManagedSigningType(null);
@@ -517,8 +522,10 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private void applyWorkflow(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
         // Delete any previously stored workflow-formatter attributes before overwriting the workflow.
         if (p.getUuid() != null && p.getSignatureFormatterConnectorUuid() != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.WORKFLOW_FORMATTER,
-                    new ObjectAttributeContentInfo(p.getSignatureFormatterConnectorUuid(), Resource.SIGNING_PROFILE, p.getUuid()));
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
+                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
+                            .connector(p.getSignatureFormatterConnectorUuid())
+                            .operation(AttributeOperation.WORKFLOW_FORMATTER).build());
         }
         p.setWorkflowType(workflow.getType());
         p.setSignatureFormatterConnector(null);
@@ -558,7 +565,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         String schemeJson = toJson(scheme);
         String workflowJson = toJson(workflow);
 
-        // :TODO: embed connector attribute content in the snapshot so that historical version reads are self-contained
         if (overwrite) {
             signingProfileVersionRepository
                     .findBySigningProfileUuidAndVersion(signingProfile.getUuid(), version)
@@ -600,8 +606,16 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             applyScheme(tmp, schemeReq);
 
             List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, live.getUuid());
-            // :TODO: deserialize signingOperationAttributes and signatureFormatterConnectorAttributes from the version snapshot JSON
-            return SigningProfileMapper.toDto(tmp, customAttributes, new ArrayList<>(), new ArrayList<>());
+            List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
+                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, live.getUuid())
+                            .operation(AttributeOperation.SIGN)
+                            .version(spv.getVersion()).build());
+            List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
+                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, live.getUuid())
+                            .connector(tmp.getSignatureFormatterConnectorUuid())
+                            .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                            .version(spv.getVersion()).build());
+            return SigningProfileMapper.toDto(tmp, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
         } catch (Exception e) {
             log.error("Failed to load signing profile snapshot v{} for {}: {}",
                     spv.getVersion(), live.getUuid(), e.getMessage());
@@ -612,10 +626,14 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private SigningProfileDto buildDtoFromProfile(SigningProfile profile) {
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.SIGNING_PROFILE, profile.getUuid());
         List<ResponseAttribute> signingOperationAttributes = attributeEngine.getObjectDataAttributesContent(
-                null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, profile.getUuid());
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profile.getUuid())
+                        .operation(AttributeOperation.SIGN)
+                        .version(profile.getLatestVersion()).build());
         List<ResponseAttribute> signatureFormatterConnectorAttributes = attributeEngine.getObjectDataAttributesContent(
-                profile.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER,
-                Resource.SIGNING_PROFILE, profile.getUuid());
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profile.getUuid())
+                        .connector(profile.getSignatureFormatterConnectorUuid())
+                        .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                        .version(profile.getLatestVersion()).build());
         return SigningProfileMapper.toDto(profile, customAttributes, signingOperationAttributes, signatureFormatterConnectorAttributes);
     }
 
@@ -640,19 +658,43 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
             // The signing operation attributes are Core-internal (not connector-owned), so connectorUuid is null.
             attributeEngine.validateUpdateDataAttributes(null, AttributeOperation.SIGN, definitions, signingOperationAttributes);
-            return attributeEngine.updateObjectDataAttributesContent(
-                    null, AttributeOperation.SIGN, Resource.SIGNING_PROFILE, signingProfile.getUuid(), signingOperationAttributes);
+            return attributeEngine.replaceVersionedOperationAttributeContent(
+                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, signingProfile.getUuid())
+                            .operation(AttributeOperation.SIGN)
+                            .version(signingProfile.getLatestVersion()).build(),
+                    signingOperationAttributes);
         }
+        // For non-STATIC_KEY schemes there are no signing-op attributes; clean up any that may
+        // remain for the current version (e.g. when switching scheme type in an in-place update).
+        attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
+                ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, signingProfile.getUuid())
+                        .operation(AttributeOperation.SIGN)
+                        .version(signingProfile.getLatestVersion()).build());
         return null;
     }
 
     private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
         return switch (workflow) {
-            case ContentSigningWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
-                    w.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, p.getUuid(), w.getSignatureFormatterConnectorAttributes());
-            case RawSigningWorkflowRequestDto w -> null;
-            case TimestampingWorkflowRequestDto w -> attributeEngine.updateObjectDataAttributesContent(
-                    w.getSignatureFormatterConnectorUuid(), AttributeOperation.WORKFLOW_FORMATTER, Resource.SIGNING_PROFILE, p.getUuid(), w.getSignatureFormatterConnectorAttributes());
+            case ContentSigningWorkflowRequestDto w -> attributeEngine.replaceVersionedOperationAttributeContent(
+                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
+                            .connector(w.getSignatureFormatterConnectorUuid())
+                            .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                            .version(p.getLatestVersion()).build(),
+                    w.getSignatureFormatterConnectorAttributes());
+            case RawSigningWorkflowRequestDto w -> {
+                // Raw signing has no formatter; clean up any formatter attrs that may remain for this version.
+                attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
+                        ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
+                                .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                                .version(p.getLatestVersion()).build());
+                yield null;
+            }
+            case TimestampingWorkflowRequestDto w -> attributeEngine.replaceVersionedOperationAttributeContent(
+                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
+                            .connector(w.getSignatureFormatterConnectorUuid())
+                            .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                            .version(p.getLatestVersion()).build(),
+                    w.getSignatureFormatterConnectorAttributes());
             default -> throw new IllegalStateException("Unexpected type for Signing Workflow: " + workflow);
         };
     }

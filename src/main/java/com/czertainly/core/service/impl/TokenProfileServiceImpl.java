@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetai
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.entity.TokenProfile_;
@@ -111,7 +112,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         TokenProfileDetailDto dto = tokenProfile.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid()));
-        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(tokenProfile.getTokenInstanceReference().getConnectorUuid(), null, Resource.TOKEN_PROFILE, tokenProfile.getUuid()));
+        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenProfile.getTokenInstanceReference().getConnectorUuid()).build()));
         logger.debug("Token profile detail: {}", dto);
         return dto;
     }
@@ -140,7 +141,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfile.mapToDetailDto();
         tokenProfileDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getCustomAttributes()));
-        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(tokenInstanceReference.getConnectorUuid(), null, Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getAttributes()));
+        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenInstanceReference.getConnectorUuid()).build(), request.getAttributes()));
 
         return tokenProfileDetailDto;
     }
@@ -160,7 +161,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfile.mapToDetailDto();
         tokenProfileDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getCustomAttributes()));
-        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(tokenInstanceReference.getConnectorUuid(), null, Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getAttributes()));
+        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenInstanceReference.getConnectorUuid()).build(), request.getAttributes()));
 
         return tokenProfileDetailDto;
     }
