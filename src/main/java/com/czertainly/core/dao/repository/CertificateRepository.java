@@ -35,6 +35,19 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items", "raProfile"})
     List<Certificate> findWithAssociationsByUuidInOrderByCreatedDesc(List<UUID> uuids);
 
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key", "key.items",
+            "altKey", "altKey.items",
+            "groups",
+            "owner",
+            "raProfile", "raProfile.authorityInstanceReference",
+            "certificateRequestEntity",
+            "predecessorRelations",
+            "protocolAssociation"
+    })
+    List<Certificate> findChainWithAssociationsByUuidIn(List<UUID> uuids);
+
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
 
     Certificate findByCertificateContent(CertificateContent certificateContent);
@@ -112,6 +125,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     Optional<Certificate> findByIssuerDnNormalizedAndSerialNumber(String issuerDnNormalized, String serialNumber);
 
+    @EntityGraph(attributePaths = {"certificateContent"})
     List<Certificate> findBySubjectDnNormalized(String issuerDnNormalized);
 
     @EntityGraph(attributePaths = {"certificateContent", "raProfile"})
@@ -212,6 +226,34 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void updateCertificateSubjectDN(@Param("oid") String oid,
                                     @Param("newCode") String newCode,
                                     @Param("oldCode") String oldCode);
+
+    /**
+     * Fetches the UUIDs of an entire certificate ancestor chain in a single recursive CTE query, starting from the
+     * certificate identified by {@code startUuid}.
+     *
+     * <p>The returned list is ordered by traversal depth ascending, so index 0 is always the start certificate itself,
+     * and the last element is the topmost ancestor found in the inventory.</p>
+     *
+     * @param startUuid the UUID of the certificate whose chain is requested
+     * @param maxDepth  maximum number of hops to follow (safety cap against circular references)
+     * @return ordered list of UUID strings (depth 0 = start cert, depth N = root)
+     */
+    @Query(value = """
+            WITH RECURSIVE chain AS (
+                SELECT uuid, issuer_certificate_uuid, 0 AS depth
+                FROM {h-schema}certificate
+                WHERE uuid = :startUuid
+
+                UNION ALL
+
+                SELECT c.uuid, c.issuer_certificate_uuid, chain.depth + 1
+                FROM {h-schema}certificate c
+                INNER JOIN chain ON chain.issuer_certificate_uuid = c.uuid
+                WHERE chain.depth < :maxDepth
+            )
+            SELECT uuid::text FROM chain ORDER BY depth ASC
+            """, nativeQuery = true)
+    List<String> findCertificateChainUuids(@Param("startUuid") UUID startUuid, @Param("maxDepth") int maxDepth);
 
     @Query(
             value = """

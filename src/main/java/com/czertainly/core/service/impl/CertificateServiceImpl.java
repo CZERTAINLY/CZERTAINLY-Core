@@ -130,6 +130,9 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     @Value("${spring.jpa.properties.hibernate.jdbc.batch_size:500}")
     private int bulkDeleteBatchSize;
 
+    @Value("${certificate.chain.max-depth:20}")
+    private int certificateChainMaxDepth;
+
     private PlatformTransactionManager transactionManager;
 
     private CertificateRepository certificateRepository;
@@ -798,7 +801,24 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
             Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
             certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
-            certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
+
+            if (certificateChain.isEmpty()) {
+                certificateChainResponseDto.setCertificates(List.of());
+            } else {
+                // Batch-load every certificate in the chain (including the start certificate) through the full EntityGraph in a single query.
+                List<UUID> chainUuids = certificateChain.stream().map(Certificate::getUuid).toList();
+                Map<UUID, Certificate> fullyLoaded = certificateRepository
+                        .findChainWithAssociationsByUuidIn(chainUuids)
+                        .stream()
+                        .collect(Collectors.toMap(Certificate::getUuid, c -> c));
+                certificateChainResponseDto.setCertificates(
+                        chainUuids.stream()
+                                .map(fullyLoaded::get)
+                                .filter(Objects::nonNull)
+                                .map(Certificate::mapToDto)
+                                .toList()
+                );
+            }
         }
         return certificateChainResponseDto;
     }
@@ -837,16 +857,31 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     private Certificate constructCertificateChainFromInventory(Certificate certificate, List<Certificate> certificateChain) {
+        List<String> chainUuidStrings = certificateRepository.findCertificateChainUuids(certificate.getUuid(), certificateChainMaxDepth);
+        if (chainUuidStrings.size() <= 1) {
+            return certificate; // we have only the starting certificate
+        }
+
+        // Bulk-load all ancestor entities (indices 1..N) with their certificateContent in one query.
+        List<UUID> ancestorUuids = chainUuidStrings.subList(1, chainUuidStrings.size())
+                .stream()
+                .map(UUID::fromString)
+                .collect(Collectors.toList());
+
+        Map<UUID, Certificate> byUuid = certificateRepository
+                .findChainWithAssociationsByUuidIn(ancestorUuids)
+                .stream()
+                .collect(Collectors.toMap(Certificate::getUuid, c -> c));
+
         Certificate lastCertificate = certificate;
-        // Go up the certificate chain until certificate without issuer is found
-        while (lastCertificate.getIssuerCertificateUuid() != null) {
-            Certificate issuerCertificate = certificateRepository.findByUuid(lastCertificate.getIssuerCertificateUuid()).orElse(null);
+        for (UUID ancestorUuid : ancestorUuids) {
+            Certificate issuerCertificate = byUuid.get(ancestorUuid);
             if (issuerCertificate != null) {
                 certificateChain.add(issuerCertificate);
                 lastCertificate = issuerCertificate;
             } else {
-                // If issuer certificate does not exist in the inventory, set it and issuer serial number to null
-                // and return incomplete chain
+                // Dangling FK – the CTE found the UUID but the bulk-load did not return the entity.
+                // Clear the references and return an incomplete chain.
                 lastCertificate.setIssuerCertificateUuid(null);
                 lastCertificate.setIssuerSerialNumber(null);
                 certificateRepository.save(lastCertificate);
@@ -2200,7 +2235,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         ResourceCertificateContentData contentData = new ResourceCertificateContentData();
         contentData.setCertificateType(CertificateType.X509);
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
-        if (certificate.getCertificateContent() == null) throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
+        if (certificate.getCertificateContent() == null)
+            throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
         contentData.setContent(certificate.getCertificateContent().getContent());
         return contentData;
     }
