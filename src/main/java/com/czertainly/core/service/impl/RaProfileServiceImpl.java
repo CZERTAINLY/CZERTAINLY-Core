@@ -708,7 +708,7 @@ public class RaProfileServiceImpl implements RaProfileService {
             certificateRepository.save(certificate);
         }
 
-        attributeEngine.deleteAllObjectAttributeContent(Resource.RA_PROFILE, raProfile.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.RA_PROFILE, raProfile.getUuid());
         raProfileRepository.delete(raProfile);
     }
 

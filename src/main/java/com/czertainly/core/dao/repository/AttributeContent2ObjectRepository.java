@@ -144,6 +144,19 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
                 WHERE ad.type = com.czertainly.api.model.common.attribute.common.AttributeType.DATA
                     AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
+                    AND aco.objectVersion IS NULL
+                ORDER BY aci.attributeDefinitionUuid, aco.order
+            """)
+    List<ObjectAttributeContent> getObjectDataAttributesContentUnversioned(@Param("objectType") Resource objectType, @Param("objectUuid") UUID objectUuid);
+
+    @Query("""
+            SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version, aci.encryptedData)
+                FROM AttributeContent2Object aco
+                JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
+                JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
+                WHERE ad.type = com.czertainly.api.model.common.attribute.common.AttributeType.DATA
+                    AND aco.objectType = :objectType AND aco.objectUuid = :objectUuid
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
     List<ObjectAttributeContent> getAllObjectDataAttributesContent(@Param("objectType") Resource objectType, @Param("objectUuid") UUID objectUuid);

@@ -160,7 +160,7 @@ public class VaultProfileServiceImpl implements VaultProfileService {
         if (!secretsSync.isEmpty()) {
             throw new ValidationException("Cannot delete vault profile %s set as sync for secrets %s.".formatted(vaultProfile.getName(), secretsSync));
         }
-        attributeEngine.deleteAllObjectAttributeContent(Resource.VAULT_PROFILE, securedUUID.getValue());
+        attributeEngine.deleteObjectAttributeContent(Resource.VAULT_PROFILE, securedUUID.getValue());
         vaultProfileRepository.delete(vaultProfile);
     }
 

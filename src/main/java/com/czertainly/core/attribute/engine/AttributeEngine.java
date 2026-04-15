@@ -738,8 +738,8 @@ public class AttributeEngine {
         return getResponseAttributes(objectContents);
     }
 
-    public List<ResponseAttribute> getObjectDataAttributesContent(Resource objectType, UUID objectUuid) {
-        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository.getAllObjectDataAttributesContent(objectType, objectUuid);
+    public List<ResponseAttribute> getObjectDataAttributesContentUnversioned(Resource objectType, UUID objectUuid) {
+        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentUnversioned(objectType, objectUuid);
         return getResponseAttributes(objectContents);
     }
 
@@ -851,19 +851,19 @@ public class AttributeEngine {
      * <p>Callers where the connector is guaranteed not to change between writes (e.g. first-time
      * creation of a resource version) may continue to use {@link #updateObjectDataAttributesContent}.
      */
-    public List<ResponseAttribute> replaceVersionedOperationAttributeContent(
+    public List<ResponseAttribute> replaceObjectDataAttributesContent(
             ObjectAttributeContentInfo info, List<RequestAttribute> requestAttributes)
             throws ValidationException, NotFoundException, AttributeException {
         if (info.objectVersion() == null) {
             throw new IllegalArgumentException(
-                    "replaceVersionedOperationAttributeContent requires a non-null objectVersion; " +
+                    "replaceObjectDataAttributesContent requires a non-null objectVersion; " +
                             "use updateObjectDataAttributesContent for unversioned objects");
         }
         if (info.operation() == null) {
             throw new IllegalArgumentException(
-                    "replaceVersionedOperationAttributeContent requires a non-null operation");
+                    "replaceObjectDataAttributesContent requires a non-null operation");
         }
-        logger.debug("Replacing versioned operation attribute content for resource {} UUID {} version {} operation {}.",
+        logger.debug("Replacing object data attribute content for resource {} UUID {} version {} operation {}.",
                 info.objectType().getLabel(), info.objectUuid(), info.objectVersion(), info.operation());
 
         if (requestAttributes == null) {
@@ -1213,7 +1213,7 @@ public class AttributeEngine {
      * should be purged. To delete only the attribute content that belongs to one specific version (e.g. when pruning old version history),
      * use {@link #deleteObjectAttributeContentForVersion} instead.
      */
-    public void deleteAllObjectAttributeContent(Resource objectType, UUID objectUuid) {
+    public void deleteObjectAttributeContent(Resource objectType, UUID objectUuid) {
         logger.debug("Deleting the attribute content for resource {} with UUID: {}", objectType.getLabel(), objectUuid);
         Long deletedCount = attributeContent2ObjectRepository.deleteByObjectTypeAndObjectUuid(objectType, objectUuid);
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
@@ -1223,18 +1223,18 @@ public class AttributeEngine {
      * Deletes all attribute content rows that belong to a single version of a versioned object, leaving every other
      * version (and any unversioned rows) untouched.
      *
-     * <p>This is the version-scoped complement of {@link #deleteAllObjectAttributeContent}. Use it when you want to
+     * <p>This is the version-scoped complement of {@link #deleteObjectAttributeContent}. Use it when you want to
      * prune attribute data for one specific version without affecting the rest of the object's attribute history
      * — for example, when rolling back or expiring an old resource version.
      *
-     * <p>{@link #deleteAllObjectAttributeContent} remains the correct choice for full
+     * <p>{@link #deleteObjectAttributeContent} remains the correct choice for full
      * object deletion, because it removes every attribute row regardless of version.
      */
     public void deleteObjectAttributeContentForVersion(Resource objectType, UUID objectUuid, Integer version) {
         if (version == null) {
             throw new IllegalArgumentException(
                     "deleteObjectAttributeContentForVersion requires a non-null version; " +
-                            "use deleteAllObjectAttributeContent to remove content across all versions");
+                            "use deleteObjectAttributeContent to remove content across all versions");
         }
         logger.debug("Deleting attribute content for resource {} with UUID: {} version: {}",
                 objectType.getLabel(), objectUuid, version);

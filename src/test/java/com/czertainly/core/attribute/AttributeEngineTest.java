@@ -449,7 +449,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteAllObjectAttributeContent() throws NotFoundException, CertificateException, IOException {
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, certificate.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.CERTIFICATE, certificate.getUuid());
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
 
         Assertions.assertTrue(certificateDetailDto.getMetadata().isEmpty());

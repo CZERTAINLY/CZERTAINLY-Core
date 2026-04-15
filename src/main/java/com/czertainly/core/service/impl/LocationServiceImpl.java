@@ -266,7 +266,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         certificateLocationRepository.deleteAll(location.getCertificates());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.LOCATION, location.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.LOCATION, location.getUuid());
         locationRepository.delete(location);
 
         logger.info("Location {} was deleted", location.getName());

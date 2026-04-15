@@ -372,7 +372,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         } else {
             logger.debug("Deleting authority without connector: {}", authorityInstanceRef);
         }
-        attributeEngine.deleteAllObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
     }
 

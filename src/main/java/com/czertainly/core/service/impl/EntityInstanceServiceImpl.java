@@ -248,7 +248,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         }
 
         entityInstanceApiClient.removeEntityInstance(entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.ENTITY, entityInstanceRef.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.ENTITY, entityInstanceRef.getUuid());
         entityInstanceReferenceRepository.delete(entityInstanceRef);
 
         logger.info("Entity instance {} was deleted", entityInstanceRef.getName());
