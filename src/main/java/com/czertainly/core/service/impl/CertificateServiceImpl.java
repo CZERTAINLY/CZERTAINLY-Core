@@ -812,7 +812,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
             Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
             certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
-            certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
+            certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToChainDto).toList());
         }
         return certificateChainResponseDto;
     }
