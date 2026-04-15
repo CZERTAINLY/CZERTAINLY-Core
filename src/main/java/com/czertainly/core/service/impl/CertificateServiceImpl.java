@@ -861,7 +861,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         List<UUID> ancestorUuids = chainUuidStrings.subList(1, chainUuidStrings.size())
                 .stream()
                 .map(UUID::fromString)
-                .collect(Collectors.toList());
+                .toList();
 
         Map<UUID, Certificate> byUuid = certificateRepository
                 .findChainWithAssociationsByUuidIn(ancestorUuids)
