@@ -628,8 +628,9 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
      */
     @Test
     void testDeleteForVersion_requiresNonNullVersion() {
+        UUID randomUUID = UUID.randomUUID();
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> attributeEngine.deleteObjectAttributeContentForVersion(VERSIONED_RESOURCE, UUID.randomUUID(), null),
+                () -> attributeEngine.deleteObjectAttributeContentForVersion(VERSIONED_RESOURCE, randomUUID, null),
                 "must throw when version is null");
     }
 
@@ -1093,5 +1094,62 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, content.size(),
                 "a true duplicate write (same purpose) must still be deduplicated to exactly one row");
         Assertions.assertEquals("dup_value", firstStringValue(content));
+    }
+
+    /**
+     * Verifies that metadata overwrite (properties.overwrite=true) is version-scoped:
+     * overwriting a meta attribute for v1 must NOT delete v2's mapping for the same definition.
+     */
+    @Test
+    void testMetadataOverwriteIsVersionScoped() throws AttributeException {
+        UUID objectUuid = UUID.randomUUID();
+
+        ObjectAttributeContentInfo v1Info = ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
+                .connector(connector.getUuid()).version(1).build();
+        ObjectAttributeContentInfo v2Info = ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
+                .connector(connector.getUuid()).version(2).build();
+
+        // Write distinct meta values for v1 and v2 (overwrite=false — accumulate first)
+        buildAndStoreMetaAttribute("overwrite_attr", "original_v1", v1Info);
+        buildAndStoreMetaAttribute("overwrite_attr", "original_v2", v2Info);
+
+        // Now overwrite v1 with a new value — must not touch v2
+        MetadataAttributeV3 overwriteMeta = new MetadataAttributeV3();
+        overwriteMeta.setUuid(UUID.randomUUID().toString());
+        overwriteMeta.setName("overwrite_attr");
+        overwriteMeta.setType(AttributeType.META);
+        overwriteMeta.setContentType(AttributeContentType.STRING);
+        MetadataAttributeProperties props = new MetadataAttributeProperties();
+        props.setLabel("overwrite_attr");
+        props.setVisible(true);
+        props.setGlobal(false);
+        props.setOverwrite(true);       // ← key: replacement semantics
+        overwriteMeta.setProperties(props);
+        overwriteMeta.setContent(List.of(new StringAttributeContentV3("replaced_v1")));
+        attributeEngine.updateMetadataAttribute(overwriteMeta, v1Info);
+
+        // v1 must now hold the replacement value only
+        List<MetadataResponseDto> v1Meta = attributeEngine.getMappedMetadataContent(v1Info);
+        String v1Value = v1Meta.stream()
+                .flatMap(dto -> dto.getItems().stream())
+                .flatMap(item -> item.getContent().stream())
+                .map(c -> c.getData().toString())
+                .filter(s -> s.contains("_v1") || s.contains("replaced"))
+                .findFirst().orElse(null);
+        Assertions.assertEquals("replaced_v1", v1Value,
+                "v1 meta must hold the replacement value after overwrite");
+
+        // v2 must still have its original value — the overwrite of v1 must not have deleted it
+        List<MetadataResponseDto> v2Meta = attributeEngine.getMappedMetadataContent(v2Info);
+        Assertions.assertFalse(v2Meta.isEmpty(),
+                "v2 metadata must not be empty after overwriting v1");
+        String v2Value = v2Meta.stream()
+                .flatMap(dto -> dto.getItems().stream())
+                .flatMap(item -> item.getContent().stream())
+                .map(c -> c.getData().toString())
+                .filter(s -> s.contains("_v2") || s.contains("original"))
+                .findFirst().orElse(null);
+        Assertions.assertEquals("original_v2", v2Value,
+                "v2 meta must be untouched after overwriting v1 (version isolation violated)");
     }
 }

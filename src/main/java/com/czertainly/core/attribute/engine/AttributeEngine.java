@@ -613,9 +613,9 @@ public class AttributeEngine {
             throw new AttributeException("Cannot update metadata content without specifying connector UUID.");
         }
 
-        // delete content of metadata for this object as its content should be replaced
+        // delete content of metadata for this object as its content should be replaced;
         if (metadataAttribute.getProperties().isOverwrite()) {
-            deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectAttributeContentInfo.objectType(), objectAttributeContentInfo.objectUuid());
+            deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectAttributeContentInfo.objectType(), objectAttributeContentInfo.objectUuid(), objectAttributeContentInfo.objectVersion());
         }
         createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, contentItems);
     }
@@ -1062,8 +1062,10 @@ public class AttributeEngine {
 
     private static void validateResourceAttributeProperties(BaseAttribute attribute, String connectorUuidStr, AttributeResource attributeResource, boolean hasCallback) throws AttributeException {
         if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE) {
-            if (attributeResource == null) throw new AttributeException("Attribute with Resource Content Type is missing resource type in properties", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-            if (!hasCallback) throw new AttributeException("Attribute with Resource Content Type is missing callback", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+            if (attributeResource == null)
+                throw new AttributeException("Attribute with Resource Content Type is missing resource type in properties", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+            if (!hasCallback)
+                throw new AttributeException("Attribute with Resource Content Type is missing callback", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
     }
 
@@ -1519,6 +1521,26 @@ public class AttributeEngine {
     private void deleteObjectAttributeDefinitionContent(UUID definitionUuid, Resource objectType, UUID objectUuid) {
         Long deletedCount = attributeContent2ObjectRepository.deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(objectType, objectUuid, definitionUuid);
         logger.debug("Deleted {} attribute content items for {} with UUID {} for attribute {}", deletedCount, objectType.getLabel(), objectUuid, definitionUuid);
+    }
+
+    /**
+     * Version-scoped variant: when {@code objectVersion} is non-null, deletes only the rows belonging to that specific version.
+     * Falls back to the unversioned (all-versions) delete when {@code objectVersion} is null.
+     */
+    private void deleteObjectAttributeDefinitionContent(UUID definitionUuid, Resource objectType, UUID objectUuid, Integer objectVersion) {
+        Long deletedCount;
+        if (objectVersion != null) {
+            deletedCount = attributeContent2ObjectRepository
+                    .deleteByObjectTypeAndObjectUuidAndObjectVersionAndAttributeContentItemAttributeDefinitionUuid(
+                            objectType, objectUuid, objectVersion, definitionUuid);
+            logger.debug("Deleted {} attribute content items for {} with UUID {} version {} for attribute {}",
+                    deletedCount, objectType.getLabel(), objectUuid, objectVersion, definitionUuid);
+        } else {
+            deletedCount = attributeContent2ObjectRepository
+                    .deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(
+                            objectType, objectUuid, definitionUuid);
+            logger.debug("Deleted {} attribute content items for {} with UUID {} for attribute {}", deletedCount, objectType.getLabel(), objectUuid, definitionUuid);
+        }
     }
 
     private SecurityResourceFilter loadCustomAttributesSecurityResourceFilter() {

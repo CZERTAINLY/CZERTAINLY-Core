@@ -300,6 +300,8 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     Long deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(Resource objectType, UUID objectUuid, UUID definitionUuid);
 
+    Long deleteByObjectTypeAndObjectUuidAndObjectVersionAndAttributeContentItemAttributeDefinitionUuid(Resource objectType, UUID objectUuid, Integer objectVersion, UUID definitionUuid);
+
     Long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
 
     Long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, UUID connectorUuid, Resource objectType, Resource sourceObjectType, UUID sourceObjectUuid);
