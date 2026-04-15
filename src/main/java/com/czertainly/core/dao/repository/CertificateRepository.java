@@ -233,18 +233,20 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
      * @param maxDepth  maximum number of hops to follow (safety cap against circular references)
      * @return ordered list of UUID strings (depth 0 = start cert, depth N = root)
      */
+    // NOTE: PostgreSQL 14+ supports a cleaner native cycle-detection syntax via the CYCLE clause.
     @Query(value = """
             WITH RECURSIVE chain AS (
-                SELECT uuid, issuer_certificate_uuid, 0 AS depth
+                SELECT uuid, issuer_certificate_uuid, 0 AS depth, ARRAY[uuid] AS path
                 FROM {h-schema}certificate
                 WHERE uuid = :startUuid
 
                 UNION ALL
 
-                SELECT c.uuid, c.issuer_certificate_uuid, chain.depth + 1
+                SELECT c.uuid, c.issuer_certificate_uuid, chain.depth + 1, chain.path || c.uuid
                 FROM {h-schema}certificate c
                 INNER JOIN chain ON chain.issuer_certificate_uuid = c.uuid
                 WHERE chain.depth < :maxDepth
+                  AND NOT (c.uuid = ANY(chain.path))
             )
             SELECT uuid::text FROM chain ORDER BY depth ASC
             """, nativeQuery = true)
