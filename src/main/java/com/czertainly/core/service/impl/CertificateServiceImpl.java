@@ -1035,7 +1035,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             x509Certificate.verify(x509Certificate.getPublicKey());
             return true;
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            logger.debug("Unable to verify if the certificate {} is self-signed: {}",  certificateUuid, e.getMessage());
+            logger.debug("Unable to verify if the certificate {} is self-signed: {}", certificateUuid, e.getMessage());
             throw new CertificateException(e);
         } catch (SignatureException | InvalidKeyException e) {
             // if the certificate is not self-signed, the verification will fail

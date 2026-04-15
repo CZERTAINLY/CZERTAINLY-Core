@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 @Setter
 @ToString
 @RequiredArgsConstructor
-// Entity graph that eagerly loads all associations needed by mapToDto().
+// Entity graph that eagerly loads associations needed by mapToChainDto().
 @NamedEntityGraph(
         name = "Certificate.chainAssociations",
         attributeNodes = {

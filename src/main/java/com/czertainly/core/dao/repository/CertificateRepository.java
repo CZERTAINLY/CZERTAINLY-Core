@@ -35,11 +35,11 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items", "raProfile"})
     List<Certificate> findWithAssociationsByUuidInOrderByCreatedDesc(List<UUID> uuids);
 
-    /** Fetches a single certificate with all associations required by {@link Certificate#mapToDto()}. */
+    /** Fetches a single certificate with all associations required by {@link Certificate#mapToChainDto()}. */
     @EntityGraph("Certificate.chainAssociations")
     Optional<Certificate> findChainWithAssociationsByUuid(UUID uuid);
 
-    /** Batch variant used when preloading a list of chain ancestors in one round-trip. */
+    /** Batch variant used when preloading a list of chain ancestors in one round-trip for {@link Certificate#mapToChainDto()}. */
     @EntityGraph("Certificate.chainAssociations")
     List<Certificate> findChainWithAssociationsByUuidIn(List<UUID> uuids);
 
