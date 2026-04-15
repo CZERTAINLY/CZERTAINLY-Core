@@ -470,6 +470,44 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testUploadCertificate_withQcStatements() throws Exception {
+        java.security.cert.X509Certificate qcX509 = CertificateTestUtil.createCertificateWithQcStatements(
+                true, true, List.of(QcType.ESIGN, QcType.ESEAL), List.of("DE", "AT"));
+
+        UploadCertificateRequestDto request = new UploadCertificateRequestDto();
+        request.setCertificate(Base64.getEncoder().encodeToString(qcX509.getEncoded()));
+
+        CertificateDetailDto uploadDto = certificateService.upload(request, true);
+        Assertions.assertNotNull(uploadDto);
+
+        CertificateDetailDto dto = certificateService.getCertificate(SecuredUUID.fromString(uploadDto.getUuid()));
+        CertificateQcStatementsDto qc = dto.getQcStatements();
+        Assertions.assertNotNull(qc, "qcStatements should be present in the DTO");
+        Assertions.assertTrue(Boolean.TRUE.equals(qc.getQcCompliance()), "qcCompliance should be true");
+        Assertions.assertTrue(Boolean.TRUE.equals(qc.getQcSscd()), "qcSscd should be true");
+        Assertions.assertNotNull(qc.getQcType(), "qcType list should not be null");
+        Assertions.assertTrue(qc.getQcType().contains(QcType.ESIGN), "ESIGN should be in qcType");
+        Assertions.assertTrue(qc.getQcType().contains(QcType.ESEAL), "ESEAL should be in qcType");
+        Assertions.assertNotNull(qc.getQcCcLegislation(), "qcCcLegislation should not be null");
+        Assertions.assertTrue(qc.getQcCcLegislation().contains("DE"), "DE should be in qcCcLegislation");
+        Assertions.assertTrue(qc.getQcCcLegislation().contains("AT"), "AT should be in qcCcLegislation");
+    }
+
+    @Test
+    void testUploadCertificate_withoutQcStatements() throws Exception {
+        java.security.cert.X509Certificate plainX509 = CertificateTestUtil.createCertificateWithoutEku();
+
+        UploadCertificateRequestDto request = new UploadCertificateRequestDto();
+        request.setCertificate(Base64.getEncoder().encodeToString(plainX509.getEncoded()));
+
+        CertificateDetailDto uploadDto = certificateService.upload(request, true);
+        Assertions.assertNotNull(uploadDto);
+
+        CertificateDetailDto dto = certificateService.getCertificate(SecuredUUID.fromString(uploadDto.getUuid()));
+        Assertions.assertNull(dto.getQcStatements(), "qcStatements should be null for a plain certificate");
+    }
+
+    @Test
     void testUpdateRaProfile() throws NotFoundException, CertificateOperationException, CertificateException, IOException, AttributeException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
@@ -1161,7 +1199,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
             List<CertificateTestData.KeyItemData> privateKeys,
             CertificateState certificateState, CertificateValidationStatus validationStatus, boolean archived,
             boolean withTokenProfile, List<String> extendedKeyUsages, boolean extendedKeyUsageCritical,
-            SigningWorkflowType workflowType, boolean qualifiedTimestamp,
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp, Boolean qcCompliance,
             boolean shouldBeAccepted
     ) {
         CryptographicKey key = null;
@@ -1188,6 +1226,9 @@ class CertificateServiceTest extends BaseSpringBootTest {
             cert.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsages));
         }
         cert.setExtendedKeyUsageCritical(extendedKeyUsageCritical);
+        if (qcCompliance != null) {
+            cert.setQcCompliance(qcCompliance);
+        }
         certificateRepository.save(cert);
 
         List<CertificateDto> certificates = certificateService.listDigitalSigningCertificates(SecurityFilter.create(), workflowType, qualifiedTimestamp);

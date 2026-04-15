@@ -89,6 +89,15 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     @Column(name = "qc_compliance")
     private Boolean qcCompliance;
 
+    @Column(name = "qc_sscd")
+    private Boolean qcSscd;
+
+    @Column(name = "qc_type")
+    private String qcType;
+
+    @Column(name = "qc_cc_legislation")
+    private String qcCcLegislation;
+
     @Column(name = "key_usage")
     private int keyUsage;
 
@@ -253,6 +262,21 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
             dto.setSubjectAlternativeNames(CertificateUtil.deserializeSans(subjectAlternativeNames));
             dto.setIssuerSerialNumber(issuerSerialNumber);
             dto.setSerialNumber(serialNumber);
+
+            // QC Statements — only populated when at least one relevant statement is present
+            boolean hasAnyQc = Boolean.TRUE.equals(qcCompliance) || Boolean.TRUE.equals(qcSscd) || qcType != null || qcCcLegislation != null;
+            if (hasAnyQc) {
+                CertificateQcStatementsDto qcDto = new CertificateQcStatementsDto();
+                qcDto.setQcCompliance(qcCompliance);
+                qcDto.setQcSscd(qcSscd);
+                if (qcType != null) {
+                    qcDto.setQcType(MetaDefinitions.deserializeArrayString(qcType).stream().map(QcType::valueOf).toList());
+                }
+                if (qcCcLegislation != null) {
+                    qcDto.setQcCcLegislation(MetaDefinitions.deserializeArrayString(qcCcLegislation));
+                }
+                dto.setQcStatements(qcDto);
+            }
         }
         dto.setSubjectDn(subjectDn);
         dto.setPublicKeyAlgorithm(publicKeyAlgorithm);

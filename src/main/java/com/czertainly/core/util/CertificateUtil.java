@@ -435,7 +435,9 @@ public class CertificateUtil {
         modal.setIssuerDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true), issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true), subjectDnPrincipalEncoded).toString());
         CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
-        if (subjectType == CertificateSubjectType.ROOT_CA || subjectType == CertificateSubjectType.SELF_SIGNED_END_ENTITY) modal.setIssuerSerialNumber(modal.getSerialNumber());
+        if (subjectType == CertificateSubjectType.ROOT_CA || subjectType == CertificateSubjectType.SELF_SIGNED_END_ENTITY) {
+            modal.setIssuerSerialNumber(modal.getSerialNumber());
+        }
 
         List<String> extendedKeyUsage = null;
         try {
@@ -447,15 +449,78 @@ public class CertificateUtil {
             modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
             modal.setExtendedKeyUsageCritical(
                     certificate.getCriticalExtensionOIDs() != null
-                    && certificate.getCriticalExtensionOIDs().contains(Extension.extendedKeyUsage.getId()));
+                            && certificate.getCriticalExtensionOIDs().contains(Extension.extendedKeyUsage.getId()));
         }
-        modal.setQcCompliance(hasQcComplianceStatement(certificate));
+
+        QcStatementParseResult qc = parseQcStatements(certificate);
+        if (qc != null) {
+            modal.setQcCompliance(qc.qcCompliance());
+            modal.setQcSscd(qc.qcSscd());
+            modal.setQcType(qc.qcType() != null
+                    ? MetaDefinitions.serializeArrayString(
+                    qc.qcType().stream().map(QcType::name).toList())
+                    : null);
+            modal.setQcCcLegislation(qc.qcCcLegislation() != null
+                    ? MetaDefinitions.serializeArrayString(qc.qcCcLegislation())
+                    : null);
+        }
+
         modal.setKeyUsage(
-               CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()));
+                CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()));
         modal.setSubjectType(subjectType);
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)
             modal.setTrustedCa(false);
+    }
+
+    /**
+     * Parses the QCStatements extension (OID 1.3.6.1.5.5.7.1.3) of an X.509 certificate and extracts the four operationally
+     * relevant statements per ETSI EN 319 412-5. Returns null when the extension is absent.
+     */
+    private static QcStatementParseResult parseQcStatements(X509Certificate cert) {
+        byte[] raw = cert.getExtensionValue(Extension.qCStatements.getId());
+        if (raw == null) return null;
+
+        boolean qcCompliance = false;
+        boolean qcSscd = false;
+        List<QcType> qcType = new ArrayList<>();
+        List<String> qcCcLegislation = new ArrayList<>();
+
+        ASN1Sequence seq = ASN1Sequence.getInstance(ASN1OctetString.getInstance(raw).getOctets());
+        for (ASN1Encodable el : seq) {
+            QCStatement stmt = QCStatement.getInstance(el);
+            ASN1ObjectIdentifier id = stmt.getStatementId();
+
+            if (ETSIQCObjectIdentifiers.id_etsi_qcs_QcCompliance.equals(id)) {
+                qcCompliance = true;
+            } else if (ETSIQCObjectIdentifiers.id_etsi_qcs_QcSSCD.equals(id)) {
+                qcSscd = true;
+            } else if (ETSIQCObjectIdentifiers.id_etsi_qcs_QcType.equals(id)) {
+                ASN1Sequence types = ASN1Sequence.getInstance(stmt.getStatementInfo());
+                for (ASN1Encodable t : types) {
+                    ASN1ObjectIdentifier typeOid = ASN1ObjectIdentifier.getInstance(t);
+                    if (ETSIQCObjectIdentifiers.id_etsi_qct_esign.equals(typeOid)) qcType.add(QcType.ESIGN);
+                    else if (ETSIQCObjectIdentifiers.id_etsi_qct_eseal.equals(typeOid)) qcType.add(QcType.ESEAL);
+                    else if (ETSIQCObjectIdentifiers.id_etsi_qct_web.equals(typeOid)) qcType.add(QcType.WEB);
+                }
+            } else if (ETSIQCObjectIdentifiers.id_etsi_qcs_QcCClegislation.equals(id)) {
+                ASN1Sequence countries = ASN1Sequence.getInstance(stmt.getStatementInfo());
+                for (ASN1Encodable cc : countries) {
+                    qcCcLegislation.add(cc.toString());
+                }
+            }
+            // QcLimitValue, QcRetentionPeriod, QcPDS intentionally not parsed since they are not operationally relevant
+        }
+
+        return new QcStatementParseResult(qcCompliance, qcSscd,
+                qcType.isEmpty() ? null : qcType,
+                qcCcLegislation.isEmpty() ? null : qcCcLegislation);
+    }
+
+    record QcStatementParseResult(boolean qcCompliance,
+                                  boolean qcSscd,
+                                  List<QcType> qcType,
+                                  List<String> qcCcLegislation) {
     }
 
     public static String getAlternativeSignatureAlgorithm(byte[] alternativeSignatureAlgorithm) throws IOException {
@@ -786,33 +851,6 @@ public class CertificateUtil {
         return privateKeyAvailable;
     }
 
-    /**
-     * Checks whether an {@link X509Certificate} contains the {@code id-etsi-qcs-QcCompliance} statement
-     * (OID {@code 0.4.0.1862.1.1}, defined in ETSI EN 319 412-5) inside the QCStatements extension.
-     * This statement is required on the TSA signing certificate for issuing qualified electronic time-stamps
-     * (ETSI EN 319 421).
-     *
-     * @param cert the certificate to inspect
-     * @return {@code true} iff the QCStatements extension is present and contains {@code id-etsi-qcs-QcCompliance};
-     *         {@code false} otherwise
-     */
-    public static boolean hasQcComplianceStatement(X509Certificate cert) {
-        byte[] qcStatementsBytes = cert.getExtensionValue(Extension.qCStatements.getId());
-        if (qcStatementsBytes == null) {
-            return false;
-        }
-
-        ASN1OctetString octetString = ASN1OctetString.getInstance(qcStatementsBytes);
-        ASN1Sequence sequence = ASN1Sequence.getInstance(octetString.getOctets());
-        for (ASN1Encodable element : sequence) {
-            QCStatement statement = QCStatement.getInstance(element);
-            if (ETSIQCObjectIdentifiers.id_etsi_qcs_QcCompliance.equals(statement.getStatementId())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /*
      * Constructed Query Graph for Digital Signing Certificate Filtering:
      *
@@ -883,8 +921,8 @@ public class CertificateUtil {
      * {@code id-etsi-qcs-QcCompliance} statement (OID {@code 0.4.0.1862.1.1}) as mandated by ETSI EN 319 421 §6.2
      * and defined in ETSI EN 319 412-5.
      *
-     * @param certificate      the entity to evaluate
-     * @param workflowType     the signing workflow
+     * @param certificate        the entity to evaluate
+     * @param workflowType       the signing workflow
      * @param qualifiedTimestamp when {@code true} and workflow is TIMESTAMPING, also requires id-etsi-qcs-QcCompliance in QCStatements
      * @return {@code true} iff all applicable requirements are satisfied
      */

@@ -1,11 +1,18 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.core.certificate.QcType;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Integer;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.asn1.x509.qualified.ETSIQCObjectIdentifiers;
+import org.bouncycastle.asn1.x509.qualified.QCStatement;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
@@ -20,7 +27,9 @@ import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 public class CertificateTestUtil {
 
@@ -115,5 +124,72 @@ public class CertificateTestUtil {
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
+    }
+
+    /**
+     * Builds a self-signed RSA certificate that carries a QCStatements extension (OID 1.3.6.1.5.5.7.1.3)
+     * populated with the requested ETSI EN 319 412-5 statements.
+     *
+     * @param qcCompliance    include id-etsi-qcs-QcCompliance (0.4.0.1862.1.1)
+     * @param qcSscd          include id-etsi-qcs-QcSSCD (0.4.0.1862.1.4)
+     * @param qcTypes         QcType OIDs to include (may be null/empty)
+     * @param ccLegislation   ISO 3166-1 alpha-2 country codes for QcCClegislation (may be null/empty)
+     */
+    public static X509Certificate createCertificateWithQcStatements(
+            boolean qcCompliance, boolean qcSscd, List<QcType> qcTypes, List<String> ccLegislation)
+            throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        ensureBouncyCastleProvider();
+
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        Date notBefore = new Date();
+        Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+                new X500Name("CN=qc-test"), BigInteger.TWO, notBefore, notAfter,
+                new X500Name("CN=qc-test"), keyPair.getPublic());
+
+        // OIDs that match what CertificateUtil.parseQcStatements() recognises
+        ASN1ObjectIdentifier QCT_ESIGN = new ASN1ObjectIdentifier("0.4.0.1862.1.6.1").intern();
+        ASN1ObjectIdentifier QCT_ESEAL = new ASN1ObjectIdentifier("0.4.0.1862.1.6.2").intern();
+        ASN1ObjectIdentifier QCT_WEB   = new ASN1ObjectIdentifier("0.4.0.1862.1.6.3").intern();
+        ASN1ObjectIdentifier QC_CC_LEGISLATION = new ASN1ObjectIdentifier("0.4.0.1862.1.7").intern();
+
+        List<QCStatement> statements = new ArrayList<>();
+        if (qcCompliance) {
+            statements.add(new QCStatement(ETSIQCObjectIdentifiers.id_etsi_qcs_QcCompliance));
+        }
+        if (qcSscd) {
+            statements.add(new QCStatement(ETSIQCObjectIdentifiers.id_etsi_qcs_QcSSCD));
+        }
+        if (qcTypes != null && !qcTypes.isEmpty()) {
+            ASN1EncodableVector typeVec = new ASN1EncodableVector();
+            for (QcType t : qcTypes) {
+                typeVec.add(switch (t) {
+                    case ESIGN -> QCT_ESIGN;
+                    case ESEAL -> QCT_ESEAL;
+                    case WEB   -> QCT_WEB;
+                });
+            }
+            statements.add(new QCStatement(ETSIQCObjectIdentifiers.id_etsi_qcs_QcType, new DERSequence(typeVec)));
+        }
+        if (ccLegislation != null && !ccLegislation.isEmpty()) {
+            ASN1EncodableVector ccVec = new ASN1EncodableVector();
+            for (String cc : ccLegislation) {
+                ccVec.add(new DERUTF8String(cc));
+            }
+            statements.add(new QCStatement(QC_CC_LEGISLATION, new DERSequence(ccVec)));
+        }
+
+        ASN1EncodableVector stmtVec = new ASN1EncodableVector();
+        for (QCStatement stmt : statements) {
+            stmtVec.add(stmt);
+        }
+        certBuilder.addExtension(Extension.qCStatements, false, new DERSequence(stmtVec));
+
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+        return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(signer));
     }
 }
