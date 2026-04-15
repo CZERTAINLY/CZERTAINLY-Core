@@ -442,6 +442,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         return entity;
     }
 
+    private Certificate getCertificateEntityWithChainAssociations(SecuredUUID uuid) throws NotFoundException {
+        Certificate entity = certificateRepository.findChainWithAssociationsByUuid(uuid.getValue())
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        raProfileService.evaluateCertificateRaProfilePermissions(uuid, SecuredParentUUID.fromUUID(entity.getRaProfileUuid()));
+        return entity;
+    }
+
     @Override
     // This method does not need security as it is not exposed by the controllers. This method also does not use uuid
     public Certificate getCertificateEntityByContent(String content) {
@@ -795,30 +802,14 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException {
-        Certificate certificate = getCertificateEntity(uuid);
+        Certificate certificate = withEndCertificate ? getCertificateEntityWithChainAssociations(uuid) : getCertificateEntity(uuid);
+
         CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
         if (certificate.getCertificateContent() != null) {
             List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
             Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
             certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
-
-            if (certificateChain.isEmpty()) {
-                certificateChainResponseDto.setCertificates(List.of());
-            } else {
-                // Batch-load every certificate in the chain (including the start certificate) through the full EntityGraph in a single query.
-                List<UUID> chainUuids = certificateChain.stream().map(Certificate::getUuid).toList();
-                Map<UUID, Certificate> fullyLoaded = certificateRepository
-                        .findChainWithAssociationsByUuidIn(chainUuids)
-                        .stream()
-                        .collect(Collectors.toMap(Certificate::getUuid, c -> c));
-                certificateChainResponseDto.setCertificates(
-                        chainUuids.stream()
-                                .map(fullyLoaded::get)
-                                .filter(Objects::nonNull)
-                                .map(Certificate::mapToDto)
-                                .toList()
-                );
-            }
+            certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
         }
         return certificateChainResponseDto;
     }

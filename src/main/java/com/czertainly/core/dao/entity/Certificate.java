@@ -32,6 +32,26 @@ import java.util.concurrent.TimeUnit;
 @Setter
 @ToString
 @RequiredArgsConstructor
+// Entity graph that eagerly loads all associations needed by mapToDto().
+@NamedEntityGraph(
+        name = "Certificate.chainAssociations",
+        attributeNodes = {
+                @NamedAttributeNode("certificateContent"),
+                @NamedAttributeNode(value = "key",      subgraph = "key-items"),
+                @NamedAttributeNode(value = "altKey",   subgraph = "alt-key-items"),
+                @NamedAttributeNode("groups"),
+                @NamedAttributeNode("owner"),
+                @NamedAttributeNode(value = "raProfile", subgraph = "ra-profile-authority"),
+                @NamedAttributeNode("certificateRequestEntity"),
+                @NamedAttributeNode("predecessorRelations"),
+                @NamedAttributeNode("protocolAssociation")
+        },
+        subgraphs = {
+                @NamedSubgraph(name = "key-items",           attributeNodes = @NamedAttributeNode("items")),
+                @NamedSubgraph(name = "alt-key-items",       attributeNodes = @NamedAttributeNode("items")),
+                @NamedSubgraph(name = "ra-profile-authority", attributeNodes = @NamedAttributeNode("authorityInstanceReference"))
+        }
+)
 @Entity
 @Table(name = "certificate")
 public class Certificate extends UniquelyIdentifiedAndAudited implements ComplianceSubject, DtoMapper<CertificateDetailDto> {
