@@ -16,9 +16,18 @@ public record CertificateChain(X509Certificate signingCertificate, List<X509Cert
         if (signingCertificate == null) {
             throw new IllegalArgumentException("signingCertificate must not be null");
         }
+
         chain = List.copyOf(chain);
         if (chain.isEmpty() || !chain.getFirst().equals(signingCertificate)) {
             throw new IllegalArgumentException("chain must start with the signing certificate");
+        }
+        if (signingCertificate.getBasicConstraints() != -1) {
+            throw new IllegalArgumentException("signingCertificate must be an end-entity certificate, not a CA");
+        }
+        for (int i = 1; i < chain.size(); i++) {
+            if (chain.get(i).getBasicConstraints() == -1) {
+                throw new IllegalArgumentException("certificate at index " + i + " in the chain must be a CA certificate");
+            }
         }
     }
 

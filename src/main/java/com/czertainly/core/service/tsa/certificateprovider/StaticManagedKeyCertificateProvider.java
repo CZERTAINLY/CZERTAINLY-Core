@@ -36,17 +36,18 @@ public class StaticManagedKeyCertificateProvider implements CertificateProvider 
     }
 
     @Override
-    public void validate(SigningSchemeModel signingScheme, boolean qualifiedTimestamp) throws TspException {
+    public ValidationResult validate(SigningSchemeModel signingScheme, boolean qualifiedTimestamp) {
         if (!(signingScheme instanceof StaticKeyManagedSigning signingSchemeModel)) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    String.format("The signing scheme '%s' is not supported by 'StaticManagedKeyCertificateProvider'.", signingScheme.getClass().getSimpleName()),
+            return ValidationResult.nok(TspFailureInfo.SYSTEM_FAILURE,
+                    "The signing scheme '%s' is not supported by 'StaticManagedKeyCertificateProvider'.".formatted(signingScheme.getClass().getSimpleName()),
                     "The system is misconfigured.");
         }
         if (!CertificateUtil.isCertificateDigitalSigningAcceptable(signingSchemeModel.certificate(), SigningWorkflowType.TIMESTAMPING, qualifiedTimestamp)) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
+            return ValidationResult.nok(TspFailureInfo.SYSTEM_FAILURE,
                     "Signer certificate is not acceptable for %s timestamping".formatted(qualifiedTimestamp ? "qualified" : "non-qualified"),
                     "Signer certificate failed validation.");
         }
+        return ValidationResult.ok();
     }
 
     @Override

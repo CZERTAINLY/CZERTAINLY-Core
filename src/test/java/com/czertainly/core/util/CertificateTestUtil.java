@@ -105,6 +105,22 @@ public class CertificateTestUtil {
                 .getCertificate(certBuilder.build(signer));
     }
 
+    public static X509Certificate createCACertificate() throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        ensureBouncyCastleProvider();
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        Date notBefore = new Date();
+        Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+                new X500Name("CN=test-ca"), BigInteger.ONE, notBefore, notAfter, new X500Name("CN=test-ca"), keyPair.getPublic());
+        certBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+        return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(signer));
+    }
+
     public static X509Certificate createCertificateWithoutEku() throws NoSuchAlgorithmException, OperatorCreationException, CertificateException {
         ensureBouncyCastleProvider();
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
@@ -114,6 +130,27 @@ public class CertificateTestUtil {
         Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
         JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
                 new X500Name("CN=test"), BigInteger.ONE, notBefore, notAfter, new X500Name("CN=test"), keyPair.getPublic());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+        return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(signer));
+    }
+
+    public static X509Certificate createTimestampingCertificate() throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        ensureBouncyCastleProvider();
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        return createTimestampingCertificate(keyGen.generateKeyPair());
+    }
+
+    public static X509Certificate createTimestampingCertificate(KeyPair keyPair) throws OperatorCreationException, CertificateException, IOException {
+        ensureBouncyCastleProvider();
+        Date notBefore = new Date();
+        Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+                new X500Name("CN=test-tsa"), BigInteger.ONE, notBefore, notAfter, new X500Name("CN=test-tsa"), keyPair.getPublic());
+        certBuilder.addExtension(Extension.extendedKeyUsage, true,
+                new ExtendedKeyUsage(KeyPurposeId.id_kp_timeStamping));
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
         return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)

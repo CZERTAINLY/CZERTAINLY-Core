@@ -10,8 +10,10 @@ import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.czertainly.core.service.tsa.messages.TspRequest;
 import com.czertainly.core.service.tsa.messages.TspResponse;
 import com.czertainly.core.service.tsa.certificateprovider.CertificateProviderFactory;
+import com.czertainly.core.service.tsa.certificateprovider.ValidationResult;
 import com.czertainly.core.service.tsa.clocksource.ClockSource;
 import com.czertainly.core.service.tsa.serialnumber.ClockDriftException;
+import com.czertainly.core.service.tsa.serialnumber.SerialNumberGenerationException;
 import com.czertainly.core.service.tsa.serialnumber.SerialNumberGenerator;
 import com.czertainly.core.service.tsa.timequality.TimeQualityRegister;
 import com.czertainly.core.service.tsa.timequality.TimeQualityStatus;
@@ -61,9 +63,15 @@ public class ManagedTimestampEngine {
             logger.info("Time quality status for profile '{}': {}", timeQualityConfiguration.getName(), timeStatus);
         }
 
-        try {
-            certificateProvider.validate(signingScheme, timestampingWorkflow.isQualifiedTimestamp());
+        var validationResult = certificateProvider.validate(signingScheme, timestampingWorkflow.isQualifiedTimestamp());
+        if (validationResult instanceof ValidationResult.Nok(
+                TspFailureInfo failureInfo, String logMessage, String clientMessage
+        )) {
+            logger.warn("Rejecting timestamp request for profile '{}': {}", timestampingProfile.name(), logMessage);
+            return TspResponse.rejected(failureInfo, clientMessage);
+        }
 
+        try {
             var serialNumber = serialNumberGenerator.generate();
             var genTime = clockSource.wallTimeInstant();
             var certificateChain = certificateProvider.getCertificateChain(signingScheme);
@@ -80,6 +88,9 @@ public class ManagedTimestampEngine {
         } catch (ClockDriftException e) {
             logger.error("Clock drift detected during timestamp generation", e);
             return TspResponse.rejected(TspFailureInfo.TIME_NOT_AVAILABLE, "Clock drift detected");
+        } catch (SerialNumberGenerationException e) {
+            logger.error("Timestamp generation interrupted", e);
+            return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Internal error");
         } catch (Exception e) {
             logger.error("Unexpected error during timestamp generation", e);
             return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Internal error");

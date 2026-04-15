@@ -68,6 +68,10 @@ final class SnowflakeSerialNumberGenerator implements SerialNumberGenerator {
         }
 
         while (currentTick < lastTick) {
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+                throw new SerialNumberGenerationException("Interrupted while waiting for clock to catch up");
+            }
             Thread.onSpinWait();
             currentTick = computeTick();
         }
@@ -77,6 +81,10 @@ final class SnowflakeSerialNumberGenerator implements SerialNumberGenerator {
     private long waitForNextTick(long currentTick) {
         long nextTick = currentTick + 1;
         while (computeTick() < nextTick) {
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+                throw new SerialNumberGenerationException("Interrupted while waiting for next tick");
+            }
             Thread.onSpinWait();
         }
         return nextTick;

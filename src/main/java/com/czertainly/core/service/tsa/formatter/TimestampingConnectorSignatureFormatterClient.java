@@ -1,6 +1,7 @@
 package com.czertainly.core.service.tsa.formatter;
 
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
+import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.czertainly.api.model.connector.signatures.formatter.ExtensionDto;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.czertainly.api.model.connector.signatures.formatter.TimestampingFormatDtbsRequestDto;
@@ -38,7 +39,7 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
     @Override
     public byte[] formatDtbs(TspRequest request, SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile, BigInteger serialNumber,
                              Instant genTime, CertificateChain certificateChain,
-                             SignatureAlgorithm signatureAlgorithm) {
+                             SignatureAlgorithm signatureAlgorithm) throws TspException {
 
         ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> workflow = timestampingProfile.workflow();
 
@@ -88,33 +89,37 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
         return response.getResponse();
     }
 
-    private static List<ExtensionDto> toExtensionDtos(Extensions extensions) {
+    private static List<ExtensionDto> toExtensionDtos(Extensions extensions) throws TspException {
         if (extensions == null) return Collections.emptyList();
-        return Arrays.stream(extensions.getExtensionOIDs())
-                .map(oid -> {
-                    Extension ext = extensions.getExtension(oid);
-                    ExtensionDto dto = new ExtensionDto();
-                    dto.setOid(oid.getId());
-                    dto.setCritical(ext.isCritical());
-                    try {
+        try {
+            return Arrays.stream(extensions.getExtensionOIDs())
+                    .map(oid -> {
+                        Extension ext = extensions.getExtension(oid);
+                        ExtensionDto dto = new ExtensionDto();
+                        dto.setOid(oid.getId());
+                        dto.setCritical(ext.isCritical());
                         dto.setValue(Base64.getEncoder().encodeToString(ext.getExtnValue().getOctets()));
-                    } catch (Exception e) {
-                        throw new IllegalStateException("Failed to encode extension value for OID " + oid.getId(), e);
-                    }
-                    return dto;
-                })
-                .toList();
+                        return dto;
+                    })
+                    .toList();
+        } catch (Exception e) {
+            throw new TspException(TspFailureInfo.BAD_DATA_FORMAT, "Failed to encode request extensions: " + e.getMessage(), e, "Invalid request extensions");
+        }
     }
 
-    private static List<byte[]> encodeBase64DerChain(CertificateChain certificateChain) {
-        return certificateChain.chain().stream()
-                .map(cert -> {
-                    try {
-                        return Base64.getEncoder().encode(cert.getEncoded());
-                    } catch (CertificateEncodingException e) {
-                        throw new IllegalStateException("Failed to encode certificate", e);
-                    }
-                })
-                .toList();
+    private static List<byte[]> encodeBase64DerChain(CertificateChain certificateChain) throws TspException {
+        try {
+            return certificateChain.chain().stream()
+                    .map(cert -> {
+                        try {
+                            return Base64.getEncoder().encode(cert.getEncoded());
+                        } catch (CertificateEncodingException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .toList();
+        } catch (Exception e) {
+            throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Failed to encode certificate chain: " + e.getMessage(), e, "Internal error encoding certificate chain");
+        }
     }
 }

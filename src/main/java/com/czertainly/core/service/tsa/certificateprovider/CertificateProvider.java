@@ -14,8 +14,11 @@ public interface CertificateProvider {
 
     /**
      * Validates the signer certificate against the signing workflow requirements.
+     *
+     * @return {@link ValidationResult#ok()} if the certificate is acceptable,
+     *         or {@link ValidationResult#nok} describing the reason for rejection.
      */
-    void validate(SigningSchemeModel signingScheme, boolean qualifiedTimestamp) throws TspException;
+    ValidationResult validate(SigningSchemeModel signingScheme, boolean qualifiedTimestamp);
 
     CertificateChain getCertificateChain(SigningSchemeModel signingScheme) throws TspException;
 }

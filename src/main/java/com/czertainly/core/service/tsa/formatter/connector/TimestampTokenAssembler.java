@@ -59,7 +59,6 @@ public final class TimestampTokenAssembler {
                                     BigInteger serialNumber,
                                     Date genTime,
                                     Duration accuracy,
-                                    boolean includeSignerCertificate,
                                     boolean includeTsaName,
                                     boolean includeCMSAlgorithmProtection,
                                     boolean includeSigningTimeAttribute,
@@ -68,7 +67,7 @@ public final class TimestampTokenAssembler {
         try {
             var contentSigner = new CapturingContentSigner(signatureAlgorithm);
             var tokenGen = buildTokenGenerator(signatureAlgorithm, contentSigner, certificateChain, policyOid,
-                    accuracy, includeSignerCertificate, includeTsaName,
+                    accuracy, request.includeSignerCertificate(), includeTsaName,
                     includeCMSAlgorithmProtection, includeSigningTimeAttribute, genTime);
 
             var qcExtension = qualifiedTimestamp ? buildQcExtensions() : null;
@@ -93,7 +92,6 @@ public final class TimestampTokenAssembler {
                                                        BigInteger serialNumber,
                                                        Date genTime,
                                                        Duration accuracy,
-                                                       boolean includeSignerCertificate,
                                                        boolean includeTsaName,
                                                        boolean includeCMSAlgorithmProtection,
                                                        boolean includeSigningTimeAttribute,
@@ -103,7 +101,7 @@ public final class TimestampTokenAssembler {
         try {
             var contentSigner = new InjectingContentSigner(signatureAlgorithm, signature);
             var tokenGen = buildTokenGenerator(signatureAlgorithm, contentSigner, certificateChain, policyOid,
-                    accuracy, includeSignerCertificate, includeTsaName,
+                    accuracy, request.includeSignerCertificate(), includeTsaName,
                     includeCMSAlgorithmProtection, includeSigningTimeAttribute, genTime);
 
             var qcExtension = qualifiedTimestamp ? buildQcExtensions() : null;
@@ -187,10 +185,18 @@ public final class TimestampTokenAssembler {
         }
     }
 
-    private static TimeStampRequest toBcRequest(TspRequest request) throws TSPException, IOException {
+    private static TimeStampRequest toBcRequest(TspRequest request) throws TspException, TSPException, IOException {
         var gen = new TimeStampRequestGenerator();
         gen.setCertReq(request.includeSignerCertificate());
-        request.policy().ifPresent(p -> gen.setReqPolicy(new ASN1ObjectIdentifier(p)));
+        if (request.policy().isPresent()) {
+            try {
+                gen.setReqPolicy(new ASN1ObjectIdentifier(request.policy().get()));
+            } catch (IllegalArgumentException e) {
+                throw new TspException(TspFailureInfo.BAD_REQUEST,
+                        "Invalid request policy OID: " + request.policy().get(), e,
+                        "Invalid policy OID in timestamp request");
+            }
+        }
 
         var digestAlgId = new AlgorithmIdentifier(
                 new ASN1ObjectIdentifier(request.hashAlgorithm().getOid()));
