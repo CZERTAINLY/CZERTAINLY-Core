@@ -734,12 +734,6 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         if (certificate.getCertificateContent() == null) {
             return;
         }
-
-        // Check if the certificate is self-signed
-        if (isSelfSigned(certificate)) {
-            return;
-        }
-        boolean issuerInInventory = false;
         X509Certificate subCert;
         try {
             subCert = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
@@ -747,6 +741,15 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             // We do not need to handle exceptions here because if subject certificate cannot be parsed, we cannot update its certificate chain
             return;
         }
+        updateCertificateChain(certificate, subCert);
+    }
+
+    private void updateCertificateChain(Certificate certificate, X509Certificate subCert) throws CertificateException {
+        // Check if the certificate is self-signed
+        if (isSelfSigned(subCert, certificate.getUuid())) {
+            return;
+        }
+        boolean issuerInInventory = false;
         // Try to find issuer certificate in repository
         for (Certificate issuer : certificateRepository.findBySubjectDnNormalized(certificate.getIssuerDnNormalized())) {
             X509Certificate issCert;
@@ -773,7 +776,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         // If the issuer isn't in inventory, try to download it from AIA extension of the certificate
         if (!issuerInInventory) {
             int downloadedCertificates = 0;
-            List<String> aiaChain = downloadChainFromAia(certificate);
+            List<String> aiaChain = downloadChainFromAia(certificate, subCert);
             Certificate previousCertificate = certificate;
             for (String chainCertificate : aiaChain) {
                 Certificate nextInChain;
@@ -828,12 +831,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
 
     private boolean completeCertificateChain(Certificate lastCertificate, List<Certificate> certificateChain) {
         try {
-            // if last certificate is self-signed, we presume it is root certificate and we are finished
-            if (isSelfSigned(lastCertificate)) {
+            X509Certificate x509 = CertificateUtil.parseCertificate(lastCertificate.getCertificateContent().getContent());
+            // If the last certificate is self-signed, we presume it is a root certificate and we are finished.
+            if (isSelfSigned(x509, lastCertificate.getUuid())) {
                 return true;
             } else {
                 // update chain and determine if its issuer was found
-                updateCertificateChain(lastCertificate);
+                updateCertificateChain(lastCertificate, x509);
                 if (lastCertificate.getIssuerCertificateUuid() != null) {
                     // construct newly found certificates from chain and do the self-signed check again
                     lastCertificate = constructCertificateChainFromInventory(lastCertificate, certificateChain);
@@ -1022,13 +1026,16 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
      * @throws CertificateException if the certificate cannot be parsed
      */
     private boolean isSelfSigned(Certificate certificate) throws CertificateException {
+        return isSelfSigned(getX509(certificate.getCertificateContent().getContent()), certificate.getUuid());
+    }
+
+    private boolean isSelfSigned(X509Certificate x509Certificate, UUID certificateUuid) throws CertificateException {
         // we check the signature with the certificate public key
-        X509Certificate x509Certificate = getX509(certificate.getCertificateContent().getContent());
         try {
             x509Certificate.verify(x509Certificate.getPublicKey());
             return true;
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            logger.debug("Unable to verify if the certificate {} is self-signed: {}", certificate.getUuid(), e.getMessage());
+            logger.debug("Unable to verify if the certificate {} is self-signed: {}",  certificateUuid, e.getMessage());
             throw new CertificateException(e);
         } catch (SignatureException | InvalidKeyException e) {
             // if the certificate is not self-signed, the verification will fail
@@ -2032,11 +2039,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         }
     }
 
-    private List<String> downloadChainFromAia(Certificate certificate) {
+    private List<String> downloadChainFromAia(Certificate certificate, X509Certificate certX509) {
         List<String> chainCertificates = new ArrayList<>();
         String chainUrl;
         try {
-            X509Certificate certX509 = getX509(certificate.getCertificateContent().getContent());
             while (true) {
                 chainUrl = OcspUtil.getChainFromAia(certX509);
                 if (chainUrl == null || chainUrl.isEmpty()) {

@@ -47,8 +47,20 @@ import java.util.concurrent.TimeUnit;
                 @NamedAttributeNode("protocolAssociation")
         },
         subgraphs = {
-                @NamedSubgraph(name = "key-items",           attributeNodes = @NamedAttributeNode("items")),
-                @NamedSubgraph(name = "alt-key-items",       attributeNodes = @NamedAttributeNode("items")),
+                @NamedSubgraph(name = "key-items", attributeNodes = {
+                        @NamedAttributeNode("items"),
+                        @NamedAttributeNode("groups"),
+                        @NamedAttributeNode("owner"),
+                        @NamedAttributeNode("tokenProfile"),
+                        @NamedAttributeNode("tokenInstanceReference")
+                }),
+                @NamedSubgraph(name = "alt-key-items", attributeNodes = {
+                        @NamedAttributeNode("items"),
+                        @NamedAttributeNode("groups"),
+                        @NamedAttributeNode("owner"),
+                        @NamedAttributeNode("tokenProfile"),
+                        @NamedAttributeNode("tokenInstanceReference")
+                }),
                 @NamedSubgraph(name = "ra-profile-authority", attributeNodes = @NamedAttributeNode("authorityInstanceReference"))
         }
 )
