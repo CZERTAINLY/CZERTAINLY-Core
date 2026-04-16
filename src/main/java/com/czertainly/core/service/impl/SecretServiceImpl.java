@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
@@ -877,8 +878,8 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     public StatisticsDto addSecretStatistics(SecurityFilter filter, StatisticsDto dto) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         long start = System.nanoTime();
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<Void>> futures = executor.invokeAll(List.of(
+        try (ExecutorService executor = new DelegatingSecurityContextExecutorService(Executors.newVirtualThreadPerTaskExecutor())) {
+            executor.invokeAll(List.of(
                     () -> {
                         dto.setSecretStatByType(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.type, null, null));
                         return null;
@@ -900,16 +901,11 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                         return null;
                     }
             ));
-            for (Future<Void> future : futures) {
-                try {
-                    future.get();
-                } catch (ExecutionException ex) {
-                    logger.error("An error occurred during calculation of secret statistics", ex.getCause());
-                }
+        } catch (Exception e) {
+            logger.error("An error occurred during calculation of secret statistics: {}", e.getMessage());
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("Secret statistics calculation was interrupted", e);
         }
         logger.debug("Secret statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
         return dto;
