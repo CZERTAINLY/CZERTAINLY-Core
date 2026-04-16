@@ -116,6 +116,9 @@ public class SigningProfileVersion extends UniquelyIdentifiedAndAudited {
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> allowedDigestAlgorithms = new ArrayList<>();
 
+    @Column(name = "validate_token_signature")
+    private Boolean validateTokenSignature;
+
     // ── Setter helpers ──────────────────────────────────────────────────────
 
     public void setSigningProfile(SigningProfile signingProfile) {

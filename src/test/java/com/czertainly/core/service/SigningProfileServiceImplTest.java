@@ -13,6 +13,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
+import com.czertainly.api.model.client.signing.profile.SimplifiedSigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.scheme.DelegatedSigningRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.czertainly.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningRequestDto;
@@ -26,6 +27,8 @@ import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowT
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.core.oid.SystemOid;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
@@ -80,6 +83,7 @@ import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
 import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
+import com.czertainly.core.model.signing.timequality.ExplicitTimeQualityConfiguration;
 import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.czertainly.core.model.signing.SigningProfileModel;
 import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
@@ -107,6 +111,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Autowired
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    private TimeQualityConfigurationService timeQualityConfigurationService;
 
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -319,145 +326,6 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ──────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Builds a minimal valid SigningProfileRequestDto using a DELEGATED scheme and RAW_SIGNING workflow
-     * (no foreign-key dependencies on connectors, token profiles, or keys).
-     */
-    private SigningProfileRequestDto buildDelegatedRawRequest(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        request.setSigningScheme(new DelegatedSigningRequestDto());
-        request.setWorkflow(new RawSigningWorkflowRequestDto());
-        return request;
-    }
-
-    /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and RAW_SIGNING workflow.
-     * Uses the shared MLDSA {@link #cryptographicKey} so no signing-operation-attribute
-     * definitions are produced and no attribute content needs to be provided.
-     */
-    private SigningProfileRequestDto buildManagedStaticKeyRawRequest(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setCertificateUuid(certificate.getUuid());
-        request.setSigningScheme(scheme);
-        request.setWorkflow(new RawSigningWorkflowRequestDto());
-        return request;
-    }
-
-    /**
-     * Builds a request using a MANAGED/ONE_TIME_KEY scheme and RAW_SIGNING workflow.
-     * No FK UUIDs are set, so the request is safe to use against any test database.
-     */
-    private SigningProfileRequestDto buildManagedOneTimeKeyRawRequest(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        request.setSigningScheme(new OneTimeKeyManagedSigningRequestDto());
-        request.setWorkflow(new RawSigningWorkflowRequestDto());
-        return request;
-    }
-
-    /**
-     * Builds a request using a DELEGATED scheme and CONTENT_SIGNING workflow.
-     */
-    private SigningProfileRequestDto buildDelegatedContentRequest(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        request.setSigningScheme(new DelegatedSigningRequestDto());
-        request.setWorkflow(new ContentSigningWorkflowRequestDto());
-        return request;
-    }
-
-    /**
-     * Builds a request using a DELEGATED scheme and TIMESTAMPING workflow.
-     */
-    private SigningProfileRequestDto buildDelegatedTimestampingRequest(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        request.setSigningScheme(new DelegatedSigningRequestDto());
-        request.setWorkflow(new TimestampingWorkflowRequestDto());
-        return request;
-    }
-
-    /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and CONTENT_SIGNING workflow,
-     * optionally setting a Signature Formatter Connector UUID on the workflow.
-     */
-    private SigningProfileRequestDto buildManagedStaticKeyContentRequest(String name, UUID formatterConnectorUuid) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setCertificateUuid(certificate.getUuid());
-        request.setSigningScheme(scheme);
-        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
-        workflow.setSignatureFormatterConnectorUuid(formatterConnectorUuid);
-        request.setWorkflow(workflow);
-        return request;
-    }
-
-    /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow,
-     * with no additional validation properties set.
-     */
-    private SigningProfileRequestDto buildManagedStaticKeyTimestampingRequest(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setCertificateUuid(tsaCertificate.getUuid());
-        scheme.setSigningOperationAttributes(List.of(
-                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
-                buildDigestAttribute(DigestAlgorithm.SHA_256)));
-        request.setSigningScheme(scheme);
-        request.setWorkflow(new TimestampingWorkflowRequestDto());
-        return request;
-    }
-
-    /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow
-     * with a default policy ID, two allowed policy IDs, and SHA-256 as an allowed digest algorithm.
-     */
-    private SigningProfileRequestDto buildManagedStaticKeyTimestampingRequestWithValidationProps(String name) {
-        SigningProfileRequestDto request = new SigningProfileRequestDto();
-        request.setName(name);
-        request.setDescription("Test description for " + name);
-        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
-        scheme.setCertificateUuid(tsaCertificate.getUuid());
-        scheme.setSigningOperationAttributes(List.of(
-                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
-                buildDigestAttribute(DigestAlgorithm.SHA_256)));
-        request.setSigningScheme(scheme);
-        TimestampingWorkflowRequestDto wf = new TimestampingWorkflowRequestDto();
-        wf.setDefaultPolicyId("1.2.3.4.5");
-        wf.setAllowedPolicyIds(List.of("1.2.3.4.5", "1.2.3.4.6"));
-        wf.setAllowedDigestAlgorithms(List.of(DigestAlgorithm.SHA_256));
-        request.setWorkflow(wf);
-        return request;
-    }
-
-    /**
-     * Persists a SigningRecord that references the given signing profile and version,
-     * simulating a signature that was produced using that profile version.
-     */
-    private void createSigningRecordFor(SigningProfile profile, int version) {
-        SigningRecord sig = new SigningRecord();
-        sig.setSigningProfile(profile);
-        sig.setSigningProfileVersion(version);
-        sig.setSigningTime(OffsetDateTime.now());
-        signingRecordRepository.save(sig);
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
     // List
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -641,7 +509,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, entity.getLatestVersion());
 
         SigningProfileVersion currentVersion = signingProfileVersionRepository
-            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         // For delegated scheme without connector UUID in request, it should be null
         Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
         // Version snapshot must carry scheme and workflow type
@@ -670,7 +538,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
 
         SigningProfileVersion currentVersion = signingProfileVersionRepository
-            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         Assertions.assertEquals(ManagedSigningType.STATIC_KEY, currentVersion.getManagedSigningType());
         // No delegated connector when using the managed signing scheme
         Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
@@ -695,7 +563,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
 
         SigningProfileVersion currentVersion = signingProfileVersionRepository
-            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         Assertions.assertEquals(ManagedSigningType.ONE_TIME_KEY, currentVersion.getManagedSigningType());
         // No delegated connector when using managed scheme
         Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
@@ -757,6 +625,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         timestampingWorkflow.setAllowedPolicyIds(List.of("1.2.3.4.5", "1.2.3.4.6"));
         timestampingWorkflow.setAllowedDigestAlgorithms(List.of(DigestAlgorithm.SHA_256, DigestAlgorithm.SHA_384));
         timestampingWorkflow.setQualifiedTimestamp(false);
+        timestampingWorkflow.setValidateTokenSignature(true);
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("timestamping-with-policies");
@@ -775,6 +644,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(tsDto.getAllowedDigestAlgorithms().contains(DigestAlgorithm.SHA_256));
         Assertions.assertTrue(tsDto.getAllowedDigestAlgorithms().contains(DigestAlgorithm.SHA_384));
         Assertions.assertFalse(tsDto.getQualifiedTimestamp());
+        Assertions.assertTrue(tsDto.getValidateTokenSignature());
 
         // Assert entity fields in the database
         Optional<SigningProfile> fromDb = signingProfileRepository.findById(UUID.fromString(dto.getUuid()));
@@ -783,7 +653,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningWorkflowType.TIMESTAMPING, entity.getWorkflowType());
 
         SigningProfileVersion currentVersion = signingProfileVersionRepository
-            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         Assertions.assertEquals("1.2.3.4.5", currentVersion.getDefaultPolicyId());
         Assertions.assertEquals(List.of("1.2.3.4.5", "1.2.3.4.6"), currentVersion.getAllowedPolicyIds());
         Assertions.assertEquals(
@@ -791,6 +661,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 currentVersion.getAllowedDigestAlgorithms()
         );
         Assertions.assertFalse(currentVersion.getQualifiedTimestamp());
+        Assertions.assertTrue(currentVersion.getValidateTokenSignature());
     }
 
     @Test
@@ -816,7 +687,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningWorkflowType.CONTENT_SIGNING, entity.getWorkflowType());
 
         SigningProfileVersion currentVersion = signingProfileVersionRepository
-            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         Assertions.assertEquals(ManagedSigningType.STATIC_KEY, currentVersion.getManagedSigningType());
     }
 
@@ -1077,7 +948,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningScheme.MANAGED, entity.getSigningScheme());
 
         SigningProfileVersion currentVersion = signingProfileVersionRepository
-            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         Assertions.assertEquals(ManagedSigningType.STATIC_KEY, currentVersion.getManagedSigningType());
         // Previous delegated connector reference must have been cleared
         Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
@@ -1098,7 +969,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(SigningScheme.DELEGATED, entity.getSigningScheme());
 
         SigningProfileVersion currentVersion = signingProfileVersionRepository
-            .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
+                .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         // managedSigningType must have been cleared by applyScheme
         Assertions.assertNull(currentVersion.getManagedSigningType());
         // token profile and certificate references must have been cleared
@@ -1112,6 +983,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         timestampingWorkflow.setDefaultPolicyId("1.2.3.4.5");
         timestampingWorkflow.setAllowedPolicyIds(List.of("1.2.3.4.5"));
         timestampingWorkflow.setQualifiedTimestamp(false);
+        timestampingWorkflow.setValidateTokenSignature(false);
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName("workflow-changed");
@@ -1131,6 +1003,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 .findBySigningProfileUuidAndVersion(entity.getUuid(), entity.getLatestVersion()).orElseThrow();
         Assertions.assertEquals("1.2.3.4.5", currentVersion.getDefaultPolicyId());
         Assertions.assertFalse(currentVersion.getQualifiedTimestamp());
+        Assertions.assertFalse(currentVersion.getValidateTokenSignature());
     }
 
     @Test
@@ -1443,7 +1316,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertTrue(messages.stream().anyMatch(m -> "00000000-0000-0000-0000-000000000099".equals(m.getUuid())));
         // The known profile must still have been enabled
         Assertions.assertTrue(signingProfileRepository.findById(savedProfile.getUuid())
-                .map(SigningProfile::getEnabled).orElse(false),
+                        .map(SigningProfile::getEnabled).orElse(false),
                 "The known profile should be enabled even when the list contains an unknown UUID");
     }
 
@@ -1460,7 +1333,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertFalse(messages.isEmpty(), "An error message should be returned for the non-existent UUID");
         Assertions.assertTrue(messages.stream().anyMatch(m -> "00000000-0000-0000-0000-000000000099".equals(m.getUuid())));
         Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid())
-                .map(SigningProfile::getEnabled).orElse(true),
+                        .map(SigningProfile::getEnabled).orElse(true),
                 "The known profile should be disabled even when the list contains an unknown UUID");
     }
 
@@ -2126,6 +1999,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 "Allowed policy IDs must round-trip through create → model");
         Assertions.assertEquals(List.of(DigestAlgorithm.SHA_256), wf.allowedDigestAlgorithms(),
                 "Allowed digest algorithms must round-trip through create → model");
+        Assertions.assertTrue(wf.validateTokenSignature(),
+                "validateTokenSignature must round-trip through create → model");
     }
 
     @Test
@@ -2179,5 +2054,356 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
         Assertions.assertEquals("keep-same-name", updated.getName());
         Assertions.assertEquals("updated description", updated.getDescription());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // TimeQualityConfiguration linkage on timestamping workflow
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testCreateSigningProfile_timestampingWorkflow_withTimeQualityConfigurationUuid_headerLinkedAndReturnedInDto()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto tqc = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-create-link"));
+
+        TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setTimeQualityConfigurationUuid(UUID.fromString(tqc.getUuid()));
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("ts-with-tqc");
+        request.setSigningScheme(new DelegatedSigningRequestDto());
+        request.setWorkflow(workflow);
+
+        SigningProfileDto dto = signingProfileService.createSigningProfile(request);
+
+        // Header entity in DB must link to the TQC
+        SigningProfile entity = signingProfileRepository.findById(UUID.fromString(dto.getUuid())).orElseThrow();
+        Assertions.assertNotNull(entity.getTimeQualityConfiguration(),
+                "SigningProfile header must have a linked TimeQualityConfiguration");
+        Assertions.assertEquals(UUID.fromString(tqc.getUuid()), entity.getTimeQualityConfiguration().getUuid());
+
+        // DTO must carry back the TQC data
+        TimestampingWorkflowDto tsDto = (TimestampingWorkflowDto) dto.getWorkflow();
+        Assertions.assertNotNull(tsDto.getTimeQualityConfiguration(),
+                "TimestampingWorkflowDto must expose the linked TimeQualityConfiguration");
+        Assertions.assertEquals(tqc.getUuid(), tsDto.getTimeQualityConfiguration().getUuid());
+    }
+
+    @Test
+    void testCreateSigningProfile_timestampingWorkflow_withNonExistentTimeQualityConfigurationUuid_throwsNotFoundException() {
+        TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setTimeQualityConfigurationUuid(UUID.randomUUID());
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("ts-bad-tqc");
+        request.setSigningScheme(new DelegatedSigningRequestDto());
+        request.setWorkflow(workflow);
+
+        Assertions.assertThrows(NotFoundException.class,
+                () -> signingProfileService.createSigningProfile(request));
+    }
+
+    @Test
+    void testUpdateSigningProfile_workflowChangedFromTimestamping_timeQualityConfigurationClearedFromHeader()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto tqc = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-clear-test"));
+
+        TimestampingWorkflowRequestDto timestampingWorkflow = new TimestampingWorkflowRequestDto();
+        timestampingWorkflow.setTimeQualityConfigurationUuid(UUID.fromString(tqc.getUuid()));
+
+        SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
+        createRequest.setName("ts-to-raw-profile");
+        createRequest.setSigningScheme(new DelegatedSigningRequestDto());
+        createRequest.setWorkflow(timestampingWorkflow);
+
+        SigningProfileDto created = signingProfileService.createSigningProfile(createRequest);
+
+        // Verify TQC is linked before the update
+        SigningProfile beforeUpdate = signingProfileRepository.findById(UUID.fromString(created.getUuid())).orElseThrow();
+        Assertions.assertNotNull(beforeUpdate.getTimeQualityConfiguration());
+
+        // Update to RAW_SIGNING - TQC must be cleared from the workflow
+        SigningProfileRequestDto updateRequest = new SigningProfileRequestDto();
+        updateRequest.setName("ts-to-raw-profile");
+        updateRequest.setSigningScheme(new DelegatedSigningRequestDto());
+        updateRequest.setWorkflow(new RawSigningWorkflowRequestDto());
+        signingProfileService.updateSigningProfile(SecuredUUID.fromString(created.getUuid()), updateRequest);
+
+        SigningProfile afterUpdate = signingProfileRepository.findById(UUID.fromString(created.getUuid())).orElseThrow();
+        Assertions.assertNull(afterUpdate.getTimeQualityConfiguration(),
+                "TimeQualityConfiguration must be cleared when workflow is changed away from TIMESTAMPING");
+    }
+
+    @Test
+    void testGetManagedTimestampingProfileModel_withLinkedTqcAndValidateTokenSignature_modelCarriesBothFields()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto tqc = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-model-test"));
+
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(tsaCertificate.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+
+        TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setTimeQualityConfigurationUuid(UUID.fromString(tqc.getUuid()));
+        workflow.setValidateTokenSignature(true);
+
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("ts-model-tqc-and-validate");
+        request.setSigningScheme(scheme);
+        request.setWorkflow(workflow);
+
+        signingProfileService.createSigningProfile(request);
+
+        SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ?> model =
+                signingProfileService.getManagedTimestampingProfileModel("ts-model-tqc-and-validate");
+
+        ManagedTimestampingWorkflow<?> wf = model.workflow();
+        Assertions.assertTrue(wf.validateTokenSignature(),
+                "validateTokenSignature must be true in the model");
+        Assertions.assertInstanceOf(ExplicitTimeQualityConfiguration.class, wf.timeQualityConfiguration(),
+                "timeQualityConfiguration in the model must be an ExplicitTimeQualityConfiguration, not the LocalClock placeholder");
+        ExplicitTimeQualityConfiguration explicitTqc = (ExplicitTimeQualityConfiguration) wf.timeQualityConfiguration();
+        Assertions.assertEquals(UUID.fromString(tqc.getUuid()), explicitTqc.uuid(),
+                "TQC UUID in the model must match the linked TimeQualityConfiguration");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // listSigningProfilesAssociatedTimeQualityConfiguration
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void testListSigningProfilesAssociatedTimeQualityConfiguration_returnsAssociatedProfiles()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto tqc = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-list-test"));
+        UUID tqcUuid = UUID.fromString(tqc.getUuid());
+
+        TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setTimeQualityConfigurationUuid(tqcUuid);
+
+        SigningProfileRequestDto r1 = new SigningProfileRequestDto();
+        r1.setName("list-ts-profile-one");
+        r1.setSigningScheme(new DelegatedSigningRequestDto());
+        r1.setWorkflow(workflow);
+        SigningProfileDto p1 = signingProfileService.createSigningProfile(r1);
+
+        TimestampingWorkflowRequestDto workflow2 = new TimestampingWorkflowRequestDto();
+        workflow2.setTimeQualityConfigurationUuid(tqcUuid);
+        SigningProfileRequestDto r2 = new SigningProfileRequestDto();
+        r2.setName("list-ts-profile-two");
+        r2.setSigningScheme(new DelegatedSigningRequestDto());
+        r2.setWorkflow(workflow2);
+        SigningProfileDto p2 = signingProfileService.createSigningProfile(r2);
+
+        List<SimplifiedSigningProfileDto> result = signingProfileService
+                .listSigningProfilesAssociatedTimeQualityConfiguration(SecuredUUID.fromUUID(tqcUuid), SecurityFilter.create());
+
+        Assertions.assertEquals(2, result.size());
+        List<String> returnedUuids = result.stream().map(SimplifiedSigningProfileDto::getUuid).toList();
+        Assertions.assertTrue(returnedUuids.contains(p1.getUuid()));
+        Assertions.assertTrue(returnedUuids.contains(p2.getUuid()));
+    }
+
+    @Test
+    void testListSigningProfilesAssociatedTimeQualityConfiguration_emptyWhenNoneAssociated()
+            throws AttributeException, NotFoundException {
+        TimeQualityConfigurationDto tqc = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-no-profiles"));
+
+        List<SimplifiedSigningProfileDto> result = signingProfileService
+                .listSigningProfilesAssociatedTimeQualityConfiguration(SecuredUUID.fromString(tqc.getUuid()), SecurityFilter.create());
+
+        Assertions.assertTrue(result.isEmpty(),
+                "No signing profiles should be returned for a TQC with no associated profiles");
+    }
+
+    @Test
+    void testListSigningProfilesAssociatedTimeQualityConfiguration_returnsOnlyProfilesLinkedToSpecificTqc()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto tqcA = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-A"));
+        TimeQualityConfigurationDto tqcB = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-B"));
+
+        TimestampingWorkflowRequestDto workflowA = new TimestampingWorkflowRequestDto();
+        workflowA.setTimeQualityConfigurationUuid(UUID.fromString(tqcA.getUuid()));
+        SigningProfileRequestDto reqA = new SigningProfileRequestDto();
+        reqA.setName("profile-linked-to-tqc-A");
+        reqA.setSigningScheme(new DelegatedSigningRequestDto());
+        reqA.setWorkflow(workflowA);
+        SigningProfileDto profileA = signingProfileService.createSigningProfile(reqA);
+
+        TimestampingWorkflowRequestDto workflowB = new TimestampingWorkflowRequestDto();
+        workflowB.setTimeQualityConfigurationUuid(UUID.fromString(tqcB.getUuid()));
+        SigningProfileRequestDto reqB = new SigningProfileRequestDto();
+        reqB.setName("profile-linked-to-tqc-B");
+        reqB.setSigningScheme(new DelegatedSigningRequestDto());
+        reqB.setWorkflow(workflowB);
+        signingProfileService.createSigningProfile(reqB);
+
+        List<SimplifiedSigningProfileDto> result = signingProfileService
+                .listSigningProfilesAssociatedTimeQualityConfiguration(SecuredUUID.fromString(tqcA.getUuid()), SecurityFilter.create());
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(profileA.getUuid(), result.getFirst().getUuid(),
+                "Only the profile linked to TQC-A should be returned");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Builds a minimal valid SigningProfileRequestDto using a DELEGATED scheme and RAW_SIGNING workflow
+     * (no foreign-key dependencies on connectors, token profiles, or keys).
+     */
+    private SigningProfileRequestDto buildDelegatedRawRequest(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        request.setSigningScheme(new DelegatedSigningRequestDto());
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/STATIC_KEY scheme and RAW_SIGNING workflow.
+     * Uses the shared MLDSA {@link #cryptographicKey} so no signing-operation-attribute
+     * definitions are produced and no attribute content needs to be provided.
+     */
+    private SigningProfileRequestDto buildManagedStaticKeyRawRequest(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(certificate.getUuid());
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/ONE_TIME_KEY scheme and RAW_SIGNING workflow.
+     * No FK UUIDs are set, so the request is safe to use against any test database.
+     */
+    private SigningProfileRequestDto buildManagedOneTimeKeyRawRequest(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        request.setSigningScheme(new OneTimeKeyManagedSigningRequestDto());
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a DELEGATED scheme and CONTENT_SIGNING workflow.
+     */
+    private SigningProfileRequestDto buildDelegatedContentRequest(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        request.setSigningScheme(new DelegatedSigningRequestDto());
+        request.setWorkflow(new ContentSigningWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a DELEGATED scheme and TIMESTAMPING workflow.
+     */
+    private SigningProfileRequestDto buildDelegatedTimestampingRequest(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        request.setSigningScheme(new DelegatedSigningRequestDto());
+        request.setWorkflow(new TimestampingWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/STATIC_KEY scheme and CONTENT_SIGNING workflow,
+     * optionally setting a Signature Formatter Connector UUID on the workflow.
+     */
+    private SigningProfileRequestDto buildManagedStaticKeyContentRequest(String name, UUID formatterConnectorUuid) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(certificate.getUuid());
+        request.setSigningScheme(scheme);
+        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnectorUuid);
+        request.setWorkflow(workflow);
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow,
+     * with no additional validation properties set.
+     */
+    private SigningProfileRequestDto buildManagedStaticKeyTimestampingRequest(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(tsaCertificate.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new TimestampingWorkflowRequestDto());
+        return request;
+    }
+
+    /**
+     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow
+     * with a default policy ID, two allowed policy IDs, and SHA-256 as an allowed digest algorithm.
+     */
+    private SigningProfileRequestDto buildManagedStaticKeyTimestampingRequestWithValidationProps(String name) {
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName(name);
+        request.setDescription("Test description for " + name);
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(tsaCertificate.getUuid());
+        scheme.setSigningOperationAttributes(List.of(
+                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        request.setSigningScheme(scheme);
+        TimestampingWorkflowRequestDto wf = new TimestampingWorkflowRequestDto();
+        wf.setDefaultPolicyId("1.2.3.4.5");
+        wf.setAllowedPolicyIds(List.of("1.2.3.4.5", "1.2.3.4.6"));
+        wf.setAllowedDigestAlgorithms(List.of(DigestAlgorithm.SHA_256));
+        wf.setValidateTokenSignature(true);
+        request.setWorkflow(wf);
+        return request;
+    }
+
+    /**
+     * Persists a SigningRecord that references the given signing profile and version,
+     * simulating a signature that was produced using that profile version.
+     */
+    private void createSigningRecordFor(SigningProfile profile, int version) {
+        SigningRecord sig = new SigningRecord();
+        sig.setSigningProfile(profile);
+        sig.setSigningProfileVersion(version);
+        sig.setSigningTime(OffsetDateTime.now());
+        signingRecordRepository.save(sig);
+    }
+
+    private TimeQualityConfigurationCreateRequestDto buildTqcCreateRequest(String name) {
+        TimeQualityConfigurationCreateRequestDto req = new TimeQualityConfigurationCreateRequestDto();
+        req.setName(name);
+        req.setAccuracy(java.time.Duration.ofSeconds(1));
+        req.setNtpServers(List.of("pool.ntp.org"));
+        req.setNtpCheckInterval(java.time.Duration.ofSeconds(30));
+        req.setNtpSamplesPerServer(4);
+        req.setNtpCheckTimeout(java.time.Duration.ofSeconds(5));
+        req.setNtpServersMinReachable(1);
+        req.setMaxClockDrift(java.time.Duration.ofSeconds(1));
+        req.setLeapSecondGuard(true);
+        return req;
     }
 }

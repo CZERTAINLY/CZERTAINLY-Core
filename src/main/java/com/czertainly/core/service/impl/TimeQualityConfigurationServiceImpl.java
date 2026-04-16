@@ -23,7 +23,6 @@ import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration_;
 
-import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.czertainly.core.mapper.signing.TimeQualityConfigurationMapper;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -197,7 +196,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     }
 
     private void deleteTimeQualityConfiguration(TimeQualityConfiguration configuration) {
-        SecuredList<SigningProfile> signingProfiles = signingProfileService.listSigningProfilesAssociatedTimeQualityConfiguration(configuration.getUuid(), SecurityFilter.create());
+        SecuredList<SigningProfile> signingProfiles = signingProfileService.listSigningProfileEntitiesAssociatedTimeQualityConfiguration(SecuredUUID.fromUUID(configuration.getUuid()), SecurityFilter.create());
         if (!signingProfiles.isEmpty()) {
             throw new ValidationException(
                     ValidationError.create(String.format(

@@ -15,13 +15,11 @@ import com.czertainly.api.model.client.signing.profile.workflow.RawSigningWorkfl
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
-import com.czertainly.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
 import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.czertainly.core.model.signing.workflow.*;
 import com.czertainly.core.model.signing.SigningProfileModel;
@@ -31,8 +29,6 @@ import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -101,11 +97,11 @@ public class SigningProfileMapper {
             }
         }
 
-        // Build workflow DTO from version
+        // Build workflow DTO from version (timestamping also reads unversioned fields from header)
         dto.setWorkflow(switch (version.getWorkflowType()) {
             case CONTENT_SIGNING -> buildContentSigningWorkflowDto(version, signatureFormatterConnectorAttributes);
             case RAW_SIGNING -> new RawSigningWorkflowDto();
-            case TIMESTAMPING -> buildTimestampingWorkflowDto(version, signatureFormatterConnectorAttributes);
+            case TIMESTAMPING -> buildTimestampingWorkflowDto(header, version, signatureFormatterConnectorAttributes);
         });
 
         // Enabled protocols from header (unversioned)
@@ -152,7 +148,7 @@ public class SigningProfileMapper {
         return new SigningProfileModel<>(
                 header.getUuid(), header.getName(), header.getDescription(),
                 ver, enabled, protocols,
-                buildManagedTimestampingWorkflow(version, signatureFormatterConnectorAttributes),
+                buildManagedTimestampingWorkflowModel(header, version, signatureFormatterConnectorAttributes),
                 buildSchemeModel(version, signingOperationAttributes));
     }
 
@@ -206,7 +202,7 @@ public class SigningProfileMapper {
     }
 
     private static TimestampingWorkflowDto buildTimestampingWorkflowDto(
-            SigningProfileVersion version, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
+            SigningProfile header, SigningProfileVersion version, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
         TimestampingWorkflowDto wf = new TimestampingWorkflowDto();
         setFormatterRef(version.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
         wf.setSignatureFormatterConnectorAttributes(safeList(signatureFormatterConnectorAttributes));
@@ -220,12 +216,10 @@ public class SigningProfileMapper {
                             .toList()
             );
         }
-        // TODO: Add to entity (and DB) and read from it
-        wf.setValidateTokenSignature(true);
-        // TODO: Use real TimeQualityConfiguration when implemented
-        TimeQualityConfigurationDto tqc = new TimeQualityConfigurationDto();
-        tqc.setAccuracy(Duration.of(1, ChronoUnit.SECONDS));
-        wf.setTimeQualityConfiguration(tqc);
+        wf.setValidateTokenSignature(version.getValidateTokenSignature());
+        if (header.getTimeQualityConfiguration() != null) {
+            wf.setTimeQualityConfiguration(TimeQualityConfigurationMapper.toDto(header.getTimeQualityConfiguration(), List.of()));
+        }
         return wf;
     }
 
@@ -233,17 +227,17 @@ public class SigningProfileMapper {
     // Model-layer workflow builders (read from version)
     // ──────────────────────────────────────────────────────────────────────────
 
-    private static ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> buildManagedTimestampingWorkflow(
-            SigningProfileVersion version, List<RequestAttribute> signatureFormatterConnectorAttributes) {
+    private static ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> buildManagedTimestampingWorkflowModel(
+            SigningProfile header, SigningProfileVersion version, List<RequestAttribute> signatureFormatterConnectorAttributes) {
         return new ManagedTimestampingWorkflow<>(
                 version.getSignatureFormatterConnectorUuid(),
                 safeList(signatureFormatterConnectorAttributes),
                 version.getQualifiedTimestamp(),
-                LocalClockTimeQualityConfiguration.INSTANCE, // timeQualityConfiguration — not persisted on the entity yet, so we use a placeholder that represents the default configuration for now
+                TimeQualityConfigurationMapper.toModel(header.getTimeQualityConfiguration()),
                 version.getDefaultPolicyId(),
                 safeList(version.getAllowedPolicyIds()),
                 timestampingDigestAlgorithms(version),
-                null); // validateTokenSignature — not persisted on the entity yet
+                version.getValidateTokenSignature());
     }
 
     private static List<DigestAlgorithm> timestampingDigestAlgorithms(SigningProfileVersion version) {

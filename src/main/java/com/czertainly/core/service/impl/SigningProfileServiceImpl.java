@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.signing.profile.SimplifiedSigningProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
@@ -51,9 +52,11 @@ import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
 import com.czertainly.core.dao.entity.signing.TspProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
+import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
 import com.czertainly.core.dao.repository.signing.SigningRecordRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
+import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
 import com.czertainly.core.mapper.signing.SigningProfileMapper;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -99,6 +102,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private SigningRecordRepository signingRecordRepository;
     private SigningProfileRepository signingProfileRepository;
     private SigningProfileVersionRepository signingProfileVersionRepository;
+    private TimeQualityConfigurationRepository timeQualityConfigurationRepository;
     private TspProfileRepository tspProfileRepository;
     private AttributeEngine attributeEngine;
 
@@ -138,18 +142,29 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
     @Transactional
-    public SecuredList<SigningProfile> listSigningProfilesAssociatedTimeQualityConfiguration(UUID timeQualityConfigurationUuid, SecurityFilter filter) {
-        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTimeQualityConfigurationUuid(timeQualityConfigurationUuid);
+    public List<SimplifiedSigningProfileDto> listSigningProfilesAssociatedTimeQualityConfiguration(SecuredUUID timeQualityConfigurationUuid, SecurityFilter filter) {
+        return listSigningProfileEntitiesAssociatedTimeQualityConfiguration(timeQualityConfigurationUuid, filter)
+                .getAllowed()
+                .stream()
+                .map(SigningProfileMapper::toSimpleDto)
+                .toList();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
+    @Transactional
+    public SecuredList<SigningProfile> listSigningProfileEntitiesAssociatedTimeQualityConfiguration(SecuredUUID timeQualityConfigurationUuid, SecurityFilter filter) {
+        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTimeQualityConfigurationUuid(timeQualityConfigurationUuid.getValue());
         return SecuredList.fromFilter(filter, signingProfiles);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
     @Transactional
-    public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(UUID tspProfileUuid, SecurityFilter filter) {
-        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTspProfileUuid(tspProfileUuid);
+    public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(SecuredUUID tspProfileUuid, SecurityFilter filter) {
+        List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTspProfileUuid(tspProfileUuid.getValue());
         return SecuredList.fromFilter(filter, signingProfiles);
     }
 
@@ -519,9 +534,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     /**
-     * Applies the workflow request to both the profile header (cache column) and the version entity (authoritative).
+     * Applies the workflow request to both the profile header (cache columns / unversioned fields)
+     * and the version entity (authoritative versioned fields).
      */
-    private void applyWorkflow(SigningProfile p, SigningProfileVersion version, WorkflowRequestDto workflow) {
+    private void applyWorkflow(SigningProfile p, SigningProfileVersion version, WorkflowRequestDto workflow) throws NotFoundException {
+        p.setTimeQualityConfiguration(null);
         p.setWorkflowType(workflow.getType()); // cache column
         version.setWorkflowType(workflow.getType());
         version.setSignatureFormatterConnector(null);
@@ -529,10 +546,12 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         version.setDefaultPolicyId(null);
         version.setAllowedPolicyIds(new ArrayList<>());
         version.setAllowedDigestAlgorithms(new ArrayList<>());
+        version.setValidateTokenSignature(null);
 
         switch (workflow) {
-            case ContentSigningWorkflowRequestDto w ->
-                    version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
+            case ContentSigningWorkflowRequestDto w -> {
+                version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
+            }
             case RawSigningWorkflowRequestDto w -> {
                 // no formatter for raw signing
             }
@@ -543,6 +562,14 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 version.setAllowedPolicyIds(w.getAllowedPolicyIds() != null ? w.getAllowedPolicyIds() : new ArrayList<>());
                 if (w.getAllowedDigestAlgorithms() != null) {
                     version.setAllowedDigestAlgorithms(w.getAllowedDigestAlgorithms().stream().map(DigestAlgorithm::getCode).toList());
+                }
+                version.setValidateTokenSignature(w.getValidateTokenSignature());
+                // Time Quality Configuration is unversioned
+                if (w.getTimeQualityConfigurationUuid() != null) {
+                    TimeQualityConfiguration tqc = timeQualityConfigurationRepository
+                            .findByUuid(SecuredUUID.fromUUID(w.getTimeQualityConfigurationUuid()))
+                            .orElseThrow(() -> new NotFoundException(TimeQualityConfiguration.class, w.getTimeQualityConfigurationUuid()));
+                    p.setTimeQualityConfiguration(tqc);
                 }
             }
             default -> throw new IllegalStateException("Unexpected type for Signing Workflow: " + workflow);
@@ -714,6 +741,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Autowired
     public void setSigningProfileVersionRepository(SigningProfileVersionRepository signingProfileVersionRepository) {
         this.signingProfileVersionRepository = signingProfileVersionRepository;
+    }
+
+    @Autowired
+    public void setTimeQualityConfigurationRepository(TimeQualityConfigurationRepository timeQualityConfigurationRepository) {
+        this.timeQualityConfigurationRepository = timeQualityConfigurationRepository;
     }
 
     @Autowired

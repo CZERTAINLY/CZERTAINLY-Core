@@ -237,7 +237,7 @@ public class TspProfileServiceImpl implements TspProfileService {
     }
 
     private void deleteTspProfile(TspProfile profile) {
-        SecuredList<SigningProfile> signingProfiles = signingProfileService.listSigningProfilesAssociatedWithTsp(profile.getUuid(), SecurityFilter.create());
+        SecuredList<SigningProfile> signingProfiles = signingProfileService.listSigningProfilesAssociatedWithTsp(SecuredUUID.fromUUID(profile.getUuid()), SecurityFilter.create());
         if (!signingProfiles.isEmpty()) {
             throw new ValidationException(
                     ValidationError.create(String.format(

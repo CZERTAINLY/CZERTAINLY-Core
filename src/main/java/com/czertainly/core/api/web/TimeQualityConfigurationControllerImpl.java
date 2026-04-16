@@ -1,9 +1,9 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.TimeQualityConfigurationController;
+import com.czertainly.api.model.client.signing.profile.SimplifiedSigningProfileDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
@@ -20,6 +20,7 @@ import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.TimeQualityConfigurationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,10 +32,13 @@ import java.util.UUID;
 public class TimeQualityConfigurationControllerImpl implements TimeQualityConfigurationController {
 
     private final TimeQualityConfigurationService timeQualityConfigurationService;
+    private final SigningProfileService signingProfileService;
 
     @Autowired
-    public TimeQualityConfigurationControllerImpl(TimeQualityConfigurationService timeQualityConfigurationService) {
+    public TimeQualityConfigurationControllerImpl(TimeQualityConfigurationService timeQualityConfigurationService,
+                                                  SigningProfileService signingProfileService) {
         this.timeQualityConfigurationService = timeQualityConfigurationService;
+        this.signingProfileService = signingProfileService;
     }
 
     @Override
@@ -78,5 +82,11 @@ public class TimeQualityConfigurationControllerImpl implements TimeQualityConfig
     @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION, operation = Operation.DELETE)
     public List<BulkActionMessageDto> bulkDeleteTimeQualityConfigurations(@LogResource(uuid = true) List<UUID> uuids) {
         return timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(SecuredUUID.fromUuidList(uuids));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION, affiliatedResource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
+    public List<SimplifiedSigningProfileDto> listSigningProfilesForTimeQualityConfiguration(@LogResource(uuid = true) UUID uuid) {
+        return signingProfileService.listSigningProfilesAssociatedTimeQualityConfiguration(SecuredUUID.fromUUID(uuid), SecurityFilter.create());
     }
 }
