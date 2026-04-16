@@ -880,6 +880,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                 lastCertificate.setIssuerCertificateUuid(null);
                 lastCertificate.setIssuerSerialNumber(null);
                 certificateRepository.save(lastCertificate);
+                break;
             }
         }
 

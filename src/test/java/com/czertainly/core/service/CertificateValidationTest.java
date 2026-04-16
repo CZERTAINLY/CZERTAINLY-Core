@@ -701,6 +701,41 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         Assertions.assertEquals(rootX509.getSubjectX500Principal().getName(), withEnd.getCertificates().get(2).getSubjectDn());
     }
 
+    @Test
+    void testGetCertificateChainCircularReferenceTerminates() throws Exception {
+        // Create two self-signed certificates and then set up a circular issuer reference
+        // in the DB (A → B → A) to verify that the recursive CTE cycle-detection terminates.
+        KeyPair keyPairA = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
+        X509Certificate x509A = CertificateGeneratorHelper.generateCACertificate(keyPairA, "CN=CircularA");
+
+        KeyPair keyPairB = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
+        X509Certificate x509B = CertificateGeneratorHelper.generateCACertificate(keyPairB, "CN=CircularB");
+
+        UploadCertificateRequestDto uploadDto = new UploadCertificateRequestDto();
+        uploadDto.setCertificate(Base64.getEncoder().encodeToString(x509A.getEncoded()));
+        CertificateDetailDto dtoA = certificateService.upload(uploadDto, true);
+
+        uploadDto.setCertificate(Base64.getEncoder().encodeToString(x509B.getEncoded()));
+        CertificateDetailDto dtoB = certificateService.upload(uploadDto, true);
+
+        // Introduce a circular FK relationship directly in the DB: A → B → A
+        Certificate certA = certificateRepository.findByUuid(UUID.fromString(dtoA.getUuid())).orElseThrow();
+        Certificate certB = certificateRepository.findByUuid(UUID.fromString(dtoB.getUuid())).orElseThrow();
+        certA.setIssuerCertificateUuid(certB.getUuid());
+        certB.setIssuerCertificateUuid(certA.getUuid());
+        certificateRepository.save(certA);
+        certificateRepository.save(certB);
+
+        CertificateChainResponseDto chain = certificateService.getCertificateChain(
+                certificateRepository.findByUuid(certA.getUuid()).orElseThrow().getSecuredUuid(), false);
+
+        Assertions.assertNotNull(chain);
+        Assertions.assertTrue(chain.getCertificates().size() <= 1,
+                "Circular-reference chain should contain at most 1 ancestor (certB), but got: "
+                        + chain.getCertificates().size());
+        Assertions.assertTrue(chain.isCompleteChain());
+    }
+
     private X509Certificate generateIntermediateCACertificate(KeyPair issuerKeyPair, X509Certificate issuerCert, KeyPair subjectKeyPair, String subjectDn) throws Exception {
         X500Name issuer = new X500Name(issuerCert.getSubjectX500Principal().getName());
         X500Name subject = new X500Name(subjectDn);
