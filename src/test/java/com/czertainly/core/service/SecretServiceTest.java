@@ -189,12 +189,11 @@ class SecretServiceTest extends BaseSpringBootTest {
 
         SecretVersion secretVersion = new SecretVersion();
         secretVersion.setVersion(1);
-        secretVersion.setVaultInstance(vaultInstance);
-        secretVersion.setVaultInstanceUuid(vaultInstance.getUuid());
+        secretVersion.setVaultProfile(vaultProfile);
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
         secretContent.setPassword("testPassword");
         secretContent.setUsername("testUsername");
-        secretVersion.setFingerprint(CertificateUtil.getThumbprint(SerializationUtils.serialize(secretContent)));
+        secretVersion.setFingerprint(SecretsUtil.calculateSecretContentFingerprint(secretContent));
         secretVersionRepository.save(secretVersion);
 
         secret.setLatestVersion(secretVersion);
@@ -512,7 +511,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         secretService.updateSecretObjects(secretUuid, updateObjectsDto);
         Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertEquals(newVaultProfile.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
-        Assertions.assertEquals(1, reloadedSecret.getLatestVersion().getVersion());
+        Assertions.assertEquals(2, reloadedSecret.getLatestVersion().getVersion());
 
         VaultInstance newVaultInstance = new VaultInstance();
         newVaultInstance.setName("newVaultInstance");
@@ -529,7 +528,7 @@ class SecretServiceTest extends BaseSpringBootTest {
         secretService.updateSecretObjects(secretUuid, updateObjectsDto);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertEquals(newVaultProfile2.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
-        Assertions.assertEquals(2, reloadedSecret.getLatestVersion().getVersion());
+        Assertions.assertEquals(3, reloadedSecret.getLatestVersion().getVersion());
 
         // Set vault profile in sync profiles as source
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile.getUuid());
