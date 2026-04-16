@@ -203,7 +203,7 @@ class TimestampTokenAssemblerTest {
                         SIGNING_ALG, chain, POLICY_OID,
                         BigInteger.ONE, new Date(), null,
                         false, false, false, false,  request, DUMMY_SIGNATURE));
-        assertEquals(TspFailureInfo.SYSTEM_FAILURE, exception.getFailureInfo());
+        assertEquals(TspFailureInfo.BAD_REQUEST, exception.getFailureInfo());
     }
 
     @Test
