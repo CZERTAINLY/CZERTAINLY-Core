@@ -743,8 +743,13 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
      */
     private MetadataAttributeV3 buildAndStoreMetaAttribute(String name, String value,
                                                            ObjectAttributeContentInfo contentInfo) throws AttributeException {
+        return buildAndStoreMetaAttribute(UUID.randomUUID(), name, value, contentInfo);
+    }
+
+    private MetadataAttributeV3 buildAndStoreMetaAttribute(UUID uuid, String name, String value,
+                                                           ObjectAttributeContentInfo contentInfo) throws AttributeException {
         MetadataAttributeV3 meta = new MetadataAttributeV3();
-        meta.setUuid(UUID.randomUUID().toString());
+        meta.setUuid(uuid.toString());
         meta.setName(name);
         meta.setType(AttributeType.META);
         meta.setContentType(AttributeContentType.STRING);
@@ -1109,13 +1114,17 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
         ObjectAttributeContentInfo v2Info = ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
                 .connector(connector.getUuid()).version(2).build();
 
+        // All three writes must share one attribute UUID+name so they map to a single AttributeDefinition —
+        // that is what makes v1 and v2 "the same definition" and what overwrite=true is defined to replace.
+        UUID metaUuid = UUID.randomUUID();
+
         // Write distinct meta values for v1 and v2 (overwrite=false — accumulate first)
-        buildAndStoreMetaAttribute("overwrite_attr", "original_v1", v1Info);
-        buildAndStoreMetaAttribute("overwrite_attr", "original_v2", v2Info);
+        buildAndStoreMetaAttribute(metaUuid, "overwrite_attr", "original_v1", v1Info);
+        buildAndStoreMetaAttribute(metaUuid, "overwrite_attr", "original_v2", v2Info);
 
         // Now overwrite v1 with a new value — must not touch v2
         MetadataAttributeV3 overwriteMeta = new MetadataAttributeV3();
-        overwriteMeta.setUuid(UUID.randomUUID().toString());
+        overwriteMeta.setUuid(metaUuid.toString());
         overwriteMeta.setName("overwrite_attr");
         overwriteMeta.setType(AttributeType.META);
         overwriteMeta.setContentType(AttributeContentType.STRING);
@@ -1128,28 +1137,22 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
         overwriteMeta.setContent(List.of(new StringAttributeContentV3("replaced_v1")));
         attributeEngine.updateMetadataAttribute(overwriteMeta, v1Info);
 
-        // v1 must now hold the replacement value only
-        List<MetadataResponseDto> v1Meta = attributeEngine.getMappedMetadataContent(v1Info);
-        String v1Value = v1Meta.stream()
+        // v1 must now hold exactly the replacement value — original_v1 was overwritten
+        List<String> v1Values = attributeEngine.getMappedMetadataContent(v1Info).stream()
                 .flatMap(dto -> dto.getItems().stream())
                 .flatMap(item -> item.getContent().stream())
                 .map(c -> c.getData().toString())
-                .filter(s -> s.contains("_v1") || s.contains("replaced"))
-                .findFirst().orElse(null);
-        Assertions.assertEquals("replaced_v1", v1Value,
-                "v1 meta must hold the replacement value after overwrite");
+                .toList();
+        Assertions.assertEquals(List.of("replaced_v1"), v1Values,
+                "v1 meta must hold only the replacement value after overwrite");
 
-        // v2 must still have its original value — the overwrite of v1 must not have deleted it
-        List<MetadataResponseDto> v2Meta = attributeEngine.getMappedMetadataContent(v2Info);
-        Assertions.assertFalse(v2Meta.isEmpty(),
-                "v2 metadata must not be empty after overwriting v1");
-        String v2Value = v2Meta.stream()
+        // v2 must still hold exactly its original value — the overwrite of v1 must not have deleted it
+        List<String> v2Values = attributeEngine.getMappedMetadataContent(v2Info).stream()
                 .flatMap(dto -> dto.getItems().stream())
                 .flatMap(item -> item.getContent().stream())
                 .map(c -> c.getData().toString())
-                .filter(s -> s.contains("_v2") || s.contains("original"))
-                .findFirst().orElse(null);
-        Assertions.assertEquals("original_v2", v2Value,
+                .toList();
+        Assertions.assertEquals(List.of("original_v2"), v2Values,
                 "v2 meta must be untouched after overwriting v1 (version isolation violated)");
     }
 }
