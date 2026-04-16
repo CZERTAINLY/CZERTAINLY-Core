@@ -248,7 +248,7 @@ public class AuditLogAspect {
         // If there are more UUIDs, for now it is assumed that names are not available (neither from MDC), and we will only add them without name
         if (resourceUuids != null && resourceUuids.size() > 1) {
             objects = new ArrayList<>(resourceUuids.stream().map(uuid -> new ResourceObjectIdentity(null, uuid)).toList());
-        } else {
+        } else if (resourceUuids == null || resourceUuids.size() == 1) { // For empty list, objects are null
             // Otherwise there is only one resource object
             ResourceObjectIdentity objectIdentityFromMDC = getObjectIdentityFromMDC(resourceUuids, resourceName, affiliated, resource);
             if (objectIdentityFromMDC != null) objects = new ArrayList<>(List.of(objectIdentityFromMDC));
