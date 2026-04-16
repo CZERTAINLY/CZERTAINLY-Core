@@ -81,8 +81,8 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.DELETE)
-    public void deleteSecret(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
-        secretService.deleteSecret(uuid);
+    public void deleteSecret(@LogResource(uuid = true) UUID uuid, boolean deleteInVaults) throws NotFoundException, ConnectorException, AttributeException {
+        secretService.deleteSecret(uuid, deleteInVaults);
     }
 
     @Override
@@ -105,8 +105,8 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.DISASSOCIATE)
-    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
-        secretService.removeVaultProfileFromSecret(uuid, vaultProfileUuid);
+    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, boolean deleteInVault) throws NotFoundException, ConnectorException, AttributeException {
+        secretService.removeVaultProfileFromSecret(uuid, vaultProfileUuid, deleteInVault);
     }
 
     @Override
