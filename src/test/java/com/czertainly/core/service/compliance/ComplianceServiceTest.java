@@ -294,7 +294,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         secret.setSourceVaultProfileUuid(vaultProfileUuid);
 
         SecretVersion secretVersion = new SecretVersion();
-        secretVersion.setVaultInstanceUuid(vaultInstanceUuid);
+        secretVersion.setVaultProfileUuid(vaultProfileUuid);
         secretVersion.setVersion(1);
         secretVersion.setFingerprint("fingerprint");
         secretVersionRepository.save(secretVersion);
