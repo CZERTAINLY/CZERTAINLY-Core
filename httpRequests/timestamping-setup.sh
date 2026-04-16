@@ -6,10 +6,16 @@
 #   2. Uploads the CA certificate and marks it trusted
 #   3. Creates a SoftKeyStore credential from a PKCS12 bundle
 #   4. Creates an EJBCA authority instance
-#   5. Creates a soft token, token profile, and RSA 2048 key pair
-#   6. Creates an RA profile (resolving EJBCA profile IDs dynamically)
-#   7. Issues a TSA certificate with the requested DN
-#   8. Creates and enables a TSP profile
+#   5. Creates a soft token
+#   6. Creates a token profile
+#   For each of two sets (non-qualified / qualified):
+#       7. Creates an RSA 2048 key pair
+#       8. Creates an RA profile (resolving EJBCA profile IDs dynamically)
+#       9. Issues a TSA certificate with the requested DN suffix
+#      10. Polls for certificate issuance completion
+#      11. Creates and enables a TSP profile
+#      12. Creates and enables a Signing Profile
+#      13. Links the Signing Profile to the TSP Profile bidirectionally
 #
 # Requires: curl, jq, base64
 
@@ -28,20 +34,26 @@ PKCS12_BUNDLE=""
 PKCS12_PASSWORD="00000000"
 TOKEN_PASSWORD=""          # defaults to PKCS12_PASSWORD when empty
 CA_PEM=""
-CERTIFICATE_DN=""
+CERTIFICATE_DN=""          # used as prefix; -non-qualified / -qualified are appended
 
 EJBCA_URL="https://ejbca.3key.company/ejbca/ejbcaws/ejbcaws?wsdl"
 EJBCA_EE_PROFILE="DemoTSAEndEntityProfile"
 EJBCA_CERT_PROFILE="DemoTSAEECertificateProfile"
+EJBCA_CERT_PROFILE_QUALIFIED="DemoTSAQCEECertificateProfile"
 EJBCA_CA_NAME="DemoRootCA_2307RSA"
 
 CREDENTIAL_NAME="ejbca.3key.company"
 AUTHORITY_NAME="ejbca.3key.company"
 TOKEN_NAME="tsa"
 TOKEN_PROFILE_NAME="tsa"
-KEY_NAME="tsa-rsa"
-RA_PROFILE_NAME="tsa-non-qualified"
-TSP_PROFILE_NAME="tsp-1"
+KEY_NAME_BASE="tsa-rsa"           # -non-qualified / -qualified appended
+RA_PROFILE_NAME_BASE="tsa"        # -non-qualified / -qualified appended
+TSP_PROFILE_NAME_BASE="tsp"       # -non-qualified / -qualified appended
+SIGNING_PROFILE_NAME_BASE="tsa"   # -non-qualified / -qualified appended
+
+# Policy OIDs (hardcoded; can be overridden via CLI)
+POLICY_ID_NON_QUALIFIED="1.2.3.4.5.6"
+POLICY_ID_QUALIFIED="1.2.3.4.5.7"
 
 CERT_POLL_ATTEMPTS=20  # max poll attempts for certificate issuance
 CERT_POLL_INTERVAL=1   # seconds between poll attempts
@@ -56,11 +68,22 @@ CRED_UUID=""
 AUTH_UUID=""
 TOKEN_UUID=""
 TOKEN_PROFILE_UUID=""
-KEY_UUID=""
-PRIVATE_KEY_ITEM_UUID=""
-RA_PROFILE_UUID=""
-ISSUED_CERT_UUID=""
-TSP_PROFILE_UUID=""
+
+# Non-qualified set
+KEY_UUID_NQ=""
+PRIVATE_KEY_ITEM_UUID_NQ=""
+RA_PROFILE_UUID_NQ=""
+ISSUED_CERT_UUID_NQ=""
+TSP_PROFILE_UUID_NQ=""
+SIGNING_PROFILE_UUID_NQ=""
+
+# Qualified set
+KEY_UUID_Q=""
+PRIVATE_KEY_ITEM_UUID_Q=""
+RA_PROFILE_UUID_Q=""
+ISSUED_CERT_UUID_Q=""
+TSP_PROFILE_UUID_Q=""
+SIGNING_PROFILE_UUID_Q=""
 
 # --- Usage --------------------------------------------------------------------
 usage() {
@@ -71,7 +94,8 @@ Required:
   --client-cert-pem FILE      ILM admin client certificate PEM
   --pkcs12-bundle FILE        Path to PKCS12 bundle with EJBCA client credentials
   --ca-pem FILE               Path to CA certificate PEM to upload and mark trusted
-  --certificate-dn DN         Common name for the TSA certificate (e.g. "my-tsa")
+  --certificate-dn PREFIX     DN prefix for TSA certificates.
+                              Actual CNs will be <PREFIX>-non-qualified and <PREFIX>-qualified.
 
 Connector options (defaults: localhost, ports 8201/8210/8230):
   --connector-host HOST       Hostname for connectors as seen from ILM server
@@ -88,19 +112,22 @@ ILM API auth:
   --client-cert-pem FILE      Admin client certificate PEM  (required)
 
 EJBCA options:
-  --ejbca-url URL             EJBCA WSDL URL      (default https://ejbca.3key.company/ejbca/ejbcaws/ejbcaws?wsdl)
-  --ejbca-ca NAME             Issuing CA name     (default: DemoRootCA_2307RSA)
-  --ejbca-ee-profile NAME     End entity profile  (default: DemoTSAEndEntityProfile)
-  --ejbca-cert-profile NAME   Certificate profile (default: DemoTSAEECertificateProfile)
+  --ejbca-url URL             EJBCA WSDL URL                     (default https://ejbca.3key.company/ejbca/ejbcaws/ejbcaws?wsdl)
+  --ejbca-ca NAME             Issuing CA name                    (default: DemoRootCA_2307RSA)
+  --ejbca-ee-profile NAME     End entity profile (both sets)     (default: DemoTSAEndEntityProfile)
+  --ejbca-cert-profile NAME   Certificate profile (non-qualified)(default: DemoTSAEECertificateProfile)
+  --ejbca-cert-profile-qualified NAME
+                              Certificate profile (qualified)    (default: DemoTSAQCEECertificateProfile)
 
-Object names (usually no need to change):
+Object name bases (suffixes -non-qualified / -qualified are appended automatically):
   --credential-name NAME      (default: ejbca.3key.company)
   --authority-name NAME       (default: ejbca.3key.company)
   --token-name NAME           (default: tsa)
   --token-profile-name NAME   (default: tsa)
-  --key-name NAME             (default: tsa-rsa)
-  --ra-profile-name NAME      (default: tsa-non-qualified)
-  --tsp-profile-name NAME     (default: tsp-1)
+  --key-name NAME             base for key names          (default: tsa-rsa)
+  --ra-profile-name NAME      base for RA profile names   (default: tsa)
+  --tsp-profile-name NAME     base for TSP profile names  (default: tsp)
+  --signing-profile-name NAME base for Signing Profile names (default: tsa)
 
 Certificate polling:
   --cert-poll-attempts N      Max poll attempts for certificate issuance (default: 20)
@@ -183,31 +210,33 @@ group_uuid() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case $1 in
-      --pkcs12-bundle)          PKCS12_BUNDLE="$2";          shift 2 ;;
-      --pkcs12-password)        PKCS12_PASSWORD="$2";        shift 2 ;;
-      --token-password)         TOKEN_PASSWORD="$2";         shift 2 ;;
-      --ca-pem)                 CA_PEM="$2";                 shift 2 ;;
-      --certificate-dn)         CERTIFICATE_DN="$2";         shift 2 ;;
-      --ejbca-url)              EJBCA_URL="$2";              shift 2 ;;
-      --connector-host)         CONNECTOR_HOST="$2";         shift 2 ;;
-      --port-cred-provider)     PORT_CRED_PROVIDER="$2";     shift 2 ;;
-      --port-ejbca)             PORT_EJBCA="$2";             shift 2 ;;
-      --port-crypto-provider)   PORT_CRYPTO_PROVIDER="$2";   shift 2 ;;
-      --ilm-host)               ILM_HOST="$2";               shift 2 ;;
-      --client-cert-pem)        CLIENT_CERT_PEM="$2";        shift 2 ;;
-      --ejbca-ee-profile)       EJBCA_EE_PROFILE="$2";       shift 2 ;;
-      --ejbca-cert-profile)     EJBCA_CERT_PROFILE="$2";     shift 2 ;;
-      --ejbca-ca)               EJBCA_CA_NAME="$2";          shift 2 ;;
-      --credential-name)        CREDENTIAL_NAME="$2";        shift 2 ;;
-      --authority-name)         AUTHORITY_NAME="$2";         shift 2 ;;
-      --token-name)             TOKEN_NAME="$2";             shift 2 ;;
-      --token-profile-name)     TOKEN_PROFILE_NAME="$2";     shift 2 ;;
-      --key-name)               KEY_NAME="$2";               shift 2 ;;
-      --ra-profile-name)        RA_PROFILE_NAME="$2";        shift 2 ;;
-      --tsp-profile-name)       TSP_PROFILE_NAME="$2";       shift 2 ;;
-      --cert-poll-attempts)     CERT_POLL_ATTEMPTS="$2";     shift 2 ;;
-      --cert-poll-interval)     CERT_POLL_INTERVAL="$2";     shift 2 ;;
-      --help|-h)                usage ;;
+      --pkcs12-bundle)               PKCS12_BUNDLE="$2";                 shift 2 ;;
+      --pkcs12-password)             PKCS12_PASSWORD="$2";               shift 2 ;;
+      --token-password)              TOKEN_PASSWORD="$2";                shift 2 ;;
+      --ca-pem)                      CA_PEM="$2";                        shift 2 ;;
+      --certificate-dn)              CERTIFICATE_DN="$2";                shift 2 ;;
+      --ejbca-url)                   EJBCA_URL="$2";                     shift 2 ;;
+      --connector-host)              CONNECTOR_HOST="$2";                shift 2 ;;
+      --port-cred-provider)          PORT_CRED_PROVIDER="$2";            shift 2 ;;
+      --port-ejbca)                  PORT_EJBCA="$2";                    shift 2 ;;
+      --port-crypto-provider)        PORT_CRYPTO_PROVIDER="$2";          shift 2 ;;
+      --ilm-host)                    ILM_HOST="$2";                      shift 2 ;;
+      --client-cert-pem)             CLIENT_CERT_PEM="$2";               shift 2 ;;
+      --ejbca-ee-profile)            EJBCA_EE_PROFILE="$2";              shift 2 ;;
+      --ejbca-cert-profile)          EJBCA_CERT_PROFILE="$2";            shift 2 ;;
+      --ejbca-cert-profile-qualified) EJBCA_CERT_PROFILE_QUALIFIED="$2"; shift 2 ;;
+      --ejbca-ca)                    EJBCA_CA_NAME="$2";                 shift 2 ;;
+      --credential-name)             CREDENTIAL_NAME="$2";               shift 2 ;;
+      --authority-name)              AUTHORITY_NAME="$2";                shift 2 ;;
+      --token-name)                  TOKEN_NAME="$2";                    shift 2 ;;
+      --token-profile-name)          TOKEN_PROFILE_NAME="$2";            shift 2 ;;
+      --key-name)                    KEY_NAME_BASE="$2";                 shift 2 ;;
+      --ra-profile-name)             RA_PROFILE_NAME_BASE="$2";          shift 2 ;;
+      --tsp-profile-name)            TSP_PROFILE_NAME_BASE="$2";         shift 2 ;;
+      --signing-profile-name)        SIGNING_PROFILE_NAME_BASE="$2";     shift 2 ;;
+      --cert-poll-attempts)          CERT_POLL_ATTEMPTS="$2";            shift 2 ;;
+      --cert-poll-interval)          CERT_POLL_INTERVAL="$2";            shift 2 ;;
+      --help|-h)                     usage ;;
       *) echo "Unknown option: $1"; usage ;;
     esac
   done
@@ -458,9 +487,11 @@ setup_token_profile() {
 }
 
 # --- Step 7: Key pair ---------------------------------------------------------
+# Usage: setup_key_pair <key_name> <out_key_uuid_var> <out_priv_item_uuid_var>
 setup_key_pair() {
+  local key_name="$1" out_key_uuid="$2" out_priv_item_uuid="$3"
   local _resp keypair_attr_defs key_alias_uuid key_alg_uuid key_spec_group_uuid
-  local key_spec_attrs rsa_key_size_uuid key_details
+  local key_spec_attrs rsa_key_size_uuid key_details _key_uuid _priv_uuid
 
   log "Fetching key pair attribute definitions..."
   keypair_attr_defs=$(ilm_curl GET \
@@ -476,11 +507,11 @@ setup_key_pair() {
         "requestParameter":{},"body":{},"filter":{}}')")
   rsa_key_size_uuid=$(attr_uuid "$key_spec_attrs" "data_rsaKeySize" "integer")
 
-  log "Creating RSA 2048 key pair '${KEY_NAME}'..."
+  log "Creating RSA 2048 key pair '${key_name}'..."
   _resp=$(ilm_curl POST \
     "/v1/tokens/${TOKEN_UUID}/tokenProfiles/${TOKEN_PROFILE_UUID}/keys/keyPair" -d \
     "$(jq -n \
-      --arg name            "$KEY_NAME" \
+      --arg name            "$key_name" \
       --arg keyAliasUuid    "$key_alias_uuid" \
       --arg keyAlgUuid      "$key_alg_uuid" \
       --arg rsaKeySizeUuid  "$rsa_key_size_uuid" \
@@ -513,30 +544,36 @@ setup_key_pair() {
         ],
         customAttributes: []
       }')")
-  KEY_UUID=$(require_uuid "$_resp" "RSA key pair '${KEY_NAME}'")
-  ok "key  $KEY_UUID"
+  _key_uuid=$(require_uuid "$_resp" "RSA key pair '${key_name}'")
+  ok "key  $_key_uuid"
 
   log "Enabling key..."
-  ilm_curl PATCH "/v1/keys/${KEY_UUID}/enable" >/dev/null
+  ilm_curl PATCH "/v1/keys/${_key_uuid}/enable" >/dev/null
   ok "key enabled"
 
   log "Fetching key details for private key item UUID..."
-  key_details=$(ilm_curl GET "/v1/keys/${KEY_UUID}")
-  PRIVATE_KEY_ITEM_UUID=$(echo "$key_details" | jq -r \
+  key_details=$(ilm_curl GET "/v1/keys/${_key_uuid}")
+  _priv_uuid=$(echo "$key_details" | jq -r \
     'first(.items[] | select(.type == "Private") | .uuid) // empty')
-  if [[ -z "$PRIVATE_KEY_ITEM_UUID" ]]; then
-    echo "ERROR: Could not find Private key item in key ${KEY_UUID}. Available items:" >&2
+  if [[ -z "$_priv_uuid" ]]; then
+    echo "ERROR: Could not find Private key item in key ${_key_uuid}. Available items:" >&2
     echo "$key_details" | jq -r '.items[] | "  type=\(.type)  uuid=\(.uuid)"' >&2
     exit 1
   fi
-  ok "private key item  $PRIVATE_KEY_ITEM_UUID"
+  ok "private key item  $_priv_uuid"
+
+  printf -v "$out_key_uuid"       '%s' "$_key_uuid"
+  printf -v "$out_priv_item_uuid" '%s' "$_priv_uuid"
 }
 
 # --- Step 8: RA profile (with dynamic EJBCA profile lookup) -------------------
+# Usage: setup_ra_profile <ra_name> <cert_profile_name> <out_ra_profile_uuid_var>
 setup_ra_profile() {
+  local ra_name="$1" ejbca_cert_profile="$2" out_ra_uuid="$3"
   local _resp ra_attrs ee_profile_attr_uuid cert_profile_attr_uuid ca_attr_uuid
   local send_notif_attr_uuid key_recover_attr_uuid username_gen_attr_uuid
   local ejbca_authority_id ee_profile_id cert_profiles cert_profile_id ca_list ejbca_ca_id
+  local _ra_uuid
 
   log "Fetching available RA profile attributes from authority..."
   ra_attrs=$(ilm_curl GET "/v1/authorities/${AUTH_UUID}/attributes/raProfile")
@@ -566,7 +603,7 @@ setup_ra_profile() {
   }
   ok "end-entity profile '$EJBCA_EE_PROFILE'  id=$ee_profile_id"
 
-  log "Resolving certificate profile '${EJBCA_CERT_PROFILE}'..."
+  log "Resolving certificate profile '${ejbca_cert_profile}'..."
   cert_profiles=$(ilm_curl POST "/v1/raProfiles/${AUTH_UUID}/callback" -d \
     "$(jq -n \
       --arg uuid   "$cert_profile_attr_uuid" \
@@ -574,13 +611,13 @@ setup_ra_profile() {
       --argjson eeId "$ee_profile_id" \
       '{"uuid":$uuid,"name":"certificateProfile","pathVariable":{"endEntityProfileId":$eeId,"authorityId":$authId},"requestParameter":{},"body":{},"filter":{}}')")
   cert_profile_id=$(echo "$cert_profiles" | jq -r \
-    --arg name "$EJBCA_CERT_PROFILE" '.[] | select(.data.name==$name) | .data.id')
+    --arg name "$ejbca_cert_profile" '.[] | select(.data.name==$name) | .data.id')
   [[ -z "$cert_profile_id" ]] && {
-    echo "ERROR: Certificate profile '$EJBCA_CERT_PROFILE' not found. Available:" >&2
+    echo "ERROR: Certificate profile '$ejbca_cert_profile' not found. Available:" >&2
     echo "$cert_profiles" | jq -r '.[].data.name' >&2
     exit 1
   }
-  ok "certificate profile '$EJBCA_CERT_PROFILE'  id=$cert_profile_id"
+  ok "certificate profile '$ejbca_cert_profile'  id=$cert_profile_id"
 
   log "Resolving CA '${EJBCA_CA_NAME}'..."
   ca_list=$(ilm_curl POST "/v1/raProfiles/${AUTH_UUID}/callback" -d \
@@ -598,14 +635,14 @@ setup_ra_profile() {
   }
   ok "CA '$EJBCA_CA_NAME'  id=$ejbca_ca_id"
 
-  log "Creating RA profile '${RA_PROFILE_NAME}'..."
+  log "Creating RA profile '${ra_name}'..."
   _resp=$(ilm_curl POST "/v1/authorities/${AUTH_UUID}/raProfiles" -d \
     "$(jq -n \
-      --arg  name          "$RA_PROFILE_NAME" \
+      --arg  name          "$ra_name" \
       --arg  eeProfileName "$EJBCA_EE_PROFILE" \
       --argjson eeId       "$ee_profile_id" \
       --arg  eeAttrUuid    "$ee_profile_attr_uuid" \
-      --arg  cpName        "$EJBCA_CERT_PROFILE" \
+      --arg  cpName        "$ejbca_cert_profile" \
       --argjson cpId       "$cert_profile_id" \
       --arg  cpAttrUuid    "$cert_profile_attr_uuid" \
       --arg  caName        "$EJBCA_CA_NAME" \
@@ -663,18 +700,21 @@ setup_ra_profile() {
         ],
         customAttributes: []
       }')")
-  RA_PROFILE_UUID=$(require_uuid "$_resp" "RA profile '${RA_PROFILE_NAME}'")
-  ok "RA profile  $RA_PROFILE_UUID"
+  _ra_uuid=$(require_uuid "$_resp" "RA profile '${ra_name}'")
+  ok "RA profile  $_ra_uuid"
 
   log "Enabling RA profile..."
-  ilm_curl PATCH \
-    "/v1/authorities/${AUTH_UUID}/raProfiles/${RA_PROFILE_UUID}/enable" >/dev/null
+  ilm_curl PATCH "/v1/authorities/${AUTH_UUID}/raProfiles/${_ra_uuid}/enable" >/dev/null
   ok "RA profile enabled"
+
+  printf -v "$out_ra_uuid" '%s' "$_ra_uuid"
 }
 
 # --- Step 9: Issue TSA certificate --------------------------------------------
+# Usage: issue_certificate <cn> <key_uuid> <priv_item_uuid> <ra_profile_uuid> <out_cert_uuid_var>
 issue_certificate() {
-  local _resp csr_attrs cn_uuid sig_attrs sig_scheme_uuid sig_digest_uuid
+  local cn="$1" key_uuid="$2" priv_item_uuid="$3" ra_profile_uuid="$4" out_cert_uuid="$5"
+  local _resp csr_attrs cn_uuid sig_attrs sig_scheme_uuid sig_digest_uuid _cert_uuid
 
   log "Fetching CSR attribute definitions..."
   csr_attrs=$(ilm_curl GET "/v1/certificates/csr/attributes")
@@ -682,16 +722,16 @@ issue_certificate() {
 
   log "Fetching signature attribute definitions..."
   sig_attrs=$(ilm_curl GET \
-    "/v1/operations/tokens/${TOKEN_UUID}/tokenProfiles/${TOKEN_PROFILE_UUID}/keys/${KEY_UUID}/items/${PRIVATE_KEY_ITEM_UUID}/signature/RSA/attributes")
+    "/v1/operations/tokens/${TOKEN_UUID}/tokenProfiles/${TOKEN_PROFILE_UUID}/keys/${key_uuid}/items/${priv_item_uuid}/signature/RSA/attributes")
   sig_scheme_uuid=$(attr_uuid "$sig_attrs" "data_rsaSigScheme" "string")
   sig_digest_uuid=$(attr_uuid "$sig_attrs" "data_sigDigest"    "string")
 
-  log "Issuing TSA certificate  CN=${CERTIFICATE_DN}..."
+  log "Issuing TSA certificate  CN=${cn}..."
   _resp=$(ilm_curl POST \
-    "/v2/operations/authorities/${AUTH_UUID}/raProfiles/${RA_PROFILE_UUID}/certificates" -d \
+    "/v2/operations/authorities/${AUTH_UUID}/raProfiles/${ra_profile_uuid}/certificates" -d \
     "$(jq -n \
-      --arg cn               "$CERTIFICATE_DN" \
-      --arg keyUuid          "$KEY_UUID" \
+      --arg cn               "$cn" \
+      --arg keyUuid          "$key_uuid" \
       --arg tokenProfileUuid "$TOKEN_PROFILE_UUID" \
       --arg cnUuid           "$cn_uuid" \
       --arg sigSchemeUuid    "$sig_scheme_uuid" \
@@ -729,17 +769,21 @@ issue_certificate() {
         tokenProfileUuid: $tokenProfileUuid,
         customAttributes: []
       }')")
-  ISSUED_CERT_UUID=$(require_uuid "$_resp" "TSA certificate CN=${CERTIFICATE_DN}")
-  ok "issued certificate  $ISSUED_CERT_UUID"
+  _cert_uuid=$(require_uuid "$_resp" "TSA certificate CN=${cn}")
+  ok "issued certificate  $_cert_uuid"
+
+  printf -v "$out_cert_uuid" '%s' "$_cert_uuid"
 }
 
 # --- Step 10: Poll for certificate issuance result ----------------------------
+# Usage: poll_certificate <cert_uuid> <cn>
 poll_certificate() {
+  local cert_uuid="$1" cn="$2"
   local cert_state="" cert_details attempt history err_msg err_text
 
-  log "Waiting for certificate issuance to complete (CN=${CERTIFICATE_DN})..."
+  log "Waiting for certificate issuance to complete (CN=${cn})..."
   for (( attempt=1; attempt<=CERT_POLL_ATTEMPTS; attempt++ )); do
-    cert_details=$(ilm_curl GET "/v1/certificates/${ISSUED_CERT_UUID}")
+    cert_details=$(ilm_curl GET "/v1/certificates/${cert_uuid}")
     cert_state=$(echo "$cert_details" | jq -r '.state // empty')
     case "$cert_state" in
       issued)
@@ -747,7 +791,7 @@ poll_certificate() {
         break
         ;;
       failed)
-        history=$(ilm_curl GET "/v1/certificates/${ISSUED_CERT_UUID}/history")
+        history=$(ilm_curl GET "/v1/certificates/${cert_uuid}/history")
         err_msg=$(echo "$history" | jq -r '
           first(
             .[] | select(.event=="Issue Certificate" and .status=="FAILED") | .message
@@ -773,38 +817,151 @@ poll_certificate() {
 }
 
 # --- Step 11: TSP profile -----------------------------------------------------
+# Usage: setup_tsp_profile <name> <out_tsp_uuid_var>
 setup_tsp_profile() {
-  local _resp
+  local tsp_name="$1" out_tsp_uuid="$2"
+  local _resp _tsp_uuid
 
-  log "Creating TSP profile '${TSP_PROFILE_NAME}'..."
+  log "Creating TSP profile '${tsp_name}'..."
   _resp=$(ilm_curl POST /v1/tspProfiles -d \
-    "$(jq -n --arg name "$TSP_PROFILE_NAME" '{name: $name, customAttributes: []}')")
-  TSP_PROFILE_UUID=$(require_uuid "$_resp" "TSP profile '${TSP_PROFILE_NAME}'")
-  ok "TSP profile  $TSP_PROFILE_UUID"
+    "$(jq -n --arg name "$tsp_name" '{name: $name, customAttributes: []}')")
+  _tsp_uuid=$(require_uuid "$_resp" "TSP profile '${tsp_name}'")
+  ok "TSP profile  $_tsp_uuid"
 
   log "Enabling TSP profile..."
-  ilm_curl PATCH "/v1/tspProfiles/${TSP_PROFILE_UUID}/enable" >/dev/null
+  ilm_curl PATCH "/v1/tspProfiles/${_tsp_uuid}/enable" >/dev/null
   ok "TSP profile enabled"
+
+  printf -v "$out_tsp_uuid" '%s' "$_tsp_uuid"
+}
+
+# --- Step 12: Signing Profile -------------------------------------------------
+# Usage: setup_signing_profile <sp_name> <cert_uuid> <policy_oid> <out_sp_uuid_var>
+#
+# Note: qualifiedTimestamp is set to false because timeQualityConfiguration
+# support is not yet implemented in the platform. Update this when available.
+setup_signing_profile() {
+  local sp_name="$1" cert_uuid="$2" policy_oid="$3" out_sp_uuid="$4"
+  local _resp sig_attrs sig_scheme_uuid sig_digest_uuid _sp_uuid
+
+  log "Fetching signing operation attributes for certificate ${cert_uuid}..."
+  sig_attrs=$(ilm_curl GET \
+    "/v1/signingProfiles/certificates/${cert_uuid}/signatureAttributes")
+  sig_scheme_uuid=$(attr_uuid "$sig_attrs" "data_rsaSigScheme" "string")
+  sig_digest_uuid=$(attr_uuid "$sig_attrs" "data_sigDigest"    "string")
+
+  log "Creating Signing Profile '${sp_name}'..."
+  _resp=$(ilm_curl POST /v1/signingProfiles -d \
+    "$(jq -n \
+      --arg name           "$sp_name" \
+      --arg policyOid      "$policy_oid" \
+      --arg certUuid       "$cert_uuid" \
+      --arg sigSchemeUuid  "$sig_scheme_uuid" \
+      --arg sigDigestUuid  "$sig_digest_uuid" \
+      '{
+        name: $name,
+        workflow: {
+          type: "timestamping",
+          signatureFormatterConnectorAttributes: [],
+          qualifiedTimestamp: false,
+          defaultPolicyId: $policyOid,
+          allowedPolicyIds: [],
+          allowedDigestAlgorithms: []
+        },
+        signingScheme: {
+          signingScheme: "managed",
+          managedSigningType: "staticKey",
+          certificateUuid: $certUuid,
+          signingOperationAttributes: [
+            {
+              name: "data_rsaSigScheme",
+              content: [{data: "PKCS1-v1_5", reference: "PKCS#1 v1.5"}],
+              contentType: "string",
+              uuid: $sigSchemeUuid,
+              version: "v2"
+            },
+            {
+              name: "data_sigDigest",
+              content: [{data: "SHA-384", reference: "SHA-384"}],
+              contentType: "string",
+              uuid: $sigDigestUuid,
+              version: "v2"
+            }
+          ]
+        },
+        customAttributes: []
+      }')")
+  _sp_uuid=$(require_uuid "$_resp" "Signing Profile '${sp_name}'")
+  ok "Signing Profile  $_sp_uuid"
+
+  log "Enabling Signing Profile..."
+  ilm_curl PATCH "/v1/signingProfiles/${_sp_uuid}/enable" >/dev/null
+  ok "Signing Profile enabled"
+
+  printf -v "$out_sp_uuid" '%s' "$_sp_uuid"
+}
+
+# --- Step 13: Link Signing Profile ↔ TSP Profile (bidirectional) ---------------
+# Usage: link_tsp_signing_profile <tsp_uuid> <tsp_name> <sp_uuid>
+#
+# Direction 1: TSP profile → Signing Profile (sets defaultSigningProfileUuid)
+# Direction 2: Signing Profile → TSP profile (activates TSP protocol)
+link_tsp_signing_profile() {
+  local tsp_uuid="$1" tsp_name="$2" sp_uuid="$3"
+  local _resp
+
+  log "Linking TSP profile '${tsp_name}' to Signing Profile (setting default)..."
+  ilm_curl PUT "/v1/tspProfiles/${tsp_uuid}" -d \
+    "$(jq -n \
+      --arg name   "$tsp_name" \
+      --arg spUuid "$sp_uuid" \
+      '{name: $name, defaultSigningProfileUuid: $spUuid, customAttributes: []}')" \
+    >/dev/null
+  ok "TSP profile default Signing Profile set"
+
+  log "Activating TSP protocol on Signing Profile for TSP profile '${tsp_name}'..."
+  _resp=$(ilm_curl PATCH "/v1/signingProfiles/${sp_uuid}/protocols/tsp/activate/${tsp_uuid}")
+  ok "TSP protocol activated  signingUrl=$(echo "$_resp" | jq -r '.signingUrl // "(unknown)"')"
 }
 
 # --- Summary ------------------------------------------------------------------
 print_summary() {
+  local nq_key_name="${KEY_NAME_BASE}-non-qualified"
+  local q_key_name="${KEY_NAME_BASE}-qualified"
+  local nq_ra_name="${RA_PROFILE_NAME_BASE}-non-qualified"
+  local q_ra_name="${RA_PROFILE_NAME_BASE}-qualified"
+  local nq_tsp_name="${TSP_PROFILE_NAME_BASE}-non-qualified"
+  local q_tsp_name="${TSP_PROFILE_NAME_BASE}-qualified"
+  local nq_sp_name="${SIGNING_PROFILE_NAME_BASE}-non-qualified"
+  local q_sp_name="${SIGNING_PROFILE_NAME_BASE}-qualified"
+
   cat <<EOF
 
 Setup complete. Created resources:
 
-  connector     common-credential-provider      $CRED_CONN_UUID
-  connector     ejbca-ng-connector              $EJBCA_CONN_UUID
-  connector     software-cryptography-provider  $CRYPTO_CONN_UUID
-  ca-cert       $(basename "$CA_PEM") (trusted) $CA_CERT_UUID
-  credential    $CREDENTIAL_NAME                $CRED_UUID
-  authority     $AUTHORITY_NAME                 $AUTH_UUID
-  token         $TOKEN_NAME                     $TOKEN_UUID
-  token-profile $TOKEN_PROFILE_NAME             $TOKEN_PROFILE_UUID
-  key           $KEY_NAME                       $KEY_UUID
-  ra-profile    $RA_PROFILE_NAME                $RA_PROFILE_UUID
-  certificate   CN=$CERTIFICATE_DN              $ISSUED_CERT_UUID
-  tsp-profile   $TSP_PROFILE_NAME               $TSP_PROFILE_UUID
+  Shared infrastructure:
+    connector       common-credential-provider      $CRED_CONN_UUID
+    connector       ejbca-ng-connector              $EJBCA_CONN_UUID
+    connector       software-cryptography-provider  $CRYPTO_CONN_UUID
+    ca-cert         $(basename "$CA_PEM") (trusted) $CA_CERT_UUID
+    credential      $CREDENTIAL_NAME                $CRED_UUID
+    authority       $AUTHORITY_NAME                 $AUTH_UUID
+    token           $TOKEN_NAME                     $TOKEN_UUID
+    token-profile   $TOKEN_PROFILE_NAME             $TOKEN_PROFILE_UUID
+
+  TSA non-qualified set:
+    key             $nq_key_name    $KEY_UUID_NQ
+    ra-profile      $nq_ra_name     $RA_PROFILE_UUID_NQ
+    certificate     CN=${CERTIFICATE_DN}-non-qualified   $ISSUED_CERT_UUID_NQ
+    tsp-profile     $nq_tsp_name    $TSP_PROFILE_UUID_NQ
+    signing-profile $nq_sp_name     $SIGNING_PROFILE_UUID_NQ
+
+  TSA qualified set:
+    key             $q_key_name     $KEY_UUID_Q
+    ra-profile      $q_ra_name      $RA_PROFILE_UUID_Q
+    certificate     CN=${CERTIFICATE_DN}-qualified   $ISSUED_CERT_UUID_Q
+    tsp-profile     $q_tsp_name     $TSP_PROFILE_UUID_Q
+    signing-profile $q_sp_name      $SIGNING_PROFILE_UUID_Q
 EOF
 }
 
@@ -818,11 +975,57 @@ main() {
   setup_authority
   setup_token
   setup_token_profile
-  setup_key_pair
-  setup_ra_profile
-  issue_certificate
-  poll_certificate
-  setup_tsp_profile
+
+  # ----- Non-qualified set -----
+  log "=== Setting up TSA non-qualified set ==="
+  setup_key_pair \
+    "${KEY_NAME_BASE}-non-qualified" \
+    KEY_UUID_NQ PRIVATE_KEY_ITEM_UUID_NQ
+  setup_ra_profile \
+    "${RA_PROFILE_NAME_BASE}-non-qualified" \
+    "$EJBCA_CERT_PROFILE" \
+    RA_PROFILE_UUID_NQ
+  issue_certificate \
+    "${CERTIFICATE_DN}-non-qualified" \
+    "$KEY_UUID_NQ" "$PRIVATE_KEY_ITEM_UUID_NQ" "$RA_PROFILE_UUID_NQ" \
+    ISSUED_CERT_UUID_NQ
+  poll_certificate "$ISSUED_CERT_UUID_NQ" "${CERTIFICATE_DN}-non-qualified"
+  setup_tsp_profile \
+    "${TSP_PROFILE_NAME_BASE}-non-qualified" \
+    TSP_PROFILE_UUID_NQ
+  setup_signing_profile \
+    "${SIGNING_PROFILE_NAME_BASE}-non-qualified" \
+    "$ISSUED_CERT_UUID_NQ" "$POLICY_ID_NON_QUALIFIED" \
+    SIGNING_PROFILE_UUID_NQ
+  link_tsp_signing_profile \
+    "$TSP_PROFILE_UUID_NQ" "${TSP_PROFILE_NAME_BASE}-non-qualified" \
+    "$SIGNING_PROFILE_UUID_NQ"
+
+  # ----- Qualified set -----
+  log "=== Setting up TSA qualified set ==="
+  setup_key_pair \
+    "${KEY_NAME_BASE}-qualified" \
+    KEY_UUID_Q PRIVATE_KEY_ITEM_UUID_Q
+  setup_ra_profile \
+    "${RA_PROFILE_NAME_BASE}-qualified" \
+    "$EJBCA_CERT_PROFILE_QUALIFIED" \
+    RA_PROFILE_UUID_Q
+  issue_certificate \
+    "${CERTIFICATE_DN}-qualified" \
+    "$KEY_UUID_Q" "$PRIVATE_KEY_ITEM_UUID_Q" "$RA_PROFILE_UUID_Q" \
+    ISSUED_CERT_UUID_Q
+  poll_certificate "$ISSUED_CERT_UUID_Q" "${CERTIFICATE_DN}-qualified"
+  setup_tsp_profile \
+    "${TSP_PROFILE_NAME_BASE}-qualified" \
+    TSP_PROFILE_UUID_Q
+  setup_signing_profile \
+    "${SIGNING_PROFILE_NAME_BASE}-qualified" \
+    "$ISSUED_CERT_UUID_Q" "$POLICY_ID_QUALIFIED" \
+    SIGNING_PROFILE_UUID_Q
+  link_tsp_signing_profile \
+    "$TSP_PROFILE_UUID_Q" "${TSP_PROFILE_NAME_BASE}-qualified" \
+    "$SIGNING_PROFILE_UUID_Q"
+
   print_summary
 }
 
