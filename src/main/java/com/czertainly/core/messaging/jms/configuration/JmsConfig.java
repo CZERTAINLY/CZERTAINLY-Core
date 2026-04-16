@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.jms.annotation.EnableJms;
 import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
 import org.messaginghub.pooled.jms.JmsPoolConnectionFactory;
@@ -166,16 +167,15 @@ public class JmsConfig {
     }
 
     @Bean
-    public MessageConverter messageConverter(ObjectMapper jacksonObjectMapper) {
-        MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
-        converter.setObjectMapper(jacksonObjectMapper);
-        converter.setTargetType(MessageType.TEXT);
+    public MessageConverter messageConverter(Jackson2ObjectMapperBuilder objectMapperBuilder) {
+        ObjectMapper objectMapper = objectMapperBuilder.createXmlMapper(false)
+            .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .build()
+            .findAndRegisterModules();
 
-        // Configure ObjectMapper with Java 8 date/time support
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
         converter.setObjectMapper(objectMapper);
+        converter.setTargetType(MessageType.TEXT);
 
         return converter;
     }
