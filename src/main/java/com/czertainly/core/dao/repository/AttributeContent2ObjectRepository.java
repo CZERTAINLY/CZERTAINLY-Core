@@ -18,6 +18,11 @@ import java.util.UUID;
 public interface AttributeContent2ObjectRepository extends SecurityFilterRepository<AttributeContent2Object, String> {
 
     // ── Deduplication check — version-aware and purpose-aware ───────────────
+    /**
+     * Locates the content mapping that would collide with a new (content item, object, version, purpose, source, connector) tuple,
+     * so callers can skip re-inserting an equivalent row. All nullable parameters use null-safe matching:
+     * a {@code null} argument matches rows where the corresponding column {@code IS NULL}, not "any value".
+     */
     @Query("""
             SELECT aco FROM AttributeContent2Object aco
                 WHERE ((:connectorUuid IS NULL AND aco.connectorUuid IS NULL) OR aco.connectorUuid = :connectorUuid)
@@ -136,6 +141,10 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
             @Param("objectUuid") UUID objectUuid,
             @Param("objectVersion") Integer objectVersion);
 
+    /**
+     * Returns DATA attribute content only for rows where {@code object_version IS NULL} (content is not versioned)..
+     * Use when the caller explicitly wants the unversioned slice and never the per-version rows.
+     */
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
                 ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version, aci.encryptedData)
@@ -149,6 +158,9 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
             """)
     List<ObjectAttributeContent> getObjectDataAttributesContentUnversioned(@Param("objectType") Resource objectType, @Param("objectUuid") UUID objectUuid);
 
+    /**
+     * Returns DATA attribute content for the given object across <em>every</em> version, including unversioned rows.
+     */
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
                 ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version, aci.encryptedData)
@@ -211,6 +223,13 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     void removeConnectorByConnectorUuid(@Param("connectorUuid") UUID connectorUuid);
 
     // ── Versioned delete — used only when objectVersion is non-null ──────────
+    /**
+     * Narrow, version-scoped delete of operation attribute mappings. All nullable filter parameters
+     * ({@code operation}, {@code purpose}, {@code connectorUuid}, {@code sourceObjectType}, {@code sourceObjectUuid})
+     * use null-safe matching — a {@code null} argument deletes only rows where the corresponding column {@code IS NULL}.
+     * {@code objectVersion} must be non-null; use {@link #deleteOperationObjectAttributesUnversioned} for the
+     * {@code object_version IS NULL} slice.
+     */
     @Modifying
     @Query("""
             DELETE FROM AttributeContent2Object aco
@@ -237,6 +256,18 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     );
 
     // ── Wide versioned delete — removes ALL rows for a version+operation+purpose, ignoring connectorUuid.
+    /**
+     * Wide version-scoped delete: removes every mapping for the given (type, operation, purpose, object, version)
+     * tuple <em>regardless of {@code connectorUuid} or source object</em>. The "All" prefix refers to this wide
+     * scope (ignoring connector/source), <strong>not</strong> to "all versions" — {@code objectVersion} is still
+     * a required filter and must be non-null.
+     * <p>
+     * Unlike the other delete queries in this interface, {@code :operation} uses direct equality rather than the
+     * null-safe {@code (:x IS NULL AND col IS NULL) OR col = :x} idiom; passing {@code null} therefore matches no
+     * rows. Use {@link #deleteOperationObjectAttributesByVersion} when operation may be null.
+     *
+     * @param operation must be non-null; direct equality, no null-safe matching
+     */
     @Modifying
     @Query("""
             DELETE FROM AttributeContent2Object aco
@@ -257,6 +288,11 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     );
 
     // ── Unversioned delete — null-safe operation/purpose matching, scoped to objectVersion IS NULL ──
+    /**
+     * Symmetric counterpart to {@link #deleteOperationObjectAttributesByVersion} for the unversioned slice:
+     * deletes operation attribute mappings pinned to {@code object_version IS NULL}. All nullable filter
+     * parameters use the same null-safe matching idiom as the versioned variant.
+     */
     @Modifying
     @Query("""
             DELETE FROM AttributeContent2Object aco
