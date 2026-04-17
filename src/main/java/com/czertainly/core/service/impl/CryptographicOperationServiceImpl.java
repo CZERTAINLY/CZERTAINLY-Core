@@ -147,7 +147,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto response = cryptographicOperationsApiClient.encryptData(
-                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToSimpleDto(),
                     key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
@@ -201,7 +201,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto response = cryptographicOperationsApiClient.decryptData(
-                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToSimpleDto(),
                     key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto);
@@ -265,7 +265,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto response = cryptographicOperationsApiClient.signData(
-                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToSimpleDto(),
                     key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
@@ -326,7 +326,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto response = cryptographicOperationsApiClient.verifyData(
-                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToSimpleDto(),
                     key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
@@ -357,7 +357,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(tokenInstanceUuid);
         logger.debug("Token Instance details: {}", tokenInstanceReference);
         return cryptographicOperationsApiClient.listRandomAttributes(
-                tokenInstanceReference.getConnector().mapToDto(),
+                tokenInstanceReference.getConnector().mapToSimpleDto(),
                 tokenInstanceReference.getTokenInstanceUuid()
         );
     }
@@ -373,7 +373,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setLength(request.getLength());
         logger.debug("Request to the connector: {}", requestDto);
         com.czertainly.api.model.connector.cryptography.operations.RandomDataResponseDto response = cryptographicOperationsApiClient.randomData(
-                tokenInstanceReference.getConnector().mapToDto(),
+                tokenInstanceReference.getConnector().mapToSimpleDto(),
                 tokenInstanceReference.getTokenInstanceUuid(),
                 requestDto
         );
@@ -474,7 +474,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     private CryptographicKeyItem getKeyItemEntity(UUID uuid) throws NotFoundException {
         logger.debug("UUID of the key to get the entity: {}", uuid);
-        CryptographicKeyItem key = cryptographicKeyItemRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, uuid));
+        CryptographicKeyItem key = cryptographicKeyItemRepository
+                .findWithConnectorByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, uuid));
         if (key.getKey().getTokenProfile().getTokenInstanceReference() == null) {
             throw new NotFoundException("Token Instance associated with the Key is not found");
         }
@@ -496,7 +498,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (altKey != null && altPrivateKeyItem != null && altPublicKeyItem != null) {
             ContentSigner altSigner = new TokenContentSigner(
                     cryptographicOperationsApiClient,
-                    altPrivateKeyItem.getKey().getTokenInstanceReference().getConnector().mapToDto(),
+                    altPrivateKeyItem.getKey().getTokenInstanceReference().getConnector().mapToSimpleDto(),
                     altPrivateKeyItem.getKey().getTokenInstanceReferenceUuid(),
                     altPrivateKeyItem.getKeyReferenceUuid(),
                     altPublicKeyItem.getKeyReferenceUuid(),
@@ -518,7 +520,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
         ContentSigner signer = new TokenContentSigner(
                 cryptographicOperationsApiClient,
-                privateKeyItem.getKey().getTokenInstanceReference().getConnector().mapToDto(),
+                privateKeyItem.getKey().getTokenInstanceReference().getConnector().mapToSimpleDto(),
                 privateKeyItem.getKey().getTokenInstanceReferenceUuid(),
                 privateKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyReferenceUuid(),

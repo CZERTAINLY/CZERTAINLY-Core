@@ -152,6 +152,23 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         return dto;
     }
 
+    /**
+     * Maps Connector entity to a simpler DTO, omitting functionGroups.
+     * To be used only in the context of CryptographicOperationsApiClient operations.
+     */
+    public com.czertainly.api.model.core.connector.ConnectorDto mapToSimpleDto() {
+        var dto = new com.czertainly.api.model.core.connector.ConnectorDto();
+        dto.setUuid(this.uuid.toString());
+        dto.setName(this.name);
+        dto.setUrl(this.url);
+        dto.setAuthType(this.authType);
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(
+                AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        dto.setStatus(this.status);
+        // functionGroups intentionally omitted
+        return dto;
+    }
+
     @Override
     public NameAndUuidDto mapToAccessControlObjects() {
         return new NameAndUuidDto(uuid.toString(), name);
