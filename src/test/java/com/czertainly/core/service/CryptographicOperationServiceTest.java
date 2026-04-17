@@ -427,13 +427,12 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         request.setCipherData(List.of(data));
         request.setCipherAttributes(List.of());
 
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var decryptOnlyItemUuid = decryptOnlyItem.getUuid();
         Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.encryptData(
-                tokenInstanceReference.getSecuredParentUuid(),
-                tokenProfile.getSecuredUuid(),
-                key.getUuid(),
-                decryptOnlyItem.getUuid(),
-                request
-        ));
+                tokenParentUuid, tokenProfileUuid, keyUuid, decryptOnlyItemUuid, request));
     }
 
     @Test
@@ -461,13 +460,12 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         request.setCipherData(List.of(data));
         request.setCipherAttributes(List.of());
 
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var encryptOnlyItemUuid = encryptOnlyItem.getUuid();
         Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.decryptData(
-                tokenInstanceReference.getSecuredParentUuid(),
-                tokenProfile.getSecuredUuid(),
-                key.getUuid(),
-                encryptOnlyItem.getUuid(),
-                request
-        ));
+                tokenParentUuid, tokenProfileUuid, keyUuid, encryptOnlyItemUuid, request));
     }
 
     @Test
@@ -646,7 +644,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(certificateRequest.getAltSignatureAlgorithm());
         Assertions.assertNotNull(certificateRequest.getAltPublicKey());
         Assertions.assertInstanceOf(SLHDSAPublicKey.class, certificateRequest.getAltPublicKey());
-        JcaPKCS10CertificationRequest pkcs10CertificationRequest =  new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
+        JcaPKCS10CertificationRequest pkcs10CertificationRequest = new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
         Assertions.assertNotNull(Arrays.stream(pkcs10CertificationRequest.getAttributes()).filter(attribute -> attribute.getAttrType().equals(Extension.altSignatureValue)));
     }
 

@@ -486,6 +486,13 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         CryptographicKeyItem key = cryptographicKeyItemRepository
                 .findWithConnectorByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, uuid));
+
+        if (key.getKey() == null) {
+            throw new NotFoundException("Cryptographic Key associated with the Key Item is not found");
+        }
+        if (key.getKey().getTokenProfile() == null) {
+            throw new NotFoundException("Token Profile associated with the Key is not found");
+        }
         if (key.getKey().getTokenProfile().getTokenInstanceReference() == null) {
             throw new NotFoundException("Token Instance associated with the Key is not found");
         }
