@@ -137,13 +137,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Override
     public com.czertainly.api.model.core.connector.ConnectorDto mapToDto() {
-        var dto = new com.czertainly.api.model.core.connector.ConnectorDto();
-        dto.setUuid(this.uuid.toString());
-        dto.setName(this.name);
-        dto.setUrl(this.url);
-        dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
-        dto.setStatus(this.status);
+        var dto = mapToSimpleDto();
         dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
             FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();
             functionGroupDto.setKinds(MetaDefinitions.deserializeArrayString(f.getKinds()));
@@ -165,7 +159,6 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(
                 AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
         dto.setStatus(this.status);
-        // functionGroups intentionally omitted
         return dto;
     }
 
