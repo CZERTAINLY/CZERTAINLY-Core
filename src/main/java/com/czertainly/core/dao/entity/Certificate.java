@@ -32,6 +32,38 @@ import java.util.concurrent.TimeUnit;
 @Setter
 @ToString
 @RequiredArgsConstructor
+// Entity graph that eagerly loads associations needed by mapToChainDto().
+@NamedEntityGraph(
+        name = "Certificate.chainAssociations",
+        attributeNodes = {
+                @NamedAttributeNode("certificateContent"),
+                @NamedAttributeNode(value = "key",      subgraph = "key-items"),
+                @NamedAttributeNode(value = "altKey",   subgraph = "alt-key-items"),
+                @NamedAttributeNode("groups"),
+                @NamedAttributeNode("owner"),
+                @NamedAttributeNode(value = "raProfile", subgraph = "ra-profile-authority"),
+                @NamedAttributeNode("certificateRequestEntity"),
+                @NamedAttributeNode("predecessorRelations"),
+                @NamedAttributeNode("protocolAssociation")
+        },
+        subgraphs = {
+                @NamedSubgraph(name = "key-items", attributeNodes = {
+                        @NamedAttributeNode("items"),
+                        @NamedAttributeNode("groups"),
+                        @NamedAttributeNode("owner"),
+                        @NamedAttributeNode("tokenProfile"),
+                        @NamedAttributeNode("tokenInstanceReference")
+                }),
+                @NamedSubgraph(name = "alt-key-items", attributeNodes = {
+                        @NamedAttributeNode("items"),
+                        @NamedAttributeNode("groups"),
+                        @NamedAttributeNode("owner"),
+                        @NamedAttributeNode("tokenProfile"),
+                        @NamedAttributeNode("tokenInstanceReference")
+                }),
+                @NamedSubgraph(name = "ra-profile-authority", attributeNodes = @NamedAttributeNode("authorityInstanceReference"))
+        }
+)
 @Entity
 @Table(name = "certificate")
 public class Certificate extends UniquelyIdentifiedAndAudited implements ComplianceSubject, DtoMapper<CertificateDetailDto> {
@@ -247,6 +279,23 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
 
     @Override
     public CertificateDetailDto mapToDto() {
+        return buildDetailDto(false);
+    }
+
+    /**
+     * Chain-aware variant of {@link #mapToDto()} for use in {@code getCertificateChain}.
+     */
+    public CertificateDetailDto mapToChainDto() {
+        return buildDetailDto(true);
+    }
+
+    /**
+     * Shared implementation for {@link #mapToDto()} and {@link #mapToChainDto()}.
+     *
+     * @param chainContext when {@code true}, key associations are mapped with {@link CryptographicKey#mapToChainDto()} (omits the {@code associations} count);
+     *                    when {@code false}, the full {@link CryptographicKey#mapToDto()} is used.
+     */
+    private CertificateDetailDto buildDetailDto(boolean chainContext) {
         final CertificateDetailDto dto = new CertificateDetailDto();
         dto.setCommonName(CertificateUtil.formatCommonName(this.commonName));
         dto.setIssuerCommonName(getIssuerCommonNameToDto());
@@ -344,9 +393,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
             dto.setPrivateKeyAvailability(true);
         }
 
-        if (key != null) dto.setKey(key.mapToDto());
+        if (key != null) dto.setKey(chainContext ? key.mapToChainDto() : key.mapToDto());
 
-        if (altKey != null) dto.setAltKey(altKey.mapToDto());
+        if (altKey != null) dto.setAltKey(chainContext ? altKey.mapToChainDto() : altKey.mapToDto());
 
         if (protocolAssociation != null) {
             CertificateProtocolDto protocolDto = new CertificateProtocolDto();

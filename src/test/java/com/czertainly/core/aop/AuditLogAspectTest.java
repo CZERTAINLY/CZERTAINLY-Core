@@ -112,6 +112,9 @@ class AuditLogAspectTest extends BaseSpringBootTest {
         Assertions.assertEquals(resourceName, auditLogFromMdc.getLogRecord().resource().objects().getFirst().name());
         Assertions.assertEquals(resourceUuid, auditLogFromMdc.getLogRecord().resource().objects().getFirst().uuid());
 
+        // Test that the audit log aspect does not throw error for empty list of UUIDs on the input
+        Assertions.assertDoesNotThrow(() -> keyController.enableKeys(List.of()));
+
     }
 
     private void turnOnLogging() {

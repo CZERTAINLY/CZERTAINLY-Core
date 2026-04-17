@@ -76,8 +76,7 @@ class StatisticsServiceTest extends BaseSpringBootTest {
 
         SecretVersion secretVersion = new SecretVersion();
         secretVersion.setVersion(1);
-        secretVersion.setVaultInstance(vaultInstance);
-        secretVersion.setVaultInstanceUuid(vaultInstance.getUuid());
+        secretVersion.setVaultProfile(vaultProfile);
         secretVersion.setFingerprint(CertificateUtil.getThumbprint(SerializationUtils.serialize("test")));
         secretVersionRepository.save(secretVersion);
 
