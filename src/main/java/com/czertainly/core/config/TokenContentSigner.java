@@ -11,7 +11,7 @@ import com.czertainly.api.model.connector.cryptography.operations.SignDataRespon
 import com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData;
-import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorApiClientDto;
 import com.czertainly.core.util.CryptographyUtil;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.operator.ContentSigner;
@@ -32,7 +32,7 @@ public class TokenContentSigner implements ContentSigner {
     private static final Logger logger = LoggerFactory.getLogger(TokenContentSigner.class);
 
     private final CryptographicOperationsApiClient apiClient;
-    private final ConnectorDto connector;
+    private final ConnectorApiClientDto connector;
     private final UUID privateKeyUuid;
     private final UUID publicKeyUuid;
     //Used to determine the signature algorithm for the PQC Items
@@ -45,7 +45,7 @@ public class TokenContentSigner implements ContentSigner {
     private final ByteArrayOutputStream outputStream;
 
     public TokenContentSigner(CryptographicOperationsApiClient apiClient,
-                              ConnectorDto connector,
+                              ConnectorApiClientDto connector,
                               UUID tokenInstanceUuid,
                               UUID privateKeyUuid,
                               UUID publicKeyUuid,

@@ -92,7 +92,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(request.getPkcs10());
 
         CertificateSignResponseDto caResponse = certificateApiClient.issueCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
@@ -121,7 +121,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setReason(request.getReason());
 
         certificateApiClient.revokeCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
@@ -135,7 +135,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         List<EndEntityDto> endEntities = endEntityApiClient.listEntities(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile));
 
@@ -161,7 +161,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfile(raProfileDto);
 
         endEntityApiClient.createEndEntity(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
@@ -172,7 +172,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         EndEntityDto endEntity = endEntityApiClient.getEndEntity(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
@@ -197,7 +197,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfile(raProfileDto);
 
         endEntityApiClient.updateEndEntity(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username,
@@ -210,7 +210,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         endEntityApiClient.revokeAndDeleteEndEntity(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
@@ -222,7 +222,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         endEntityApiClient.resetPassword(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);

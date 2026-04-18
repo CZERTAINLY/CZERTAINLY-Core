@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.ConnectorApiClientDto;
 import com.czertainly.api.model.core.connector.v2.*;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -200,7 +201,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorRepository.save(connector);
 
         ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
-        ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
+        ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDtoV2());
         connectorAdapter.updateConnectorFunctions(connector, connectInfo);
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
@@ -351,14 +352,14 @@ public class ConnectorServiceImpl implements ConnectorService {
     public HealthInfo checkHealth(SecuredUUID uuid) throws NotFoundException, ConnectorException {
         Connector connector = getConnectorEntity(uuid);
         ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
-        return connectorAdapter.checkHealth(connector.mapToApiClientDto());
+        return connectorAdapter.checkHealth(connector.mapToApiClientDtoV2());
     }
 
     @Override
     public ConnectorInfo getInfo(SecuredUUID uuid) throws NotFoundException, ConnectorException {
         Connector connector = getConnectorEntity(uuid);
         ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
-        return connectorAdapter.getInfo(connector.mapToApiClientDto());
+        return connectorAdapter.getInfo(connector.mapToApiClientDtoV2());
     }
 
     @Override
@@ -508,7 +509,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
 
         try {
-            ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDto());
+            ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDtoV2());
             connectorAdapter.updateConnectorFunctions(connector, connectInfo);
             return connectInfo;
         } catch (ConnectorCommunicationException | NotFoundException e) {
