@@ -48,6 +48,27 @@ public interface CertificateService extends ResourceExtensionService {
 
     CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException;
 
+    /**
+     * Hot-path variant of {@link #getCertificateChain(SecuredUUID, boolean)} for digital signing.
+     * Returns parsed {@link X509Certificate}s in chain order (end-entity first if {@code withEndCertificate}, otherwise issuer first),
+     * up to the topmost ancestor present in the inventory.
+     *
+     * <p>Contract differences vs. {@link #getCertificateChain(SecuredUUID, boolean)}:
+     * <ul>
+     *   <li><b>Best-effort</b>: returns whatever the inventory currently contains. Performs no AIA fetch, no issuer-DN
+     *   lookup, and no database writes.</li>
+     *   <li><b>No authorization</b>: this method must not be exposed through any REST controller.</li>
+     *   <li><b>Returns an empty list</b> if the UUID is unknown or the end certificate has no stored content.</li>
+     *   <li><b>Fails fast</b> on parse errors via {@link CertificateException} rather than silently returning a partial chain.</li>
+     * </ul>
+     *
+     * @param certificateUuid     UUID of the end certificate
+     * @param withEndCertificate  when {@code true}, index 0 is the end certificate; otherwise the list begins with the first issuer
+     * @return ordered list of DER-decoded {@link X509Certificate}s; empty if nothing is available
+     * @throws CertificateException if any entry in the chain cannot be parsed
+     */
+    List<X509Certificate> getCertificateChainForSigning(UUID certificateUuid, boolean withEndCertificate) throws CertificateException;
+
     CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException;
 
     CertificateDownloadResponseDto downloadCertificate(UUID uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException;

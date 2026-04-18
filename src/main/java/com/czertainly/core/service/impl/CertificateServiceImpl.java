@@ -818,6 +818,20 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         return certificateChainResponseDto;
     }
 
+    @Override
+    public List<X509Certificate> getCertificateChainForSigning(UUID certificateUuid, boolean withEndCertificate) throws CertificateException {
+        List<String> base64Chain = certificateRepository.findCertificateChainContents(certificateUuid, certificateChainMaxDepth);
+        if (base64Chain.isEmpty()) {
+            return List.of();
+        }
+        List<String> source = withEndCertificate ? base64Chain : base64Chain.subList(1, base64Chain.size());
+        List<X509Certificate> certs = new ArrayList<>(source.size());
+        for (String b64 : source) {
+            certs.add(CertificateUtil.getX509Certificate(b64));
+        }
+        return certs;
+    }
+
     private List<Certificate> getCertificateChainInternal(Certificate certificate, boolean withEndCertificate) {
         List<Certificate> certificateChain = new ArrayList<>();
         if (certificate.getCertificateContent() == null) {

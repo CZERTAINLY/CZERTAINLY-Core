@@ -1,13 +1,10 @@
 package com.czertainly.core.service.tsa.certificateprovider;
 
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
-import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
 import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.tsa.CertificateChain;
 import com.czertainly.core.util.CertificateUtil;
@@ -16,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,28 +59,19 @@ public class StaticManagedKeyCertificateProvider implements CertificateProvider 
     }
 
     private CertificateChain fetchCertificateChain(UUID certificateUUID) throws TspException {
-        CertificateChainResponseDto certificateChainDto;
+        List<X509Certificate> chain;
         try {
-            certificateChainDto = certificateService.getCertificateChain(SecuredUUID.fromUUID(certificateUUID), true);
-        } catch (NotFoundException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    String.format("Failed to obtain certificate chain. %s", e.getLocalizedMessage()),
-                    "Signing key certificate could not be found.");
-        }
-        List<X509Certificate> chain = new ArrayList<>();
-        for (var dto : certificateChainDto.getCertificates()) {
-            chain.add(decodeX509Certificate(dto.getCertificateContent(), dto.getCommonName(), dto.getSerialNumber()));
-        }
-        return CertificateChain.of(chain);
-    }
-
-    private X509Certificate decodeX509Certificate(String base64, String commonName, String serialNumber) throws TspException {
-        try {
-            return CertificateUtil.getX509Certificate(base64);
+            chain = certificateService.getCertificateChainForSigning(certificateUUID, true);
         } catch (CertificateException e) {
             throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    String.format("Failed to decode certificate '%s' (serial: %s) from chain. %s", commonName, serialNumber, e.getLocalizedMessage()),
+                    String.format("Failed to decode certificate chain for %s. %s", certificateUUID, e.getLocalizedMessage()),
                     "Certificate chain could not be parsed.");
         }
+        if (chain.isEmpty()) {
+            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
+                    String.format("Signing certificate or its chain is not available for UUID %s.", certificateUUID),
+                    "Signing key certificate could not be found.");
+        }
+        return CertificateChain.of(chain);
     }
 }

@@ -2,8 +2,6 @@ package com.czertainly.core.service.tsa.certificateprovider;
 
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
-import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
-import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateBuilder;
@@ -18,8 +16,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -118,12 +116,25 @@ class StaticManagedKeyCertificateProviderTest {
     }
 
     @Test
-    void getCertificateChain_throwsTspException_whenCertificateIsNotFound() throws Exception {
-        // given
+    void getCertificateChain_throwsTspException_whenChainIsEmpty() throws Exception {
+        // given — signing certificate is unknown or has no stored content
         var certificate = certificateWithId();
         var scheme = new StaticKeyManagedSigning(certificate, List.of());
-        when(certificateService.getCertificateChain(any(), anyBoolean()))
-                .thenThrow(new com.czertainly.api.exception.NotFoundException(Certificate.class, certificate.uuid));
+        when(certificateService.getCertificateChainForSigning(any(UUID.class), anyBoolean()))
+                .thenReturn(List.of());
+
+        // when / then
+        var exception = assertThrows(TspException.class, () -> provider.getCertificateChain(scheme));
+        assertThat(exception.getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+    }
+
+    @Test
+    void getCertificateChain_throwsTspException_whenChainCannotBeParsed() throws Exception {
+        // given — some entry in the chain is not a parseable certificate
+        var certificate = certificateWithId();
+        var scheme = new StaticKeyManagedSigning(certificate, List.of());
+        when(certificateService.getCertificateChainForSigning(any(UUID.class), anyBoolean()))
+                .thenThrow(new CertificateException("bad DER"));
 
         // when / then
         var exception = assertThrows(TspException.class, () -> provider.getCertificateChain(scheme));
@@ -134,11 +145,11 @@ class StaticManagedKeyCertificateProviderTest {
     void getCertificateChain_returnsCertificateChain_whenCertificateExists() throws Exception {
         // given
         X509Certificate x509 = CertificateTestUtil.createTimestampingCertificate();
-        var chainResponseDto = chainResponseWithSingleCert(x509);
 
         var certificate = certificateWithId();
         var scheme = new StaticKeyManagedSigning(certificate, List.of());
-        when(certificateService.getCertificateChain(any(), anyBoolean())).thenReturn(chainResponseDto);
+        when(certificateService.getCertificateChainForSigning(any(UUID.class), anyBoolean()))
+                .thenReturn(List.of(x509));
 
         // when
         CertificateChain result = provider.getCertificateChain(scheme);
@@ -152,14 +163,5 @@ class StaticManagedKeyCertificateProviderTest {
 
     private static Certificate certificateWithId() {
         return CertificateBuilder.aCertificate().withoutKey().build();
-    }
-
-    private static CertificateChainResponseDto chainResponseWithSingleCert(X509Certificate x509) throws Exception {
-        var certDto = new CertificateDetailDto();
-        certDto.setCertificateContent(Base64.getEncoder().encodeToString(x509.getEncoded()));
-
-        var response = new CertificateChainResponseDto();
-        response.setCertificates(List.of(certDto));
-        return response;
     }
 }
