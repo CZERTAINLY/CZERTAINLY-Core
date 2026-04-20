@@ -879,7 +879,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         long start = System.nanoTime();
         try (ExecutorService executor = new DelegatingSecurityContextExecutorService(Executors.newVirtualThreadPerTaskExecutor())) {
-            executor.invokeAll(List.of(
+            List<Future<Void>> futures = executor.invokeAll(List.of(
                     () -> {
                         dto.setSecretStatByType(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.type, null, null));
                         return null;
@@ -901,14 +901,23 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                         return null;
                     }
             ));
-        } catch (Exception e) {
+            processFutures(futures);
+        } catch (InterruptedException e) {
             logger.error("An error occurred during calculation of secret statistics: {}", e.getMessage());
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+            Thread.currentThread().interrupt();
         }
         logger.debug("Secret statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
         return dto;
+    }
+
+    private static void processFutures(List<Future<Void>> futures) throws InterruptedException {
+        for (Future<Void> future : futures) {
+            try {
+                future.get();
+            } catch (ExecutionException ex) {
+                logger.error("An error occurred during calculation of secret statistics", ex.getCause());
+            }
+        }
     }
 
     private ConnectorDetailDto loadSecretOperationRequest(UUID connectorUuid, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretType type, List<RequestAttribute> secretAttributes, SecretOperationRequest secretOperationRequest) throws ConnectorException, NotFoundException, AttributeException {

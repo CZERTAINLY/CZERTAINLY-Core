@@ -113,8 +113,10 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -1376,7 +1378,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = includeArchived ? null : (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
 
         try (ExecutorService executor = new DelegatingSecurityContextExecutorService(Executors.newVirtualThreadPerTaskExecutor())) {
-            executor.invokeAll(List.of(
+            List<Future<Void>> futures = executor.invokeAll(List.of(
                     () -> {
                         dto.setCertificateStatByKeySize(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null, additionalWhereClause));
                         return null;
@@ -1409,7 +1411,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                         dto.setCertificateStatByComplianceStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null, additionalWhereClause));
                         return null;
                     },
-                    (Callable<Void>) () -> {
+                    () -> {
                         Date now = new Date();
                         Instant nowInstant = now.toInstant();
                         final BiFunction<Root<Certificate>, CriteriaBuilder, Expression<?>> groupByExpressionExpiry = (root, cb) -> cb.selectCase()
@@ -1426,14 +1428,23 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                         return null;
                     }
             ));
-        } catch (Exception e) {
-            logger.error("An error occurred during calculation of certificate statistics: {}", e.getMessage());
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+            processFutures(futures);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Certificate statistics calculation was interrupted", e);
         }
         logger.debug("Certificate statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
         return dto;
+    }
+
+    private static void processFutures(List<Future<Void>> futures) throws InterruptedException {
+        for (Future<Void> future : futures) {
+            try {
+                future.get();
+            } catch (ExecutionException ex) {
+                logger.error("An error occurred during calculation of certificate statistics", ex.getCause());
+            }
+        }
     }
 
     @Override
