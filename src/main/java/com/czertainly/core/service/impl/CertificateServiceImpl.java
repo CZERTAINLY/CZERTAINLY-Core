@@ -131,6 +131,9 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     @Value("${spring.jpa.properties.hibernate.jdbc.batch_size:500}")
     private int bulkDeleteBatchSize;
 
+    @Value("${certificate.chain.max-depth:20}")
+    private int certificateChainMaxDepth;
+
     private PlatformTransactionManager transactionManager;
 
     private CertificateRepository certificateRepository;
@@ -440,6 +443,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         return entity;
     }
 
+    private Certificate getCertificateEntityWithChainAssociations(SecuredUUID uuid) throws NotFoundException {
+        Certificate entity = certificateRepository.findChainWithAssociationsByUuid(uuid.getValue())
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        raProfileService.evaluateCertificateRaProfilePermissions(uuid, SecuredParentUUID.fromUUID(entity.getRaProfileUuid()));
+        return entity;
+    }
+
     @Override
     // This method does not need security as it is not exposed by the controllers. This method also does not use uuid
     public Certificate getCertificateEntityByContent(String content) {
@@ -725,12 +735,6 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         if (certificate.getCertificateContent() == null) {
             return;
         }
-
-        // Check if the certificate is self-signed
-        if (isSelfSigned(certificate)) {
-            return;
-        }
-        boolean issuerInInventory = false;
         X509Certificate subCert;
         try {
             subCert = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
@@ -738,6 +742,15 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             // We do not need to handle exceptions here because if subject certificate cannot be parsed, we cannot update its certificate chain
             return;
         }
+        updateCertificateChain(certificate, subCert);
+    }
+
+    private void updateCertificateChain(Certificate certificate, X509Certificate subCert) throws CertificateException {
+        // Check if the certificate is self-signed
+        if (isSelfSigned(subCert, certificate.getUuid())) {
+            return;
+        }
+        boolean issuerInInventory = false;
         // Try to find issuer certificate in repository
         for (Certificate issuer : certificateRepository.findBySubjectDnNormalized(certificate.getIssuerDnNormalized())) {
             X509Certificate issCert;
@@ -764,7 +777,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         // If the issuer isn't in inventory, try to download it from AIA extension of the certificate
         if (!issuerInInventory) {
             int downloadedCertificates = 0;
-            List<String> aiaChain = downloadChainFromAia(certificate);
+            List<String> aiaChain = downloadChainFromAia(certificate, subCert);
             Certificate previousCertificate = certificate;
             for (String chainCertificate : aiaChain) {
                 Certificate nextInChain;
@@ -793,13 +806,14 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException {
-        Certificate certificate = getCertificateEntity(uuid);
+        Certificate certificate = withEndCertificate ? getCertificateEntityWithChainAssociations(uuid) : getCertificateEntity(uuid);
+
         CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
         if (certificate.getCertificateContent() != null) {
             List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
             Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
             certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
-            certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
+            certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToChainDto).toList());
         }
         return certificateChainResponseDto;
     }
@@ -818,12 +832,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
 
     private boolean completeCertificateChain(Certificate lastCertificate, List<Certificate> certificateChain) {
         try {
-            // if last certificate is self-signed, we presume it is root certificate and we are finished
-            if (isSelfSigned(lastCertificate)) {
+            X509Certificate x509 = CertificateUtil.parseCertificate(lastCertificate.getCertificateContent().getContent());
+            // If the last certificate is self-signed, we presume it is a root certificate and we are finished.
+            if (isSelfSigned(x509, lastCertificate.getUuid())) {
                 return true;
             } else {
                 // update chain and determine if its issuer was found
-                updateCertificateChain(lastCertificate);
+                updateCertificateChain(lastCertificate, x509);
                 if (lastCertificate.getIssuerCertificateUuid() != null) {
                     // construct newly found certificates from chain and do the self-signed check again
                     lastCertificate = constructCertificateChainFromInventory(lastCertificate, certificateChain);
@@ -838,19 +853,35 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     private Certificate constructCertificateChainFromInventory(Certificate certificate, List<Certificate> certificateChain) {
+        List<String> chainUuidStrings = certificateRepository.findCertificateChainUuids(certificate.getUuid(), certificateChainMaxDepth);
+        if (chainUuidStrings.size() <= 1) {
+            return certificate; // we have only the starting certificate
+        }
+
+        // Bulk-load all ancestor entities (indices 1..N) with their certificateContent in one query.
+        List<UUID> ancestorUuids = chainUuidStrings.subList(1, chainUuidStrings.size())
+                .stream()
+                .map(UUID::fromString)
+                .toList();
+
+        Map<UUID, Certificate> byUuid = certificateRepository
+                .findChainWithAssociationsByUuidIn(ancestorUuids)
+                .stream()
+                .collect(Collectors.toMap(Certificate::getUuid, c -> c));
+
         Certificate lastCertificate = certificate;
-        // Go up the certificate chain until certificate without issuer is found
-        while (lastCertificate.getIssuerCertificateUuid() != null) {
-            Certificate issuerCertificate = certificateRepository.findByUuid(lastCertificate.getIssuerCertificateUuid()).orElse(null);
+        for (UUID ancestorUuid : ancestorUuids) {
+            Certificate issuerCertificate = byUuid.get(ancestorUuid);
             if (issuerCertificate != null) {
                 certificateChain.add(issuerCertificate);
                 lastCertificate = issuerCertificate;
             } else {
-                // If issuer certificate does not exist in the inventory, set it and issuer serial number to null
-                // and return incomplete chain
+                // Dangling FK – the CTE found the UUID but the bulk-load did not return the entity.
+                // Clear the references and return an incomplete chain.
                 lastCertificate.setIssuerCertificateUuid(null);
                 lastCertificate.setIssuerSerialNumber(null);
                 certificateRepository.save(lastCertificate);
+                break;
             }
         }
 
@@ -997,13 +1028,16 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
      * @throws CertificateException if the certificate cannot be parsed
      */
     private boolean isSelfSigned(Certificate certificate) throws CertificateException {
+        return isSelfSigned(getX509(certificate.getCertificateContent().getContent()), certificate.getUuid());
+    }
+
+    private boolean isSelfSigned(X509Certificate x509Certificate, UUID certificateUuid) throws CertificateException {
         // we check the signature with the certificate public key
-        X509Certificate x509Certificate = getX509(certificate.getCertificateContent().getContent());
         try {
             x509Certificate.verify(x509Certificate.getPublicKey());
             return true;
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            logger.debug("Unable to verify if the certificate {} is self-signed: {}", certificate.getUuid(), e.getMessage());
+            logger.debug("Unable to verify if the certificate {} is self-signed: {}", certificateUuid, e.getMessage());
             throw new CertificateException(e);
         } catch (SignatureException | InvalidKeyException e) {
             // if the certificate is not self-signed, the verification will fail
@@ -2007,11 +2041,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         }
     }
 
-    private List<String> downloadChainFromAia(Certificate certificate) {
+    private List<String> downloadChainFromAia(Certificate certificate, X509Certificate certX509) {
         List<String> chainCertificates = new ArrayList<>();
         String chainUrl;
         try {
-            X509Certificate certX509 = getX509(certificate.getCertificateContent().getContent());
             while (true) {
                 chainUrl = OcspUtil.getChainFromAia(certX509);
                 if (chainUrl == null || chainUrl.isEmpty()) {
@@ -2201,7 +2234,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         ResourceCertificateContentData contentData = new ResourceCertificateContentData();
         contentData.setCertificateType(CertificateType.X509);
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
-        if (certificate.getCertificateContent() == null) throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
+        if (certificate.getCertificateContent() == null)
+            throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
         contentData.setContent(certificate.getCertificateContent().getContent());
         return contentData;
     }
