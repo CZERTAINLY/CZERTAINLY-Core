@@ -403,6 +403,72 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testEncryptData_WrongKeyUsage_DecryptOnly() {
+        CryptographicKeyItem decryptOnlyItem = new CryptographicKeyItem();
+        decryptOnlyItem.setLength(1024);
+        decryptOnlyItem.setKey(key);
+        decryptOnlyItem.setKeyUuid(key.getUuid());
+        decryptOnlyItem.setType(KeyType.PUBLIC_KEY);
+        decryptOnlyItem.setKeyData("some/encrypted/data");
+        decryptOnlyItem.setFormat(KeyFormat.SPKI);
+        decryptOnlyItem.setState(KeyState.ACTIVE);
+        decryptOnlyItem.setEnabled(true);
+        decryptOnlyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
+        decryptOnlyItem.setKeyReferenceUuid(UUID.randomUUID());
+        decryptOnlyItem.setUsage(List.of(KeyUsage.DECRYPT));
+        cryptographicKeyItemRepository.save(decryptOnlyItem);
+        decryptOnlyItem.setKeyReferenceUuid(decryptOnlyItem.getUuid());
+        cryptographicKeyItemRepository.save(decryptOnlyItem);
+
+        CipherRequestData data = new CipherRequestData();
+        data.setIdentifier("id");
+        data.setData(Base64.getEncoder().encodeToString("Hello".getBytes(StandardCharsets.UTF_8)));
+        CipherDataRequestDto request = new CipherDataRequestDto();
+        request.setCipherData(List.of(data));
+        request.setCipherAttributes(List.of());
+
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var decryptOnlyItemUuid = decryptOnlyItem.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.encryptData(
+                tokenParentUuid, tokenProfileUuid, keyUuid, decryptOnlyItemUuid, request));
+    }
+
+    @Test
+    void testDecryptData_WrongKeyUsage_EncryptOnly() {
+        CryptographicKeyItem encryptOnlyItem = new CryptographicKeyItem();
+        encryptOnlyItem.setLength(1024);
+        encryptOnlyItem.setKey(key);
+        encryptOnlyItem.setKeyUuid(key.getUuid());
+        encryptOnlyItem.setType(KeyType.PUBLIC_KEY);
+        encryptOnlyItem.setKeyData("some/encrypted/data");
+        encryptOnlyItem.setFormat(KeyFormat.SPKI);
+        encryptOnlyItem.setState(KeyState.ACTIVE);
+        encryptOnlyItem.setEnabled(true);
+        encryptOnlyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
+        encryptOnlyItem.setKeyReferenceUuid(UUID.randomUUID());
+        encryptOnlyItem.setUsage(List.of(KeyUsage.ENCRYPT));
+        cryptographicKeyItemRepository.save(encryptOnlyItem);
+        encryptOnlyItem.setKeyReferenceUuid(encryptOnlyItem.getUuid());
+        cryptographicKeyItemRepository.save(encryptOnlyItem);
+
+        CipherRequestData data = new CipherRequestData();
+        data.setIdentifier("id");
+        data.setData(Base64.getEncoder().encodeToString("Hello".getBytes(StandardCharsets.UTF_8)));
+        CipherDataRequestDto request = new CipherDataRequestDto();
+        request.setCipherData(List.of(data));
+        request.setCipherAttributes(List.of());
+
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var encryptOnlyItemUuid = encryptOnlyItem.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.decryptData(
+                tokenParentUuid, tokenProfileUuid, keyUuid, encryptOnlyItemUuid, request));
+    }
+
+    @Test
     void testSign_RSA() {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
@@ -578,7 +644,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(certificateRequest.getAltSignatureAlgorithm());
         Assertions.assertNotNull(certificateRequest.getAltPublicKey());
         Assertions.assertInstanceOf(SLHDSAPublicKey.class, certificateRequest.getAltPublicKey());
-        JcaPKCS10CertificationRequest pkcs10CertificationRequest =  new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
+        JcaPKCS10CertificationRequest pkcs10CertificationRequest = new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
         Assertions.assertNotNull(Arrays.stream(pkcs10CertificationRequest.getAttributes()).filter(attribute -> attribute.getAttrType().equals(Extension.altSignatureValue)));
     }
 
