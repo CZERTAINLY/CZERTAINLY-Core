@@ -196,7 +196,7 @@ public class SigningProfileMapper {
     private static ContentSigningWorkflowDto buildContentSigningWorkflowDto(
             SigningProfileVersion version, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
         ContentSigningWorkflowDto wf = new ContentSigningWorkflowDto();
-        setFormatterRef(version.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
+        setFormatterRef(version, wf::setSignatureFormatterConnector);
         wf.setSignatureFormatterConnectorAttributes(safeList(signatureFormatterConnectorAttributes));
         return wf;
     }
@@ -204,7 +204,7 @@ public class SigningProfileMapper {
     private static TimestampingWorkflowDto buildTimestampingWorkflowDto(
             SigningProfile header, SigningProfileVersion version, List<ResponseAttribute> signatureFormatterConnectorAttributes) {
         TimestampingWorkflowDto wf = new TimestampingWorkflowDto();
-        setFormatterRef(version.getSignatureFormatterConnectorUuid(), wf::setSignatureFormatterConnector);
+        setFormatterRef(version, wf::setSignatureFormatterConnector);
         wf.setSignatureFormatterConnectorAttributes(safeList(signatureFormatterConnectorAttributes));
         wf.setQualifiedTimestamp(version.getQualifiedTimestamp());
         wf.setDefaultPolicyId(version.getDefaultPolicyId());
@@ -278,12 +278,11 @@ public class SigningProfileMapper {
     // Shared utilities
     // ──────────────────────────────────────────────────────────────────────────
 
-    private static void setFormatterRef(UUID signatureFormatterConnectorUuid, Consumer<NameAndUuidDto> setter) {
-        if (signatureFormatterConnectorUuid != null) {
+    private static void setFormatterRef(SigningProfileVersion profileVersion, Consumer<NameAndUuidDto> setter) {
             NameAndUuidDto ref = new NameAndUuidDto();
-            ref.setUuid(signatureFormatterConnectorUuid.toString());
+            ref.setName(profileVersion.getSignatureFormatterConnector().getName());
+            ref.setUuid(profileVersion.getSignatureFormatterConnectorUuid().toString());
             setter.accept(ref);
-        }
     }
 
     private static <T> List<T> safeList(List<T> list) {

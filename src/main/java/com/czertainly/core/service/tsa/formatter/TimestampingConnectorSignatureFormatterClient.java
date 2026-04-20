@@ -63,6 +63,7 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
         requestDto.setPolicy(request.policy().orElse(workflow.defaultPolicyId()));
         requestDto.setNonce(request.nonce().orElse(null));
         requestDto.setIncludeSignerCertificate(request.includeSignerCertificate());
+        requestDto.setQualifiedTimestamp(timestampingProfile.workflow().isQualifiedTimestamp());
         requestDto.setRequestExtensions(toExtensionDtos(request.requestExtensions()));
         requestDto.setSerialNumber(serialNumber);
         requestDto.setSigningTime(genTime);
@@ -101,6 +102,7 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
         requestDto.setPolicy(request.policy().orElse(workflow.defaultPolicyId()));
         requestDto.setNonce(request.nonce().orElse(null));
         requestDto.setIncludeSignerCertificate(request.includeSignerCertificate());
+        requestDto.setQualifiedTimestamp(timestampingProfile.workflow().isQualifiedTimestamp());
         requestDto.setRequestExtensions(toExtensionDtos(request.requestExtensions()));
         requestDto.setSerialNumber(serialNumber);
         requestDto.setSigningTime(genTime);

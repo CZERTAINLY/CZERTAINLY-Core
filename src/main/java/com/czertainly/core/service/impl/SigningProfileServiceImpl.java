@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
@@ -34,6 +35,7 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
@@ -57,7 +59,10 @@ import com.czertainly.core.dao.repository.signing.SigningRecordRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
+import com.czertainly.core.service.tsa.formatter.connector.TimestampingConnectorApiClient;
 import com.czertainly.core.mapper.signing.SigningProfileMapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.signing.SigningProfileModel;
@@ -105,6 +110,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private TimeQualityConfigurationRepository timeQualityConfigurationRepository;
     private TspProfileRepository tspProfileRepository;
     private AttributeEngine attributeEngine;
+    private TimestampingConnectorApiClient timestampingConnectorApiClient;
+    private ConnectorRepository connectorRepository;
 
     // ──────────────────────────────────────────────────────────────────────────
     // List / search
@@ -185,6 +192,16 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 .findFirst()
                 .map(item -> cryptographicOperationService.listSignatureAttributes(item.getKeyAlgorithm()))
                 .orElse(List.of());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.ANY)
+    public List<DataAttribute> listSignatureFormatterConnectorAttributes(UUID connectorUuid, SecuredUUID signingProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
+        Connector connector = connectorRepository.findByUuid(connectorUuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
+        List<DataAttribute> definitions = timestampingConnectorApiClient.listFormatterAttributes(connector.mapToDto());
+        attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.WORKFLOW_FORMATTER, definitions);
+        return definitions;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -541,7 +558,6 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         p.setTimeQualityConfiguration(null);
         p.setWorkflowType(workflow.getType()); // cache column
         version.setWorkflowType(workflow.getType());
-        version.setSignatureFormatterConnector(null);
         version.setQualifiedTimestamp(null);
         version.setDefaultPolicyId(null);
         version.setAllowedPolicyIds(new ArrayList<>());
@@ -551,12 +567,19 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         switch (workflow) {
             case ContentSigningWorkflowRequestDto w -> {
                 version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
+                version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
+                        : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
+                        .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
             }
             case RawSigningWorkflowRequestDto w -> {
                 // no formatter for raw signing
+                version.setSignatureFormatterConnector(null);
             }
             case TimestampingWorkflowRequestDto w -> {
                 version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
+                version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
+                        : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
+                        .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
                 version.setQualifiedTimestamp(w.getQualifiedTimestamp());
                 version.setDefaultPolicyId(w.getDefaultPolicyId());
                 version.setAllowedPolicyIds(w.getAllowedPolicyIds() != null ? w.getAllowedPolicyIds() : new ArrayList<>());
@@ -751,5 +774,15 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Autowired
     public void setTspProfileRepository(TspProfileRepository tspProfileRepository) {
         this.tspProfileRepository = tspProfileRepository;
+    }
+
+    @Autowired
+    public void setTimestampingConnectorApiClient(TimestampingConnectorApiClient timestampingConnectorApiClient) {
+        this.timestampingConnectorApiClient = timestampingConnectorApiClient;
+    }
+
+    @Autowired
+    public void setConnectorRepository(ConnectorRepository connectorRepository) {
+        this.connectorRepository = connectorRepository;
     }
 }
