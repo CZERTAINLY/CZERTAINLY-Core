@@ -558,6 +558,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         p.setTimeQualityConfiguration(null);
         p.setWorkflowType(workflow.getType()); // cache column
         version.setWorkflowType(workflow.getType());
+        version.setSignatureFormatterConnector(null);
         version.setQualifiedTimestamp(null);
         version.setDefaultPolicyId(null);
         version.setAllowedPolicyIds(new ArrayList<>());
@@ -566,17 +567,14 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
         switch (workflow) {
             case ContentSigningWorkflowRequestDto w -> {
-                version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
                 version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
                         : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
                         .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
             }
             case RawSigningWorkflowRequestDto w -> {
                 // no formatter for raw signing
-                version.setSignatureFormatterConnector(null);
             }
             case TimestampingWorkflowRequestDto w -> {
-                version.setSignatureFormatterConnectorUuid(w.getSignatureFormatterConnectorUuid());
                 version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
                         : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
                         .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
