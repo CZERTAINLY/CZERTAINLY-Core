@@ -8,14 +8,16 @@
 #   4. Creates an EJBCA authority instance
 #   5. Creates a soft token
 #   6. Creates a token profile
+#   7. Creates a Time Quality configuration (used by the qualified signing profile)
 #   For each of two sets (non-qualified / qualified):
-#       7. Creates an RSA 2048 key pair
-#       8. Creates an RA profile (resolving EJBCA profile IDs dynamically)
-#       9. Issues a TSA certificate with the requested DN suffix
-#      10. Polls for certificate issuance completion
-#      11. Creates and enables a TSP profile
-#      12. Creates and enables a Signing Profile
-#      13. Links the Signing Profile to the TSP Profile bidirectionally
+#       8. Creates an RSA 2048 key pair
+#       9. Creates an RA profile (resolving EJBCA profile IDs dynamically)
+#      10. Issues a TSA certificate with the requested DN suffix
+#      11. Polls for certificate issuance completion
+#      12. Creates and enables a TSP profile
+#      13. Creates and enables a Signing Profile
+#          (qualified profile links to the Time Quality configuration)
+#      14. Links the Signing Profile to the TSP Profile bidirectionally
 #
 # Requires: curl, jq, base64
 
@@ -55,6 +57,17 @@ SIGNING_PROFILE_NAME_BASE="tsa"   # -non-qualified / -qualified appended
 POLICY_ID_NON_QUALIFIED="1.2.3.4.5.6"
 POLICY_ID_QUALIFIED="1.2.3.4.5.7"
 
+# Time Quality configuration (used by the qualified signing profile)
+TIME_QUALITY_CONFIG_NAME="time-quality"
+TIME_QUALITY_NTP_SERVERS="localhost"       # comma-separated list, e.g. "pool.ntp.org,time.cloudflare.com"
+TIME_QUALITY_ACCURACY="PT1S"
+TIME_QUALITY_NTP_CHECK_INTERVAL="PT10S"
+TIME_QUALITY_NTP_CHECK_TIMEOUT="PT5S"
+TIME_QUALITY_NTP_SAMPLES_PER_SERVER=4
+TIME_QUALITY_NTP_SERVERS_MIN_REACHABLE=1
+TIME_QUALITY_MAX_CLOCK_DRIFT="PT1S"
+TIME_QUALITY_LEAP_SECOND_GUARD=true
+
 CERT_POLL_ATTEMPTS=20  # max poll attempts for certificate issuance
 CERT_POLL_INTERVAL=1   # seconds between poll attempts
 
@@ -68,6 +81,9 @@ CRED_UUID=""
 AUTH_UUID=""
 TOKEN_UUID=""
 TOKEN_PROFILE_UUID=""
+
+# Time Quality configuration
+TIME_QUALITY_UUID=""
 
 # Non-qualified set
 KEY_UUID_NQ=""
@@ -132,6 +148,17 @@ Object name bases (suffixes -non-qualified / -qualified are appended automatical
 Certificate polling:
   --cert-poll-attempts N      Max poll attempts for certificate issuance (default: 20)
   --cert-poll-interval N      Seconds between poll attempts              (default: 1)
+
+Time Quality configuration (used by the qualified signing profile):
+  --time-quality-name NAME                    (default: time-quality)
+  --time-quality-ntp-servers SERVERS          Comma-separated NTP server list (default: localhost)
+  --time-quality-accuracy DURATION            ISO-8601 duration (default: PT1S)
+  --time-quality-ntp-check-interval DURATION  ISO-8601 duration (default: PT10S)
+  --time-quality-ntp-check-timeout DURATION   ISO-8601 duration (default: PT5S)
+  --time-quality-ntp-samples-per-server N     (default: 4)
+  --time-quality-ntp-servers-min-reachable N  (default: 1)
+  --time-quality-max-clock-drift DURATION     ISO-8601 duration (default: PT1S)
+  --time-quality-leap-second-guard BOOL       true|false (default: true)
 EOF
   exit 1
 }
@@ -210,32 +237,41 @@ group_uuid() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case $1 in
-      --pkcs12-bundle)               PKCS12_BUNDLE="$2";                 shift 2 ;;
-      --pkcs12-password)             PKCS12_PASSWORD="$2";               shift 2 ;;
-      --token-password)              TOKEN_PASSWORD="$2";                shift 2 ;;
-      --ca-pem)                      CA_PEM="$2";                        shift 2 ;;
-      --certificate-dn)              CERTIFICATE_DN="$2";                shift 2 ;;
-      --ejbca-url)                   EJBCA_URL="$2";                     shift 2 ;;
-      --connector-host)              CONNECTOR_HOST="$2";                shift 2 ;;
-      --port-cred-provider)          PORT_CRED_PROVIDER="$2";            shift 2 ;;
-      --port-ejbca)                  PORT_EJBCA="$2";                    shift 2 ;;
-      --port-crypto-provider)        PORT_CRYPTO_PROVIDER="$2";          shift 2 ;;
-      --ilm-host)                    ILM_HOST="$2";                      shift 2 ;;
-      --client-cert-pem)             CLIENT_CERT_PEM="$2";               shift 2 ;;
-      --ejbca-ee-profile)            EJBCA_EE_PROFILE="$2";              shift 2 ;;
-      --ejbca-cert-profile)          EJBCA_CERT_PROFILE="$2";            shift 2 ;;
-      --ejbca-cert-profile-qualified) EJBCA_CERT_PROFILE_QUALIFIED="$2"; shift 2 ;;
-      --ejbca-ca)                    EJBCA_CA_NAME="$2";                 shift 2 ;;
-      --credential-name)             CREDENTIAL_NAME="$2";               shift 2 ;;
-      --authority-name)              AUTHORITY_NAME="$2";                shift 2 ;;
-      --token-name)                  TOKEN_NAME="$2";                    shift 2 ;;
-      --token-profile-name)          TOKEN_PROFILE_NAME="$2";            shift 2 ;;
-      --key-name)                    KEY_NAME_BASE="$2";                 shift 2 ;;
-      --ra-profile-name)             RA_PROFILE_NAME_BASE="$2";          shift 2 ;;
-      --tsp-profile-name)            TSP_PROFILE_NAME_BASE="$2";         shift 2 ;;
-      --signing-profile-name)        SIGNING_PROFILE_NAME_BASE="$2";     shift 2 ;;
-      --cert-poll-attempts)          CERT_POLL_ATTEMPTS="$2";            shift 2 ;;
-      --cert-poll-interval)          CERT_POLL_INTERVAL="$2";            shift 2 ;;
+      --pkcs12-bundle)                          PKCS12_BUNDLE="$2";                          shift 2 ;;
+      --pkcs12-password)                        PKCS12_PASSWORD="$2";                        shift 2 ;;
+      --token-password)                         TOKEN_PASSWORD="$2";                         shift 2 ;;
+      --ca-pem)                                 CA_PEM="$2";                                 shift 2 ;;
+      --certificate-dn)                         CERTIFICATE_DN="$2";                         shift 2 ;;
+      --ejbca-url)                              EJBCA_URL="$2";                              shift 2 ;;
+      --connector-host)                         CONNECTOR_HOST="$2";                         shift 2 ;;
+      --port-cred-provider)                     PORT_CRED_PROVIDER="$2";                     shift 2 ;;
+      --port-ejbca)                             PORT_EJBCA="$2";                             shift 2 ;;
+      --port-crypto-provider)                   PORT_CRYPTO_PROVIDER="$2";                   shift 2 ;;
+      --ilm-host)                               ILM_HOST="$2";                               shift 2 ;;
+      --client-cert-pem)                        CLIENT_CERT_PEM="$2";                        shift 2 ;;
+      --ejbca-ee-profile)                       EJBCA_EE_PROFILE="$2";                       shift 2 ;;
+      --ejbca-cert-profile)                     EJBCA_CERT_PROFILE="$2";                     shift 2 ;;
+      --ejbca-cert-profile-qualified)           EJBCA_CERT_PROFILE_QUALIFIED="$2";           shift 2 ;;
+      --ejbca-ca)                               EJBCA_CA_NAME="$2";                          shift 2 ;;
+      --credential-name)                        CREDENTIAL_NAME="$2";                        shift 2 ;;
+      --authority-name)                         AUTHORITY_NAME="$2";                         shift 2 ;;
+      --token-name)                             TOKEN_NAME="$2";                             shift 2 ;;
+      --token-profile-name)                     TOKEN_PROFILE_NAME="$2";                     shift 2 ;;
+      --key-name)                               KEY_NAME_BASE="$2";                          shift 2 ;;
+      --ra-profile-name)                        RA_PROFILE_NAME_BASE="$2";                   shift 2 ;;
+      --tsp-profile-name)                       TSP_PROFILE_NAME_BASE="$2";                  shift 2 ;;
+      --signing-profile-name)                   SIGNING_PROFILE_NAME_BASE="$2";              shift 2 ;;
+      --cert-poll-attempts)                     CERT_POLL_ATTEMPTS="$2";                     shift 2 ;;
+      --cert-poll-interval)                     CERT_POLL_INTERVAL="$2";                     shift 2 ;;
+      --time-quality-name)                      TIME_QUALITY_CONFIG_NAME="$2";               shift 2 ;;
+      --time-quality-ntp-servers)               TIME_QUALITY_NTP_SERVERS="$2";               shift 2 ;;
+      --time-quality-accuracy)                  TIME_QUALITY_ACCURACY="$2";                  shift 2 ;;
+      --time-quality-ntp-check-interval)        TIME_QUALITY_NTP_CHECK_INTERVAL="$2";        shift 2 ;;
+      --time-quality-ntp-check-timeout)         TIME_QUALITY_NTP_CHECK_TIMEOUT="$2";         shift 2 ;;
+      --time-quality-ntp-samples-per-server)    TIME_QUALITY_NTP_SAMPLES_PER_SERVER="$2";    shift 2 ;;
+      --time-quality-ntp-servers-min-reachable) TIME_QUALITY_NTP_SERVERS_MIN_REACHABLE="$2"; shift 2 ;;
+      --time-quality-max-clock-drift)           TIME_QUALITY_MAX_CLOCK_DRIFT="$2";           shift 2 ;;
+      --time-quality-leap-second-guard)         TIME_QUALITY_LEAP_SECOND_GUARD="$2";         shift 2 ;;
       --help|-h)                     usage ;;
       *) echo "Unknown option: $1"; usage ;;
     esac
@@ -486,7 +522,43 @@ setup_token_profile() {
   ok "token profile enabled"
 }
 
-# --- Step 7: Key pair ---------------------------------------------------------
+# --- Step 7: Time Quality configuration --------------------------------------
+setup_time_quality_config() {
+  local _resp ntp_servers_json
+
+  # Convert comma-separated NTP server list to a JSON array
+  ntp_servers_json=$(echo "$TIME_QUALITY_NTP_SERVERS" | \
+    jq -Rc 'split(",") | map(ltrimstr(" ") | rtrimstr(" "))')
+
+  log "Creating Time Quality configuration '${TIME_QUALITY_CONFIG_NAME}'..."
+  _resp=$(ilm_curl POST /v1/timeQualityConfigurations -d \
+    "$(jq -n \
+      --arg  name              "$TIME_QUALITY_CONFIG_NAME" \
+      --arg  accuracy          "$TIME_QUALITY_ACCURACY" \
+      --argjson ntpServers     "$ntp_servers_json" \
+      --arg  checkInterval     "$TIME_QUALITY_NTP_CHECK_INTERVAL" \
+      --arg  checkTimeout      "$TIME_QUALITY_NTP_CHECK_TIMEOUT" \
+      --argjson samplesPerSrv  "$TIME_QUALITY_NTP_SAMPLES_PER_SERVER" \
+      --argjson minReachable   "$TIME_QUALITY_NTP_SERVERS_MIN_REACHABLE" \
+      --arg  maxClockDrift     "$TIME_QUALITY_MAX_CLOCK_DRIFT" \
+      --argjson leapSecGuard   "$TIME_QUALITY_LEAP_SECOND_GUARD" \
+      '{
+        name:                   $name,
+        accuracy:               $accuracy,
+        ntpServers:             $ntpServers,
+        ntpCheckInterval:       $checkInterval,
+        ntpCheckTimeout:        $checkTimeout,
+        ntpSamplesPerServer:    $samplesPerSrv,
+        ntpServersMinReachable: $minReachable,
+        maxClockDrift:          $maxClockDrift,
+        leapSecondGuard:        $leapSecGuard,
+        customAttributes:       []
+      }')")
+  TIME_QUALITY_UUID=$(require_uuid "$_resp" "Time Quality configuration '${TIME_QUALITY_CONFIG_NAME}'")
+  ok "Time Quality configuration  $TIME_QUALITY_UUID"
+}
+
+# --- Step 8: Key pair ---------------------------------------------------------
 # Usage: setup_key_pair <key_name> <out_key_uuid_var> <out_priv_item_uuid_var>
 setup_key_pair() {
   local key_name="$1" out_key_uuid="$2" out_priv_item_uuid="$3"
@@ -566,7 +638,7 @@ setup_key_pair() {
   printf -v "$out_priv_item_uuid" '%s' "$_priv_uuid"
 }
 
-# --- Step 8: RA profile (with dynamic EJBCA profile lookup) -------------------
+# --- Step 9: RA profile (with dynamic EJBCA profile lookup) -------------------
 # Usage: setup_ra_profile <ra_name> <cert_profile_name> <out_ra_profile_uuid_var>
 setup_ra_profile() {
   local ra_name="$1" ejbca_cert_profile="$2" out_ra_uuid="$3"
@@ -710,7 +782,7 @@ setup_ra_profile() {
   printf -v "$out_ra_uuid" '%s' "$_ra_uuid"
 }
 
-# --- Step 9: Issue TSA certificate --------------------------------------------
+# --- Step 10: Issue TSA certificate --------------------------------------------
 # Usage: issue_certificate <cn> <key_uuid> <priv_item_uuid> <ra_profile_uuid> <out_cert_uuid_var>
 issue_certificate() {
   local cn="$1" key_uuid="$2" priv_item_uuid="$3" ra_profile_uuid="$4" out_cert_uuid="$5"
@@ -775,7 +847,7 @@ issue_certificate() {
   printf -v "$out_cert_uuid" '%s' "$_cert_uuid"
 }
 
-# --- Step 10: Poll for certificate issuance result ----------------------------
+# --- Step 11: Poll for certificate issuance result ----------------------------
 # Usage: poll_certificate <cert_uuid> <cn>
 poll_certificate() {
   local cert_uuid="$1" cn="$2"
@@ -816,7 +888,8 @@ poll_certificate() {
   fi
 }
 
-# --- Step 11: TSP profile -----------------------------------------------------
+
+# --- Step 12: TSP profile -----------------------------------------------------
 # Usage: setup_tsp_profile <name> <out_tsp_uuid_var>
 setup_tsp_profile() {
   local tsp_name="$1" out_tsp_uuid="$2"
@@ -835,14 +908,22 @@ setup_tsp_profile() {
   printf -v "$out_tsp_uuid" '%s' "$_tsp_uuid"
 }
 
-# --- Step 12: Signing Profile -------------------------------------------------
-# Usage: setup_signing_profile <sp_name> <cert_uuid> <policy_oid> <out_sp_uuid_var>
+# --- Step 13: Signing Profile -------------------------------------------------
+# Usage: setup_signing_profile <sp_name> <cert_uuid> <policy_oid> <time_quality_uuid> <out_sp_uuid_var>
 #
-# Note: qualifiedTimestamp is set to false because timeQualityConfiguration
-# support is not yet implemented in the platform. Update this when available.
+# Pass a non-empty <time_quality_uuid> for the qualified profile to enable
+# qualifiedTimestamp and link to the Time Quality configuration.
+# Pass an empty string for the non-qualified profile.
 setup_signing_profile() {
-  local sp_name="$1" cert_uuid="$2" policy_oid="$3" out_sp_uuid="$4"
+  local sp_name="$1" cert_uuid="$2" policy_oid="$3" time_quality_uuid="$4" out_sp_uuid="$5"
   local _resp sig_attrs sig_scheme_uuid sig_digest_uuid _sp_uuid
+  local qualified_timestamp
+
+  if [[ -n "$time_quality_uuid" ]]; then
+    qualified_timestamp="true"
+  else
+    qualified_timestamp="false"
+  fi
 
   log "Fetching signing operation attributes for certificate ${cert_uuid}..."
   sig_attrs=$(ilm_curl GET \
@@ -853,21 +934,28 @@ setup_signing_profile() {
   log "Creating Signing Profile '${sp_name}'..."
   _resp=$(ilm_curl POST /v1/signingProfiles -d \
     "$(jq -n \
-      --arg name           "$sp_name" \
-      --arg policyOid      "$policy_oid" \
-      --arg certUuid       "$cert_uuid" \
-      --arg sigSchemeUuid  "$sig_scheme_uuid" \
-      --arg sigDigestUuid  "$sig_digest_uuid" \
+      --arg  name                  "$sp_name" \
+      --arg  policyOid             "$policy_oid" \
+      --arg  certUuid              "$cert_uuid" \
+      --arg  sigSchemeUuid         "$sig_scheme_uuid" \
+      --arg  sigDigestUuid         "$sig_digest_uuid" \
+      --argjson qualifiedTimestamp "$qualified_timestamp" \
+      --arg  timeQualityUuid       "$time_quality_uuid" \
       '{
         name: $name,
-        workflow: {
-          type: "timestamping",
-          signatureFormatterConnectorAttributes: [],
-          qualifiedTimestamp: false,
-          defaultPolicyId: $policyOid,
-          allowedPolicyIds: [],
-          allowedDigestAlgorithms: []
-        },
+        workflow: (
+          {
+            type: "timestamping",
+            signatureFormatterConnectorAttributes: [],
+            qualifiedTimestamp: $qualifiedTimestamp,
+            defaultPolicyId: $policyOid,
+            allowedPolicyIds: [],
+            allowedDigestAlgorithms: []
+          }
+          | if $timeQualityUuid != "" then
+              . + {timeQualityConfigurationUuid: $timeQualityUuid}
+            else . end
+        ),
         signingScheme: {
           signingScheme: "managed",
           managedSigningType: "staticKey",
@@ -901,7 +989,7 @@ setup_signing_profile() {
   printf -v "$out_sp_uuid" '%s' "$_sp_uuid"
 }
 
-# --- Step 13: Link Signing Profile ↔ TSP Profile (bidirectional) ---------------
+# --- Step 14: Link Signing Profile ↔ TSP Profile (bidirectional) ---------------
 # Usage: link_tsp_signing_profile <tsp_uuid> <tsp_name> <sp_uuid>
 #
 # Direction 1: TSP profile → Signing Profile (sets defaultSigningProfileUuid)
@@ -957,6 +1045,7 @@ Setup complete. Created resources:
     signing-profile $nq_sp_name     $SIGNING_PROFILE_UUID_NQ
 
   TSA qualified set:
+    time-quality    $TIME_QUALITY_CONFIG_NAME       $TIME_QUALITY_UUID
     key             $q_key_name     $KEY_UUID_Q
     ra-profile      $q_ra_name      $RA_PROFILE_UUID_Q
     certificate     CN=${CERTIFICATE_DN}-qualified   $ISSUED_CERT_UUID_Q
@@ -975,6 +1064,7 @@ main() {
   setup_authority
   setup_token
   setup_token_profile
+  setup_time_quality_config
 
   # ----- Non-qualified set -----
   log "=== Setting up TSA non-qualified set ==="
@@ -996,6 +1086,7 @@ main() {
   setup_signing_profile \
     "${SIGNING_PROFILE_NAME_BASE}-non-qualified" \
     "$ISSUED_CERT_UUID_NQ" "$POLICY_ID_NON_QUALIFIED" \
+    "" \
     SIGNING_PROFILE_UUID_NQ
   link_tsp_signing_profile \
     "$TSP_PROFILE_UUID_NQ" "${TSP_PROFILE_NAME_BASE}-non-qualified" \
@@ -1021,6 +1112,7 @@ main() {
   setup_signing_profile \
     "${SIGNING_PROFILE_NAME_BASE}-qualified" \
     "$ISSUED_CERT_UUID_Q" "$POLICY_ID_QUALIFIED" \
+    "$TIME_QUALITY_UUID" \
     SIGNING_PROFILE_UUID_Q
   link_tsp_signing_profile \
     "$TSP_PROFILE_UUID_Q" "${TSP_PROFILE_NAME_BASE}-qualified" \
