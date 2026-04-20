@@ -22,6 +22,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -109,7 +110,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     public AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceReference = getAuthorityInstanceReferenceEntity(uuid);
 
-        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid());
+        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.AUTHORITY, authorityInstanceReference.getUuid()).connector(authorityInstanceReference.getConnectorUuid()).build());
 
         AuthorityInstanceDto authorityInstanceDto = authorityInstanceReference.mapToDto();
         authorityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.AUTHORITY, uuid.getValue()));
@@ -129,7 +130,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
             try {
                 List<RequestAttribute> requestAttributes = AttributeDefinitionUtils.getClientAttributes(authorityProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(authorityInstanceReference.getConnectorUuid(), null, authorityProviderInstanceDto.getAttributes());
-                attributes = attributeEngine.updateObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid(), requestAttributes);
+                attributes = attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.AUTHORITY, authorityInstanceReference.getUuid()).connector(authorityInstanceReference.getConnectorUuid()).build(), requestAttributes);
             } catch (AttributeException e) {
                 logger.warn("Could not update data attributes for authority {} retrieved from connector", authorityInstanceReference.getName());
             }
@@ -181,7 +182,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
 
         AuthorityInstanceDto dto = authorityInstanceRef.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.AUTHORITY, authorityInstanceRef.getUuid(), request.getCustomAttributes()));
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(authorityInstanceRef.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceRef.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.AUTHORITY, authorityInstanceRef.getUuid()).connector(authorityInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
         return authorityInstanceRef.mapToDto();
     }
 
@@ -217,7 +218,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
 
         AuthorityInstanceDto dto = authorityInstanceRef.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.AUTHORITY, authorityInstanceRef.getUuid(), request.getCustomAttributes()));
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(authorityInstanceRef.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceRef.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.AUTHORITY, authorityInstanceRef.getUuid()).connector(authorityInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
 
         return dto;
     }
@@ -371,7 +372,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         } else {
             logger.debug("Deleting authority without connector: {}", authorityInstanceRef);
         }
-        attributeEngine.deleteAllObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
     }
 

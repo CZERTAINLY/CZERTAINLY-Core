@@ -209,9 +209,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         // delete old connector data attributes content
         UUID oldConnectorUuid = acmeProfile.getRaProfile() == null ? null : acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
         if (oldConnectorUuid != null) {
-            ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(oldConnectorUuid, Resource.ACME_PROFILE, acmeProfile.getUuid());
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.CERTIFICATE_ISSUE, contentInfo);
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.CERTIFICATE_REVOKE, contentInfo);
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, ObjectAttributeContentInfo.builder(Resource.ACME_PROFILE, acmeProfile.getUuid()).connector(oldConnectorUuid).operation(AttributeOperation.CERTIFICATE_ISSUE).build());
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, ObjectAttributeContentInfo.builder(Resource.ACME_PROFILE, acmeProfile.getUuid()).connector(oldConnectorUuid).operation(AttributeOperation.CERTIFICATE_REVOKE).build());
         }
 
         acmeProfile.setRaProfile(raProfile);
@@ -272,8 +271,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         AcmeProfileDto dto = acmeProfile.mapToDto();
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ACME_PROFILE, acmeProfile.getUuid()));
         if (acmeProfile.getRaProfile() != null) {
-            dto.setIssueCertificateAttributes(attributeEngine.getObjectDataAttributesContent(acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.ACME_PROFILE, acmeProfile.getUuid()));
-            dto.setRevokeCertificateAttributes(attributeEngine.getObjectDataAttributesContent(acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.ACME_PROFILE, acmeProfile.getUuid()));
+            dto.setIssueCertificateAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.ACME_PROFILE, acmeProfile.getUuid()).connector(acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build()));
+            dto.setRevokeCertificateAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.ACME_PROFILE, acmeProfile.getUuid()).connector(acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build()));
         }
         if (acmeProfile.getCertificateAssociations() != null) {
             dto.setCertificateAssociations(acmeProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
@@ -290,19 +289,13 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         if (raProfile != null) {
             dto.setIssueCertificateAttributes(
                     attributeEngine.updateObjectDataAttributesContent(
-                            raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                            AttributeOperation.CERTIFICATE_ISSUE,
-                            Resource.ACME_PROFILE,
-                            acmeProfile.getUuid(),
+                            ObjectAttributeContentInfo.builder(Resource.ACME_PROFILE, acmeProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build(),
                             issueCertificateAttributes
                     )
             );
             dto.setRevokeCertificateAttributes(
                     attributeEngine.updateObjectDataAttributesContent(
-                            raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                            AttributeOperation.CERTIFICATE_REVOKE,
-                            Resource.ACME_PROFILE,
-                            acmeProfile.getUuid(),
+                            ObjectAttributeContentInfo.builder(Resource.ACME_PROFILE, acmeProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build(),
                             revokeCertificateAttributes
                     )
             );
@@ -480,7 +473,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                     )
             );
         } else {
-            attributeEngine.deleteAllObjectAttributeContent(Resource.ACME_PROFILE, acmeProfile.getUuid());
+            attributeEngine.deleteObjectAttributeContent(Resource.ACME_PROFILE, acmeProfile.getUuid());
             acmeProfileRepository.delete(acmeProfile);
         }
     }

@@ -613,7 +613,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
         List<MetadataAttribute> content = new ArrayList<>();
         content.add(metadataAttribute);
-        attributeEngine.updateMetadataAttributes(content, new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, newCertificate.getUuid()));
+        attributeEngine.updateMetadataAttributes(content, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, newCertificate.getUuid()).connector(connectorUuid).build());
 
         ConditionItem newCondition = new ConditionItem();
         newCondition.setFieldSource(FilterFieldSource.META);
