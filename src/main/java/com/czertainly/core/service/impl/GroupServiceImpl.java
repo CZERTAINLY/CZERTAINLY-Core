@@ -117,7 +117,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupEntity(uuid);
 
         objectAssociationService.removeGroupAssociations(group.getUuid());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.GROUP, group.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.GROUP, group.getUuid());
         groupRepository.delete(group);
     }
 

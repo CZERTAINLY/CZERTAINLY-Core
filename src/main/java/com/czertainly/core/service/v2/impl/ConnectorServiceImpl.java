@@ -570,7 +570,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
         connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
 
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CONNECTOR, connector.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.CONNECTOR, connector.getUuid());
         connectorRepository.delete(connector);
     }
 

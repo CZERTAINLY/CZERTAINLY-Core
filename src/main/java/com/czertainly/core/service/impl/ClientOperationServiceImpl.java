@@ -23,6 +23,7 @@ import com.czertainly.api.model.core.authority.EditEndEntityRequestDto;
 import com.czertainly.api.model.core.authority.EndEntityDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.RaProfileRepository;
@@ -149,7 +150,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
         RaProfileDto raProfileDto = raProfile.mapToDto();
-        raProfileDto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        raProfileDto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
 
         AddEndEntityRequestDto caRequest = new AddEndEntityRequestDto();
         caRequest.setUsername(request.getUsername());
@@ -185,7 +186,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
         RaProfileDto raProfileDto = raProfile.mapToDto();
-        raProfileDto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        raProfileDto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
 
         EditEndEntityRequestDto caRequest = new EditEndEntityRequestDto();
         caRequest.setPassword(request.getPassword());
@@ -229,7 +230,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     private String getEndEntityProfileName(RaProfile raProfile) {
-        var raProfileAttributes = attributeEngine.getRequestObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid());
+        var raProfileAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build());
         if (raProfileAttributes == null || raProfileAttributes.stream().noneMatch(a -> a.getName().equals("endEntityProfile"))) {
             throw new ValidationException(ValidationError.create("EndEntityProfile not found in attributes"));
         }
