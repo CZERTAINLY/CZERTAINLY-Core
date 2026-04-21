@@ -15,6 +15,8 @@ changelog:
       labels: [performance]
     - title: "🧪 QA & Testing"
       labels: [qa]
+    - title: "📖 Documentation"
+      labels: [documentation]
     - title: "📦 Dependencies"
       labels: [dependencies]
     - title: "📋 Other"
