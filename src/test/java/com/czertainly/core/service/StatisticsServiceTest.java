@@ -13,6 +13,7 @@ import com.czertainly.core.security.authz.opa.dto.OpaResourceAccessResult;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -23,6 +24,7 @@ import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.SerializationUtils;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
 
@@ -55,6 +57,9 @@ class StatisticsServiceTest extends BaseSpringBootTest {
     @Autowired
     private OwnerAssociationRepository ownerAssociationRepository;
 
+    UUID secretUuid;
+    UUID ownedSecretUuid;
+
     @Test
     void testGetStatistics() {
         StatisticsDto result = statisticsService.getStatistics(false);
@@ -75,27 +80,11 @@ class StatisticsServiceTest extends BaseSpringBootTest {
         Certificate certificateOwned = new Certificate();
         certificateOwned.setValidationStatus(CertificateValidationStatus.FAILED);
         certificateRepository.save(certificateOwned);
-        OwnerAssociation ownerAssociation = new OwnerAssociation();
-        ownerAssociation.setObjectUuid(certificateOwned.getUuid());
-        ownerAssociation.setResource(Resource.CERTIFICATE);
-        NameAndUuidDto user = AuthHelper.getUserIdentification();
-        ownerAssociation.setOwnerUsername(user.getName());
-        ownerAssociation.setOwnerUuid(UUID.fromString(user.getUuid()));
-        ownerAssociationRepository.save(ownerAssociation);
+        OwnerAssociation ownerAssociation = getOwnerAssociation(certificateOwned.getUuid(), Resource.CERTIFICATE);
         certificateOwned.setOwner(ownerAssociation);
         certificateRepository.save(certificateOwned);
 
-        OpaResourceAccessResult resourceAccessNotAllowed = new OpaResourceAccessResult(false, List.of());
-        // By default, reject all
-        Mockito.when(
-                opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
-        ).thenReturn(resourceAccessNotAllowed);
-        OpaObjectAccessResult opaObjectAccessResult = new OpaObjectAccessResult();
-        opaObjectAccessResult.setAllowedObjects(List.of());
-        opaObjectAccessResult.setForbiddenObjects(List.of(certificateNotOwned.getUuid().toString(), certificateOwned.getUuid().toString()));
-        Mockito.when(
-                        opaClient.checkObjectAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
-                .thenReturn(opaObjectAccessResult);
+        mockOpaResponses(List.of(certificateNotOwned.getUuid().toString(), certificateOwned.getUuid().toString()));
 
         // commit setup data so virtual-thread queries in addCertificateStatistics can see it
         TestTransaction.flagForCommit();
@@ -106,6 +95,32 @@ class StatisticsServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1L, result.getTotalCertificates());
         Assertions.assertFalse(result.getCertificateStatByComplianceStatus().isEmpty());
+    }
+
+    private void mockOpaResponses(List<String> forbiddenObjects) {
+        OpaResourceAccessResult resourceAccessNotAllowed = new OpaResourceAccessResult(false, List.of());
+        // By default, reject all
+        Mockito.when(
+                opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
+        ).thenReturn(resourceAccessNotAllowed);
+        OpaObjectAccessResult opaObjectAccessResult = new OpaObjectAccessResult();
+        opaObjectAccessResult.setAllowedObjects(List.of());
+        // OPA denies both, but ownership grants access to certificateOwned — this is the low-privilege path being verified
+        opaObjectAccessResult.setForbiddenObjects(forbiddenObjects);
+        Mockito.when(
+                        opaClient.checkObjectAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(opaObjectAccessResult);
+    }
+
+    private @NonNull OwnerAssociation getOwnerAssociation(UUID objectUuid, Resource resource) {
+        OwnerAssociation ownerAssociation = new OwnerAssociation();
+        ownerAssociation.setObjectUuid(objectUuid);
+        ownerAssociation.setResource(resource);
+        NameAndUuidDto user = AuthHelper.getUserIdentification();
+        ownerAssociation.setOwnerUsername(user.getName());
+        ownerAssociation.setOwnerUuid(UUID.fromString(user.getUuid()));
+        ownerAssociationRepository.save(ownerAssociation);
+        return ownerAssociation;
     }
 
     @Test
@@ -120,6 +135,45 @@ class StatisticsServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetStatistics_withSecretAndVaultEntities() throws Exception {
+        setUpSecrets();
+
+        // commit setup data so virtual-thread queries in addSecretStatistics can see it
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        TestTransaction.start();
+
+        StatisticsDto result = statisticsService.getStatistics(false);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(2L, result.getTotalSecrets());
+        Assertions.assertEquals(1L, result.getTotalVaultInstances());
+        Assertions.assertEquals(1L, result.getTotalVaultProfiles());
+        Assertions.assertEquals(1, result.getSecretStatByType().size());
+        Assertions.assertEquals(2L, result.getSecretStatByType().get(SecretType.BASIC_AUTH.getCode()));
+        Assertions.assertEquals(1, result.getSecretStatByState().size());
+        Assertions.assertEquals(2L, result.getSecretStatByState().get(SecretState.ACTIVE.getCode()));
+        Assertions.assertEquals(1, result.getSecretStatByComplianceStatus().size());
+    }
+
+    @Test
+    void testGetStatistics_withSecretAndVaultEntities_withLowPrivileges() throws Exception {
+        setUpSecrets();
+        mockOpaResponses(List.of(secretUuid.toString(), ownedSecretUuid.toString()));
+
+        // commit setup data so virtual-thread queries in addSecretStatistics can see it
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        TestTransaction.start();
+
+        StatisticsDto result = statisticsService.getStatistics(false);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1L, result.getTotalSecrets());
+        Assertions.assertEquals(0, result.getTotalVaultInstances());
+        Assertions.assertEquals(0, result.getTotalVaultProfiles());
+        Assertions.assertEquals(1, result.getSecretStatByType().size());
+        Assertions.assertEquals(1L, result.getSecretStatByType().get(SecretType.BASIC_AUTH.getCode()));
+    }
+
+    private void setUpSecrets() throws NoSuchAlgorithmException {
         VaultInstance vaultInstance = new VaultInstance();
         vaultInstance.setName("testInstance");
         vaultInstanceRepository.save(vaultInstance);
@@ -147,23 +201,34 @@ class StatisticsServiceTest extends BaseSpringBootTest {
         secret.setLatestVersion(secretVersion);
         secretRepository.save(secret);
 
+        secretUuid = secret.getUuid();
+
         secretVersion.setSecretUuid(secret.getUuid());
         secretVersionRepository.save(secretVersion);
 
-        // commit setup data so virtual-thread queries in addSecretStatistics can see it
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-        TestTransaction.start();
+        SecretVersion secretVersion2 = new SecretVersion();
+        secretVersion2.setVersion(1);
+        secretVersion2.setVaultProfile(vaultProfile);
+        secretVersion2.setFingerprint("fingerprint");
+        secretVersionRepository.save(secretVersion2);
 
-        StatisticsDto result = statisticsService.getStatistics(false);
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(1L, result.getTotalSecrets());
-        Assertions.assertEquals(1L, result.getTotalVaultInstances());
-        Assertions.assertEquals(1L, result.getTotalVaultProfiles());
-        Assertions.assertEquals(1, result.getSecretStatByType().size());
-        Assertions.assertEquals(1L, result.getSecretStatByType().get(SecretType.BASIC_AUTH.getCode()));
-        Assertions.assertEquals(1, result.getSecretStatByState().size());
-        Assertions.assertEquals(1L, result.getSecretStatByState().get(SecretState.ACTIVE.getCode()));
-        Assertions.assertEquals(1, result.getSecretStatByComplianceStatus().size());
+        Secret secretOwned = new Secret();
+        secretOwned.setName("testSecret");
+        secretOwned.setType(SecretType.BASIC_AUTH);
+        secretOwned.setState(SecretState.ACTIVE);
+        secretOwned.setSourceVaultProfile(vaultProfile);
+        secretOwned.setSourceVaultProfileUuid(vaultProfile.getUuid());
+        secretOwned.setEnabled(true);
+        secretOwned.setLatestVersion(secretVersion2);
+        secretRepository.save(secretOwned);
+
+        ownedSecretUuid = secretOwned.getUuid();
+
+        secretVersion2.setSecretUuid(secretOwned.getUuid());
+        secretVersionRepository.save(secretVersion2);
+
+        OwnerAssociation ownerAssociation = getOwnerAssociation(secretOwned.getUuid(), Resource.SECRET);
+        secretOwned.setOwner(ownerAssociation);
+        secretRepository.save(secretOwned);
     }
 }
