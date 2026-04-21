@@ -219,7 +219,7 @@ class LocationsSearchTest extends BaseSpringBootTest {
         metadataAttribute.setProperties(metadataAttributeProperties);
         metadataAttribute.setContent(List.of(new TextAttributeContentV3("reference-test-1", "data-meta-test-1")));
 
-        attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.LOCATION, location.getUuid()));
+        attributeEngine.updateMetadataAttribute(metadataAttribute, ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(connector.getUuid()).build());
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {

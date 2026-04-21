@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
@@ -123,7 +124,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstanceReference = getEntityInstanceReferenceEntity(entityUuid);
 
-        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid());
+        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.ENTITY, entityInstanceReference.getUuid()).connector(entityInstanceReference.getConnectorUuid()).build());
 
         EntityInstanceDto entityInstanceDto = entityInstanceReference.mapToDto();
         entityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ENTITY, entityUuid.getValue()));
@@ -135,14 +136,14 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
             return entityInstanceDto;
         }
 
-        com.czertainly.api.model.connector.entity.EntityInstanceDto entityProviderInstanceDto = entityInstanceApiClient.getEntityInstance(entityInstanceReference.getConnector().mapToDto(),
+        com.czertainly.api.model.connector.entity.EntityInstanceDto entityProviderInstanceDto = entityInstanceApiClient.getEntityInstance(entityInstanceReference.getConnector().mapToApiClientDtoV1(),
                 entityInstanceReference.getEntityInstanceUuid());
 
         if (attributes.isEmpty() && entityProviderInstanceDto.getAttributes() != null && !entityProviderInstanceDto.getAttributes().isEmpty()) {
             try {
                 List<RequestAttribute> requestAttributes = AttributeDefinitionUtils.getClientAttributes(entityProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, entityProviderInstanceDto.getAttributes());
-                attributes = attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid(), requestAttributes);
+                attributes = attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.ENTITY, entityInstanceReference.getUuid()).connector(entityInstanceReference.getConnectorUuid()).build(), requestAttributes);
             } catch (AttributeException e) {
                 logger.warn("Could not update data attributes for entity {} retrieved from connector", entityInstanceReference.getName());
             }
@@ -196,7 +197,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         EntityInstanceDto dto = entityInstanceRef.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceRef.getUuid(), request.getCustomAttributes()));
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(entityInstanceRef.getConnectorUuid(), null, Resource.ENTITY, entityInstanceRef.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.ENTITY, entityInstanceRef.getUuid()).connector(entityInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
         return dto;
     }
 
@@ -221,12 +222,12 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
         entityInstanceDto.setKind(entityInstanceRef.getKind());
         entityInstanceDto.setName(entityInstanceRef.getName());
-        entityInstanceApiClient.updateEntityInstance(connector.mapToDto(), entityInstanceRef.getEntityInstanceUuid(), entityInstanceDto);
+        entityInstanceApiClient.updateEntityInstance(connector.mapToApiClientDtoV1(), entityInstanceRef.getEntityInstanceUuid(), entityInstanceDto);
         entityInstanceReferenceRepository.save(entityInstanceRef);
 
         EntityInstanceDto dto = entityInstanceRef.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceRef.getUuid(), request.getCustomAttributes()));
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(entityInstanceRef.getConnectorUuid(), null, Resource.ENTITY, entityInstanceRef.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.ENTITY, entityInstanceRef.getUuid()).connector(entityInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
         return dto;
     }
 
@@ -247,7 +248,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         }
 
         entityInstanceApiClient.removeEntityInstance(entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.ENTITY, entityInstanceRef.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.ENTITY, entityInstanceRef.getUuid());
         entityInstanceReferenceRepository.delete(entityInstanceRef);
 
         logger.info("Entity instance {} was deleted", entityInstanceRef.getName());
@@ -258,7 +259,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         final EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
         final Connector connector = entityInstance.getConnector();
-        return entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
+        return entityInstanceApiClient.listLocationAttributes(connector.mapToApiClientDtoV1(), entityInstance.getEntityInstanceUuid());
     }
 
     @Override
@@ -268,7 +269,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         Connector connector = entityInstance.getConnector();
 
-        entityInstanceApiClient.validateLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid(),
+        entityInstanceApiClient.validateLocationAttributes(connector.mapToApiClientDtoV1(), entityInstance.getEntityInstanceUuid(),
                 attributes);
     }
 

@@ -6,7 +6,6 @@ import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
-import com.czertainly.api.model.core.connector.v2.ConnectorApiClientDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -123,8 +122,8 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         }).toList());
     }
 
-    public ConnectorApiClientDto mapToApiClientDto() {
-        ConnectorApiClientDto dto = new ConnectorApiClientDto();
+    public com.czertainly.api.model.core.connector.v2.ConnectorApiClientDto mapToApiClientDtoV2() {
+        var dto = new com.czertainly.api.model.core.connector.v2.ConnectorApiClientDto();
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setUrl(this.url);
@@ -135,21 +134,32 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         return dto;
     }
 
+    public com.czertainly.api.model.core.connector.ConnectorApiClientDto mapToApiClientDtoV1() {
+        var dto = new com.czertainly.api.model.core.connector.ConnectorApiClientDto();
+        populateApiClientV1Fields(dto);
+        return dto;
+    }
+
     @Override
     public com.czertainly.api.model.core.connector.ConnectorDto mapToDto() {
         var dto = new com.czertainly.api.model.core.connector.ConnectorDto();
-        dto.setUuid(this.uuid.toString());
-        dto.setName(this.name);
-        dto.setUrl(this.url);
-        dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
-        dto.setStatus(this.status);
+        populateApiClientV1Fields(dto);
         dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
             FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();
             functionGroupDto.setKinds(MetaDefinitions.deserializeArrayString(f.getKinds()));
             return functionGroupDto;
         }).toList());
         return dto;
+    }
+
+    private void populateApiClientV1Fields(com.czertainly.api.model.core.connector.ConnectorApiClientDto dto) {
+        dto.setUuid(this.uuid.toString());
+        dto.setName(this.name);
+        dto.setUrl(this.url);
+        dto.setStatus(this.status);
+        dto.setAuthType(this.authType);
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(
+                AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
     }
 
     @Override

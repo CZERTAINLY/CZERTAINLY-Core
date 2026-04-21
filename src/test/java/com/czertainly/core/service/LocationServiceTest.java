@@ -25,6 +25,7 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -201,7 +202,7 @@ class LocationServiceTest extends BaseSpringBootTest {
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
         requestAttributes.add(new RequestAttributeV2(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("newLocation"))));
-        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
+        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, newLocation.getUuid()).connector(entityInstanceReference.getConnectorUuid()).build(), requestAttributes);
         return newLocation;
     }
 
@@ -216,7 +217,7 @@ class LocationServiceTest extends BaseSpringBootTest {
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
         requestAttributes.add(new RequestAttributeV2(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("location_multi"))));
-        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
+        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, newLocation.getUuid()).connector(entityInstanceReference.getConnectorUuid()).build(), requestAttributes);
 
         return newLocation;
     }
@@ -232,7 +233,7 @@ class LocationServiceTest extends BaseSpringBootTest {
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
         requestAttributes.add(new RequestAttributeV2(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("location_no_key"))));
-        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
+        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, newLocation.getUuid()).connector(entityInstanceReference.getConnectorUuid()).build(), requestAttributes);
 
         return newLocation;
     }
