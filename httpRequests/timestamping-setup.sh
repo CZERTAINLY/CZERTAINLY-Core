@@ -2,7 +2,7 @@
 # timestamping-setup.sh
 #
 # Automates the ILM timestamping environment setup:
-#   1. Creates three connectors (credential-provider, EJBCA, crypto-provider)
+#   1. Creates four connectors (credential-provider, EJBCA, crypto-provider, signature-formatter)
 #   2. Uploads the CA certificate and marks it trusted
 #   3. Creates a SoftKeyStore credential from a PKCS12 bundle
 #   4. Creates an EJBCA authority instance
@@ -31,6 +31,7 @@ CONNECTOR_HOST="localhost"
 PORT_CRED_PROVIDER="8201"
 PORT_EJBCA="8210"
 PORT_CRYPTO_PROVIDER="8230"
+PORT_FORMATTER="8270"
 
 PKCS12_BUNDLE=""
 PKCS12_PASSWORD="00000000"
@@ -52,6 +53,7 @@ KEY_NAME_BASE="tsa-rsa"           # -non-qualified / -qualified appended
 RA_PROFILE_NAME_BASE="tsa"        # -non-qualified / -qualified appended
 TSP_PROFILE_NAME_BASE="tsp"       # -non-qualified / -qualified appended
 SIGNING_PROFILE_NAME_BASE="tsa"   # -non-qualified / -qualified appended
+FORMATTER_CONNECTOR_NAME="signature-formatter"
 
 # Policy OIDs (hardcoded; can be overridden via CLI)
 POLICY_ID_NON_QUALIFIED="1.2.3.4.5.6"
@@ -76,6 +78,7 @@ CLIENT_CERT_HEADER_VAL=""
 CRED_CONN_UUID=""
 EJBCA_CONN_UUID=""
 CRYPTO_CONN_UUID=""
+FORMATTER_CONN_UUID=""
 CA_CERT_UUID=""
 CRED_UUID=""
 AUTH_UUID=""
@@ -113,11 +116,14 @@ Required:
   --certificate-dn PREFIX     DN prefix for TSA certificates.
                               Actual CNs will be <PREFIX>-non-qualified and <PREFIX>-qualified.
 
-Connector options (defaults: localhost, ports 8201/8210/8230):
+Connector options (defaults: localhost, ports 8200/8210/8230/8240):
   --connector-host HOST       Hostname for connectors as seen from ILM server
-  --port-cred-provider PORT   common-credential-provider port     (default: 8201)
+  --port-cred-provider PORT   common-credential-provider port     (default: 8200)
   --port-ejbca PORT           ejbca-ng-connector port             (default: 8210)
   --port-crypto-provider PORT software-cryptography-provider port (default: 8230)
+  --port-formatter PORT       signature-formatter-connector port  (default: 8240)
+  --formatter-connector-name NAME
+                              Signature Formatter Connector name  (default: signature-formatter)
 
 Credential/token options:
   --pkcs12-password PASS      PKCS12 bundle password     (default: 00000000)
@@ -247,6 +253,8 @@ parse_args() {
       --port-cred-provider)                     PORT_CRED_PROVIDER="$2";                     shift 2 ;;
       --port-ejbca)                             PORT_EJBCA="$2";                             shift 2 ;;
       --port-crypto-provider)                   PORT_CRYPTO_PROVIDER="$2";                   shift 2 ;;
+      --port-formatter)                         PORT_FORMATTER="$2";                         shift 2 ;;
+      --formatter-connector-name)               FORMATTER_CONNECTOR_NAME="$2";               shift 2 ;;
       --ilm-host)                               ILM_HOST="$2";                               shift 2 ;;
       --client-cert-pem)                        CLIENT_CERT_PEM="$2";                        shift 2 ;;
       --ejbca-ee-profile)                       EJBCA_EE_PROFILE="$2";                       shift 2 ;;
@@ -327,6 +335,12 @@ setup_connectors() {
     "{\"name\":\"software-cryptography-provider\",\"url\":\"http://${CONNECTOR_HOST}:${PORT_CRYPTO_PROVIDER}\",\"authType\":\"none\",\"customAttributes\":[],\"version\":\"v1\"}")
   CRYPTO_CONN_UUID=$(require_uuid "$_resp" "software-cryptography-provider connector")
   ok "software-cryptography-provider  $CRYPTO_CONN_UUID"
+
+  log "Creating signature-formatter connector (port ${PORT_FORMATTER})..."
+  _resp=$(ilm_curl POST /v2/connectors -d \
+    "{\"name\":\"${FORMATTER_CONNECTOR_NAME}\",\"url\":\"http://${CONNECTOR_HOST}:${PORT_FORMATTER}\",\"authType\":\"none\",\"customAttributes\":[],\"version\":\"v2\"}")
+  FORMATTER_CONN_UUID=$(require_uuid "$_resp" "signature-formatter connector")
+  ok "signature-formatter  $FORMATTER_CONN_UUID"
 }
 
 # --- Step 2: CA certificate upload --------------------------------------------
@@ -909,14 +923,14 @@ setup_tsp_profile() {
 }
 
 # --- Step 13: Signing Profile -------------------------------------------------
-# Usage: setup_signing_profile <sp_name> <cert_uuid> <policy_oid> <time_quality_uuid> <out_sp_uuid_var>
+# Usage: setup_signing_profile <sp_name> <cert_uuid> <policy_oid> <time_quality_uuid> <formatter_conn_uuid> <out_sp_uuid_var>
 #
 # Pass a non-empty <time_quality_uuid> for the qualified profile to enable
 # qualifiedTimestamp and link to the Time Quality configuration.
 # Pass an empty string for the non-qualified profile.
 setup_signing_profile() {
-  local sp_name="$1" cert_uuid="$2" policy_oid="$3" time_quality_uuid="$4" out_sp_uuid="$5"
-  local _resp sig_attrs sig_scheme_uuid sig_digest_uuid _sp_uuid
+  local sp_name="$1" cert_uuid="$2" policy_oid="$3" time_quality_uuid="$4" formatter_conn_uuid="$5" out_sp_uuid="$6"
+  local _resp sig_attrs sig_scheme_uuid sig_digest_uuid _sp_uuid formatter_attrs
   local qualified_timestamp
 
   if [[ -n "$time_quality_uuid" ]]; then
@@ -931,6 +945,11 @@ setup_signing_profile() {
   sig_scheme_uuid=$(attr_uuid "$sig_attrs" "data_rsaSigScheme" "string")
   sig_digest_uuid=$(attr_uuid "$sig_attrs" "data_sigDigest"    "string")
 
+  log "Fetching signature formatter connector attributes..."
+  formatter_attrs=$(ilm_curl GET \
+    "/v1/signingProfiles/signatureFormatterConnectors/${formatter_conn_uuid}/formatterAttributes" \
+    | jq '[.[] | .version = ("v" + (.version | tostring))]')
+
   log "Creating Signing Profile '${sp_name}'..."
   _resp=$(ilm_curl POST /v1/signingProfiles -d \
     "$(jq -n \
@@ -941,12 +960,15 @@ setup_signing_profile() {
       --arg  sigDigestUuid         "$sig_digest_uuid" \
       --argjson qualifiedTimestamp "$qualified_timestamp" \
       --arg  timeQualityUuid       "$time_quality_uuid" \
+      --arg  formatterConnUuid     "$formatter_conn_uuid" \
+      --argjson formatterAttrs     "$formatter_attrs" \
       '{
         name: $name,
         workflow: (
           {
             type: "timestamping",
-            signatureFormatterConnectorAttributes: [],
+            signatureFormatterConnectorUuid: $formatterConnUuid,
+            signatureFormatterConnectorAttributes: $formatterAttrs,
             qualifiedTimestamp: $qualifiedTimestamp,
             defaultPolicyId: $policyOid,
             allowedPolicyIds: [],
@@ -1031,6 +1053,7 @@ Setup complete. Created resources:
     connector       common-credential-provider      $CRED_CONN_UUID
     connector       ejbca-ng-connector              $EJBCA_CONN_UUID
     connector       software-cryptography-provider  $CRYPTO_CONN_UUID
+    connector       $FORMATTER_CONNECTOR_NAME       $FORMATTER_CONN_UUID
     ca-cert         $(basename "$CA_PEM") (trusted) $CA_CERT_UUID
     credential      $CREDENTIAL_NAME                $CRED_UUID
     authority       $AUTHORITY_NAME                 $AUTH_UUID
@@ -1087,6 +1110,7 @@ main() {
     "${SIGNING_PROFILE_NAME_BASE}-non-qualified" \
     "$ISSUED_CERT_UUID_NQ" "$POLICY_ID_NON_QUALIFIED" \
     "" \
+    "$FORMATTER_CONN_UUID" \
     SIGNING_PROFILE_UUID_NQ
   link_tsp_signing_profile \
     "$TSP_PROFILE_UUID_NQ" "${TSP_PROFILE_NAME_BASE}-non-qualified" \
@@ -1113,6 +1137,7 @@ main() {
     "${SIGNING_PROFILE_NAME_BASE}-qualified" \
     "$ISSUED_CERT_UUID_Q" "$POLICY_ID_QUALIFIED" \
     "$TIME_QUALITY_UUID" \
+    "$FORMATTER_CONN_UUID" \
     SIGNING_PROFILE_UUID_Q
   link_tsp_signing_profile \
     "$TSP_PROFILE_UUID_Q" "${TSP_PROFILE_NAME_BASE}-qualified" \
