@@ -19,7 +19,7 @@ import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
 import com.czertainly.api.clients.secret.SecretApiClient;
 import com.czertainly.api.clients.secret.VaultApiClient;
-import com.czertainly.core.service.tsa.formatter.connector.TimestampingConnectorApiClient;
+import com.czertainly.api.clients.signing.TimestampingConnectorApiClient;
 import com.czertainly.api.clients.v2.InfoApiClient;
 import com.czertainly.api.clients.v2.MetricsApiClient;
 import com.czertainly.core.security.authn.client.ResourceApiClient;

@@ -62,7 +62,7 @@ import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationReposi
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
-import com.czertainly.core.service.tsa.formatter.connector.TimestampingConnectorApiClient;
+import com.czertainly.api.clients.signing.TimestampingConnectorApiClient;
 import com.czertainly.core.mapper.signing.SigningProfileMapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.signing.SigningProfileModel;
@@ -199,9 +199,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     public List<DataAttribute> listSignatureFormatterConnectorAttributes(UUID connectorUuid, SecuredUUID signingProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
         Connector connector = connectorRepository.findByUuid(connectorUuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
-        List<DataAttribute> definitions = timestampingConnectorApiClient.listFormatterAttributes(connector.mapToDto());
+        List<BaseAttribute> definitions = timestampingConnectorApiClient.listFormatterAttributes(connector.mapToDto());
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.WORKFLOW_FORMATTER, definitions);
-        return definitions;
+        return definitions.stream().map(DataAttribute.class::cast).toList();
     }
 
     // ──────────────────────────────────────────────────────────────────────────
