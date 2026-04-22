@@ -41,6 +41,7 @@ public class AuthenticationServiceException extends AuthenticationException {
         AuthenticationServiceExceptionDto dto = new AuthenticationServiceExceptionDto();
         dto.setMessage(message);
         dto.setStatusCode(statusCode);
+        this.exception = dto;
     }
 
     public AuthenticationServiceExceptionDto getException() {
