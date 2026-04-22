@@ -4,10 +4,9 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationUpdateRequestDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -22,7 +21,6 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration_;
-
 import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.czertainly.core.mapper.signing.TimeQualityConfigurationMapper;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -52,7 +50,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service(Resource.Codes.TIME_QUALITY_CONFIGURATION)
-@Transactional
 public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigurationService {
 
     private AttributeEngine attributeEngine;
@@ -67,6 +64,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
+    @Transactional
     public PaginationResponseDto<TimeQualityConfigurationListDto> listTimeQualityConfigurations(SearchRequestDto request, SecurityFilter filter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<TimeQualityConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
@@ -85,6 +83,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL)
+    @Transactional
     public TimeQualityConfigurationDto getTimeQualityConfiguration(SecuredUUID uuid) throws NotFoundException {
         TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));
@@ -94,7 +93,8 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.CREATE)
-    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationCreateRequestDto request) throws AttributeException, NotFoundException {
+    @Transactional
+    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AttributeException, NotFoundException {
         attributeEngine.validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
 
         TimeQualityConfiguration configuration = new TimeQualityConfiguration();
@@ -115,7 +115,8 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.UPDATE)
-    public TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid, TimeQualityConfigurationUpdateRequestDto request) throws NotFoundException, AttributeException {
+    @Transactional
+    public TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid, TimeQualityConfigurationRequestDto request) throws NotFoundException, AttributeException {
         TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));
         attributeEngine.validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
@@ -137,12 +138,14 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DELETE)
+    @Transactional
     public void deleteTimeQualityConfiguration(SecuredUUID uuid) throws NotFoundException {
         deleteTimeQualityConfiguration(getTimeQualityConfigurationEntity(uuid));
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DELETE)
+    @Transactional
     public List<BulkActionMessageDto> bulkDeleteTimeQualityConfigurations(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
@@ -163,24 +166,28 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     // ──────────────────────────────────────────────────────────────────────────
 
     @Override
+    @Transactional
     public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return timeQualityConfigurationRepository.findResourceObject(objectUuid, TimeQualityConfiguration_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL)
+    @Transactional
     public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
         return timeQualityConfigurationRepository.findResourceObject(objectUuid.getValue(), TimeQualityConfiguration_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
+    @Transactional
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return timeQualityConfigurationRepository.listResourceObjects(filter, TimeQualityConfiguration_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.UPDATE)
+    @Transactional
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         timeQualityConfigurationRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));

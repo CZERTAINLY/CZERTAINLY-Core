@@ -4,10 +4,9 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.TimeQualityConfigurationController;
 import com.czertainly.api.model.client.signing.profile.SimplifiedSigningProfileDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationUpdateRequestDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
@@ -62,13 +61,13 @@ public class TimeQualityConfigurationControllerImpl implements TimeQualityConfig
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION, operation = Operation.CREATE)
-    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationCreateRequestDto request) throws AttributeException, NotFoundException {
+    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AttributeException, NotFoundException {
         return timeQualityConfigurationService.createTimeQualityConfiguration(request);
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION, operation = Operation.UPDATE)
-    public TimeQualityConfigurationDto updateTimeQualityConfiguration(@LogResource(uuid = true) UUID uuid, TimeQualityConfigurationUpdateRequestDto request) throws NotFoundException, AttributeException {
+    public TimeQualityConfigurationDto updateTimeQualityConfiguration(@LogResource(uuid = true) UUID uuid, TimeQualityConfigurationRequestDto request) throws NotFoundException, AttributeException {
         return timeQualityConfigurationService.updateTimeQualityConfiguration(SecuredUUID.fromUUID(uuid), request);
     }
 

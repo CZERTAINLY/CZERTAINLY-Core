@@ -6,12 +6,10 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationUpdateRequestDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
 import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
@@ -114,8 +112,8 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
     // Helpers
     // ──────────────────────────────────────────────────────────────────────────
 
-    private TimeQualityConfigurationCreateRequestDto buildCreateRequest(String name) {
-        TimeQualityConfigurationCreateRequestDto request = new TimeQualityConfigurationCreateRequestDto();
+    private TimeQualityConfigurationRequestDto buildCreateRequest(String name) {
+        TimeQualityConfigurationRequestDto request = new TimeQualityConfigurationRequestDto();
         request.setName(name);
         request.setAccuracy(Duration.ofSeconds(1));
         request.setNtpServers(List.of("pool.ntp.org", "time.google.com"));
@@ -128,8 +126,8 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
         return request;
     }
 
-    private TimeQualityConfigurationUpdateRequestDto buildUpdateRequest(String name) {
-        TimeQualityConfigurationUpdateRequestDto request = new TimeQualityConfigurationUpdateRequestDto();
+    private TimeQualityConfigurationRequestDto buildUpdateRequest(String name) {
+        TimeQualityConfigurationRequestDto request = new TimeQualityConfigurationRequestDto();
         request.setName(name);
         request.setAccuracy(Duration.ofMillis(500));
         request.setNtpServers(List.of("time.cloudflare.com"));
@@ -241,7 +239,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testCreateTimeQualityConfiguration_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
-        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("new-tq-config");
+        TimeQualityConfigurationRequestDto request = buildCreateRequest("new-tq-config");
 
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
 
@@ -276,7 +274,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testCreateTimeQualityConfiguration_withLeapSecondGuardFalse_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
-        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("no-leap-guard");
+        TimeQualityConfigurationRequestDto request = buildCreateRequest("no-leap-guard");
         request.setLeapSecondGuard(false);
 
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
@@ -291,7 +289,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testCreateTimeQualityConfiguration_multipleNtpServers_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
-        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("multi-ntp");
+        TimeQualityConfigurationRequestDto request = buildCreateRequest("multi-ntp");
         request.setNtpServers(List.of("ntp1.example.com", "ntp2.example.com", "ntp3.example.com"));
 
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
@@ -309,7 +307,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testCreateTimeQualityConfiguration_customAccuracyAndDrift_assertDtoAndDbEntity() throws AttributeException, NotFoundException {
-        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("custom-accuracy");
+        TimeQualityConfigurationRequestDto request = buildCreateRequest("custom-accuracy");
         request.setAccuracy(Duration.ofMillis(100));
         request.setMaxClockDrift(Duration.ofMillis(200));
 
@@ -318,8 +316,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(Duration.ofMillis(100), dto.getAccuracy());
         Assertions.assertEquals(Duration.ofMillis(200), dto.getMaxClockDrift());
 
-        Optional<TimeQualityConfiguration> fromDb =
-                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(Duration.ofMillis(100), fromDb.get().getAccuracy());
         Assertions.assertEquals(Duration.ofMillis(200), fromDb.get().getMaxClockDrift());
@@ -331,7 +328,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testUpdateTimeQualityConfiguration_assertDtoAndDbEntity() throws NotFoundException, AttributeException {
-        TimeQualityConfigurationUpdateRequestDto request = buildUpdateRequest("updated-tq-config");
+        TimeQualityConfigurationRequestDto request = buildUpdateRequest("updated-tq-config");
 
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
                 savedConfiguration.getSecuredUuid(), request);
@@ -367,7 +364,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testUpdateTimeQualityConfiguration_notFound_throwsNotFoundException() {
-        TimeQualityConfigurationUpdateRequestDto request = buildUpdateRequest("does-not-matter");
+        TimeQualityConfigurationRequestDto request = buildUpdateRequest("does-not-matter");
 
         Assertions.assertThrows(NotFoundException.class,
                 () -> timeQualityConfigurationService.updateTimeQualityConfiguration(
@@ -388,7 +385,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testUpdateTimeQualityConfiguration_ntpServersReplaced_assertDtoAndDbEntity() throws NotFoundException, AttributeException {
-        TimeQualityConfigurationUpdateRequestDto request = buildUpdateRequest("servers-replaced");
+        TimeQualityConfigurationRequestDto request = buildUpdateRequest("servers-replaced");
         request.setNtpServers(List.of("ntp-a.example.com", "ntp-b.example.com"));
 
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
@@ -514,7 +511,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
                 CUSTOM_ATTR_NAME, AttributeContentType.STRING,
                 List.of(new StringAttributeContentV3("tq-value-on-create")));
 
-        TimeQualityConfigurationCreateRequestDto request = buildCreateRequest("tq-with-custom-attr");
+        TimeQualityConfigurationRequestDto request = buildCreateRequest("tq-with-custom-attr");
         request.setCustomAttributes(List.of(customAttr));
 
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
@@ -531,14 +528,14 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
         RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
                 CUSTOM_ATTR_NAME, AttributeContentType.STRING,
                 List.of(new StringAttributeContentV3("initial-value")));
-        TimeQualityConfigurationCreateRequestDto createRequest = buildCreateRequest("tq-update-custom-attr");
+        TimeQualityConfigurationRequestDto createRequest = buildCreateRequest("tq-update-custom-attr");
         createRequest.setCustomAttributes(List.of(createAttr));
         TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
 
         RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
                 CUSTOM_ATTR_NAME, AttributeContentType.STRING,
                 List.of(new StringAttributeContentV3("updated-value")));
-        TimeQualityConfigurationUpdateRequestDto updateRequest = buildUpdateRequest("tq-update-custom-attr");
+        TimeQualityConfigurationRequestDto updateRequest = buildUpdateRequest("tq-update-custom-attr");
         updateRequest.setCustomAttributes(List.of(updateAttr));
         TimeQualityConfigurationDto updated = timeQualityConfigurationService.updateTimeQualityConfiguration(
                 SecuredUUID.fromString(created.getUuid()), updateRequest);
@@ -555,7 +552,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
                 CUSTOM_ATTR_NAME, AttributeContentType.STRING,
                 List.of(new StringAttributeContentV3("get-test-value")));
 
-        TimeQualityConfigurationCreateRequestDto createRequest = buildCreateRequest("tq-get-custom-attr");
+        TimeQualityConfigurationRequestDto createRequest = buildCreateRequest("tq-get-custom-attr");
         createRequest.setCustomAttributes(List.of(customAttr));
         TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
 
@@ -575,7 +572,7 @@ class TimeQualityConfigurationServiceImplTest extends BaseSpringBootTest {
                 CUSTOM_ATTR_NAME, AttributeContentType.STRING,
                 List.of(new StringAttributeContentV3("to-be-deleted-value")));
 
-        TimeQualityConfigurationCreateRequestDto createRequest = buildCreateRequest("tq-delete-custom-attr");
+        TimeQualityConfigurationRequestDto createRequest = buildCreateRequest("tq-delete-custom-attr");
         createRequest.setCustomAttributes(List.of(customAttr));
         TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
 

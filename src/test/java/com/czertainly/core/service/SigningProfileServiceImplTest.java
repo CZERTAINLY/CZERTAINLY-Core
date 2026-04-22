@@ -27,8 +27,8 @@ import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowT
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
 import com.czertainly.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
 import com.czertainly.api.model.client.signing.profile.workflow.WorkflowRequestDto;
-import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationCreateRequestDto;
 import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationDto;
+import com.czertainly.api.model.client.signing.timequality.TimeQualityConfigurationRequestDto;
 import com.czertainly.api.model.core.oid.SystemOid;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
@@ -2076,7 +2076,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testCreateSigningProfile_timestampingWorkflow_withTimeQualityConfigurationUuid_headerLinkedAndReturnedInDto()
             throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationDto tqc = timeQualityConfigurationService
-                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-create-link"));
+                .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-for-create-link"));
 
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
         workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
@@ -2120,7 +2120,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testUpdateSigningProfile_workflowChangedFromTimestamping_timeQualityConfigurationClearedFromHeader()
             throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationDto tqc = timeQualityConfigurationService
-                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-clear-test"));
+                .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-for-clear-test"));
 
         TimestampingWorkflowRequestDto timestampingWorkflow = new TimestampingWorkflowRequestDto();
         timestampingWorkflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
@@ -2153,7 +2153,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testGetManagedTimestampingProfileModel_withLinkedTqcAndValidateTokenSignature_modelCarriesBothFields()
             throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationDto tqc = timeQualityConfigurationService
-                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-model-test"));
+                .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-for-model-test"));
 
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
         scheme.setCertificateUuid(tsaCertificate.getUuid());
@@ -2194,7 +2194,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testListSigningProfilesAssociatedTimeQualityConfiguration_returnsAssociatedProfiles()
             throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationDto tqc = timeQualityConfigurationService
-                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-list-test"));
+                .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-for-list-test"));
         UUID tqcUuid = UUID.fromString(tqc.getUuid());
 
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
@@ -2229,7 +2229,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testListSigningProfilesAssociatedTimeQualityConfiguration_emptyWhenNoneAssociated()
             throws AttributeException, NotFoundException {
         TimeQualityConfigurationDto tqc = timeQualityConfigurationService
-                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-no-profiles"));
+                .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-no-profiles"));
 
         List<SimplifiedSigningProfileDto> result = signingProfileService
                 .listSigningProfilesAssociatedTimeQualityConfiguration(SecuredUUID.fromString(tqc.getUuid()), SecurityFilter.create());
@@ -2242,9 +2242,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testListSigningProfilesAssociatedTimeQualityConfiguration_returnsOnlyProfilesLinkedToSpecificTqc()
             throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationDto tqcA = timeQualityConfigurationService
-                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-A"));
+                .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-A"));
         TimeQualityConfigurationDto tqcB = timeQualityConfigurationService
-                .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-B"));
+                .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-B"));
 
         TimestampingWorkflowRequestDto workflowA = new TimestampingWorkflowRequestDto();
         workflowA.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
@@ -2419,8 +2419,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         signingRecordRepository.save(sig);
     }
 
-    private TimeQualityConfigurationCreateRequestDto buildTqcCreateRequest(String name) {
-        TimeQualityConfigurationCreateRequestDto req = new TimeQualityConfigurationCreateRequestDto();
+    private TimeQualityConfigurationRequestDto buildTimeQualityConfigurationRequestDto(String name) {
+        TimeQualityConfigurationRequestDto req = new TimeQualityConfigurationRequestDto();
         req.setName(name);
         req.setAccuracy(java.time.Duration.ofSeconds(1));
         req.setNtpServers(List.of("pool.ntp.org"));
