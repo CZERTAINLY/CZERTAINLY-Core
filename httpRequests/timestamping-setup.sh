@@ -116,12 +116,12 @@ Required:
   --certificate-dn PREFIX     DN prefix for TSA certificates.
                               Actual CNs will be <PREFIX>-non-qualified and <PREFIX>-qualified.
 
-Connector options (defaults: localhost, ports 8200/8210/8230/8240):
+Connector options (defaults: localhost, ports 8200/8210/8230/8270):
   --connector-host HOST       Hostname for connectors as seen from ILM server
   --port-cred-provider PORT   common-credential-provider port     (default: 8200)
   --port-ejbca PORT           ejbca-ng-connector port             (default: 8210)
   --port-crypto-provider PORT software-cryptography-provider port (default: 8230)
-  --port-formatter PORT       signature-formatter-connector port  (default: 8240)
+  --port-formatter PORT       signature-formatter-connector port  (default: 8270)
   --formatter-connector-name NAME
                               Signature Formatter Connector name  (default: signature-formatter)
 
