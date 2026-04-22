@@ -193,6 +193,12 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
      */
     private Certificate tsaCertificate;
 
+    /**
+     * A Connector used as the signature formatter connector in CONTENT_SIGNING and TIMESTAMPING workflow tests
+     * that do not exercise formatter attribute persistence specifically.
+     */
+    private Connector formatterConnector;
+
     @BeforeEach
     void setUp() {
         savedProfile = new SigningProfile();
@@ -295,6 +301,8 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         tsaCertificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid())));
         tsaCertificate.setExtendedKeyUsageCritical(true);
         tsaCertificate = certificateRepository.saveAndFlush(tsaCertificate);
+
+        formatterConnector = createFormatterConnector("default-formatter-connector");
 
         // Register a custom attribute available for Signing Profile resources
         CustomAttributeV3 attrDef = new CustomAttributeV3();
@@ -621,6 +629,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testCreateSigningProfile_timestampingWorkflowWithPoliciesAndAlgorithms_assertEntityFields() throws AlreadyExistException, AttributeException, NotFoundException {
         TimestampingWorkflowRequestDto timestampingWorkflow = new TimestampingWorkflowRequestDto();
+        timestampingWorkflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         timestampingWorkflow.setDefaultPolicyId("1.2.3.4.5");
         timestampingWorkflow.setAllowedPolicyIds(List.of("1.2.3.4.5", "1.2.3.4.6"));
         timestampingWorkflow.setAllowedDigestAlgorithms(List.of(DigestAlgorithm.SHA_256, DigestAlgorithm.SHA_384));
@@ -672,7 +681,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         StaticKeyManagedSigningRequestDto managedContentScheme = new StaticKeyManagedSigningRequestDto();
         managedContentScheme.setCertificateUuid(certificate.getUuid());
         request.setSigningScheme(managedContentScheme);
-        request.setWorkflow(new ContentSigningWorkflowRequestDto());
+        ContentSigningWorkflowRequestDto managedContentWorkflow = new ContentSigningWorkflowRequestDto();
+        managedContentWorkflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
+        request.setWorkflow(managedContentWorkflow);
 
         SigningProfileDto dto = signingProfileService.createSigningProfile(request);
 
@@ -980,6 +991,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     void testUpdateSigningProfile_changeWorkflowFromRawToTimestamping() throws AlreadyExistException, AttributeException, NotFoundException {
         // savedProfile uses RAW_SIGNING workflow
         TimestampingWorkflowRequestDto timestampingWorkflow = new TimestampingWorkflowRequestDto();
+        timestampingWorkflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         timestampingWorkflow.setDefaultPolicyId("1.2.3.4.5");
         timestampingWorkflow.setAllowedPolicyIds(List.of("1.2.3.4.5"));
         timestampingWorkflow.setQualifiedTimestamp(false);
@@ -2067,6 +2079,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-create-link"));
 
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflow.setTimeQualityConfigurationUuid(UUID.fromString(tqc.getUuid()));
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
@@ -2110,6 +2123,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-for-clear-test"));
 
         TimestampingWorkflowRequestDto timestampingWorkflow = new TimestampingWorkflowRequestDto();
+        timestampingWorkflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         timestampingWorkflow.setTimeQualityConfigurationUuid(UUID.fromString(tqc.getUuid()));
 
         SigningProfileRequestDto createRequest = new SigningProfileRequestDto();
@@ -2148,6 +2162,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
 
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflow.setTimeQualityConfigurationUuid(UUID.fromString(tqc.getUuid()));
         workflow.setValidateTokenSignature(true);
 
@@ -2183,6 +2198,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         UUID tqcUuid = UUID.fromString(tqc.getUuid());
 
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflow.setTimeQualityConfigurationUuid(tqcUuid);
 
         SigningProfileRequestDto r1 = new SigningProfileRequestDto();
@@ -2192,6 +2208,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileDto p1 = signingProfileService.createSigningProfile(r1);
 
         TimestampingWorkflowRequestDto workflow2 = new TimestampingWorkflowRequestDto();
+        workflow2.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflow2.setTimeQualityConfigurationUuid(tqcUuid);
         SigningProfileRequestDto r2 = new SigningProfileRequestDto();
         r2.setName("list-ts-profile-two");
@@ -2230,6 +2247,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 .createTimeQualityConfiguration(buildTqcCreateRequest("tqc-B"));
 
         TimestampingWorkflowRequestDto workflowA = new TimestampingWorkflowRequestDto();
+        workflowA.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflowA.setTimeQualityConfigurationUuid(UUID.fromString(tqcA.getUuid()));
         SigningProfileRequestDto reqA = new SigningProfileRequestDto();
         reqA.setName("profile-linked-to-tqc-A");
@@ -2238,6 +2256,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         SigningProfileDto profileA = signingProfileService.createSigningProfile(reqA);
 
         TimestampingWorkflowRequestDto workflowB = new TimestampingWorkflowRequestDto();
+        workflowB.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflowB.setTimeQualityConfigurationUuid(UUID.fromString(tqcB.getUuid()));
         SigningProfileRequestDto reqB = new SigningProfileRequestDto();
         reqB.setName("profile-linked-to-tqc-B");
@@ -2307,7 +2326,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         request.setName(name);
         request.setDescription("Test description for " + name);
         request.setSigningScheme(new DelegatedSigningRequestDto());
-        request.setWorkflow(new ContentSigningWorkflowRequestDto());
+        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
+        request.setWorkflow(workflow);
         return request;
     }
 
@@ -2319,7 +2340,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         request.setName(name);
         request.setDescription("Test description for " + name);
         request.setSigningScheme(new DelegatedSigningRequestDto());
-        request.setWorkflow(new TimestampingWorkflowRequestDto());
+        TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
+        request.setWorkflow(workflow);
         return request;
     }
 
@@ -2354,7 +2377,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
         request.setSigningScheme(scheme);
-        request.setWorkflow(new TimestampingWorkflowRequestDto());
+        TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
+        request.setWorkflow(workflow);
         return request;
     }
 
@@ -2373,6 +2398,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
         request.setSigningScheme(scheme);
         TimestampingWorkflowRequestDto wf = new TimestampingWorkflowRequestDto();
+        wf.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         wf.setDefaultPolicyId("1.2.3.4.5");
         wf.setAllowedPolicyIds(List.of("1.2.3.4.5", "1.2.3.4.6"));
         wf.setAllowedDigestAlgorithms(List.of(DigestAlgorithm.SHA_256));

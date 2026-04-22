@@ -219,12 +219,13 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         tsaCert = buildTsaCertificate(tsaKeyPair);
 
         Connector connector = persistConnector();
+        Connector formatterConnector = persistFormatterConnector();
         TokenInstanceReference tokenInstance = persistTokenInstance(connector);
         TokenProfile tokenProfile = persistTokenProfile(tokenInstance);
         CryptographicKey key = persistCryptographicKey(tokenInstance, tokenProfile, tsaKeyPair);
         Certificate certificate = persistTsaCertificate(key, tsaCert);
 
-        createSigningProfile(certificate);
+        createSigningProfile(certificate, formatterConnector);
         createTspProfile();
     }
 
@@ -250,6 +251,15 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connector.setName("tsp-crypto-connector");
         connector.setUrl("http://localhost:" + wireMockServer.port());
+        connector.setVersion(ConnectorVersion.V1);
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        return connectorRepository.save(connector);
+    }
+
+    private Connector persistFormatterConnector() {
+        Connector connector = new Connector();
+        connector.setName("tsp-formatter-connector");
+        connector.setUrl("http://localhost:" + wireMockServer.port() + "/formatter");
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         return connectorRepository.save(connector);
@@ -347,7 +357,7 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         return certificateRepository.saveAndFlush(cert);
     }
 
-    private void createSigningProfile(Certificate certificate) throws Exception {
+    private void createSigningProfile(Certificate certificate, Connector formatterConnector) throws Exception {
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
         scheme.setCertificateUuid(certificate.getUuid());
         scheme.setSigningOperationAttributes(List.of(
@@ -355,6 +365,7 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
                 buildDigestAttribute(DigestAlgorithm.SHA_256)));
 
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflow.setQualifiedTimestamp(false);
         workflow.setDefaultPolicyId("1.2.3.4.5");
         workflow.setValidateTokenSignature(true);
