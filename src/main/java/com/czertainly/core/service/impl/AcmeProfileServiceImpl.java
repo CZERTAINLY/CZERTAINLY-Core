@@ -473,7 +473,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                     )
             );
         } else {
-            attributeEngine.deleteAllObjectAttributeContent(Resource.ACME_PROFILE, acmeProfile.getUuid());
+            attributeEngine.deleteObjectAttributeContent(Resource.ACME_PROFILE, acmeProfile.getUuid());
             acmeProfileRepository.delete(acmeProfile);
         }
     }

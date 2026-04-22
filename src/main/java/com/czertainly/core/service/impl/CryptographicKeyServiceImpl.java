@@ -511,7 +511,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 if (key.getTokenInstanceReference() != null)
                     destroyKeyFromConnector(key.getTokenInstanceReference(), keyItem.getKeyReferenceUuid());
                 key.getItems().remove(keyItem);
-                attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
+                attributeEngine.deleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
                 cryptographicKeyItemRepository.delete(keyItem);
                 cryptographicKeyRepository.save(key);
             }
@@ -555,7 +555,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     if (key.getTokenInstanceReference() != null) {
                         destroyKeyFromConnector(key.getTokenInstanceReference(), keyItem.getKeyReferenceUuid());
                     }
-                    attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
+                    attributeEngine.deleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
                     cryptographicKeyItemRepository.delete(keyItem);
                 }
                 deleteKeyWithAssociations(key);
@@ -1369,7 +1369,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private void deleteKeyWithAssociations(CryptographicKey key) {
         certificateService.clearKeyAssociations(key.getUuid());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
         key.setOwner(null);
         key.getGroups().clear();
         objectAssociationService.removeObjectAssociations(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());

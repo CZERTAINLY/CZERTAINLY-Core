@@ -1683,7 +1683,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                 ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, profileUuid)
                         .operation(AttributeOperation.SIGN).version(1).build());
         Assertions.assertTrue(remaining.isEmpty(),
-                "Signing-scheme attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
+                "Signing-scheme attributes should be removed by deleteObjectAttributeContent on profile deletion");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -1909,7 +1909,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
                         .connector(formatter.getUuid())
                         .operation(AttributeOperation.WORKFLOW_FORMATTER).version(1).build());
         Assertions.assertTrue(remaining.isEmpty(),
-                "Formatter attributes should be removed by deleteAllObjectAttributeContent on profile deletion");
+                "Formatter attributes should be removed by deleteObjectAttributeContent on profile deletion");
     }
 
     // ──────────────────────────────────────────────────────────────────────────

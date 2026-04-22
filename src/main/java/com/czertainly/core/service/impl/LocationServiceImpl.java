@@ -19,7 +19,7 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
-import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorApiClientDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
@@ -266,7 +266,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         certificateLocationRepository.deleteAll(location.getCertificates());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.LOCATION, location.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.LOCATION, location.getUuid());
         locationRepository.delete(location);
 
         logger.info("Location {} was deleted", location.getName());
@@ -304,7 +304,7 @@ public class LocationServiceImpl implements LocationService {
 
         try {
             return locationApiClient.listPushCertificateAttributes(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getConnector().mapToApiClientDtoV1(),
                     location.getEntityInstanceReference().getEntityInstanceUuid());
         } catch (ConnectorException e) {
             logger.debug("Failed to list push Attributes for Location {}, {}: {}",
@@ -321,7 +321,7 @@ public class LocationServiceImpl implements LocationService {
 
         try {
             return locationApiClient.listGenerateCsrAttributes(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getConnector().mapToApiClientDtoV1(),
                     location.getEntityInstanceReference().getEntityInstanceUuid());
         } catch (ConnectorException e) {
             logger.debug("Failed to list CSR Attributes for Location {}, {}: {}",
@@ -484,7 +484,7 @@ public class LocationServiceImpl implements LocationService {
         PushCertificateResponseDto pushCertificateResponseDto;
         try {
             pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getConnector().mapToApiClientDtoV1(),
                     location.getEntityInstanceReference().getEntityInstanceUuid(),
                     pushCertificateRequestDto
             );
@@ -607,7 +607,7 @@ public class LocationServiceImpl implements LocationService {
         LocationDetailResponseDto locationDetailResponseDto;
         try {
             locationDetailResponseDto = locationApiClient.getLocationDetail(
-                    entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid(), locationDetailRequestDto);
+                    entityInstanceRef.getConnector().mapToApiClientDtoV1(), entityInstanceRef.getEntityInstanceUuid(), locationDetailRequestDto);
         } catch (ConnectorException e) {
             logger.debug("Failed to get Location details: {}, {}, reason: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to get details for Location " + location.getName() + ". Reason: " + e.getMessage());
@@ -762,7 +762,7 @@ public class LocationServiceImpl implements LocationService {
         GenerateCsrResponseDto generateCsrResponseDto;
         try {
             generateCsrResponseDto = locationApiClient.generateCsrLocation(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getConnector().mapToApiClientDtoV1(),
                     location.getEntityInstanceReference().getEntityInstanceUuid(),
                     generateCsrRequestDto
             );
@@ -864,7 +864,7 @@ public class LocationServiceImpl implements LocationService {
         PushCertificateResponseDto pushCertificateResponseDto;
         try {
             pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getConnector().mapToApiClientDtoV1(),
                     location.getEntityInstanceReference().getEntityInstanceUuid(),
                     pushCertificateRequestDto
             );
@@ -912,7 +912,7 @@ public class LocationServiceImpl implements LocationService {
         LocationDetailResponseDto locationDetailResponseDto;
         try {
             locationDetailResponseDto = locationApiClient.getLocationDetail(
-                    entityInstanceReference.getConnector().mapToDto(), entityInstanceReference.getEntityInstanceUuid(), locationDetailRequestDto);
+                    entityInstanceReference.getConnector().mapToApiClientDtoV1(), entityInstanceReference.getEntityInstanceUuid(), locationDetailRequestDto);
         } catch (ConnectorException e) {
             logger.debug("Failed to get Location {} details: {}", locationName, e.getMessage());
             throw new LocationException("Failed to get details for Location " + locationName + ". Reason: " + e.getMessage());
@@ -956,7 +956,7 @@ public class LocationServiceImpl implements LocationService {
             throw new ValidationException(ValidationError.create("Connector of the Entity is not available / deleted"));
         }
 
-        ConnectorDto connectorDto = entityInstanceRef.getConnector().mapToDto();
+        ConnectorApiClientDto connectorDto = entityInstanceRef.getConnector().mapToApiClientDtoV1();
 
         // validate first by connector
         entityInstanceApiClient.validateLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid(), attributes);
@@ -1098,7 +1098,7 @@ public class LocationServiceImpl implements LocationService {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(location.getEntityInstanceReference().getConnectorUuid()).build()));
         removeCertificateRequestDto.setCertificateMetadata(metadata);
-        locationApiClient.removeCertificateFromLocation(location.getEntityInstanceReference().getConnector().mapToDto(),
+        locationApiClient.removeCertificateFromLocation(location.getEntityInstanceReference().getConnector().mapToApiClientDtoV1(),
                 location.getEntityInstanceReference().getEntityInstanceUuid(),
                 removeCertificateRequestDto);
     }

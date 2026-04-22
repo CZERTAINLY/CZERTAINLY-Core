@@ -494,7 +494,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         certificate.setOwner(null);
         certificate.getGroups().clear();
         objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
+        attributeEngine.deleteObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
 
         scepProfileRepository.clearCaCertificateReference(certificate.getUuid());
         cmpProfileRepository.clearSigningCertificateReference(certificate.getUuid());

@@ -157,7 +157,7 @@ public class CredentialServiceImpl implements CredentialService {
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DELETE)
     public void deleteCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = getCredentialEntity(uuid);
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CREDENTIAL, uuid.getValue());
+        attributeEngine.deleteObjectAttributeContent(Resource.CREDENTIAL, uuid.getValue());
         credentialRepository.delete(credential);
     }
 

@@ -246,7 +246,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         Integer certContentsDeleted = certificateContentRepository.deleteUnusedCertificateContents();
         logger.debug("Deleted {} unused certificate contents", certContentsDeleted);
 
-        attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
         discoveryRepository.delete(discovery);
         triggerService.deleteTriggerAssociations(Resource.DISCOVERY, discovery.getUuid());
 

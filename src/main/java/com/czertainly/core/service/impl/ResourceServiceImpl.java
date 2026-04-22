@@ -272,7 +272,7 @@ public class ResourceServiceImpl implements ResourceService {
         ResourceObjectContentData data;
         if (resource.getContentClass() == ResourceSimpleContentData.class) {
             data = new ResourceSimpleContentData(resource);
-            ((ResourceSimpleContentData) data).setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resource.getCode()), uuid));
+            ((ResourceSimpleContentData) data).setAttributes(attributeEngine.getObjectDataAttributesContentUnversioned(Resource.findByCode(resource.getCode()), uuid));
         } else {
             data = attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid);
         }

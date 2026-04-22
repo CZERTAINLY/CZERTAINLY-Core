@@ -370,7 +370,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         tspProfileRepository.clearDefaultSigningProfileUuid(signingProfile.getUuid());
         signingProfileVersionRepository.deleteAllBySigningProfileUuid(signingProfile.getUuid());
         signingProfileRepository.delete(signingProfile);
-        attributeEngine.deleteAllObjectAttributeContent(Resource.SIGNING_PROFILE, signingProfile.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.SIGNING_PROFILE, signingProfile.getUuid());
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -632,7 +632,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
             // The signing operation attributes are Core-internal (not connector-owned), so connectorUuid is null.
             attributeEngine.validateUpdateDataAttributes(null, AttributeOperation.SIGN, definitions, signingOperationAttributes);
-            return attributeEngine.replaceVersionedOperationAttributeContent(
+            return attributeEngine.replaceObjectDataAttributesContent(
                     ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, signingProfile.getUuid())
                             .operation(AttributeOperation.SIGN)
                             .version(version.getVersion()).build(),
@@ -648,7 +648,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, SigningProfileVersion version, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
         return switch (workflow) {
-            case ContentSigningWorkflowRequestDto w -> attributeEngine.replaceVersionedOperationAttributeContent(
+            case ContentSigningWorkflowRequestDto w -> attributeEngine.replaceObjectDataAttributesContent(
                     ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
                             .connector(w.getSignatureFormatterConnectorUuid())
                             .operation(AttributeOperation.WORKFLOW_FORMATTER)
@@ -662,7 +662,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                                 .version(version.getVersion()).build());
                 yield null;
             }
-            case TimestampingWorkflowRequestDto w -> attributeEngine.replaceVersionedOperationAttributeContent(
+            case TimestampingWorkflowRequestDto w -> attributeEngine.replaceObjectDataAttributesContent(
                     ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
                             .connector(w.getSignatureFormatterConnectorUuid())
                             .operation(AttributeOperation.WORKFLOW_FORMATTER)

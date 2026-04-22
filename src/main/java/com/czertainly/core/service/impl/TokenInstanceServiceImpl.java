@@ -417,7 +417,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
             logger.debug("Deleting token instance without connector: {}", tokenInstanceReference);
         }
         logger.debug("Deleting token instance attributes");
-        attributeEngine.deleteAllObjectAttributeContent(Resource.TOKEN, tokenInstanceReference.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.TOKEN, tokenInstanceReference.getUuid());
         tokenInstanceReferenceRepository.delete(tokenInstanceReference);
         logger.info("Token instance removed: {}", tokenInstanceReference);
     }

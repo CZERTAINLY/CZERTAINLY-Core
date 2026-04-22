@@ -2,6 +2,7 @@ package com.czertainly.core.attribute;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
@@ -51,6 +52,7 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
     private static final String OPERATION_SIGN = AttributeOperation.CERTIFICATE_REQUEST_SIGN;
     private static final String OPERATION_FORMAT = "connectorFormatter";
     private static final Resource VERSIONED_RESOURCE = Resource.CRYPTOGRAPHIC_KEY;
+    private static final List<RequestAttribute> EMPTY_REQUEST_ATTRIBUTES = List.of();
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -399,8 +401,8 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
                         .connector(connectorA.getUuid()).operation(OPERATION_FORMAT).version(1).build());
         Assertions.assertEquals(1, beforeReplace.size(), "connector A rows must exist before replace");
 
-        // In-place overwrite: connector changes from A to B — use replaceVersionedOperationAttributeContent
-        attributeEngine.replaceVersionedOperationAttributeContent(
+        // In-place overwrite: connector changes from A to B — use replaceObjectDataAttributesContent (wide pre-delete)
+        attributeEngine.replaceObjectDataAttributesContent(
                 ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
                         .connector(connectorB.getUuid()).operation(OPERATION_FORMAT).version(1).build(),
                 List.of(buildRequest(defB, "connB_value")));
@@ -436,7 +438,7 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
                 ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
                         .connector(connector.getUuid()).operation(OPERATION_SIGN).version(1).build()).isEmpty());
 
-        attributeEngine.replaceVersionedOperationAttributeContent(
+        attributeEngine.replaceObjectDataAttributesContent(
                 ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
                         .connector(connector.getUuid()).operation(OPERATION_SIGN).version(1).build(),
                 List.of());
@@ -464,7 +466,7 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
                 List.of(buildRequest(def, "v2_value")));
 
         // Replace v1 — v2 must be unaffected
-        attributeEngine.replaceVersionedOperationAttributeContent(
+        attributeEngine.replaceObjectDataAttributesContent(
                 ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
                         .connector(connector.getUuid()).operation(OPERATION_FORMAT).version(1).build(),
                 List.of(buildRequest(def, "v1_replaced")));
@@ -488,7 +490,7 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
                 .connector(connector.getUuid()).operation(OPERATION_SIGN).build();
 
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> attributeEngine.replaceVersionedOperationAttributeContent(noVersion, List.of()),
+                () -> attributeEngine.replaceObjectDataAttributesContent(noVersion, EMPTY_REQUEST_ATTRIBUTES),
                 "must throw when objectVersion is null");
     }
 
@@ -498,7 +500,7 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
                 .connector(connector.getUuid()).version(1).build();
 
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> attributeEngine.replaceVersionedOperationAttributeContent(noOperation, List.of()),
+                () -> attributeEngine.replaceObjectDataAttributesContent(noOperation, EMPTY_REQUEST_ATTRIBUTES),
                 "must throw when operation is null");
     }
 
@@ -533,7 +535,7 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
                 "alt purpose must be readable before replace");
 
         // Replace only the primary-purpose set (purpose == null).
-        attributeEngine.replaceVersionedOperationAttributeContent(
+        attributeEngine.replaceObjectDataAttributesContent(
                 ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
                         .connector(connector.getUuid()).operation(OPERATION_SIGN).version(1).build(),
                 List.of(buildRequest(def, "primary_replaced")));
@@ -626,20 +628,21 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
      */
     @Test
     void testDeleteForVersion_requiresNonNullVersion() {
+        UUID randomUUID = UUID.randomUUID();
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> attributeEngine.deleteObjectAttributeContentForVersion(VERSIONED_RESOURCE, UUID.randomUUID(), null),
+                () -> attributeEngine.deleteObjectAttributeContentForVersion(VERSIONED_RESOURCE, randomUUID, null),
                 "must throw when version is null");
     }
 
     /**
-     * Contrast with deleteAllObjectAttributeContent: when versioned rows exist for
-     * multiple versions alongside unversioned rows, deleteAllObjectAttributeContent
-     * removes everything, while deleteObjectAttributeContentForVersion is selective.
+     * Contrast between deleteObjectAttributeContent and deleteObjectAttributeContentForVersion:
+     * when versioned rows exist for multiple versions alongside unversioned rows,
+     * deleteObjectAttributeContent removes everything, while deleteObjectAttributeContentForVersion is selective.
      * <p>
      * This test documents the intended boundary between the two methods.
      */
     @Test
-    void testDeleteAll_vs_deleteForVersion_boundary() throws AttributeException, NotFoundException {
+    void testDelete_vs_deleteForVersion_boundary() throws AttributeException, NotFoundException {
         UUID objectForAll = UUID.randomUUID();
         UUID objectForOne = UUID.randomUUID();
         DataAttributeV3 def = buildDataAttribute("boundary_attr");
@@ -661,11 +664,11 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
                     List.of(buildRequest(def, "v2")));
         }
 
-        // deleteAllObjectAttributeContent removes every row for objectForAll
-        attributeEngine.deleteAllObjectAttributeContent(VERSIONED_RESOURCE, objectForAll);
+        // deleteObjectAttributeContent removes every row for objectForAll
+        attributeEngine.deleteObjectAttributeContent(VERSIONED_RESOURCE, objectForAll);
         Assertions.assertTrue(
                 attributeContent2ObjectRepository.getAllObjectDataAttributesContent(VERSIONED_RESOURCE, objectForAll).isEmpty(),
-                "deleteAll must remove every row including all versions and unversioned");
+                "deleteObjectAttributeContent must remove every row including all versions and unversioned");
 
         // deleteObjectAttributeContentForVersion removes only v1 for objectForOne
         attributeEngine.deleteObjectAttributeContentForVersion(VERSIONED_RESOURCE, objectForOne, 1);
@@ -740,8 +743,13 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
      */
     private MetadataAttributeV3 buildAndStoreMetaAttribute(String name, String value,
                                                            ObjectAttributeContentInfo contentInfo) throws AttributeException {
+        return buildAndStoreMetaAttribute(UUID.randomUUID(), name, value, contentInfo);
+    }
+
+    private MetadataAttributeV3 buildAndStoreMetaAttribute(UUID uuid, String name, String value,
+                                                           ObjectAttributeContentInfo contentInfo) throws AttributeException {
         MetadataAttributeV3 meta = new MetadataAttributeV3();
-        meta.setUuid(UUID.randomUUID().toString());
+        meta.setUuid(uuid.toString());
         meta.setName(name);
         meta.setType(AttributeType.META);
         meta.setContentType(AttributeContentType.STRING);
@@ -1042,6 +1050,37 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testNoVersionOverloadReturnsOnlyUnversionedRows() throws AttributeException, NotFoundException {
+        UUID objectUuid = UUID.randomUUID();
+        DataAttributeV3 unversionedDef = buildDataAttribute("no_version_overload_unversioned");
+        DataAttributeV3 versionedDef = buildDataAttribute("no_version_overload_versioned");
+        attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), OPERATION_SIGN, List.of(unversionedDef, versionedDef));
+
+        // Write an unversioned row (the kind written before versioning was introduced)
+        attributeEngine.updateObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
+                        .connector(connector.getUuid()).operation(OPERATION_SIGN).build(),
+                List.of(buildRequest(unversionedDef, "unversioned_value")));
+
+        // Write versioned rows for v1 and v2 — these must NOT appear via the no-version overload
+        attributeEngine.updateObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
+                        .connector(connector.getUuid()).operation(OPERATION_SIGN).version(1).build(),
+                List.of(buildRequest(versionedDef, "v1_value")));
+        attributeEngine.updateObjectDataAttributesContent(
+                ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
+                        .connector(connector.getUuid()).operation(OPERATION_SIGN).version(2).build(),
+                List.of(buildRequest(versionedDef, "v2_value")));
+
+        // getObjectDataAttributesContentUnversioned must return exactly the one unversioned row
+        var result = attributeEngine.getObjectDataAttributesContentUnversioned(VERSIONED_RESOURCE, objectUuid);
+        Assertions.assertEquals(1, result.size(),
+                "unversioned overload must return only unversioned rows — versioned rows must not bleed in");
+        Assertions.assertEquals("unversioned_value", firstStringValue(result),
+                "unversioned overload must return the unversioned_value, not a versioned one");
+    }
+
+    @Test
     void testDeduplicationStillSuppressesTrueDuplicates() throws AttributeException, NotFoundException {
         UUID objectUuid = UUID.randomUUID();
         String purpose = "signature";
@@ -1060,5 +1099,60 @@ class AttributeEngineVersioningTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, content.size(),
                 "a true duplicate write (same purpose) must still be deduplicated to exactly one row");
         Assertions.assertEquals("dup_value", firstStringValue(content));
+    }
+
+    /**
+     * Verifies that metadata overwrite (properties.overwrite=true) is version-scoped:
+     * overwriting a meta attribute for v1 must NOT delete v2's mapping for the same definition.
+     */
+    @Test
+    void testMetadataOverwriteIsVersionScoped() throws AttributeException {
+        UUID objectUuid = UUID.randomUUID();
+
+        ObjectAttributeContentInfo v1Info = ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
+                .connector(connector.getUuid()).version(1).build();
+        ObjectAttributeContentInfo v2Info = ObjectAttributeContentInfo.builder(VERSIONED_RESOURCE, objectUuid)
+                .connector(connector.getUuid()).version(2).build();
+
+        // All three writes must share one attribute UUID+name so they map to a single AttributeDefinition —
+        // that is what makes v1 and v2 "the same definition" and what overwrite=true is defined to replace.
+        UUID metaUuid = UUID.randomUUID();
+
+        // Write distinct meta values for v1 and v2 (overwrite=false — accumulate first)
+        buildAndStoreMetaAttribute(metaUuid, "overwrite_attr", "original_v1", v1Info);
+        buildAndStoreMetaAttribute(metaUuid, "overwrite_attr", "original_v2", v2Info);
+
+        // Now overwrite v1 with a new value — must not touch v2
+        MetadataAttributeV3 overwriteMeta = new MetadataAttributeV3();
+        overwriteMeta.setUuid(metaUuid.toString());
+        overwriteMeta.setName("overwrite_attr");
+        overwriteMeta.setType(AttributeType.META);
+        overwriteMeta.setContentType(AttributeContentType.STRING);
+        MetadataAttributeProperties props = new MetadataAttributeProperties();
+        props.setLabel("overwrite_attr");
+        props.setVisible(true);
+        props.setGlobal(false);
+        props.setOverwrite(true);       // ← key: replacement semantics
+        overwriteMeta.setProperties(props);
+        overwriteMeta.setContent(List.of(new StringAttributeContentV3("replaced_v1")));
+        attributeEngine.updateMetadataAttribute(overwriteMeta, v1Info);
+
+        // v1 must now hold exactly the replacement value — original_v1 was overwritten
+        List<String> v1Values = attributeEngine.getMappedMetadataContent(v1Info).stream()
+                .flatMap(dto -> dto.getItems().stream())
+                .flatMap(item -> item.getContent().stream())
+                .map(c -> c.getData().toString())
+                .toList();
+        Assertions.assertEquals(List.of("replaced_v1"), v1Values,
+                "v1 meta must hold only the replacement value after overwrite");
+
+        // v2 must still hold exactly its original value — the overwrite of v1 must not have deleted it
+        List<String> v2Values = attributeEngine.getMappedMetadataContent(v2Info).stream()
+                .flatMap(dto -> dto.getItems().stream())
+                .flatMap(item -> item.getContent().stream())
+                .map(c -> c.getData().toString())
+                .toList();
+        Assertions.assertEquals(List.of("original_v2"), v2Values,
+                "v2 meta must be untouched after overwriting v1 (version isolation violated)");
     }
 }

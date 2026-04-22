@@ -249,7 +249,7 @@ public class TspProfileServiceImpl implements TspProfileService {
             );
         }
 
-        attributeEngine.deleteAllObjectAttributeContent(Resource.TSP_PROFILE, profile.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.TSP_PROFILE, profile.getUuid());
         tspProfileRepository.delete(profile);
     }
 

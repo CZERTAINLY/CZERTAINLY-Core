@@ -63,4 +63,11 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
             """)
     List<Integer> getCountsOfAssociations(@Param("uuids") List<UUID> uuids);
 
+    @EntityGraph(attributePaths = {
+            "key",
+            "key.tokenProfile",
+            "key.tokenProfile.tokenInstanceReference",
+            "key.tokenProfile.tokenInstanceReference.connector"
+    })
+    Optional<CryptographicKeyItem> findWithConnectorByUuid(UUID uuid);
 }

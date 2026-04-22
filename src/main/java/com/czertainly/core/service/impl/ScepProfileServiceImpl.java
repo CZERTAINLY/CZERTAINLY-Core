@@ -429,7 +429,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                     )
             );
         } else {
-            attributeEngine.deleteAllObjectAttributeContent(Resource.SCEP_PROFILE, scepProfile.getUuid());
+            attributeEngine.deleteObjectAttributeContent(Resource.SCEP_PROFILE, scepProfile.getUuid());
             scepProfileRepository.delete(scepProfile);
         }
     }

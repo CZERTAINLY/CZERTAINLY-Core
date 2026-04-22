@@ -544,7 +544,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                     )
             );
         } else {
-            attributeEngine.deleteAllObjectAttributeContent(Resource.CMP_PROFILE, cmpProfile.getUuid());
+            attributeEngine.deleteObjectAttributeContent(Resource.CMP_PROFILE, cmpProfile.getUuid());
             cmpProfileRepository.delete(cmpProfile);
         }
     }

@@ -333,7 +333,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() == null) {
             throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use other API"));
         }
-        attributeEngine.deleteAllObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
         tokenProfileRepository.delete(tokenProfile);
     }
 

@@ -123,7 +123,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
             return authorityInstanceDto;
         }
 
-        AuthorityProviderInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
+        AuthorityProviderInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToApiClientDtoV1(),
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
         if (attributes.isEmpty() && authorityProviderInstanceDto.getAttributes() != null && !authorityProviderInstanceDto.getAttributes().isEmpty()) {
@@ -235,7 +235,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     public List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
-        return endEntityProfileApiClient.listEndEntityProfiles(authorityInstanceRef.getConnector().mapToDto(),
+        return endEntityProfileApiClient.listEndEntityProfiles(authorityInstanceRef.getConnector().mapToApiClientDtoV1(),
                 authorityInstanceRef.getAuthorityInstanceUuid());
     }
 
@@ -244,7 +244,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     public List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
-        return endEntityProfileApiClient.listCertificateProfiles(authorityInstanceRef.getConnector().mapToDto(),
+        return endEntityProfileApiClient.listCertificateProfiles(authorityInstanceRef.getConnector().mapToApiClientDtoV1(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), endEntityProfileId);
     }
 
@@ -253,7 +253,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     public List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
-        return endEntityProfileApiClient.listCAsInProfile(authorityInstanceRef.getConnector().mapToDto(),
+        return endEntityProfileApiClient.listCAsInProfile(authorityInstanceRef.getConnector().mapToApiClientDtoV1(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), endEntityProfileId);
     }
 
@@ -263,7 +263,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         AuthorityInstanceReference authorityInstance = getAuthorityInstanceReferenceEntity(uuid);
         Connector connector = authorityInstance.getConnector();
 
-        return authorityInstanceApiClient.listRAProfileAttributes(connector.mapToDto(), authorityInstance.getAuthorityInstanceUuid());
+        return authorityInstanceApiClient.listRAProfileAttributes(connector.mapToApiClientDtoV1(), authorityInstance.getAuthorityInstanceUuid());
     }
 
     @Override
@@ -272,7 +272,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         AuthorityInstanceReference authorityInstance = getAuthorityInstanceReferenceEntity(uuid);
         Connector connector = authorityInstance.getConnector();
 
-        return authorityInstanceApiClient.validateRAProfileAttributes(connector.mapToDto(), authorityInstance.getAuthorityInstanceUuid(),
+        return authorityInstanceApiClient.validateRAProfileAttributes(connector.mapToApiClientDtoV1(), authorityInstance.getAuthorityInstanceUuid(),
                 attributes);
     }
 
@@ -362,7 +362,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         }
         if (authorityInstanceRef.getConnector() != null) {
             try {
-                authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
+                authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToApiClientDtoV1(), authorityInstanceRef.getAuthorityInstanceUuid());
             } catch (ConnectorEntityNotFoundException notFoundException) {
                 logger.warn("Authority is already deleted in the connector. Proceeding to remove it from the core");
             } catch (Exception e) {
@@ -372,7 +372,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
         } else {
             logger.debug("Deleting authority without connector: {}", authorityInstanceRef);
         }
-        attributeEngine.deleteAllObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
     }
 

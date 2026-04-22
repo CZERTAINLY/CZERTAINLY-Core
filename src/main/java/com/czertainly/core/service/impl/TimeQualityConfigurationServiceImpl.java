@@ -208,7 +208,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
             );
         }
 
-        attributeEngine.deleteAllObjectAttributeContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
         timeQualityConfigurationRepository.delete(configuration);
     }
 
