@@ -403,6 +403,136 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testEncryptData_WrongKeyUsage_DecryptOnly() {
+        CryptographicKeyItem decryptOnlyItem = new CryptographicKeyItem();
+        decryptOnlyItem.setLength(1024);
+        decryptOnlyItem.setKey(key);
+        decryptOnlyItem.setKeyUuid(key.getUuid());
+        decryptOnlyItem.setType(KeyType.PUBLIC_KEY);
+        decryptOnlyItem.setKeyData("some/encrypted/data");
+        decryptOnlyItem.setFormat(KeyFormat.SPKI);
+        decryptOnlyItem.setState(KeyState.ACTIVE);
+        decryptOnlyItem.setEnabled(true);
+        decryptOnlyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
+        decryptOnlyItem.setKeyReferenceUuid(UUID.randomUUID());
+        decryptOnlyItem.setUsage(List.of(KeyUsage.DECRYPT));
+        cryptographicKeyItemRepository.save(decryptOnlyItem);
+        decryptOnlyItem.setKeyReferenceUuid(decryptOnlyItem.getUuid());
+        cryptographicKeyItemRepository.save(decryptOnlyItem);
+
+        CipherRequestData data = new CipherRequestData();
+        data.setIdentifier("id");
+        data.setData(Base64.getEncoder().encodeToString("Hello".getBytes(StandardCharsets.UTF_8)));
+        CipherDataRequestDto request = new CipherDataRequestDto();
+        request.setCipherData(List.of(data));
+        request.setCipherAttributes(List.of());
+
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var decryptOnlyItemUuid = decryptOnlyItem.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.encryptData(
+                tokenParentUuid, tokenProfileUuid, keyUuid, decryptOnlyItemUuid, request));
+    }
+
+    @Test
+    void testDecryptData_WrongKeyUsage_EncryptOnly() {
+        CryptographicKeyItem encryptOnlyItem = new CryptographicKeyItem();
+        encryptOnlyItem.setLength(1024);
+        encryptOnlyItem.setKey(key);
+        encryptOnlyItem.setKeyUuid(key.getUuid());
+        encryptOnlyItem.setType(KeyType.PUBLIC_KEY);
+        encryptOnlyItem.setKeyData("some/encrypted/data");
+        encryptOnlyItem.setFormat(KeyFormat.SPKI);
+        encryptOnlyItem.setState(KeyState.ACTIVE);
+        encryptOnlyItem.setEnabled(true);
+        encryptOnlyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
+        encryptOnlyItem.setKeyReferenceUuid(UUID.randomUUID());
+        encryptOnlyItem.setUsage(List.of(KeyUsage.ENCRYPT));
+        cryptographicKeyItemRepository.save(encryptOnlyItem);
+        encryptOnlyItem.setKeyReferenceUuid(encryptOnlyItem.getUuid());
+        cryptographicKeyItemRepository.save(encryptOnlyItem);
+
+        CipherRequestData data = new CipherRequestData();
+        data.setIdentifier("id");
+        data.setData(Base64.getEncoder().encodeToString("Hello".getBytes(StandardCharsets.UTF_8)));
+        CipherDataRequestDto request = new CipherDataRequestDto();
+        request.setCipherData(List.of(data));
+        request.setCipherAttributes(List.of());
+
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var encryptOnlyItemUuid = encryptOnlyItem.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.decryptData(
+                tokenParentUuid, tokenProfileUuid, keyUuid, encryptOnlyItemUuid, request));
+    }
+
+    @Test
+    void testSignData_WrongKeyUsage_VerifyOnly() {
+        CryptographicKeyItem verifyOnlyItem = new CryptographicKeyItem();
+        verifyOnlyItem.setLength(1024);
+        verifyOnlyItem.setKey(key);
+        verifyOnlyItem.setKeyUuid(key.getUuid());
+        verifyOnlyItem.setType(KeyType.PRIVATE_KEY);
+        verifyOnlyItem.setKeyData("some/encrypted/data");
+        verifyOnlyItem.setFormat(KeyFormat.PRKI);
+        verifyOnlyItem.setState(KeyState.ACTIVE);
+        verifyOnlyItem.setEnabled(true);
+        verifyOnlyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
+        verifyOnlyItem.setKeyReferenceUuid(UUID.randomUUID());
+        verifyOnlyItem.setUsage(List.of(KeyUsage.VERIFY));
+        cryptographicKeyItemRepository.save(verifyOnlyItem);
+        verifyOnlyItem.setKeyReferenceUuid(verifyOnlyItem.getUuid());
+        cryptographicKeyItemRepository.save(verifyOnlyItem);
+
+        SignatureRequestData data = new SignatureRequestData();
+        data.setIdentifier("id");
+        data.setData(Base64.getEncoder().encodeToString("Hello".getBytes(StandardCharsets.UTF_8)));
+        SignDataRequestDto request = new SignDataRequestDto();
+        request.setData(List.of(data));
+
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var verifyOnlyItemUuid = verifyOnlyItem.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.signData(
+                tokenParentUuid, tokenProfileUuid, keyUuid, verifyOnlyItemUuid, request));
+    }
+
+    @Test
+    void testVerifyData_WrongKeyUsage_SignOnly() {
+        CryptographicKeyItem signOnlyItem = new CryptographicKeyItem();
+        signOnlyItem.setLength(1024);
+        signOnlyItem.setKey(key);
+        signOnlyItem.setKeyUuid(key.getUuid());
+        signOnlyItem.setType(KeyType.PUBLIC_KEY);
+        signOnlyItem.setKeyData("some/encrypted/data");
+        signOnlyItem.setFormat(KeyFormat.SPKI);
+        signOnlyItem.setState(KeyState.ACTIVE);
+        signOnlyItem.setEnabled(true);
+        signOnlyItem.setKeyAlgorithm(KeyAlgorithm.RSA);
+        signOnlyItem.setKeyReferenceUuid(UUID.randomUUID());
+        signOnlyItem.setUsage(List.of(KeyUsage.SIGN));
+        cryptographicKeyItemRepository.save(signOnlyItem);
+        signOnlyItem.setKeyReferenceUuid(signOnlyItem.getUuid());
+        cryptographicKeyItemRepository.save(signOnlyItem);
+
+        SignatureRequestData signature = new SignatureRequestData();
+        signature.setIdentifier("id");
+        signature.setData(Base64.getEncoder().encodeToString("Hello".getBytes(StandardCharsets.UTF_8)));
+        VerifyDataRequestDto request = new VerifyDataRequestDto();
+        request.setSignatures(List.of(signature));
+
+        var tokenParentUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var keyUuid = key.getUuid();
+        var signOnlyItemUuid = signOnlyItem.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.verifyData(
+                tokenParentUuid, tokenProfileUuid, keyUuid, signOnlyItemUuid, request));
+    }
+
+    @Test
     void testSign_RSA() {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
@@ -578,7 +708,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(certificateRequest.getAltSignatureAlgorithm());
         Assertions.assertNotNull(certificateRequest.getAltPublicKey());
         Assertions.assertInstanceOf(SLHDSAPublicKey.class, certificateRequest.getAltPublicKey());
-        JcaPKCS10CertificationRequest pkcs10CertificationRequest =  new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
+        JcaPKCS10CertificationRequest pkcs10CertificationRequest = new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
         Assertions.assertNotNull(Arrays.stream(pkcs10CertificationRequest.getAttributes()).filter(attribute -> attribute.getAttrType().equals(Extension.altSignatureValue)));
     }
 

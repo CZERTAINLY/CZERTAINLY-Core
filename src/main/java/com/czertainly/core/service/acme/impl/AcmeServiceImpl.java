@@ -18,6 +18,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.*;
@@ -1148,9 +1149,9 @@ public class AcmeServiceImpl implements AcmeService {
             return AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttributeV2.class));
         } else {
             if (isRevoke) {
-                return attributeEngine.getRequestObjectDataAttributesContent(acmeAccount.getAcmeProfile().getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, com.czertainly.api.model.core.auth.Resource.ACME_PROFILE, acmeAccount.getAcmeProfile().getUuid());
+                return attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(com.czertainly.api.model.core.auth.Resource.ACME_PROFILE, acmeAccount.getAcmeProfile().getUuid()).connector(acmeAccount.getAcmeProfile().getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build());
             } else {
-                return attributeEngine.getRequestObjectDataAttributesContent(acmeAccount.getAcmeProfile().getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, com.czertainly.api.model.core.auth.Resource.ACME_PROFILE, acmeAccount.getAcmeProfile().getUuid());
+                return attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(com.czertainly.api.model.core.auth.Resource.ACME_PROFILE, acmeAccount.getAcmeProfile().getUuid()).connector(acmeAccount.getAcmeProfile().getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build());
             }
         }
 

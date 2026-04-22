@@ -1,6 +1,10 @@
 app:
   version: '@project.version@'
 
+certificate:
+  chain:
+    max-depth: 20
+
 # Authentication and authorization
 auth-service:
   base-url: ${AUTH_SERVICE_BASE_URL}

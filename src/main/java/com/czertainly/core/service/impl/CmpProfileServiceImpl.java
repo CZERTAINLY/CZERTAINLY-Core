@@ -201,8 +201,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         // delete old connector data attributes content
         UUID oldConnectorUuid = cmpProfile.getRaProfile() == null ? null : cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
         if (oldConnectorUuid != null) {
-            ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(oldConnectorUuid, Resource.CMP_PROFILE, cmpProfile.getUuid());
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.CERTIFICATE_ISSUE, contentInfo);
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(oldConnectorUuid).operation(AttributeOperation.CERTIFICATE_ISSUE).build());
         }
 
         cmpProfile.setDescription(request.getDescription());
@@ -472,18 +471,12 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         if (cmpProfile.getRaProfile() != null) {
             dto.setIssueCertificateAttributes(
                     attributeEngine.getObjectDataAttributesContent(
-                            cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(),
-                            AttributeOperation.CERTIFICATE_ISSUE,
-                            Resource.CMP_PROFILE,
-                            cmpProfile.getUuid()
+                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build()
                     )
             );
             dto.setRevokeCertificateAttributes(
                     attributeEngine.getObjectDataAttributesContent(
-                            cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(),
-                            AttributeOperation.CERTIFICATE_REVOKE,
-                            Resource.CMP_PROFILE,
-                            cmpProfile.getUuid()
+                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build()
                     )
             );
         }
@@ -510,19 +503,13 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         if (raProfile != null) {
             dto.setIssueCertificateAttributes(
                     attributeEngine.updateObjectDataAttributesContent(
-                            raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                            AttributeOperation.CERTIFICATE_ISSUE,
-                            Resource.CMP_PROFILE,
-                            cmpProfile.getUuid(),
+                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build(),
                             issueCertificateAttributes
                     )
             );
             dto.setRevokeCertificateAttributes(
                     attributeEngine.updateObjectDataAttributesContent(
-                            raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                            AttributeOperation.CERTIFICATE_REVOKE,
-                            Resource.CMP_PROFILE,
-                            cmpProfile.getUuid(),
+                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build(),
                             revokeCertificateAttributes
                     )
             );
@@ -557,7 +544,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                     )
             );
         } else {
-            attributeEngine.deleteAllObjectAttributeContent(Resource.CMP_PROFILE, cmpProfile.getUuid());
+            attributeEngine.deleteObjectAttributeContent(Resource.CMP_PROFILE, cmpProfile.getUuid());
             cmpProfileRepository.delete(cmpProfile);
         }
     }

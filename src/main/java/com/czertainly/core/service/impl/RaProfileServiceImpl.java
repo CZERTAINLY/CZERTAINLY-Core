@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
@@ -116,7 +117,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
         RaProfileDto raProfileDto = raProfile.mapToDto();
         raProfileDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.RA_PROFILE, raProfile.getUuid(), request.getCustomAttributes()));
-        raProfileDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(authorityInstanceRef.getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), request.getAttributes()));
+        raProfileDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(authorityInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
 
         return raProfileDto;
     }
@@ -128,7 +129,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
         RaProfileDto dto = raProfile.mapToDto();
         if (raProfile.getAuthorityInstanceReference() != null && raProfile.getAuthorityInstanceReference().getConnectorUuid() != null) {
-            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
         }
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.RA_PROFILE, raProfile.getUuid()));
         return dto;
@@ -142,7 +143,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
         RaProfileDto dto = raProfile.mapToDto();
         if (raProfile.getAuthorityInstanceReference() != null && raProfile.getAuthorityInstanceReference().getConnectorUuid() != null) {
-            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
         }
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.RA_PROFILE, raProfile.getUuid()));
         return dto;
@@ -165,7 +166,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
         RaProfileDto raProfileDto = raProfile.mapToDto();
         raProfileDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.RA_PROFILE, raProfile.getUuid(), request.getCustomAttributes()));
-        raProfileDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(authorityInstanceRef.getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), request.getAttributes()));
+        raProfileDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(authorityInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
 
         return raProfileDto;
     }
@@ -613,7 +614,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(authorityUuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
 
-        List<RequestAttribute> requestAttributes = attributeEngine.getRequestObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid());
+        List<RequestAttribute> requestAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(authorityInstanceReference.getConnectorUuid()).build());
         CaCertificatesResponseDto caCertificatesResponseDto = authorityInstanceApiClient.getCaCertificates(authorityInstanceReference.getConnector().mapToDto(), authorityInstanceReference.getAuthorityInstanceUuid(), new CaCertificatesRequestDto(requestAttributes));
         List<CertificateDataResponseDto> certificateDataResponseDtos = caCertificatesResponseDto.getCertificates();
         List<CertificateDetailDto> certificateDetailDtos = new ArrayList<>();
@@ -707,7 +708,7 @@ public class RaProfileServiceImpl implements RaProfileService {
             certificateRepository.save(certificate);
         }
 
-        attributeEngine.deleteAllObjectAttributeContent(Resource.RA_PROFILE, raProfile.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.RA_PROFILE, raProfile.getUuid());
         raProfileRepository.delete(raProfile);
     }
 
