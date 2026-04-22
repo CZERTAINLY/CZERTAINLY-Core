@@ -12,6 +12,8 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
+import com.czertainly.api.model.connector.signatures.formatter.FormatDtbsResponseDto;
+import com.czertainly.api.model.connector.signatures.formatter.FormattedResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -36,6 +38,7 @@ import com.czertainly.core.api.tsp.TspControllerImpl;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.TspProfileService;
 import com.czertainly.core.service.tsa.ManagedTimestampEngine;
+import com.czertainly.core.service.tsa.TimestampTokenTestUtil;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -96,13 +99,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
  *   <li>RFC 3161 {@link TimeStampResponse} parsing and PKI status assertion</li>
  * </ol>
  *
- * <p>The external Cryptography Provider Connector is stubbed with WireMock.
- * The sign endpoint dynamically computes a real SHA256withRSA signature over the
- * incoming DTBS using the same key pair as the TSA certificate, so that the assembled
- * timestamp token carries a cryptographically valid CMS signature.
- * Signature verification is enabled via {@code validateTokenSignature = true} on the
- * signing profile workflow, exercising the full end-to-end path including
- * {@link ManagedTimestampEngine} token validation.
+ * <p>External connectors are stubbed with WireMock.
  */
 public class TspProtocolFlowITest extends BaseSpringBootTest {
 
@@ -139,10 +136,19 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
 
     private UUID signingProfileUuid;
     private WireMockServer wireMockServer;
-    /** In-memory RSA key pair used to build the TSA certificate. */
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    /**
+     * In-memory RSA key pair used to build the TSA certificate.
+     */
     private KeyPair tsaKeyPair;
-    /** Self-signed X.509 TSA certificate with critical id-kp-timeStamping EKU. */
+    /**
+     * Self-signed X.509 TSA certificate with critical id-kp-timeStamping EKU.
+     */
     private X509Certificate tsaCert;
+    /**
+     * Pre-computed RFC 3161 TimeStampToken DER bytes returned by the formatter stub.
+     */
+    private byte[] precomputedTokenBytes;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -153,6 +159,9 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         // Key pair must be generated first so the WireMock transformer can sign with it.
         tsaKeyPair = generateRsaKeyPair();
 
+        // Pre-compute a valid RFC 3161 token so the formatter stub can return real bytes.
+        precomputedTokenBytes = TimestampTokenTestUtil.createTimestampToken().getEncoded();
+
         wireMockServer = new WireMockServer(
                 WireMockConfiguration.options()
                         .port(0)
@@ -161,6 +170,7 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", wireMockServer.port());
 
         stubSignEndpoint();
+        stubFormatterEndpoints();
         buildInfrastructure();
     }
 
@@ -247,6 +257,42 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         );
     }
 
+    /**
+     * Stubs the two-phase signature formatter connector endpoints used by
+     * {@link com.czertainly.core.service.tsa.formatter.TimestampingConnectorSignatureFormatterClient}.
+     *
+     * <p>Phase 1 ({@code formatDtbs}): returns a fixed dummy DTBS byte array.
+     * The bytes are fed to the signer stub, which produces a real RSA signature over them.
+     *
+     * <p>Phase 2 ({@code formatResponse}): returns the pre-computed RFC 3161 token bytes
+     * generated in {@link #setUp()}.
+     */
+    private void stubFormatterEndpoints() throws Exception {
+        // Phase 1: formatDtbs — return dummy DTBS bytes for the signer to sign
+        FormatDtbsResponseDto dtbsResponse = new FormatDtbsResponseDto();
+        dtbsResponse.setDtbs(new byte[]{1, 2, 3, 4, 5});
+        String dtbsJson = objectMapper.writeValueAsString(dtbsResponse);
+        wireMockServer.stubFor(
+                post(urlPathMatching("/formatter/v1/signatureProvider/formatting/formatDtbs"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(dtbsJson))
+        );
+
+        // Phase 2: formatResponse — return a structurally valid TimeStampToken
+        FormattedResponseDto tokenResponse = new FormattedResponseDto();
+        tokenResponse.setResponse(precomputedTokenBytes);
+        String tokenJson = objectMapper.writeValueAsString(tokenResponse);
+        wireMockServer.stubFor(
+                post(urlPathMatching("/formatter/v1/signatureProvider/formatting/formatResponse"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(tokenJson))
+        );
+    }
+
     private Connector persistConnector() {
         Connector connector = new Connector();
         connector.setName("tsp-crypto-connector");
@@ -284,8 +330,8 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
     }
 
     private CryptographicKey persistCryptographicKey(TokenInstanceReference tokenInstance,
-                                                      TokenProfile tokenProfile,
-                                                      KeyPair keyPair) {
+                                                     TokenProfile tokenProfile,
+                                                     KeyPair keyPair) {
         CryptographicKey key = new CryptographicKey();
         key.setName("tsp-rsa-key");
         key.setTokenProfile(tokenProfile);
@@ -496,13 +542,24 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         public String getName() {
             return "real-rsa-signer";
         }
+
+        @Override
+        public boolean applyGlobally() {
+            return false;
+        }
     }
 
     // ── WireMock response POJOs ───────────────────────────────────────────────
 
-    /** Matches the connector-side {@code SignDataResponseDto} JSON structure. */
-    record SignDataConnectorResponse(List<SignatureEntry> signatures) {}
+    /**
+     * Matches the connector-side {@code SignDataResponseDto} JSON structure.
+     */
+    record SignDataConnectorResponse(List<SignatureEntry> signatures) {
+    }
 
-    /** Matches the connector-side {@code SignatureResponseData} JSON structure. */
-    record SignatureEntry(byte[] data) {}
+    /**
+     * Matches the connector-side {@code SignatureResponseData} JSON structure.
+     */
+    record SignatureEntry(byte[] data) {
+    }
 }

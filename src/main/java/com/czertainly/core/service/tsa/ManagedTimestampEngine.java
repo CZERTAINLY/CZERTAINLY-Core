@@ -85,6 +85,8 @@ public class ManagedTimestampEngine {
 
             return TspResponse.granted(result.getEncoded());
 
+        } catch (TspException e) {
+            throw e; // TspController maps this to a proper rejection response
         } catch (ClockDriftException e) {
             logger.error("Clock drift detected during timestamp generation", e);
             return TspResponse.rejected(TspFailureInfo.TIME_NOT_AVAILABLE, "Clock drift detected");

@@ -23,7 +23,7 @@ import java.util.Date;
  * Test utilities for generating RFC 3161 {@link TimeStampToken} bytes
  * without a live signing connector.
  */
-final class TimestampTokenTestUtil {
+public final class TimestampTokenTestUtil {
 
     private TimestampTokenTestUtil() {
     }
@@ -32,7 +32,7 @@ final class TimestampTokenTestUtil {
      * Generates a minimal, parseable {@link TimeStampToken}.
      * Uses an RSA key pair and a self-signed TSA certificate created via the standard test utilities.
      */
-    static TimeStampToken createTimestampToken() throws Exception {
+    public static TimeStampToken createTimestampToken() throws Exception {
         KeyPair keyPair = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
         X509Certificate cert = CertificateTestUtil.createTimestampingCertificate(keyPair);
 
