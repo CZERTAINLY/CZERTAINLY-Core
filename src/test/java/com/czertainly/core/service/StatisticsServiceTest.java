@@ -4,7 +4,11 @@ import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.connector.secrets.SecretType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateSubjectType;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.secret.SecretState;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -121,6 +125,20 @@ class StatisticsServiceTest extends BaseSpringBootTest {
         ownerAssociation.setOwnerUuid(UUID.fromString(user.getUuid()));
         ownerAssociationRepository.save(ownerAssociation);
         return ownerAssociation;
+    }
+
+    @Test
+    void testGetStatistics_whenThreadInterrupted() {
+        Thread.currentThread().interrupt();
+        try {
+            StatisticsDto result = statisticsService.getStatistics(false);
+            Assertions.assertNotNull(result);
+            // both addCertificateStatistics and addSecretStatistics catch InterruptedException
+            // and re-interrupt the thread — verify the flag survived to here
+            Assertions.assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted(); // clear so the test framework is not affected
+        }
     }
 
     @Test
