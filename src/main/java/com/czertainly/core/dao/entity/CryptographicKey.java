@@ -94,6 +94,23 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     @Override
     public KeyDto mapToDto() {
+        KeyDto dto = buildKeyDto();
+        dto.setAssociations((items.size() - 1) + certificates.size() + altCertificates.size());
+        return dto;
+    }
+
+    /**
+     * Lightweight variant of {@link #mapToDto()} for use in chain responses.
+     * Omits {@code associations} to avoid initializing the lazy {@code certificates} and {@code altCertificates} collections.
+     */
+    public KeyDto mapToChainDto() {
+        return buildKeyDto();
+    }
+
+    /**
+     * Populates a {@link KeyDto} with all fields except {@code associations}.
+     */
+    private KeyDto buildKeyDto() {
         KeyDto dto = new KeyDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
@@ -115,7 +132,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwner(owner.getOwnerUsername());
         }
         dto.setItems(getKeyItemsSummary());
-        dto.setAssociations((items.size() - 1) + certificates.size() + altCertificates.size());
         dto.setComplianceStatus(getComplianceStatus());
         return dto;
     }

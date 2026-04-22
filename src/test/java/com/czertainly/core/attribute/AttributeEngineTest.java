@@ -183,7 +183,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void testMetaContents() {
-        var mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
+        var mappedMetadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
         Assertions.assertEquals(3, mappedMetadata.size());
     }
 
@@ -192,8 +192,8 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV3("localhost:1443"), new StringAttributeContentV3("localhost:2443"), new StringAttributeContentV3("localhost:3443")));
 
-        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
-        var mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
+        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).source(Resource.DISCOVERY, networkDiscoveryUuid).build());
+        var mappedMetadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
         Optional<MetadataResponseDto> metadataResponseDto = mappedMetadata.stream().filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString())).findFirst();
         Assertions.assertTrue(metadataResponseDto.isPresent());
         Assertions.assertEquals(4, metadataResponseDto.get().getItems().getFirst().getContent().size());
@@ -202,8 +202,8 @@ class AttributeEngineTest extends BaseSpringBootTest {
         List<BaseAttributeContentV3<?>> contentV3s = new ArrayList<>();
         contentV3s.add(new StringAttributeContentV3("TEST", "TEST"));
         networkDiscoveryMeta.setContent(contentV3s);
-        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
-        mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
+        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).source(Resource.DISCOVERY, networkDiscoveryUuid).build());
+        mappedMetadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
         metadataResponseDto = mappedMetadata.stream().filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString())).findFirst();
         Assertions.assertTrue(metadataResponseDto.isPresent());
         Assertions.assertEquals(3, mappedMetadata.size());
@@ -321,12 +321,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
         stringContentV2.setReference("data");
         stringContentV2.setData("data");
         requestAttributeV2.setContent(List.of(stringContentV2));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(), List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
 
         dataProps.setList(false);
         attributeEngine.updateDataAttributeDefinitions(null, null, List.of(dataAttributeV2));
         stringContentV2.setData("data2");
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE, certificateUuid, List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(), List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
 
     }
 
@@ -449,7 +449,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteAllObjectAttributeContent() throws NotFoundException, CertificateException, IOException {
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, certificate.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.CERTIFICATE, certificate.getUuid());
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
 
         Assertions.assertTrue(certificateDetailDto.getMetadata().isEmpty());
@@ -564,18 +564,18 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContent(List.of(new StringAttributeContentV3("data_value")));
-        attributeEngine.updateObjectDataAttributesContent(connectorDiscovery.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid(), List.of(requestAttribute));
+        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).build(), List.of(requestAttribute));
 
         // Verify it exists
         Assertions.assertFalse(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).isEmpty());
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
 
         // Delete connector attribute definitions content
         attributeEngine.deleteConnectorAttributeDefinitionsContent(connectorDiscovery.getUuid());
 
         // Verify it's gone
         Assertions.assertTrue(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).isEmpty());
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
     }
 
     @Test
@@ -623,21 +623,21 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), null, List.of(dataAttribute));
 
-        ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid());
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).build();
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContent(List.of(new StringAttributeContentV3("data_value")));
-        attributeEngine.updateObjectDataAttributesContent(connectorDiscovery.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid(), List.of(requestAttribute));
+        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).build(), List.of(requestAttribute));
 
         // Verify content exists
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
 
         // Delete object attributes content
         attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, contentInfo);
 
         // Verify content is gone
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
     }
 
     @Test
@@ -656,21 +656,69 @@ class AttributeEngineTest extends BaseSpringBootTest {
         String purpose = "testPurpose";
         attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), operation, List.of(dataAttribute));
 
-        ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null, null, null, purpose);
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).operation(operation).purpose(purpose).build();
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContent(List.of(new StringAttributeContentV3("op_purp_value")));
-        attributeEngine.updateObjectDataAttributesContent(connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid(), List.of(requestAttribute));
+        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).operation(operation).purpose(purpose).build(), List.of(requestAttribute));
 
         // Verify content exists
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
 
         // Delete operation object attributes content with purpose
-        attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, operation, purpose, contentInfo);
+        attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, contentInfo);
 
         // Verify content is gone
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid()).isEmpty());
+        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
+    }
+
+    /**
+     * Verifies that {@code getObjectCustomAttributesContent} correctly filters results when a non-null {@code allowedDefinitionUuids}
+     * or {@code forbiddenDefinitionUuids} list is provided, and that passing {@code null} for both returns all attributes.
+     */
+    @Test
+    void testGetObjectCustomAttributesContentFiltering() throws AttributeException, NotFoundException {
+        // Assign content to both department and orderNo custom attributes on the certificate.
+        // (expirationDateCustomAttribute is read-only and already has content from setup, but its
+        //  content is assigned to Resource.CERTIFICATE via loadCustomAttributesData so all three
+        //  definitions are linked. We assign runtime content only to the two non-read-only ones.)
+        RequestAttributeV3 dept = new RequestAttributeV3();
+        dept.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
+        dept.setName(departmentCustomAttribute.getName());
+        dept.setContent(List.of(new StringAttributeContentV3("Engineering")));
+
+        RequestAttributeV3 orderNo = new RequestAttributeV3();
+        orderNo.setUuid(UUID.fromString(orderNoCustomAttribute.getUuid()));
+        orderNo.setName(orderNoCustomAttribute.getName());
+        orderNo.setContent(List.of(new FloatAttributeContentV3(42f)));
+
+        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(dept, orderNo));
+
+        UUID deptUuid = UUID.fromString(departmentCustomAttribute.getUuid());
+        UUID orderUuid = UUID.fromString(orderNoCustomAttribute.getUuid());
+
+        // ── null / null → returns all stored attributes ──────────────────────
+        var all = attributeContent2ObjectRepository.getObjectCustomAttributesContent(
+                AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(), null, null);
+        Assertions.assertTrue(all.size() >= 2, "null/null filter must return all attributes (got " + all.size() + ")");
+
+        // ── allowedDefinitionUuids = [dept] → only dept is returned ──────────
+        var allowed = attributeContent2ObjectRepository.getObjectCustomAttributesContent(
+                AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(),
+                List.of(deptUuid), null);
+        Assertions.assertEquals(1, allowed.size(), "allow-list with only dept UUID must return exactly one attribute");
+        Assertions.assertEquals(deptUuid, allowed.getFirst().uuid(),
+                "the returned attribute must be the department one");
+
+        // ── forbiddenDefinitionUuids = [dept] → dept is excluded ─────────────
+        var forbidden = attributeContent2ObjectRepository.getObjectCustomAttributesContent(
+                AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(),
+                null, List.of(deptUuid));
+        boolean containsDept = forbidden.stream().anyMatch(c -> deptUuid.equals(c.uuid()));
+        Assertions.assertFalse(containsDept, "deny-list must not return the department attribute");
+        boolean containsOrderNo = forbidden.stream().anyMatch(c -> orderUuid.equals(c.uuid()));
+        Assertions.assertTrue(containsOrderNo, "deny-list must still return the orderNo attribute");
     }
 
     @Test
@@ -737,7 +785,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         metaProps1.setGlobal(true);
         networkDiscoveryMeta.setProperties(metaProps1);
         networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV3("localhost:0443")));
-        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
+        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).source(Resource.DISCOVERY, networkDiscoveryUuid).build());
 
         MetadataAttributeV2 authorityDiscoveryMeta = new MetadataAttributeV2();
         authorityDiscoveryMeta.setName("username");
@@ -750,7 +798,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         metaProps2.setVisible(true);
         authorityDiscoveryMeta.setProperties(metaProps2);
         authorityDiscoveryMeta.setContent(List.of(new StringAttributeContentV2("tst-username")));
-        attributeEngine.updateMetadataAttribute(authorityDiscoveryMeta, new ObjectAttributeContentInfo(connectorAuthority.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, authorityDiscoveryUuid));
+        attributeEngine.updateMetadataAttribute(authorityDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).source(Resource.DISCOVERY, authorityDiscoveryUuid).build());
 
         MetadataAttributeV2 authorityIssueMeta = new MetadataAttributeV2();
         authorityIssueMeta.setUuid("b42ab690-60fd-11ed-9b6a-0242ac120002");
@@ -763,7 +811,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         metaProps3.setVisible(true);
         metaProps3.setLabel("EJBCA Username");
         authorityIssueMeta.setProperties(metaProps3);
-        attributeEngine.updateMetadataAttribute(authorityIssueMeta, new ObjectAttributeContentInfo(connectorAuthority.getUuid(), Resource.CERTIFICATE, certificate.getUuid()));
+        attributeEngine.updateMetadataAttribute(authorityIssueMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build());
     }
 
     @Test
@@ -846,9 +894,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setContentType(secretAttribute.getContentType());
         requestAttribute.setContent(List.of(contentV3));
         List<ResponseAttribute> responseAttributes = attributeEngine.updateObjectDataAttributesContent(
-                connectorAuthority.getUuid(), null,
-                Resource.CERTIFICATE,
-                certificate.getUuid(),
+                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build(),
                 List.of(requestAttribute)
         );
         Assertions.assertEquals(1, responseAttributes.size());
@@ -860,7 +906,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         Assertions.assertNotNull(attributeContentItem.getEncryptedData());
 
         // Decrypt check
-        List<RequestAttribute> decryptedAttributes = attributeEngine.getRequestObjectDataAttributesContent(connectorAuthority.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid());
+        List<RequestAttribute> decryptedAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build());
         List<BaseAttributeContentV3<?>> content1 = decryptedAttributes.getFirst().getContent();
         Assertions.assertEquals(data, content1.getFirst().getData());
     }

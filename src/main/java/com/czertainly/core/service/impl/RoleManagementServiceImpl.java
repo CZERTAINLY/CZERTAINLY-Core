@@ -84,7 +84,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.DELETE)
     public void deleteRole(String roleUuid) {
         roleManagementApiClient.deleteRole(roleUuid);
-        attributeEngine.deleteAllObjectAttributeContent(Resource.ROLE, UUID.fromString(roleUuid));
+        attributeEngine.deleteObjectAttributeContent(Resource.ROLE, UUID.fromString(roleUuid));
     }
 
     @Override

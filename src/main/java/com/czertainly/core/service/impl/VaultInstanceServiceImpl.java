@@ -17,6 +17,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.vault.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.ConnectorRequestAttributesBuilder;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.VaultInstance;
@@ -118,7 +119,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
         detailDto.getConnector().setName(connector.getName());
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));
-        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
+        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT, vaultInstance.getUuid()).connector(vaultInstance.getConnectorUuid()).build(), request.getAttributes()));
 
         return detailDto;
     }
@@ -136,7 +137,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
                 .orElseThrow(() -> new NotFoundException(Resource.VAULT.getLabel(), uuid.toString()));
         VaultInstanceDetailDto detailDto = vaultInstance.mapToDetailDto();
         detailDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.VAULT, uuid));
-        detailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid()));
+        detailDto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT, vaultInstance.getUuid()).connector(vaultInstance.getConnectorUuid()).build()));
         return detailDto;
     }
 
@@ -183,7 +184,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(vaultInstance.getConnectorUuid()));
         checkConnectionToVaultInConnector(vaultInstance.getConnectorUuid(), request.getAttributes(), connector);
 
-        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid(), request.getAttributes()));
+        detailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT, vaultInstance.getUuid()).connector(vaultInstance.getConnectorUuid()).build(), request.getAttributes()));
         detailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.VAULT, vaultInstance.getUuid(), request.getCustomAttributes()));
 
         return detailDto;
@@ -224,10 +225,10 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
             throw new ValidationException("Cannot list vault profile attributes for vault without associated connector");
         }
 
-        List<BaseAttribute> vaultAttributes = vaultApiClient.listVaultAttributes(vaultInstance.getConnector().mapToApiClientDto());
-        List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(vaultInstance.getConnectorUuid(), vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(vaultInstance.getConnectorUuid(), null, Resource.VAULT, vaultInstance.getUuid()));
+        List<BaseAttribute> vaultAttributes = vaultApiClient.listVaultAttributes(vaultInstance.getConnector().mapToApiClientDtoV2());
+        List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(vaultInstance.getConnectorUuid(), vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT, vaultInstance.getUuid()).connector(vaultInstance.getConnectorUuid()).build()));
 
-        List<BaseAttribute> attributes = vaultApiClient.listVaultProfileAttributes(vaultInstance.getConnector().mapToApiClientDto(), requestVaultAttributes);
+        List<BaseAttribute> attributes = vaultApiClient.listVaultProfileAttributes(vaultInstance.getConnector().mapToApiClientDtoV2(), requestVaultAttributes);
         // TODO: This is a temporary solution, solution for this should be implemented in general
         // Save connector attributes definitions in attribute engine, so they can be used for validation and content preparation in other operations
         attributeEngine.updateDataAttributeDefinitions(vaultInstance.getConnectorUuid(), null, attributes);
@@ -241,12 +242,12 @@ public class VaultInstanceServiceImpl implements VaultInstanceService {
         // get and load vault attributes
         List<BaseAttribute> vaultAttributes = vaultApiClient.listVaultAttributes(connector);
         attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, vaultAttributes);
-        List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.VAULT, vaultInstanceUuid));
+        List<RequestAttribute> requestVaultAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultAttributes, attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT, vaultInstanceUuid).connector(connectorUuid).build()));
 
         // get and load vault profile attributes
         List<BaseAttribute> vaultProfileAttributes = vaultApiClient.listVaultProfileAttributes(connector, requestVaultAttributes);
         attributeEngine.updateAttributeDefinitionsWithCallback(connectorUuid, vaultProfileAttributes);
-        List<RequestAttribute> requestVaultProfileAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultProfileAttributes, attributeEngine.getRequestObjectDataAttributesContent(connectorUuid, null, Resource.VAULT_PROFILE, vaultProfileUuid));
+        List<RequestAttribute> requestVaultProfileAttributes = connectorRequestAttributesBuilder.prepareRequestAttributesForConnectorRequest(connectorUuid, vaultProfileAttributes, attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.VAULT_PROFILE, vaultProfileUuid).connector(connectorUuid).build()));
 
         secretOperationRequest.setVaultAttributes(requestVaultAttributes);
         secretOperationRequest.setVaultProfileAttributes(requestVaultProfileAttributes);

@@ -183,7 +183,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         UUID uuid = UUID.fromString(userUuid);
         certificateService.removeCertificateUser(uuid);
         objectAssociationService.removeOwnerAssociations(uuid);
-        attributeEngine.deleteAllObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
+        attributeEngine.deleteObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
         clearAuthenticationData(userUuid, "deleted");
     }
 
