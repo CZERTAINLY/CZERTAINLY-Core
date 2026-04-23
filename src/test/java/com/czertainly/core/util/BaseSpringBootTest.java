@@ -3,7 +3,7 @@ package com.czertainly.core.util;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
-import com.czertainly.core.messaging.producers.AuditLogsProducer;
+import com.czertainly.core.messaging.jms.producers.AuditLogsProducer;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -20,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.sql.Connection;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 
 @SpringBootTest
+@ActiveProfiles("test")
 public class BaseSpringBootTest {
 
     @MockitoBean
