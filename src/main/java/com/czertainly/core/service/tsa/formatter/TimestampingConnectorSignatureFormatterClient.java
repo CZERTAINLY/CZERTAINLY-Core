@@ -7,8 +7,7 @@ import com.czertainly.api.model.connector.signatures.formatter.ExtensionDto;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.czertainly.api.model.connector.signatures.formatter.TimestampingFormatDtbsRequestDto;
 import com.czertainly.api.model.connector.signatures.formatter.TimestampingFormatResponseRequestDto;
-import com.czertainly.api.model.core.connector.v2.ConnectorApiClientDto;
-import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorApiClientDtoV2;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.model.signing.SigningProfileModel;
@@ -56,7 +55,7 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
                              SignatureAlgorithm signatureAlgorithm) throws TspException {
 
         ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> workflow = timestampingProfile.workflow();
-        ConnectorApiClientDto connector = resolveConnector(workflow.signatureFormatterConnectorUuid());
+        ConnectorApiClientDtoV2 connector = resolveConnector(workflow.signatureFormatterConnectorUuid());
 
         TimestampingFormatDtbsRequestDto requestDto = new TimestampingFormatDtbsRequestDto();
         requestDto.setData(request.hashedMessage());
@@ -91,7 +90,7 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
                                         SignatureAlgorithm signatureAlgorithm) throws TspException {
 
         ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> workflow = timestampingProfile.workflow();
-        ConnectorApiClientDto connector = resolveConnector(workflow.signatureFormatterConnectorUuid());
+        ConnectorApiClientDtoV2 connector = resolveConnector(workflow.signatureFormatterConnectorUuid());
 
         TimestampingFormatResponseRequestDto requestDto = new TimestampingFormatResponseRequestDto();
         requestDto.setDtbs(dtbs);
@@ -119,7 +118,7 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
         }
     }
 
-    private ConnectorApiClientDto resolveConnector(UUID connectorUuid) throws TspException {
+    private ConnectorApiClientDtoV2 resolveConnector(UUID connectorUuid) throws TspException {
         return connectorRepository.findByUuid(connectorUuid)
                 .map(Connector::mapToApiClientDtoV2)
                 .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,

@@ -13,8 +13,12 @@ import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
-import com.czertainly.api.model.core.connector.ConnectorApiClientDto;
-import com.czertainly.api.model.core.connector.v2.*;
+import com.czertainly.api.model.core.connector.ConnectorApiClientDtoV1;
+import com.czertainly.api.model.core.connector.v2.ConnectInfo;
+import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorRequestDto;
+import com.czertainly.api.model.core.connector.v2.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -256,7 +260,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     public List<ConnectInfo> connect(ConnectRequestDto request) throws ConnectorException {
         List<ConnectInfo> connectInfos = new ArrayList<>();
 
-        ConnectorApiClientDto apiClientDto = new ConnectorApiClientDto();
+        ConnectorApiClientDtoV1 apiClientDto = new ConnectorApiClientDtoV1();
         apiClientDto.setUuid(request.getUuid());
         apiClientDto.setUrl(request.getUrl());
         apiClientDto.setAuthType(request.getAuthType());
@@ -426,7 +430,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
 
-        ConnectorApiClientDto connectorApiDto = new ConnectorApiClientDto();
+        ConnectorApiClientDtoV1 connectorApiDto = new ConnectorApiClientDtoV1();
         connectorApiDto.setName(request.getName());
         connectorApiDto.setUrl(request.getUrl());
         connectorApiDto.setAuthType(request.getAuthType());
