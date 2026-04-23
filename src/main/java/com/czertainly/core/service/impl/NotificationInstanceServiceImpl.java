@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceUpdateRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceMappedAttributes;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceMappedAttributeRepository;
@@ -107,7 +108,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     public NotificationInstanceDto getNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = getNotificationInstanceReferenceEntity(uuid);
 
-        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid());
+        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid()).connector(notificationInstanceReference.getConnectorUuid()).build());
 
         NotificationInstanceDto notificationInstanceDto = notificationInstanceReference.mapToDto();
         notificationInstanceDto.setAttributeMappings(notificationInstanceReference.getMappedAttributes()
@@ -131,7 +132,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
             try {
                 List<RequestAttribute> requestAttributes = AttributeDefinitionUtils.getClientAttributes(notificationProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(notificationInstanceReference.getConnectorUuid(), null, notificationProviderInstanceDto.getAttributes());
-                attributes = attributeEngine.updateObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid(), requestAttributes);
+                attributes = attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid()).connector(notificationInstanceReference.getConnectorUuid()).build(), requestAttributes);
             } catch (AttributeException e) {
                 logger.warn("Could not update data attributes for notification instance {} retrieved from connector", notificationInstanceReference.getName());
             }
@@ -170,7 +171,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         notificationInstanceReferenceRepository.save(notificationInstanceRef);
 
         NotificationInstanceDto dto = notificationInstanceRef.mapToDto();
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(notificationInstanceRef.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceRef.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.NOTIFICATION_INSTANCE, notificationInstanceRef.getUuid()).connector(notificationInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
 
         return dto;
     }
@@ -196,7 +197,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         updateMappedAttributes(notificationInstanceRef, request.getAttributeMappings());
 
         NotificationInstanceDto dto = notificationInstanceReferenceRepository.save(notificationInstanceRef).mapToDto();
-        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(notificationInstanceRef.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceRef.getUuid(), request.getAttributes()));
+        dto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.NOTIFICATION_INSTANCE, notificationInstanceRef.getUuid()).connector(notificationInstanceRef.getConnectorUuid()).build(), request.getAttributes()));
 
         return dto;
     }

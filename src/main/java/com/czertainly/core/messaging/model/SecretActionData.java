@@ -13,6 +13,7 @@ public record SecretActionData(
     String name,
     UUID updatedSourceVaultProfileUuid,
     List<RequestAttribute> attributes,
+    boolean deleteInVault,
     SecretState originalState
 ) {
 }

@@ -506,7 +506,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         }
 
         complianceProfileAssociationRepository.deleteByComplianceProfileUuid(complianceProfile.getUuid());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.COMPLIANCE_PROFILE, complianceProfile.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.COMPLIANCE_PROFILE, complianceProfile.getUuid());
 
         complianceProfileRepository.delete(complianceProfile);
     }

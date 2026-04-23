@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -93,6 +94,23 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     @Override
     public KeyDto mapToDto() {
+        KeyDto dto = buildKeyDto();
+        dto.setAssociations((items.size() - 1) + certificates.size() + altCertificates.size());
+        return dto;
+    }
+
+    /**
+     * Lightweight variant of {@link #mapToDto()} for use in chain responses.
+     * Omits {@code associations} to avoid initializing the lazy {@code certificates} and {@code altCertificates} collections.
+     */
+    public KeyDto mapToChainDto() {
+        return buildKeyDto();
+    }
+
+    /**
+     * Populates a {@link KeyDto} with all fields except {@code associations}.
+     */
+    private KeyDto buildKeyDto() {
         KeyDto dto = new KeyDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
@@ -114,8 +132,32 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwner(owner.getOwnerUsername());
         }
         dto.setItems(getKeyItemsSummary());
-        dto.setAssociations((items.size() - 1) + certificates.size() + altCertificates.size());
+        dto.setComplianceStatus(getComplianceStatus());
         return dto;
+    }
+
+    private ComplianceStatus getComplianceStatus() {
+        if (items.isEmpty()) {
+            return ComplianceStatus.NOT_CHECKED;
+        }
+        List<ComplianceStatus> statuses = items.stream()
+                .map(CryptographicKeyItem::getComplianceStatus)
+                .filter(Objects::nonNull)
+                .toList();
+        if (statuses.isEmpty()) {
+            return ComplianceStatus.NOT_CHECKED;
+        }
+        if (statuses.contains(ComplianceStatus.NOK)) {
+            return ComplianceStatus.NOK;
+        } else if (statuses.contains(ComplianceStatus.FAILED)) {
+            return ComplianceStatus.FAILED;
+        } else if (statuses.contains(ComplianceStatus.NA)) {
+            return ComplianceStatus.NA;
+        } else if (statuses.contains(ComplianceStatus.NOT_CHECKED)) {
+            return ComplianceStatus.NOT_CHECKED;
+        } else {
+            return ComplianceStatus.OK;
+        }
     }
 
     public KeyDetailDto mapToDetailDto() {
@@ -124,6 +166,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
         dto.setCreationTime(created);
+        dto.setComplianceStatus(getComplianceStatus());
         if (tokenProfile != null) {
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());

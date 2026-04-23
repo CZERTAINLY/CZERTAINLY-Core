@@ -207,8 +207,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
         DiscoveryHistoryDetailDto dto = discoveryHistory.mapToDto();
-        dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.DISCOVERY, discoveryHistory.getUuid())));
-        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(discoveryHistory.getConnectorUuid(), null, Resource.DISCOVERY, discoveryHistory.getUuid()));
+        dto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).build()));
+        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).connector(discoveryHistory.getConnectorUuid()).build()));
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, uuid.getValue()));
         return dto;
     }
@@ -256,7 +256,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         Integer certContentsDeleted = certificateContentRepository.deleteUnusedCertificateContents();
         logger.debug("Deleted {} unused certificate contents", certContentsDeleted);
 
-        attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
+        attributeEngine.deleteObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
         discoveryRepository.delete(discovery);
         triggerService.deleteTriggerAssociations(Resource.DISCOVERY, discovery.getUuid());
 
@@ -319,7 +319,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         if (saveEntity) {
             discovery = discoveryRepository.save(discovery);
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(), request.getCustomAttributes());
-            attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
+            attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discovery.getUuid()).connector(connector.getUuid()).build(), request.getAttributes());
             if (request.getTriggers() != null) {
                 triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid(), request.getTriggers(), false);
                 discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
@@ -391,7 +391,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (existingCertificate == null) {
                     logger.warn("Could not update metadata for duplicate discovery certificate. Certificate with fingerprint {} not found.", fingerprint);
                 } else {
-                    attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(UUID.fromString(context.getConnectorDto().getUuid()), Resource.CERTIFICATE, existingCertificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
+                    attributeEngine.updateMetadataAttributes(certificate.getMeta(), ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, existingCertificate.getUuid()).connector(UUID.fromString(context.getConnectorDto().getUuid())).source(Resource.DISCOVERY, discovery.getUuid()).sourceName(discovery.getName()).build());
                 }
             } catch (AttributeException e) {
                 logger.error("Could not update metadata for duplicate discovery certificate {}.", certificate.getUuid());
@@ -678,7 +678,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discovery.setConnectorTotalCertificatesDiscovered(discoveryContext.getConnectorCertificatesDiscovered());
         if (updateMetadata && discoveryContext.getMetadata() != null && !discoveryContext.getMetadata().isEmpty()) {
             try {
-                attributeEngine.updateMetadataAttributes(discoveryContext.getMetadata(), new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.DISCOVERY, discovery.getUuid()));
+                attributeEngine.updateMetadataAttributes(discoveryContext.getMetadata(), ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discovery.getUuid()).connector(discovery.getConnectorUuid()).build());
             } catch (Exception e) {
                 logger.warn("Failed to serialize discovery metadata");
             }

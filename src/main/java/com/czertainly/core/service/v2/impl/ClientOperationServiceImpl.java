@@ -289,8 +289,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
         caRequest.setRequest(certificate.getCertificateRequest().getContent());
         caRequest.setFormat(certificate.getCertificateRequest().getCertificateRequestFormat());
-        caRequest.setAttributes(attributeEngine.getRequestObjectDataAttributesContent(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid()));
-        caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, certificate.getRaProfile().getUuid()));
+        caRequest.setAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build()));
+        caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, certificate.getRaProfile().getUuid()).connector(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).build()));
 
         try {
             var connectorDto = certificate.getRaProfile().getAuthorityInstanceReference().getConnector().mapToDto();
@@ -475,10 +475,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         caRequest.setRequest(certificate.getCertificateRequest().getContent());
         caRequest.setFormat(certificate.getCertificateRequest().getCertificateRequestFormat());
-        caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
         // TODO: check if retrieved correctly, just metadata with null source object
-        caRequest.setMeta(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(raProfile.getAuthorityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, oldCertificate.getUuid())));
+        caRequest.setMeta(attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, oldCertificate.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
 
         CertificateDataResponseDto renewCaResponse;
         HashMap<String, Object> additionalInformation = new HashMap<>();
@@ -616,7 +616,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             signatureAttributes = request.getSignatureAttributes();
         } else {
             if (oldCertificate.getCertificateRequest() != null)
-                signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+                signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid()).operation(AttributeOperation.CERTIFICATE_REQUEST_SIGN).build());
             else signatureAttributes = null;
         }
 
@@ -630,7 +630,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 altSignatureAttributes = request.getAltSignatureAttributes();
             } else {
                 if (oldCertificate.getCertificateRequest() != null)
-                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid()).operation(AttributeOperation.CERTIFICATE_REQUEST_SIGN).purpose(AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY).build());
             }
             altTokenProfileUuid = getAltTokenProfileUuid(request.getAltTokenProfileUuid(), oldCertificate);
 
@@ -672,10 +672,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         caRequest.setRequest(certificate.getCertificateRequest().getContent());
         caRequest.setFormat(certificate.getCertificateRequest().getCertificateRequestFormat());
-        caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
         // TODO: check if retrieved correctly, just metadata with null source object
-        caRequest.setMeta(attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(raProfile.getAuthorityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, oldCertificate.getUuid())));
+        caRequest.setMeta(attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, oldCertificate.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
 
         CertificateDataResponseDto renewCaResponse = null;
         HashMap<String, Object> additionalInformation = new HashMap<>();
@@ -773,7 +773,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 caRequest.setReason(CertificateRevocationReason.UNSPECIFIED);
             }
             caRequest.setAttributes(request.getAttributes());
-            caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+            caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
             caRequest.setCertificate(certificate.getCertificateContent().getContent());
 
             var connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
@@ -785,7 +785,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificate.setState(CertificateState.REVOKED);
             certificateRepository.save(certificate);
 
-            attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.CERTIFICATE, certificate.getUuid(), request.getAttributes());
+            attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build(), request.getAttributes());
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + caRequest.getReason().getLabel(), "");
         } catch (Exception e) {
             certificate.setState(CertificateState.ISSUED);
