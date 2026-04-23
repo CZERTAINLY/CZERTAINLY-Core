@@ -23,9 +23,9 @@ public interface TimeQualityConfigurationService extends ResourceExtensionServic
 
     TimeQualityConfigurationDto getTimeQualityConfiguration(SecuredUUID uuid) throws NotFoundException;
 
-    TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AttributeException, NotFoundException;
+    TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 
-    TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid, TimeQualityConfigurationRequestDto request) throws NotFoundException, AttributeException;
+    TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid, TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 
     void deleteTimeQualityConfiguration(SecuredUUID uuid) throws NotFoundException;
 

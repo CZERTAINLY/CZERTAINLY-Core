@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
@@ -45,6 +46,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -94,7 +96,10 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.CREATE)
     @Transactional
-    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AttributeException, NotFoundException {
+    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+        if (timeQualityConfigurationRepository.findByName(request.getName()).isPresent()) {
+            throw new AlreadyExistException("Time Quality Configuration with name '" + request.getName() + "' already exists.");
+        }
         attributeEngine.validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
 
         TimeQualityConfiguration configuration = new TimeQualityConfiguration();
@@ -116,9 +121,14 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.UPDATE)
     @Transactional
-    public TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid, TimeQualityConfigurationRequestDto request) throws NotFoundException, AttributeException {
+    public TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid, TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));
+
+        Optional<TimeQualityConfiguration> existingWithSameName = timeQualityConfigurationRepository.findByName(request.getName());
+        if (existingWithSameName.isPresent() && !existingWithSameName.get().getUuid().equals(configuration.getUuid())) {
+            throw new AlreadyExistException("Time Quality Configuration with name '" + request.getName() + "' already exists.");
+        }
         attributeEngine.validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
 
         configuration.setName(request.getName());

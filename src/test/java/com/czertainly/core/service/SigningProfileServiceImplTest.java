@@ -2227,7 +2227,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Test
     void testListSigningProfilesAssociatedTimeQualityConfiguration_emptyWhenNoneAssociated()
-            throws AttributeException, NotFoundException {
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationDto tqc = timeQualityConfigurationService
                 .createTimeQualityConfiguration(buildTimeQualityConfigurationRequestDto("tqc-no-profiles"));
 

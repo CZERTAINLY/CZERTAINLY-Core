@@ -10,4 +10,6 @@ import java.util.UUID;
 
 @Repository
 public interface TimeQualityConfigurationRepository extends SecurityFilterRepository<TimeQualityConfiguration, UUID> {
+
+    Optional<TimeQualityConfiguration> findByName(String name);
 }

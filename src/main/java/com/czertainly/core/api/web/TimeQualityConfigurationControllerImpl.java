@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.TimeQualityConfigurationController;
@@ -61,13 +62,13 @@ public class TimeQualityConfigurationControllerImpl implements TimeQualityConfig
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION, operation = Operation.CREATE)
-    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AttributeException, NotFoundException {
+    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         return timeQualityConfigurationService.createTimeQualityConfiguration(request);
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION, operation = Operation.UPDATE)
-    public TimeQualityConfigurationDto updateTimeQualityConfiguration(@LogResource(uuid = true) UUID uuid, TimeQualityConfigurationRequestDto request) throws NotFoundException, AttributeException {
+    public TimeQualityConfigurationDto updateTimeQualityConfiguration(@LogResource(uuid = true) UUID uuid, TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
         return timeQualityConfigurationService.updateTimeQualityConfiguration(SecuredUUID.fromUUID(uuid), request);
     }
 
