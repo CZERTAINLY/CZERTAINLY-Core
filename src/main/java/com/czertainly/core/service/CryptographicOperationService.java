@@ -117,6 +117,25 @@ public interface CryptographicOperationService {
     ) throws ConnectorException, NotFoundException;
 
     /**
+     * Same as {@link #signData} but does not record any key event history.
+     * Intended for internal callers (e.g. TSA) that manage their own audit trail.
+     *
+     * @param tokenInstanceUuid UUID of the token instance
+     * @param tokenProfileUUID  UUID of the token profile
+     * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
+     * @param request           DTO containing the data to sign a request {@Link SignDataRequestDto}
+     * @return Signed Data {@Link SignDataResponseDto}
+     * @throws NotFoundException when the token instance with the specified UUID is not found
+     */
+    SignDataResponseDto signDataWithoutEventHistory(
+            SecuredParentUUID tokenInstanceUuid,
+            SecuredUUID tokenProfileUUID,
+            UUID uuid, UUID keyItemUuid,
+            SignDataRequestDto request
+    ) throws ConnectorException, NotFoundException;
+
+    /**
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key

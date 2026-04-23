@@ -10,6 +10,7 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.core.model.signing.TspProfileModel;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -23,7 +24,7 @@ public interface TspProfileService extends ResourceExtensionService {
 
     TspProfileDto getTspProfile(SecuredUUID uuid) throws NotFoundException;
 
-    TspProfileDto getTspProfile(String name) throws NotFoundException;
+    TspProfileModel getTspProfile(String name) throws NotFoundException;
 
     TspProfileDto createTspProfile(TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 

@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileListDto;
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.TspProfile;
+import com.czertainly.core.model.signing.TspProfileModel;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
@@ -29,6 +30,25 @@ public class TspProfileMapper {
         }
         dto.setCustomAttributes(customAttributes);
         return dto;
+    }
+
+    public static TspProfileModel toModel(TspProfile profile, List<ResponseAttribute> customAttributes) {
+        SigningProfile defaultSigningProfile = profile.getDefaultSigningProfile();
+        String signingUrl = null;
+        if (defaultSigningProfile != null) {
+            signingUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                    + "/v1/protocols/tsp/" + profile.getName() + "/sign";
+        }
+        return new TspProfileModel(
+                profile.getUuid(),
+                profile.getName(),
+                profile.getDescription(),
+                profile.getEnabled() != null ? profile.getEnabled() : false,
+                defaultSigningProfile != null ? defaultSigningProfile.getUuid() : null,
+                defaultSigningProfile != null ? defaultSigningProfile.getName() : null,
+                signingUrl,
+                customAttributes
+        );
     }
 
     public static TspProfileListDto toListDto(TspProfile profile) {

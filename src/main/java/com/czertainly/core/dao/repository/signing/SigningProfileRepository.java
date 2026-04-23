@@ -2,6 +2,7 @@ package com.czertainly.core.dao.repository.signing;
 
 import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,4 +14,7 @@ public interface SigningProfileRepository extends SecurityFilterRepository<Signi
     List<SigningProfile> findAllByTspProfileUuid(UUID tspProfileUuid);
     List<SigningProfile> findAllByTimeQualityConfigurationUuid(UUID timeQualityConfigurationUuid);
     Optional<SigningProfile> findByName(String name);
+
+    @EntityGraph(attributePaths = {"timeQualityConfiguration"})
+    Optional<SigningProfile> findWithTimeQualityConfigurationByName(String name);
 }

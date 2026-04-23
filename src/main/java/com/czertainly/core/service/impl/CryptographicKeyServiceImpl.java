@@ -28,12 +28,14 @@ import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.config.CacheConfig;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.crypto.CryptographicKeyItemModel;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.ObjectFilterAspect;
@@ -51,6 +53,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.NonNull;
@@ -61,6 +65,8 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
@@ -112,6 +118,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private NotificationProducer notificationProducer;
 
     private UserManagementApiClient userManagementApiClient;
+    private CacheManager cacheManager;
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
@@ -174,6 +181,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Autowired
     public void setNotificationProducer(NotificationProducer notificationProducer) {
         this.notificationProducer = notificationProducer;
+    }
+
+    @Autowired
+    public void setCacheManager(CacheManager cacheManager) {
+        this.cacheManager = cacheManager;
     }
 
     @Autowired
@@ -412,6 +424,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             key.setTokenProfile(tokenProfile);
         }
         key = cryptographicKeyRepository.save(key);
+        key.getItems().forEach(item -> evictKeyItemCache(item.getUuid()));
 
         if (request.getGroupUuids() != null) {
             objectAssociationService.setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet()));
@@ -514,6 +527,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 attributeEngine.deleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
                 cryptographicKeyItemRepository.delete(keyItem);
                 cryptographicKeyRepository.save(key);
+                evictKeyItemCache(keyItem.getUuid());
             }
             if (key.getItems().isEmpty()) {
                 deleteKeyWithAssociations(key);
@@ -557,6 +571,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     }
                     attributeEngine.deleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
                     cryptographicKeyItemRepository.delete(keyItem);
+                    evictKeyItemCache(keyItem.getUuid());
                 }
                 deleteKeyWithAssociations(key);
             } catch (NotFoundException e) {
@@ -640,6 +655,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         // 5. Get rid of cryptographic key items.
         attributeEngine.bulkDeleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, permittedUuids);
         cryptographicKeyItemRepository.deleteAllById(permittedUuids);
+        permittedUuids.forEach(this::evictKeyItemCache);
 
         // 6. Finally, delete empty keys.
         if (!keysToDelete.isEmpty()) {
@@ -900,8 +916,64 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         return null;
     }
 
+    @Override
+    // No @ExternalAuthorization — TsaService authorizes the request before calling this.
+    public CryptographicKeyItemModel getKeyItemModel(UUID keyItemUuid) throws NotFoundException {
+        Cache cache = cacheManager.getCache(CacheConfig.CRYPTOGRAPHIC_KEY_ITEM_CACHE);
+        if (cache != null) {
+            CryptographicKeyItemModel cached = cache.get(keyItemUuid, CryptographicKeyItemModel.class);
+            if (cached != null)
+                return cached;
+        }
+        CryptographicKeyItem keyItem = cryptographicKeyItemRepository
+                .findWithConnectorByUuid(keyItemUuid)
+                .orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, keyItemUuid));
+
+        if (keyItem.getKey() == null) {
+            throw new NotFoundException("Cryptographic Key associated with the Key Item is not found");
+        }
+        if (keyItem.getKey().getTokenProfile() == null) {
+            throw new NotFoundException("Token Profile associated with the Key is not found");
+        }
+        if (keyItem.getKey().getTokenProfile().getTokenInstanceReference() == null) {
+            throw new NotFoundException("Token Instance associated with the Key is not found");
+        }
+        if (keyItem.getKey().getTokenProfile().getTokenInstanceReference().getConnector() == null) {
+            throw new NotFoundException("Connector associated to the Key is not found");
+        }
+        CryptographicKeyItemModel model = new CryptographicKeyItemModel(
+                keyItem.getUuid(),
+                keyItem.getState(),
+                keyItem.isEnabled(),
+                keyItem.getUsage(),
+                keyItem.getKeyAlgorithm(),
+                keyItem.getKeyReferenceUuid(),
+                keyItem.getKeyData(),
+                keyItem.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToApiClientDtoV1(),
+                keyItem.getKey().getTokenProfile().getTokenInstanceReference().getTokenInstanceUuid()
+        );
+        if (cache != null)
+            cache.put(keyItemUuid, model);
+        return model;
+    }
+
+    private void evictKeyItemCache(UUID keyItemUuid) {
+        Cache cache = cacheManager.getCache(CacheConfig.CRYPTOGRAPHIC_KEY_ITEM_CACHE);
+        if (cache == null) return;
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cache.evict(keyItemUuid);
+                }
+            });
+        } else {
+            cache.evict(keyItemUuid);
+        }
+    }
 
     @Override
+    @Transactional(noRollbackFor = ValidationException.class)
     public UUID uploadCertificatePublicKey(String name, PublicKey publicKey, int keyLength, String fingerprint) {
         LocalDateTime now = LocalDateTime.now();
         CryptographicKey cryptographicKey = new CryptographicKey();
@@ -965,6 +1037,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             throw new NotFoundException("Key Item has not been found for Key with UUID %s.".formatted(keyUuid));
         keyItem.get().setName(editKeyItemDto.getName());
         cryptographicKeyItemRepository.save(keyItem.get());
+        evictKeyItemCache(keyItem.get().getUuid());
         return keyItem.get().mapToDto();
     }
 
@@ -1059,6 +1132,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             );
         }
         cryptographicKeyItemRepository.save(keyItem);
+        evictKeyItemCache(keyItem.getUuid());
         String message;
         if (isDiscovered) {
             message = "Key Discovered from Token Instance "
@@ -1203,6 +1277,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         }
         keyItem.setEnabled(enabled);
         cryptographicKeyItemRepository.save(keyItem);
+        evictKeyItemCache(keyItem.getUuid());
         keyEventHistoryService.addEventHistory(enabled ? KeyEvent.ENABLE : KeyEvent.DISABLE, KeyEventStatus.SUCCESS, "Key " + (enabled ? "enabled." : "disabled."), null, keyItem);
         return true;
     }
@@ -1248,6 +1323,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         keyItem.setState(KeyState.COMPROMISED);
         keyItem.setReason(reason);
         cryptographicKeyItemRepository.save(keyItem);
+        evictKeyItemCache(keyItem.getUuid());
         keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.SUCCESS, "Key compromised. Reason: " + reason + ".", null, keyItem);
         return true;
     }
@@ -1290,6 +1366,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         String oldUsage = content.getUsage().stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
         content.setUsage(usages);
         cryptographicKeyItemRepository.save(content);
+        evictKeyItemCache(content.getUuid());
         String newUsage = usages.stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
         keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
                 "Key usages updated from " + oldUsage + " to " + newUsage + ".", null, content);
@@ -1341,6 +1418,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         keyItem.setKeyData(null);
         keyItem.setState(finalState);
         cryptographicKeyItemRepository.save(keyItem);
+        evictKeyItemCache(keyItem.getUuid());
         keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.SUCCESS, "Key destroyed.", null, keyItem);
         return true;
     }

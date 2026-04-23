@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.v2.ConnectorInfo;
@@ -17,12 +18,15 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ResourceExtensionService;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ConnectorService extends ResourceExtensionService {
 
     PaginationResponseDto<ConnectorDto> listConnectors(SecurityFilter filter, SearchRequestDto request);
 
     ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
+
+    com.czertainly.api.model.core.connector.v2.ConnectorApiClientDtoV2 getConnectorForApiClient(UUID connectorUuid) throws TspException;
 
     ConnectorDetailDto createConnector(ConnectorRequestDto request) throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException;
 

@@ -26,12 +26,14 @@ import com.czertainly.core.dao.repository.signing.TspProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.mapper.signing.TspProfileMapper;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.signing.TspProfileModel;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.TspProfileService;
 import com.czertainly.core.service.SigningProfileService;
 import com.czertainly.core.service.model.SecuredList;
+import com.czertainly.core.config.CacheConfig;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -40,7 +42,12 @@ import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.function.TriFunction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -55,6 +62,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class TspProfileServiceImpl implements TspProfileService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(TspProfileServiceImpl.class);
+    private CacheManager cacheManager;
     private AttributeEngine attributeEngine;
     private SigningProfileRepository signingProfileRepository;
     private SigningProfileService signingProfileService;
@@ -95,14 +104,14 @@ public class TspProfileServiceImpl implements TspProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL)
-    @Transactional
-    public TspProfileDto getTspProfile(String name) throws NotFoundException {
-        TspProfile tspConfiguration = tspProfileRepository.findByName(name)
+    @Cacheable(value = CacheConfig.TSP_PROFILES_CACHE, key = "#name")
+    // No @ExternalAuthorization — TsaService authorizes the request before calling this. Do not call from elsewhere.
+    public TspProfileModel getTspProfile(String name) throws NotFoundException {
+        TspProfile tspConfiguration = tspProfileRepository.findWithAssociationsByName(name)
                 .orElseThrow(() -> new NotFoundException("TSP Configuration not found: " + name));
 
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.TSP_PROFILE, tspConfiguration.getUuid());
-        return TspProfileMapper.toDto(tspConfiguration, customAttributes);
+        return TspProfileMapper.toModel(tspConfiguration, customAttributes);
     }
 
     @Override
@@ -128,8 +137,11 @@ public class TspProfileServiceImpl implements TspProfileService {
             throw new AlreadyExistException("TSP Profile with name '" + request.getName() + "' already exists.");
         }
 
+        String oldName = profile.getName();
         SigningProfile defaultSigningProfile = validateCreateUpdateRequest(request);
-        return updateAndMapToDto(profile, request, defaultSigningProfile);
+        TspProfileDto result = updateAndMapToDto(profile, request, defaultSigningProfile);
+        evictTspProfileCache(oldName);
+        return result;
     }
 
     @Override
@@ -169,6 +181,7 @@ public class TspProfileServiceImpl implements TspProfileService {
         TspProfile profile = getTspProfileEntity(uuid.getValue());
         profile.setEnabled(true);
         tspProfileRepository.save(profile);
+        evictTspProfileCache(profile.getName());
     }
 
     @Override
@@ -194,6 +207,7 @@ public class TspProfileServiceImpl implements TspProfileService {
         TspProfile profile = getTspProfileEntity(uuid.getValue());
         profile.setEnabled(false);
         tspProfileRepository.save(profile);
+        evictTspProfileCache(profile.getName());
     }
 
     @Override
@@ -249,10 +263,19 @@ public class TspProfileServiceImpl implements TspProfileService {
             );
         }
 
+        evictTspProfileCache(profile.getName());
         attributeEngine.deleteObjectAttributeContent(Resource.TSP_PROFILE, profile.getUuid());
         tspProfileRepository.delete(profile);
     }
 
+
+    private void evictTspProfileCache(String name) {
+        Cache cache = cacheManager.getCache(CacheConfig.TSP_PROFILES_CACHE);
+        if (cache != null) {
+            cache.evict(name);
+            LOG.debug("Evicted TSP profile cache entry for name '{}'", name);
+        }
+    }
 
     private TspProfile getTspProfileEntity(UUID uuid) throws NotFoundException {
         return tspProfileRepository.findById(uuid)
@@ -284,6 +307,11 @@ public class TspProfileServiceImpl implements TspProfileService {
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getTspProfileEntity(uuid.getValue());
+    }
+
+    @Autowired
+    public void setCacheManager(CacheManager cacheManager) {
+        this.cacheManager = cacheManager;
     }
 
     @Autowired

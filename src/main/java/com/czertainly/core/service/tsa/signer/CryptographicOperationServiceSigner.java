@@ -66,7 +66,7 @@ public class CryptographicOperationServiceSigner implements Signer {
         request.setData(List.of(requestData));
 
         try {
-            SignDataResponseDto response = cryptographicOperationService.signData(
+            SignDataResponseDto response = cryptographicOperationService.signDataWithoutEventHistory(
                     tokenInstanceUuid, tokenProfileUuid, keyUuid, privateKeyItemUuid, request);
 
             if (response == null || response.getSignatures() == null || response.getSignatures().isEmpty()) {
@@ -75,7 +75,7 @@ public class CryptographicOperationServiceSigner implements Signer {
                         "Internal signing error");
             }
 
-            return Base64.getDecoder().decode(response.getSignatures().get(0).getData());
+            return Base64.getDecoder().decode(response.getSignatures().getFirst().getData());
 
         } catch (ConnectorException e) {
             throw new TspException(TspFailureInfo.SYSTEM_FAILURE,

@@ -1,6 +1,8 @@
 package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.interfaces.core.tsp.error.TspException;
+import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
@@ -14,17 +16,14 @@ import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.ConnectorApiClientDtoV1;
-import com.czertainly.api.model.core.connector.v2.ConnectInfo;
-import com.czertainly.api.model.core.connector.v2.ConnectorDetailDto;
-import com.czertainly.api.model.core.connector.v2.ConnectorDto;
-import com.czertainly.api.model.core.connector.v2.ConnectorRequestDto;
-import com.czertainly.api.model.core.connector.v2.ConnectorUpdateRequestDto;
+import com.czertainly.api.model.core.connector.v2.*;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.config.CacheConfig;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
@@ -50,6 +49,8 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -78,6 +79,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private ConnectorAuthService connectorAuthService;
 
+    private CacheManager cacheManager;
     private AttributeEngine attributeEngine;
     private TransactionHandler transactionHandler;
 
@@ -94,6 +96,11 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
         this.connectorRepository = connectorRepository;
+    }
+
+    @Autowired
+    public void setCacheManager(CacheManager cacheManager) {
+        this.cacheManager = cacheManager;
     }
 
     @Autowired
@@ -177,6 +184,16 @@ public class ConnectorServiceImpl implements ConnectorService {
         return dto;
     }
 
+    // Connector function groups are nopt part of the v2.ConnectorApiClientDto, so changes to them do not cause cache invalidation
+    @Cacheable(value = CacheConfig.FORMATTER_CONNECTOR_CACHE, key = "#connectorUuid", sync = true)
+    public ConnectorApiClientDtoV2 getConnectorForApiClient(UUID connectorUuid) throws TspException {
+        return connectorRepository.findByUuid(connectorUuid)
+                .map(Connector::mapToApiClientDtoV2)
+                .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
+                        "Signature formatter connector not found: " + connectorUuid, null,
+                        "Internal error: signing configuration is invalid"));
+    }
+
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
     public ConnectorDetailDto createConnector(ConnectorRequestDto request) throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException {
@@ -203,6 +220,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connectorRepository.save(connector);
+        evictCacheEntry(connector.getUuid());
 
         ConnectorAdapter connectorAdapter = getAdapter(connector.getVersion());
         ConnectInfo connectInfo = connectorAdapter.validateConnection(connector.mapToApiClientDtoV2());
@@ -523,6 +541,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 connector.setStatus(ConnectorStatus.OFFLINE);
                 connectorRepository.save(connector);
             });
+            evictCacheEntry(connector.getUuid());
 
             throw new ConnectorException(message);
         }
@@ -532,6 +551,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (connector.getStatus() == ConnectorStatus.WAITING_FOR_APPROVAL) {
             connector.setStatus(ConnectorStatus.CONNECTED);
             connectorRepository.save(connector);
+            evictCacheEntry(connector.getUuid());
         } else {
             throw new ValidationException(ValidationError.create("Connector '{}' has unexpected status {}", connector.getName(), connector.getStatus().getLabel()));
         }
@@ -576,6 +596,14 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         attributeEngine.deleteObjectAttributeContent(Resource.CONNECTOR, connector.getUuid());
         connectorRepository.delete(connector);
+        evictCacheEntry(connector.getUuid());
+    }
+
+    private void evictCacheEntry(UUID connectorUuid) {
+        var cache = cacheManager.getCache(CacheConfig.FORMATTER_CONNECTOR_CACHE);
+        if (cache != null) {
+            cache.evict(connectorUuid);
+        }
     }
 
     private ConnectorAdapter getAdapter(ConnectorVersion version) {

@@ -1,10 +1,11 @@
 package com.czertainly.core.service.tsa.formatter;
 
+import com.czertainly.api.clients.signing.TimestampingConnectorApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.tsp.error.TspException;
 import com.czertainly.api.interfaces.core.tsp.error.TspFailureInfo;
-import com.czertainly.api.model.connector.signatures.formatter.ExtensionDto;
 import com.czertainly.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.czertainly.api.model.connector.signatures.formatter.ExtensionDto;
 import com.czertainly.api.model.connector.signatures.formatter.TimestampingFormatDtbsRequestDto;
 import com.czertainly.api.model.connector.signatures.formatter.TimestampingFormatResponseRequestDto;
 import com.czertainly.api.model.core.connector.v2.ConnectorApiClientDtoV2;
@@ -15,8 +16,8 @@ import com.czertainly.core.model.signing.scheme.SigningSchemeModel;
 import com.czertainly.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.czertainly.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.czertainly.core.service.tsa.CertificateChain;
-import com.czertainly.api.clients.signing.TimestampingConnectorApiClient;
 import com.czertainly.core.service.tsa.messages.TspRequest;
+import com.czertainly.core.service.v2.ConnectorService;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,13 +30,12 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 @Component
 public class TimestampingConnectorSignatureFormatterClient implements SignatureFormatterClient {
 
     private TimestampingConnectorApiClient apiClient;
-    private ConnectorRepository connectorRepository;
+    private ConnectorService connectorService;
 
     @Autowired
     public void setApiClient(TimestampingConnectorApiClient apiClient) {
@@ -43,19 +43,20 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
     }
 
     @Autowired
-    public void setConnectorRepository(ConnectorRepository connectorRepository) {
-        this.connectorRepository = connectorRepository;
+    public void setService(ConnectorService service) {
+        this.connectorService = service;
     }
 
     @Override
     public byte[] formatDtbs(TspRequest request,
                              SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile,
-                             BigInteger serialNumber, Instant genTime,
+                             BigInteger serialNumber,
+                             Instant genTime,
                              CertificateChain certificateChain,
                              SignatureAlgorithm signatureAlgorithm) throws TspException {
 
         ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> workflow = timestampingProfile.workflow();
-        ConnectorApiClientDtoV2 connector = resolveConnector(workflow.signatureFormatterConnectorUuid());
+        ConnectorApiClientDtoV2 connector = connectorService.getConnectorForApiClient(workflow.signatureFormatterConnectorUuid());
 
         TimestampingFormatDtbsRequestDto requestDto = new TimestampingFormatDtbsRequestDto();
         requestDto.setData(request.hashedMessage());
@@ -75,22 +76,22 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
         try {
             return apiClient.formatDtbs(connector, requestDto).getDtbs();
         } catch (ConnectorException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signature formatter connector communication failed during DTBS phase: " + e.getMessage(), e,
-                    "Internal error during DTBS formatting");
+            throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Signature formatter connector communication failed during DTBS phase: " + e.getMessage(), e, "Internal error during DTBS formatting");
         }
     }
 
     @Override
     public byte[] formatSigningResponse(TspRequest request,
                                         SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> timestampingProfile,
-                                        BigInteger serialNumber, Instant genTime,
+                                        BigInteger serialNumber,
+                                        Instant genTime,
                                         CertificateChain certificateChain,
-                                        byte[] dtbs, byte[] signature,
+                                        byte[] dtbs,
+                                        byte[] signature,
                                         SignatureAlgorithm signatureAlgorithm) throws TspException {
 
         ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel> workflow = timestampingProfile.workflow();
-        ConnectorApiClientDtoV2 connector = resolveConnector(workflow.signatureFormatterConnectorUuid());
+        ConnectorApiClientDtoV2 connector = connectorService.getConnectorForApiClient(workflow.signatureFormatterConnectorUuid());
 
         TimestampingFormatResponseRequestDto requestDto = new TimestampingFormatResponseRequestDto();
         requestDto.setDtbs(dtbs);
@@ -112,54 +113,38 @@ public class TimestampingConnectorSignatureFormatterClient implements SignatureF
         try {
             return apiClient.formatSigningResponse(connector, requestDto).getResponse();
         } catch (ConnectorException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signature formatter connector communication failed during response assembly: " + e.getMessage(), e,
-                    "Internal error assembling timestamp token");
+            throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Signature formatter connector communication failed during response assembly: " + e.getMessage(), e, "Internal error assembling timestamp token");
         }
     }
 
-    private ConnectorApiClientDtoV2 resolveConnector(UUID connectorUuid) throws TspException {
-        return connectorRepository.findByUuid(connectorUuid)
-                .map(Connector::mapToApiClientDtoV2)
-                .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                        "Signature formatter connector not found: " + connectorUuid, null,
-                        "Internal error: signing configuration is invalid"));
-    }
-
     private static List<ExtensionDto> toExtensionDtos(Extensions extensions) throws TspException {
-        if (extensions == null) return Collections.emptyList();
+        if (extensions == null)
+            return Collections.emptyList();
         try {
-            return Arrays.stream(extensions.getExtensionOIDs())
-                    .map(oid -> {
-                        Extension ext = extensions.getExtension(oid);
-                        ExtensionDto dto = new ExtensionDto();
-                        dto.setOid(oid.getId());
-                        dto.setCritical(ext.isCritical());
-                        dto.setValue(Base64.getEncoder().encodeToString(ext.getExtnValue().getOctets()));
-                        return dto;
-                    })
-                    .toList();
+            return Arrays.stream(extensions.getExtensionOIDs()).map(oid -> {
+                Extension ext = extensions.getExtension(oid);
+                ExtensionDto dto = new ExtensionDto();
+                dto.setOid(oid.getId());
+                dto.setCritical(ext.isCritical());
+                dto.setValue(Base64.getEncoder().encodeToString(ext.getExtnValue().getOctets()));
+                return dto;
+            }).toList();
         } catch (Exception e) {
-            throw new TspException(TspFailureInfo.BAD_DATA_FORMAT,
-                    "Failed to encode request extensions: " + e.getMessage(), e, "Invalid request extensions");
+            throw new TspException(TspFailureInfo.BAD_DATA_FORMAT, "Failed to encode request extensions: " + e.getMessage(), e, "Invalid request extensions");
         }
     }
 
     private static List<byte[]> encodeBase64DerChain(CertificateChain certificateChain) throws TspException {
         try {
-            return certificateChain.chain().stream()
-                    .map(cert -> {
-                        try {
-                            return Base64.getEncoder().encode(cert.getEncoded());
-                        } catch (CertificateEncodingException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .toList();
+            return certificateChain.chain().stream().map(cert -> {
+                try {
+                    return Base64.getEncoder().encode(cert.getEncoded());
+                } catch (CertificateEncodingException e) {
+                    throw new RuntimeException(e);
+                }
+            }).toList();
         } catch (Exception e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Failed to encode certificate chain: " + e.getMessage(), e,
-                    "Internal error encoding certificate chain");
+            throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Failed to encode certificate chain: " + e.getMessage(), e, "Internal error encoding certificate chain");
         }
     }
 }

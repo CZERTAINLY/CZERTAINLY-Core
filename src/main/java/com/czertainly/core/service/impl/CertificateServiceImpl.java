@@ -69,7 +69,11 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
+import com.czertainly.core.config.CacheConfig;
 import com.czertainly.core.settings.SettingsCache;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
 import com.czertainly.core.util.*;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.*;
@@ -168,6 +172,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     private ApplicationEventPublisher applicationEventPublisher;
     private ValidationProducer validationProducer;
+    private CacheManager cacheManager;
 
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
@@ -341,6 +346,11 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
+    @Autowired
+    public void setCacheManager(CacheManager cacheManager) {
+        this.cacheManager = cacheManager;
+    }
+
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
     public CertificateResponseDto listCertificates(SecurityFilter filter, CertificateSearchRequestDto request) {
@@ -505,6 +515,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             certificateContentRepository.delete(content);
             certificate.setCertificateContent(null);
         }
+        evictCertificateChainCache();
     }
 
     @Override
@@ -662,6 +673,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
 
         certificateRepository.deleteAllInBatch(certificates);
         certificateContentRepository.deleteUnusedCertificateContents();
+        evictCertificateChainCache();
 
         return certificates.size();
     }
@@ -766,6 +778,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                 certificate.setIssuerSerialNumber(issuer.getSerialNumber());
                 certificate.setIssuerCertificateUuid(issuer.getUuid());
                 certificateRepository.save(certificate);
+                evictCertificateChainCache();
                 issuerInInventory = true;
                 // If the issuer of certificate doesn't have its issuer, try to update issuer for this certificate as well
                 if (issuer.getIssuerCertificateUuid() == null) {
@@ -819,6 +832,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
+    @Cacheable(value = CacheConfig.CERTIFICATE_CHAIN_CACHE, key = "#certificateUuid + '-' + #withEndCertificate", sync = true)
+    // No @ExternalAuthorization — TsaService authorizes the request before calling this. Do not call from elsewhere.
     public List<X509Certificate> getCertificateChainForSigning(UUID certificateUuid, boolean withEndCertificate) throws CertificateException {
         List<String> base64Chain = certificateRepository.findCertificateChainContents(certificateUuid, certificateChainMaxDepth);
         if (base64Chain.isEmpty()) {
@@ -895,6 +910,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                 lastCertificate.setIssuerCertificateUuid(null);
                 lastCertificate.setIssuerSerialNumber(null);
                 certificateRepository.save(lastCertificate);
+                evictCertificateChainCache();
                 break;
             }
         }
@@ -2242,6 +2258,13 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
 
     private void setupSecurityFilter(SecurityFilter filter) {
         filter.setParentRefProperty(Certificate_.raProfileUuid.getName());
+    }
+
+    private void evictCertificateChainCache() {
+        Cache cache = cacheManager.getCache(CacheConfig.CERTIFICATE_CHAIN_CACHE);
+        if (cache != null) {
+            cache.clear();
+        }
     }
 
     private ICertificateValidator getCertificateValidator(CertificateType certificateType) {
