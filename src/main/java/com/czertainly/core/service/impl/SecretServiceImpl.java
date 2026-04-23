@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
@@ -877,7 +878,7 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
     public StatisticsDto addSecretStatistics(SecurityFilter filter, StatisticsDto dto) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         long start = System.nanoTime();
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService executor = new DelegatingSecurityContextExecutorService(Executors.newVirtualThreadPerTaskExecutor())) {
             List<Future<Void>> futures = executor.invokeAll(List.of(
                     () -> {
                         dto.setSecretStatByType(secretRepository.countGroupedUsingSecurityFilter(filter, null, Secret_.type, null, null));
@@ -900,19 +901,23 @@ public class SecretServiceImpl implements SecretService, AttributeResourceServic
                         return null;
                     }
             ));
-            for (Future<Void> future : futures) {
-                try {
-                    future.get();
-                } catch (ExecutionException ex) {
-                    logger.error("An error occurred during calculation of secret statistics", ex.getCause());
-                }
-            }
+            processFutures(futures);
         } catch (InterruptedException e) {
+            logger.error("An error occurred during calculation of secret statistics: {}", e.getMessage());
             Thread.currentThread().interrupt();
-            logger.error("Secret statistics calculation was interrupted", e);
         }
         logger.debug("Secret statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
         return dto;
+    }
+
+    private static void processFutures(List<Future<Void>> futures) throws InterruptedException {
+        for (Future<Void> future : futures) {
+            try {
+                future.get();
+            } catch (ExecutionException ex) {
+                logger.error("An error occurred during calculation of secret statistics", ex.getCause());
+            }
+        }
     }
 
     private ConnectorDetailDto loadSecretOperationRequest(UUID connectorUuid, UUID vaultInstanceUuid, UUID vaultProfileUuid, SecretType type, List<RequestAttribute> secretAttributes, SecretOperationRequest secretOperationRequest) throws ConnectorException, NotFoundException, AttributeException {
