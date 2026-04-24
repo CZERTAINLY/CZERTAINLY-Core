@@ -11,7 +11,6 @@ import com.czertainly.core.provisioning.TrustedCertificateProvisioningDTO;
 import com.czertainly.core.provisioning.TrustedCertificateProvisioningRequestDTO;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.TrustedCertificateService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +36,7 @@ public class TrustedCertificateServiceImpl implements TrustedCertificateService 
 
     @Override
     @ExternalAuthorization(resource = Resource.TRUSTED_CERTIFICATE, action = ResourceAction.LIST)
-    public List<TrustedCertificateDto> listTrustedCertificates(SecurityFilter filter) {
+    public List<TrustedCertificateDto> listTrustedCertificates() {
         logger.debug("Listing trusted certificates");
         try {
             List<TrustedCertificateProvisioningDTO> provisioningDtos = trustedCertificateProvisioningApiClient.listTrustedCertificates();

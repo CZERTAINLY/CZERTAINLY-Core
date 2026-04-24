@@ -5,7 +5,6 @@ import com.czertainly.api.model.client.trustedcertificate.TrustedCertificateDto;
 import com.czertainly.api.model.client.trustedcertificate.TrustedCertificateRequestDto;
 import com.czertainly.core.provisioning.ProvisioningException;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.Test;
@@ -63,7 +62,7 @@ class TrustedCertificateServiceTest extends BaseSpringBootTest {
                 .withHeader("Content-Type", "application/json")
                 .withBody(TRUSTED_CERTIFICATE_LIST_JSON)));
 
-        List<TrustedCertificateDto> certificates = trustedCertificateService.listTrustedCertificates(SecurityFilter.create());
+        List<TrustedCertificateDto> certificates = trustedCertificateService.listTrustedCertificates();
 
         assertNotNull(certificates);
         assertEquals(1, certificates.size());
@@ -81,7 +80,7 @@ class TrustedCertificateServiceTest extends BaseSpringBootTest {
                 .withHeader("Content-Type", "application/json")
                 .withBody("[]")));
 
-        List<TrustedCertificateDto> certificates = trustedCertificateService.listTrustedCertificates(SecurityFilter.create());
+        List<TrustedCertificateDto> certificates = trustedCertificateService.listTrustedCertificates();
 
         assertNotNull(certificates);
         assertTrue(certificates.isEmpty());
@@ -95,7 +94,7 @@ class TrustedCertificateServiceTest extends BaseSpringBootTest {
                 .withBody("Internal Server Error")));
 
         ProvisioningException exception = assertThrows(ProvisioningException.class,
-            () -> trustedCertificateService.listTrustedCertificates(SecurityFilter.create()));
+            () -> trustedCertificateService.listTrustedCertificates());
 
         assertTrue(exception.getMessage().contains("Failed to list trusted certificates"));
     }

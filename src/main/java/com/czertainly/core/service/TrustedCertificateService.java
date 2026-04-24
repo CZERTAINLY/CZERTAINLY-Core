@@ -4,7 +4,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.trustedcertificate.TrustedCertificateDto;
 import com.czertainly.api.model.client.trustedcertificate.TrustedCertificateRequestDto;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
@@ -16,10 +15,9 @@ public interface TrustedCertificateService {
     /**
      * Lists all trusted certificates.
      *
-     * @param filter security filter for access control
      * @return list of trusted certificate DTOs
      */
-    List<TrustedCertificateDto> listTrustedCertificates(SecurityFilter filter);
+    List<TrustedCertificateDto> listTrustedCertificates();
 
     /**
      * Retrieves a trusted certificate by its UUID.

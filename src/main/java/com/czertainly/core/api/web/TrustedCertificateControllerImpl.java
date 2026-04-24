@@ -12,7 +12,6 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.TrustedCertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +36,7 @@ public class TrustedCertificateControllerImpl implements TrustedCertificateContr
     @AuthEndpoint(resourceName = Resource.TRUSTED_CERTIFICATE)
     @AuditLogged(module = Module.CORE, resource = Resource.TRUSTED_CERTIFICATE, operation = Operation.LIST)
     public List<TrustedCertificateDto> listTrustedCertificates() {
-        return trustedCertificateService.listTrustedCertificates(SecurityFilter.create());
+        return trustedCertificateService.listTrustedCertificates();
     }
 
     @Override
