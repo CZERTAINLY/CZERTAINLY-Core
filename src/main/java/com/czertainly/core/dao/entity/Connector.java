@@ -59,7 +59,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Enumerated(EnumType.STRING)
     private ConnectorStatus status;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proxy_uuid")
     private Proxy proxy;
 
