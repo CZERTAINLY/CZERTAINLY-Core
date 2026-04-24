@@ -39,7 +39,7 @@ public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable,
     @Column(name = "description")
     private String description;
 
-    @Column(name = "code")
+    @Column(name = "code", unique = true, nullable = false)
     private String code;
 
     @Column(name = "status")

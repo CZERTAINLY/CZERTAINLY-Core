@@ -173,6 +173,9 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setAuthType(this.authType);
         dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(
                 AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        if (this.proxy != null) {
+            dto.setProxy(this.proxy.mapToDtoSimple());
+        }
     }
 
     @Override
