@@ -28,7 +28,7 @@ import static org.mockito.Mockito.verify;
  * {@link EventListener} receives and processes the deserialized message.</p>
  *
  * <p>Flow: EventProducer → /exchanges/czertainly/event → [RabbitMQ binding] →
- * /queues/core.event → EventJmsEndpointConfig listener → EventListener.processMessage()</p>
+ * /queues/core.events → EventJmsEndpointConfig listener → EventListener.processMessage()</p>
  *
  * <p>{@code inheritProfiles = false} is required: {@code BaseSpringBootTest} adds the {@code "test"}
  * profile which Spring merges with all subclass profiles. With {@code "test"} active,

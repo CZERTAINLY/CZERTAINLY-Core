@@ -27,6 +27,7 @@ public class ValidationJmsEndpointConfig extends AbstractJmsEndpointConfig<Valid
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
 
+    @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
             "validationListener",

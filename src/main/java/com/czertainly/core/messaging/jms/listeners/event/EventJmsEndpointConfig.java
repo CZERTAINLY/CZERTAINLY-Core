@@ -28,6 +28,7 @@ public class EventJmsEndpointConfig extends AbstractJmsEndpointConfig<EventMessa
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
 
+    @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
             "eventListener",

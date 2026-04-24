@@ -27,6 +27,7 @@ public class SchedulerJmsEndpointConfig extends AbstractJmsEndpointConfig<Schedu
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
 
+    @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
         return listenerEndpointInternal(
             "schedulerListener",
