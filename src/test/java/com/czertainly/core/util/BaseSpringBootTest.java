@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.UUID;
 
 @SpringBootTest
-@ActiveProfiles("test")
 public class BaseSpringBootTest {
 
     @MockitoBean
