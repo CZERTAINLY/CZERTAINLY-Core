@@ -33,7 +33,6 @@ import com.czertainly.api.interfaces.client.v1.KeyManagementSyncApiClient;
 import com.czertainly.api.interfaces.client.v1.LocationSyncApiClient;
 import com.czertainly.api.interfaces.client.v1.NotificationInstanceSyncApiClient;
 import com.czertainly.api.interfaces.client.v1.TokenInstanceSyncApiClient;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.proxy.ProxyDto;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -129,131 +128,93 @@ public class ConnectorApiFactory {
         return restClient;
     }
 
-    private <T> T getClient(ConnectorDto connector, T restClient, Optional<? extends T> mqClient) {
+    private <T> T getClient(ApiClientConnectorInfo connector, T restClient, Optional<? extends T> mqClient) {
         Objects.requireNonNull(connector, "connector must not be null");
         return getClient(connector.getProxy(), connector.getName(), restClient, mqClient);
     }
 
-    public AttributeSyncApiClient getAttributeApiClient(ConnectorDto connector) {
+    public AttributeSyncApiClient getAttributeApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restAttributeApiClient, mqAttributeApiClient);
     }
 
-    public AttributeSyncApiClient getAttributeApiClient(com.czertainly.api.model.core.connector.v2.ConnectorDto connector) {
-        Objects.requireNonNull(connector, "connector must not be null");
-        return getClient(connector.getProxy(), connector.getName(), restAttributeApiClient, mqAttributeApiClient);
-    }
-
-    public ConnectorSyncApiClient getConnectorApiClient(ConnectorDto connector) {
+    public ConnectorSyncApiClient getConnectorApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restConnectorApiClient, mqConnectorApiClient);
     }
 
-    public com.czertainly.api.interfaces.client.v1.HealthSyncApiClient getHealthApiClient(ConnectorDto connector) {
+    public com.czertainly.api.interfaces.client.v1.HealthSyncApiClient getHealthApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restHealthApiClient, mqHealthApiClient);
     }
 
-    public DiscoverySyncApiClient getDiscoveryApiClient(ConnectorDto connector) {
+    public DiscoverySyncApiClient getDiscoveryApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restDiscoveryApiClient, mqDiscoveryApiClient);
     }
 
-    public EndEntityProfileSyncApiClient getEndEntityProfileApiClient(ConnectorDto connector) {
+    public EndEntityProfileSyncApiClient getEndEntityProfileApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restEndEntityProfileApiClient, mqEndEntityProfileApiClient);
     }
 
-    public com.czertainly.api.interfaces.client.v1.CertificateSyncApiClient getCertificateApiClient(ConnectorDto connector) {
+    public com.czertainly.api.interfaces.client.v1.CertificateSyncApiClient getCertificateApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restCertificateApiClient, mqCertificateApiClient);
     }
 
-    public AuthorityInstanceSyncApiClient getAuthorityInstanceApiClient(ConnectorDto connector) {
+    public AuthorityInstanceSyncApiClient getAuthorityInstanceApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restAuthorityInstanceApiClient, mqAuthorityInstanceApiClient);
     }
 
-    public EntityInstanceSyncApiClient getEntityInstanceApiClient(ConnectorDto connector) {
+    public EntityInstanceSyncApiClient getEntityInstanceApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restEntityInstanceApiClient, mqEntityInstanceApiClient);
     }
 
-    public LocationSyncApiClient getLocationApiClient(ConnectorDto connector) {
+    public LocationSyncApiClient getLocationApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restLocationApiClient, mqLocationApiClient);
     }
 
-    public TokenInstanceSyncApiClient getTokenInstanceApiClient(ConnectorDto connector) {
+    public TokenInstanceSyncApiClient getTokenInstanceApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restTokenInstanceApiClient, mqTokenInstanceApiClient);
     }
 
-    public KeyManagementSyncApiClient getKeyManagementApiClient(ConnectorDto connector) {
+    public KeyManagementSyncApiClient getKeyManagementApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restKeyManagementApiClient, mqKeyManagementApiClient);
     }
 
-    public CryptographicOperationsSyncApiClient getCryptographicOperationsApiClient(ConnectorDto connector) {
+    public CryptographicOperationsSyncApiClient getCryptographicOperationsApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restCryptographicOperationsApiClient, mqCryptographicOperationsApiClient);
     }
 
-    public CertificateSyncApiClient getCertificateApiClientV2(ConnectorDto connector) {
+    public CertificateSyncApiClient getCertificateApiClientV2(ApiClientConnectorInfo connector) {
         return getClient(connector, restCertificateApiClientV2, mqCertificateApiClientV2);
     }
 
-    public com.czertainly.api.interfaces.client.v1.ComplianceSyncApiClient getComplianceApiClient(ConnectorDto connector) {
+    public com.czertainly.api.interfaces.client.v1.ComplianceSyncApiClient getComplianceApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restComplianceApiClient, mqComplianceApiClient);
     }
 
-    public ComplianceSyncApiClient getComplianceApiClientV2(ConnectorDto connector) {
+    public ComplianceSyncApiClient getComplianceApiClientV2(ApiClientConnectorInfo connector) {
         return getClient(connector, restComplianceApiClientV2, mqComplianceApiClientV2);
     }
 
-    public HealthSyncApiClient getHealthApiClientV2(ConnectorDto connector) {
+    public HealthSyncApiClient getHealthApiClientV2(ApiClientConnectorInfo connector) {
         return getClient(connector, restHealthApiClientV2, mqHealthApiClientV2);
     }
 
-    public InfoSyncApiClient getInfoApiClientV2(ConnectorDto connector) {
+    public InfoSyncApiClient getInfoApiClientV2(ApiClientConnectorInfo connector) {
         return getClient(connector, restInfoApiClientV2, mqInfoApiClientV2);
     }
 
-    public MetricsSyncApiClient getMetricsApiClientV2(ConnectorDto connector) {
+    public MetricsSyncApiClient getMetricsApiClientV2(ApiClientConnectorInfo connector) {
         return getClient(connector, restMetricsApiClientV2, mqMetricsApiClientV2);
     }
 
-    public EndEntitySyncApiClient getEndEntityApiClient(ConnectorDto connector) {
+    public EndEntitySyncApiClient getEndEntityApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restEndEntityApiClient, mqEndEntityApiClient);
     }
 
-    public NotificationInstanceSyncApiClient getNotificationInstanceApiClient(ConnectorDto connector) {
+    public NotificationInstanceSyncApiClient getNotificationInstanceApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restNotificationInstanceApiClient, mqNotificationInstanceApiClient);
     }
 
-    public com.czertainly.api.interfaces.client.v1.secret.VaultSyncApiClient getVaultApiClient(ConnectorDto connector) {
-        return getClient(connector, restVaultApiClient, mqVaultApiClient);
-    }
-
-    public com.czertainly.api.clients.secret.SecretApiClient getSecretApiClient(ConnectorDto connector) {
-        // REST-only — no MQ implementation exists yet
-        Objects.requireNonNull(connector, "connector must not be null");
-        return restSecretApiClient;
-    }
-
-    // Overloads accepting ApiClientConnectorInfo (used by ConnectorAdapters)
-
-    public com.czertainly.api.interfaces.client.v1.HealthSyncApiClient getHealthApiClient(ApiClientConnectorInfo connector) {
-        Objects.requireNonNull(connector, "connector must not be null");
-        return getClient(connector.getProxy(), connector.getName(), restHealthApiClient, mqHealthApiClient);
-    }
-
-    public ConnectorSyncApiClient getConnectorApiClient(ApiClientConnectorInfo connector) {
-        Objects.requireNonNull(connector, "connector must not be null");
-        return getClient(connector.getProxy(), connector.getName(), restConnectorApiClient, mqConnectorApiClient);
-    }
-
-    public HealthSyncApiClient getHealthApiClientV2(ApiClientConnectorInfo connector) {
-        Objects.requireNonNull(connector, "connector must not be null");
-        return getClient(connector.getProxy(), connector.getName(), restHealthApiClientV2, mqHealthApiClientV2);
-    }
-
-    public InfoSyncApiClient getInfoApiClientV2(ApiClientConnectorInfo connector) {
-        Objects.requireNonNull(connector, "connector must not be null");
-        return getClient(connector.getProxy(), connector.getName(), restInfoApiClientV2, mqInfoApiClientV2);
-    }
-
     public com.czertainly.api.interfaces.client.v1.secret.VaultSyncApiClient getVaultApiClient(ApiClientConnectorInfo connector) {
-        Objects.requireNonNull(connector, "connector must not be null");
-        return getClient(connector.getProxy(), connector.getName(), restVaultApiClient, mqVaultApiClient);
+        return getClient(connector, restVaultApiClient, mqVaultApiClient);
     }
 
     public com.czertainly.api.clients.secret.SecretApiClient getSecretApiClient(ApiClientConnectorInfo connector) {

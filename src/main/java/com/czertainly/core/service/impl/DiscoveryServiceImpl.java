@@ -20,6 +20,7 @@ import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificate
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorApiClientDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
@@ -265,7 +266,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorRepository.findByUuid(discovery.getConnectorUuid())
                         .orElseThrow(() -> new NotFoundException(Connector.class, discovery.getConnectorUuid()));
-                connectorApiFactory.getDiscoveryApiClient(connector.mapToDto()).removeDiscovery(connector.mapToDto(), referenceUuid);
+                ConnectorApiClientDto connectorDto = connector.mapToApiClientDtoV1();
+                connectorApiFactory.getDiscoveryApiClient(connectorDto).removeDiscovery(connectorDto, referenceUuid);
             }
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");

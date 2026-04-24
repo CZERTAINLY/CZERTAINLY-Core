@@ -2141,7 +2141,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
             requestDto.setCertificate(certificate.getCertificateContent().getContent());
             requestDto.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, newRaProfile.getUuid()).connector(newRaProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
             try {
-                var connectorDto = newRaProfile.getAuthorityInstanceReference().getConnector().mapToDto();
+                var connectorDto = newRaProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1();
                 response = connectorApiFactory.getCertificateApiClientV2(connectorDto).identifyCertificate(connectorDto, newRaProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), requestDto);
             } catch (ConnectorException e) {
                 applicationEventPublisher.publishEvent(new UpdateCertificateHistoryEvent(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), null));

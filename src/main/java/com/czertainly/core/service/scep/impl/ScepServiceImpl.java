@@ -316,15 +316,15 @@ public class ScepServiceImpl implements ScepService {
 
         CryptographicKey key = scepProfile.getCaCertificate().getKey();
         CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
+        var connectorDto = key.getTokenInstanceReference().getConnector().mapToDto();
         // Get the private key from the configuration of SCEP Profile
         CzertainlyPrivateKey czertainlyPrivateKey = new CzertainlyPrivateKey(
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
-                key.getTokenInstanceReference().getConnector().mapToDto(),
+                connectorDto,
                 item.getKeyAlgorithm().getLabel()
         );
 
-        var connectorDto = key.getTokenInstanceReference().getConnector().mapToDto();
         CryptographicOperationsSyncApiClient cryptoApiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
         CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptoApiClient);
 
@@ -433,7 +433,7 @@ public class ScepServiceImpl implements ScepService {
         CzertainlyPrivateKey czertainlyPrivateKey = new CzertainlyPrivateKey(
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
-                key.getTokenInstanceReference().getConnector().mapToDto(),
+                connectorDto,
                 item.getKeyAlgorithm().getLabel()
         );
         try {

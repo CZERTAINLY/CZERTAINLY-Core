@@ -293,7 +293,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, certificate.getRaProfile().getUuid()).connector(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).build()));
 
         try {
-            var connectorDto = certificate.getRaProfile().getAuthorityInstanceReference().getConnector().mapToDto();
+            var connectorDto = certificate.getRaProfile().getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1();
             CertificateDataResponseDto issueCaResponse = connectorApiFactory.getCertificateApiClientV2(connectorDto).issueCertificate(
                     connectorDto,
                     certificate.getRaProfile().getAuthorityInstanceReference().getAuthorityInstanceUuid(),
@@ -484,7 +484,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("New Certificate UUID", certificate.getUuid());
         try {
-            var connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
+            var connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1();
             renewCaResponse = connectorApiFactory.getCertificateApiClientV2(connectorDto).renewCertificate(
                     connectorDto,
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
@@ -681,7 +681,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("New Certificate UUID", certificate.getUuid());
         try {
-            var connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
+            var connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1();
             renewCaResponse = connectorApiFactory.getCertificateApiClientV2(connectorDto).renewCertificate(
                     connectorDto,
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
@@ -776,7 +776,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).build()));
             caRequest.setCertificate(certificate.getCertificateContent().getContent());
 
-            var connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
+            var connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToApiClientDtoV1();
             connectorApiFactory.getCertificateApiClientV2(connectorDto).revokeCertificate(
                     connectorDto,
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),

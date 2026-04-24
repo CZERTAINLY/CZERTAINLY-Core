@@ -192,7 +192,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        ConnectorDto connectorDto = connector.mapToDto();
+        ConnectorApiClientDto connectorDto = connector.mapToApiClientDtoV1();
         return connectorApiFactory.getHealthApiClient(connectorDto).checkHealth(connectorDto);
     }
 
@@ -204,7 +204,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         validateFunctionGroup(connector, functionGroup);
 
-        ConnectorDto connectorDto = connector.mapToDto();
+        ConnectorApiClientDto connectorDto = connector.mapToApiClientDtoV1();
         return connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
     }
 
@@ -219,7 +219,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException {
         validateFunctionGroup(connector, functionGroup);
-        ConnectorDto connectorDto = connector.mapToDto();
+        ConnectorApiClientDto connectorDto = connector.mapToApiClientDtoV1();
         connectorApiFactory.getAttributeApiClient(connectorDto).validateAttributes(connectorDto, functionGroup, attributes, functionGroupType);
     }
 
@@ -233,7 +233,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         validateAttributes(connector, functionGroup, requestAttributes, functionGroupType);
 
         // get definitions from connector
-        ConnectorDto connectorDto = connector.mapToDto();
+        ConnectorApiClientDto connectorDto = connector.mapToApiClientDtoV1();
         List<BaseAttribute> definitions = connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
 
         // validate and update definitions with attribute engine

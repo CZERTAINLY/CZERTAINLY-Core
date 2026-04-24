@@ -42,7 +42,7 @@ public class CertificateKeyServiceImpl implements CertificateKeyService {
             throw new IllegalStateException("Token instance has no associated connector");
         }
 
-        var connectorDto = connector.mapToDto();
+        var connectorDto = connector.mapToApiClientDtoV1();
         CryptographicOperationsSyncApiClient apiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
         return CzertainlyProvider.getInstance(cmpProfileName, true, apiClient);
     }
