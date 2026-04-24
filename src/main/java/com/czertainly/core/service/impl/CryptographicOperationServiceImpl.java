@@ -251,7 +251,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     public SignDataResponseDto signData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, SignDataRequestDto request) throws ConnectorException, NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Signing the data: {} using the key: {}", request, keyItemUuid);
-        CryptographicKeyItemModel key = cryptographicKeyService.getKeyItemModel(uuid);
+        CryptographicKeyItemModel key = cryptographicKeyService.getKeyItemModel(keyItemUuid);
         try {
             SignDataResponseDto response = executeSignData(key, request);
             eventHistoryService.addEventHistory(KeyEvent.SIGN, KeyEventStatus.SUCCESS, "Signing data success ", null, key.keyItemUuid());
