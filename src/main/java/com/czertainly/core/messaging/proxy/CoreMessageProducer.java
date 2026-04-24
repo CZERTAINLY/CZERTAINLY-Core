@@ -49,7 +49,7 @@ public class CoreMessageProducer {
         }
 
         String routingKey = proxyProperties.getRequestRoutingKey(proxyId);
-        String destination = getDestination();
+        String destination = getDestination(routingKey);
 
         log.debug("Sending core message correlationId={} proxyId={} destination={} routingKey={}",
                 message.getCorrelationId(), proxyId, destination, routingKey);
@@ -76,15 +76,15 @@ public class CoreMessageProducer {
 
     /**
      * Get the destination (topic/exchange) based on broker type.
-     * For ServiceBus, we use the topic directly.
-     * For RabbitMQ, we prefix with the exchange if configured.
+     * For ServiceBus, we use the topic directly (routing handled via JMSType + Correlation Filters).
+     * For RabbitMQ, we use the explicit {@code /exchanges/{exchange}/{routingKey}} form so the broker
+     * routes without relying on implicit AMQP subject-to-routing-key fallback.
      */
-    private String getDestination() {
+    private String getDestination(String routingKey) {
         if (messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {
             return proxyProperties.exchange();
         }
 
-        // For RabbitMQ, include exchange prefix
-        return "/exchanges/" + proxyProperties.exchange();
+        return "/exchanges/" + proxyProperties.exchange() + "/" + routingKey;
     }
 }

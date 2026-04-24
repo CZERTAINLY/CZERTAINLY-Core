@@ -125,14 +125,14 @@ class CoreMessageProducerTest {
     // ==================== RabbitMQ Tests ====================
 
     @Test
-    void send_withRabbitMQ_prefixesExchange() throws JMSException {
+    void send_withRabbitMQ_prefixesExchangeAndAppendsRoutingKey() throws JMSException {
         when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.RABBITMQ);
 
         CoreMessage message = createCoreMessage("corr-1");
         producer.send(message, "proxy-002");
 
         verify(jmsTemplate).convertAndSend(
-                eq("/exchanges/czertainly-proxy"),
+                eq("/exchanges/czertainly-proxy/coremessage.proxy-002"),
                 eq(message),
                 any(MessagePostProcessor.class)
         );
