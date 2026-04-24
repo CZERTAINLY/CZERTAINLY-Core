@@ -13,7 +13,7 @@ import java.io.IOException;
 public class RabbitMQContainerFactory {
 
     private static final String RABBITMQ_IMAGE = "rabbitmq:4.2-management";
-    private static final String DEFINITIONS_FILE = "/rabbitMQ-definitions.json";
+    private static final String DEFINITIONS_FILE = "rabbitMQ-definitions.json";
     private static final String CONTAINER_DEFINITIONS_PATH = "/etc/rabbitmq/definitions.json";
     private static final String NETWORK_ALIAS = "broker";
 

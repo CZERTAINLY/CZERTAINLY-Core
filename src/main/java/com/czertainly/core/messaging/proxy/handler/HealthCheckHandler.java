@@ -39,6 +39,10 @@ public class HealthCheckHandler implements MessageTypeResponseHandler {
     @Transactional
     public void handleResponse(ProxyMessage message) {
         String proxyCode = message.getProxyId();
+        if (proxyCode == null || proxyCode.isBlank()) {
+            log.warn("Ignoring health check with missing proxyId; timestamp={}", message.getTimestamp());
+            return;
+        }
         log.info("Health check received from proxy: proxyCode={} timestamp={}",
                 proxyCode, message.getTimestamp());
 

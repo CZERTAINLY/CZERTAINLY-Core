@@ -73,9 +73,7 @@ class HealthCheckHandlerTest {
     }
 
     @Test
-    void handleResponse_withNullProxyId_handlesGracefully() {
-        when(proxyRepository.findByCode(null)).thenReturn(Optional.empty());
-
+    void handleResponse_withNullProxyId_skipsRepositoryLookup() {
         ProxyMessage message = ProxyMessage.builder()
                 .proxyId(null)
                 .messageType("health.check")
@@ -83,6 +81,23 @@ class HealthCheckHandlerTest {
                 .build();
 
         assertThatCode(() -> handler.handleResponse(message)).doesNotThrowAnyException();
+
+        verify(proxyRepository, never()).findByCode(any());
+        verify(proxyRepository, never()).save(any());
+    }
+
+    @Test
+    void handleResponse_withBlankProxyId_skipsRepositoryLookup() {
+        ProxyMessage message = ProxyMessage.builder()
+                .proxyId("   ")
+                .messageType("health.check")
+                .timestamp(Instant.now())
+                .build();
+
+        assertThatCode(() -> handler.handleResponse(message)).doesNotThrowAnyException();
+
+        verify(proxyRepository, never()).findByCode(any());
+        verify(proxyRepository, never()).save(any());
     }
 
     @Test
