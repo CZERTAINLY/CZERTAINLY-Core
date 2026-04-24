@@ -110,7 +110,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         tokenInstanceReference.setConnector(connector);
         tokenInstanceReference.setConnectorUuid(connector.getUuid());
         tokenInstanceReference.setKind("sample");
-        tokenInstanceReference.setTokenInstanceUuid("1l");
+        tokenInstanceReference.setTokenInstanceUuid(UUID.randomUUID().toString());
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
         tokenProfile = new TokenProfile();
@@ -714,7 +714,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
     private void mockSignResponse(String keyUuid, String signature) {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathEqualTo("/v1/cryptographyProvider/tokens/%s/keys/%s/sign".formatted(tokenInstanceReference.getUuid().toString(), keyUuid)))
+                .post(WireMock.urlPathEqualTo("/v1/cryptographyProvider/tokens/%s/keys/%s/sign".formatted(tokenInstanceReference.getTokenInstanceUuid(), keyUuid)))
                 .willReturn(WireMock.okJson("""
                         {
                             "signatures" : [
