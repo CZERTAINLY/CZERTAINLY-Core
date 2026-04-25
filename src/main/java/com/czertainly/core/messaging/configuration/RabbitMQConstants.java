@@ -11,6 +11,9 @@ public class RabbitMQConstants {
     public static final String QUEUE_ACTIONS_NAME = "core.actions";
     public static final String QUEUE_VALIDATION_NAME = "core.validation";
     public static final String QUEUE_AUDIT_LOGS_NAME = "core.audit-logs";
+    public static final String QUEUE_TIME_QUALITY_CONFIG_REQUEST = "time-quality.config-request";
+    public static final String QUEUE_TIME_QUALITY_CONFIG = "time-quality.config";
+    public static final String QUEUE_TIME_QUALITY_RESULTS = "time-quality.results";
 
     // routing keys
     public static final String EVENT_ROUTING_KEY = "event";
@@ -19,6 +22,9 @@ public class RabbitMQConstants {
     public static final String ACTION_ROUTING_KEY = "action";
     public static final String VALIDATION_ROUTING_KEY = "validation";
     public static final String AUDIT_LOGS_ROUTING_KEY = "audit-logs";
+    public static final String TIME_QUALITY_CONFIG_REQUEST_ROUTING_KEY = "time-quality.config-request";
+    public static final String TIME_QUALITY_CONFIG_ROUTING_KEY = "time-quality.config";
+    public static final String TIME_QUALITY_RESULTS_ROUTING_KEY = "time-quality.results";
 
     private RabbitMQConstants() {
     }

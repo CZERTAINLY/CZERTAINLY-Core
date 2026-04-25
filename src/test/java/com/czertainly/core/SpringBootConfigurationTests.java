@@ -16,11 +16,13 @@ import org.springframework.context.annotation.Profile;
 public class SpringBootConfigurationTests {
 
     @Bean
+    @Profile("!rabbitmq-integration")
     public RabbitListenerAnnotationBeanPostProcessor rabbitListenerAnnotationBeanPostProcessor() {
         return Mockito.mock(RabbitListenerAnnotationBeanPostProcessor.class);
     }
 
     @Bean
+    @Profile("!rabbitmq-integration")
     public RabbitTemplate rabbitTemplate() {
         return Mockito.mock(RabbitTemplate.class);
     }

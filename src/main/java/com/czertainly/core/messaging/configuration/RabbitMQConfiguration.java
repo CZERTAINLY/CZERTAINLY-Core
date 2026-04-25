@@ -4,6 +4,7 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -51,6 +52,19 @@ public class RabbitMQConfiguration {
     public Queue queueAuditLogs() { return new Queue(RabbitMQConstants.QUEUE_AUDIT_LOGS_NAME, true); }
 
     @Bean
+    public Queue queueTimeQualityConfigRequest() {
+        return QueueBuilder.durable(RabbitMQConstants.QUEUE_TIME_QUALITY_CONFIG_REQUEST)
+                .withArgument("x-max-length", 1)
+                .withArgument("x-overflow", "drop-head")
+                .build();
+    }
+
+    @Bean
+    public Queue queueTimeQualityResults() {
+        return new Queue(RabbitMQConstants.QUEUE_TIME_QUALITY_RESULTS, true);
+    }
+
+    @Bean
     public Binding eventQueueBinding() {
         return BindingBuilder.bind(queueEvents()).to(czertainlyExchange()).with(RabbitMQConstants.EVENT_ROUTING_KEY);
     }
@@ -78,6 +92,16 @@ public class RabbitMQConfiguration {
     @Bean
     public Binding auditLogsQueueBinding() {
         return BindingBuilder.bind(queueAuditLogs()).to(czertainlyExchange()).with(RabbitMQConstants.AUDIT_LOGS_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding timeQualityConfigRequestQueueBinding() {
+        return BindingBuilder.bind(queueTimeQualityConfigRequest()).to(czertainlyExchange()).with(RabbitMQConstants.TIME_QUALITY_CONFIG_REQUEST_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding timeQualityResultsQueueBinding() {
+        return BindingBuilder.bind(queueTimeQualityResults()).to(czertainlyExchange()).with(RabbitMQConstants.TIME_QUALITY_RESULTS_ROUTING_KEY);
     }
 
 }

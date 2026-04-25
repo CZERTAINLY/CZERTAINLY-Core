@@ -1,35 +1,33 @@
 package com.czertainly.core.service.tsa.timequality;
 
 import com.czertainly.core.service.tsa.clocksource.ClockSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+@Slf4j
 public class MonotonicDriftDetector {
-
-    private static final Logger logger = LoggerFactory.getLogger(MonotonicDriftDetector.class);
-
     private final ClockSource clockSource;
-    private final ConcurrentHashMap<String, AtomicReference<TimeReferencePair>> referencePairs = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, AtomicReference<TimeReferencePair>> referencePairs = new ConcurrentHashMap<>();
 
     public MonotonicDriftDetector(ClockSource clockSource) {
         this.clockSource = clockSource;
     }
 
-    public void captureReference(String profile, double measuredDriftMs) {
-        refFor(profile).set(
+    public void captureReference(UUID profileUuid, double measuredDriftMs) {
+        refFor(profileUuid).set(
                 new TimeReferencePair(clockSource.wallTimeMillis(), clockSource.monotonicNanos(), measuredDriftMs));
     }
 
-    public void clearReference(String profile) {
-        refFor(profile).set(null);
+    public void clearReference(UUID profileUuid ) {
+        refFor(profileUuid).set(null);
     }
 
-    public boolean isDriftExceeded(String profile, Duration maxClockDrift) {
-        var pair = refFor(profile).get();
+    public boolean isDriftExceeded(UUID profileUuid, Duration maxClockDrift) {
+        var pair = refFor(profileUuid).get();
         if (pair == null) {
             return true;
         }
@@ -41,14 +39,14 @@ public class MonotonicDriftDetector {
         long maxDriftMillis = maxClockDrift.toMillis();
 
         if (Math.abs(driftMillis) > maxDriftMillis) {
-            logger.warn("Clock drift detected: {}ms (max allowed: {}ms)", driftMillis, maxDriftMillis);
+            log.warn("Clock drift detected: {}ms (max allowed: {}ms)", driftMillis, maxDriftMillis);
             return true;
         }
 
         return false;
     }
 
-    private AtomicReference<TimeReferencePair> refFor(String profile) {
-        return referencePairs.computeIfAbsent(profile, ignored -> new AtomicReference<>());
+    private AtomicReference<TimeReferencePair> refFor(UUID profileUuid) {
+        return referencePairs.computeIfAbsent(profileUuid, ignored -> new AtomicReference<>());
     }
 }

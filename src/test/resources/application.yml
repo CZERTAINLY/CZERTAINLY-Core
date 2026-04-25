@@ -78,3 +78,16 @@ spring:
   sql:
     init:
       mode: always
+
+messaging:
+  concurrency:
+    actions: 10
+    audit-logs: 5
+    events: 5
+    notifications: 3
+    scheduler: 10
+    validation: 5
+
+settings:
+  cache:
+    refresh-interval: 30
