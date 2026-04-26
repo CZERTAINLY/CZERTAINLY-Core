@@ -36,8 +36,7 @@ class TimeQualityConfigurationServiceRabbitMQTest extends BaseRabbitMQIntegratio
     private RabbitTemplate rabbitTemplate;
 
     @Test
-    void whenConfigCreated_thenSnapshotPublishedToConfigQueue()
-            throws AlreadyExistException, AttributeException, NotFoundException {
+    void whenConfigCreated_thenSnapshotPublishedToConfigQueue() throws AlreadyExistException, AttributeException, NotFoundException {
         timeQualityConfigurationService.createTimeQualityConfiguration(buildRequest("new-profile"));
 
         var snapshot = receiveSnapshot();
@@ -48,8 +47,7 @@ class TimeQualityConfigurationServiceRabbitMQTest extends BaseRabbitMQIntegratio
     }
 
     @Test
-    void whenConfigUpdated_thenSnapshotRepublished()
-            throws AlreadyExistException, AttributeException, NotFoundException {
+    void whenConfigUpdated_thenSnapshotRepublished() throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfiguration saved = saveConfig("update-profile");
 
         timeQualityConfigurationService.updateTimeQualityConfiguration(
@@ -63,8 +61,7 @@ class TimeQualityConfigurationServiceRabbitMQTest extends BaseRabbitMQIntegratio
     }
 
     @Test
-    void whenConfigDeleted_thenSnapshotRepublished()
-            throws NotFoundException {
+    void whenConfigDeleted_thenSnapshotRepublished() throws NotFoundException {
         TimeQualityConfiguration saved = saveConfig("delete-profile");
 
         timeQualityConfigurationService.deleteTimeQualityConfiguration(

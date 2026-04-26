@@ -88,6 +88,11 @@ messaging:
     scheduler: 10
     validation: 5
 
+test:
+  rabbitmq:
+    image: rabbitmq:4.2.0-management
+    virtual-host: czertainly
+
 settings:
   cache:
     refresh-interval: 30

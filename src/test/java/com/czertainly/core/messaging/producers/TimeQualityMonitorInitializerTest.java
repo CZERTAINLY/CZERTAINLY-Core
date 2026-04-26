@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.util.List;
@@ -33,6 +34,9 @@ class TimeQualityMonitorInitializerTest extends BaseRabbitMQIntegrationTest {
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Test
     void whenOnApplicationReady_withConfigsInDb_thenSnapshotContainsAllConfigs() {
@@ -63,7 +67,11 @@ class TimeQualityMonitorInitializerTest extends BaseRabbitMQIntegrationTest {
     void whenConfigChangedEventPublished_thenSnapshotRepublished() {
         saveConfig("changed-profile");
 
-        eventPublisher.publishEvent(new TimeQualityConfigChangedEvent(this));
+        // @TransactionalEventListener fires only after a transaction commits, so we need an explicit one here
+        transactionTemplate.execute(status -> {
+            eventPublisher.publishEvent(new TimeQualityConfigChangedEvent(this));
+            return null;
+        });
 
         var snapshot = receiveSnapshot();
         assertThat(snapshot).isNotNull();
