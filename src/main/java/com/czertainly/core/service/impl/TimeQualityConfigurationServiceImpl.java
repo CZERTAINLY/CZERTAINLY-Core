@@ -37,7 +37,6 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.function.TriFunction;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +44,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,13 +63,14 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
+    @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return new ArrayList<>();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public PaginationResponseDto<TimeQualityConfigurationListDto> listTimeQualityConfigurations(SearchRequestDto request, SecurityFilter filter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<TimeQualityConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
@@ -88,7 +89,7 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL)
-    @Transactional
+    @Transactional(readOnly = true)
     public TimeQualityConfigurationDto getTimeQualityConfiguration(SecuredUUID uuid) throws NotFoundException {
         TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));
@@ -183,28 +184,28 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     // ──────────────────────────────────────────────────────────────────────────
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return timeQualityConfigurationRepository.findResourceObject(objectUuid, TimeQualityConfiguration_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL)
-    @Transactional
+    @Transactional(readOnly = true)
     public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
         return timeQualityConfigurationRepository.findResourceObject(objectUuid.getValue(), TimeQualityConfiguration_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return timeQualityConfigurationRepository.listResourceObjects(filter, TimeQualityConfiguration_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.UPDATE)
-    @Transactional
+    @Transactional(readOnly = true)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         timeQualityConfigurationRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Time Quality Configuration not found"));

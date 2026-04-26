@@ -79,11 +79,8 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.function.TriFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -91,14 +88,13 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
 @Service(Resource.Codes.SIGNING_PROFILE)
 @Slf4j
 public class SigningProfileServiceImpl implements SigningProfileService {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SigningProfileServiceImpl.class);
 
     /**
      * Defines which signing protocols are allowed for each workflow type.
@@ -127,7 +123,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return new ArrayList<>();
     }
@@ -139,7 +135,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public PaginationResponseDto<SigningProfileListDto> listSigningProfiles(SearchRequestDto request, SecurityFilter filter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<SigningProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
@@ -158,7 +154,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public List<SimplifiedSigningProfileDto> listSigningProfilesAssociatedTimeQualityConfiguration(SecuredUUID timeQualityConfigurationUuid, SecurityFilter filter) {
         return listSigningProfileEntitiesAssociatedTimeQualityConfiguration(timeQualityConfigurationUuid, filter)
                 .getAllowed()
@@ -169,7 +165,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public SecuredList<SigningProfile> listSigningProfileEntitiesAssociatedTimeQualityConfiguration(SecuredUUID timeQualityConfigurationUuid, SecurityFilter filter) {
         List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTimeQualityConfigurationUuid(timeQualityConfigurationUuid.getValue());
         return SecuredList.fromFilter(filter, signingProfiles);
@@ -177,7 +173,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(SecuredUUID tspProfileUuid, SecurityFilter filter) {
         List<SigningProfile> signingProfiles = signingProfileRepository.findAllByTspProfileUuid(tspProfileUuid.getValue());
         return SecuredList.fromFilter(filter, signingProfiles);
@@ -189,6 +185,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<BaseAttribute> listSignatureAttributesForCertificate(UUID certificateUuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -204,6 +201,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.ANY)
+    @Transactional(readOnly = true)
     public List<BaseAttribute> listSignatureFormatterConnectorAttributes(UUID connectorUuid, SecuredUUID signingProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
         Connector connector = connectorRepository.findByUuid(connectorUuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
@@ -218,7 +216,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
-    @Transactional
+    @Transactional(readOnly = true)
     public SigningProfileDto getSigningProfile(SecuredUUID uuid, Integer version) throws NotFoundException {
         SigningProfile profile = findByUuid(uuid);
         if (version != null) {
@@ -234,6 +232,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @Cacheable(value = CacheConfig.SIGNING_PROFILES_CACHE, key = "#name", sync = true)
     // No @ExternalAuthorization — TsaService authorizes the request before calling this. Do not call from elsewhere.
+    @Transactional(readOnly = true)
     public SigningProfileModel<ManagedTimestampingWorkflow<? extends TimeQualityConfigurationModel>, ? extends SigningSchemeModel> getManagedTimestampingProfileModel(String name) throws NotFoundException {
         SigningProfile profile = signingProfileRepository.findWithTimeQualityConfigurationByName(name)
                 .orElseThrow(() -> new NotFoundException("Signing Profile not found: " + name));
@@ -469,7 +468,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
-    @Transactional
+    @Transactional(readOnly = true)
     public TspActivationDetailDto getTspActivationDetails(SecuredUUID uuid) throws NotFoundException {
         SigningProfile signingProfile = findByUuid(uuid);
         return SigningProfileMapper.toTspActivationDto(signingProfile);
@@ -581,7 +580,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             case ContentSigningWorkflowRequestDto w -> {
                 version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
                         : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
-                        .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
+                          .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
             }
             case RawSigningWorkflowRequestDto w -> {
                 // no formatter for raw signing
@@ -589,7 +588,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
             case TimestampingWorkflowRequestDto w -> {
                 version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
                         : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
-                        .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
+                          .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
                 version.setQualifiedTimestamp(w.getQualifiedTimestamp());
                 version.setDefaultPolicyId(w.getDefaultPolicyId());
                 version.setAllowedPolicyIds(w.getAllowedPolicyIds() != null ? w.getAllowedPolicyIds() : new ArrayList<>());
@@ -710,24 +709,28 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Override
+    @Transactional(readOnly = true)
     public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return signingProfileRepository.findResourceObject(objectUuid, SigningProfile_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DETAIL)
+    @Transactional(readOnly = true)
     public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
         return signingProfileRepository.findResourceObject(objectUuid.getValue(), SigningProfile_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
+    @Transactional(readOnly = true)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return signingProfileRepository.listResourceObjects(filter, SigningProfile_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
+    @Transactional(readOnly = true)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         findByUuid(uuid);
     }
@@ -739,7 +742,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private void evictSigningProfileCache(String name) {
         Cache cache = cacheManager.getCache(CacheConfig.SIGNING_PROFILES_CACHE);
         if (cache != null) {
-            LOG.debug("Evicting signing profile cache entry for name '{}'", name);
+            log.debug("Evicting signing profile cache entry for name '{}'", name);
             cache.evict(name);
         }
     }

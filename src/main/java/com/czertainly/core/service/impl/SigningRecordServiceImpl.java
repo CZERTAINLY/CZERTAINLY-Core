@@ -16,15 +16,14 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SigningRecordService;
-import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@Transactional
 public class SigningRecordServiceImpl implements SigningRecordService {
 
     private SigningRecordRepository signingRecordRepository;
@@ -36,12 +35,14 @@ public class SigningRecordServiceImpl implements SigningRecordService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST)
+    @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return new ArrayList<>();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST)
+    @Transactional(readOnly = true)
     public PaginationResponseDto<SigningRecordListDto> listSigningRecords(SearchRequestDto request, SecurityFilter filter) {
         List<SigningRecord> records = signingRecordRepository.findUsingSecurityFilter(filter);
         List<SigningRecordListDto> dtos = records.stream()
@@ -59,6 +60,7 @@ public class SigningRecordServiceImpl implements SigningRecordService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.DETAIL)
+    @Transactional(readOnly = true)
     public SigningRecordDto getSigningRecord(SecuredUUID uuid) throws NotFoundException {
         SigningRecord record = signingRecordRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Signing Record not found"));
@@ -67,6 +69,7 @@ public class SigningRecordServiceImpl implements SigningRecordService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.DETAIL)
+    @Transactional(readOnly = true)
     public SigningRecordValidationResultDto validateSigningRecord(SecuredUUID uuid) throws NotFoundException {
         signingRecordRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException("Signing Record not found"));

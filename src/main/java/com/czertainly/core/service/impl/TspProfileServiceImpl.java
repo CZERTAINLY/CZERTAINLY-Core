@@ -39,11 +39,8 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.function.TriFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -51,6 +48,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,8 +59,6 @@ import java.util.stream.Collectors;
 @Service(Resource.Codes.TSP_PROFILE)
 @Slf4j
 public class TspProfileServiceImpl implements TspProfileService {
-
-    private static final Logger LOG = LoggerFactory.getLogger(TspProfileServiceImpl.class);
     private CacheManager cacheManager;
     private AttributeEngine attributeEngine;
     private SigningProfileRepository signingProfileRepository;
@@ -71,13 +67,14 @@ public class TspProfileServiceImpl implements TspProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST)
+    @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return new ArrayList<>();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST)
-    @Transactional
+    @Transactional(readOnly = true)
     public PaginationResponseDto<TspProfileListDto> listTspProfiles(SearchRequestDto request, SecurityFilter filter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<TspProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
@@ -96,7 +93,7 @@ public class TspProfileServiceImpl implements TspProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL)
-    @Transactional
+    @Transactional(readOnly = true)
     public TspProfileDto getTspProfile(SecuredUUID uuid) throws NotFoundException {
         TspProfile profile = getTspProfileEntity(uuid.getValue());
         List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.TSP_PROFILE, uuid.getValue());
@@ -105,6 +102,7 @@ public class TspProfileServiceImpl implements TspProfileService {
 
     @Override
     @Cacheable(value = CacheConfig.TSP_PROFILES_CACHE, key = "#name")
+    @Transactional(readOnly = true)
     // No @ExternalAuthorization — TsaService authorizes the request before calling this. Do not call from elsewhere.
     public TspProfileModel getTspProfile(String name) throws NotFoundException {
         TspProfile tspConfiguration = tspProfileRepository.findWithAssociationsByName(name)
@@ -273,7 +271,7 @@ public class TspProfileServiceImpl implements TspProfileService {
         Cache cache = cacheManager.getCache(CacheConfig.TSP_PROFILES_CACHE);
         if (cache != null) {
             cache.evict(name);
-            LOG.debug("Evicted TSP profile cache entry for name '{}'", name);
+            log.debug("Evicted TSP profile cache entry for name '{}'", name);
         }
     }
 
@@ -287,24 +285,28 @@ public class TspProfileServiceImpl implements TspProfileService {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Override
+    @Transactional(readOnly = true)
     public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return tspProfileRepository.findResourceObject(objectUuid, TspProfile_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL)
+    @Transactional(readOnly = true)
     public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
         return tspProfileRepository.findResourceObject(objectUuid.getValue(), TspProfile_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST)
+    @Transactional(readOnly = true)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return tspProfileRepository.listResourceObjects(filter, TspProfile_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.UPDATE)
+    @Transactional(readOnly = true)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getTspProfileEntity(uuid.getValue());
     }

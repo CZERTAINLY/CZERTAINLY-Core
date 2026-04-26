@@ -129,7 +129,7 @@ public class SessionConfig implements BeanClassLoaderAware {
             }
 
             private boolean isTspRequest(HttpServletRequest request) {
-                return request.getRequestURI().contains("/v1/protocols/tsp");
+                return request.getRequestURI().startsWith("/v1/protocols/tsp");
             }
         };
     }
