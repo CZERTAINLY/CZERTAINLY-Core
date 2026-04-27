@@ -27,6 +27,9 @@ public enum SearchFieldTypeEnum {
     LIST(FilterFieldType.LIST,
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
             , true, null),
+    ARRAY(FilterFieldType.LIST,
+            List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS)
+            , false, null),
     BOOLEAN(FilterFieldType.BOOLEAN,
          List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY), false, Boolean.class)
     ;

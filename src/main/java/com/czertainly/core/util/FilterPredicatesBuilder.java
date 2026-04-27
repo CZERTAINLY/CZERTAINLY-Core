@@ -43,6 +43,7 @@ public class FilterPredicatesBuilder {
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
     private static final String TEXTREGEXEQ_FUNCTION_NAME = "textregexeq";
+    private static final String ARRAY_CONTAINS_FUNCTION_NAME = PostgresFunctionContributor.ARRAY_CONTAINS;
 
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
@@ -258,6 +259,7 @@ public class FilterPredicatesBuilder {
         }
         final LocalDateTime now = LocalDateTime.now();
         boolean bitEnumProperty = filterField.getEnumClass() != null && BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
+        boolean isArrayField = filterField.isArrayField();
         switch (conditionOperator) {
             case EQUALS -> {
                 if (bitEnumProperty)
@@ -285,10 +287,19 @@ public class FilterPredicatesBuilder {
             }
             case STARTS_WITH -> predicate = criteriaBuilder.like(expression, filterValues.getFirst() + "%");
             case ENDS_WITH -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst());
-            case CONTAINS -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst() + "%");
-            case NOT_CONTAINS ->
+            case CONTAINS -> {
+                if (isArrayField)
+                    predicate = criteriaBuilder.isTrue(criteriaBuilder.function(ARRAY_CONTAINS_FUNCTION_NAME, Boolean.class, criteriaBuilder.literal(filterValues.getFirst().toString()), expression));
+                else
+                    predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst() + "%");
+            }
+            case NOT_CONTAINS -> {
+                if (isArrayField)
+                    predicate = getArrayNotContainsPredicate(criteriaBuilder, query, root, filterField, filterValues.getFirst().toString());
+                else
                     predicate = criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false, isJsonArray),
                             criteriaBuilder.notLike(expression, "%" + filterValues.getFirst() + "%"));
+            }
             case EMPTY ->
                     predicate = getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty, isJsonArray);
             case NOT_EMPTY ->
@@ -506,6 +517,21 @@ public class FilterPredicatesBuilder {
                 criteriaBuilder.equal(subqueryRoot.get(ResourceObjectAssociation_.objectUuid), resource == Resource.CRYPTOGRAPHIC_KEY ? originalRoot.get(CryptographicKeyItem_.keyUuid) : originalRoot.get(UniquelyIdentified_.uuid)),
                 joinGroup.get(fieldAttribute.getName()).in(filterValues));
 
+        return criteriaBuilder.not(criteriaBuilder.exists(subquery));
+    }
+
+    // NOT EXISTS subquery is required here instead of a per-row predicate because the array field is accessed through a
+    // collection join (e.g. connector → connector_interface), producing multiple rows per root entity. A per-row check
+    // would incorrectly include an entity if any of its joined rows has a null/non-matching array, even when another
+    // row does contain the value. NOT EXISTS ensures the condition holds across all joined rows for the entity.
+    private static <T> Predicate getArrayNotContainsPredicate(CriteriaBuilder criteriaBuilder, CommonAbstractCriteria query, Root<T> root, FilterField filterField, String value) {
+        Subquery<Integer> subquery = query.subquery(Integer.class);
+        From subFrom = subquery.correlate(root);
+        for (Attribute attr : filterField.getJoinAttributes()) {
+            subFrom = subFrom.join(attr.getName(), JoinType.INNER);
+        }
+        subquery.select(criteriaBuilder.literal(1))
+                .where(criteriaBuilder.isTrue(criteriaBuilder.function(ARRAY_CONTAINS_FUNCTION_NAME, Boolean.class, criteriaBuilder.literal(value), subFrom.get(filterField.getFieldAttribute().getName()))));
         return criteriaBuilder.not(criteriaBuilder.exists(subquery));
     }
 
