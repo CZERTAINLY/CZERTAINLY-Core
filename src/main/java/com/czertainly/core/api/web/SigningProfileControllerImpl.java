@@ -80,13 +80,15 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.CREATE)
-    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request)
+            throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
         return signingProfileService.createSigningProfile(request);
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.UPDATE)
-    public SigningProfileDto updateSigningProfile(@LogResource(uuid = true) UUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+    public SigningProfileDto updateSigningProfile(@LogResource(uuid = true) UUID uuid, SigningProfileRequestDto request)
+            throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
         return signingProfileService.updateSigningProfile(SecuredUUID.fromUUID(uuid), request);
     }
 

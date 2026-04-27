@@ -55,9 +55,9 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     List<SigningProtocol> listSupportedProtocols(SigningWorkflowType workflowType);
 
-    SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
+    SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException;
 
-    SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
+    SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException;
 
     void deleteSigningProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 

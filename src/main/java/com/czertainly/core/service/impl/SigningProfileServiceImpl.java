@@ -211,11 +211,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.ANY)
     @Transactional(readOnly = true)
     public List<BaseAttribute> listSignatureFormatterConnectorAttributes(UUID connectorUuid, SecuredUUID signingProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
-        Connector connector = connectorRepository.findByUuid(connectorUuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
-        List<BaseAttribute> definitions = timestampingConnectorApiClient.listFormatterAttributes(connector.mapToDto());
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.WORKFLOW_FORMATTER, definitions);
-        return definitions;
+        return fetchAndUpdateFormatterAttributeDefinitions(connectorUuid);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -275,7 +271,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.CREATE)
     @Transactional
-    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+    public SigningProfileDto createSigningProfile(SigningProfileRequestDto request)
+            throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
         if (signingProfileRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException("Signing Profile with name '" + request.getName() + "' already exists.");
         }
@@ -311,7 +308,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.UPDATE)
     @Transactional
-    public SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+    public SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request)
+            throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
 
@@ -662,7 +660,8 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         return buildDtoFromVersion(profile, current);
     }
 
-    private List<ResponseAttribute> persistSigningOperationAttributes(SigningProfile signingProfile, SigningProfileVersion version, SigningSchemeRequestDto signingScheme) throws AttributeException, NotFoundException {
+    private List<ResponseAttribute> persistSigningOperationAttributes(SigningProfile signingProfile, SigningProfileVersion version, SigningSchemeRequestDto signingScheme)
+            throws AttributeException, NotFoundException {
         if (signingScheme instanceof StaticKeyManagedSigningRequestDto staticKeyScheme) {
             List<RequestAttribute> signingOperationAttributes = staticKeyScheme.getSigningOperationAttributes();
             List<BaseAttribute> definitions = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(version.getCertificate().getKey().getUuid()))
@@ -687,14 +686,18 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         return null;
     }
 
-    private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, SigningProfileVersion version, WorkflowRequestDto workflow) throws AttributeException, NotFoundException {
+    private List<ResponseAttribute> persistSignatureFormatterConnectorAttributes(SigningProfile p, SigningProfileVersion version, WorkflowRequestDto workflow)
+            throws AttributeException, ConnectorException, NotFoundException {
         return switch (workflow) {
-            case ContentSigningWorkflowRequestDto w -> attributeEngine.replaceObjectDataAttributesContent(
-                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
-                            .connector(w.getSignatureFormatterConnectorUuid())
-                            .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                            .version(version.getVersion()).build(),
-                    w.getSignatureFormatterConnectorAttributes());
+            case ContentSigningWorkflowRequestDto w -> {
+                fetchAndUpdateFormatterAttributeDefinitions(w.getSignatureFormatterConnectorUuid());
+                yield attributeEngine.replaceObjectDataAttributesContent(
+                        ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
+                                .connector(w.getSignatureFormatterConnectorUuid())
+                                .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                                .version(version.getVersion()).build(),
+                        w.getSignatureFormatterConnectorAttributes());
+            }
             case RawSigningWorkflowRequestDto w -> {
                 // Raw signing has no formatter; clean up any formatter attributes that may remain for this version.
                 attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA,
@@ -703,14 +706,31 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                                 .version(version.getVersion()).build());
                 yield null;
             }
-            case TimestampingWorkflowRequestDto w -> attributeEngine.replaceObjectDataAttributesContent(
-                    ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
-                            .connector(w.getSignatureFormatterConnectorUuid())
-                            .operation(AttributeOperation.WORKFLOW_FORMATTER)
-                            .version(version.getVersion()).build(),
-                    w.getSignatureFormatterConnectorAttributes());
+            case TimestampingWorkflowRequestDto w -> {
+                fetchAndUpdateFormatterAttributeDefinitions(w.getSignatureFormatterConnectorUuid());
+                yield attributeEngine.replaceObjectDataAttributesContent(
+                        ObjectAttributeContentInfo.builder(Resource.SIGNING_PROFILE, p.getUuid())
+                                .connector(w.getSignatureFormatterConnectorUuid())
+                                .operation(AttributeOperation.WORKFLOW_FORMATTER)
+                                .version(version.getVersion()).build(),
+                        w.getSignatureFormatterConnectorAttributes());
+            }
             default -> throw new IllegalStateException("Unexpected type for Signing Workflow: " + workflow);
         };
+    }
+
+    /**
+     * Saves connector attributes definitions in the attribute engine, so they can be used for validation and content preparation in other operations.
+     *
+     * <p>This method is hooked up on create/update/listAttributes, following VaultProfile and VaultInstance approach.
+     * However, this is a temporary solution; a better solution for this should be implemented in general.</p>
+     */
+    private List<BaseAttribute> fetchAndUpdateFormatterAttributeDefinitions(UUID connectorUuid) throws AttributeException, ConnectorException, NotFoundException {
+        Connector connector = connectorRepository.findByUuid(connectorUuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
+        List<BaseAttribute> definitions = timestampingConnectorApiClient.listFormatterAttributes(connector.mapToApiClientDtoV2());
+        attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.WORKFLOW_FORMATTER, definitions);
+        return definitions;
     }
 
     @FunctionalInterface

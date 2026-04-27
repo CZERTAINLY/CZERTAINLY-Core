@@ -291,6 +291,11 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
                                 .withHeader("Content-Type", "application/json")
                                 .withBody(tokenJson))
         );
+
+        wireMockServer.stubFor(
+                WireMock.get(WireMock.urlPathMatching("/formatter/v1/signatureProvider/formatting/attributes"))
+                        .willReturn(WireMock.okJson("[]"))
+        );
     }
 
     private Connector persistConnector() {
