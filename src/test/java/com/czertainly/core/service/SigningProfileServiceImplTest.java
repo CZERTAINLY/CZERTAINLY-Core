@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
@@ -1099,35 +1100,28 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDeleteSigningProfile_withSigningRecords_clearsReferencesAndDeletes() throws NotFoundException {
+    void testDeleteSigningProfile_withSigningRecords_throwsValidationException() {
         createSigningRecordFor(savedProfile, 1);
 
-        signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid());
+        Assertions.assertThrows(ValidationException.class,
+                () -> signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid()));
 
-        // Profile should be removed from the database
-        Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
-        // Signing records should have their signing profile UUID cleared (not pointing to the deleted profile)
-        Assertions.assertFalse(
-                signingRecordRepository.existsBySigningProfileUuidAndSigningProfileVersion(savedProfile.getUuid(), 1),
-                "Signing record should no longer reference the deleted profile UUID");
+        // Profile must still exist after the failed delete attempt
+        Assertions.assertTrue(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
     }
 
     @Test
-    void testDeleteSigningProfile_usedAsDefaultInTspProfile_clearsReferenceAndDeletes() throws NotFoundException {
+    void testDeleteSigningProfile_usedAsDefaultInTspProfile_throwsValidationException() {
         TspProfile tspProfile = new TspProfile();
         tspProfile.setName("blocking-tsp-profile");
         tspProfile.setDefaultSigningProfile(savedProfile);
-        tspProfile = tspRepository.save(tspProfile);
-        final UUID tspProfileUuid = tspProfile.getUuid();
+        tspRepository.save(tspProfile);
 
-        signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid());
+        Assertions.assertThrows(ValidationException.class,
+                () -> signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid()));
 
-        // Profile should be removed from the database
-        Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
-        // The TSP profile's default signing profile reference should be cleared
-        TspProfile reloadedTsp = tspRepository.findById(tspProfileUuid).orElseThrow();
-        Assertions.assertNull(reloadedTsp.getDefaultSigningProfileUuid(),
-                "TSP profile's default signing profile UUID should be cleared after profile deletion");
+        // Profile must still exist after the failed delete attempt
+        Assertions.assertTrue(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -1149,27 +1143,26 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testBulkDeleteSigningProfiles_withSigningRecords_clearsReferencesAndDeletesAll()
+    void testBulkDeleteSigningProfiles_withSigningRecords_returnsErrorAndLeavesBlockedProfileIntact()
             throws AlreadyExistException, AttributeException, NotFoundException {
-        // Attach a signing record to the savedProfile — deletion should still succeed
+        // Attach a signing record to the savedProfile — bulk delete should surface an error for it
         createSigningRecordFor(savedProfile, 1);
 
-        // Create a second profile with no dependencies
+        // Create a second profile with no dependencies — it should be deleted successfully
         SigningProfileDto second = signingProfileService.createSigningProfile(buildDelegatedRawRequest("second-profile-no-deps"));
 
         List<BulkActionMessageDto> messages = signingProfileService.bulkDeleteSigningProfiles(
                 List.of(savedProfile.getSecuredUuid(),
                         SecuredUUID.fromString(second.getUuid())));
 
-        // Both profiles should be deleted with no errors
-        Assertions.assertNotNull(messages);
-        Assertions.assertTrue(messages.isEmpty(), "Expected no errors: silently clears references before deleting");
-        Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent());
-        Assertions.assertFalse(signingProfileRepository.findById(UUID.fromString(second.getUuid())).isPresent());
-        // Signing records should have their signing profile UUID cleared
-        Assertions.assertFalse(
-                signingRecordRepository.existsBySigningProfileUuidAndSigningProfileVersion(savedProfile.getUuid(), 1),
-                "Signing record should no longer reference the deleted profile UUID");
+        // savedProfile deletion must fail; second must succeed
+        Assertions.assertFalse(messages.isEmpty(), "Expected an error message for the blocked profile");
+        Assertions.assertTrue(messages.stream().anyMatch(m -> savedProfile.getUuid().toString().equals(m.getUuid())),
+                "Error message should reference the blocked profile UUID");
+        Assertions.assertTrue(signingProfileRepository.findById(savedProfile.getUuid()).isPresent(),
+                "Blocked profile must still exist in the database");
+        Assertions.assertFalse(signingProfileRepository.findById(UUID.fromString(second.getUuid())).isPresent(),
+                "Unblocked profile must be deleted");
     }
 
     @Test
@@ -1193,6 +1186,71 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         // The known profile must still have been deleted
         Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent(),
                 "The known profile should be deleted even when the list contains an unknown UUID");
+    }
+
+    @Test
+    void testDeleteSigningProfile_withNoSigningRecordsOrTspProfiles_succeeds() throws NotFoundException {
+        // Precondition: no signing records and no TSP profiles reference savedProfile
+        signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid());
+
+        Assertions.assertFalse(signingProfileRepository.findById(savedProfile.getUuid()).isPresent(),
+                "Profile with no dependents must be removed from the database");
+    }
+
+    @Test
+    void testDeleteSigningProfile_withSigningRecords_errorMessageContainsProfileInfo() {
+        createSigningRecordFor(savedProfile, 1);
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class,
+                () -> signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid()));
+
+        String message = ex.getErrors().stream()
+                .map(ValidationError::getErrorDescription)
+                .findFirst()
+                .orElse("");
+        Assertions.assertTrue(message.contains("signing records"),
+                "Error message should mention signing records, got: " + message);
+    }
+
+    @Test
+    void testDeleteSigningProfile_usedAsDefaultInTspProfile_errorMessageContainsTspProfileName() {
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("expected-tsp-name");
+        tspProfile.setDefaultSigningProfile(savedProfile);
+        tspRepository.save(tspProfile);
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class,
+                () -> signingProfileService.deleteSigningProfile(savedProfile.getSecuredUuid()));
+
+        String message = ex.getErrors().stream()
+                .map(ValidationError::getErrorDescription)
+                .findFirst()
+                .orElse("");
+        Assertions.assertTrue(message.contains("expected-tsp-name"),
+                "Error message should contain the TSP profile name, got: " + message);
+    }
+
+    @Test
+    void testBulkDeleteSigningProfiles_withTspProfileDependency_returnsErrorAndLeavesBlockedProfileIntact()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TspProfile tspProfile = new TspProfile();
+        tspProfile.setName("blocking-tsp");
+        tspProfile.setDefaultSigningProfile(savedProfile);
+        tspRepository.save(tspProfile);
+
+        SigningProfileDto second = signingProfileService.createSigningProfile(buildDelegatedRawRequest("unblocked-profile"));
+
+        List<BulkActionMessageDto> messages = signingProfileService.bulkDeleteSigningProfiles(
+                List.of(savedProfile.getSecuredUuid(),
+                        SecuredUUID.fromString(second.getUuid())));
+
+        Assertions.assertFalse(messages.isEmpty(), "Expected an error message for the blocked profile");
+        Assertions.assertTrue(messages.stream().anyMatch(m -> savedProfile.getUuid().toString().equals(m.getUuid())),
+                "Error message should reference the blocked profile UUID");
+        Assertions.assertTrue(signingProfileRepository.findById(savedProfile.getUuid()).isPresent(),
+                "Blocked profile must still exist in the database");
+        Assertions.assertFalse(signingProfileRepository.findById(UUID.fromString(second.getUuid())).isPresent(),
+                "Unblocked profile must be deleted");
     }
 
     // ──────────────────────────────────────────────────────────────────────────

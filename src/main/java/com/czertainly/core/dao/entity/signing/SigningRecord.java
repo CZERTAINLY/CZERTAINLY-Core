@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity.signing;
 
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
+import com.czertainly.core.service.model.Securable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -19,7 +20,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "signing_record")
-public class SigningRecord extends UniquelyIdentifiedAndAudited {
+public class SigningRecord extends UniquelyIdentifiedAndAudited implements Securable {
 
     @Column(name = "name")
     private String name;

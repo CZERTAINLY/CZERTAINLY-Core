@@ -13,6 +13,8 @@ import java.util.UUID;
 public interface SigningRecordRepository extends SecurityFilterRepository<SigningRecord, UUID> {
     boolean existsBySigningProfileUuidAndSigningProfileVersion(UUID signingProfileUuid, int version);
 
+    List<SigningRecord> findAllBySigningProfileUuid(UUID signingProfileUuid);
+
     @Modifying
     @Query("UPDATE SigningRecord sr SET sr.signingProfileUuid = NULL WHERE sr.signingProfileUuid = :signingProfileUuid")
     void clearSigningProfileUuid(UUID signingProfileUuid);

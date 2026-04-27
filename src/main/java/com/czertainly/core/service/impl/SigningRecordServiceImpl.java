@@ -16,6 +16,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SigningRecordService;
+import com.czertainly.core.service.model.SecuredList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +57,14 @@ public class SigningRecordServiceImpl implements SigningRecordService {
         response.setTotalPages(1);
         response.setItems(dtos);
         return response;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.DETAIL)
+    @Transactional(readOnly = true)
+    public SecuredList<SigningRecord> listSigningRecordsAssociatedWithSigningProfile(SecuredUUID signingProfileUuid, SecurityFilter filter) {
+        List<SigningRecord> records = signingRecordRepository.findAllBySigningProfileUuid(signingProfileUuid.getValue());
+        return SecuredList.fromFilter(filter, records);
     }
 
     @Override

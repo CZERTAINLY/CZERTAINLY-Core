@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
@@ -58,7 +59,7 @@ public interface SigningProfileService extends ResourceExtensionService {
 
     SigningProfileDto updateSigningProfile(SecuredUUID uuid, SigningProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException;
 
-    void deleteSigningProfile(SecuredUUID uuid) throws NotFoundException;
+    void deleteSigningProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
     List<BulkActionMessageDto> bulkDeleteSigningProfiles(List<SecuredUUID> uuids);
 

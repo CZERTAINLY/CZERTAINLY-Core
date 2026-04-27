@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.SigningProfileController;
 import com.czertainly.api.model.client.signing.profile.SigningProfileDto;
 import com.czertainly.api.model.client.signing.profile.SigningProfileListDto;
@@ -91,7 +92,7 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DELETE)
-    public void deleteSigningProfile(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+    public void deleteSigningProfile(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ValidationException {
         signingProfileService.deleteSigningProfile(SecuredUUID.fromUUID(uuid));
     }
 

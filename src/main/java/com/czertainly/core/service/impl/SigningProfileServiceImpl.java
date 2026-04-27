@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
@@ -52,6 +53,7 @@ import com.czertainly.core.dao.entity.signing.SigningProfile;
 import com.czertainly.core.dao.entity.signing.SigningProfile_;
 import com.czertainly.core.dao.entity.signing.SigningProfileVersion;
 import com.czertainly.core.dao.entity.signing.TspProfile;
+import com.czertainly.core.dao.entity.signing.SigningRecord;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration;
@@ -72,6 +74,8 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.CryptographicOperationService;
 import com.czertainly.core.service.SigningProfileService;
+import com.czertainly.core.service.SigningRecordService;
+import com.czertainly.core.service.TspProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.FilterPredicatesBuilder;
@@ -82,6 +86,7 @@ import jakarta.persistence.criteria.Root;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -91,6 +96,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service(Resource.Codes.SIGNING_PROFILE)
 @Slf4j
@@ -109,10 +115,12 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     private CertificateService certificateService;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private SigningRecordRepository signingRecordRepository;
+    private SigningRecordService signingRecordService;
     private SigningProfileRepository signingProfileRepository;
     private SigningProfileVersionRepository signingProfileVersionRepository;
     private TimeQualityConfigurationRepository timeQualityConfigurationRepository;
     private TspProfileRepository tspProfileRepository;
+    private TspProfileService tspProfileService;
     private AttributeEngine attributeEngine;
     private TimestampingConnectorApiClient timestampingConnectorApiClient;
     private ConnectorRepository connectorRepository;
@@ -363,7 +371,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.DELETE)
     @Transactional
-    public void deleteSigningProfile(SecuredUUID uuid) throws NotFoundException {
+    public void deleteSigningProfile(SecuredUUID uuid) throws NotFoundException, ValidationException {
         SigningProfile profile = findByUuid(uuid);
         evictSigningProfileCache(profile.getName());
         deleteSigningProfile(profile);
@@ -376,9 +384,31 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         return bulkAction(uuids, this::deleteSigningProfile);
     }
 
-    private void deleteSigningProfile(SigningProfile signingProfile) {
-        signingRecordRepository.clearSigningProfileUuid(signingProfile.getUuid());
-        tspProfileRepository.clearDefaultSigningProfileUuid(signingProfile.getUuid());
+    private void deleteSigningProfile(SigningProfile signingProfile) throws ValidationException {
+        SecuredList<SigningRecord> signingRecords = signingRecordService.listSigningRecordsAssociatedWithSigningProfile(
+                SecuredUUID.fromUUID(signingProfile.getUuid()), SecurityFilter.create());
+        if (!signingRecords.isEmpty()) {
+            throw new ValidationException(
+                    ValidationError.create(String.format(
+                            "Cannot delete Signing Profile: has associated signing records (%d): %s",
+                            signingRecords.size(),
+                            signingRecords.getAllowed().stream().map(SigningRecord::getName).collect(Collectors.joining(", "))
+                    ))
+            );
+        }
+
+        SecuredList<TspProfile> tspProfiles = tspProfileService.listTspProfilesUsingSigningProfileAsDefault(
+                SecuredUUID.fromUUID(signingProfile.getUuid()), SecurityFilter.create());
+        if (!tspProfiles.isEmpty()) {
+            throw new ValidationException(
+                    ValidationError.create(String.format(
+                            "Cannot delete Signing Profile: used as default signing profile by TSP Profiles (%d): %s",
+                            tspProfiles.size(),
+                            tspProfiles.getAllowed().stream().map(TspProfile::getName).collect(Collectors.joining(", "))
+                    ))
+            );
+        }
+
         signingProfileVersionRepository.deleteAllBySigningProfileUuid(signingProfile.getUuid());
         signingProfileRepository.delete(signingProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.SIGNING_PROFILE, signingProfile.getUuid());
@@ -693,7 +723,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
         for (SecuredUUID uuid : uuids) {
             try {
                 action.accept(uuid);
-            } catch (NotFoundException e) {
+            } catch (NotFoundException | ValidationException e) {
                 BulkActionMessageDto message = new BulkActionMessageDto();
                 message.setUuid(uuid.getValue().toString());
                 // :TODO: Message needs to be more descriptive (action, entity name)
@@ -787,6 +817,11 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     }
 
     @Autowired
+    public void setSigningRecordService(SigningRecordService signingRecordService) {
+        this.signingRecordService = signingRecordService;
+    }
+
+    @Autowired
     public void setSigningProfileRepository(SigningProfileRepository signingProfileRepository) {
         this.signingProfileRepository = signingProfileRepository;
     }
@@ -804,6 +839,12 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     @Autowired
     public void setTspProfileRepository(TspProfileRepository tspProfileRepository) {
         this.tspProfileRepository = tspProfileRepository;
+    }
+
+    @Autowired
+    @Lazy
+    public void setTspProfileService(TspProfileService tspProfileService) {
+        this.tspProfileService = tspProfileService;
     }
 
     @Autowired

@@ -7,8 +7,10 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.signing.signingrecord.SigningRecordDto;
 import com.czertainly.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.czertainly.api.model.core.signing.signingrecord.SigningRecordValidationResultDto;
+import com.czertainly.core.dao.entity.signing.SigningRecord;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.model.SecuredList;
 
 import java.util.List;
 
@@ -17,6 +19,8 @@ public interface SigningRecordService {
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
     PaginationResponseDto<SigningRecordListDto> listSigningRecords(SearchRequestDto request, SecurityFilter filter);
+
+    SecuredList<SigningRecord> listSigningRecordsAssociatedWithSigningProfile(SecuredUUID signingProfileUuid, SecurityFilter filter);
 
     SigningRecordDto getSigningRecord(SecuredUUID uuid) throws NotFoundException;
 

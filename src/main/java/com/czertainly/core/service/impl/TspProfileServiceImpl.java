@@ -92,6 +92,14 @@ public class TspProfileServiceImpl implements TspProfileService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.DETAIL)
+    @Transactional(readOnly = true)
+    public SecuredList<TspProfile> listTspProfilesUsingSigningProfileAsDefault(SecuredUUID signingProfileUuid, SecurityFilter filter) {
+        List<TspProfile> tspProfiles = tspProfileRepository.findAllByDefaultSigningProfileUuid(signingProfileUuid.getValue());
+        return SecuredList.fromFilter(filter, tspProfiles);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL)
     @Transactional(readOnly = true)
     public TspProfileDto getTspProfile(SecuredUUID uuid) throws NotFoundException {
