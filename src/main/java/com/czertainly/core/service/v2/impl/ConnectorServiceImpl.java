@@ -186,12 +186,10 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     // Connector function groups are nopt part of the v2.ConnectorApiClientDto, so changes to them do not cause cache invalidation
     @Cacheable(value = CacheConfig.FORMATTER_CONNECTOR_CACHE, key = "#connectorUuid", sync = true)
-    public ConnectorApiClientDtoV2 getConnectorForApiClient(UUID connectorUuid) throws TspException {
+    public ConnectorApiClientDtoV2 getConnectorForApiClient(UUID connectorUuid) throws NotFoundException {
         return connectorRepository.findByUuid(connectorUuid)
                 .map(Connector::mapToApiClientDtoV2)
-                .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                        "Signature formatter connector not found: " + connectorUuid, null,
-                        "Internal error: signing configuration is invalid"));
+                .orElseThrow(() -> new NotFoundException("Signature formatter connector not found: " + connectorUuid));
     }
 
     @Override

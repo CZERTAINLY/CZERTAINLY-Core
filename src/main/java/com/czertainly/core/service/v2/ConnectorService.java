@@ -26,7 +26,7 @@ public interface ConnectorService extends ResourceExtensionService {
 
     ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    com.czertainly.api.model.core.connector.v2.ConnectorApiClientDtoV2 getConnectorForApiClient(UUID connectorUuid) throws TspException;
+    com.czertainly.api.model.core.connector.v2.ConnectorApiClientDtoV2 getConnectorForApiClient(UUID connectorUuid) throws NotFoundException;
 
     ConnectorDetailDto createConnector(ConnectorRequestDto request) throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException;
 
