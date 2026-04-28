@@ -290,6 +290,12 @@
             <version>2.1.11</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.2</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- dependencies for Intune client-->
         <dependency>
