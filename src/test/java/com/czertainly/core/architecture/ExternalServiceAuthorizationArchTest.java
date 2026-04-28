@@ -5,6 +5,7 @@ import com.czertainly.core.security.authz.ExternalAuthorizationMissing;
 import com.czertainly.core.security.authz.ProtocolEndpoint;
 import com.czertainly.core.security.authz.SelfPrincipalEndpoint;
 import com.czertainly.core.security.authz.UnauthenticatedEndpoint;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -16,6 +17,7 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 
 import java.util.Set;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
 @AnalyzeClasses(packages = "com.czertainly.core.service", importOptions = ImportOption.DoNotIncludeTests.class)
@@ -28,6 +30,21 @@ public class ExternalServiceAuthorizationArchTest {
             SelfPrincipalEndpoint.class.getName(),
             UnauthenticatedEndpoint.class.getName()
     );
+
+    @ArchTest
+    static final ArchRule external_service_interfaces_must_not_extend_other_interfaces =
+            classes()
+                    .that().haveSimpleNameEndingWith("ExternalService")
+                    .and().areInterfaces()
+                    .should(new ArchCondition<JavaClass>("not extend other interfaces") {
+                        @Override
+                        public void check(JavaClass javaClass, ConditionEvents events) {
+                            if (!javaClass.getDirectInterfaces().isEmpty()) {
+                                events.add(SimpleConditionEvent.violated(javaClass,
+                                        javaClass.getName() + " extends other interfaces; *ExternalService interfaces must be flat so the auth-annotation rule covers all callable methods"));
+                            }
+                        }
+                    });
 
     @ArchTest
     static final ArchRule every_external_service_method_has_exactly_one_auth_annotation =
