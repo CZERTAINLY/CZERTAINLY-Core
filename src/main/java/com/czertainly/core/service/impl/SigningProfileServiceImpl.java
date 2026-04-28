@@ -66,6 +66,8 @@ import com.czertainly.core.dao.repository.signing.SigningRecordRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileRepository;
 import com.czertainly.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.czertainly.core.dao.repository.signing.TimeQualityConfigurationRepository;
+import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
+import com.czertainly.api.model.client.connector.v2.FeatureFlag;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.signing.TspProfileRepository;
@@ -624,17 +626,25 @@ public class SigningProfileServiceImpl implements SigningProfileService {
 
         switch (workflow) {
             case ContentSigningWorkflowRequestDto w -> {
-                version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
-                        : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
-                          .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
+                if (w.getSignatureFormatterConnectorUuid() == null) {
+                    throw new ValidationException("Signature formatter connector is required for content signing workflow");
+                }
+                Connector contentConnector = connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
+                        .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid()));
+                validateFormatterConnectorFeature(contentConnector, FeatureFlag.DOCUMENT_SIGNING, SigningWorkflowType.CONTENT_SIGNING);
+                version.setSignatureFormatterConnector(contentConnector);
             }
             case RawSigningWorkflowRequestDto w -> {
-                // no formatter for raw signing
+                // RawSigningWorkflowRequestDto has no signatureFormatterConnectorUuid field — no formatter is allowed
             }
             case TimestampingWorkflowRequestDto w -> {
-                version.setSignatureFormatterConnector(w.getSignatureFormatterConnectorUuid() == null ? null
-                        : connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
-                          .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid())));
+                if (w.getSignatureFormatterConnectorUuid() == null) {
+                    throw new ValidationException("Signature formatter connector is required for timestamping workflow");
+                }
+                Connector tsaConnector = connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
+                        .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid()));
+                validateFormatterConnectorFeature(tsaConnector, FeatureFlag.TIMESTAMPING, SigningWorkflowType.TIMESTAMPING);
+                version.setSignatureFormatterConnector(tsaConnector);
                 version.setQualifiedTimestamp(w.getQualifiedTimestamp());
                 version.setDefaultPolicyId(w.getDefaultPolicyId());
                 version.setAllowedPolicyIds(w.getAllowedPolicyIds() != null ? w.getAllowedPolicyIds() : new ArrayList<>());
@@ -651,6 +661,16 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 }
             }
             default -> throw new IllegalStateException("Unexpected type for Signing Workflow: " + workflow);
+        }
+    }
+
+    private void validateFormatterConnectorFeature(Connector connector, FeatureFlag requiredFeature, SigningWorkflowType workflowType) {
+        boolean hasFeature = connector.getInterfaces().stream()
+                .filter(i -> ConnectorInterface.SIGNATURE_FORMATTING.equals(i.getInterfaceCode()))
+                .anyMatch(i -> i.getFeatures() != null && i.getFeatures().contains(requiredFeature));
+        if (!hasFeature) {
+            throw new ValidationException("Formatter connector '%s' does not support the '%s' feature required for %s workflow"
+                    .formatted(connector.getName(), requiredFeature.getLabel(), workflowType.getLabel()));
         }
     }
 
