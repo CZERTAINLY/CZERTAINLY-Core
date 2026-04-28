@@ -16,7 +16,6 @@ import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.util.AuthHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
