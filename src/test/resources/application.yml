@@ -136,7 +136,9 @@ otel:
 
 settings:
   cache:
-    refresh-interval: 30
+    # Effectively disable the scheduled cache refresh during tests so that
+    # in-memory cache values populated by @BeforeEach are not wiped mid-test.
+    refresh-interval: 31536000
 
 proxy:
   enabled: true

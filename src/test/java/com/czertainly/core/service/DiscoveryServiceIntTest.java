@@ -11,7 +11,6 @@ import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.messaging.jms.producers.NotificationProducer;
 import com.czertainly.core.util.BaseMessagingIntTest;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +20,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -86,8 +87,9 @@ class DiscoveryServiceIntTest extends BaseMessagingIntTest {
                         isNull()
                 );
 
-        // Verify discovery was actually deleted
-        Assertions.assertFalse(discoveryRepository.findByUuid(discovery.getUuid()).isPresent(),
-                "Discovery should be deleted from repository");
+        // The @Async bulkRemoveDiscovery may not have committed by the time the
+        // notification producer was invoked, so poll for the deletion to become visible.
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(() -> discoveryRepository.findByUuid(discovery.getUuid()).isEmpty());
     }
 }
