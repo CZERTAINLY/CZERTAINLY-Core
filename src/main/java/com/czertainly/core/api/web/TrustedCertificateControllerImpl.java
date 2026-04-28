@@ -15,8 +15,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.TrustedCertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -41,13 +39,13 @@ public class TrustedCertificateControllerImpl implements TrustedCertificateContr
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.TRUSTED_CERTIFICATE, operation = Operation.DETAIL)
-    public TrustedCertificateDto getTrustedCertificate(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public TrustedCertificateDto getTrustedCertificate(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return trustedCertificateService.getTrustedCertificate(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.TRUSTED_CERTIFICATE, operation = Operation.CREATE)
-    public ResponseEntity<?> createTrustedCertificate(@RequestBody TrustedCertificateRequestDto request) {
+    public ResponseEntity<?> createTrustedCertificate(TrustedCertificateRequestDto request) {
         TrustedCertificateDto trustedCertificateDto = trustedCertificateService.createTrustedCertificate(request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
@@ -59,7 +57,7 @@ public class TrustedCertificateControllerImpl implements TrustedCertificateContr
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.TRUSTED_CERTIFICATE, operation = Operation.DELETE)
-    public void deleteTrustedCertificate(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public void deleteTrustedCertificate(@LogResource(uuid = true) String uuid) throws NotFoundException {
         trustedCertificateService.deleteTrustedCertificate(SecuredUUID.fromString(uuid));
     }
 

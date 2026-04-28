@@ -47,24 +47,23 @@ public class ProxyControllerImpl implements ProxyController {
     @Override
     @AuthEndpoint(resourceName = Resource.PROXY)
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.LIST)
-    public List<ProxyListDto> listProxies(
-        @RequestParam(required = false) ProxyStatus status) {
+    public List<ProxyListDto> listProxies(ProxyStatus status) {
         return proxyService.listProxies(SecurityFilter.create(), Optional.ofNullable(status));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.DETAIL)
-    public ProxyDto getProxy(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public ProxyDto getProxy(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return proxyService.getProxy(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.CREATE)
-    public ResponseEntity<?> createProxy(@RequestBody ProxyRequestDto request) throws AlreadyExistException {
+    public ResponseEntity<?> createProxy(ProxyRequestDto request) throws AlreadyExistException {
         ProxyDto proxyDto = proxyService.createProxy(request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
-            .buildAndExpand(proxyDto.getUuid()).toUri();
+                .buildAndExpand(proxyDto.getUuid()).toUri();
         UuidDto dto = new UuidDto();
         dto.setUuid(proxyDto.getUuid());
         return ResponseEntity.created(location).body(dto);
@@ -72,20 +71,20 @@ public class ProxyControllerImpl implements ProxyController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.UPDATE)
-    public ProxyDto editProxy(@LogResource(uuid = true) @PathVariable String uuid, @RequestBody ProxyUpdateRequestDto request)
-        throws NotFoundException {
+    public ProxyDto editProxy(@LogResource(uuid = true) String uuid, ProxyUpdateRequestDto request)
+            throws NotFoundException {
         return proxyService.editProxy(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.DELETE)
-    public void deleteProxy(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public void deleteProxy(@LogResource(uuid = true) String uuid) throws NotFoundException {
         proxyService.deleteProxy(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.GET_PROXY_INSTALLATION)
-    public ProxyInstallInstructionsDto getInstallationInstructions(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public ProxyInstallInstructionsDto getInstallationInstructions(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return proxyService.getInstallationInstructions(SecuredUUID.fromString(uuid));
     }
 }
