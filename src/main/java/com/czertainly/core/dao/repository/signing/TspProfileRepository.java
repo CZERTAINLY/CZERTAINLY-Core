@@ -23,4 +23,7 @@ public interface TspProfileRepository extends SecurityFilterRepository<TspProfil
     Optional<TspProfile> findWithAssociationsByName(String name);
 
     List<TspProfile> findAllByDefaultSigningProfileUuid(UUID signingProfileUuid);
+
+    @Query("SELECT t.name FROM TspProfile t ORDER BY t.name")
+    List<String> findAllNames();
 }

@@ -40,7 +40,12 @@ import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.util.SearchHelper;
 import com.czertainly.api.model.core.signing.SigningProtocol;
 import com.czertainly.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.czertainly.core.config.CacheConfig;
@@ -130,10 +135,20 @@ public class SigningProfileServiceImpl implements SigningProfileService {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-        return new ArrayList<>();
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.SIGNING_PROFILE, false);
+        List<SearchFieldDataDto> fields = new ArrayList<>(List.of(
+                SearchHelper.prepareSearch(FilterField.SIGNING_PROFILE_NAME),
+                SearchHelper.prepareSearch(FilterField.SIGNING_PROFILE_ENABLED),
+                SearchHelper.prepareSearch(FilterField.SIGNING_PROFILE_SIGNING_SCHEME),
+                SearchHelper.prepareSearch(FilterField.SIGNING_PROFILE_WORKFLOW_TYPE),
+                SearchHelper.prepareSearch(FilterField.SIGNING_PROFILE_TSP_PROFILE, tspProfileRepository.findAllNames()),
+                SearchHelper.prepareSearch(FilterField.SIGNING_PROFILE_TIME_QUALITY_CONFIGURATION, timeQualityConfigurationRepository.findAllNames())
+        ));
+        fields.sort(new SearchFieldDataComparator());
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
+        return searchFieldDataByGroupDtos;
     }
 
     @Override

@@ -12,7 +12,12 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.util.SearchHelper;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Audited_;
@@ -65,7 +70,17 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-        return new ArrayList<>();
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.TIME_QUALITY_CONFIGURATION, false);
+        List<SearchFieldDataDto> fields = new ArrayList<>(List.of(
+                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NAME),
+                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_LEAP_SECOND_GUARD),
+                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE),
+                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER),
+                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS, timeQualityConfigurationRepository.findAllNtpServers())
+        ));
+        fields.sort(new SearchFieldDataComparator());
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
+        return searchFieldDataByGroupDtos;
     }
 
     @Override

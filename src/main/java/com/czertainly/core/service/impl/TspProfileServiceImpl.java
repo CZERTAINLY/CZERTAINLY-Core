@@ -16,7 +16,12 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.PaginationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Audited_;
 import com.czertainly.core.dao.entity.signing.TspProfile;
@@ -66,10 +71,17 @@ public class TspProfileServiceImpl implements TspProfileService {
     private TspProfileRepository tspProfileRepository;
 
     @Override
-    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-        return new ArrayList<>();
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.TSP_PROFILE, false);
+        List<SearchFieldDataDto> fields = new ArrayList<>(List.of(
+                SearchHelper.prepareSearch(FilterField.TSP_PROFILE_NAME),
+                SearchHelper.prepareSearch(FilterField.TSP_PROFILE_ENABLED),
+                SearchHelper.prepareSearch(FilterField.TSP_PROFILE_DEFAULT_SIGNING_PROFILE, signingProfileRepository.findAllNames())
+        ));
+        fields.sort(new SearchFieldDataComparator());
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
+        return searchFieldDataByGroupDtos;
     }
 
     @Override

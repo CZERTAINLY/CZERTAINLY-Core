@@ -31,6 +31,11 @@ import com.czertainly.core.dao.entity.cmp.CmpProfile_;
 import com.czertainly.core.dao.entity.oid.CustomOidEntry_;
 import com.czertainly.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry_;
 import com.czertainly.core.dao.entity.scep.ScepProfile_;
+import com.czertainly.core.dao.entity.signing.SigningProfile_;
+import com.czertainly.core.dao.entity.signing.TimeQualityConfiguration_;
+import com.czertainly.core.dao.entity.signing.TspProfile_;
+import com.czertainly.api.model.client.signing.profile.scheme.SigningScheme;
+import com.czertainly.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.metamodel.Attribute;
 import lombok.Getter;
@@ -208,7 +213,27 @@ public enum FilterField {
     CBOM_CERTIFICATES_COUNT(Resource.CBOM, null, null, Cbom_.certificatesCount, "Certificates Count", SearchFieldTypeEnum.NUMBER),
     CBOM_PROTOCOLS_COUNT(Resource.CBOM, null, null, Cbom_.protocolsCount, "Protocols Count", SearchFieldTypeEnum.NUMBER),
     CBOM_CRYPTO_MATERIAL_COUNT(Resource.CBOM, null, null, Cbom_.cryptoMaterialCount, "Crypto Material Count", SearchFieldTypeEnum.NUMBER),
-    CBOM_TOTAL_ASSETS_COUNT(Resource.CBOM, null, null, Cbom_.totalAssetsCount, "Total Assets Count", SearchFieldTypeEnum.NUMBER)
+    CBOM_TOTAL_ASSETS_COUNT(Resource.CBOM, null, null, Cbom_.totalAssetsCount, "Total Assets Count", SearchFieldTypeEnum.NUMBER),
+
+    // Signing Profile
+    SIGNING_PROFILE_NAME(Resource.SIGNING_PROFILE, null, null, SigningProfile_.name, "Name", SearchFieldTypeEnum.STRING),
+    SIGNING_PROFILE_ENABLED(Resource.SIGNING_PROFILE, null, null, SigningProfile_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
+    SIGNING_PROFILE_SIGNING_SCHEME(Resource.SIGNING_PROFILE, null, null, SigningProfile_.signingScheme, "Signing Scheme", SearchFieldTypeEnum.LIST, SigningScheme.class),
+    SIGNING_PROFILE_WORKFLOW_TYPE(Resource.SIGNING_PROFILE, null, null, SigningProfile_.workflowType, "Workflow Type", SearchFieldTypeEnum.LIST, SigningWorkflowType.class),
+    SIGNING_PROFILE_TSP_PROFILE(Resource.SIGNING_PROFILE, Resource.TSP_PROFILE, List.of(SigningProfile_.tspProfile), TspProfile_.name, "TSP Profile", SearchFieldTypeEnum.LIST),
+    SIGNING_PROFILE_TIME_QUALITY_CONFIGURATION(Resource.SIGNING_PROFILE, Resource.TIME_QUALITY_CONFIGURATION, List.of(SigningProfile_.timeQualityConfiguration), TimeQualityConfiguration_.name, "Time Quality Configuration", SearchFieldTypeEnum.LIST),
+
+    // TSP Profile
+    TSP_PROFILE_NAME(Resource.TSP_PROFILE, null, null, TspProfile_.name, "Name", SearchFieldTypeEnum.STRING),
+    TSP_PROFILE_ENABLED(Resource.TSP_PROFILE, null, null, TspProfile_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
+    TSP_PROFILE_DEFAULT_SIGNING_PROFILE(Resource.TSP_PROFILE, Resource.SIGNING_PROFILE, List.of(TspProfile_.defaultSigningProfile), SigningProfile_.name, "Default Signing Profile", SearchFieldTypeEnum.LIST),
+
+    // Time Quality Configuration
+    TIME_QUALITY_CONFIGURATION_NAME(Resource.TIME_QUALITY_CONFIGURATION, null, null, TimeQualityConfiguration_.name, "Name", SearchFieldTypeEnum.STRING),
+    TIME_QUALITY_CONFIGURATION_LEAP_SECOND_GUARD(Resource.TIME_QUALITY_CONFIGURATION, null, null, TimeQualityConfiguration_.leapSecondGuard, "Leap Second Guard", SearchFieldTypeEnum.BOOLEAN),
+    TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE(Resource.TIME_QUALITY_CONFIGURATION, null, null, TimeQualityConfiguration_.ntpServersMinReachable, "NTP Servers Min Reachable", SearchFieldTypeEnum.NUMBER),
+    TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER(Resource.TIME_QUALITY_CONFIGURATION, null, null, TimeQualityConfiguration_.ntpSamplesPerServer, "NTP Samples Per Server", SearchFieldTypeEnum.NUMBER),
+    TIME_QUALITY_CONFIGURATION_NTP_SERVERS(Resource.TIME_QUALITY_CONFIGURATION, null, null, TimeQualityConfiguration_.ntpServers, "NTP Servers", SearchFieldTypeEnum.ARRAY)
     ;
 
     private static final FilterField[] VALUES;
