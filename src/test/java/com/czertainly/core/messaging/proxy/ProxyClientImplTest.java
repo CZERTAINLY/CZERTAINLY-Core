@@ -746,6 +746,111 @@ class ProxyClientImplTest {
         assertThat(message.getTimestamp()).isBeforeOrEqualTo(after);
     }
 
+    // ==================== Message Type Derivation Edge Cases ====================
+
+    @Test
+    void sendFireAndForget_withNullPath_messageTypeIsBareHttpMethod() {
+        ConnectorDto connector = createConnector("proxy-001");
+
+        proxyClient.sendFireAndForget(connector, null, "GET", null);
+
+        ArgumentCaptor<CoreMessage> captor = ArgumentCaptor.forClass(CoreMessage.class);
+        verify(producer).send(captor.capture(), eq("proxy-001"));
+        assertThat(captor.getValue().getMessageType()).isEqualTo("GET");
+    }
+
+    @Test
+    void sendFireAndForget_withEmptyPath_messageTypeIsBareHttpMethod() {
+        ConnectorDto connector = createConnector("proxy-001");
+
+        proxyClient.sendFireAndForget(connector, "", "POST", null);
+
+        ArgumentCaptor<CoreMessage> captor = ArgumentCaptor.forClass(CoreMessage.class);
+        verify(producer).send(captor.capture(), eq("proxy-001"));
+        assertThat(captor.getValue().getMessageType()).isEqualTo("POST");
+    }
+
+    @Test
+    void sendFireAndForget_withSlashOnlyPath_messageTypeIsBareHttpMethod() {
+        // Edge case the toMessageType Javadoc doesn't spell out: "/" stripped of its leading
+        // slash leaves an empty string, so the second null/empty guard returns the bare method.
+        ConnectorDto connector = createConnector("proxy-001");
+
+        proxyClient.sendFireAndForget(connector, "/", "DELETE", null);
+
+        ArgumentCaptor<CoreMessage> captor = ArgumentCaptor.forClass(CoreMessage.class);
+        verify(producer).send(captor.capture(), eq("proxy-001"));
+        assertThat(captor.getValue().getMessageType()).isEqualTo("DELETE");
+    }
+
+    // ==================== Missing Connector Response ====================
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void sendRequest_withHealthCheckMessageAndNullResponse_returnsNull() throws Exception {
+        ConnectorDto connector = createConnector("proxy-001");
+        CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
+        when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
+
+        // Health-check messages legitimately arrive with no connectorResponse.
+        future.complete(ProxyMessage.builder()
+                .correlationId("test-corr")
+                .proxyId("proxy-001")
+                .messageType("health.check")
+                .timestamp(Instant.now())
+                .connectorResponse(null)
+                .build());
+
+        String result = proxyClient.sendRequest(connector, "/v1/health", "GET", null, String.class);
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void sendRequest_withNullResponseAndNotHealthCheck_throwsConnectorCommunicationException() {
+        ConnectorDto connector = createConnector("proxy-001");
+        CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
+        when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
+
+        // Non-health-check message with no connectorResponse is a protocol violation.
+        future.complete(ProxyMessage.builder()
+                .correlationId("test-corr")
+                .proxyId("proxy-001")
+                .messageType("GET.v1.test")
+                .timestamp(Instant.now())
+                .connectorResponse(null)
+                .build());
+
+        assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
+                .isInstanceOf(ConnectorCommunicationException.class)
+                .hasMessageContaining("without connector response");
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void sendRequest_whenBodyCannotBeDeserializedToResponseType_throwsConnectorCommunicationException() {
+        ConnectorDto connector = createConnector("proxy-001");
+        CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
+        when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
+
+        // Body is a Map; caller asks for Integer → ObjectMapper.convertValue throws,
+        // which the impl re-wraps as ConnectorCommunicationException via sneakyThrow.
+        future.complete(ProxyMessage.builder()
+                .correlationId("test-corr")
+                .proxyId("proxy-001")
+                .timestamp(Instant.now())
+                .connectorResponse(ConnectorResponse.builder()
+                        .statusCode(200)
+                        .body(Map.of("nested", "object"))
+                        .build())
+                .build());
+
+        assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, Integer.class))
+                .isInstanceOf(ConnectorCommunicationException.class)
+                .hasMessageContaining("Failed to deserialize");
+    }
+
     // ==================== Helper Methods ====================
 
     private ConnectorDto createConnector(String proxyCode) {
