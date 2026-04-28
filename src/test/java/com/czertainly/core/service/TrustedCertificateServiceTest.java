@@ -4,6 +4,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.trustedcertificate.TrustedCertificateDto;
 import com.czertainly.api.model.client.trustedcertificate.TrustedCertificateRequestDto;
 import com.czertainly.core.provisioning.ProvisioningException;
+import com.czertainly.core.provisioning.TrustedCertificateProvisioningDTO;
+import com.czertainly.core.provisioning.TrustedCertificateProvisioningRequestDTO;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -14,6 +16,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 
@@ -213,5 +216,86 @@ class TrustedCertificateServiceTest extends BaseSpringBootTest {
             () -> trustedCertificateService.deleteTrustedCertificate(SecuredUUID.fromString(TEST_UUID)));
 
         assertTrue(exception.getMessage().contains("Failed to delete trusted certificate"));
+    }
+
+    // ---------- DTO contract tests ----------
+    // The records below override equals/hashCode/toString to handle their byte[] field
+    // by content rather than by reference. These tests lock in that contract so a future
+    // "simplification" that drops the overrides cannot silently reintroduce reference
+    // equality on the certificate bytes (Sonar rule java:S6218).
+
+    @Test
+    void testProvisioningDTO_equalsAndHashCode_useByteArrayContent() {
+        byte[] contentA1 = "cert-A".getBytes();
+        byte[] contentA2 = "cert-A".getBytes(); // distinct array instance, same content
+        byte[] contentB = "cert-B".getBytes();
+        LocalDateTime notBefore = LocalDateTime.of(2024, 1, 1, 0, 0);
+        LocalDateTime notAfter = LocalDateTime.of(2025, 12, 31, 23, 59);
+
+        TrustedCertificateProvisioningDTO a1 = new TrustedCertificateProvisioningDTO(
+                TEST_UUID, contentA1, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
+        TrustedCertificateProvisioningDTO a2 = new TrustedCertificateProvisioningDTO(
+                TEST_UUID, contentA2, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
+        TrustedCertificateProvisioningDTO b = new TrustedCertificateProvisioningDTO(
+                TEST_UUID, contentB, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
+
+        assertEquals(a1, a2, "records with structurally identical bytes must compare equal");
+        assertEquals(a1.hashCode(), a2.hashCode(), "structural equality requires equal hash codes");
+        assertNotEquals(a1, b, "differing certificate bytes must produce non-equal records");
+        assertNotEquals(a1.hashCode(), b.hashCode(), "differing bytes must drive a different hash");
+    }
+
+    @Test
+    void testProvisioningDTO_equals_detectsNonArrayFieldDifferences() {
+        byte[] content = "cert".getBytes();
+        TrustedCertificateProvisioningDTO base = new TrustedCertificateProvisioningDTO(
+                TEST_UUID, content, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", null, null);
+        TrustedCertificateProvisioningDTO differentUuid = new TrustedCertificateProvisioningDTO(
+                "00000000-0000-0000-0000-000000000000", content, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", null, null);
+
+        assertNotEquals(base, differentUuid);
+    }
+
+    @Test
+    void testProvisioningDTO_equals_handlesNullAndForeignTypes() {
+        TrustedCertificateProvisioningDTO dto = new TrustedCertificateProvisioningDTO(
+                TEST_UUID, "cert".getBytes(), "i", "s", "n", "su", "th", null, null);
+
+        assertNotEquals(null, dto);
+        assertNotEquals("not-a-dto", dto);
+    }
+
+    @Test
+    void testProvisioningDTO_toString_rendersByteArrayLengthInsteadOfRawBytes() {
+        byte[] content = new byte[1216];
+        TrustedCertificateProvisioningDTO dto = new TrustedCertificateProvisioningDTO(
+                TEST_UUID, content, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", null, null);
+
+        String s = dto.toString();
+        assertTrue(s.contains("byte[1216]"), "toString should render the byte[] length, was: " + s);
+        assertFalse(s.contains("[B@"), "toString must not leak the default Object[] representation");
+        assertTrue(s.contains(TEST_UUID), "toString should include other fields");
+    }
+
+    @Test
+    void testProvisioningRequestDTO_equalsAndHashCode_useByteArrayContent() {
+        TrustedCertificateProvisioningRequestDTO r1 = new TrustedCertificateProvisioningRequestDTO("cert".getBytes());
+        TrustedCertificateProvisioningRequestDTO r2 = new TrustedCertificateProvisioningRequestDTO("cert".getBytes());
+        TrustedCertificateProvisioningRequestDTO r3 = new TrustedCertificateProvisioningRequestDTO("other".getBytes());
+
+        assertEquals(r1, r2);
+        assertEquals(r1.hashCode(), r2.hashCode());
+        assertNotEquals(r1, r3);
+        assertNotEquals(r1.hashCode(), r3.hashCode());
+        assertNotEquals(null, r1);
+    }
+
+    @Test
+    void testProvisioningRequestDTO_toString_rendersByteArrayLength() {
+        TrustedCertificateProvisioningRequestDTO request = new TrustedCertificateProvisioningRequestDTO(new byte[42]);
+
+        String s = request.toString();
+        assertTrue(s.contains("byte[42]"), "toString should render the byte[] length, was: " + s);
+        assertFalse(s.contains("[B@"), "toString must not leak the default Object[] representation");
     }
 }
