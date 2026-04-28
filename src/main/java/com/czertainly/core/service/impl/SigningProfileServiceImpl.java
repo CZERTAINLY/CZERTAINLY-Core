@@ -574,6 +574,9 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 } else {
                     throw new ValidationException("Certificate " + certificate.getUuid() + " is not eligible for signing workflow type " + p.getWorkflowType());
                 }
+                if (!certificateService.getCertificateChain(SecuredUUID.fromUUID(certificate.getUuid()), false).isCompleteChain()) {
+                    throw new ValidationException("Certificate " + certificate.getUuid() + " does not represent a complete certificate chain");
+                }
             }
             case OneTimeKeyManagedSigningRequestDto s -> {
                 version.setManagedSigningType(ManagedSigningType.ONE_TIME_KEY);

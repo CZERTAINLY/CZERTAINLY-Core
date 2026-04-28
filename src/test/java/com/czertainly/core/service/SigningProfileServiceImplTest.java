@@ -92,16 +92,21 @@ import com.czertainly.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.net.ConnectException;
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -138,6 +143,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateRepository certificateRepository;
+
+    @Autowired
+    private CertificateService certificateService;
 
     @Autowired
     private SigningProfileRepository signingProfileRepository;
@@ -209,7 +217,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws CertificateException, IOException, NoSuchAlgorithmException, OperatorCreationException {
         mockServer = new WireMockServer(0);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
@@ -282,6 +290,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         certificate.setState(CertificateState.ISSUED);
         certificate.setValidationStatus(CertificateValidationStatus.VALID);
         certificate = certificateRepository.saveAndFlush(certificate);
+        attachSelfSignedContent(certificate);
 
         // RSA key — produces RSA attribute definitions; used by attribute-persistence tests
         rsaCryptographicKey = new CryptographicKey();
@@ -309,6 +318,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         rsaCertificate.setState(CertificateState.ISSUED);
         rsaCertificate.setValidationStatus(CertificateValidationStatus.VALID);
         rsaCertificate = certificateRepository.saveAndFlush(rsaCertificate);
+        attachSelfSignedContent(rsaCertificate);
 
         // Certificate specifically configured for TIMESTAMPING; satisfies RFC 3161 requirements
         tsaCertificate = new Certificate();
@@ -318,6 +328,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         tsaCertificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid())));
         tsaCertificate.setExtendedKeyUsageCritical(true);
         tsaCertificate = certificateRepository.saveAndFlush(tsaCertificate);
+        attachSelfSignedContent(tsaCertificate);
 
         formatterConnector = createFormatterConnector("default-formatter-connector");
 
@@ -577,6 +588,23 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         // No RA profile / CSR template for the static key managed signing scheme
         Assertions.assertNull(currentVersion.getRaProfileUuid());
         Assertions.assertNull(currentVersion.getCsrTemplateUuid());
+    }
+
+    @Test
+    void testCreateSigningProfile_staticKeyManaged_incompleteChain_throwsValidationException()
+            throws CertificateException, NoSuchAlgorithmException, OperatorCreationException {
+        Certificate incompleteChainCert = buildIncompleteChainCertificate();
+
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(incompleteChainCert.getUuid());
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("incomplete-chain-profile");
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> signingProfileService.createSigningProfile(request),
+                "createSigningProfile must reject a certificate whose chain is incomplete");
     }
 
     @Test
@@ -998,6 +1026,23 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         Assertions.assertEquals(ManagedSigningType.STATIC_KEY, currentVersion.getManagedSigningType());
         // Previous delegated connector reference must have been cleared
         Assertions.assertNull(currentVersion.getDelegatedSignerConnectorUuid());
+    }
+
+    @Test
+    void testUpdateSigningProfile_staticKeyManaged_incompleteChain_throwsValidationException()
+            throws CertificateException, NoSuchAlgorithmException, OperatorCreationException {
+        Certificate incompleteChainCert = buildIncompleteChainCertificate();
+
+        StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
+        scheme.setCertificateUuid(incompleteChainCert.getUuid());
+        SigningProfileRequestDto request = new SigningProfileRequestDto();
+        request.setName("incomplete-chain-update");
+        request.setSigningScheme(scheme);
+        request.setWorkflow(new RawSigningWorkflowRequestDto());
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> signingProfileService.updateSigningProfile(savedProfile.getSecuredUuid(), request),
+                "updateSigningProfile must reject a certificate whose chain is incomplete");
     }
 
     @Test
@@ -2530,6 +2575,14 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         signingRecordRepository.save(sig);
     }
 
+    private void attachSelfSignedContent(Certificate cert) throws CertificateException, IOException, NoSuchAlgorithmException, OperatorCreationException {
+        X509Certificate x509 = CertificateTestUtil.createCACertificate();
+        Certificate entityWithContent = certificateService.createCertificateEntity(x509);
+        cert.setCertificateContent(entityWithContent.getCertificateContent());
+        cert.setCertificateContentId(entityWithContent.getCertificateContentId());
+        certificateRepository.saveAndFlush(cert);
+    }
+
     private TimeQualityConfigurationRequestDto buildTimeQualityConfigurationRequestDto(String name) {
         TimeQualityConfigurationRequestDto req = new TimeQualityConfigurationRequestDto();
         req.setName(name);
@@ -2542,5 +2595,24 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         req.setMaxClockDrift(java.time.Duration.ofSeconds(1));
         req.setLeapSecondGuard(true);
         return req;
+    }
+
+    /**
+     * Creates and persists a {@link Certificate} entity that passes eligibility checks for static-key managed signing
+     * (ISSUED, VALID, active key with SIGN usage and a token profile assigned) but whose certificate content is signed
+     * by an external CA absent from the inventory.
+     */
+    private Certificate buildIncompleteChainCertificate() throws CertificateException, NoSuchAlgorithmException, OperatorCreationException {
+        X509Certificate x509 = CertificateTestUtil.createEndEntityCertificate();
+        Certificate cert = new Certificate();
+        cert.setKey(cryptographicKey);
+        cert.setState(CertificateState.ISSUED);
+        cert.setValidationStatus(CertificateValidationStatus.VALID);
+        cert = certificateRepository.saveAndFlush(cert);
+
+        Certificate entityWithContent = certificateService.createCertificateEntity(x509);
+        cert.setCertificateContent(entityWithContent.getCertificateContent());
+        cert.setCertificateContentId(entityWithContent.getCertificateContentId());
+        return certificateRepository.saveAndFlush(cert);
     }
 }

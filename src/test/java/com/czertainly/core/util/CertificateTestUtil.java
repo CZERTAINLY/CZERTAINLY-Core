@@ -143,6 +143,33 @@ public class CertificateTestUtil {
         return createTimestampingCertificate(keyGen.generateKeyPair());
     }
 
+    /**
+     * Creates an end-entity certificate whose issuer is a freshly-generated CA key that is <em>not</em> stored in any
+     * certificate inventory. Because the certificate is signed bya key other than its own, {@code isSelfSigned}
+     * returns {@code false}, and because the issuing CA is absent from the inventory, {@code getCertificateChain} will
+     * report an incomplete chain.
+     */
+    public static X509Certificate createEndEntityCertificate() throws CertificateException, NoSuchAlgorithmException, OperatorCreationException {
+        ensureBouncyCastleProvider();
+        KeyPairGenerator caKeyGen = KeyPairGenerator.getInstance("RSA");
+        caKeyGen.initialize(2048);
+        KeyPair caKeyPair = caKeyGen.generateKeyPair();
+
+        KeyPairGenerator eeKeyGen = KeyPairGenerator.getInstance("RSA");
+        eeKeyGen.initialize(2048);
+        KeyPair eeKeyPair = eeKeyGen.generateKeyPair();
+
+        Date notBefore = new Date();
+        Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+                new X500Name("CN=external-ca"), BigInteger.TWO, notBefore, notAfter,
+                new X500Name("CN=test-ee"), eeKeyPair.getPublic());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(caKeyPair.getPrivate());
+        return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(signer));
+    }
+
     public static X509Certificate createTimestampingCertificate(KeyPair keyPair) throws OperatorCreationException, CertificateException, IOException {
         ensureBouncyCastleProvider();
         Date notBefore = new Date();
