@@ -7,12 +7,12 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ExternalAuthorizationMissingRatchetTest {
+class ExternalAuthorizationMissingRatchetTest {
 
     @Test
     void missing_annotation_count_must_not_exceed_ratchet() throws IOException {
@@ -26,7 +26,11 @@ public class ExternalAuthorizationMissingRatchetTest {
                 .filter(m -> m.isAnnotatedWith(ExternalAuthorizationMissing.class))
                 .count();
 
-        String raw = Files.readString(Path.of("src/test/resources/external-authorization-missing-count.txt")).trim();
+        String raw;
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream("external-authorization-missing-count.txt")) {
+            if (is == null) throw new IllegalStateException("external-authorization-missing-count.txt not found on classpath");
+            raw = new String(is.readAllBytes(), StandardCharsets.UTF_8).trim();
+        }
         int maxAllowed;
         try {
             maxAllowed = Integer.parseInt(raw);

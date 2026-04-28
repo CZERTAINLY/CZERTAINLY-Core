@@ -29,9 +29,6 @@ public class ExternalServiceAuthorizationArchTest {
             UnauthenticatedEndpoint.class.getName()
     );
 
-    // These rules target interfaces whose simple name ends with "ExternalService".
-    // allowEmptyShould(true) guards against a hard ArchUnit failure in the unlikely event that
-    // the service package contains no *ExternalService interfaces (e.g. accidental package rename).
     @ArchTest
     static final ArchRule every_external_service_method_has_exactly_one_auth_annotation =
             methods()
@@ -49,6 +46,5 @@ public class ExternalServiceAuthorizationArchTest {
                                         method.getFullName(), count)));
                             }
                         }
-                    })
-                    .allowEmptyShould(true);
+                    });
 }
