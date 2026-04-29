@@ -1,7 +1,5 @@
 package com.czertainly.core.search;
 
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.oid.CustomOidEntryListResponseDto;
 import com.czertainly.api.model.core.oid.OidCategory;
@@ -109,6 +107,58 @@ class NativeArrayFilterSearchTest extends BaseSpringBootTest {
     }
 
     // ─────────────────────────────────────────────
+    // EQUALS — multi-value (OR semantics)
+    // ─────────────────────────────────────────────
+
+    @Test
+    void filterByAltCodes_equals_multiValue_matchesEntriesContainingAnyValue() {
+        // Provide two values: "ALONE" (in singleCode) and "OFI2" (in multiCode).
+        // EQUALS with multiple values = array contains any of them.
+        List<String> oids = searchOids(FilterConditionOperator.EQUALS, List.of("ALONE", "OFI2"));
+
+        Assertions.assertEquals(2, oids.size());
+        Assertions.assertTrue(oids.contains(singleCode.getOid()));
+        Assertions.assertTrue(oids.contains(multiCode.getOid()));
+        Assertions.assertFalse(oids.contains(noCode.getOid()));
+    }
+
+    @Test
+    void filterByAltCodes_equals_multiValue_noMatchWhenNonePresent() {
+        List<String> oids = searchOids(FilterConditionOperator.EQUALS, List.of("NOSUCH1", "NOSUCH2"));
+
+        Assertions.assertEquals(0, oids.size());
+    }
+
+    // ─────────────────────────────────────────────
+    // NOT_EQUALS — multi-value (AND semantics: contains none)
+    // ─────────────────────────────────────────────
+
+    @Test
+    void filterByAltCodes_notEquals_multiValue_excludesEntriesContainingAnyValue() {
+        // Provide "OFI" and "ALONE": entries containing either must be excluded.
+        // multiCode contains "OFI" → excluded; singleCode contains "ALONE" → excluded.
+        // noCode contains neither → included.
+        List<String> oids = searchOids(FilterConditionOperator.NOT_EQUALS, List.of("OFI", "ALONE"));
+
+        Assertions.assertFalse(oids.contains(multiCode.getOid()),
+                "multiCode contains 'OFI' and must be excluded");
+        Assertions.assertFalse(oids.contains(singleCode.getOid()),
+                "singleCode contains 'ALONE' and must be excluded");
+        Assertions.assertTrue(oids.contains(noCode.getOid()),
+                "noCode contains neither value and must be included");
+    }
+
+    @Test
+    void filterByAltCodes_notEquals_multiValue_includesEntryNotContainingAnyValue() {
+        // "OFI2" is only in multiCode; singleCode and noCode contain neither value.
+        List<String> oids = searchOids(FilterConditionOperator.NOT_EQUALS, List.of("OFI2", "NOSUCH"));
+
+        Assertions.assertFalse(oids.contains(multiCode.getOid()));
+        Assertions.assertTrue(oids.contains(singleCode.getOid()));
+        Assertions.assertTrue(oids.contains(noCode.getOid()));
+    }
+
+    // ─────────────────────────────────────────────
     // EMPTY
     // ─────────────────────────────────────────────
 
@@ -116,7 +166,7 @@ class NativeArrayFilterSearchTest extends BaseSpringBootTest {
     void filterByAltCodes_empty_matchesEntryWithEmptyArray() {
         // This is the regression for the Copilot-reported bug:
         // before the fix, IS NULL missed the non-null empty-array row.
-        List<String> oids = searchOids(FilterConditionOperator.EMPTY, null);
+        List<String> oids = searchOids(FilterConditionOperator.EMPTY, (String) null);
 
         Assertions.assertEquals(1, oids.size(),
                 "EMPTY filter must match exactly the entry whose altCodes is an empty array {}");
@@ -125,7 +175,7 @@ class NativeArrayFilterSearchTest extends BaseSpringBootTest {
 
     @Test
     void filterByAltCodes_empty_doesNotMatchEntriesWithAltCodes() {
-        List<String> oids = searchOids(FilterConditionOperator.EMPTY, null);
+        List<String> oids = searchOids(FilterConditionOperator.EMPTY, (String) null);
 
         Assertions.assertFalse(oids.contains(multiCode.getOid()));
         Assertions.assertFalse(oids.contains(singleCode.getOid()));
@@ -137,7 +187,7 @@ class NativeArrayFilterSearchTest extends BaseSpringBootTest {
 
     @Test
     void filterByAltCodes_notEmpty_excludesEntryWithEmptyArray() {
-        List<String> oids = searchOids(FilterConditionOperator.NOT_EMPTY, null);
+        List<String> oids = searchOids(FilterConditionOperator.NOT_EMPTY, (String) null);
 
         Assertions.assertFalse(oids.contains(noCode.getOid()),
                 "NOT_EMPTY filter must exclude the entry whose altCodes is an empty array {}");
@@ -145,7 +195,7 @@ class NativeArrayFilterSearchTest extends BaseSpringBootTest {
 
     @Test
     void filterByAltCodes_notEmpty_includesEntriesWithAltCodes() {
-        List<String> oids = searchOids(FilterConditionOperator.NOT_EMPTY, null);
+        List<String> oids = searchOids(FilterConditionOperator.NOT_EMPTY, (String) null);
 
         Assertions.assertTrue(oids.contains(multiCode.getOid()));
         Assertions.assertTrue(oids.contains(singleCode.getOid()));
@@ -160,6 +210,17 @@ class NativeArrayFilterSearchTest extends BaseSpringBootTest {
         request.setFilters(List.of(
                 new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY,
                         FilterField.OID_ENTRY_ALT_CODES.name(), operator, value)));
+        CustomOidEntryListResponseDto response = customOidEntryService.listCustomOidEntries(request);
+        return response.getOidEntries().stream()
+                .map(item -> item.getOid())
+                .toList();
+    }
+
+    private List<String> searchOids(FilterConditionOperator operator, List<String> values) {
+        SearchRequestDto request = new SearchRequestDto();
+        request.setFilters(List.of(
+                new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY,
+                        FilterField.OID_ENTRY_ALT_CODES.name(), operator, new ArrayList<>(values))));
         CustomOidEntryListResponseDto response = customOidEntryService.listCustomOidEntries(request);
         return response.getOidEntries().stream()
                 .map(item -> item.getOid())
