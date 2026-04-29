@@ -180,15 +180,16 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         logger.debug("Token Instance Request to the connector: {}", tokenInstanceRequestDto);
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto response =
                 connectorApiFactory.getTokenInstanceApiClient(connector).createTokenInstance(connector, tokenInstanceRequestDto);
+        try {
+            UUID.fromString(response.getUuid());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new ValidationException(ValidationError.create(
+                    "Connector '%s' returned invalid token instance UUID '%s' for token instance '%s'".formatted(connector.getName(), response.getUuid(), request.getName())));
+        }
+
         TokenInstanceStatusDto status = connectorApiFactory.getTokenInstanceApiClient(connector).getTokenInstanceStatus(connector, response.getUuid());
         logger.debug("Token Instance Response from the connector: {}", response);
 
-        try {
-            UUID.fromString(response.getUuid());
-        } catch (IllegalArgumentException e) {
-            throw new ValidationException(ValidationError.create(
-                    "Connector returned invalid token instance UUID: " + response.getUuid()));
-        }
         TokenInstanceReference tokenInstanceReference = new TokenInstanceReference();
         tokenInstanceReference.setTokenInstanceUuid(response.getUuid());
         tokenInstanceReference.setName(request.getName());
