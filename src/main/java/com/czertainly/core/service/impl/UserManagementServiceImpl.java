@@ -29,6 +29,7 @@ import com.czertainly.core.messaging.jms.producers.AuditLogsProducer;
 import com.czertainly.core.messaging.model.AuditLogMessage;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.client.AuthenticationCache;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -71,6 +72,13 @@ public class UserManagementServiceImpl implements UserManagementService {
     private AttributeEngine attributeEngine;
 
     private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+
+    private AuthenticationCache authenticationCache;
+
+    @Autowired
+    public void setAuthenticationCache(AuthenticationCache authenticationCache) {
+        this.authenticationCache = authenticationCache;
+    }
 
     @Autowired
     public void setAuditLogsProducer(AuditLogsProducer auditLogsProducer) {
@@ -164,30 +172,38 @@ public class UserManagementServiceImpl implements UserManagementService {
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
         attributeEngine.validateCustomAttributesContent(Resource.USER, request.getCustomAttributes());
+        Optional<Certificate> oldCert = certificateService.findCertificateEntityByUserUuid(UUID.fromString(userUuid));
         UserDetailDto dto = getUserUpdateRequestPayload(userUuid, request, "", "");
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(userUuid), request.getCustomAttributes()));
+        authenticationCache.evictByUserUuid(userUuid, oldCert.map(Certificate::getFingerprint).orElse(null));
         return dto;
     }
 
     @Override
     //Internal Use Only -- For Auth Profile Update API
     public UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerprint) throws NotFoundException, CertificateException {
-        return getUserUpdateRequestPayload(userUuid, request, certificateUuid, certificateFingerprint);
+        Optional<Certificate> oldCert = certificateService.findCertificateEntityByUserUuid(UUID.fromString(userUuid));
+        UserDetailDto dto = getUserUpdateRequestPayload(userUuid, request, certificateUuid, certificateFingerprint);
+        authenticationCache.evictByUserUuid(userUuid, oldCert.map(Certificate::getFingerprint).orElse(null));
+        return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DELETE)
     public void deleteUser(String userUuid) {
+        // Look up before removeCertificateUser severs the association
+        Optional<Certificate> oldCert = certificateService.findCertificateEntityByUserUuid(UUID.fromString(userUuid));
         userManagementApiClient.removeUser(userUuid);
-
         UUID uuid = UUID.fromString(userUuid);
         certificateService.removeCertificateUser(uuid);
         objectAssociationService.removeOwnerAssociations(uuid);
         attributeEngine.deleteObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
-        clearAuthenticationData(userUuid, "deleted");
+        clearAuthenticationData(userUuid, "deleted", oldCert.map(Certificate::getFingerprint).orElse(null));
     }
 
-    private void clearAuthenticationData(String userUuid, String actionName) {
+    private void clearAuthenticationData(String userUuid, String actionName, String certFingerprint) {
+        authenticationCache.evictByUserUuid(userUuid, certFingerprint);
+
         Map<String, ? extends Session> userSessions =
                 sessionRepository.findByPrincipalName(userUuid);
 
@@ -215,13 +231,19 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateRoles(String userUuid, List<String> roleUuids) {
-        return userManagementApiClient.updateRoles(userUuid, roleUuids);
+        Optional<Certificate> cert = certificateService.findCertificateEntityByUserUuid(UUID.fromString(userUuid));
+        UserDetailDto result = userManagementApiClient.updateRoles(userUuid, roleUuids);
+        authenticationCache.evictByUserUuid(userUuid, cert.map(Certificate::getFingerprint).orElse(null));
+        return result;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateRole(String userUuid, String roleUuid) {
-        return userManagementApiClient.updateRole(userUuid, roleUuid);
+        Optional<Certificate> cert = certificateService.findCertificateEntityByUserUuid(UUID.fromString(userUuid));
+        UserDetailDto result = userManagementApiClient.updateRole(userUuid, roleUuid);
+        authenticationCache.evictByUserUuid(userUuid, cert.map(Certificate::getFingerprint).orElse(null));
+        return result;
     }
 
     @Override
@@ -239,8 +261,9 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto disableUser(String userUuid) {
+        Optional<Certificate> oldCert = certificateService.findCertificateEntityByUserUuid(UUID.fromString(userUuid));
         UserDetailDto result = userManagementApiClient.disableUser(userUuid);
-        clearAuthenticationData(userUuid, "disabled");
+        clearAuthenticationData(userUuid, "disabled", oldCert.map(Certificate::getFingerprint).orElse(null));
         return result;
     }
 
@@ -253,7 +276,10 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto removeRole(String userUuid, String roleUuid) {
-        return userManagementApiClient.removeRole(userUuid, roleUuid);
+        Optional<Certificate> cert = certificateService.findCertificateEntityByUserUuid(UUID.fromString(userUuid));
+        UserDetailDto result = userManagementApiClient.removeRole(userUuid, roleUuid);
+        authenticationCache.evictByUserUuid(userUuid, cert.map(Certificate::getFingerprint).orElse(null));
+        return result;
     }
 
     @Override
