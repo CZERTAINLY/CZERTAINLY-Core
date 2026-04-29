@@ -34,6 +34,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.messaging.jms.producers.NotificationProducer;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.client.AuthenticationCache;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
@@ -123,6 +124,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
     private CertificateRelationRepository certificateRelationRepository;
     @MockitoBean
     private NotificationProducer notificationProducer;
+    @MockitoBean
+    private AuthenticationCache authenticationCache;
 
     private AttributeEngine attributeEngine;
 
@@ -449,6 +452,61 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void revokeCertificate_evictsAuthCacheForAssociatedUser() {
+        // given
+        UUID userUuid = UUID.randomUUID();
+        String fingerprint = "abcdef1234567890";
+        certificate.setUserUuid(userUuid);
+        certificate.setFingerprint(fingerprint);
+        certificateRepository.save(certificate);
+
+        // when
+        certificateService.revokeCertificate(certificate.getSerialNumber());
+
+        // then
+        Mockito.verify(authenticationCache).evictByUserUuid(userUuid.toString(), fingerprint);
+    }
+
+    @Test
+    void revokeCertificate_doesNotEvictCacheWhenNoUserAssociated() {
+        // given - certificate has no userUuid (default in setUp)
+        Assertions.assertNull(certificate.getUserUuid());
+
+        // when
+        certificateService.revokeCertificate(certificate.getSerialNumber());
+
+        // then
+        Mockito.verify(authenticationCache, Mockito.never()).evictByUserUuid(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void findCertificateEntityByUserUuid_returnsMatchingCertificate() {
+        // given
+        UUID userUuid = UUID.randomUUID();
+        certificate.setUserUuid(userUuid);
+        certificateRepository.save(certificate);
+
+        // when
+        Optional<Certificate> result = certificateService.findCertificateEntityByUserUuid(userUuid);
+
+        // then
+        Assertions.assertTrue(result.isPresent());
+        Assertions.assertEquals(certificate.getUuid(), result.get().getUuid());
+    }
+
+    @Test
+    void findCertificateEntityByUserUuid_returnsEmptyWhenNoCertificateForUser() {
+        // given - no certificate is associated with this user UUID
+        UUID unknownUserUuid = UUID.randomUUID();
+
+        // when
+        Optional<Certificate> result = certificateService.findCertificateEntityByUserUuid(unknownUserUuid);
+
+        // then
+        Assertions.assertTrue(result.isEmpty());
+    }
+
+    @Test
     void testUploadCertificate() throws CertificateException, AlreadyExistException, NoSuchAlgorithmException, NotFoundException, AttributeException {
         UploadCertificateRequestDto request = new UploadCertificateRequestDto();
         request.setCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
@@ -655,6 +713,83 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setArchived(false);
         certificateRepository.save(certificate);
         Assertions.assertDoesNotThrow(() -> certificateService.updateCertificateUser(certificateUuid, null));
+    }
+
+    @Test
+    void updateCertificateUser_evictsCertCacheWhenUserIsDisassociated() throws NotFoundException {
+        // given
+        UUID userUuid = UUID.randomUUID();
+        String fingerprint = "abcdef1234567890";
+        certificate.setUserUuid(userUuid);
+        certificate.setFingerprint(fingerprint);
+        certificateRepository.save(certificate);
+
+        // when - disassociate user by passing null
+        certificateService.updateCertificateUser(certificate.getUuid(), null);
+
+        // then - only the certificate cache entry needs eviction; user's UUID/token caches are still valid
+        Mockito.verify(authenticationCache).evictByCertificateFingerprint(fingerprint);
+        Mockito.verify(authenticationCache, Mockito.never()).evictByUserUuid(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void updateCertificateUser_evictsCertCacheWhenUserIsReplacedWithAnotherUser() throws NotFoundException {
+        // given
+        UUID oldUserUuid = UUID.randomUUID();
+        UUID newUserUuid = UUID.randomUUID();
+        String fingerprint = "abcdef1234567890";
+        certificate.setUserUuid(oldUserUuid);
+        certificate.setFingerprint(fingerprint);
+        certificateRepository.save(certificate);
+
+        // when - replace with a different user
+        certificateService.updateCertificateUser(certificate.getUuid(), newUserUuid.toString());
+
+        // then - only the cert entry is stale; old user's UUID/token caches remain valid
+        Mockito.verify(authenticationCache).evictByCertificateFingerprint(fingerprint);
+        Mockito.verify(authenticationCache, Mockito.never()).evictByUserUuid(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void updateCertificateUser_doesNotEvictCacheWhenCertificateHadNoUser() throws NotFoundException {
+        // given - certificate has no userUuid (default in setUp)
+        Assertions.assertNull(certificate.getUserUuid());
+
+        // when - associate a user for the first time
+        certificateService.updateCertificateUser(certificate.getUuid(), UUID.randomUUID().toString());
+
+        // then - nothing to evict for a previously unassociated certificate
+        Mockito.verify(authenticationCache, Mockito.never()).evictByCertificateFingerprint(Mockito.any());
+        Mockito.verify(authenticationCache, Mockito.never()).evictByUserUuid(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void removeCertificateUser_evictsCertCacheForUser() {
+        // given
+        UUID userUuid = UUID.randomUUID();
+        String fingerprint = "abcdef1234567890";
+        certificate.setUserUuid(userUuid);
+        certificate.setFingerprint(fingerprint);
+        certificateRepository.save(certificate);
+
+        // when
+        certificateService.removeCertificateUser(userUuid);
+
+        // then - user still exists, only the cert link is dropped; UUID/token caches remain valid
+        Mockito.verify(authenticationCache).evictByCertificateFingerprint(fingerprint);
+        Mockito.verify(authenticationCache, Mockito.never()).evictByUserUuid(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void removeCertificateUser_doesNotEvictCacheWhenNoCertificateForUser() {
+        // given - no certificate is associated with this user UUID
+        UUID unknownUserUuid = UUID.randomUUID();
+
+        // when - no certificate found, method logs a warning and returns
+        certificateService.removeCertificateUser(unknownUserUuid);
+
+        // then
+        Mockito.verify(authenticationCache, Mockito.never()).evictByUserUuid(Mockito.any(), Mockito.any());
     }
 
     @Test

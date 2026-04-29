@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.CertificateUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,7 +20,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.URLDecoder;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.UUID;
 
 public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
@@ -45,15 +50,20 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
             try {
 
-                AuthMethod authMethod = AuthMethod.NONE;
-                Object authData = null;
-
-                if (request.getHeader(certificateHeaderName) != null) {
-                    authMethod = AuthMethod.CERTIFICATE;
-                    authData = request.getHeader(certificateHeaderName);
+                AuthenticationInfo authInfo;
+                String rawCertHeader = request.getHeader(certificateHeaderName);
+                if (rawCertHeader != null) {
+                    try {
+                        String decoded = URLDecoder.decode(rawCertHeader, StandardCharsets.UTF_8);
+                        byte[] derBytes = Base64.getDecoder().decode(CertificateUtil.normalizeCertificateContent(decoded));
+                        String thumbprint = CertificateUtil.getThumbprint(derBytes);
+                        authInfo = authClient.authenticateByCertificate(rawCertHeader, thumbprint);
+                    } catch (NoSuchAlgorithmException e) {
+                        throw new IllegalStateException("SHA-256 algorithm not available", e);
+                    }
+                } else {
+                    authInfo = authClient.authenticate(AuthMethod.NONE, null, isLocalhostAddress(request));
                 }
-
-                AuthenticationInfo authInfo = authClient.authenticate(authMethod, authData, isLocalhostAddress(request));
 
                 Authentication authentication;
                 if (authInfo.isAnonymous()) {
