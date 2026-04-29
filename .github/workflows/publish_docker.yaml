@@ -1,23 +1,24 @@
-name: Test Docker image
+name: Publish Docker image
 
 on:
-  pull_request:
-    paths-ignore:
-      - 'deploy/charts/**'
+  push:
     branches: [ main ]
+    tags:
+      - '*'
   workflow_dispatch:
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number || github.ref }}-docker-test
+  group: publish-${{ github.ref }}-harbor
   cancel-in-progress: true
 
 permissions:
   contents: read
-  security-events: write
+  packages: write
+  id-token: write
 
 jobs:
-  test:
-    uses: OmniTrustILM/.github/.github/workflows/containers-test.yml@main
+  publish:
+    uses: OmniTrustILM/.github/.github/workflows/containers-build-and-push.yml@main
     secrets: inherit
     with:
       image: ilm/core
