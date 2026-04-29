@@ -151,7 +151,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             CryptographicOperationsSyncApiClient apiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
             com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto response = apiClient.encryptData(
                     connectorDto,
-                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getTokenInstanceUuid(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
@@ -207,7 +207,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             CryptographicOperationsSyncApiClient apiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
             com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto response = apiClient.decryptData(
                     connectorDto,
-                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getTokenInstanceUuid(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto);
             eventHistoryService.addEventHistory(KeyEvent.DECRYPT, KeyEventStatus.SUCCESS,
@@ -273,7 +273,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             CryptographicOperationsSyncApiClient apiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
             com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto response = apiClient.signData(
                     connectorDto,
-                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getTokenInstanceUuid(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
@@ -336,7 +336,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             CryptographicOperationsSyncApiClient apiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
             com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto response = apiClient.verifyData(
                     connectorDto,
-                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getTokenInstanceUuid(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
@@ -530,7 +530,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             ContentSigner altSigner = new TokenContentSigner(
                     altApiClient,
                     altConnectorDto,
-                    altPrivateKeyItem.getKey().getTokenInstanceReferenceUuid(),
+                    UUID.fromString(altPrivateKeyItem.getKey().getTokenInstanceReference().getTokenInstanceUuid()),
                     altPrivateKeyItem.getKeyReferenceUuid(),
                     altPublicKeyItem.getKeyReferenceUuid(),
                     altPublicKeyItem.getKeyData(),
@@ -554,7 +554,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         ContentSigner signer = new TokenContentSigner(
                 apiClient,
                 connectorDto,
-                privateKeyItem.getKey().getTokenInstanceReferenceUuid(),
+                UUID.fromString(privateKeyItem.getKey().getTokenInstanceReference().getTokenInstanceUuid()),
                 privateKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyData(),
