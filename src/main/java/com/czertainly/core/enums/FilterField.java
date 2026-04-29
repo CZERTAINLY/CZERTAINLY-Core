@@ -176,6 +176,7 @@ public enum FilterField {
     OID_ENTRY_DISPLAY_NAME(Resource.OID, null, null, CustomOidEntry_.displayName, "Display Name", SearchFieldTypeEnum.STRING),
     OID_ENTRY_CATEGORY(Resource.OID, null, null, CustomOidEntry_.category, "Category", SearchFieldTypeEnum.LIST, OidCategory.class),
     OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.code, "Code", SearchFieldTypeEnum.STRING),
+    OID_ENTRY_ALT_CODES(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.altCodes, "Alt Codes", SearchFieldTypeEnum.NATIVE_ARRAY),
 
     // Vault Instance
     VAULT_INSTANCE_NAME(Resource.VAULT, null, null, VaultInstance_.name, "Name", SearchFieldTypeEnum.STRING),
