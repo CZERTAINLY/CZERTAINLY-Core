@@ -2,9 +2,7 @@ name: Test Docker image
 
 on:
   pull_request:
-    paths-ignore:
-      - 'deploy/charts/**'
-    branches: [ main ]
+    branches: [ main*, feat/*, hotfix/* ]
   workflow_dispatch:
 
 concurrency:
