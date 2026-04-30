@@ -631,7 +631,7 @@ public class SigningProfileServiceImpl implements SigningProfileService {
                 }
                 Connector contentConnector = connectorRepository.findByUuid(w.getSignatureFormatterConnectorUuid())
                         .orElseThrow(() -> new NotFoundException(Connector.class, w.getSignatureFormatterConnectorUuid()));
-                validateFormatterConnectorFeature(contentConnector, FeatureFlag.DOCUMENT_SIGNING, SigningWorkflowType.CONTENT_SIGNING);
+                validateFormatterConnectorFeature(contentConnector, FeatureFlag.CONTENT_SIGNING, SigningWorkflowType.CONTENT_SIGNING);
                 version.setSignatureFormatterConnector(contentConnector);
             }
             case RawSigningWorkflowRequestDto w -> {

@@ -1,5 +1,7 @@
 package com.czertainly.core.service.tsa.integration;
 
+import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
+import com.czertainly.api.model.client.connector.v2.FeatureFlag;
 import com.czertainly.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.czertainly.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
 import com.czertainly.api.model.client.signing.protocols.tsp.TspProfileRequestDto;
@@ -23,12 +25,14 @@ import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.ConnectorInterfaceEntity;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ConnectorInterfaceRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
@@ -114,6 +118,8 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
 
     @Autowired
     private ConnectorRepository connectorRepository;
+    @Autowired
+    private ConnectorInterfaceRepository connectorInterfaceRepository;
     @Autowired
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     @Autowired
@@ -313,7 +319,16 @@ public class TspProtocolFlowITest extends BaseSpringBootTest {
         connector.setUrl("http://localhost:" + wireMockServer.port() + "/formatter");
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
-        return connectorRepository.save(connector);
+        connector = connectorRepository.save(connector);
+
+        ConnectorInterfaceEntity connectorInterface = new ConnectorInterfaceEntity();
+        connectorInterface.setConnectorUuid(connector.getUuid());
+        connectorInterface.setInterfaceCode(ConnectorInterface.SIGNATURE_FORMATTING);
+        connectorInterface.setVersion("1.0.0");
+        connectorInterface.setFeatures(List.of(FeatureFlag.TIMESTAMPING));
+        connectorInterfaceRepository.save(connectorInterface);
+
+        return connector;
     }
 
     private TokenInstanceReference persistTokenInstance(Connector connector) {

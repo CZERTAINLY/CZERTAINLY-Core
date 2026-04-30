@@ -60,7 +60,11 @@ import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.signing.SigningProtocol;
+import com.czertainly.api.model.client.connector.v2.ConnectorInterface;
 import com.czertainly.api.model.client.connector.v2.ConnectorVersion;
+import com.czertainly.api.model.client.connector.v2.FeatureFlag;
+import com.czertainly.core.dao.entity.ConnectorInterfaceEntity;
+import com.czertainly.core.dao.repository.ConnectorInterfaceRepository;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
@@ -164,6 +168,9 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
 
     @Autowired
     private AttributeRelationRepository attributeRelationRepository;
+
+    @Autowired
+    private ConnectorInterfaceRepository connectorInterfaceRepository;
 
     /**
      * A signing profile saved directly via repository, used as pre-existing data in tests.
@@ -1846,7 +1853,16 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
         connector.setUrl("http://localhost:" + mockServer.port() + "/" + name);
         connector.setVersion(ConnectorVersion.V2);
         connector.setStatus(ConnectorStatus.CONNECTED);
-        return connectorRepository.save(connector);
+        connector = connectorRepository.save(connector);
+
+        ConnectorInterfaceEntity connectorInterface = new ConnectorInterfaceEntity();
+        connectorInterface.setConnectorUuid(connector.getUuid());
+        connectorInterface.setInterfaceCode(ConnectorInterface.SIGNATURE_FORMATTING);
+        connectorInterface.setVersion("1.0.0");
+        connectorInterface.setFeatures(List.of(FeatureFlag.CONTENT_SIGNING, FeatureFlag.TIMESTAMPING));
+        connectorInterfaceRepository.save(connectorInterface);
+
+        return connector;
     }
 
     /**
@@ -2261,6 +2277,7 @@ class SigningProfileServiceImplTest extends BaseSpringBootTest {
     @Test
     void testCreateSigningProfile_timestampingWorkflow_withNonExistentTimeQualityConfigurationUuid_throwsNotFoundException() {
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
+        workflow.setSignatureFormatterConnectorUuid(formatterConnector.getUuid());
         workflow.setTimeQualityConfigurationUuid(UUID.randomUUID());
 
         SigningProfileRequestDto request = new SigningProfileRequestDto();
