@@ -8,21 +8,21 @@ import java.time.Duration;
 
 /**
  * Tuning for the shared WebClient — response/connect timeouts and the connection pool — used for all
- * outbound API-client calls. Bound from {@code connector.client.*}; validated at startup so
+ * outbound API-client calls. Bound from {@code connector.api-client.*}; validated at startup so
  * misconfiguration fails fast with a clear error rather than a runtime NPE or an invalid pool.
  *
  * <p>The {@code application.yml} defaults mirror {@code ClientTuning.defaults()} in interfaces
  * (tests and untuned callers use those; deployments use these). Keep the two in sync.
  */
-@ConfigurationProperties(prefix = "connector.client")
+@ConfigurationProperties(prefix = "connector.api-client")
 @Validated
-public record ConnectorClientProperties(
+public record ConnectorApiClientProperties(
         Duration connectTimeout,
         Duration responseTimeout,
         @Positive int maxConnections,
         Duration pendingAcquireTimeout) {
 
-    public ConnectorClientProperties {
+    public ConnectorApiClientProperties {
         // Strictly positive, not merely non-null: 0s/negative would disable timeouts or fail deeper
         // in WebClient setup — fail fast at binding instead.
         requirePositive(connectTimeout, "connect-timeout");
@@ -32,7 +32,7 @@ public record ConnectorClientProperties(
 
     private static void requirePositive(Duration value, String name) {
         if (value == null || value.isNegative() || value.isZero()) {
-            throw new IllegalArgumentException("connector.client." + name + " must be a positive duration, was " + value);
+            throw new IllegalArgumentException("connector.api-client." + name + " must be a positive duration, was " + value);
         }
     }
 }

@@ -43,7 +43,7 @@ import javax.net.ssl.TrustManager;
 
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
-@EnableConfigurationProperties({DiscoveryProperties.class, ConnectorClientProperties.class})
+@EnableConfigurationProperties({DiscoveryProperties.class, ConnectorApiClientProperties.class})
 @ComponentScan(basePackages = "com.otilm.core",
         excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
 public class ApplicationConfig {
@@ -74,12 +74,12 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public WebClient webClient(ConnectorClientProperties connectorClientProperties) {
+    public WebClient webClient(ConnectorApiClientProperties connectorApiClientProperties) {
         return BaseApiClient.prepareWebClient(new ClientTuning(
-                connectorClientProperties.connectTimeout(),
-                connectorClientProperties.responseTimeout(),
-                connectorClientProperties.maxConnections(),
-                connectorClientProperties.pendingAcquireTimeout()));
+                connectorApiClientProperties.connectTimeout(),
+                connectorApiClientProperties.responseTimeout(),
+                connectorApiClientProperties.maxConnections(),
+                connectorApiClientProperties.pendingAcquireTimeout()));
     }
 
     @Bean
