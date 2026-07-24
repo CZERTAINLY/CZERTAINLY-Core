@@ -73,13 +73,16 @@ class CertificateHandlerDiscoveredKeyUploadTest {
     }
 
     @Test
-    void uploadDiscoveredCertificateKey_whenExistingKeyButNoCommittedCertificate_skipsAndReportsNotAssociated() throws NoSuchAlgorithmException {
+    void uploadDiscoveredCertificateKey_whenNoCommittedCertificate_skipsBeforeConsultingExistingKey() throws NoSuchAlgorithmException {
         List<UUID> uuids = List.of(UUID.randomUUID());
         when(certificateRepository.findFirstByUuidIn(uuids)).thenReturn(null);
 
         boolean associated = handler.uploadDiscoveredCertificateKey(publicKey, uuids);
 
+        // The committed-certificate check must short-circuit before the existing-key lookup, so a pre-existing
+        // shared key cannot make a skipped association look clean.
         assertThat(associated).isFalse();
+        verify(cryptographicKeyService, never()).findKeyByFingerprint(anyString());
         verify(cryptographicKeyService, never()).uploadCertificatePublicKey(anyString(), any(), anyInt(), anyString());
         verify(certificateRepository, never()).setKeyUuid(any(), anyList());
     }
