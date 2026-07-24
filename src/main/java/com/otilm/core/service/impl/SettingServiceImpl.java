@@ -6,6 +6,7 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.AuditLogOutput;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.settings.*;
+import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.certificate.request.DefaultRequestAttributeSet;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.api.model.core.settings.authentication.*;
@@ -264,6 +265,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
 
         CertificateRequestAttributesSettingsUpdateDto requestAttributes = platformSettings.getCertificates().getRequestAttributes();
         if (requestAttributes != null) {
+            AttributeEngine.validateRequestAttributeDefinitions(requestAttributes.getRequestAttributes());
             Setting definitionsSetting = certificateSetting(certificateSettings, DefaultRequestAttributeSet.SETTING_NAME);
             definitionsSetting.setValue(AttributeDefinitionUtils.serialize(requestAttributes.getRequestAttributes()));
             settingRepository.save(definitionsSetting);
