@@ -253,20 +253,27 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         saveEventHistory(eventHistoryDiscovery, EventStatus.FINISHED);
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
 
-        // A clean run reports PROCESSING, which the finish handler rolls up to COMPLETED. When certificates
-        // recorded a processing error, or a key association was skipped/failed, report WARNING instead so the
-        // partial failure stays visible to the user rather than surfacing as a clean COMPLETED.
         long erroredCertificates = discoveryCertificateRepository.countByDiscoveryAndProcessedErrorNotNull(discovery);
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
+        DiscoveryResult result = decideFinalStatus(erroredCertificates, keyAssociationIncomplete, originalMessage);
+        emitDiscoveryFinished(discovery, context, result.getDiscoveryStatus(), result.getMessage());
+    }
+
+    /**
+     * A clean run reports PROCESSING, which the finish handler rolls up to COMPLETED. When certificates recorded a
+     * processing error, or a key association was skipped/failed, report WARNING instead so the partial failure stays
+     * visible to the user rather than surfacing as a clean COMPLETED.
+     */
+    static DiscoveryResult decideFinalStatus(long erroredCertificates, boolean keyAssociationIncomplete, String originalMessage) {
         if (erroredCertificates > 0) {
-            emitDiscoveryFinished(discovery, context, DiscoveryStatus.WARNING,
+            return new DiscoveryResult(DiscoveryStatus.WARNING,
                     "%d certificate(s) could not be processed during discovery.".formatted(erroredCertificates));
-        } else if (keyAssociationIncomplete) {
-            emitDiscoveryFinished(discovery, context, DiscoveryStatus.WARNING,
-                    "Some discovered certificate keys could not be associated during discovery.");
-        } else {
-            emitDiscoveryFinished(discovery, context, DiscoveryStatus.PROCESSING, originalMessage);
         }
+        if (keyAssociationIncomplete) {
+            return new DiscoveryResult(DiscoveryStatus.WARNING,
+                    "Some discovered certificate keys could not be associated during discovery.");
+        }
+        return new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage);
     }
 
     private void emitDiscoveryFinished(DiscoveryHistory discovery, EventContext<Certificate> context, DiscoveryStatus status, String message) {

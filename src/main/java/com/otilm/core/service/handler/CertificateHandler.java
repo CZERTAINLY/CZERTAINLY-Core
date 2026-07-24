@@ -183,7 +183,7 @@ public class CertificateHandler {
      * committed certificate backs the given UUIDs (see {@link #uploadKeyInternal}). Callers use the result to keep
      * the discovery status visible when key association could not complete.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT, rollbackFor = NoSuchAlgorithmException.class)
     public boolean uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "certKey_");
         if (keyUuid == null) {
@@ -197,7 +197,7 @@ public class CertificateHandler {
      * @return true if the alternative key was associated with the certificates, false if the upload was skipped
      * because no committed certificate backs the given UUIDs.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT, rollbackFor = NoSuchAlgorithmException.class)
     public boolean uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "altCertKey_");
         if (keyUuid == null) {
@@ -209,23 +209,24 @@ public class CertificateHandler {
 
     private UUID uploadKeyInternal(PublicKey publicKey, List<UUID> certificateUuids, String namePrefix) throws NoSuchAlgorithmException {
         String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
-        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
-        if (keyUuid != null) {
-            return keyUuid;
-        }
 
-        // A key is uploaded only if none already exists for this fingerprint; the certificate is fetched
-        // solely to name the new key. A null result means none of certificateUuids resolves to a committed
-        // certificate row (the per-certificate transaction that queued this key rolled back before commit),
-        // so there is nothing to associate the key with. Skip the upload instead of dereferencing null.
+        // The key can only be associated with committed certificate rows. A null result means none of
+        // certificateUuids resolves to a committed certificate (the per-certificate transaction that queued this
+        // key rolled back before commit), so there is nothing to associate the key with. Skip regardless of
+        // whether a key already exists for this fingerprint, so the skipped association still surfaces in the
+        // discovery status rather than looking clean on the shared-key path.
         Certificate firstCertificate = certificateRepository.findFirstByUuidIn(certificateUuids);
         if (firstCertificate == null) {
             logger.warn("No committed certificate found for key with fingerprint {} among UUIDs {}; skipping key upload. The certificate(s) were likely lost to a rolled-back transaction during discovery post-processing.", fingerprint, certificateUuids);
             return null;
         }
 
-        String keyName = namePrefix + Objects.requireNonNullElse(firstCertificate.getCommonName(), firstCertificate.getSerialNumber());
-        return cryptographicKeyService.uploadCertificatePublicKey(keyName, publicKey, KeySizeUtil.getKeyLength(publicKey), fingerprint);
+        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+        if (keyUuid == null) {
+            String keyName = namePrefix + Objects.requireNonNullElse(firstCertificate.getCommonName(), firstCertificate.getSerialNumber());
+            keyUuid = cryptographicKeyService.uploadCertificatePublicKey(keyName, publicKey, KeySizeUtil.getKeyLength(publicKey), fingerprint);
+        }
+        return keyUuid;
     }
 
     @Transactional
