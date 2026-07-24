@@ -14,6 +14,7 @@ import com.otilm.api.model.common.attribute.common.properties.DataAttributePrope
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.otilm.api.model.common.attribute.v3.mapping.*;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
@@ -310,12 +311,20 @@ class RaProfileServiceITest extends ApprovalProfileData {
     @Test
     void testUpdateRaProfileRequestAttributes() throws NotFoundException {
         DataAttributeV3 definition = new DataAttributeV3();
-        definition.setUuid("ra-attr-1");
+        definition.setUuid(UUID.randomUUID().toString());
         definition.setName("server");
         definition.setContentType(AttributeContentType.STRING);
         DataAttributeProperties properties = new DataAttributeProperties();
         properties.setLabel("Server");
         definition.setProperties(properties);
+
+        RdnMappedField field = new RdnMappedField();
+        field.setFieldType(FieldType.RDN);
+        field.setRdn("2.5.4.3");
+        FieldMapping mapping = new FieldMapping();
+        mapping.setObjectType(ObjectType.X509_CERTIFICATE);
+        mapping.setFields(List.of(field));
+        definition.setFieldMapping(mapping);
 
         RaProfileCertificateRequestAttributesUpdateDto updateDto = new RaProfileCertificateRequestAttributesUpdateDto();
         updateDto.setRequestAttributes(List.of(definition));

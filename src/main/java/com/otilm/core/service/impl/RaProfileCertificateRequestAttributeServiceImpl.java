@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.*;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.mapping.SourceParam;
 import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
@@ -13,6 +12,7 @@ import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesU
 import com.otilm.api.model.core.raprofile.ValueSourceBindingDto;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.SettingsSectionCategory;
+import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.certificate.request.DefaultRequestAttributeSet;
 import com.otilm.core.certificate.request.RequestAttributeSetResolver;
 import com.otilm.core.certificate.request.RequestAttributeSetResolver.ValueSourceBindingSpec;
@@ -127,7 +127,6 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
 
     @Override
     public void updateConfiguration(RaProfile raProfile, RaProfileCertificateRequestAttributesUpdateDto request) {
-        validateDefinitionShape(request.getRequestAttributes());
         AttributeSetMergeMode effectiveMode = RequestAttributeSetResolver.effectiveMode(request.getMergeMode());
         if (effectiveMode != AttributeSetMergeMode.STATIC_ONLY) {
             throw new ValidationException(String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
@@ -135,6 +134,7 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         if (request.getValueSourceBindings() != null && !request.getValueSourceBindings().isEmpty()) {
             throw new ValidationException("Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
         }
+        AttributeEngine.validateRequestAttributeDefinitions(request.getRequestAttributes());
         writer.saveStaticSet(
                 raProfile,
                 AttributeDefinitionUtils.serialize(request.getRequestAttributes()),
@@ -253,22 +253,6 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             return objectMapper.writeValueAsString(params);
         } catch (JsonProcessingException e) {
             throw new ValidationException(ValidationError.create("Value-source binding parameters could not be stored."));
-        }
-    }
-
-    /**
-     * Validates that the platform-owned definitions are coherent. Platform-owned, so {@code connectorUuid = null};
-     * request values are never part of these definitions.
-     */
-    private void validateDefinitionShape(List<BaseAttribute> definitions) {
-        if (definitions == null) {
-            return;
-        }
-        for (BaseAttribute def : definitions) {
-            if (def instanceof DataAttributeV3 v3 && v3.getProperties() == null) {
-                throw new ValidationException(ValidationError.create(
-                        "Request attribute definition '{}' is missing properties", v3.getName()));
-            }
         }
     }
 }

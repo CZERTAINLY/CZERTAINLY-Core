@@ -1,12 +1,12 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v2.InfoAttributeV2;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
+import com.otilm.api.model.common.attribute.v3.mapping.*;
 import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
 import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesDto;
@@ -68,6 +68,14 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         DataAttributeProperties properties = new DataAttributeProperties();
         properties.setLabel(name);
         attribute.setProperties(properties);
+
+        RdnMappedField field = new RdnMappedField();
+        field.setFieldType(FieldType.RDN);
+        field.setRdn("2.5.4.3");
+        FieldMapping mapping = new FieldMapping();
+        mapping.setObjectType(ObjectType.X509_CERTIFICATE);
+        mapping.setFields(List.of(field));
+        attribute.setFieldMapping(mapping);
         return attribute;
     }
 
@@ -282,7 +290,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         // given
         RaProfile raProfile = newRaProfile();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
-        request.setRequestAttributes(List.of(def("u1", "server")));
+        request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
         request.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
         request.setExternalCsrValidationStrict(Boolean.TRUE);
 
@@ -301,7 +309,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     void unsupportedMergeModeThrowsException() {
         RaProfile raProfile = newRaProfile();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
-        request.setRequestAttributes(List.of(def("u1", "server")));
+        request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
         request.setMergeMode(AttributeSetMergeMode.CONNECTOR_ONLY);
         assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
                 .isInstanceOf(ValidationException.class)
@@ -312,7 +320,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     void omittedMergeModeAcceptedAsEffectiveMerge() {
         RaProfile raProfile = newRaProfile();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
-        request.setRequestAttributes(List.of(def("u1", "server")));
+        request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
         service.updateConfiguration(raProfile, request);
         assertEquals(AttributeSetMergeMode.STATIC_ONLY, service.getConfiguration(raProfile).getMergeMode());
     }
@@ -351,5 +359,19 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
 
         // then: the read view exposes the effective default rather than null
         assertThat(stored.getMergeMode()).isEqualTo(AttributeSetMergeMode.STATIC_ONLY);
+    }
+
+    @Test
+    void updateConfigurationRejectsReadOnlyDefinitionWithoutDefault() {
+        RaProfile raProfile = newRaProfile();
+        DataAttributeV3 readOnlyNoDefault = def("00000000-0000-0000-0000-0000000000aa", "locked-field");
+        readOnlyNoDefault.getProperties().setReadOnly(true);
+
+        RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
+        request.setRequestAttributes(List.of(readOnlyNoDefault));
+
+        assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Read only attribute must define its content");
     }
 }
