@@ -30,6 +30,13 @@ import java.util.Map;
 /**
  * Plain unit test (no Spring context) for the authoring-time request-attribute definition validation.
  * RDN-code mapping validation resolves against the OidHandler registry, seeded from SystemOid here.
+ *
+ * <p>The OID registry is process-wide static state shared across the surefire JVM, so this class
+ * snapshots the RDN category in {@code @BeforeAll} and restores it in {@code @AfterAll}. When no
+ * cache existed beforehand, the restore leaves an empty map rather than the absent ({@code null})
+ * state — equivalent for every reader of the RDN category ({@code getCodeToOidMap} treats absent
+ * as empty). Assumes the default serial per-JVM test execution — seeding a shared static is not
+ * parallel-safe.
  */
 class RequestAttributeDefinitionValidationTest {
 
@@ -52,7 +59,7 @@ class RequestAttributeDefinitionValidationTest {
     }
 
     @AfterAll
-    static void clearRdnRegistry() {
+    static void restoreRdnRegistry() {
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
                 savedRdnRegistry == null ? new HashMap<>() : savedRdnRegistry);
     }

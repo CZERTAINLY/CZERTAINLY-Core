@@ -265,8 +265,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
 
         CertificateRequestAttributesSettingsUpdateDto requestAttributes = platformSettings.getCertificates().getRequestAttributes();
         if (requestAttributes != null) {
-            Setting definitionsSetting = certificateSetting(certificateSettings, DefaultRequestAttributeSet.SETTING_NAME);
             AttributeEngine.validateRequestAttributeDefinitions(requestAttributes.getRequestAttributes());
+            Setting definitionsSetting = certificateSetting(certificateSettings, DefaultRequestAttributeSet.SETTING_NAME);
             definitionsSetting.setValue(AttributeDefinitionUtils.serialize(requestAttributes.getRequestAttributes()));
             settingRepository.save(definitionsSetting);
 

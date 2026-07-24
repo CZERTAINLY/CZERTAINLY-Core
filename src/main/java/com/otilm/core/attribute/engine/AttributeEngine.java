@@ -10,6 +10,7 @@ import com.otilm.api.model.client.metadata.ResponseMetadata;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.*;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
+import com.otilm.api.model.common.attribute.v1.content.BaseAttributeContent;
 import com.otilm.api.model.common.attribute.v2.*;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallback;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
@@ -435,7 +436,9 @@ public class AttributeEngine {
                 validateFieldMapping(v3, null, codeToOidMap);
             } catch (AttributeException e) {
                 // AttributeException messages are authored inside this class — safe to surface.
-                throw new ValidationException(e.getMessage());
+                ValidationException wrapped = new ValidationException(e.getMessage());
+                wrapped.initCause(e);
+                throw wrapped;
             }
             validateDefaultContent(v3);
         }
@@ -446,15 +449,15 @@ public class AttributeEngine {
      * carries data, conforms to the declared content type, and satisfies the definition's constraints.
      */
     private static void validateDefaultContent(DataAttributeV3 definition) {
-        List<? extends AttributeContent> content = definition.getContent();
+        List<BaseAttributeContentV3<?>> content = definition.getContent();
         if (content == null || content.isEmpty()) {
             return;
         }
-        for (AttributeContent item : content) {
+        for (BaseAttributeContentV3<?> item : content) {
             if (item == null || item.getData() == null) {
                 throw new ValidationException("Request attribute definition '%s' default content is malformed and does not contain data".formatted(definition.getName()));
             }
-            if (item.getContentType() != null && item.getContentType() != definition.getContentType()) {
+            if (item.getContentType() != definition.getContentType()) {
                 throw new ValidationException("Request attribute definition '%s' default content does not match content type %s".formatted(definition.getName(), definition.getContentType().getLabel()));
             }
         }
