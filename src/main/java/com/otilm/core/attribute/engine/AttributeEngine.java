@@ -10,7 +10,6 @@ import com.otilm.api.model.client.metadata.ResponseMetadata;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.*;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
-import com.otilm.api.model.common.attribute.v1.content.BaseAttributeContent;
 import com.otilm.api.model.common.attribute.v2.*;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallback;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
