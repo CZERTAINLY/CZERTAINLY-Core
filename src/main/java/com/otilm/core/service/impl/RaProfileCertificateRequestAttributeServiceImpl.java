@@ -130,10 +130,10 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         validateDefinitionShape(request.getRequestAttributes());
         AttributeSetMergeMode effectiveMode = RequestAttributeSetResolver.effectiveMode(request.getMergeMode());
         if (effectiveMode != AttributeSetMergeMode.STATIC_ONLY) {
-            throw new NotSupportedException(String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
+            throw new ValidationException(String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
         }
         if (request.getValueSourceBindings() != null && !request.getValueSourceBindings().isEmpty()) {
-            throw new NotSupportedException("Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
+            throw new ValidationException("Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
         }
         writer.saveStaticSet(
                 raProfile,

@@ -304,7 +304,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         request.setRequestAttributes(List.of(def("u1", "server")));
         request.setMergeMode(AttributeSetMergeMode.CONNECTOR_ONLY);
         assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
-                .isInstanceOf(NotSupportedException.class)
+                .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Merge mode CONNECTOR_ONLY is not supported");
     }
 
@@ -324,7 +324,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         request.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
         request.setValueSourceBindings(List.of(new ValueSourceBindingDto()));
         assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
-                .isInstanceOf(NotSupportedException.class)
+                .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Value-source bindings are not supported in this version");
     }
 
