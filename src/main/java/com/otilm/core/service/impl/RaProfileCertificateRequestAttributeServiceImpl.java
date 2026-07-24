@@ -127,7 +127,6 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
 
     @Override
     public void updateConfiguration(RaProfile raProfile, RaProfileCertificateRequestAttributesUpdateDto request) {
-        AttributeEngine.validateRequestAttributeDefinitions(request.getRequestAttributes());
         AttributeSetMergeMode effectiveMode = RequestAttributeSetResolver.effectiveMode(request.getMergeMode());
         if (effectiveMode != AttributeSetMergeMode.STATIC_ONLY) {
             throw new ValidationException(String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
@@ -135,6 +134,7 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         if (request.getValueSourceBindings() != null && !request.getValueSourceBindings().isEmpty()) {
             throw new ValidationException("Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
         }
+        AttributeEngine.validateRequestAttributeDefinitions(request.getRequestAttributes());
         writer.saveStaticSet(
                 raProfile,
                 AttributeDefinitionUtils.serialize(request.getRequestAttributes()),

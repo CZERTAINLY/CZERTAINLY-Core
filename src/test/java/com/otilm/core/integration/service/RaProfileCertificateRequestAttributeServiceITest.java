@@ -309,7 +309,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     void unsupportedMergeModeThrowsException() {
         RaProfile raProfile = newRaProfile();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
-        request.setRequestAttributes(List.of(def("u1", "server")));
+        request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
         request.setMergeMode(AttributeSetMergeMode.CONNECTOR_ONLY);
         assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
                 .isInstanceOf(ValidationException.class)
@@ -320,7 +320,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     void omittedMergeModeAcceptedAsEffectiveMerge() {
         RaProfile raProfile = newRaProfile();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
-        request.setRequestAttributes(List.of(def("u1", "server")));
+        request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
         service.updateConfiguration(raProfile, request);
         assertEquals(AttributeSetMergeMode.STATIC_ONLY, service.getConfiguration(raProfile).getMergeMode());
     }
