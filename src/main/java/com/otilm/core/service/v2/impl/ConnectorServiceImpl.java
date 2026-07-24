@@ -1,6 +1,7 @@
 package com.otilm.core.service.v2.impl;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
+import com.otilm.api.clients.BaseApiClient;
 import com.otilm.api.exception.*;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
@@ -685,6 +686,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     void evictConnectorCache(UUID uuid) {
         cacheEvictor.evict(CacheConfig.CONNECTOR_API_CLIENT_CACHE, uuid);
+        // Drop any cached CERTIFICATE WebClient built for this connector so a deleted or reconfigured
+        // connector does not retain its client (and parsed key material). Keyed by the UUID string,
+        // matching mapToApiClientDtoV2().
+        BaseApiClient.evictCertificateClient(uuid.toString());
     }
 
 }
