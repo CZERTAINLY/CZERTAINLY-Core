@@ -227,36 +227,53 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             future.join();
         }
 
-        // Upload certificate keys out of parallel processing to avoid collisions
+        // Upload certificate keys out of parallel processing to avoid collisions. Isolate each entry: one
+        // failing key upload must not abort the remaining uploads or the FINISHED event-history bookkeeping below.
+        // A skipped or failed association still has to surface in the final status (see below), otherwise a
+        // discovery that lost certificates would report COMPLETED with no user-visible signal.
+        boolean keyAssociationIncomplete = false;
         for (Map.Entry<PublicKey, List<UUID>> entry : keyToCertificates.entrySet()) {
             try {
-                certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
-            } catch (NoSuchAlgorithmException e) {
-                logger.error("Could not create public key for certificates with UUIDs {}: {}", e.getMessage(), entry.getValue());
+                keyAssociationIncomplete |= !certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
+            } catch (Exception e) {
+                keyAssociationIncomplete = true;
+                logger.error("Could not create public key for certificates with UUIDs {}: {}", entry.getValue(), e.getMessage(), e);
             }
         }
 
         for (Map.Entry<PublicKey, List<UUID>> entry : altKeyToCertificates.entrySet()) {
             try {
-                certificateHandler.uploadDiscoveredCertificateAltKey(entry.getKey(), entry.getValue());
-            } catch (NoSuchAlgorithmException e) {
-                logger.error("Could not create alternative public key for certificates with UUIDs {}: {}", e.getMessage(), entry.getValue());
+                keyAssociationIncomplete |= !certificateHandler.uploadDiscoveredCertificateAltKey(entry.getKey(), entry.getValue());
+            } catch (Exception e) {
+                keyAssociationIncomplete = true;
+                logger.error("Could not create alternative public key for certificates with UUIDs {}: {}", entry.getValue(), e.getMessage(), e);
             }
         }
 
         saveEventHistory(eventHistoryDiscovery, EventStatus.FINISHED);
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
 
-        // A clean run reports PROCESSING, which the finish handler rolls up to COMPLETED. When certificates
-        // recorded a processing error, report WARNING instead so the partial failure stays visible to the user.
         long erroredCertificates = discoveryCertificateRepository.countByDiscoveryAndProcessedErrorNotNull(discovery);
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
+        DiscoveryResult result = decideFinalStatus(erroredCertificates, keyAssociationIncomplete, originalMessage);
+        emitDiscoveryFinished(discovery, context, result.getDiscoveryStatus(), result.getMessage());
+    }
+
+    /**
+     * A clean run reports PROCESSING, which the finish handler rolls up to COMPLETED. When certificates recorded a
+     * processing error, or a key association was skipped/failed, report WARNING instead so the partial failure stays
+     * visible to the user rather than surfacing as a clean COMPLETED.
+     */
+    static DiscoveryResult decideFinalStatus(long erroredCertificates, boolean keyAssociationIncomplete, String originalMessage) {
         if (erroredCertificates > 0) {
-            emitDiscoveryFinished(discovery, context, DiscoveryStatus.WARNING,
+            return new DiscoveryResult(DiscoveryStatus.WARNING,
                     "%d certificate(s) could not be processed during discovery.".formatted(erroredCertificates));
-        } else {
-            emitDiscoveryFinished(discovery, context, DiscoveryStatus.PROCESSING, originalMessage);
         }
+        if (keyAssociationIncomplete) {
+            return new DiscoveryResult(DiscoveryStatus.WARNING,
+                    "Some discovered certificate keys could not be associated during discovery.");
+        }
+        return new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage);
     }
 
     private void emitDiscoveryFinished(DiscoveryHistory discovery, EventContext<Certificate> context, DiscoveryStatus status, String message) {
