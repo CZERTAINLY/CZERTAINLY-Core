@@ -178,20 +178,33 @@ public class CertificateHandler {
         discoveryRepository.save(discovery);
     }
 
+    /**
+     * @return true if the key was associated with the certificates, false if the upload was skipped because no
+     * committed certificate backs the given UUIDs (see {@link #uploadKeyInternal}). Callers use the result to keep
+     * the discovery status visible when key association could not complete.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
+    public boolean uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "certKey_");
-        if (keyUuid != null) {
-            certificateRepository.setKeyUuid(keyUuid, certificateUuids);
+        if (keyUuid == null) {
+            return false;
         }
+        certificateRepository.setKeyUuid(keyUuid, certificateUuids);
+        return true;
     }
 
+    /**
+     * @return true if the alternative key was associated with the certificates, false if the upload was skipped
+     * because no committed certificate backs the given UUIDs.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
+    public boolean uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "altCertKey_");
-        if (keyUuid != null) {
-            certificateRepository.setAltKeyUuidAndHybridCertificate(keyUuid, certificateUuids);
+        if (keyUuid == null) {
+            return false;
         }
+        certificateRepository.setAltKeyUuidAndHybridCertificate(keyUuid, certificateUuids);
+        return true;
     }
 
     private UUID uploadKeyInternal(PublicKey publicKey, List<UUID> certificateUuids, String namePrefix) throws NoSuchAlgorithmException {

@@ -229,18 +229,23 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         // Upload certificate keys out of parallel processing to avoid collisions. Isolate each entry: one
         // failing key upload must not abort the remaining uploads or the FINISHED event-history bookkeeping below.
+        // A skipped or failed association still has to surface in the final status (see below), otherwise a
+        // discovery that lost certificates would report COMPLETED with no user-visible signal.
+        boolean keyAssociationIncomplete = false;
         for (Map.Entry<PublicKey, List<UUID>> entry : keyToCertificates.entrySet()) {
             try {
-                certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
+                keyAssociationIncomplete |= !certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
             } catch (Exception e) {
+                keyAssociationIncomplete = true;
                 logger.error("Could not create public key for certificates with UUIDs {}: {}", entry.getValue(), e.getMessage(), e);
             }
         }
 
         for (Map.Entry<PublicKey, List<UUID>> entry : altKeyToCertificates.entrySet()) {
             try {
-                certificateHandler.uploadDiscoveredCertificateAltKey(entry.getKey(), entry.getValue());
+                keyAssociationIncomplete |= !certificateHandler.uploadDiscoveredCertificateAltKey(entry.getKey(), entry.getValue());
             } catch (Exception e) {
+                keyAssociationIncomplete = true;
                 logger.error("Could not create alternative public key for certificates with UUIDs {}: {}", entry.getValue(), e.getMessage(), e);
             }
         }
@@ -249,12 +254,16 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
 
         // A clean run reports PROCESSING, which the finish handler rolls up to COMPLETED. When certificates
-        // recorded a processing error, report WARNING instead so the partial failure stays visible to the user.
+        // recorded a processing error, or a key association was skipped/failed, report WARNING instead so the
+        // partial failure stays visible to the user rather than surfacing as a clean COMPLETED.
         long erroredCertificates = discoveryCertificateRepository.countByDiscoveryAndProcessedErrorNotNull(discovery);
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
         if (erroredCertificates > 0) {
             emitDiscoveryFinished(discovery, context, DiscoveryStatus.WARNING,
                     "%d certificate(s) could not be processed during discovery.".formatted(erroredCertificates));
+        } else if (keyAssociationIncomplete) {
+            emitDiscoveryFinished(discovery, context, DiscoveryStatus.WARNING,
+                    "Some discovered certificate keys could not be associated during discovery.");
         } else {
             emitDiscoveryFinished(discovery, context, DiscoveryStatus.PROCESSING, originalMessage);
         }
