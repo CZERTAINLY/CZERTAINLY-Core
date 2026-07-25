@@ -12,7 +12,9 @@ import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.cmp.CmpProfileRepository;
 import com.otilm.core.service.cmp.CmpTestUtil;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
+import com.otilm.core.service.cmp.message.validator.impl.BodyValidator;
 import com.otilm.core.service.cmp.message.validator.impl.HeaderValidator;
+import com.otilm.core.service.cmp.message.validator.impl.ProtectionValidator;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIHeader;
@@ -200,6 +202,34 @@ class CmpServiceImplHandlePostTest {
         assertThat(captor.getValue().getState()).isEqualTo(CmpTransactionState.FAILED);
     }
 
+    @Test
+    void handlePost_returnsCmpRejection_whenSignatureMessageHitsSharedSecretProfile() throws Exception {
+        // given: a shared-secret profile (both request and response protection are sharedSecret) that receives a
+        // signature-protected message — the scenario from issue #1885 (a KUR against a PBM-only profile)
+        CmpProfile cmpProfile = resolvedCmpProfile();
+        when(cmpProfile.getRequestProtectionMethod()).thenReturn(ProtectionMethod.SHARED_SECRET);
+        when(cmpProfile.getSharedSecret()).thenReturn("shared-secret-value");
+        RaProfile raProfile = resolvedRaProfile(cmpProfile);
+        RaProfileRepository raProfileRepository = mock(RaProfileRepository.class);
+        when(raProfileRepository.findByName(anyString())).thenReturn(Optional.of(raProfile));
+
+        // and: header/body validation pass, so the real ProtectionValidator runs
+        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class),
+                mock(HeaderValidator.class), false);
+        ReflectionTestUtils.setField(service, "bodyValidator", mock(BodyValidator.class));
+        ReflectionTestUtils.setField(service, "protectionValidator", new ProtectionValidator());
+
+        // when: instead of an NPE escaping to the JSON error handler, handlePost returns a CMP response
+        ResponseEntity<byte[]> response = service.handlePost(PROFILE_NAME, signatureProtectedRevocationRequest());
+
+        // then: the response is a well-formed, protected CMP rejection carrying a badMessageCheck status string
+        assertThat(response.getBody()).isNotNull();
+        PKIMessage responseMessage = PKIMessage.getInstance(response.getBody());
+        assertThat(responseMessage.getBody().getType()).isEqualTo(PKIBody.TYPE_ERROR);
+        assertThat(responseMessage.getProtection()).isNotNull();
+        assertThat(wireStatusText(response.getBody())).contains("only accepts PBM");
+    }
+
     private CmpServiceImpl newService(RaProfileRepository raProfileRepository,
                                       CmpProfileRepository cmpProfileRepository,
                                       HeaderValidator headerValidator,
@@ -252,6 +282,13 @@ class CmpServiceImplHandlePostTest {
     private static byte[] macProtectedRevocationRequest() throws Exception {
         PKIBody body = CmpTestUtil.createRevocationBody(BigInteger.ONE);
         return CmpTestUtil.createMacBasedMessage("transaction1", "shared-secret-value", body)
+                .toASN1Structure().getEncoded();
+    }
+
+    private static byte[] signatureProtectedRevocationRequest() throws Exception {
+        PKIBody body = CmpTestUtil.createRevocationBody(BigInteger.ONE);
+        var keyPair = CmpTestUtil.generateKeyPairEC();
+        return CmpTestUtil.createSignatureBasedMessage("transaction1", keyPair.getPrivate(), body)
                 .toASN1Structure().getEncoded();
     }
 

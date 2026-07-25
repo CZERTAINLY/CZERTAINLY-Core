@@ -102,9 +102,8 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     }
 
     private AlgorithmIdentifier getDigestAlgorithm() throws CmpConfigurationException {
-        PBMParameter pbmParameter = PBMParameter.getInstance(
-                headerProtectionAlgorithm.getParameters());
-        AlgorithmIdentifier algorithmIdentifier = pbmParameter.getOwf();
+        PBMParameter pbmParameter = resolveRequestPbmParameter();
+        AlgorithmIdentifier algorithmIdentifier = pbmParameter == null ? null : pbmParameter.getOwf();
         if (algorithmIdentifier == null) {
             algorithmIdentifier = DIGEST_ALGORITHM_IDENTIFIER_FINDER.find("SHA256");//db query/cmp profile.getSignatureName
             if (algorithmIdentifier == null) {
@@ -121,9 +120,8 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
      * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong mac name).
      */
     private AlgorithmIdentifier getMacAlgorithm() throws CmpConfigurationException {
-        PBMParameter pbmParameter = PBMParameter.getInstance(
-                headerProtectionAlgorithm.getParameters());
-        AlgorithmIdentifier algorithmIdentifier = pbmParameter.getMac();
+        PBMParameter pbmParameter = resolveRequestPbmParameter();
+        AlgorithmIdentifier algorithmIdentifier = pbmParameter == null ? null : pbmParameter.getMac();
         if (algorithmIdentifier == null) {
             algorithmIdentifier = MAC_ALGORITHM_IDENTIFIER_FINDER.find("HMACSHA256");//db query/cmp profile.getSignatureName
             if (algorithmIdentifier == null) {
@@ -131,5 +129,21 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
             }
         }
         return algorithmIdentifier;
+    }
+
+    /**
+     * Extracts the {@link PBMParameter} carried by the request's protection algorithm, or {@code null} when the
+     * request was not PBM-protected (e.g. signature- or DH-based). A non-PBM request carries no OWF/MAC template
+     * to echo into the shared-secret response, so callers fall back to the platform defaults (SHA-256 /
+     * HMAC-SHA256). Never dereference a non-PBM algorithm here — see issue #1885, where a signature-protected
+     * KUR against a sharedSecret profile made {@code PBMParameter.getInstance(...)} return {@code null} and the
+     * subsequent {@code getOwf()} throw an NPE that escaped as a generic JSON error.
+     */
+    private PBMParameter resolveRequestPbmParameter() {
+        if (headerProtectionAlgorithm == null
+                || !CMPObjectIdentifiers.passwordBasedMac.equals(headerProtectionAlgorithm.getAlgorithm())) {
+            return null;
+        }
+        return PBMParameter.getInstance(headerProtectionAlgorithm.getParameters());
     }
 }

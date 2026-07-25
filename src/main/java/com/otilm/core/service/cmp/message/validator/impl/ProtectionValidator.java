@@ -88,6 +88,7 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
                     ImplFailureInfo.CMPVALPRO532);
         }
 
+        assertMessageProtectionMatchesProfile(tid, protectionAlg, configuration.getProtectionMethod());
         checkProtectionMatrix(configuration, request);
         if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
             new ProtectionMacValidator().validate(request, configuration);
@@ -142,6 +143,37 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
         }
 
         return null;
+    }
+
+    /**
+     * Rejects a request whose actual protection type contradicts the profile's configured
+     * {@code Requested Protection Method}. A sharedSecret profile must receive PBM-protected
+     * messages ({@code passwordBasedMac} / {@code id_PBMAC1}); a signature profile must receive
+     * signature-protected messages. On mismatch a {@link PKIFailureInfo#badMessageCheck} rejection
+     * is raised (RFC 4210 §5.2.7) so the client gets a parseable CMP error instead of the platform
+     * dereferencing PBM-specific fields on a non-PBM message (issue #1885).
+     *
+     * <p>When the profile does not constrain the request method ({@code expectedRequestMethod == null})
+     * no check is applied.</p>
+     *
+     * @throws CmpProcessingException if the message protection type is not accepted by the profile
+     */
+    static void assertMessageProtectionMatchesProfile(ASN1OctetString tid, AlgorithmIdentifier protectionAlg,
+                                                      ProtectionMethod expectedRequestMethod)
+            throws CmpProcessingException {
+        if (expectedRequestMethod == null) {
+            return;
+        }
+        boolean messageIsPbm = CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())
+                || PKCSObjectIdentifiers.id_PBMAC1.equals(protectionAlg.getAlgorithm());
+        if (ProtectionMethod.SHARED_SECRET.equals(expectedRequestMethod) && !messageIsPbm) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                    "this CMP profile only accepts PBM (shared secret) protected messages");
+        }
+        if (ProtectionMethod.SIGNATURE.equals(expectedRequestMethod) && messageIsPbm) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                    "this CMP profile only accepts signature-protected messages");
+        }
     }
 
     /**
