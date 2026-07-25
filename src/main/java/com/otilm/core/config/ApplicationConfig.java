@@ -4,6 +4,7 @@ import com.otilm.api.clients.AttributeApiClient;
 import com.otilm.api.clients.AuthorityInstanceApiClient;
 import com.otilm.api.clients.BaseApiClient;
 import com.otilm.api.clients.CertificateApiClient;
+import com.otilm.api.clients.ClientTuning;
 import com.otilm.api.clients.ComplianceApiClient;
 import com.otilm.api.clients.ConnectorApiClient;
 import com.otilm.api.clients.DiscoveryApiClient;
@@ -42,7 +43,7 @@ import javax.net.ssl.TrustManager;
 
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
-@EnableConfigurationProperties(DiscoveryProperties.class)
+@EnableConfigurationProperties({DiscoveryProperties.class, ConnectorApiClientProperties.class})
 @ComponentScan(basePackages = "com.otilm.core",
         excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
 public class ApplicationConfig {
@@ -73,8 +74,12 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public WebClient webClient() {
-        return BaseApiClient.prepareWebClient();
+    public WebClient webClient(ConnectorApiClientProperties connectorApiClientProperties) {
+        return BaseApiClient.prepareWebClient(new ClientTuning(
+                connectorApiClientProperties.connectTimeout(),
+                connectorApiClientProperties.responseTimeout(),
+                connectorApiClientProperties.maxConnections(),
+                connectorApiClientProperties.pendingAcquireTimeout()));
     }
 
     @Bean
