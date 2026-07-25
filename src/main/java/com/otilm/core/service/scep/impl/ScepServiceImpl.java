@@ -416,7 +416,23 @@ public class ScepServiceImpl implements ScepExternalService {
         } else {
             scepResponse = buildFailedResponse(new ScepException("Unsupported Operation. The requested operation is not supported", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
         }
-        return buildResponse(scepRequest, scepResponse);
+        try {
+            return buildResponse(scepRequest, scepResponse);
+        } catch (ScepException e) {
+            // Generating the encrypted SUCCESS CertRep can fail after the state machine already
+            // resolved to SUCCESS (e.g. an EC recipient key with no challenge password to envelope
+            // with). Degrade to a well-formed SCEP FAILURE rather than letting it surface as an HTTP
+            // error the client cannot interpret (RFC 8894 §3.3). A FAILURE CertRep has empty content
+            // and needs no recipient encryption, so it always encodes.
+            if (scepResponse != null && PkiStatus.FAILURE.equals(scepResponse.getPkiStatus())) {
+                throw e;
+            }
+            logger.error("Failed to build SCEP response for transactionId={}: {}",
+                    scepRequest.getTransactionId(), e.getMessage(), e);
+            return buildResponse(scepRequest,
+                    buildFailedResponse(new ScepException("Unable to generate SCEP response", FailInfo.BAD_REQUEST),
+                            scepRequest.getTransactionId()));
+        }
     }
 
     private ScepResponse buildFailedResponse(ScepException scepException, String transactionId) {
@@ -714,6 +730,9 @@ public class ScepServiceImpl implements ScepExternalService {
         scepResponse.setDigestAlgorithmOid(scepRequest.getDigestAlgorithmOid());
         scepResponse.setSenderNonce(RandomUtil.generateRandomNonceBase64(16));
         scepResponse.setContentEncryptionAlgorithm(scepRequest.getContentEncryptionAlgorithm());
+        // Enveloping a SUCCESS response to a recipient key that cannot do key transport (e.g. EC)
+        // requires the shared challenge password (RFC 8894 §3.2.2).
+        scepResponse.setChallengePassword(scepProfile.getChallengePassword());
     }
 
     private ScepTransaction getTransaction(String transactionId) {

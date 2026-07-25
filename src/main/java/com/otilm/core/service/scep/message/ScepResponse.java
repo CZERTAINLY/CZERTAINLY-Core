@@ -18,6 +18,7 @@ import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
 import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
+import org.bouncycastle.cms.jcajce.JcePasswordRecipientInfoGenerator;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -52,6 +53,7 @@ public class ScepResponse {
     private List<X509Certificate> certificateChain;
     private byte[] recipientKeyInfo;
     private String digestAlgorithmOid;
+    private char[] challengePassword;
 
     private CMSTypedData responseData;
 
@@ -121,6 +123,18 @@ public class ScepResponse {
         this.digestAlgorithmOid = digestAlgorithmOid;
     }
 
+    /**
+     * The shared SCEP challenge password, used to envelope the SUCCESS response when the
+     * recipient key cannot receive an RSA-key-transport envelope (e.g. an EC client key).
+     */
+    public void setChallengePassword(String challengePassword) {
+        this.challengePassword = challengePassword != null ? challengePassword.toCharArray() : null;
+    }
+
+    public PkiStatus getPkiStatus() {
+        return pkiStatus;
+    }
+
     public CMSSignedData getSignedResponseData() {
         return signedResponseData;
     }
@@ -161,33 +175,48 @@ public class ScepResponse {
 
     private void createResponseData() throws CertificateException, CMSException, IOException {
         if (pkiStatus.equals(PkiStatus.SUCCESS)) {
-            CMSEnvelopedDataGenerator cmsEnvelopedDataGenerator = new CMSEnvelopedDataGenerator();
-            CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
-            cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificateChain)));
-            CMSSignedData cmsSignedData = cmsSignedDataGenerator.generate(new CMSAbsentContent(), false);
-
-            // Envelope the CMS message
-            if (recipientKeyInfo != null) {
-                X509Certificate recipient = CertificateUtil.getX509Certificate(recipientKeyInfo);
-                logger.debug("Recipient certificate subject DN: '" + recipient.getSubjectX500Principal().getName() +
-                        "serial number: " + recipient.getSerialNumber().toString(16));
-                cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
-                        new JceKeyTransRecipientInfoGenerator(recipient)
-                                .setProvider(BouncyCastleProvider.PROVIDER_NAME));
-            } else {
-                cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
-                        new JceKeyTransRecipientInfoGenerator(certificateChain.get(0))
-                                .setProvider(BouncyCastleProvider.PROVIDER_NAME));
-            }
-            // Take the content encryption algorithm from the response that is set from the SCEP request message
-            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(contentEncryptionAlgorithm).setProvider(BouncyCastleProvider.PROVIDER_NAME);
-            CMSEnvelopedData cmsEnvelopedData = cmsEnvelopedDataGenerator.generate(
-                    new CMSProcessableByteArray(cmsSignedData.getEncoded()),
-                    jceCMSContentEncryptorBuilder.build());
-            responseData = new CMSProcessableByteArray(cmsEnvelopedData.getEncoded());
+            responseData = new CMSProcessableByteArray(buildEnvelopedResponse().getEncoded());
         } else {
             responseData = new CMSProcessableByteArray(new byte[0]);
         }
+    }
+
+    CMSEnvelopedData buildEnvelopedResponse() throws CertificateException, CMSException, IOException {
+        CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
+        cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificateChain)));
+        CMSSignedData cmsSignedData = cmsSignedDataGenerator.generate(new CMSAbsentContent(), false);
+
+        X509Certificate recipient = recipientKeyInfo != null
+                ? CertificateUtil.getX509Certificate(recipientKeyInfo)
+                : certificateChain.get(0);
+
+        CMSEnvelopedDataGenerator cmsEnvelopedDataGenerator = new CMSEnvelopedDataGenerator();
+        cmsEnvelopedDataGenerator.addRecipientInfoGenerator(buildRecipientInfoGenerator(recipient));
+
+        // Take the content encryption algorithm from the response that is set from the SCEP request message
+        JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(contentEncryptionAlgorithm).setProvider(BouncyCastleProvider.PROVIDER_NAME);
+        return cmsEnvelopedDataGenerator.generate(
+                new CMSProcessableByteArray(cmsSignedData.getEncoded()),
+                jceCMSContentEncryptorBuilder.build());
+    }
+
+    private RecipientInfoGenerator buildRecipientInfoGenerator(X509Certificate recipient) throws CMSException, CertificateEncodingException {
+        // RSA keys can receive an RSA-key-transport envelope; other key types (e.g. EC) cannot,
+        // so fall back to the RFC 8894 §3.2.2 password recipient keyed with the shared challenge
+        // password — the response-direction mirror of ScepRequest.decryptData.
+        if ("RSA".equalsIgnoreCase(recipient.getPublicKey().getAlgorithm())) {
+            logger.debug("Enveloping SCEP response via key transport to recipient subject DN '{}' serial {}",
+                    recipient.getSubjectX500Principal().getName(), recipient.getSerialNumber().toString(16));
+            return new JceKeyTransRecipientInfoGenerator(recipient).setProvider(BouncyCastleProvider.PROVIDER_NAME);
+        }
+        if (challengePassword == null || challengePassword.length == 0) {
+            throw new CMSException("Recipient key algorithm " + recipient.getPublicKey().getAlgorithm() +
+                    " cannot receive a key-transport envelope and no challenge password is available for password-based enveloping");
+        }
+        logger.debug("Enveloping SCEP response via password recipient (recipient key algorithm {})",
+                recipient.getPublicKey().getAlgorithm());
+        return new JcePasswordRecipientInfoGenerator(CMSAlgorithm.AES128_CBC, challengePassword)
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME);
     }
 
     private void createSignedData() throws NoSuchAlgorithmException, CertificateEncodingException, OperatorCreationException, CMSException {
