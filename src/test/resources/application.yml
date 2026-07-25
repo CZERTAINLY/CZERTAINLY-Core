@@ -27,6 +27,13 @@ caching:
     ttl-minutes: 5
     max-size: 100
 
+connector:
+  api-client:
+    response-timeout: 35s
+    connect-timeout: 3s
+    max-connections: 20
+    pending-acquire-timeout: 10s
+
 auth-service:
   base-url: http://authservice.dev
 opa:
