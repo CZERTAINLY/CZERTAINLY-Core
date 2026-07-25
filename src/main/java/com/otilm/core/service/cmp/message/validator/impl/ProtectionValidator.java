@@ -57,7 +57,10 @@ import org.springframework.transaction.annotation.Transactional;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3">PKI message protection</a>
  */
 @Component
-@Transactional
+// noRollbackFor keeps Spring's default (no rollback on checked exceptions): CMP surfaces
+// CmpBaseException as a protocol error response, and this validator shares the caller's
+// transaction, so rolling back on it would mark that transaction rollback-only.
+@Transactional(noRollbackFor = CmpBaseException.class)
 public class ProtectionValidator implements BiValidator<Void, Void> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProtectionValidator.class.getName());
