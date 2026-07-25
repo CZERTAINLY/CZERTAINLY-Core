@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 /**
  * Unit tests for {@link PasswordBasedMacProtectionStrategy}.
  *
- * <p>Regression coverage for issue #1885: when a CMP profile has {@code Response Protection Method = sharedSecret}
+ * <p>Regression coverage: when a CMP profile has {@code Response Protection Method = sharedSecret}
  * and the incoming request is <em>not</em> PBM-protected (signature- or DH-based), the response PBM strategy is
  * still built from the request's protection algorithm. That algorithm carries no {@link PBMParameter}, so the
  * strategy must fall back to platform defaults (SHA-256 / HMAC-SHA256) instead of dereferencing a {@code null}

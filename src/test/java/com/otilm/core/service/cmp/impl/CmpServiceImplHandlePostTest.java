@@ -205,7 +205,7 @@ class CmpServiceImplHandlePostTest {
     @Test
     void handlePost_returnsCmpRejection_whenSignatureMessageHitsSharedSecretProfile() throws Exception {
         // given: a shared-secret profile (both request and response protection are sharedSecret) that receives a
-        // signature-protected message — the scenario from issue #1885 (a KUR against a PBM-only profile)
+        // signature-protected message — e.g. a KUR against a PBM-only profile
         CmpProfile cmpProfile = resolvedCmpProfile();
         when(cmpProfile.getRequestProtectionMethod()).thenReturn(ProtectionMethod.SHARED_SECRET);
         when(cmpProfile.getSharedSecret()).thenReturn("shared-secret-value");
@@ -228,6 +228,61 @@ class CmpServiceImplHandlePostTest {
         assertThat(responseMessage.getBody().getType()).isEqualTo(PKIBody.TYPE_ERROR);
         assertThat(responseMessage.getProtection()).isNotNull();
         assertThat(wireStatusText(response.getBody())).contains("only accepts PBM");
+    }
+
+    @Test
+    void handlePost_returnsUnprotectedError_whenProtectedErrorResponseCannotBeBuilt() throws Exception {
+        // given: a sharedSecret-response profile whose shared secret is null, so building the *protected* error
+        // response throws while handling a domain exception — the endpoint must still answer with a CMP error
+        CmpProfile cmpProfile = resolvedCmpProfile();
+        when(cmpProfile.getSharedSecret()).thenReturn(null);
+        RaProfile raProfile = resolvedRaProfile(cmpProfile);
+        RaProfileRepository raProfileRepository = mock(RaProfileRepository.class);
+        when(raProfileRepository.findByName(anyString())).thenReturn(Optional.of(raProfile));
+
+        // and: a domain exception is raised during processing so the catch path builds the error response
+        HeaderValidator headerValidator = mock(HeaderValidator.class);
+        when(headerValidator.validate(any(), any()))
+                .thenThrow(new CmpProcessingException(PKIFailureInfo.badRequest, "sender name is not trusted"));
+        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator, false);
+
+        // when
+        ResponseEntity<byte[]> response = service.handlePost(PROFILE_NAME, revocationRequest());
+
+        // then: the endpoint falls back to an unprotected CMP error rather than leaking to the JSON handler
+        assertThat(response.getBody()).isNotNull();
+        PKIMessage responseMessage = PKIMessage.getInstance(response.getBody());
+        assertThat(responseMessage.getBody().getType()).isEqualTo(PKIBody.TYPE_ERROR);
+        assertThat(responseMessage.getProtection()).isNull();
+        assertThat(wireStatusText(response.getBody())).contains("sender name is not trusted");
+    }
+
+    @Test
+    void handlePost_failsTransactionWithoutNpe_whenExceptionMessageIsNull() throws Exception {
+        // given: a resolved profile, a matching in-flight transaction, and processing that throws an exception
+        // carrying a null message (the branch that previously NPE'd in handleTrxError's substring call)
+        CmpProfile cmpProfile = resolvedCmpProfile();
+        RaProfile raProfile = resolvedRaProfile(cmpProfile);
+        RaProfileRepository raProfileRepository = mock(RaProfileRepository.class);
+        when(raProfileRepository.findByName(anyString())).thenReturn(Optional.of(raProfile));
+
+        HeaderValidator headerValidator = mock(HeaderValidator.class);
+        when(headerValidator.validate(any(), any())).thenThrow(new RuntimeException());
+        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator, false);
+
+        CmpTransaction transaction = new CmpTransaction();
+        CmpTransactionService cmpTransactionService =
+                (CmpTransactionService) ReflectionTestUtils.getField(service, "cmpTransactionService");
+        when(cmpTransactionService.findByTransactionId(anyString())).thenReturn(List.of(transaction));
+
+        // when
+        ResponseEntity<byte[]> response = service.handlePost(PROFILE_NAME, revocationRequest());
+
+        // then: no NPE escapes; the transaction is marked FAILED with the exception's class name as the reason
+        assertThat(response.getBody()).isNotNull();
+        verify(cmpTransactionService).save(transaction);
+        assertThat(transaction.getState()).isEqualTo(CmpTransactionState.FAILED);
+        assertThat(transaction.getCustomReason()).isEqualTo("RuntimeException");
     }
 
     private CmpServiceImpl newService(RaProfileRepository raProfileRepository,

@@ -151,7 +151,7 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
      * messages ({@code passwordBasedMac} / {@code id_PBMAC1}); a signature profile must receive
      * signature-protected messages. On mismatch a {@link PKIFailureInfo#badMessageCheck} rejection
      * is raised (RFC 4210 §5.2.7) so the client gets a parseable CMP error instead of the platform
-     * dereferencing PBM-specific fields on a non-PBM message (issue #1885).
+     * dereferencing PBM-specific fields on a non-PBM message.
      *
      * <p>When the profile does not constrain the request method ({@code expectedRequestMethod == null})
      * no check is applied.</p>

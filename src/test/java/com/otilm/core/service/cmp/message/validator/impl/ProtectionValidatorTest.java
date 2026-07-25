@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for the protection-type consistency check in {@link ProtectionValidator}.
  *
- * <p>Regression coverage for issue #1885: a message whose actual protection type contradicts the profile's
+ * <p>Regression coverage: a message whose actual protection type contradicts the profile's
  * configured {@code Requested Protection Method} must be rejected with a proper CMP {@code badMessageCheck}
  * rejection (RFC 4210 §5.2.7) rather than being allowed through to a strategy that assumes a different type.</p>
  */

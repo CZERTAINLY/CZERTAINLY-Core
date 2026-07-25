@@ -335,19 +335,20 @@ public class CmpServiceImpl implements CmpExternalService {
      * with the profile's response strategy when possible; if that construction itself fails (e.g. a misconfigured
      * profile), it falls back to an unprotected CMP error carrying the same domain body. RFC 4210 permits
      * unprotected error messages, and this guarantees the endpoint always answers with {@code application/pkixcmp}
-     * rather than leaking to the generic JSON error handler (issue #1885).
+     * rather than leaking to the generic JSON error handler.
      */
     private PKIMessage buildProcessingErrorResponse(ConfigurationContext configuration, PKIMessage pkiRequest,
                                                     CmpBaseException e) {
+        PKIBody errorBody = e.toPKIBody();
         try {
             return new PkiMessageBuilder(configuration)
                     .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(pkiRequest))
-                    .addBody(e.toPKIBody())
+                    .addBody(errorBody)
                     .addExtraCerts(null)
                     .build();
         } catch (Exception buildError) {
             LOG.error("failed to build protected CMP error response; falling back to unprotected error", buildError);
-            return PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e.toPKIBody());
+            return PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), errorBody);
         }
     }
 
