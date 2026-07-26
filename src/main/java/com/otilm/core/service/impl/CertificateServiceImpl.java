@@ -1734,8 +1734,9 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
             UUID predecessorCertificateUuid,
             CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException {
+        // Issue-attribute merge/validation is performed by the caller before the request transaction opens,
+        // so no connector round-trip runs while this transaction (and its DB connection) is held.
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
-        extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
 
         // create certificate request from CSR and parse the data
         byte[] decodedCsr = Base64.getDecoder().decode(certificateRequest);

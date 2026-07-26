@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.auth.x500.X500Principal;
@@ -433,7 +434,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     @Override
-    @Transactional
+    // Read-only (key reads + connector signing over HTTP); NOT_SUPPORTED keeps the DB connection out of the
+    // crypto-connector round-trip so it is not held while signing (certificate key-generation path).
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, Extensions extensions,
                               List<RequestAttribute> signatureAttributes, UUID altKeyUUid,
                               UUID altTokenProfileUuid, List<RequestAttribute> altSignatureAttributes)
