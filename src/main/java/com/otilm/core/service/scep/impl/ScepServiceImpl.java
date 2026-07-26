@@ -715,11 +715,11 @@ public class ScepServiceImpl implements ScepExternalService {
      * committing an unretrievable certificate.
      */
     void verifyResponseEnvelopable(ScepRequest scepRequest) throws ScepException {
-        X509Certificate recipient = scepRequest.getSignerCertificate();
-        if (recipient == null) {
+        X509Certificate signerCertificate = scepRequest.getSignerCertificate();
+        if (signerCertificate == null) {
             return;
         }
-        boolean keyTransportCapable = "RSA".equalsIgnoreCase(recipient.getPublicKey().getAlgorithm());
+        boolean keyTransportCapable = "RSA".equalsIgnoreCase(signerCertificate.getPublicKey().getAlgorithm());
         boolean challengePasswordConfigured = scepProfile.getChallengePassword() != null && !scepProfile.getChallengePassword().isEmpty();
         if (!keyTransportCapable && !challengePasswordConfigured) {
             throw new ScepException("A challenge password must be configured on the SCEP profile to issue certificates to non-RSA client keys", FailInfo.BAD_ALG);
