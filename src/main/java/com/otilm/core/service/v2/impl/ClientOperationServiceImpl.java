@@ -401,6 +401,23 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         return certificate;
     }
 
+    /**
+     * Runs the request submission and shapes its failures into the protocol-facing contract: a client-facing
+     * {@link RequestAttributePolicyViolationException} passes through unchanged; any other failure is logged with
+     * its cause and surfaced as a {@link CertificateOperationException} carrying the generic {@code failureMessage},
+     * so a raw exception message cannot leak internal detail through the error response.
+     */
+    private CertificateDetailDto submitAndShapeFailure(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo, String failureMessage) throws CertificateOperationException {
+        try {
+            return submitCertificateRequest(request, protocolInfo);
+        } catch (RequestAttributePolicyViolationException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error(failureMessage, e);
+            throw new CertificateOperationException(failureMessage);
+        }
+    }
+
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
@@ -427,17 +444,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         certificateRequestDto.setAltTokenProfileUuid(request.getAltTokenProfileUuid());
         certificateRequestDto.setAltSignatureAttributes(request.getAltSignatureAttributes());
 
-        // submitCertificateRequest keeps the connector round-trips out of the persistence transaction;
-        // shape its raw failures into the protocol-facing contract here.
-        CertificateDetailDto certificate;
-        try {
-            certificate = submitCertificateRequest(certificateRequestDto, protocolInfo);
-        } catch (RequestAttributePolicyViolationException e) {
-            // A client-facing validation failure; must reach the protocol unchanged.
-            throw e;
-        } catch (Exception e) {
-            throw new CertificateOperationException("Failed to submit certificate request: " + e.getMessage());
-        }
+        CertificateDetailDto certificate = submitAndShapeFailure(certificateRequestDto, protocolInfo, "Failed to submit certificate request");
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");
@@ -1676,15 +1683,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         certificateRequestDto.setSourceCertificateUuid(oldCertificate.getUuid());
         certificateRequestDto.setCustomAttributes(AttributeDefinitionUtils.getClientAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, oldCertificate.getUuid())));
 
-        CertificateDetailDto newCertificate;
-        try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null);
-        } catch (RequestAttributePolicyViolationException e) {
-            // a client-facing validation failure
-            throw e;
-        } catch (Exception e) {
-            throw new CertificateOperationException("Failed to submit certificate request for certificate renewal: " + e.getMessage());
-        }
+        CertificateDetailDto newCertificate = submitAndShapeFailure(certificateRequestDto, null, "Failed to submit certificate request for certificate renewal");
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");
@@ -1841,15 +1840,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         certificateRequestDto.setSourceCertificateUuid(oldCertificate.getUuid());
         certificateRequestDto.setCustomAttributes(AttributeDefinitionUtils.getClientAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, oldCertificate.getUuid())));
 
-        CertificateDetailDto newCertificate;
-        try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null);
-        } catch (RequestAttributePolicyViolationException e) {
-            // a client-facing validation failure
-            throw e;
-        } catch (Exception e) {
-            throw new CertificateOperationException("Failed to submit certificate request for certificate rekey: " + e.getMessage());
-        }
+        CertificateDetailDto newCertificate = submitAndShapeFailure(certificateRequestDto, null, "Failed to submit certificate request for certificate rekey");
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");

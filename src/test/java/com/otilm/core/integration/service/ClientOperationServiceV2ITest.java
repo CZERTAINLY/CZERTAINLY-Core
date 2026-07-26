@@ -80,6 +80,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -320,6 +321,27 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         Assertions.assertNotNull(txActiveAtMerge.get(), "the issue-attribute merge must have been invoked");
         Assertions.assertFalse(txActiveAtMerge.get(), "no DB transaction may be active when the issue-attribute merge (connector round-trip) runs");
+    }
+
+    @Test
+    void issueCertificate_wrapsPersistenceFailureAsGenericCertificateOperationException() {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
+
+        // Force the persistence (inside the REQUIRED transaction) to fail, exercising the rollback and the
+        // generic-message mapping — the raw cause must not leak into the surfaced exception message.
+        doThrow(new RuntimeException("internal db detail")).when(certificateRepository).save(any());
+
+        ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
+        request.setRequest(SAMPLE_PKCS10);
+        request.setAttributes(List.of());
+        CertificateOperationException ex = Assertions.assertThrows(CertificateOperationException.class,
+                () -> clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null));
+        Assertions.assertEquals("Failed to submit certificate request", ex.getMessage());
     }
 
     @Test
