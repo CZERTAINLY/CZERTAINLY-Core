@@ -8,6 +8,8 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.cms.CMSEnvelopedData;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.KeyTransRecipientInformation;
+import org.bouncycastle.cms.PasswordRecipientInformation;
 import org.bouncycastle.cms.RecipientInformation;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.cms.jcajce.JcePasswordEnvelopedRecipient;
@@ -25,11 +27,12 @@ import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Verifies the enveloping mechanism of a SCEP {@code SUCCESS} CertRep is chosen by the
- * recipient key's capability, not fixed to RSA key transport (core#1834).
+ * recipient key's capability, not fixed to RSA key transport.
  *
  * <p>An EC client key cannot receive an RSA-key-transport envelope; the response must fall back
  * to the RFC 8894 §3.2.2 password recipient keyed with the shared challenge password — mirroring
@@ -57,6 +60,7 @@ class ScepResponseEnvelopeTest {
         CMSEnvelopedData enveloped = response.buildEnvelopedResponse();
 
         RecipientInformation recipient = enveloped.getRecipientInfos().getRecipients().iterator().next();
+        assertInstanceOf(PasswordRecipientInformation.class, recipient);
         byte[] decrypted = recipient.getContent(
                 new JcePasswordEnvelopedRecipient(CHALLENGE_PASSWORD.toCharArray())
                         .setProvider(BouncyCastleProvider.PROVIDER_NAME));
@@ -64,6 +68,28 @@ class ScepResponseEnvelopeTest {
         // The enveloped payload is the certs-only degenerate CMS SignedData carrying the issued chain.
         CMSSignedData innerSignedData = new CMSSignedData(decrypted);
         assertFalse(innerSignedData.getCertificates().getMatches(null).isEmpty());
+    }
+
+    @Test
+    void successResponseToEcRecipient_viaIssuedLeafFallback_usesPasswordRecipient() throws Exception {
+        // No recipientKeyInfo on the request: the response envelopes to the issued leaf
+        // (certificateChain[0]), which for an EC issuance is an EC key and must still route to the
+        // password recipient.
+        X509Certificate ecLeaf = CertificateUtil.parseCertificate(EC_CLIENT_CERT_B64);
+        ScepResponse response = new ScepResponse();
+        response.setPkiStatus(PkiStatus.SUCCESS);
+        response.setCertificateChain(List.of(ecLeaf));
+        response.setChallengePassword(CHALLENGE_PASSWORD);
+        // recipientKeyInfo deliberately left null
+
+        CMSEnvelopedData enveloped = response.buildEnvelopedResponse();
+
+        RecipientInformation recipient = enveloped.getRecipientInfos().getRecipients().iterator().next();
+        assertInstanceOf(PasswordRecipientInformation.class, recipient);
+        byte[] decrypted = recipient.getContent(
+                new JcePasswordEnvelopedRecipient(CHALLENGE_PASSWORD.toCharArray())
+                        .setProvider(BouncyCastleProvider.PROVIDER_NAME));
+        assertFalse(new CMSSignedData(decrypted).getCertificates().getMatches(null).isEmpty());
     }
 
     @Test
@@ -85,12 +111,32 @@ class ScepResponseEnvelopeTest {
         CMSEnvelopedData enveloped = response.buildEnvelopedResponse();
 
         RecipientInformation recipient = enveloped.getRecipientInfos().getRecipients().iterator().next();
+        assertInstanceOf(KeyTransRecipientInformation.class, recipient);
         byte[] decrypted = recipient.getContent(
                 new JceKeyTransEnvelopedRecipient(rsaKeyPair.getPrivate())
                         .setProvider(BouncyCastleProvider.PROVIDER_NAME));
 
         CMSSignedData innerSignedData = new CMSSignedData(decrypted);
         assertFalse(innerSignedData.getCertificates().getMatches(null).isEmpty());
+    }
+
+    @Test
+    void successResponseToRsaRecipient_withChallengePassword_stillUsesKeyTransport() throws Exception {
+        // An RSA recipient keeps key transport even when a challenge password is available — the
+        // password path is only for keys that cannot do key transport.
+        KeyPair rsaKeyPair = generateRsaKeyPair();
+        X509Certificate rsaClient = selfSignedRsaCertificate(rsaKeyPair);
+        ScepResponse response = successResponseFor(rsaClient);
+        response.setChallengePassword(CHALLENGE_PASSWORD);
+
+        CMSEnvelopedData enveloped = response.buildEnvelopedResponse();
+
+        RecipientInformation recipient = enveloped.getRecipientInfos().getRecipients().iterator().next();
+        assertInstanceOf(KeyTransRecipientInformation.class, recipient);
+        byte[] decrypted = recipient.getContent(
+                new JceKeyTransEnvelopedRecipient(rsaKeyPair.getPrivate())
+                        .setProvider(BouncyCastleProvider.PROVIDER_NAME));
+        assertFalse(new CMSSignedData(decrypted).getCertificates().getMatches(null).isEmpty());
     }
 
     private static ScepResponse successResponseFor(X509Certificate recipient) throws Exception {
