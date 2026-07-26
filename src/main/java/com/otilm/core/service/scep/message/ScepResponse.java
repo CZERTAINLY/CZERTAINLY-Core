@@ -205,8 +205,7 @@ public class ScepResponse {
         // so fall back to the RFC 8894 §3.2.2 password recipient keyed with the shared challenge
         // password — the response-direction mirror of ScepRequest.decryptData.
         if ("RSA".equalsIgnoreCase(recipient.getPublicKey().getAlgorithm())) {
-            logger.debug("Enveloping SCEP response via key transport to recipient subject DN '{}' serial {}",
-                    recipient.getSubjectX500Principal().getName(), recipient.getSerialNumber().toString(16));
+            logger.debug("Enveloping SCEP response to an RSA recipient via key transport");
             return new JceKeyTransRecipientInfoGenerator(recipient).setProvider(BouncyCastleProvider.PROVIDER_NAME);
         }
         if (challengePassword == null || challengePassword.length == 0) {

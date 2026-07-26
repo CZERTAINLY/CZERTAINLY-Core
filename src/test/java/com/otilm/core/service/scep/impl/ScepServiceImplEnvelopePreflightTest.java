@@ -4,6 +4,7 @@ import com.otilm.api.exception.ScepException;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.service.scep.message.ScepRequest;
+import com.otilm.core.util.CertificateUtil;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
@@ -12,7 +13,6 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigInteger;
@@ -20,12 +20,13 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Security;
 import java.security.cert.X509Certificate;
-import java.util.Base64;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the pre-issuance envelope check {@link ScepServiceImpl#verifyResponseEnvelopable}.
@@ -49,45 +50,45 @@ class ScepServiceImplEnvelopePreflightTest {
     @BeforeEach
     void setUp() {
         service = new ScepServiceImpl();
-        profile = Mockito.mock(ScepProfile.class);
+        profile = mock(ScepProfile.class);
         ReflectionTestUtils.setField(service, "scepProfile", profile);
     }
 
     @Test
-    void ecKeyWithoutChallengePassword_rejectsWithBadAlg() {
-        Mockito.when(profile.getChallengePassword()).thenReturn(null);
-        ScepRequest request = requestWithKey(Base64.getDecoder().decode(EC_CERT_B64));
+    void ecKeyWithoutChallengePassword_rejectsWithBadAlg() throws Exception {
+        when(profile.getChallengePassword()).thenReturn(null);
+        ScepRequest request = requestSignedBy(CertificateUtil.parseCertificate(EC_CERT_B64));
 
         ScepException thrown = assertThrows(ScepException.class, () -> service.verifyResponseEnvelopable(request));
         assertEquals(FailInfo.BAD_ALG, thrown.getFailInfo());
     }
 
     @Test
-    void ecKeyWithChallengePassword_passes() {
-        Mockito.when(profile.getChallengePassword()).thenReturn("mysecretpassword");
-        ScepRequest request = requestWithKey(Base64.getDecoder().decode(EC_CERT_B64));
+    void ecKeyWithChallengePassword_passes() throws Exception {
+        when(profile.getChallengePassword()).thenReturn("mysecretpassword");
+        ScepRequest request = requestSignedBy(CertificateUtil.parseCertificate(EC_CERT_B64));
 
         assertDoesNotThrow(() -> service.verifyResponseEnvelopable(request));
     }
 
     @Test
     void rsaKeyWithoutChallengePassword_passes() throws Exception {
-        Mockito.when(profile.getChallengePassword()).thenReturn(null);
-        ScepRequest request = requestWithKey(selfSignedRsaCertificate().getEncoded());
+        when(profile.getChallengePassword()).thenReturn(null);
+        ScepRequest request = requestSignedBy(selfSignedRsaCertificate());
 
         assertDoesNotThrow(() -> service.verifyResponseEnvelopable(request));
     }
 
     @Test
-    void noRequesterKey_passes() {
-        ScepRequest request = requestWithKey(null);
+    void noSignerCertificate_passes() {
+        ScepRequest request = requestSignedBy(null);
 
         assertDoesNotThrow(() -> service.verifyResponseEnvelopable(request));
     }
 
-    private static ScepRequest requestWithKey(byte[] requestKeyInfo) {
-        ScepRequest request = Mockito.mock(ScepRequest.class);
-        Mockito.when(request.getRequestKeyInfo()).thenReturn(requestKeyInfo);
+    private static ScepRequest requestSignedBy(X509Certificate signerCertificate) {
+        ScepRequest request = mock(ScepRequest.class);
+        when(request.getSignerCertificate()).thenReturn(signerCertificate);
         return request;
     }
 

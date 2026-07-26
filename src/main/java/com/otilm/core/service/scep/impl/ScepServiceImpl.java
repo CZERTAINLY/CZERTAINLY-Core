@@ -715,20 +715,29 @@ public class ScepServiceImpl implements ScepExternalService {
      * committing an unretrievable certificate.
      */
     void verifyResponseEnvelopable(ScepRequest scepRequest) throws ScepException {
-        byte[] recipientKeyInfo = scepRequest.getRequestKeyInfo();
-        if (recipientKeyInfo == null) {
+        X509Certificate recipient = scepRequest.getSignerCertificate();
+        if (recipient == null) {
             return;
         }
-        String keyAlgorithm;
-        try {
-            keyAlgorithm = CertificateUtil.getX509Certificate(recipientKeyInfo).getPublicKey().getAlgorithm();
-        } catch (CertificateException e) {
-            throw new ScepException("Unable to read the requester key from the SCEP request", e, FailInfo.BAD_REQUEST);
-        }
-        boolean keyTransportCapable = "RSA".equalsIgnoreCase(keyAlgorithm);
+        boolean keyTransportCapable = "RSA".equalsIgnoreCase(recipient.getPublicKey().getAlgorithm());
         boolean challengePasswordConfigured = scepProfile.getChallengePassword() != null && !scepProfile.getChallengePassword().isEmpty();
         if (!keyTransportCapable && !challengePasswordConfigured) {
             throw new ScepException("A challenge password must be configured on the SCEP profile to issue certificates to non-RSA client keys", FailInfo.BAD_ALG);
+        }
+    }
+
+    private byte[] resolveRecipientKeyInfo(ScepRequest scepRequest) {
+        // Envelope the response to the resolved signer certificate (the entity that holds the private
+        // key to decrypt it), not the first element of the request's certificate SET, which is not
+        // guaranteed to be the signer.
+        X509Certificate signerCertificate = scepRequest.getSignerCertificate();
+        if (signerCertificate == null) {
+            return scepRequest.getRequestKeyInfo();
+        }
+        try {
+            return signerCertificate.getEncoded();
+        } catch (CertificateException e) {
+            return scepRequest.getRequestKeyInfo();
         }
     }
 
@@ -741,7 +750,7 @@ public class ScepServiceImpl implements ScepExternalService {
         scepResponse.setRecipientNonce(scepRequest.getSenderNonce());
         scepResponse.setTransactionId(scepRequest.getTransactionId());
         scepResponse.setCaCertificate(recipient);
-        scepResponse.setRecipientKeyInfo(scepRequest.getRequestKeyInfo());
+        scepResponse.setRecipientKeyInfo(resolveRecipientKeyInfo(scepRequest));
         scepResponse.setDigestAlgorithmOid(scepRequest.getDigestAlgorithmOid());
         scepResponse.setSenderNonce(RandomUtil.generateRandomNonceBase64(16));
         scepResponse.setContentEncryptionAlgorithm(scepRequest.getContentEncryptionAlgorithm());
