@@ -19,8 +19,10 @@ import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.TokenProfile_;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.TokenProfileRepository;
+import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
 import com.otilm.core.security.authz.ExternalAuthorization;
@@ -37,6 +39,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,6 +64,18 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     // --------------------------------------------------------------------------------
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    private CryptographicKeyRepository cryptographicKeyRepository;
+    private SigningProfileVersionRepository signingProfileVersionRepository;
+
+    @Autowired
+    public void setSigningProfileVersionRepository(SigningProfileVersionRepository signingProfileVersionRepository) {
+        this.signingProfileVersionRepository = signingProfileVersionRepository;
+    }
+
+    @Autowired
+    public void setCryptographicKeyRepository(CryptographicKeyRepository cryptographicKeyRepository) {
+        this.cryptographicKeyRepository = cryptographicKeyRepository;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -341,8 +356,28 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() == null) {
             throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use other API"));
         }
+        validateNoDependentObjects(tokenProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
         tokenProfileRepository.delete(tokenProfile);
+    }
+
+    private void validateNoDependentObjects(TokenProfile tokenProfile) {
+        List<String> blockers = new ArrayList<>();
+
+        long keyCount = cryptographicKeyRepository.countByTokenProfileUuid(tokenProfile.getUuid());
+        if (keyCount > 0) {
+            blockers.add(keyCount + " dependent Keys");
+        }
+
+        long signingProfileCount = signingProfileVersionRepository.countDistinctSigningProfilesByTokenProfileUuid(tokenProfile.getUuid());
+        if (signingProfileCount > 0) {
+            blockers.add(signingProfileCount + " dependent Signing Profiles");
+        }
+
+        if (!blockers.isEmpty()) {
+            throw new ValidationException(ValidationError.create(
+                    "Cannot delete Token Profile {}: {}", tokenProfile.getName(), String.join(", ", blockers)));
+        }
     }
 
     private void disableProfileInternal(SecuredUUID uuid) throws NotFoundException {

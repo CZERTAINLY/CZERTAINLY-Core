@@ -8,12 +8,20 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDto;
+import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
+import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.entity.signing.SigningProfile;
+import com.otilm.core.dao.entity.signing.SigningProfileVersion;
 import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.TokenProfileRepository;
+import com.otilm.core.dao.repository.signing.SigningProfileRepository;
+import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TokenProfileExternalService;
@@ -32,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @SpringBootTest
 @Transactional
@@ -50,6 +59,12 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
+    @Autowired
+    private CryptographicKeyRepository cryptographicKeyRepository;
+    @Autowired
+    private SigningProfileRepository signingProfileRepository;
+    @Autowired
+    private SigningProfileVersionRepository signingProfileVersionRepository;
 
     private TokenProfile tokenProfile;
     private TokenInstanceReference tokenInstanceReference;
@@ -217,6 +232,47 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testRemoveTokenProfile_withDependentKeys() {
+        createKey("testKey1");
+        createKey("testKey2");
+
+        ValidationException e = Assertions.assertThrows(
+                ValidationException.class,
+                () -> tokenProfileService.deleteTokenProfile(tokenProfile.getSecuredUuid())
+        );
+
+        String errors = joinErrorDescriptions(e);
+        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 2 dependent Keys"), errors);
+        Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfile.getSecuredUuid()).isPresent());
+    }
+
+    @Test
+    void testRemoveTokenProfile_withDependentSigningProfile() {
+        SigningProfile signingProfile = new SigningProfile();
+        signingProfile.setName("testSigningProfile");
+        signingProfile.setSigningScheme(SigningScheme.DELEGATED);
+        signingProfile.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
+        signingProfile.setLatestVersion(1);
+        signingProfile = signingProfileRepository.save(signingProfile);
+
+        SigningProfileVersion version = new SigningProfileVersion();
+        version.setSigningProfile(signingProfile);
+        version.setVersion(1);
+        version.setSigningScheme(SigningScheme.DELEGATED);
+        version.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
+        version.setTokenProfile(tokenProfile);
+        signingProfileVersionRepository.save(version);
+
+        ValidationException e = Assertions.assertThrows(
+                ValidationException.class,
+                () -> tokenProfileService.deleteTokenProfile(tokenProfile.getSecuredUuid())
+        );
+
+        String errors = joinErrorDescriptions(e);
+        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 1 dependent Signing Profiles"), errors);
+    }
+
+    @Test
     void testRemoveTokenProfile_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
@@ -311,5 +367,19 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         nameAndUuidDto = tokenProfileInternalService.getResourceObjectExternal(tokenProfile.getSecuredUuid());
         Assertions.assertEquals(tokenProfile.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(tokenProfile.getName(), nameAndUuidDto.getName());
+    }
+
+    private CryptographicKey createKey(String name) {
+        CryptographicKey key = new CryptographicKey();
+        key.setName(name);
+        key.setTokenProfile(tokenProfile);
+        key.setTokenInstanceReference(tokenInstanceReference);
+        return cryptographicKeyRepository.save(key);
+    }
+
+    private static String joinErrorDescriptions(ValidationException e) {
+        return e.getErrors().stream()
+                .map(ValidationError::getErrorDescription)
+                .collect(Collectors.joining("; "));
     }
 }

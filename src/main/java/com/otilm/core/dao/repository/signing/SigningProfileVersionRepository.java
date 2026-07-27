@@ -26,4 +26,7 @@ public interface SigningProfileVersionRepository extends JpaRepository<SigningPr
     @Modifying
     @Query("DELETE FROM SigningProfileVersion v WHERE v.signingProfileUuid = :signingProfileUuid")
     void deleteAllBySigningProfileUuid(UUID signingProfileUuid);
+
+    @Query("SELECT COUNT(DISTINCT v.signingProfileUuid) FROM SigningProfileVersion v WHERE v.tokenProfileUuid = :tokenProfileUuid")
+    long countDistinctSigningProfilesByTokenProfileUuid(UUID tokenProfileUuid);
 }
