@@ -66,13 +66,13 @@ public interface CustomOidEntryExternalService {
      * @param category optional category filter; when {@code null}, all system OIDs are returned
      * @return list of system OID entries
      */
+    List<CustomOidEntryDetailResponseDto> listSystemOidEntries(OidCategory category);
+
     /**
      * OIDs held by a custom entry that a built-in system OID now shares. The custom entry wins, so the
      * built-in defaults do not apply; deleting it falls back to them. Empty when there is no conflict.
      */
     Set<String> getShadowedCustomOidEntries();
-
-    List<CustomOidEntryDetailResponseDto> listSystemOidEntries(OidCategory category);
 
     /**
      * Returns a list of properties for filtering custom OID entries

@@ -1,7 +1,6 @@
 package com.otilm.core.oid;
 
 import com.otilm.api.model.core.oid.OidCategory;
-import com.otilm.api.model.core.oid.SystemOid;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -200,7 +199,7 @@ public class OidHandler {
     private static void publishRdnCodeConflicts(Map<String, Set<String>> conflicts, Map<String, String> resolved) {
         // Deep-immutable, and case-insensitive like every other code lookup here. Both matter because
         // this is process-wide static state handed out through a public accessor: a mutable claimant set
-        // would let a caller corrupt it,; TreeMap(Map) would drop the comparator.
+        // would let a caller corrupt it, and TreeMap(Map) would drop the comparator.
         Map<String, Set<String>> snapshot = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         conflicts.forEach((token, claimants) ->
                 snapshot.put(token, Collections.unmodifiableSortedSet(new TreeSet<>(claimants))));

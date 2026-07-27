@@ -362,11 +362,6 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         return searchFieldDataByGroupDtos;
     }
 
-    /**
-     * OIDs held by a {@code custom_oid_entry} row that a built-in system OID now shadows, so the row's
-     * configured properties no longer apply. Exposed so the condition can be surfaced to an operator;
-     * the resolution is to delete the row.
-     */
     @Override
     public Set<String> getShadowedCustomOidEntries() {
         return shadowedCustomOidEntries;
