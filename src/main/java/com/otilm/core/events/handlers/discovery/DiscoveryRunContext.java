@@ -1,6 +1,8 @@
 package com.otilm.core.events.handlers.discovery;
 
+import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
+import com.otilm.core.events.EventContext;
 
 import java.util.List;
 import java.util.UUID;
@@ -8,9 +10,10 @@ import java.util.UUID;
 /**
  * Values that are invariant for a whole discovery run.
  *
- * <p>Deliberately carries identifiers and immutable values rather than the {@code DiscoveryHistory} entity:
- * sharing one detached instance across worker threads, and saving it from each, is what corrupted progress
- * reporting and rolled back committed certificate work.
+ * <p>Deliberately carries the discovery's identifiers and immutable fields rather than the
+ * {@code DiscoveryHistory} entity: sharing one detached instance across worker threads, and saving it from each,
+ * is what corrupted progress reporting and rolled back committed certificate work. {@code eventContext} is a
+ * per-run holder for the trigger evaluator and event data, not a persistent entity, so sharing it is safe.
  */
 public record DiscoveryRunContext(UUID discoveryUuid,
                                   String discoveryName,
@@ -22,5 +25,6 @@ public record DiscoveryRunContext(UUID discoveryUuid,
                                   List<TriggerAssociation> triggers,
                                   UUID discoveryEventHistoryUuid,
                                   UUID platformEventHistoryUuid,
-                                  int totalGroups) {
+                                  int totalGroups,
+                                  EventContext<Certificate> eventContext) {
 }

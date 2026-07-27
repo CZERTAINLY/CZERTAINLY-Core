@@ -1,6 +1,7 @@
 package com.otilm.core.events.handlers;
 
 import com.otilm.api.exception.EventException;
+import com.otilm.api.exception.RuleException;
 import com.otilm.api.model.common.events.data.CertificateDiscoveredEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
@@ -21,7 +22,11 @@ import com.otilm.core.events.EventContext;
 import com.otilm.core.events.EventContextTriggers;
 import com.otilm.core.events.EventHandler;
 import com.otilm.core.events.data.DiscoveryResult;
+import com.otilm.core.events.handlers.discovery.*;
 import com.otilm.core.events.transaction.TransactionHandler;
+import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.security.authz.AuthorizationEnforcer;
+import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.ValidationMessage;
@@ -36,7 +41,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -50,11 +54,11 @@ import java.security.spec.InvalidKeySpecException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 @Transactional
 @Component(ResourceEvent.Codes.CERTIFICATE_DISCOVERED)
@@ -72,6 +76,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private CertificateInternalService certificateService;
     private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+    private DiscoveryWriter discoveryWriter;
+    private AuthorizationEnforcer authorizationEnforcer;
 
     @Autowired
     protected CertificateDiscoveredEventHandler(CertificateRepository repository, CertificateTriggerEvaluator ruleEvaluator) {
@@ -106,6 +112,16 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Autowired
     public void setDiscoveryCertificateRepository(DiscoveryCertificateRepository discoveryCertificateRepository) {
         this.discoveryCertificateRepository = discoveryCertificateRepository;
+    }
+
+    @Autowired
+    public void setDiscoveryWriter(DiscoveryWriter discoveryWriter) {
+        this.discoveryWriter = discoveryWriter;
+    }
+
+    @Autowired
+    public void setAuthorizationEnforcer(AuthorizationEnforcer authorizationEnforcer) {
+        this.authorizationEnforcer = authorizationEnforcer;
     }
 
     @Override
@@ -182,98 +198,199 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         EventHistory eventHistoryDiscovery = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid());
         EventHistory eventHistoryPlatform = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, null, null);
 
-        // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
-        AtomicInteger index = new AtomicInteger(0);
-        ConcurrentMap<PublicKey, List<UUID>> keyToCertificates = new ConcurrentHashMap<>();
-        ConcurrentMap<PublicKey, List<UUID>> altKeyToCertificates = new ConcurrentHashMap<>();
+        // One resource-level check per run rather than one per certificate: enforcement is a blocking OPA request
+        // and must not be held across a transaction.
+        authorizationEnforcer.enforce(Resource.CERTIFICATE, ResourceAction.CREATE);
+
+        // Group by content so two threads can no longer hold the same certificate and race on its insert.
+        List<DiscoveryContentGroup> groups = discoveredCertificates.stream()
+                .collect(Collectors.groupingBy(DiscoveryCertificate::getCertificateContentId,
+                        LinkedHashMap::new, Collectors.toList()))
+                .entrySet().stream()
+                .map(entry -> new DiscoveryContentGroup(entry.getKey(), entry.getValue()))
+                .toList();
+
+        DiscoveryRunContext runContext = new DiscoveryRunContext(discovery.getUuid(), discovery.getName(),
+                discovery.getConnectorUuid(), discovery.getConnectorName(), discovery.getKind(),
+                context.getUserUuid(), mergedIgnoreTriggers, mergedTriggers,
+                eventHistoryDiscovery.getUuid(), eventHistoryPlatform.getUuid(), groups.size(), context);
+
+        DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
+        Map<PublicKey, List<UUID>> keyToCertificates = new LinkedHashMap<>();
+        Map<PublicKey, List<UUID>> altKeyToCertificates = new LinkedHashMap<>();
+
         try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
-            SecurityContext securityContext = SecurityContextHolder.getContext();
-            DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
-            CompletableFuture<Stream<Object>> future = discoveredCertificates.stream().collect(
-                    ParallelCollectors.parallel(
-                            discoveryCertificate -> {
-                                int certIndex;
-                                try {
-                                    certIndex = index.incrementAndGet();
-                                    processCertSemaphore.acquire();
-                                    transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context,
-                                            mergedIgnoreTriggers,
-                                            mergedTriggers,
-                                            certIndex,
-                                            discoveredCertificates.size(),
-                                            discovery,
-                                            discoveryCertificate,
-                                            keyToCertificates,
-                                            altKeyToCertificates,
-                                            eventHistoryDiscovery.getUuid(),
-                                            eventHistoryPlatform.getUuid()));
-                                } catch (InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                    logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
-                                } catch (Exception e) {
-                                    logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
-                                } finally {
-                                    logger.trace("Thread {} processing cert {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), index.get());
-                                    processCertSemaphore.release();
-                                }
-                                return null; // Return null to satisfy the return type
-                            },
-                            executor,
-                            MAXIMUM_PARALLELISM
-                    )
-            );
+            DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(
+                    virtualThreadExecutor, SecurityContextHolder.getContext());
 
-            // Wait for all tasks to complete
-            future.join();
-        }
+            // parallelToStream, not parallel: results arrive on this thread in completion order, which is what
+            // lets the steps below own the key maps and the progress counter without synchronisation.
+            List<GroupImportResult> results = groups.stream()
+                    .collect(ParallelCollectors.parallelToStream(
+                            group -> importGroupSafely(runContext, group), executor, MAXIMUM_PARALLELISM))
+                    .toList();
 
-        // Upload certificate keys out of parallel processing to avoid collisions. Isolate each entry: one
-        // failing key upload must not abort the remaining uploads or the FINISHED event-history bookkeeping below.
-        // A skipped or failed association still has to surface in the final status (see below), otherwise a
-        // discovery that lost certificates would report COMPLETED with no user-visible signal.
-        boolean keyAssociationIncomplete = false;
-        for (Map.Entry<PublicKey, List<UUID>> entry : keyToCertificates.entrySet()) {
-            try {
-                keyAssociationIncomplete |= !certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
-            } catch (Exception e) {
-                keyAssociationIncomplete = true;
-                logger.error("Could not create public key for certificates with UUIDs {}: {}", entry.getValue(), e.getMessage(), e);
+            int completed = 0;
+            for (GroupImportResult result : results) {
+                accumulator.accept(result);
+                writeBookkeeping(accumulator, result);
+                mergeKeyEntries(accumulator, result, keyToCertificates, altKeyToCertificates);
+                completed++;
+                if (completed % MAXIMUM_PARALLELISM == 0) {
+                    reportProgress(runContext, completed);
+                }
             }
         }
 
-        for (Map.Entry<PublicKey, List<UUID>> entry : altKeyToCertificates.entrySet()) {
-            try {
-                keyAssociationIncomplete |= !certificateHandler.uploadDiscoveredCertificateAltKey(entry.getKey(), entry.getValue());
-            } catch (Exception e) {
-                keyAssociationIncomplete = true;
-                logger.error("Could not create alternative public key for certificates with UUIDs {}: {}", entry.getValue(), e.getMessage(), e);
-            }
-        }
+        associateKeys(accumulator, keyToCertificates, false);
+        associateKeys(accumulator, altKeyToCertificates, true);
 
         saveEventHistory(eventHistoryDiscovery, EventStatus.FINISHED);
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
 
-        long erroredCertificates = discoveryCertificateRepository.countByDiscoveryAndProcessedErrorNotNull(discovery);
-        validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
-        DiscoveryResult result = decideFinalStatus(erroredCertificates, keyAssociationIncomplete, originalMessage);
+        validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null,
+                runContext.discoveryUuid(), runContext.discoveryName(), null, null));
+        DiscoveryResult result = decideFinalStatus(accumulator.counts(), originalMessage);
         emitDiscoveryFinished(discovery, context, result.getDiscoveryStatus(), result.getMessage());
     }
 
     /**
-     * A clean run reports PROCESSING, which the finish handler rolls up to COMPLETED. When certificates recorded a
-     * processing error, or a key association was skipped/failed, report WARNING instead so the partial failure stays
-     * visible to the user rather than surfacing as a clean COMPLETED.
+     * A clean run reports PROCESSING, which the finish handler rolls up to COMPLETED. Any gap reports WARNING and
+     * contributes its own sentence, so two simultaneous partial failures are both visible rather than the first
+     * hiding the rest.
      */
-    static DiscoveryResult decideFinalStatus(long erroredCertificates, boolean keyAssociationIncomplete, String originalMessage) {
-        if (erroredCertificates > 0) {
-            return new DiscoveryResult(DiscoveryStatus.WARNING,
-                    "%d certificate(s) could not be processed during discovery.".formatted(erroredCertificates));
+    static DiscoveryResult decideFinalStatus(DiscoveryRunCounts counts, String originalMessage) {
+        if (counts.allClear()) {
+            return new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage);
         }
-        if (keyAssociationIncomplete) {
-            return new DiscoveryResult(DiscoveryStatus.WARNING,
-                    "Some discovered certificate keys could not be associated during discovery.");
+        List<String> sentences = new ArrayList<>();
+        if (counts.inventoryGaps() > 0) {
+            sentences.add("%d certificate(s) could not be imported into the inventory."
+                    .formatted(counts.inventoryGaps()));
         }
-        return new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage);
+        if (counts.keyGaps() > 0) {
+            sentences.add("%d certificate(s) were imported without a public key association."
+                    .formatted(counts.keyGaps()));
+        }
+        if (counts.notAttempted() > 0) {
+            sentences.add("%d certificate(s) could not be processed to a result."
+                    .formatted(counts.notAttempted()));
+        }
+        if (counts.bookkeepingFailures() > 0) {
+            sentences.add("Some per-certificate detail could not be recorded.");
+        }
+        sentences.add("See the discovery certificate list for per-certificate detail.");
+        return new DiscoveryResult(DiscoveryStatus.WARNING, String.join(" ", sentences));
+    }
+
+    /**
+     * Never throws and never returns null. A result that does not arrive is indistinguishable from a group that was
+     * never attempted, and consuming the stream would then either dereference null or silently drop the rollback
+     * outcomes this design exists to record.
+     */
+    private GroupImportResult importGroupSafely(DiscoveryRunContext context, DiscoveryContentGroup group) {
+        List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
+        try {
+            processCertSemaphore.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new GroupImportResult(group.certificateContentId(),
+                    resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
+                            "the import was interrupted before it began"), List.of(), false);
+        }
+        try {
+            return transactionHandler.runInNewTransaction(() -> importContentGroup(context, group));
+        } catch (Exception e) {
+            logger.error("Unable to import discovered certificate content {}: {}",
+                    group.certificateContentId(), e.getMessage(), e);
+            return new GroupImportResult(group.certificateContentId(),
+                    resultsFor(rowUuids, DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK,
+                            "Import rolled back: " + DiscoveryFailureReason.shape(e)), List.of(), false);
+        } finally {
+            processCertSemaphore.release();
+        }
+    }
+
+    /**
+     * Runs in its own transaction, per {@code DiscoveryWriter}'s contract: these writes record the outcome of the
+     * import unit, so joining a transaction that is rolling back would discard them.
+     */
+    private void writeBookkeeping(DiscoveryRunAccumulator accumulator, GroupImportResult result) {
+        for (DiscoveryCertificateResult row : result.rowResults()) {
+            // Leaving processed = false is the truthful record for a row the platform never reached.
+            if (row.outcome() == DiscoveryCertificateOutcome.NOT_ATTEMPTED) {
+                continue;
+            }
+            try {
+                transactionHandler.runInNewTransaction(() ->
+                        discoveryWriter.markProcessed(row.discoveryCertificateUuid(), row.detail()));
+            } catch (Exception e) {
+                logger.error("Could not record the outcome of discovery certificate {}: {}",
+                        row.discoveryCertificateUuid(), e.getMessage(), e);
+                accumulator.recordBookkeepingFailure();
+            }
+        }
+    }
+
+    private static void mergeKeyEntries(DiscoveryRunAccumulator accumulator, GroupImportResult result,
+                                        Map<PublicKey, List<UUID>> keyToCertificates,
+                                        Map<PublicKey, List<UUID>> altKeyToCertificates) {
+        if (!result.committed()) {
+            return;
+        }
+        for (KeyQueueEntry entry : result.keyEntries()) {
+            if (entry.isUnparseable()) {
+                accumulator.failKeyAssociation(entry.certificateUuid(), "the %s key could not be decoded: %s"
+                        .formatted(entry.alternative() ? "alternative" : "primary", entry.unparseableReason()));
+                continue;
+            }
+            Map<PublicKey, List<UUID>> target = entry.alternative() ? altKeyToCertificates : keyToCertificates;
+            target.computeIfAbsent(entry.publicKey(), key -> new ArrayList<>()).add(entry.certificateUuid());
+        }
+    }
+
+    /**
+     * Per-entry isolation is deliberate: one failing key must not abort the remaining uploads or the FINISHED
+     * event-history bookkeeping.
+     */
+    private void associateKeys(DiscoveryRunAccumulator accumulator,
+                               Map<PublicKey, List<UUID>> keysToCertificates, boolean alternative) {
+        String label = alternative ? "alternative" : "primary";
+        for (Map.Entry<PublicKey, List<UUID>> entry : keysToCertificates.entrySet()) {
+            List<UUID> certificateUuids = entry.getValue();
+            try {
+                boolean associated = alternative
+                        ? certificateHandler.uploadDiscoveredCertificateAltKey(entry.getKey(), certificateUuids)
+                        : certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), certificateUuids);
+                if (!associated) {
+                    failAll(accumulator, certificateUuids,
+                            "the %s key could not be associated with a committed certificate".formatted(label));
+                }
+            } catch (Exception e) {
+                logger.error("Could not associate the {} public key of certificates {}: {}",
+                        label, certificateUuids, e.getMessage(), e);
+                failAll(accumulator, certificateUuids,
+                        "the %s key upload failed: %s".formatted(label, DiscoveryFailureReason.shape(e)));
+            }
+        }
+    }
+
+    private static void failAll(DiscoveryRunAccumulator accumulator, List<UUID> certificateUuids, String reason) {
+        certificateUuids.forEach(certificateUuid -> accumulator.failKeyAssociation(certificateUuid, reason));
+    }
+
+    private void reportProgress(DiscoveryRunContext context, int completedGroups) {
+        int percentage = (int) ((completedGroups / (double) context.totalGroups()) * 100);
+        discoveryWriter.updateProgressMessage(context.discoveryUuid(), String.format(
+                "Processed %d %% of newly discovered certificates (%d / %d)",
+                percentage, completedGroups, context.totalGroups()));
+    }
+
+    private static List<DiscoveryCertificateResult> resultsFor(List<UUID> rowUuids,
+                                                               DiscoveryCertificateOutcome outcome, String detail) {
+        return rowUuids.stream()
+                .map(rowUuid -> new DiscoveryCertificateResult(rowUuid, outcome, detail))
+                .toList();
     }
 
     private void emitDiscoveryFinished(DiscoveryHistory discovery, EventContext<Certificate> context, DiscoveryStatus status, String message) {
@@ -282,98 +399,106 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 new DiscoveryResult(status, message)));
     }
 
-    private void processDiscoveredCertificate(EventContext<Certificate> eventContext, List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap,
-                                              ConcurrentMap<PublicKey, List<UUID>> altKeysToCertificatesMap, UUID discoveryEventHistoryUuid, UUID platformEventHistoryUuid) {
-        // Resolve EventHistory entities within this transaction so Hibernate tracks them correctly
-        EventHistory discoveryEventHistory = eventHistoryRepository.getReferenceById(discoveryEventHistoryUuid);
-        EventHistory platformEventHistory = eventHistoryRepository.getReferenceById(platformEventHistoryUuid);
-
-        // Get X509 from discovered certificate and create certificate entity, do not save in database yet
-        Certificate certificate;
-        X509Certificate x509Cert;
+    /**
+     * Imports the one certificate shared by a content group, applying every row's metadata.
+     *
+     * <p>Returns its outcomes and pending key associations rather than writing to shared state, so a transaction
+     * that rolls back cannot leave a queued key behind pointing at a certificate that no longer exists.
+     */
+    GroupImportResult importContentGroup(DiscoveryRunContext context, DiscoveryContentGroup group) {
         try {
-            x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
-            certificate = certificateService.createCertificateEntity(x509Cert);
-        } catch (Exception e) {
-            logger.error("Unable to create certificate from discovery certificate with UUID {}: {}", discoveryCertificate.getUuid(), e.getMessage());
-            discoveryCertificate.setProcessed(true);
-            discoveryCertificate.setProcessedError("Unable to create certificate entity: " + e.getMessage());
-            discoveryCertificateRepository.save(discoveryCertificate);
-            return;
-        }
-
-        try {
-            List<TriggerHistory> triggerHistories = new ArrayList<>();
-
-            boolean isIgnored = false;
-            for (TriggerAssociation triggerAssociation : mergedIgnoreTriggers) {
-                Trigger trigger = triggerAssociation.getTrigger();
-                EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
-                TriggerHistory triggerHistory = eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation, certificate, discoveryCertificate.getUuid(), null, eventHistory);
-                triggerHistories.add(triggerHistory);
-                if (triggerHistory.isActionsPerformed()) {
-                    isIgnored = true;
-                    break;
-                }
-            }
-
-            // If some trigger ignored this certificate, certificate is not saved and continue with next one
-            if (!isIgnored) { // certificate was not ignored
-                // Save certificate to database
-                certificateService.updateCertificateEntity(certificate);
-                // update objectUuid of not ignored certs
-                for (TriggerHistory ignoreTriggerHistory : triggerHistories) {
-                    ignoreTriggerHistory.setObjectUuid(certificate.getUuid());
-                }
-
-                // Evaluate rest of the triggers in given order
-                CertificateDiscoveredEventData eventData = (CertificateDiscoveredEventData) getEventData(certificate, eventContext.getData());
-                eventData.setDiscoveryUuid(discovery.getUuid());
-                eventData.setDiscoveryName(discovery.getName());
-                eventData.setDiscoveryUserUuid(eventContext.getUserUuid());
-                eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid());
-                eventData.setDiscoveryConnectorName(discovery.getConnectorName());
-
-                certificateHandler.updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());
-
-                for (TriggerAssociation triggerAssociation : mergedTriggers) {
-                    // Create trigger history entry
-                    Trigger trigger = triggerAssociation.getTrigger();
-                    EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
-                    eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation, certificate, discoveryCertificate.getUuid(), eventData, eventHistory);
-                }
-
-                keysToCertificatesMap.computeIfAbsent(x509Cert.getPublicKey(), k -> new ArrayList<>()).add(certificate.getUuid());
-                byte[] altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
-                if (altPublicKey != null) {
-                    addEntryToAltPublicKeyMap(altKeysToCertificatesMap, altPublicKey, certificate);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", certificate.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
-        }
-
-        discoveryCertificate.setProcessed(true);
-        discoveryCertificateRepository.save(discoveryCertificate);
-
-        // report progress
-        if (certIndex % MAXIMUM_PARALLELISM == 0) {
-            Long currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discovery, true, true);
-            discovery.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) totalCount) * 100), currentCount, totalCount));
-            discoveryRepository.save(discovery);
-        }
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("Finalize processing discovered certificate: {}", certificate.toStringShort());
+            return importContentGroupInternal(context, group);
+        } catch (RuleException e) {
+            // Trigger evaluation failed after the certificate committed. The import stands; trigger history
+            // records the trigger-side failure, so this is not an inventory gap.
+            logger.error("Trigger evaluation failed for discovered content {}: {}",
+                    group.certificateContentId(), e.getMessage(), e);
+            return new GroupImportResult(group.certificateContentId(),
+                    resultsFor(group.rows().stream().map(DiscoveryCertificate::getUuid).toList(),
+                            DiscoveryCertificateOutcome.IMPORTED, null), List.of(), true);
         }
     }
 
-    private static void addEntryToAltPublicKeyMap(ConcurrentMap<PublicKey, List<UUID>> altKeysToCertificatesMap, byte[] altPublicKey, Certificate certificate) {
+    private GroupImportResult importContentGroupInternal(DiscoveryRunContext context, DiscoveryContentGroup group)
+            throws RuleException {
+        List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
+
+        X509Certificate x509Cert;
+        DiscoveredCertificateImport imported;
         try {
-            altKeysToCertificatesMap.computeIfAbsent(CertificateUtil.getAltPublicKey(altPublicKey), k -> new ArrayList<>()).add(certificate.getUuid());
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-            logger.error("Could not parse alternative public key of certificate with UUID {}: {}", certificate.getUuid(), e.getMessage());
+            x509Cert = CertificateUtil.parseCertificate(group.rows().getFirst().getCertificateContent().getContent());
+            imported = certificateService.createDiscoveredCertificateAtomic(x509Cert);
+        } catch (Exception e) {
+            logger.error("Unable to create certificate for discovered content {}: {}",
+                    group.certificateContentId(), e.getMessage(), e);
+            return new GroupImportResult(group.certificateContentId(),
+                    resultsFor(rowUuids, DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED,
+                            "Unable to create certificate entity: " + DiscoveryFailureReason.shape(e)),
+                    List.of(), false);
         }
+
+        // Always the surviving row: on a lost insert race it carries the winner's UUID, so trigger history and
+        // key entries below must be derived from it rather than from the entity this caller built.
+        Certificate certificate = imported.certificate();
+
+        EventHistory discoveryEventHistory = eventHistoryRepository.getReferenceById(context.discoveryEventHistoryUuid());
+        EventHistory platformEventHistory = eventHistoryRepository.getReferenceById(context.platformEventHistoryUuid());
+        UUID referenceRowUuid = rowUuids.getFirst();
+
+        List<TriggerHistory> ignoreHistories = new ArrayList<>();
+        for (TriggerAssociation triggerAssociation : context.ignoreTriggers()) {
+            EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
+            TriggerHistory triggerHistory = context.eventContext().getTriggerEvaluator().evaluateTrigger(
+                    triggerAssociation.getTrigger(), triggerAssociation, certificate, referenceRowUuid, null, eventHistory);
+            ignoreHistories.add(triggerHistory);
+            if (triggerHistory.isActionsPerformed()) {
+                return new GroupImportResult(group.certificateContentId(),
+                        resultsFor(rowUuids, DiscoveryCertificateOutcome.IGNORED, null), List.of(), true);
+            }
+        }
+        ignoreHistories.forEach(history -> history.setObjectUuid(certificate.getUuid()));
+
+        CertificateDiscoveredEventData eventData = (CertificateDiscoveredEventData) getEventData(certificate, context.eventContext().getData());
+        eventData.setDiscoveryUuid(context.discoveryUuid());
+        eventData.setDiscoveryName(context.discoveryName());
+        eventData.setDiscoveryUserUuid(context.userUuid());
+        eventData.setDiscoveryConnectorUuid(context.connectorUuid());
+        eventData.setDiscoveryConnectorName(context.connectorName());
+
+        // Every row carries its own per-host metadata; grouping deduplicates the certificate, not the metadata.
+        group.rows().forEach(row -> certificateHandler.updateDiscoveredCertificate(DiscoverySource.of(context), certificate, row.getMeta()));
+
+        for (TriggerAssociation triggerAssociation : context.triggers()) {
+            EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
+            context.eventContext().getTriggerEvaluator().evaluateTrigger(triggerAssociation.getTrigger(), triggerAssociation,
+                    certificate, referenceRowUuid, eventData, eventHistory);
+        }
+
+        return new GroupImportResult(group.certificateContentId(),
+                resultsFor(rowUuids, DiscoveryCertificateOutcome.IMPORTED, null),
+                keyEntriesFor(certificate, x509Cert, rowUuids), true);
+    }
+
+    private static List<KeyQueueEntry> keyEntriesFor(Certificate certificate, X509Certificate x509Cert,
+                                                     List<UUID> rowUuids) {
+        List<KeyQueueEntry> entries = new ArrayList<>();
+        entries.add(KeyQueueEntry.of(x509Cert.getPublicKey(), false, certificate.getUuid(), rowUuids));
+
+        byte[] altPublicKeyEncoded = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        if (altPublicKeyEncoded != null) {
+            try {
+                entries.add(KeyQueueEntry.of(CertificateUtil.getAltPublicKey(altPublicKeyEncoded), true,
+                        certificate.getUuid(), rowUuids));
+            } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+                // Losing this silently is how a run reported clean with the alternative key absent, so the
+                // failure travels as an entry the key phase can report rather than only a log line.
+                logger.error("Could not parse alternative public key of certificate {}: {}",
+                        certificate.getUuid(), e.getMessage());
+                entries.add(KeyQueueEntry.unparseable(true, certificate.getUuid(), rowUuids,
+                        DiscoveryFailureReason.shape(e)));
+            }
+        }
+        return entries;
     }
 
     public static EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) {
