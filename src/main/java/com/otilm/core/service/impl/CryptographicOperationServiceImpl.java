@@ -467,7 +467,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     private Map<KeyType, CryptographicKeyItem> getPublicAndPrivateKey(UUID tokenProfileUuid, UUID keyUuid) throws NotFoundException {
         authorizationEnforcer.enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL, SecuredUUID.fromUUID(tokenProfileUuid));
-        CryptographicKey key = cryptographicKeyRepository.findByUuid(
+        // Eager-fetch the profile, key items and token instance reference: the only caller signs outside a
+        // transaction, so these traversals must not rely on open-session-in-view.
+        CryptographicKey key = cryptographicKeyRepository.findWithKeyItemsAndTokenByUuid(
                 keyUuid).orElseThrow(
                 () -> new NotFoundException(
                         CryptographicKey.class,

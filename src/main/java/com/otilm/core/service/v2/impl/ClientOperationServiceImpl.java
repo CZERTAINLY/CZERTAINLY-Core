@@ -117,7 +117,9 @@ import java.util.function.BooleanSupplier;
 
 @Service("clientOperationServiceImplV2")
 // Roll back on any exception, checked included, so a connector or attribute failure never commits partial state.
-// Write methods override this with their own NOT_SUPPORTED boundary; the methods governed here are reads.
+// The issue/renew/rekey entry points override this with their own NOT_SUPPORTED boundary and manage the persistence
+// transaction internally. submitCertificateRequest does not: reached through the proxy (REST v1 submit, SCEP manual
+// approval) it still runs under this class-level transaction; self-invoked it runs with no ambient transaction.
 @Transactional(rollbackFor = Exception.class)
 public class ClientOperationServiceImpl implements ClientOperationExternalService, ClientOperationInternalService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
@@ -403,9 +405,14 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     /**
      * Runs the request submission and shapes its failures into the protocol-facing contract: a client-facing
-     * {@link RequestAttributePolicyViolationException} passes through unchanged; any other failure is logged with
-     * its cause and surfaced as a {@link CertificateOperationException} carrying the generic {@code failureMessage},
-     * so a raw exception message cannot leak internal detail through the error response.
+     * {@link RequestAttributePolicyViolationException} passes through unchanged; any other failure is logged with its
+     * cause and surfaced as a {@link CertificateOperationException}.
+     * <p>
+     * Exposure of the underlying reason is gated on the exception type. A {@link ValidationException} or
+     * {@link NotFoundException} carries a platform-authored, client-actionable message (an unavailable connector, a
+     * disabled RA profile, an unknown reference), so its text is appended. Anything else — a runtime failure, or a
+     * connector exception relaying upstream text — contributes no message, keeping SQL fragments, internal
+     * identifiers and upstream error detail off the wire.
      */
     private CertificateDetailDto submitAndShapeFailure(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo, String failureMessage) throws CertificateOperationException {
         try {
@@ -414,7 +421,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             throw e;
         } catch (Exception e) {
             logger.error(failureMessage, e);
-            throw new CertificateOperationException(failureMessage);
+            boolean detailIsSafeToExpose = (e instanceof ValidationException || e instanceof NotFoundException) && e.getMessage() != null;
+            throw new CertificateOperationException(detailIsSafeToExpose ? failureMessage + ": " + e.getMessage() : failureMessage);
         }
     }
 

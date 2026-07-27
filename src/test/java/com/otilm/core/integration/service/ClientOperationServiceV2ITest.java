@@ -345,6 +345,21 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     }
 
     @Test
+    void issueCertificate_keepsDomainExceptionDetailInFailureMessage() throws Exception {
+        // A ValidationException from the merge is platform-authored and client-actionable, so its reason must survive
+        // the mapping to CertificateOperationException (unlike a runtime failure, covered by the test above).
+        doThrow(new ValidationException("connector unavailable"))
+                .when(extendedAttributeService).mergeAndValidateIssueAttributes(any(), any());
+
+        ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
+        request.setRequest(SAMPLE_PKCS10);
+        request.setAttributes(List.of());
+        CertificateOperationException ex = Assertions.assertThrows(CertificateOperationException.class,
+                () -> clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null));
+        Assertions.assertEquals("Failed to submit certificate request: connector unavailable", ex.getMessage());
+    }
+
+    @Test
     void testIssueCertificate_validationFail_disabledRaProfile() {
         raProfile.setEnabled(false);
         raProfile = raProfileRepository.save(raProfile);
