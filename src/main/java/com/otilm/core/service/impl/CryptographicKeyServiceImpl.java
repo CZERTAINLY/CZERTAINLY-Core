@@ -995,7 +995,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         cryptographicKeyItem.setCreatedAt(now);
         cryptographicKeyItem.setUpdatedAt(now);
         Integer inserted = cryptographicKeyItemRepository.insertWithFingerprintConflictResolve(cryptographicKeyItem);
-        if (inserted != null && inserted == 1) {
+        if (inserted == 1) {
             return cryptographicKey.getUuid();
         }
 
@@ -1007,6 +1007,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             throw new IllegalStateException("Public key with the same fingerprint was committed concurrently but could no longer be read");
         }
         cryptographicKeyRepository.delete(cryptographicKey);
+        logger.debug("Adopted existing cryptographic key {} for fingerprint {}; discarded locally created key {}",
+                survivingKeyUuid, fingerprint, cryptographicKey.getUuid());
         return survivingKeyUuid;
     }
 
