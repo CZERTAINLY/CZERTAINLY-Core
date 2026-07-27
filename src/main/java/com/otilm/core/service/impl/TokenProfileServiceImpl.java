@@ -201,7 +201,6 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     public void deleteTokenProfile(SecuredUUID tokenProfileUuid) throws NotFoundException {
         logger.info("Deleting token profile with uuid: {}", tokenProfileUuid);
         deleteProfileInternal(tokenProfileUuid, true);
-
     }
 
     @Override
@@ -353,8 +352,8 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
 
     private void deleteProfileInternal(SecuredUUID uuid, boolean throwWhenAssociated) throws NotFoundException {
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
-        if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() == null) {
-            throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use other API"));
+        if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() != null) {
+            throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use the token instance scoped API to delete the Token Profile."));
         }
         validateNoDependentObjects(tokenProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());

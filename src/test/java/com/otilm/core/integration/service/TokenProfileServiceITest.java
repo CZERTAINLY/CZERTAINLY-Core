@@ -22,6 +22,7 @@ import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.dao.repository.signing.SigningProfileRepository;
 import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
+import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TokenProfileExternalService;
@@ -73,7 +74,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -98,7 +99,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
@@ -221,7 +222,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testRemoveTokenProfile() throws NotFoundException {
-        tokenProfileService.deleteTokenProfile(tokenProfile.getSecuredUuid());
+        tokenProfileService.deleteTokenProfile(tokenProfile.getTokenInstanceReference().getSecuredParentUuid(), tokenProfile.getSecuredUuid());
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> tokenProfileService.getTokenProfile(
@@ -236,14 +237,16 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         createKey("testKey1");
         createKey("testKey2");
 
+        SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
+        SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
         ValidationException e = Assertions.assertThrows(
                 ValidationException.class,
-                () -> tokenProfileService.deleteTokenProfile(tokenProfile.getSecuredUuid())
+                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
         );
 
         String errors = joinErrorDescriptions(e);
         Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 2 dependent Keys"), errors);
-        Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfile.getSecuredUuid()).isPresent());
+        Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfileUuid).isPresent());
     }
 
     @Test
@@ -263,9 +266,11 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         version.setTokenProfile(tokenProfile);
         signingProfileVersionRepository.save(version);
 
+        SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
+        SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
         ValidationException e = Assertions.assertThrows(
                 ValidationException.class,
-                () -> tokenProfileService.deleteTokenProfile(tokenProfile.getSecuredUuid())
+                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
         );
 
         String errors = joinErrorDescriptions(e);
