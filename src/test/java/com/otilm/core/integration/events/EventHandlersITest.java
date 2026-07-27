@@ -1,6 +1,5 @@
 package com.otilm.core.integration.events;
 
-import com.otilm.core.service.handler.CertificateHandler;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
@@ -96,8 +95,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.verify;
 
@@ -155,8 +152,6 @@ class EventHandlersITest extends BaseSpringBootTest {
     @MockitoSpyBean
     private EventProducer eventProducer;
 
-    @MockitoSpyBean
-    private CertificateHandler certificateHandler;
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -648,11 +643,9 @@ class EventHandlersITest extends BaseSpringBootTest {
      * A group whose import rolls back must record why on every one of its rows — the reason has to survive the
      * failure that produced it — and must not also be counted as a missing key association.
      *
-     * <p>The failure has to be injected. The production trigger is the unique index on
-     * {@code certificate_content_id}, which comes from a Flyway migration — and integration tests disable Flyway
-     * and build their schema from entity annotations, where that column carries no uniqueness. So a constraint
-     * -driven rollback on it is not reproducible here, which is very likely why the original defect reached
-     * production undetected.
+     * <p>The failure is the production one, not an injected stub: an existing certificate already occupies this
+     * content id under a different fingerprint, so the group's insert violates the unique constraint on
+     * {@code certificate_content_id} — the same constraint whose violation loses certificates in the field.
      */
     @Test
     void testCertificateDiscoveredRecordsARolledBackGroupWithoutCountingItAsAKeyGap() throws Exception {
@@ -660,32 +653,39 @@ class EventHandlersITest extends BaseSpringBootTest {
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "rolling-back-host");
-        doThrow(new IllegalStateException("forced failure inside the import transaction"))
-                .when(certificateHandler).updateDiscoveredCertificate(any(), any(), any());
+        occupyContentIdWithAnotherCertificate(content);
 
-        try {
-            certificateDiscoveredEventHandler.handleEvent(
-                    CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
 
-            DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
-            Assertions.assertTrue(reloaded.isProcessed(),
-                    "the outcome must be recorded even though the import transaction rolled back");
-            Assertions.assertNotNull(reloaded.getProcessedError(), "the row must carry the reason");
-            Assertions.assertTrue(reloaded.getProcessedError().startsWith("Import rolled back:"),
-                    "unexpected reason: " + reloaded.getProcessedError());
-            Assertions.assertFalse(reloaded.getProcessedError().contains("insert into"),
-                    "the reason must not leak SQL: " + reloaded.getProcessedError());
+        DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+        Assertions.assertTrue(reloaded.isProcessed(),
+                "the outcome must be recorded even though the import transaction failed");
+        Assertions.assertNotNull(reloaded.getProcessedError(), "the row must carry the reason");
+        Assertions.assertFalse(reloaded.getProcessedError().contains("insert into"),
+                "the reason must not leak SQL: " + reloaded.getProcessedError());
+        Assertions.assertFalse(reloaded.getProcessedError().contains("certificate_content_id"),
+                "the reason must not leak column names: " + reloaded.getProcessedError());
 
-            verify(eventProducer).produceMessage(argThat((EventMessage msg) -> {
-                if (msg.getEvent() != ResourceEvent.DISCOVERY_FINISHED) return false;
-                DiscoveryResult result = (DiscoveryResult) msg.getData();
-                return result.getDiscoveryStatus() == DiscoveryStatus.WARNING
-                        && result.getMessage().contains("could not be imported into the inventory")
-                        && !result.getMessage().contains("without a public key association");
-            }));
-        } finally {
-            reset(certificateHandler);
-        }
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) -> {
+            if (msg.getEvent() != ResourceEvent.DISCOVERY_FINISHED) return false;
+            DiscoveryResult result = (DiscoveryResult) msg.getData();
+            return result.getDiscoveryStatus() == DiscoveryStatus.WARNING
+                    && result.getMessage().contains("could not be imported into the inventory")
+                    && !result.getMessage().contains("without a public key association");
+        }));
+    }
+
+    private void occupyContentIdWithAnotherCertificate(CertificateContent content) {
+        Certificate squatter = new Certificate();
+        squatter.setUuid(UUID.randomUUID());
+        squatter.setFingerprint("squatter-" + UUID.randomUUID());
+        squatter.setCertificateContentId(content.getId());
+        squatter.setState(CertificateState.ISSUED);
+        squatter.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+        squatter.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
+        squatter.setCertificateType(CertificateType.X509);
+        certificateRepository.save(squatter);
     }
 
     private CertificateContent persistContentFor(X509Certificate x509) throws Exception {
