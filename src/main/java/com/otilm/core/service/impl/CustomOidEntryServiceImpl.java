@@ -284,13 +284,17 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                             .valueEncoding(isExt ? ((CertificateExtensionCustomOidEntry) oid).getValueEncoding() : null)
                             .build();
                 })));
-        // Cache System OIDs
+        // Cache System OIDs. defaultCritical and valueEncoding must be carried through: the projector
+        // reads them from this cache, and an unset defaultCritical silently emits a critical extension
+        // such as Name Constraints as non-critical.
         oidToDisplayNameMap.putAll(Arrays.stream(SystemOid.values()).filter(oid -> oid.getCategory() == oidCategory)
                 .collect(Collectors.toMap(SystemOid::getOid, oid ->
                         OidRecord.builder()
                                 .displayName(oid.getDisplayName())
                                 .code(oid.getCode())
                                 .altCodes(oid.getAltCodes())
+                                .defaultCritical(oid.getDefaultCritical())
+                                .valueEncoding(oid.getValueEncoding())
                                 .build())));
         return oidToDisplayNameMap;
     }

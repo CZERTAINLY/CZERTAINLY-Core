@@ -30,6 +30,8 @@ import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.core.oid.OidHandler;
+import com.otilm.core.oid.OidRecord;
+import org.bouncycastle.asn1.x509.Extension;
 import com.otilm.api.model.core.auth.AttributeResource;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.FilterFieldSource;
@@ -1439,22 +1441,42 @@ public class AttributeEngine {
                     throw new AttributeException("fieldMapping SAN field of type OTHER_NAME is missing otherNameOid or it is not a valid OID",
                             attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
-            case ExtensionMappedField ext -> {
-                if (ext.getExtensionOid() == null || ext.getExtensionOid().isBlank())
-                    throw new AttributeException("fieldMapping EXTENSION field is missing extensionOid",
-                            attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-                // Extension OID must be registered so the platform knows defaultCritical and valueEncoding
-                String extOid = ext.getExtensionOid();
-                SystemOid systemOid = SystemOid.fromOID(extOid);
-                if ((systemOid == null || systemOid.getCategory() != OidCategory.CERTIFICATE_EXTENSION)
-                        && (OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION) == null || OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION).get(extOid) == null))
-                    throw new AttributeException("fieldMapping EXTENSION OID '%s' is not registered in the OID registry".formatted(extOid),
-                            attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
-            }
+            case ExtensionMappedField ext ->
+                validateExtensionMappedField(attribute, connectorUuidStr, ext);
             default ->
                     throw new AttributeException("Unexpected MappedField subtype: " + field.getClass().getSimpleName(),
                             attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
+    }
+
+    private static void validateExtensionMappedField(DataAttributeV3 attribute, String connectorUuidStr, ExtensionMappedField ext) throws AttributeException {
+        String extOid = ext.getExtensionOid();
+        if (extOid == null || extOid.isBlank())
+            throw new AttributeException("fieldMapping EXTENSION field is missing extensionOid",
+                    attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+
+        // SAN is parsed out of the extension list into subjectAltNames, so an extension mapping on it
+        // would silently never match. Reject at authoring time and name the target that does work.
+        if (Extension.subjectAlternativeName.getId().equals(extOid))
+            throw new AttributeException(
+                    "fieldMapping EXTENSION OID '%s' is the Subject Alternative Name; use the SAN mapping target instead".formatted(extOid),
+                    attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+
+        SystemOid systemOid = SystemOid.fromOID(extOid);
+        boolean systemExtension = systemOid != null && systemOid.getCategory() == OidCategory.CERTIFICATE_EXTENSION;
+
+        // Extension OID must be registered so the platform knows defaultCritical and valueEncoding
+        Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
+        if (!systemExtension && (registry == null || registry.get(extOid) == null))
+            throw new AttributeException("fieldMapping EXTENSION OID '%s' is not registered in the OID registry".formatted(extOid),
+                    attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+
+        // The issuing CA owns these, so a requester-supplied value must never drive them.
+        if (systemExtension && systemOid.isCaControlled())
+            throw new AttributeException(
+                    "fieldMapping EXTENSION OID '%s' (%s) is controlled by the issuing CA and cannot be a request-attribute mapping target"
+                            .formatted(extOid, systemOid.getDisplayName()),
+                    attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
     }
 
     private static void validateRdnMappedField(DataAttributeV3 attribute, String connectorUuidStr, Supplier<Map<String, String>> codeToOidMap, RdnMappedField rdn) throws AttributeException {

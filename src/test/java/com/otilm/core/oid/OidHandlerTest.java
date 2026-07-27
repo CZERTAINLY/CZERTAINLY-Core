@@ -1,6 +1,7 @@
 package com.otilm.core.oid;
 
 import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.api.model.core.oid.SystemOid;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +81,50 @@ class OidHandlerTest {
         assertThat(OidHandler.getOidForRdnCode("email")).isEqualTo("1.2.840.113549.1.9.1");
         assertThat(OidHandler.getOidForRdnCode("e")).isEqualTo("1.2.840.113549.1.9.1");
         assertThat(OidHandler.getOidForRdnCode("EmailAddress")).isEqualTo("1.2.840.113549.1.9.1");
+    }
+
+    @Test
+    void getCodeToOidMap_isCaseInsensitiveAtTheSource() {
+        // The authoring-time gate reads this map directly rather than the derived index, so it must
+        // match the same way request-time resolution does — otherwise a mixed-case system code such
+        // as PostalCode is rejected when authored in another casing but resolves fine at runtime.
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.17",
+                OidRecord.builder().displayName("Postal Code").code("PostalCode").build());
+
+        assertThat(OidHandler.getCodeToOidMap()).containsEntry("POSTALCODE", "2.5.4.17");
+        assertThat(OidHandler.getCodeToOidMap()).containsEntry("postalcode", "2.5.4.17");
+    }
+
+    @Test
+    void contestedRdnCode_resolvesToTheOperatorRegisteredEntry() {
+        // given — a deployment registered its own OID under code UID before 0.9.2342.19200300.100.1.1
+        // became a system OID. Both now claim the token.
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+
+        // when / then — the custom entry keeps the token; promoting an OID must not silently repoint
+        // a DN that was already parsing to the operator's attribute type
+        assertThat(OidHandler.getOidForRdnCode("UID")).isEqualTo("1.2.3.4.5.6");
+        assertThat(OidHandler.getOidForRdnCode("uid")).isEqualTo("1.2.3.4.5.6");
+    }
+
+    @Test
+    void contestedRdnCode_resolutionSurvivesAnUnrelatedCacheRebuild() {
+        // given — the same contest as above
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+        String before = OidHandler.getOidForRdnCode("UID");
+
+        // when — any unrelated custom-OID write rebuilds the derived index
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "9.8.7.6",
+                OidRecord.builder().displayName("Unrelated").code("UNRELATED").build());
+
+        // then — the winner must not flip; previously this depended on HashMap iteration order
+        assertThat(OidHandler.getOidForRdnCode("UID")).isEqualTo(before).isEqualTo("1.2.3.4.5.6");
     }
 
     @Test

@@ -1,15 +1,19 @@
 package com.otilm.core.oid;
 
 import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.api.model.core.oid.SystemOid;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class OidHandler {
 
     private OidHandler() {
@@ -91,31 +95,54 @@ public class OidHandler {
         rdnCodeToOid.set(Collections.unmodifiableMap(lookup));
     }
 
+    /**
+     * RDN code/altCode → OID, matched case-insensitively so the authoring-time gate and request-time
+     * resolution agree. Codes and alt codes share one flat namespace, so two OIDs can claim the same
+     * token; see {@link #claimToken} for how that is resolved.
+     */
     public static Map<String, String> getCodeToOidMap() {
-        Map<String, String> reverseMap = new HashMap<>();
+        Map<String, String> reverseMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         Map<String, OidRecord> rdnCache = oidCache.get(OidCategory.RDN_ATTRIBUTE_TYPE);
         if (rdnCache == null) {
             return reverseMap;
         }
-        for (Map.Entry<String, OidRecord> entry : rdnCache.entrySet()) {
-            String oidKey = entry.getKey();
-            OidRecord oidRecord = entry.getValue();
-
-            // map the code to the oidKey
+        // Sorted so a contested token resolves the same way on every rebuild, rather than by the
+        // iteration order of the backing HashMap.
+        for (String oid : new TreeSet<>(rdnCache.keySet())) {
+            OidRecord oidRecord = rdnCache.get(oid);
             if (oidRecord.code() != null) {
-                reverseMap.put(oidRecord.code(), oidKey);
+                claimToken(reverseMap, oidRecord.code(), oid);
             }
-
-            // map all altCodes to the oidKey
             if (oidRecord.altCodes() != null) {
                 for (String altCode : oidRecord.altCodes()) {
                     if (altCode != null) {
-                        reverseMap.put(altCode, oidKey);
+                        claimToken(reverseMap, altCode, oid);
                     }
                 }
             }
         }
         return reverseMap;
+    }
+
+    /**
+     * Assigns one code token to an OID, resolving a contest in favour of the operator-registered
+     * entry. A custom OID entry was already resolving that token before its OID became a system OID,
+     * so an upgrade must not silently repoint it; the built-in entry stays reachable by its dotted
+     * OID. Contests between two entries of the same kind keep the lowest OID, purely for determinism.
+     */
+    private static void claimToken(Map<String, String> reverseMap, String token, String oid) {
+        String incumbent = reverseMap.get(token);
+        if (incumbent == null || incumbent.equals(oid)) {
+            reverseMap.put(token, oid);
+            return;
+        }
+        boolean incumbentIsSystem = SystemOid.fromOID(incumbent) != null;
+        boolean candidateIsSystem = SystemOid.fromOID(oid) != null;
+        String winner = incumbentIsSystem && !candidateIsSystem ? oid : incumbent;
+        reverseMap.put(token, winner);
+        log.warn("RDN code '{}' is claimed by OID {} and OID {}; resolving it to {}. "
+                        + "Rename the custom OID entry's code or alt code to remove the ambiguity.",
+                token, incumbent, oid, winner);
     }
 
 

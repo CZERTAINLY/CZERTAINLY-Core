@@ -34,12 +34,16 @@ public class CustomOidEntryMapper {
         dto.setOid(systemOid.getOid());
         dto.setCategory(systemOid.getCategory());
         dto.setDisplayName(systemOid.getDisplayName());
-        // SystemOid only carries RDN code/altCodes; EKU and GENERIC entries have no additional
-        // properties, and the enum has no fields to represent a CERTIFICATE_EXTENSION's typed properties.
+        // EKU purposes and generic identifiers carry nothing beyond the base fields.
         if (systemOid.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE) {
             RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
             props.setCode(systemOid.getCode());
             props.setAltCodes(systemOid.getAltCodes());
+            dto.setAdditionalProperties(props);
+        } else if (systemOid.getCategory() == OidCategory.CERTIFICATE_EXTENSION) {
+            CertificateExtensionOidPropertiesDto props = new CertificateExtensionOidPropertiesDto();
+            props.setDefaultCritical(systemOid.getDefaultCritical());
+            props.setValueEncoding(systemOid.getValueEncoding());
             dto.setAdditionalProperties(props);
         }
         return dto;
