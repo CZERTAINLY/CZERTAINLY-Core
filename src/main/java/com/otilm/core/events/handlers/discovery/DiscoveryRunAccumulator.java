@@ -1,0 +1,87 @@
+package com.otilm.core.events.handlers.discovery;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+/**
+ * Holds a discovery run's per-row outcomes on the orchestrator thread.
+ *
+ * <p>Not thread-safe by design: results arrive one group at a time on the thread consuming the parallel stream,
+ * so synchronisation here would only mask a caller that had moved off it.
+ */
+public class DiscoveryRunAccumulator {
+
+    private final Map<UUID, DiscoveryCertificateResult> resultsByRow = new LinkedHashMap<>();
+    private final Map<UUID, List<UUID>> rowsByCertificate = new LinkedHashMap<>();
+    private final Map<UUID, List<String>> keyFailureReasons = new LinkedHashMap<>();
+    private final Set<Long> contentIdsWithInventoryGap = new LinkedHashSet<>();
+    private long bookkeepingFailures;
+
+    public void accept(GroupImportResult group) {
+        group.rowResults().forEach(result -> resultsByRow.put(result.discoveryCertificateUuid(), result));
+        if (hasInventoryGap(group)) {
+            contentIdsWithInventoryGap.add(group.certificateContentId());
+        }
+        if (group.committed()) {
+            group.keyEntries().forEach(entry -> rowsByCertificate
+                    .computeIfAbsent(entry.certificateUuid(), key -> new ArrayList<>())
+                    .addAll(entry.discoveryCertificateUuids()));
+        }
+    }
+
+    /**
+     * Re-classifies a committed certificate's rows once its key association has failed. Group results are
+     * immutable and classified at import time, so a row that imported cleanly and only later lost its key has to
+     * be replaced rather than mutated.
+     *
+     * <p>A certificate whose group never committed has no rows registered here, so a late failure for it is
+     * ignored rather than overwriting its rollback reason.
+     */
+    public void failKeyAssociation(UUID certificateUuid, String reason) {
+        List<UUID> rows = rowsByCertificate.get(certificateUuid);
+        if (rows == null) {
+            return;
+        }
+        keyFailureReasons.computeIfAbsent(certificateUuid, key -> new ArrayList<>()).add(reason);
+        // A hybrid certificate can fail both its primary and its alternative key; aggregate so the second
+        // reason does not overwrite the first.
+        String aggregated = String.join("; ", keyFailureReasons.get(certificateUuid));
+        rows.forEach(row -> resultsByRow.put(row, new DiscoveryCertificateResult(
+                row, DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED, aggregated)));
+    }
+
+    public void recordBookkeepingFailure() {
+        bookkeepingFailures++;
+    }
+
+    public List<DiscoveryCertificateResult> results() {
+        return List.copyOf(resultsByRow.values());
+    }
+
+    /**
+     * Gaps are counted per certificate, not per row: a certificate found on ten hosts is one certificate, so a
+     * failed group counts once however many rows it carried.
+     */
+    public DiscoveryRunCounts counts() {
+        return new DiscoveryRunCounts(
+                contentIdsWithInventoryGap.size(),
+                keyFailureReasons.size(),
+                countRowsWith(DiscoveryCertificateOutcome.NOT_ATTEMPTED),
+                bookkeepingFailures);
+    }
+
+    private long countRowsWith(DiscoveryCertificateOutcome outcome) {
+        return resultsByRow.values().stream().filter(result -> result.outcome() == outcome).count();
+    }
+
+    private static boolean hasInventoryGap(GroupImportResult group) {
+        return group.rowResults().stream().anyMatch(result ->
+                result.outcome() == DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK
+                        || result.outcome() == DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED);
+    }
+}
