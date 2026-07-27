@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.auth.x500.X500Principal;
@@ -433,7 +434,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     @Override
-    @Transactional
+    // Read-only (key reads + connector signing over HTTP); NOT_SUPPORTED keeps the DB connection out of the
+    // crypto-connector round-trip so it is not held while signing (certificate key-generation path).
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, Extensions extensions,
                               List<RequestAttribute> signatureAttributes, UUID altKeyUUid,
                               UUID altTokenProfileUuid, List<RequestAttribute> altSignatureAttributes)
@@ -464,7 +467,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     private Map<KeyType, CryptographicKeyItem> getPublicAndPrivateKey(UUID tokenProfileUuid, UUID keyUuid) throws NotFoundException {
         authorizationEnforcer.enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL, SecuredUUID.fromUUID(tokenProfileUuid));
-        CryptographicKey key = cryptographicKeyRepository.findByUuid(
+        // Eager-fetch the profile, key items and token instance reference: the only caller signs outside a
+        // transaction, so these traversals must not rely on open-session-in-view.
+        CryptographicKey key = cryptographicKeyRepository.findWithKeyItemsAndTokenByUuid(
                 keyUuid).orElseThrow(
                 () -> new NotFoundException(
                         CryptographicKey.class,
