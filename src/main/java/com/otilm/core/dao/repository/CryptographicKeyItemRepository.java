@@ -48,7 +48,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
                 :#{#cki.updatedAt}, :#{#cki.usageBitmask}
             ) ON CONFLICT (fingerprint) DO NOTHING
             """, nativeQuery = true)
-    void insertWithFingerprintConflictResolve(@Param("cki") CryptographicKeyItem keyItem);
+    Integer insertWithFingerprintConflictResolve(@Param("cki") CryptographicKeyItem keyItem);
 
     @Query(value = """
             SELECT COUNT(c.uuid)

@@ -994,8 +994,20 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         cryptographicKeyItem.setEnabled(true);
         cryptographicKeyItem.setCreatedAt(now);
         cryptographicKeyItem.setUpdatedAt(now);
-        cryptographicKeyItemRepository.insertWithFingerprintConflictResolve(cryptographicKeyItem);
-        return cryptographicKey.getUuid();
+        Integer inserted = cryptographicKeyItemRepository.insertWithFingerprintConflictResolve(cryptographicKeyItem);
+        if (inserted != null && inserted == 1) {
+            return cryptographicKey.getUuid();
+        }
+
+        // Another caller already holds this key. Its parent is the surviving one, so adopt it and drop the
+        // parent created here, which has no items and nothing references yet — otherwise it is orphaned
+        // permanently and the returned UUID points at a key with no material.
+        UUID survivingKeyUuid = findKeyByFingerprint(fingerprint);
+        if (survivingKeyUuid == null) {
+            throw new IllegalStateException("Public key with the same fingerprint was committed concurrently but could no longer be read");
+        }
+        cryptographicKeyRepository.delete(cryptographicKey);
+        return survivingKeyUuid;
     }
 
     @Override

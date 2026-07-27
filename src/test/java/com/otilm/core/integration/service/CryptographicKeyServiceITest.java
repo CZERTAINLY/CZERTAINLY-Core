@@ -37,6 +37,7 @@ import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
 import com.otilm.core.service.CryptographicKeyExternalService;
 import com.otilm.core.service.CryptographicKeyInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.CertificateUtil;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -46,7 +47,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPairGenerator;
+import java.security.PublicKey;
 import java.util.*;
 
 class CryptographicKeyServiceITest extends BaseSpringBootTest {
@@ -71,6 +77,8 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     @Autowired
     private OwnerAssociationRepository ownerAssociationRepository;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
     @MockitoBean
     private NotificationProducer notificationProducer;
 
@@ -954,6 +962,32 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         return resource != null && resource.getProperties() != null &&
                 (resource.getProperties().containsKey("name") && resource.getProperties().get("name").equals(name)) &&
                 (resource.getProperties().containsKey("action") && resource.getProperties().get("action").equals(action));
+    }
+
+    @Test
+    void uploadingTheSameKeyTwiceConvergesOnOneKeyAndLeavesNoOrphan() throws Exception {
+        PublicKey publicKey = KeyPairGenerator.getInstance("RSA").generateKeyPair().getPublic();
+        String fingerprint = CertificateUtil.getThumbprint(
+                Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+        long itemlessKeysBefore = countItemlessKeys();
+
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        UUID firstKeyUuid = template.execute(status -> cryptographicKeyInternalService
+                .uploadCertificatePublicKey("certKey_first", publicKey, 2048, fingerprint));
+        UUID secondKeyUuid = template.execute(status -> cryptographicKeyInternalService
+                .uploadCertificatePublicKey("certKey_second", publicKey, 2048, fingerprint));
+
+        Assertions.assertEquals(firstKeyUuid, secondKeyUuid,
+                "the second caller must adopt the surviving key, not the parent it created itself");
+        Assertions.assertTrue(cryptographicKeyItemRepository.findByFingerprint(fingerprint).isPresent());
+        Assertions.assertEquals(itemlessKeysBefore, countItemlessKeys(),
+                "no cryptographic key may be left behind without an item");
+    }
+
+    private long countItemlessKeys() {
+        return cryptographicKeyRepository.findAll().stream()
+                .filter(key -> cryptographicKeyItemRepository.findByKeyUuidIn(List.of(key.getUuid())).isEmpty())
+                .count();
     }
 
 }
