@@ -51,6 +51,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.*;
 
@@ -968,7 +969,7 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
      * holder of the open transaction waiting on a thread blocked inside its own insert.
      */
     @Test
-    void uploadingTheSameKeyTwiceConvergesOnOneKeyAndLeavesNoOrphan() throws Exception {
+    void uploadingTheSameKeyTwiceConvergesOnOneKeyAndLeavesNoOrphan() throws NoSuchAlgorithmException {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
         generator.initialize(2048);
         PublicKey publicKey = generator.generateKeyPair().getPublic();
