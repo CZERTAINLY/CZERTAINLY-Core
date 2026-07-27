@@ -154,20 +154,8 @@ class SchedulerServiceMockedTest {
     }
 
     @Test
-    void testDeleteScheduledJob_WhenHistoryExists_ThrowsValidationException() throws SchedulerException {
-        when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.existsByScheduledJobUuid(JOB_UUID)).thenReturn(true);
-
-        assertThrows(ValidationException.class, () -> schedulerService.deleteScheduledJob(JOB_UUID.toString()));
-
-        verify(schedulerApiClient, never()).deleteScheduledJob(anyString());
-        verify(scheduledJobsRepository, never()).deleteById(any());
-    }
-
-    @Test
     void testDeleteScheduledJob_WhenSchedulerDeleteSucceeds_DeletesRepositoryRecord() throws Exception {
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.existsByScheduledJobUuid(JOB_UUID)).thenReturn(false);
 
         schedulerService.deleteScheduledJob(JOB_UUID.toString());
 
@@ -178,7 +166,6 @@ class SchedulerServiceMockedTest {
     @Test
     void testDeleteScheduledJob_WhenSchedulerDeleteFails_SwallowsException() throws Exception {
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.existsByScheduledJobUuid(JOB_UUID)).thenReturn(false);
         doThrow(new SchedulerException("boom")).when(schedulerApiClient).deleteScheduledJob(JOB_NAME);
 
         assertDoesNotThrow(() -> schedulerService.deleteScheduledJob(JOB_UUID.toString()));

@@ -59,6 +59,7 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import java.io.IOException;
 import java.security.cert.CertificateException;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -366,10 +367,17 @@ class SchedulerServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(jobName, jobDetailDto.getJobName());
         Assertions.assertEquals(cronExpressionUpdate, jobDetailDto.getCronExpression());
 
+        ScheduledJobHistory jobHistory = new ScheduledJobHistory();
+        jobHistory.setScheduledJobUuid(jobDetailDto.getUuid());
+        jobHistory.setJobExecution(new Date());
+        jobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
+        scheduledJobHistoryRepository.save(jobHistory);
+
         schedulerService.deleteScheduledJob(jobDetailDto.getUuid().toString());
 
         ScheduledJobsResponseDto listResponse = schedulerService.listScheduledJobs(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(0, listResponse.getTotalItems());
+        Assertions.assertFalse(scheduledJobHistoryRepository.existsByScheduledJobUuid(jobDetailDto.getUuid()));
     }
 
     @Test
