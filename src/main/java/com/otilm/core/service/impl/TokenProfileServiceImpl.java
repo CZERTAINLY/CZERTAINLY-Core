@@ -19,8 +19,10 @@ import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.TokenProfile_;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.TokenProfileRepository;
+import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
 import com.otilm.core.security.authz.ExternalAuthorization;
@@ -34,9 +36,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,6 +65,18 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     // --------------------------------------------------------------------------------
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    private CryptographicKeyRepository cryptographicKeyRepository;
+    private SigningProfileVersionRepository signingProfileVersionRepository;
+
+    @Autowired
+    public void setSigningProfileVersionRepository(SigningProfileVersionRepository signingProfileVersionRepository) {
+        this.signingProfileVersionRepository = signingProfileVersionRepository;
+    }
+
+    @Autowired
+    public void setCryptographicKeyRepository(CryptographicKeyRepository cryptographicKeyRepository) {
+        this.cryptographicKeyRepository = cryptographicKeyRepository;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -186,7 +202,6 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     public void deleteTokenProfile(SecuredUUID tokenProfileUuid) throws NotFoundException {
         logger.info("Deleting token profile with uuid: {}", tokenProfileUuid);
         deleteProfileInternal(tokenProfileUuid, true);
-
     }
 
     @Override
@@ -212,6 +227,8 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
                 deleteProfileInternal(uuid, false);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find Token Profile with uuid {}. It may have already been deleted", uuid);
+            } catch (ValidationException e) {
+                logger.warn(e.getMessage());
             }
         }
     }
@@ -338,11 +355,52 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
 
     private void deleteProfileInternal(SecuredUUID uuid, boolean throwWhenAssociated) throws NotFoundException {
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
-        if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() == null) {
-            throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use other API"));
+        if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() != null) {
+            throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use the token instance scoped API to delete the Token Profile."));
         }
+        validateNoDependentObjects(tokenProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
-        tokenProfileRepository.delete(tokenProfile);
+        try {
+            tokenProfileRepository.delete(tokenProfile);
+            // Force the DELETE to execute here; without the flush it runs at commit,
+            // outside this try, and a concurrent FK violation would surface as HTTP 500.
+            tokenProfileRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            // The aborted transaction cannot be re-queried for the dependency counts.
+            throw new ValidationException(ValidationError.create(
+                    "Cannot delete Token Profile {}: dependent Key(s) or Signing Profile(s) were created concurrently. Retry to see current dependencies.",
+                    tokenProfile.getName()));
+        }
+    }
+
+    private void validateNoDependentObjects(TokenProfile tokenProfile) {
+        List<String> blockers = new ArrayList<>();
+
+        long keyCount = cryptographicKeyRepository.countByTokenProfileUuid(tokenProfile.getUuid());
+        if (keyCount > 0) {
+            blockers.add(keyCount + " dependent Key(s)");
+        }
+
+        List<String> latestVersionNames = signingProfileVersionRepository.findSigningProfileNamesUsingTokenProfileInLatestVersion(tokenProfile.getUuid());
+        if (!latestVersionNames.isEmpty()) {
+            blockers.add("dependent Signing Profile(s): " + String.join(", ", latestVersionNames));
+        }
+
+        // Superseded versions are retained for audit and cannot be edited, so these references
+        // can only be released by deleting the Signing Profile itself.
+        List<String> supersededOnlyNames = new ArrayList<>(signingProfileVersionRepository.findDistinctSigningProfileNamesByTokenProfileUuid(tokenProfile.getUuid()));
+        supersededOnlyNames.removeAll(latestVersionNames);
+        if (!supersededOnlyNames.isEmpty()) {
+            blockers.add("Signing Profile(s) referencing it only in superseded versions (released only by deleting the Signing Profile): "
+                    + String.join(", ", supersededOnlyNames));
+        }
+
+        if (!blockers.isEmpty()) {
+            // Single placeholder: sequential {} substitution would garble the message when the
+            // profile name itself contains a literal "{}".
+            throw new ValidationException(ValidationError.create(
+                    "Cannot delete Token Profile {}", tokenProfile.getName() + ": " + String.join("; ", blockers)));
+        }
     }
 
     private void disableProfileInternal(SecuredUUID uuid) throws NotFoundException {
