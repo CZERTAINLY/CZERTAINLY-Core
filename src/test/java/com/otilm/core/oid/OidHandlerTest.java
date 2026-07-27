@@ -12,9 +12,11 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Pure unit coverage for the {@link OidHandler} RDN-code lookup and copy-on-write mutators —
@@ -141,6 +143,37 @@ class OidHandlerTest {
                 .hasSize(1)
                 .satisfies(conflicts -> assertThat(conflicts.values().iterator().next())
                         .containsExactlyInAnyOrder(SystemOid.USER_ID.getOid(), "1.2.3.4.5.6"));
+    }
+
+    @Test
+    void publishedConflictState_isDeeplyImmutable() {
+        // given — the conflict map is process-wide static state reachable through a public accessor, so
+        // a caller must not be able to reach through the unmodifiable map into a mutable value set
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+
+        Set<String> claimants = OidHandler.getRdnCodeConflicts().get("UID");
+
+        // when / then — mutating a claimant set would corrupt the shared state and break the
+        // change-detection that keeps the warning from repeating on every rebuild
+        assertThat(claimants).isNotNull();
+        assertThatThrownBy(() -> claimants.add("9.9.9.9")).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void publishedConflictState_looksUpTokensCaseInsensitively() {
+        // given — every other code lookup in the registry is case-insensitive; this one must agree or a
+        // caller reading the conflict for "uid" silently sees nothing
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+
+        // when / then
+        assertThat(OidHandler.getRdnCodeConflicts().get("uid")).isNotNull();
+        assertThat(OidHandler.getRdnCodeConflicts().get("UID")).isNotNull();
     }
 
     @Test

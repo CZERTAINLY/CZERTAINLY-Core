@@ -147,7 +147,13 @@ public class OidHandler {
      * times a day until an operator resolved it.
      */
     private static void publishRdnCodeConflicts(Map<String, Set<String>> conflicts, Map<String, String> resolved) {
-        Map<String, Set<String>> published = Collections.unmodifiableMap(new TreeMap<>(conflicts));
+        // Deep-immutable, and case-insensitive like every other code lookup here. Both matter because
+        // this is process-wide static state handed out through a public accessor: a mutable claimant set
+        // would let a caller corrupt it, and note that TreeMap(Map) would silently drop the comparator.
+        Map<String, Set<String>> snapshot = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        conflicts.forEach((token, claimants) ->
+                snapshot.put(token, Collections.unmodifiableSortedSet(new TreeSet<>(claimants))));
+        Map<String, Set<String>> published = Collections.unmodifiableMap(snapshot);
         Map<String, Set<String>> previous = rdnCodeConflicts.getAndSet(published);
         if (published.equals(previous)) {
             return;
