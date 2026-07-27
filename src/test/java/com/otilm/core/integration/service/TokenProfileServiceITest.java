@@ -371,6 +371,44 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testBulkRemove_skipsProfilesWithDependents() {
+        TokenProfile cleanProfile = new TokenProfile();
+        cleanProfile.setName("testTokenProfile2");
+        cleanProfile.setTokenInstanceReference(tokenInstanceReference);
+        cleanProfile.setEnabled(true);
+        cleanProfile = tokenProfileRepository.save(cleanProfile);
+        createKey("testKey1");
+
+        tokenProfileService.deleteTokenProfile(
+                List.of(cleanProfile.getSecuredUuid(), tokenProfile.getSecuredUuid()));
+
+        // Best-effort semantics: deletable profiles are removed, blocked ones are skipped (logged),
+        // consistent with how the bulk loop treats NotFoundException. Per-item error reporting
+        // (BulkActionMessageDto contract) is tracked as a follow-up.
+        Assertions.assertTrue(tokenProfileRepository.findByUuid(cleanProfile.getSecuredUuid()).isEmpty());
+        Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfile.getSecuredUuid()).isPresent());
+    }
+
+    @Test
+    void testRemoveTokenProfile_withMultipleBlockerTypes() {
+        createKey("testKey1");
+        SigningProfile signingProfile = createSigningProfile("testSigningProfile", 1);
+        createSigningProfileVersion(signingProfile, 1, tokenProfile);
+
+        SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
+        SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
+        ValidationException e = Assertions.assertThrows(
+                ValidationException.class,
+                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
+        );
+
+        String errors = joinErrorDescriptions(e);
+        Assertions.assertTrue(errors.contains(
+                "Cannot delete Token Profile " + TOKEN_PROFILE_NAME
+                        + ": 1 dependent Key(s); dependent Signing Profile(s): testSigningProfile"), errors);
+    }
+
+    @Test
     void testBulkEnable() {
         tokenProfileService.enableTokenProfile(List.of(tokenProfile.getSecuredUuid()));
         Assertions.assertTrue(tokenProfile.getEnabled());
