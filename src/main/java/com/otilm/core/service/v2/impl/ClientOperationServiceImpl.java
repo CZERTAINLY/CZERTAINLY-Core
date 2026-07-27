@@ -117,7 +117,9 @@ import java.util.function.BooleanSupplier;
 
 @Service("clientOperationServiceImplV2")
 // Roll back on any exception, checked included, so a connector or attribute failure never commits partial state.
-// Write methods override this with their own NOT_SUPPORTED boundary; the methods governed here are reads.
+// The issue/renew/rekey entry points override this with their own NOT_SUPPORTED boundary and manage the persistence
+// transaction internally. submitCertificateRequest does not: reached through the proxy (REST v1 submit, SCEP manual
+// approval) it still runs under this class-level transaction; self-invoked it runs with no ambient transaction.
 @Transactional(rollbackFor = Exception.class)
 public class ClientOperationServiceImpl implements ClientOperationExternalService, ClientOperationInternalService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
@@ -355,7 +357,6 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
-        // validate custom Attributes
         boolean createCustomAttributes = !AuthHelper.isLoggedProtocolUser();
         if (createCustomAttributes) {
             attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
@@ -364,23 +365,65 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             throw new ValidationException("Cannot submit certificate request without specifying key or uploaded request content");
         }
 
+        // Eager-fetch the authority/connector so the merge below can run before the transaction without a lazy load.
         RaProfile raProfile = request.getRaProfileUuid() != null
-                ? raProfileRepository.findByUuid(request.getRaProfileUuid()).orElse(null)
+                ? raProfileRepository.findWithAuthorityByUuid(request.getRaProfileUuid()).orElse(null)
                 : null;
         if (raProfile != null && Boolean.FALSE.equals(raProfile.getEnabled())) {
             throw new ValidationException(String.format("Cannot submit certificate request with disabled RA profile. RA Profile: %s", raProfile.getName()));
         }
 
+        // Build the CSR and merge/validate the issue-attributes before opening the persistence transaction. On the
+        // self-invoked issue/renew/rekey paths (NOT_SUPPORTED) this holds no DB connection across the connector
+        // round-trips; proxied callers (REST v1 submit, SCEP manual-approval) still run under the class-level
+        // transaction. Ordering constraint: the uploaded-CSR attribute validation inside generateBase64EncodedCsr
+        // must run before the issue-attribute merge.
         String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(), request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes(), raProfile);
-        CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
-                protocolInfo);
-
-        // create custom Attributes
-        if (createCustomAttributes) {
-            certificate.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, UUID.fromString(certificate.getUuid()), request.getCustomAttributes()));
+        if (raProfile != null) {
+            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueAttributes());
         }
 
+        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        CertificateDetailDto certificate;
+        try {
+            certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
+                    protocolInfo);
+            if (createCustomAttributes) {
+                certificate.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, UUID.fromString(certificate.getUuid()), request.getCustomAttributes()));
+            }
+            transactionManager.commit(status);
+        } catch (Exception e) {
+            // Guard: a commit-time failure already completes the transaction; rolling back a completed
+            // transaction would throw and mask the original exception.
+            if (!status.isCompleted()) {
+                transactionManager.rollback(status);
+            }
+            throw e;
+        }
         return certificate;
+    }
+
+    /**
+     * Runs the request submission and shapes its failures into the protocol-facing contract: a client-facing
+     * {@link RequestAttributePolicyViolationException} passes through unchanged; any other failure is logged with its
+     * cause and surfaced as a {@link CertificateOperationException}.
+     * <p>
+     * Exposure of the underlying reason is gated on the exception type. A {@link ValidationException} or
+     * {@link NotFoundException} carries a platform-authored, client-actionable message (an unavailable connector, a
+     * disabled RA profile, an unknown reference), so its text is appended. Anything else — a runtime failure, or a
+     * connector exception relaying upstream text — contributes no message, keeping SQL fragments, internal
+     * identifiers and upstream error detail off the wire.
+     */
+    private CertificateDetailDto submitAndShapeFailure(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo, String failureMessage) throws CertificateOperationException {
+        try {
+            return submitCertificateRequest(request, protocolInfo);
+        } catch (RequestAttributePolicyViolationException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.error(failureMessage, e);
+            boolean detailIsSafeToExpose = (e instanceof ValidationException || e instanceof NotFoundException) && e.getMessage() != null;
+            throw new CertificateOperationException(detailIsSafeToExpose ? failureMessage + ": " + e.getMessage() : failureMessage);
+        }
     }
 
     @Override
@@ -409,19 +452,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         certificateRequestDto.setAltTokenProfileUuid(request.getAltTokenProfileUuid());
         certificateRequestDto.setAltSignatureAttributes(request.getAltSignatureAttributes());
 
-        CertificateDetailDto certificate;
-        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        try {
-            certificate = submitCertificateRequest(certificateRequestDto, protocolInfo);
-            transactionManager.commit(status);
-        } catch (RequestAttributePolicyViolationException e) {
-            transactionManager.rollback(status);
-            // A client-facing validation failure; must reach the protocol unchanged.
-            throw e;
-        } catch (Exception e) {
-            transactionManager.rollback(status);
-            throw new CertificateOperationException("Failed to submit certificate request: " + e.getMessage());
-        }
+        CertificateDetailDto certificate = submitAndShapeFailure(certificateRequestDto, protocolInfo, "Failed to submit certificate request");
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");
@@ -1660,19 +1691,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         certificateRequestDto.setSourceCertificateUuid(oldCertificate.getUuid());
         certificateRequestDto.setCustomAttributes(AttributeDefinitionUtils.getClientAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, oldCertificate.getUuid())));
 
-        CertificateDetailDto newCertificate;
-        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null);
-            transactionManager.commit(status);
-        } catch (RequestAttributePolicyViolationException e) {
-            transactionManager.rollback(status);
-            // a client-facing validation failure
-            throw e;
-        } catch (Exception e) {
-            transactionManager.rollback(status);
-            throw new CertificateOperationException("Failed to submit certificate request for certificate renewal: " + e.getMessage());
-        }
+        CertificateDetailDto newCertificate = submitAndShapeFailure(certificateRequestDto, null, "Failed to submit certificate request for certificate renewal");
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");
@@ -1829,19 +1848,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         certificateRequestDto.setSourceCertificateUuid(oldCertificate.getUuid());
         certificateRequestDto.setCustomAttributes(AttributeDefinitionUtils.getClientAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, oldCertificate.getUuid())));
 
-        CertificateDetailDto newCertificate;
-        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null);
-            transactionManager.commit(status);
-        } catch (RequestAttributePolicyViolationException e) {
-            transactionManager.rollback(status);
-            // a client-facing validation failure
-            throw e;
-        } catch (Exception e) {
-            transactionManager.rollback(status);
-            throw new CertificateOperationException("Failed to submit certificate request for certificate rekey: " + e.getMessage());
-        }
+        CertificateDetailDto newCertificate = submitAndShapeFailure(certificateRequestDto, null, "Failed to submit certificate request for certificate rekey");
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");

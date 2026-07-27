@@ -238,6 +238,12 @@ public interface CertificateInternalService extends ResourceExtensionService {
 
     /**
      * Create certificate request entity and certificate in status New, store it in the database ready for issuing
+     * <p>
+     * This method performs local persistence only. The caller must have merged and validated the issue attributes
+     * against the authority connector beforehand (see {@code ExtendedAttributeService#mergeAndValidateIssueAttributes}),
+     * both to enforce connector-side validation and to register the attribute definitions this method writes content
+     * against. Callers do that outside their persistence transaction, so the connector round-trip does not hold a
+     * database connection.
      *
      * @param csr                        - PKCS10 certificate request to be added
      * @param csrFormat                  - format of the certificate request
