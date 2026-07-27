@@ -175,12 +175,12 @@ class ScepServiceImplPollUnitTest {
     }
 
     /**
-     * The catch-Exception block must not propagate — the client keeps polling and the
-     * response object reflects whatever was set before the failure. Forced here by making
-     * the repository throw on lookup.
+     * The catch-Exception block must not propagate and must not return a null-status response:
+     * it degrades to PENDING so the client keeps polling and response generation never NPEs on a
+     * missing pkiStatus. Forced here by making the repository throw on lookup.
      */
     @Test
-    void pollCertificate_swallowsAndLogsExceptions_returningPartiallyPopulatedResponse() {
+    void pollCertificate_swallowsExceptions_returningPendingToKeepClientPolling() {
         ScepRequest scepRequest = mockScepRequest("tx-9");
         Mockito.when(transactionRepository.findByTransactionId("tx-9"))
                 .thenThrow(new RuntimeException("simulated repository failure"));
@@ -188,8 +188,9 @@ class ScepServiceImplPollUnitTest {
         ScepResponse response = (ScepResponse) ReflectionTestUtils.invokeMethod(
                 service, "pollCertificate", scepRequest, null);
 
-        // No exception escapes — caller gets a (mostly) empty response object.
+        // No exception escapes, and the response carries a concrete PENDING status.
         assertThat(response).isNotNull();
+        assertThat(pkiStatus(response)).isEqualTo(PkiStatus.PENDING);
     }
 
     // ==================== helpers ====================

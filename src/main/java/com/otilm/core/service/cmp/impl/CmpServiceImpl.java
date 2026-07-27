@@ -299,11 +299,7 @@ public class CmpServiceImpl implements CmpExternalService {
             return buildOk(pkiResponse);
         } catch (CmpBaseException e) {
             return errorResponse(tid, logPrefix, requestAsString, "processing", e,
-                    new PkiMessageBuilder(configuration)
-                            .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(pkiRequest))
-                            .addBody(e.toPKIBody())
-                            .addExtraCerts(null)
-                            .build());
+                    buildProcessingErrorResponse(configuration, pkiRequest, e));
         } catch (IOException e) {
             return errorResponse(tid, logPrefix, requestAsString, "parsing", e,
                     PkiMessageError.unprotectedMessage(pkiRequest.getHeader(),
@@ -334,6 +330,28 @@ public class CmpServiceImpl implements CmpExternalService {
         return buildBadRequest(pkiResponse);
     }
 
+    /**
+     * Builds the CMP error response for a domain exception raised during processing. The response is protected
+     * with the profile's response strategy when possible; if that construction itself fails (e.g. a misconfigured
+     * profile), it falls back to an unprotected CMP error carrying the same domain body. RFC 4210 permits
+     * unprotected error messages, and this guarantees the endpoint always answers with {@code application/pkixcmp}
+     * rather than leaking to the generic JSON error handler.
+     */
+    private PKIMessage buildProcessingErrorResponse(ConfigurationContext configuration, PKIMessage pkiRequest,
+                                                    CmpBaseException e) {
+        PKIBody errorBody = e.toPKIBody();
+        try {
+            return new PkiMessageBuilder(configuration)
+                    .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(pkiRequest))
+                    .addBody(errorBody)
+                    .addExtraCerts(null)
+                    .build();
+        } catch (Exception buildError) {
+            LOG.error("failed to build protected CMP error response; falling back to unprotected error", buildError);
+            return PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), errorBody);
+        }
+    }
+
     // Should it be handled in new transaction? It wqs made private since it was called intra class so Transactional annotation was ignored anyway
     //    @Transactional(propagation = Propagation.REQUIRES_NEW)
     private void handleTrxError(ASN1OctetString tid, Exception e) {
@@ -341,7 +359,7 @@ public class CmpServiceImpl implements CmpExternalService {
         if (!trx.isEmpty()) {
             for (CmpTransaction updatedTransaction : trx) {
                 updatedTransaction.setState(CmpTransactionState.FAILED);
-                String customReason = e.getMessage();
+                String customReason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 updatedTransaction.setCustomReason(customReason.substring(0, Math.min(254, customReason.length())));
                 cmpTransactionService.save(updatedTransaction);
             }
