@@ -1,5 +1,19 @@
 package com.otilm.core.integration.events;
 
+import com.otilm.core.service.handler.CertificateHandler;
+import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.compliance.ComplianceStatus;
+import com.otilm.api.model.core.certificate.CertificateValidationStatus;
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.core.util.X509ObjectToString;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.asn1.x500.X500Name;
+import java.security.KeyPairGenerator;
+import java.security.KeyPair;
+import java.math.BigInteger;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.EventException;
@@ -81,6 +95,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.verify;
 
@@ -137,6 +154,9 @@ class EventHandlersITest extends BaseSpringBootTest {
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     @MockitoSpyBean
     private EventProducer eventProducer;
+
+    @MockitoSpyBean
+    private CertificateHandler certificateHandler;
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -589,6 +609,115 @@ class EventHandlersITest extends BaseSpringBootTest {
         discovery.setConnectorUuid(UUID.randomUUID());
         discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
         return discoveryRepository.save(discovery);
+    }
+
+    /**
+     * The regression test for the reported failure: several rows carrying the same certificate used to race on an
+     * unguarded find-then-insert, and all but one rolled back — losing the certificate and the record of why.
+     */
+    @Test
+    void testCertificateDiscoveredImportsOneCertificateForDuplicateRows() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        List<DiscoveryCertificate> rows = List.of(
+                persistDiscoveryCertificate(discovery, content, "host-one"),
+                persistDiscoveryCertificate(discovery, content, "host-two"),
+                persistDiscoveryCertificate(discovery, content, "host-three"));
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Assertions.assertTrue(certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509)).isPresent(),
+                "the group must yield exactly one certificate");
+        Assertions.assertEquals(1, certificateRepository.findAll().stream()
+                        .filter(certificate -> content.getId().equals(certificate.getCertificateContentId())).count(),
+                "no duplicate certificate rows for one content");
+        for (DiscoveryCertificate row : rows) {
+            DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+            Assertions.assertTrue(reloaded.isProcessed(), "every row in the group must be marked processed");
+            Assertions.assertNull(reloaded.getProcessedError(),
+                    "a deduplicated row is not a failure: " + reloaded.getProcessedError());
+        }
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
+                msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
+                        && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
+    }
+
+    /**
+     * A group whose import rolls back must record why on every one of its rows — the reason has to survive the
+     * failure that produced it — and must not also be counted as a missing key association.
+     *
+     * <p>The failure has to be injected. The production trigger is the unique index on
+     * {@code certificate_content_id}, which comes from a Flyway migration — and integration tests disable Flyway
+     * and build their schema from entity annotations, where that column carries no uniqueness. So a constraint
+     * -driven rollback on it is not reproducible here, which is very likely why the original defect reached
+     * production undetected.
+     */
+    @Test
+    void testCertificateDiscoveredRecordsARolledBackGroupWithoutCountingItAsAKeyGap() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "rolling-back-host");
+        doThrow(new IllegalStateException("forced failure inside the import transaction"))
+                .when(certificateHandler).updateDiscoveredCertificate(any(), any(), any());
+
+        try {
+            certificateDiscoveredEventHandler.handleEvent(
+                    CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+            DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+            Assertions.assertTrue(reloaded.isProcessed(),
+                    "the outcome must be recorded even though the import transaction rolled back");
+            Assertions.assertNotNull(reloaded.getProcessedError(), "the row must carry the reason");
+            Assertions.assertTrue(reloaded.getProcessedError().startsWith("Import rolled back:"),
+                    "unexpected reason: " + reloaded.getProcessedError());
+            Assertions.assertFalse(reloaded.getProcessedError().contains("insert into"),
+                    "the reason must not leak SQL: " + reloaded.getProcessedError());
+
+            verify(eventProducer).produceMessage(argThat((EventMessage msg) -> {
+                if (msg.getEvent() != ResourceEvent.DISCOVERY_FINISHED) return false;
+                DiscoveryResult result = (DiscoveryResult) msg.getData();
+                return result.getDiscoveryStatus() == DiscoveryStatus.WARNING
+                        && result.getMessage().contains("could not be imported into the inventory")
+                        && !result.getMessage().contains("without a public key association");
+            }));
+        } finally {
+            reset(certificateHandler);
+        }
+    }
+
+    private CertificateContent persistContentFor(X509Certificate x509) throws Exception {
+        CertificateContent content = new CertificateContent();
+        content.setFingerprint(CertificateUtil.getThumbprint(x509));
+        content.setContent(CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(x509)));
+        return certificateContentRepository.save(content);
+    }
+
+    private DiscoveryCertificate persistDiscoveryCertificate(DiscoveryHistory discovery, CertificateContent content,
+                                                             String host) {
+        DiscoveryCertificate row = new DiscoveryCertificate();
+        row.setCommonName(host);
+        row.setNewlyDiscovered(true);
+        row.setCertificateContent(content);
+        row.setDiscovery(discovery);
+        row.setDiscoveryUuid(discovery.getUuid());
+        row.setMeta(List.of());
+        return discoveryCertificateRepository.save(row);
+    }
+
+    private static X509Certificate generateSelfSignedCertificate() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        X500Name subject = new X500Name("CN=discovery-group-itest-" + UUID.randomUUID());
+        Instant now = Instant.now();
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                subject, BigInteger.valueOf(now.toEpochMilli()),
+                Date.from(now.minusSeconds(60)), Date.from(now.plusSeconds(86400)), subject, keyPair.getPublic());
+        return new JcaX509CertificateConverter()
+                .getCertificate(builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate())));
     }
 
     @Test
