@@ -77,7 +77,6 @@ import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
 import com.otilm.core.service.writer.CertificateValidationWriter;
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
-import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.*;
 import com.otilm.core.validation.certificate.ICertificateValidator;
@@ -179,7 +178,6 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     private AcmeAccountRepository acmeAccountRepository;
 
     private AttributeEngine attributeEngine;
-    private ExtendedAttributeService extendedAttributeService;
     private ResourceObjectAssociationService objectAssociationService;
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     private ApplicationEventPublisher applicationEventPublisher;
@@ -389,11 +387,6 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
-    }
-
-    @Autowired
-    public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
-        this.extendedAttributeService = extendedAttributeService;
     }
 
     @Autowired
@@ -1734,8 +1727,9 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
             UUID predecessorCertificateUuid,
             CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException {
+        // Issue-attribute merge/validation is performed by the caller before the request transaction opens,
+        // so no connector round-trip runs while this transaction (and its DB connection) is held.
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
-        extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
 
         // create certificate request from CSR and parse the data
         byte[] decodedCsr = Base64.getDecoder().decode(certificateRequest);
