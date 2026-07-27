@@ -38,6 +38,9 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     @Autowired
     CustomOidEntryRepository customOidEntryRepository;
 
+    @Autowired
+    com.otilm.core.service.impl.CustomOidEntryServiceImpl customOidEntryServiceImpl;
+
     private CustomOidEntry genericCustomOidEntry;
     private RdnAttributeTypeCustomOidEntry rdnOidEntry;
     private CertificateExtensionCustomOidEntry extensionOidEntry;
@@ -271,34 +274,89 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
                 "Name Constraints must be critical — RFC 5280 4.2.1.10");
     }
 
-    @Test
-    void testEditingARowShadowedByASystemOidIsRefused() {
-        // given — a row that predates its OID's promotion to a system OID. It cannot be created through
-        // the service any more, so seed it through the repository the way an upgrade would leave it.
+    /** Seeds a row the way an upgrade leaves it: valid when created, its OID since promoted to a system OID. */
+    private RdnAttributeTypeCustomOidEntry seedShadowedRdnRow(String code) {
         RdnAttributeTypeCustomOidEntry shadowed = new RdnAttributeTypeCustomOidEntry();
         shadowed.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
         shadowed.setDisplayName("legacy user id");
         shadowed.setOid(SystemOid.USER_ID.getOid());
-        shadowed.setCode("LEGACYUID");
+        shadowed.setCode(code);
         shadowed.setAltCodes(List.of());
         customOidEntryRepository.save(shadowed);
+        customOidEntryServiceImpl.refreshCache();
+        return shadowed;
+    }
+
+    @Test
+    void testShadowedRdnRowKeepsItsCodeResolving() {
+        // given — before the promotion this row's code was the only way to resolve that OID, and stored
+        // request-attribute definitions and DN templates reference it
+        seedShadowedRdnRow("LEGACYUID");
+
+        // when / then — the built-in entry must not replace the operator's record wholesale; losing the
+        // code makes every DN carrying it fail to resolve at request time
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode("LEGACYUID"),
+                "the operator's code must survive the promotion");
+        Assertions.assertTrue(customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
+                "the shadowed row must be reported so an operator can resolve it");
+    }
+
+    @Test
+    void testShadowedExtensionRowKeepsItsConfiguredProperties() {
+        // given — a certificate-extension row registered before the OID was promoted, with an encoding
+        // that differs from the built-in default
+        CertificateExtensionCustomOidEntry shadowed = new CertificateExtensionCustomOidEntry();
+        shadowed.setCategory(OidCategory.CERTIFICATE_EXTENSION);
+        shadowed.setDisplayName("legacy EKU");
+        shadowed.setOid(SystemOid.EXTENDED_KEY_USAGE_EXTENSION.getOid());
+        shadowed.setDefaultCritical(true);
+        shadowed.setValueEncoding(ExtensionValueEncoding.UTF8_STRING);
+        customOidEntryRepository.save(shadowed);
+        customOidEntryServiceImpl.refreshCache();
+
+        // when / then — silently swapping the encoding to the built-in DER makes the renderer
+        // base64-decode a plain string, so issuance fails
+        OidRecord record = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION)
+                .get(SystemOid.EXTENDED_KEY_USAGE_EXTENSION.getOid());
+        Assertions.assertNotNull(record);
+        Assertions.assertEquals(ExtensionValueEncoding.UTF8_STRING, record.valueEncoding(),
+                "the operator's value encoding must survive the promotion");
+        Assertions.assertEquals(Boolean.TRUE, record.defaultCritical());
+    }
+
+    @Test
+    void testShadowedRowRemainsEditable() throws NotFoundException {
+        // given — the row is authoritative in the cache, so an edit must reach the cache too
+        seedShadowedRdnRow("LEGACYUID");
 
         CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
         request.setDisplayName("renamed");
         RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
-        props.setCode("STILLLEGACY");
+        props.setCode("RENAMEDUID");
         props.setAltCodes(List.of());
         request.setAdditionalProperties(props);
 
-        // when / then — editing would persist and rewrite certificate DNs while never reaching the
-        // cache, reporting success for a change that has no effect
-        ValidationException e = Assertions.assertThrows(ValidationException.class,
-                () -> customOidEntryService.editCustomOidEntry(SystemOid.USER_ID.getOid(), request));
-        Assertions.assertTrue(e.getMessage().contains("reserved for system OID"),
-                "expected a reserved-OID message but was: " + e.getMessage());
-        Assertions.assertEquals("LEGACYUID",
-                ((RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(SystemOid.USER_ID.getOid()).orElseThrow()).getCode(),
-                "the refused edit must not have persisted");
+        // when
+        customOidEntryService.editCustomOidEntry(SystemOid.USER_ID.getOid(), request);
+
+        // then — the edit must not be half-applied: DB and cache agree
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode("RENAMEDUID"));
+        Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"), "the old code must stop resolving");
+    }
+
+    @Test
+    void testDeletingAShadowedRowRestoresTheBuiltInEntry() throws NotFoundException {
+        // given — deleting the row is the documented way to resolve the conflict
+        seedShadowedRdnRow("LEGACYUID");
+
+        // when
+        customOidEntryService.deleteCustomOidEntry(SystemOid.USER_ID.getOid());
+
+        // then — the built-in entry takes over rather than the OID disappearing from the registry
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode(SystemOid.USER_ID.getCode()));
+        Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"));
+        Assertions.assertFalse(customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
+                "the conflict must clear once the row is gone");
     }
 
     @Test

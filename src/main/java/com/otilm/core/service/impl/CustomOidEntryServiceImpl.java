@@ -57,7 +57,6 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     /** Rows shadowed by a built-in system OID; see {@link #getShadowedCustomOidEntries}. */
     private volatile Set<String> shadowedCustomOidEntries = Collections.emptySet();
 
-
     @Autowired
     public void setCertificateService(CertificateInternalService certificateService) {
         this.certificateService = certificateService;
@@ -76,6 +75,30 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         for (OidCategory oidCategory : OidCategory.values()) {
             OidHandler.cacheOidCategory(oidCategory, getOidToRecordMap(oidCategory));
         }
+        publishShadowedCustomOidEntries();
+    }
+
+    /**
+     * Recomputes the shadowed-row set from one query and publishes it in a single assignment, logging
+     * only when the set changes. Derived in one shot rather than accumulated per category, because
+     * refreshCache is reachable concurrently from the scheduler and from bulkDeleteCustomOidEntry, and a
+     * read-modify-write across categories can drop a category's contribution however volatile the field.
+     */
+    private void publishShadowedCustomOidEntries() {
+        Set<String> shadowed = customOidEntryRepository.findAll().stream()
+                .filter(entry -> {
+                    SystemOid systemOid = SystemOid.fromOID(entry.getOid());
+                    return systemOid != null && systemOid.getCategory() == entry.getCategory();
+                })
+                .map(CustomOidEntry::getOid)
+                .collect(Collectors.toCollection(TreeSet::new));
+        if (shadowed.equals(shadowedCustomOidEntries)) {
+            return;
+        }
+        shadowedCustomOidEntries = Collections.unmodifiableSet(shadowed);
+        shadowed.forEach(oid -> log.warn(
+                "Custom OID entry {} shares its OID with a built-in system OID. The custom entry wins, so the "
+                        + "built-in defaults do not apply; delete the custom entry to fall back to them.", oid));
     }
 
     @Override
@@ -153,14 +176,6 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.UPDATE)
     public CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto request) throws NotFoundException {
         CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
-        // A row can predate the OID's promotion to a system OID. The registry resolves that OID to the
-        // built-in entry, so an edit would persist and rewrite certificate DNs while never reaching the
-        // cache — a half-applied change reporting success. Refuse instead, and say what to do.
-        SystemOid shadowing = SystemOid.fromOID(oid);
-        if (shadowing != null)
-            throw new ValidationException(
-                    "OID %s is now reserved for system OID %s, so this custom entry no longer takes effect and cannot be edited. Delete it instead."
-                            .formatted(oid, shadowing.name()));
         String code = null;
         List<String> altCodes = null;
         Boolean defaultCritical = null;
@@ -200,15 +215,15 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         customOidEntry.setDescription(request.getDescription());
         customOidEntryRepository.save(customOidEntry);
 
-        if (SystemOid.fromOID(oid) == null) {
-            OidHandler.cacheOid(customOidEntry.getCategory(), oid, OidRecord.builder()
-                    .displayName(customOidEntry.getDisplayName())
-                    .code(code)
-                    .altCodes(altCodes)
-                    .defaultCritical(defaultCritical)
-                    .valueEncoding(valueEncoding)
-                    .build());
-        }
+        // Cached unconditionally: a custom row wins over a same-OID built-in (see getOidToRecordMap),
+        // so skipping this would leave the DB and the registry disagreeing after a successful edit.
+        OidHandler.cacheOid(customOidEntry.getCategory(), oid, OidRecord.builder()
+                .displayName(customOidEntry.getDisplayName())
+                .code(code)
+                .altCodes(altCodes)
+                .defaultCritical(defaultCritical)
+                .valueEncoding(valueEncoding)
+                .build());
         return CustomOidEntryMapper.toDetailDto(customOidEntry);
     }
 
@@ -226,8 +241,22 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
     public void deleteCustomOidEntry(String oid) throws NotFoundException {
         CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
-        if (SystemOid.fromOID(oid) == null) OidHandler.removeCachedOid(customOidEntry.getCategory(), oid);
         customOidEntryRepository.delete(customOidEntry);
+        // Deleting a row that shadowed a built-in must hand the OID back to the built-in rather than drop
+        // it from the registry, since the custom record was the effective one while it existed.
+        SystemOid shadowed = SystemOid.fromOID(oid);
+        if (shadowed != null && shadowed.getCategory() == customOidEntry.getCategory()) {
+            OidHandler.cacheOid(shadowed.getCategory(), oid, OidRecord.builder()
+                    .displayName(shadowed.getDisplayName())
+                    .code(shadowed.getCode())
+                    .altCodes(shadowed.getAltCodes())
+                    .defaultCritical(shadowed.getDefaultCritical())
+                    .valueEncoding(shadowed.getValueEncoding())
+                    .build());
+            publishShadowedCustomOidEntries();
+        } else {
+            OidHandler.removeCachedOid(customOidEntry.getCategory(), oid);
+        }
     }
 
     @Override
@@ -292,35 +321,6 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         return shadowedCustomOidEntries;
     }
 
-    /**
-     * Records the shadowed rows for one category and logs only when the set changes. The cache rebuilds
-     * on a short schedule, so logging per rebuild would repeat the same warning until it was ignored.
-     */
-    private void reportShadowedCustomEntries(OidCategory oidCategory, Set<String> customOids) {
-        Set<String> shadowed = Arrays.stream(SystemOid.values())
-                .filter(systemOid -> systemOid.getCategory() == oidCategory)
-                .map(SystemOid::getOid)
-                .filter(customOids::contains)
-                .collect(Collectors.toCollection(TreeSet::new));
-
-        Set<String> others = shadowedCustomOidEntries.stream()
-                .filter(oid -> {
-                    SystemOid systemOid = SystemOid.fromOID(oid);
-                    return systemOid == null || systemOid.getCategory() != oidCategory;
-                })
-                .collect(Collectors.toCollection(TreeSet::new));
-        Set<String> merged = new TreeSet<>(others);
-        merged.addAll(shadowed);
-
-        if (merged.equals(shadowedCustomOidEntries)) {
-            return;
-        }
-        shadowedCustomOidEntries = Collections.unmodifiableSet(merged);
-        shadowed.forEach(oid -> log.warn(
-                "Custom OID entry {} is shadowed by the built-in system OID of the same value, so its configured "
-                        + "properties no longer apply. Delete the custom entry to resolve the conflict.", oid));
-    }
-
     private Map<String, OidRecord> getOidToRecordMap(OidCategory oidCategory) {
         // Cache DB OIDs
         Map<String, OidRecord> oidToDisplayNameMap = new HashMap<>(customOidEntryRepository.findAllByCategory(oidCategory)
@@ -335,20 +335,24 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                             .valueEncoding(isExt ? ((CertificateExtensionCustomOidEntry) oid).getValueEncoding() : null)
                             .build();
                 })));
-        reportShadowedCustomEntries(oidCategory, oidToDisplayNameMap.keySet());
-
         // Cache System OIDs. defaultCritical and valueEncoding must be carried through: the projector
         // reads them from this cache, and an unset defaultCritical silently emits a critical extension
         // such as Name Constraints as non-critical.
-        oidToDisplayNameMap.putAll(Arrays.stream(SystemOid.values()).filter(oid -> oid.getCategory() == oidCategory)
-                .collect(Collectors.toMap(SystemOid::getOid, oid ->
-                        OidRecord.builder()
-                                .displayName(oid.getDisplayName())
-                                .code(oid.getCode())
-                                .altCodes(oid.getAltCodes())
-                                .defaultCritical(oid.getDefaultCritical())
-                                .valueEncoding(oid.getValueEncoding())
-                                .build())));
+        //
+        // putIfAbsent, not putAll: a custom row for the same OID predates the promotion, and overwriting
+        // it would drop the operator's code, alt codes, criticality and encoding wholesale — taking a
+        // code out of the registry entirely, so every DN carrying it fails to resolve at request time.
+        // The operator's record therefore wins and is reported as shadowed, matching how a contested
+        // code resolves. The built-in stays reachable by its dotted OID.
+        Arrays.stream(SystemOid.values())
+                .filter(oid -> oid.getCategory() == oidCategory)
+                .forEach(oid -> oidToDisplayNameMap.putIfAbsent(oid.getOid(), OidRecord.builder()
+                        .displayName(oid.getDisplayName())
+                        .code(oid.getCode())
+                        .altCodes(oid.getAltCodes())
+                        .defaultCritical(oid.getDefaultCritical())
+                        .valueEncoding(oid.getValueEncoding())
+                        .build()));
         return oidToDisplayNameMap;
     }
 }

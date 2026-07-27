@@ -95,9 +95,12 @@ public class OidHandler {
         if (category != OidCategory.RDN_ATTRIBUTE_TYPE) {
             return;
         }
-        Map<String, String> lookup = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        lookup.putAll(getCodeToOidMap());
+        // The single writer of conflict state: this runs under WRITE_LOCK, so the published snapshot and
+        // the index it describes always come from the same rebuild. Readers never publish.
+        Map<String, Set<String>> conflicts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        Map<String, String> lookup = buildCodeToOid(conflicts);
         rdnCodeToOid.set(Collections.unmodifiableMap(lookup));
+        publishRdnCodeConflicts(conflicts, lookup);
     }
 
     /**
@@ -106,11 +109,17 @@ public class OidHandler {
      * token; see {@link #claimToken} for how that is resolved.
      */
     public static Map<String, String> getCodeToOidMap() {
+        return buildCodeToOid(new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
+    }
+
+    /**
+     * Builds the code → OID index, recording any contested token into {@code conflicts}. Side-effect
+     * free: publication is the caller's job, so request-path readers cannot race the writer.
+     */
+    private static Map<String, String> buildCodeToOid(Map<String, Set<String>> conflicts) {
         Map<String, String> reverseMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        Map<String, Set<String>> conflicts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         Map<String, OidRecord> rdnCache = oidCache.get(OidCategory.RDN_ATTRIBUTE_TYPE);
         if (rdnCache == null) {
-            publishRdnCodeConflicts(conflicts, reverseMap);
             return reverseMap;
         }
         // Sorted so a contested token resolves the same way on every rebuild, rather than by the
@@ -128,23 +137,21 @@ public class OidHandler {
                 }
             }
         }
-        publishRdnCodeConflicts(conflicts, reverseMap);
         return reverseMap;
     }
 
     /**
      * RDN code tokens claimed by more than one OID, mapped to every claimant. Empty when the registry
-     * is unambiguous. Exposed so the condition can be surfaced to an operator rather than living only
-     * in the log — the cache rebuilds every few seconds, so a per-rebuild log line is not a report.
+     * is unambiguous.
      */
     public static Map<String, Set<String>> getRdnCodeConflicts() {
         return rdnCodeConflicts.get();
     }
 
     /**
-     * Publishes the current conflict set, logging only when it differs from the last one. The cache is
-     * rebuilt on a short schedule, so logging per rebuild would emit the same warning thousands of
-     * times a day until an operator resolved it.
+     * Publishes the current conflict set, logging only when it differs from the last one. The registry
+     * rebuilds on {@code settings.cache.refresh-interval} (30 s by default), so logging per rebuild
+     * would repeat the same warning thousands of times a day until an operator resolved it.
      */
     private static void publishRdnCodeConflicts(Map<String, Set<String>> conflicts, Map<String, String> resolved) {
         // Deep-immutable, and case-insensitive like every other code lookup here. Both matter because
@@ -158,7 +165,6 @@ public class OidHandler {
         if (published.equals(previous)) {
             return;
         }
-        // An empty set logs nothing: the state is queryable, and the log carries problems only.
         published.forEach((token, claimants) -> log.warn(
                 "RDN code '{}' is claimed by OIDs {}; resolving it to {}. Rename the custom OID entry's code "
                         + "or alt code to remove the ambiguity.", token, claimants, resolved.get(token)));
@@ -168,7 +174,8 @@ public class OidHandler {
      * Assigns one code token to an OID, resolving a contest in favour of the operator-registered
      * entry. A custom OID entry was already resolving that token before its OID became a system OID,
      * so an upgrade must not silently repoint it; the built-in entry stays reachable by its dotted
-     * OID. Contests between two entries of the same kind keep the lowest OID, purely for determinism.
+     * OID. Contests between two entries of the same kind keep the lexicographically first OID; determinism is
+     * the guarantee, not any numeric ordering of the arcs.
      */
     private static void claimToken(Map<String, String> reverseMap, Map<String, Set<String>> conflicts,
                                    String token, String oid) {

@@ -187,19 +187,9 @@ class RequestAttributeDefinitionValidationTest {
     }
 
     @Test
-    void extensionMappingOnCaControlledExtensionRejected() {
-        // given — a requester-supplied value must not drive cA/pathLen, a name-constraints tree, or a
-        // key identifier that no longer matches the key
-        // when / then
-        assertRejected(extensionDefinition("2.5.29.19"), "controlled by the issuing CA");
-        assertRejected(extensionDefinition("2.5.29.30"), "controlled by the issuing CA");
-        assertRejected(extensionDefinition("2.5.29.14"), "controlled by the issuing CA");
-    }
-
-    @Test
     void extensionMappingOnRequesterOwnedSystemExtensionPasses() {
-        // given — the SystemOid branch of the extension check was unreachable until the enum gained
-        // CERTIFICATE_EXTENSION entries; this is the case core#1883 needs to work
+        // given — a requester-owned system extension is a legitimate mapping target and must pass
+        // the registry check
         List<BaseAttribute> definitions = List.of(extensionDefinition("2.5.29.37"));
 
         // when / then

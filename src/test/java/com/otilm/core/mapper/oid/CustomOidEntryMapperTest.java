@@ -8,6 +8,9 @@ import com.otilm.api.model.core.oid.properties.CertificateExtensionOidProperties
 import com.otilm.api.model.core.oid.properties.RdnAttributeTypeOidPropertiesDto;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -40,10 +43,12 @@ class CustomOidEntryMapperTest {
     @Test
     void everySystemCertificateExtensionSurfacesBothRequiredFields() {
         // given — a single missing branch would ship entries that fail their own schema
-        for (SystemOid entry : SystemOid.values()) {
-            if (entry.getCategory() != OidCategory.CERTIFICATE_EXTENSION) {
-                continue;
-            }
+        List<SystemOid> extensions = Arrays.stream(SystemOid.values())
+                .filter(e -> e.getCategory() == OidCategory.CERTIFICATE_EXTENSION).toList();
+        // Without this the loop below would pass vacuously against an interfaces build that seeds none.
+        assertThat(extensions).isNotEmpty();
+
+        for (SystemOid entry : extensions) {
 
             // when
             CustomOidEntryDetailResponseDto dto = CustomOidEntryMapper.toDetailDto(entry);
