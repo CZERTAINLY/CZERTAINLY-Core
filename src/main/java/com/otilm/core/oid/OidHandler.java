@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +37,10 @@ public class OidHandler {
      */
     private static final AtomicReference<Map<String, String>> rdnCodeToOid =
             new AtomicReference<>(Collections.emptyMap());
+
+    /** Code tokens claimed by more than one OID, republished on every rebuild. See {@link #getRdnCodeConflicts}. */
+    private static final AtomicReference<Map<String, Set<String>>> rdnCodeConflicts =
+            new AtomicReference<>(Map.of());
 
     /**
      * Serializes writers so that the read-copy-publish of a per-category map and the rebuild of the
@@ -102,8 +107,10 @@ public class OidHandler {
      */
     public static Map<String, String> getCodeToOidMap() {
         Map<String, String> reverseMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        Map<String, Set<String>> conflicts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         Map<String, OidRecord> rdnCache = oidCache.get(OidCategory.RDN_ATTRIBUTE_TYPE);
         if (rdnCache == null) {
+            publishRdnCodeConflicts(conflicts, reverseMap);
             return reverseMap;
         }
         // Sorted so a contested token resolves the same way on every rebuild, rather than by the
@@ -111,17 +118,47 @@ public class OidHandler {
         for (String oid : new TreeSet<>(rdnCache.keySet())) {
             OidRecord oidRecord = rdnCache.get(oid);
             if (oidRecord.code() != null) {
-                claimToken(reverseMap, oidRecord.code(), oid);
+                claimToken(reverseMap, conflicts, oidRecord.code(), oid);
             }
             if (oidRecord.altCodes() != null) {
                 for (String altCode : oidRecord.altCodes()) {
                     if (altCode != null) {
-                        claimToken(reverseMap, altCode, oid);
+                        claimToken(reverseMap, conflicts, altCode, oid);
                     }
                 }
             }
         }
+        publishRdnCodeConflicts(conflicts, reverseMap);
         return reverseMap;
+    }
+
+    /**
+     * RDN code tokens claimed by more than one OID, mapped to every claimant. Empty when the registry
+     * is unambiguous. Exposed so the condition can be surfaced to an operator rather than living only
+     * in the log — the cache rebuilds every few seconds, so a per-rebuild log line is not a report.
+     */
+    public static Map<String, Set<String>> getRdnCodeConflicts() {
+        return rdnCodeConflicts.get();
+    }
+
+    /**
+     * Publishes the current conflict set, logging only when it differs from the last one. The cache is
+     * rebuilt on a short schedule, so logging per rebuild would emit the same warning thousands of
+     * times a day until an operator resolved it.
+     */
+    private static void publishRdnCodeConflicts(Map<String, Set<String>> conflicts, Map<String, String> resolved) {
+        Map<String, Set<String>> published = Collections.unmodifiableMap(new TreeMap<>(conflicts));
+        Map<String, Set<String>> previous = rdnCodeConflicts.getAndSet(published);
+        if (published.equals(previous)) {
+            return;
+        }
+        if (published.isEmpty()) {
+            log.info("RDN code conflicts resolved; every code and alt code now maps to a single OID.");
+            return;
+        }
+        published.forEach((token, claimants) -> log.warn(
+                "RDN code '{}' is claimed by OIDs {}; resolving it to {}. Rename the custom OID entry's code "
+                        + "or alt code to remove the ambiguity.", token, claimants, resolved.get(token)));
     }
 
     /**
@@ -130,7 +167,8 @@ public class OidHandler {
      * so an upgrade must not silently repoint it; the built-in entry stays reachable by its dotted
      * OID. Contests between two entries of the same kind keep the lowest OID, purely for determinism.
      */
-    private static void claimToken(Map<String, String> reverseMap, String token, String oid) {
+    private static void claimToken(Map<String, String> reverseMap, Map<String, Set<String>> conflicts,
+                                   String token, String oid) {
         String incumbent = reverseMap.get(token);
         if (incumbent == null || incumbent.equals(oid)) {
             reverseMap.put(token, oid);
@@ -138,11 +176,8 @@ public class OidHandler {
         }
         boolean incumbentIsSystem = SystemOid.fromOID(incumbent) != null;
         boolean candidateIsSystem = SystemOid.fromOID(oid) != null;
-        String winner = incumbentIsSystem && !candidateIsSystem ? oid : incumbent;
-        reverseMap.put(token, winner);
-        log.warn("RDN code '{}' is claimed by OID {} and OID {}; resolving it to {}. "
-                        + "Rename the custom OID entry's code or alt code to remove the ambiguity.",
-                token, incumbent, oid, winner);
+        reverseMap.put(token, incumbentIsSystem && !candidateIsSystem ? oid : incumbent);
+        conflicts.computeIfAbsent(token, t -> new TreeSet<>()).addAll(Set.of(incumbent, oid));
     }
 
 

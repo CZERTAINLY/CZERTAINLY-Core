@@ -54,6 +54,9 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     public static final String OID_ENTRY = "OID Entry";
     private final CustomOidEntryRepository customOidEntryRepository;
     private CertificateInternalService certificateService;
+    /** Rows shadowed by a built-in system OID; see {@link #getShadowedCustomOidEntries}. */
+    private volatile Set<String> shadowedCustomOidEntries = Collections.emptySet();
+
 
     @Autowired
     public void setCertificateService(CertificateInternalService certificateService) {
@@ -280,6 +283,44 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         return searchFieldDataByGroupDtos;
     }
 
+    /**
+     * OIDs held by a {@code custom_oid_entry} row that a built-in system OID now shadows, so the row's
+     * configured properties no longer apply. Exposed so the condition can be surfaced to an operator;
+     * the resolution is to delete the row.
+     */
+    public Set<String> getShadowedCustomOidEntries() {
+        return shadowedCustomOidEntries;
+    }
+
+    /**
+     * Records the shadowed rows for one category and logs only when the set changes. The cache rebuilds
+     * on a short schedule, so logging per rebuild would repeat the same warning until it was ignored.
+     */
+    private void reportShadowedCustomEntries(OidCategory oidCategory, Set<String> customOids) {
+        Set<String> shadowed = Arrays.stream(SystemOid.values())
+                .filter(systemOid -> systemOid.getCategory() == oidCategory)
+                .map(SystemOid::getOid)
+                .filter(customOids::contains)
+                .collect(Collectors.toCollection(TreeSet::new));
+
+        Set<String> others = shadowedCustomOidEntries.stream()
+                .filter(oid -> {
+                    SystemOid systemOid = SystemOid.fromOID(oid);
+                    return systemOid == null || systemOid.getCategory() != oidCategory;
+                })
+                .collect(Collectors.toCollection(TreeSet::new));
+        Set<String> merged = new TreeSet<>(others);
+        merged.addAll(shadowed);
+
+        if (merged.equals(shadowedCustomOidEntries)) {
+            return;
+        }
+        shadowedCustomOidEntries = Collections.unmodifiableSet(merged);
+        shadowed.forEach(oid -> log.warn(
+                "Custom OID entry {} is shadowed by the built-in system OID of the same value, so its configured "
+                        + "properties no longer apply. Delete the custom entry to resolve the conflict.", oid));
+    }
+
     private Map<String, OidRecord> getOidToRecordMap(OidCategory oidCategory) {
         // Cache DB OIDs
         Map<String, OidRecord> oidToDisplayNameMap = new HashMap<>(customOidEntryRepository.findAllByCategory(oidCategory)
@@ -294,16 +335,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                             .valueEncoding(isExt ? ((CertificateExtensionCustomOidEntry) oid).getValueEncoding() : null)
                             .build();
                 })));
-        // A row whose OID has since become a system OID is shadowed by the built-in entry below, so its
-        // configured properties stop taking effect. Report it rather than let it fail silently — the
-        // operator resolves it by deleting the row.
-        Arrays.stream(SystemOid.values())
-                .filter(systemOid -> systemOid.getCategory() == oidCategory)
-                .map(SystemOid::getOid)
-                .filter(oidToDisplayNameMap::containsKey)
-                .forEach(shadowedOid -> log.warn(
-                        "Custom OID entry {} is shadowed by the built-in system OID of the same value; its configured "
-                                + "properties no longer apply. Delete the custom entry to resolve the conflict.", shadowedOid));
+        reportShadowedCustomEntries(oidCategory, oidToDisplayNameMap.keySet());
 
         // Cache System OIDs. defaultCritical and valueEncoding must be carried through: the projector
         // reads them from this cache, and an unset defaultCritical silently emits a critical extension

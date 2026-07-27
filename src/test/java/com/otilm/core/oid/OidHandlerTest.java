@@ -128,6 +128,47 @@ class OidHandlerTest {
     }
 
     @Test
+    void contestedRdnCode_isPublishedAsQueryableConflictState() {
+        // given — the cache rebuilds every few seconds, so the conflict has to be readable state an
+        // operator can be shown, not just a log line that repeats until it is filtered out
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("uid").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+
+        // when / then — matched case-insensitively, and both claimants are named
+        assertThat(OidHandler.getRdnCodeConflicts())
+                .hasSize(1)
+                .satisfies(conflicts -> assertThat(conflicts.values().iterator().next())
+                        .containsExactlyInAnyOrder(SystemOid.USER_ID.getOid(), "1.2.3.4.5.6"));
+    }
+
+    @Test
+    void resolvingAContestedRdnCode_clearsTheConflictState() {
+        // given — a contest that an operator then resolves by renaming their code
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+        assertThat(OidHandler.getRdnCodeConflicts()).isNotEmpty();
+
+        // when
+        rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("LEGACYUID").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+
+        // then
+        assertThat(OidHandler.getRdnCodeConflicts()).isEmpty();
+    }
+
+    @Test
+    void unambiguousRegistry_reportsNoConflicts() {
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                OidRecord.builder().displayName("Common Name").code("CN").build());
+
+        assertThat(OidHandler.getRdnCodeConflicts()).isEmpty();
+    }
+
+    @Test
     void removeCachedOid_deregistersRdnCode() {
         OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
                 OidRecord.builder().displayName("Common Name").code("CN").build());
