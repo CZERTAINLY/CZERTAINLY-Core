@@ -102,7 +102,7 @@ class OidHandlerTest {
         // given — a deployment registered its own OID under code UID before 0.9.2342.19200300.100.1.1
         // became a system OID. Both now claim the token.
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -116,7 +116,7 @@ class OidHandlerTest {
     void contestedRdnCode_resolutionSurvivesAnUnrelatedCacheRebuild() {
         // given — the same contest as above
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
         String before = OidHandler.getOidForRdnCode("UID");
@@ -134,7 +134,7 @@ class OidHandlerTest {
         // given — the cache rebuilds every few seconds, so the conflict has to be readable state an
         // operator can be shown, not just a log line that repeats until it is filtered out
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("uid").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -150,7 +150,7 @@ class OidHandlerTest {
         // given — the conflict map is process-wide static state reachable through a public accessor, so
         // a caller must not be able to reach through the unmodifiable map into a mutable value set
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -167,7 +167,7 @@ class OidHandlerTest {
         // given — every other code lookup in the registry is case-insensitive; this one must agree or a
         // caller reading the conflict for "uid" silently sees nothing
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -177,10 +177,38 @@ class OidHandlerTest {
     }
 
     @Test
+    void contestBetweenTwoOperatorRows_keepsTheLexicographicallyFirstOid() {
+        // given — the mirror of the evict arm: no built-in is involved, so provenance cannot break the
+        // tie and only determinism is guaranteed
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put("0.1.2.3", OidRecord.builder().displayName("First").code("DUP").build());
+        rdn.put("9.8.7.6", OidRecord.builder().displayName("Second").code("DUP").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+
+        // when / then
+        assertThat(OidHandler.getOidForRdnCode("DUP")).isEqualTo("0.1.2.3");
+        assertThat(OidHandler.getRdnCodeConflicts()).containsKey("DUP");
+    }
+
+    @Test
+    void shadowedOperatorRowKeepsItsTokenAgainstAnotherOperatorRow() {
+        // given — a custom row occupying a system OID, contested by a second custom row that sorts AFTER
+        // it. The shadowed row therefore claims the token first, and keeps it only if provenance decides
+        // the contest: classifying by OID identity would read it as built-in and evict it.
+        Map<String, OidRecord> rdn = new HashMap<>();
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("Shadowed row").code("DUP").build());
+        rdn.put("1.2.3.4", OidRecord.builder().displayName("Other operator row").code("DUP").build());
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
+
+        // when / then — neither record is built-in, so the first claimant keeps the token
+        assertThat(OidHandler.getOidForRdnCode("DUP")).isEqualTo(SystemOid.USER_ID.getOid());
+    }
+
+    @Test
     void resolvingAContestedRdnCode_clearsTheConflictState() {
         // given — a contest that an operator then resolves by renaming their code
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").build());
+        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
         assertThat(OidHandler.getRdnCodeConflicts()).isNotEmpty();

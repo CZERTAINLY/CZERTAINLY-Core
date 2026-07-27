@@ -118,6 +118,7 @@ public class OidHandler {
      */
     private static Map<String, String> buildCodeToOid(Map<String, Set<String>> conflicts) {
         Map<String, String> reverseMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> systemClaimants = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         Map<String, OidRecord> rdnCache = oidCache.get(OidCategory.RDN_ATTRIBUTE_TYPE);
         if (rdnCache == null) {
             return reverseMap;
@@ -127,12 +128,12 @@ public class OidHandler {
         for (String oid : new TreeSet<>(rdnCache.keySet())) {
             OidRecord oidRecord = rdnCache.get(oid);
             if (oidRecord.code() != null) {
-                claimToken(reverseMap, conflicts, oidRecord.code(), oid);
+                claimToken(reverseMap, systemClaimants, conflicts, oidRecord.code(), oid, oidRecord.system());
             }
             if (oidRecord.altCodes() != null) {
                 for (String altCode : oidRecord.altCodes()) {
                     if (altCode != null) {
-                        claimToken(reverseMap, conflicts, altCode, oid);
+                        claimToken(reverseMap, systemClaimants, conflicts, altCode, oid, oidRecord.system());
                     }
                 }
             }
@@ -156,7 +157,7 @@ public class OidHandler {
     private static void publishRdnCodeConflicts(Map<String, Set<String>> conflicts, Map<String, String> resolved) {
         // Deep-immutable, and case-insensitive like every other code lookup here. Both matter because
         // this is process-wide static state handed out through a public accessor: a mutable claimant set
-        // would let a caller corrupt it, and note that TreeMap(Map) would silently drop the comparator.
+        // would let a caller corrupt it,; TreeMap(Map) would drop the comparator.
         Map<String, Set<String>> snapshot = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         conflicts.forEach((token, claimants) ->
                 snapshot.put(token, Collections.unmodifiableSortedSet(new TreeSet<>(claimants))));
@@ -177,16 +178,28 @@ public class OidHandler {
      * OID. Contests between two entries of the same kind keep the lexicographically first OID; determinism is
      * the guarantee, not any numeric ordering of the arcs.
      */
-    private static void claimToken(Map<String, String> reverseMap, Map<String, Set<String>> conflicts,
-                                   String token, String oid) {
+    private static void claimToken(Map<String, String> reverseMap, Set<String> systemClaimants,
+                                   Map<String, Set<String>> conflicts, String token, String oid,
+                                   boolean candidateIsSystem) {
         String incumbent = reverseMap.get(token);
         if (incumbent == null || incumbent.equals(oid)) {
             reverseMap.put(token, oid);
+            if (candidateIsSystem) {
+                systemClaimants.add(token);
+            } else {
+                systemClaimants.remove(token);
+            }
             return;
         }
-        boolean incumbentIsSystem = SystemOid.fromOID(incumbent) != null;
-        boolean candidateIsSystem = SystemOid.fromOID(oid) != null;
-        reverseMap.put(token, incumbentIsSystem && !candidateIsSystem ? oid : incumbent);
+        // Decided on record provenance, not on whether the dotted OID happens to be built-in: a custom
+        // row can occupy a system OID (see getOidToRecordMap's putIfAbsent), and asking SystemOid.fromOID
+        // would misclassify that operator record as built-in and make it lose its own token.
+        boolean incumbentIsSystem = systemClaimants.contains(token);
+        boolean candidateWins = incumbentIsSystem && !candidateIsSystem;
+        reverseMap.put(token, candidateWins ? oid : incumbent);
+        if (candidateWins) {
+            systemClaimants.remove(token);
+        }
         conflicts.computeIfAbsent(token, t -> new TreeSet<>()).addAll(Set.of(incumbent, oid));
     }
 

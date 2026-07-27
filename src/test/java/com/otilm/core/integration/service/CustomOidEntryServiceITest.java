@@ -19,7 +19,9 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.CustomOidEntryExternalService;
+import com.otilm.core.service.impl.CustomOidEntryServiceImpl;
 import com.otilm.core.util.BaseSpringBootTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +41,7 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     CustomOidEntryRepository customOidEntryRepository;
 
     @Autowired
-    com.otilm.core.service.impl.CustomOidEntryServiceImpl customOidEntryServiceImpl;
+    CustomOidEntryServiceImpl customOidEntryServiceImpl;
 
     private CustomOidEntry genericCustomOidEntry;
     private RdnAttributeTypeCustomOidEntry rdnOidEntry;
@@ -71,6 +73,15 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         extensionOidEntry.setDefaultCritical(true);
         extensionOidEntry.setValueEncoding(ExtensionValueEncoding.IA5_STRING);
         customOidEntryRepository.save(extensionOidEntry);
+    }
+
+    @AfterEach
+    void restoreRegistry() {
+        // OidHandler is process-wide static state and the scheduled refresh never fires under test
+        // (settings.cache.refresh-interval is a year in the test profile), so a seeded row would keep
+        // resolving against an already-truncated database for the life of the shared Spring context.
+        customOidEntryRepository.deleteAll();
+        customOidEntryServiceImpl.refreshCache();
     }
 
     @Test

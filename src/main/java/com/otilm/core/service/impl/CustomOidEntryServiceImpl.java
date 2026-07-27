@@ -41,6 +41,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -57,6 +59,14 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     /** Rows shadowed by a built-in system OID; see {@link #getShadowedCustomOidEntries}. */
     private volatile Set<String> shadowedCustomOidEntries = Collections.emptySet();
 
+    /**
+     * Serialises whole-registry refreshes against single-entry publications. OidHandler's own monitor
+     * makes each publication atomic but cannot order a refresh's read-then-publish against a concurrent
+     * mutator: the scheduled refresh could read a category, pause, and republish its stale snapshot over
+     * a committed edit. Holding this for the whole read-and-publish closes that window.
+     */
+    private static final Object REGISTRY_PUBLISH_LOCK = new Object();
+
     @Autowired
     public void setCertificateService(CertificateInternalService certificateService) {
         this.certificateService = certificateService;
@@ -72,10 +82,41 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
 
     @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
     public void refreshCache() {
+        synchronized (REGISTRY_PUBLISH_LOCK) {
+            refreshCacheUnsynchronised();
+        }
+    }
+
+    /** Caller must hold {@link #REGISTRY_PUBLISH_LOCK}, or route through {@link #publishAfterCommit}. */
+    private void refreshCacheUnsynchronised() {
         for (OidCategory oidCategory : OidCategory.values()) {
             OidHandler.cacheOidCategory(oidCategory, getOidToRecordMap(oidCategory));
         }
         publishShadowedCustomOidEntries();
+    }
+
+    /**
+     * Runs a registry publication after the surrounding transaction commits, or immediately when there is
+     * none. The registry is process-wide static state with no transaction awareness, so publishing inline
+     * would advertise a create, edit or delete that a rolling-back outer transaction never persisted.
+     * Mirrors {@code SettingServiceImpl.cacheAfterCommit}.
+     */
+    private void publishAfterCommit(Runnable publication) {
+        Runnable serialised = () -> {
+            synchronized (REGISTRY_PUBLISH_LOCK) {
+                publication.run();
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    serialised.run();
+                }
+            });
+        } else {
+            serialised.run();
+        }
     }
 
     /**
@@ -155,13 +196,14 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
 
         customOidEntryRepository.save(customOidEntry);
 
-        OidHandler.cacheOid(request.getCategory(), oid, OidRecord.builder()
+        OidRecord created = OidRecord.builder()
                 .displayName(customOidEntry.getDisplayName())
                 .code(code)
                 .altCodes(altCodes)
                 .defaultCritical(defaultCritical)
                 .valueEncoding(valueEncoding)
-                .build());
+                .build();
+        publishAfterCommit(() -> OidHandler.cacheOid(request.getCategory(), oid, created));
         return CustomOidEntryMapper.toDetailDto(customOidEntry);
     }
 
@@ -217,13 +259,15 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
 
         // Cached unconditionally: a custom row wins over a same-OID built-in (see getOidToRecordMap),
         // so skipping this would leave the DB and the registry disagreeing after a successful edit.
-        OidHandler.cacheOid(customOidEntry.getCategory(), oid, OidRecord.builder()
+        OidRecord edited = OidRecord.builder()
                 .displayName(customOidEntry.getDisplayName())
                 .code(code)
                 .altCodes(altCodes)
                 .defaultCritical(defaultCritical)
                 .valueEncoding(valueEncoding)
-                .build());
+                .build();
+        OidCategory editedCategory = customOidEntry.getCategory();
+        publishAfterCommit(() -> OidHandler.cacheOid(editedCategory, oid, edited));
         return CustomOidEntryMapper.toDetailDto(customOidEntry);
     }
 
@@ -245,17 +289,22 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         // Deleting a row that shadowed a built-in must hand the OID back to the built-in rather than drop
         // it from the registry, since the custom record was the effective one while it existed.
         SystemOid shadowed = SystemOid.fromOID(oid);
-        if (shadowed != null && shadowed.getCategory() == customOidEntry.getCategory()) {
-            OidHandler.cacheOid(shadowed.getCategory(), oid, OidRecord.builder()
+        OidCategory deletedCategory = customOidEntry.getCategory();
+        if (shadowed != null && shadowed.getCategory() == deletedCategory) {
+            OidRecord builtIn = OidRecord.builder()
                     .displayName(shadowed.getDisplayName())
                     .code(shadowed.getCode())
                     .altCodes(shadowed.getAltCodes())
                     .defaultCritical(shadowed.getDefaultCritical())
                     .valueEncoding(shadowed.getValueEncoding())
-                    .build());
-            publishShadowedCustomOidEntries();
+                    .system(true)
+                    .build();
+            publishAfterCommit(() -> {
+                OidHandler.cacheOid(shadowed.getCategory(), oid, builtIn);
+                publishShadowedCustomOidEntries();
+            });
         } else {
-            OidHandler.removeCachedOid(customOidEntry.getCategory(), oid);
+            publishAfterCommit(() -> OidHandler.removeCachedOid(deletedCategory, oid));
         }
     }
 
@@ -263,7 +312,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
     public void bulkDeleteCustomOidEntry(List<String> oids) {
         customOidEntryRepository.deleteAllById(oids);
-        refreshCache();
+        publishAfterCommit(this::refreshCacheUnsynchronised);
     }
 
     @Override
@@ -317,6 +366,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
      * configured properties no longer apply. Exposed so the condition can be surfaced to an operator;
      * the resolution is to delete the row.
      */
+    @Override
     public Set<String> getShadowedCustomOidEntries() {
         return shadowedCustomOidEntries;
     }
@@ -352,6 +402,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                         .altCodes(oid.getAltCodes())
                         .defaultCritical(oid.getDefaultCritical())
                         .valueEncoding(oid.getValueEncoding())
+                        .system(true)
                         .build()));
         return oidToDisplayNameMap;
     }
