@@ -36,6 +36,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -357,7 +358,17 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         }
         validateNoDependentObjects(tokenProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
-        tokenProfileRepository.delete(tokenProfile);
+        try {
+            tokenProfileRepository.delete(tokenProfile);
+            // Force the DELETE to execute here; without the flush it runs at commit,
+            // outside this try, and a concurrent FK violation would surface as HTTP 500.
+            tokenProfileRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            // The aborted transaction cannot be re-queried for the dependency counts.
+            throw new ValidationException(ValidationError.create(
+                    "Cannot delete Token Profile {}: dependent Key(s) or Signing Profile(s) were created concurrently. Retry to see current dependencies.",
+                    tokenProfile.getName()));
+        }
     }
 
     private void validateNoDependentObjects(TokenProfile tokenProfile) {
