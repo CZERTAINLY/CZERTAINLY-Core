@@ -75,7 +75,9 @@ import com.otilm.core.service.*;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapter;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
+import com.otilm.core.events.handlers.discovery.DiscoveredCertificateImport;
 import com.otilm.core.service.writer.CertificateValidationWriter;
+import com.otilm.core.service.writer.DiscoveryCertificateContentWriter;
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.*;
@@ -116,6 +118,7 @@ import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.time.Duration;
 import java.time.Instant;
+import java.security.cert.CertificateEncodingException;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -158,6 +161,7 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     private GroupAssociationRepository groupAssociationRepository;
     private LocationRepository locationRepository;
     private CertificateContentRepository certificateContentRepository;
+    private DiscoveryCertificateContentWriter discoveryCertificateContentWriter;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private ComplianceInternalService complianceService;
     private ComplianceExternalService complianceExternalService;
@@ -326,6 +330,11 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     @Autowired
     public void setCertificateContentRepository(CertificateContentRepository certificateContentRepository) {
         this.certificateContentRepository = certificateContentRepository;
+    }
+
+    @Autowired
+    public void setDiscoveryCertificateContentWriter(DiscoveryCertificateContentWriter discoveryCertificateContentWriter) {
+        this.discoveryCertificateContentWriter = discoveryCertificateContentWriter;
     }
 
     @Autowired
@@ -1334,6 +1343,52 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
         certificateComplianceCheck(entity);
         return entity;
+    }
+
+    /**
+     * Creates or adopts the certificate for a discovered content group.
+     *
+     * <p>Deliberately not annotated with {@code @ExternalAuthorization}: the caller authorizes
+     * {@code (CERTIFICATE, CREATE)} once per discovery run, outside any transaction, because that check is a
+     * blocking OPA request and must not be held across one. A new caller of this method is responsible for its
+     * own authorization.
+     *
+     * <p>Unlike {@link #createCertificateAtomic}, this performs no key upload, owner assignment or compliance
+     * check — discovery does those in its own phases.
+     */
+    @Override
+    public DiscoveredCertificateImport createDiscoveredCertificateAtomic(X509Certificate certificate)
+            throws NoSuchAlgorithmException, CertificateEncodingException, NotFoundException {
+        String fingerprint = CertificateUtil.getThumbprint(certificate);
+
+        Optional<Certificate> existing = certificateRepository.findByFingerprint(fingerprint);
+        if (existing.isPresent()) {
+            return new DiscoveredCertificateImport(existing.get(), false);
+        }
+
+        discoveryCertificateContentWriter.insertContent(fingerprint,
+                CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(certificate)));
+        CertificateContent content = certificateContentRepository.findByFingerprint(fingerprint);
+        if (content == null) {
+            throw new NotFoundException(CertificateContent.class, fingerprint);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Certificate entity = new Certificate();
+        // The native insert bypasses @PrePersist, so the identifier and audit columns are set here.
+        entity.setUuid(UUID.randomUUID());
+        entity.setCreated(now);
+        entity.setUpdated(now);
+        entity.setFingerprint(fingerprint);
+        entity.setCertificateContent(content);
+        entity.setCertificateContentId(content.getId());
+        CertificateUtil.prepareIssuedCertificate(entity, certificate);
+
+        int inserted = discoveryCertificateContentWriter.insertCertificate(entity);
+        // Always the re-read row: on a lost race it carries the winner's UUID, not the one assigned above.
+        Certificate persisted = certificateRepository.findByFingerprint(fingerprint)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
+        return new DiscoveredCertificateImport(persisted, inserted == 1);
     }
 
     @Override

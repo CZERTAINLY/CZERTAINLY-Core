@@ -18,7 +18,9 @@ import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 
+import com.otilm.core.events.handlers.discovery.DiscoveredCertificateImport;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -42,6 +44,17 @@ public interface CertificateInternalService extends ResourceExtensionService {
     boolean checkCertificateExistsByFingerprint(String fingerprint);
 
     Certificate createCertificateEntity(X509Certificate certificate);
+
+    /**
+     * Creates or adopts the certificate for a discovered content group, resolving a concurrent insert of the same
+     * certificate rather than failing on it.
+     *
+     * <p>Performs no authorization check of its own: discovery authorizes {@code (CERTIFICATE, CREATE)} once per
+     * run, outside any transaction, because enforcement is a blocking OPA request. Any other caller must
+     * authorize for itself.
+     */
+    DiscoveredCertificateImport createDiscoveredCertificateAtomic(X509Certificate certificate)
+            throws NoSuchAlgorithmException, CertificateEncodingException, NotFoundException;
 
     /**
      * Creates a no-CSR placeholder certificate for a v3 authority registration: an identity-only
