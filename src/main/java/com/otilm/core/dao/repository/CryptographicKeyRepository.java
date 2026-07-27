@@ -16,6 +16,14 @@ public interface CryptographicKeyRepository extends SecurityFilterRepository<Cry
     @EntityGraph(attributePaths = {"groups", "owner", "items"})
     Optional<CryptographicKey> findWithAssociationsByUuid(UUID uuid);
 
+    /**
+     * Loads the key with everything the signing path dereferences: its token profile, its key items, and the token
+     * instance reference used to resolve the connector. Callers that sign outside a transaction must use this finder
+     * rather than {@link #findByUuid(UUID)} so the traversal does not depend on open-session-in-view.
+     */
+    @EntityGraph(attributePaths = {"tokenProfile", "items", "tokenInstanceReference"})
+    Optional<CryptographicKey> findWithKeyItemsAndTokenByUuid(UUID uuid);
+
     Optional<CryptographicKey> findByName(String name);
 
     @EntityGraph(attributePaths = {"tokenProfile", "items"})
