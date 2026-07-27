@@ -152,10 +152,7 @@ public class OidHandler {
         if (published.equals(previous)) {
             return;
         }
-        if (published.isEmpty()) {
-            log.info("RDN code conflicts resolved; every code and alt code now maps to a single OID.");
-            return;
-        }
+        // An empty set logs nothing: the state is queryable, and the log carries problems only.
         published.forEach((token, claimants) -> log.warn(
                 "RDN code '{}' is claimed by OIDs {}; resolving it to {}. Rename the custom OID entry's code "
                         + "or alt code to remove the ambiguity.", token, claimants, resolved.get(token)));
