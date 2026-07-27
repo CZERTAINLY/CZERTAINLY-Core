@@ -365,17 +365,28 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
 
         long keyCount = cryptographicKeyRepository.countByTokenProfileUuid(tokenProfile.getUuid());
         if (keyCount > 0) {
-            blockers.add(keyCount + " dependent Keys");
+            blockers.add(keyCount + " dependent Key(s)");
         }
 
-        long signingProfileCount = signingProfileVersionRepository.countDistinctSigningProfilesByTokenProfileUuid(tokenProfile.getUuid());
-        if (signingProfileCount > 0) {
-            blockers.add(signingProfileCount + " dependent Signing Profiles");
+        List<String> latestVersionNames = signingProfileVersionRepository.findSigningProfileNamesUsingTokenProfileInLatestVersion(tokenProfile.getUuid());
+        if (!latestVersionNames.isEmpty()) {
+            blockers.add("dependent Signing Profile(s): " + String.join(", ", latestVersionNames));
+        }
+
+        // Superseded versions are retained for audit and cannot be edited, so these references
+        // can only be released by deleting the Signing Profile itself.
+        List<String> supersededOnlyNames = new ArrayList<>(signingProfileVersionRepository.findDistinctSigningProfileNamesByTokenProfileUuid(tokenProfile.getUuid()));
+        supersededOnlyNames.removeAll(latestVersionNames);
+        if (!supersededOnlyNames.isEmpty()) {
+            blockers.add("Signing Profile(s) referencing it only in superseded versions (released only by deleting the Signing Profile): "
+                    + String.join(", ", supersededOnlyNames));
         }
 
         if (!blockers.isEmpty()) {
+            // Single placeholder: sequential {} substitution would garble the message when the
+            // profile name itself contains a literal "{}".
             throw new ValidationException(ValidationError.create(
-                    "Cannot delete Token Profile {}: {}", tokenProfile.getName(), String.join(", ", blockers)));
+                    "Cannot delete Token Profile {}", tokenProfile.getName() + ": " + String.join("; ", blockers)));
         }
     }
 

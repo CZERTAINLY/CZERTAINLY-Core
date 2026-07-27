@@ -245,26 +245,15 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         );
 
         String errors = joinErrorDescriptions(e);
-        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 2 dependent Keys"), errors);
+        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 2 dependent Key(s)"), errors);
         Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfileUuid).isPresent());
+        Assertions.assertEquals(2, cryptographicKeyRepository.countByTokenProfileUuid(tokenProfileUuid.getValue()));
     }
 
     @Test
     void testRemoveTokenProfile_withDependentSigningProfile() {
-        SigningProfile signingProfile = new SigningProfile();
-        signingProfile.setName("testSigningProfile");
-        signingProfile.setSigningScheme(SigningScheme.DELEGATED);
-        signingProfile.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
-        signingProfile.setLatestVersion(1);
-        signingProfile = signingProfileRepository.save(signingProfile);
-
-        SigningProfileVersion version = new SigningProfileVersion();
-        version.setSigningProfile(signingProfile);
-        version.setVersion(1);
-        version.setSigningScheme(SigningScheme.DELEGATED);
-        version.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
-        version.setTokenProfile(tokenProfile);
-        signingProfileVersionRepository.save(version);
+        SigningProfile signingProfile = createSigningProfile("testSigningProfile", 1);
+        createSigningProfileVersion(signingProfile, 1, tokenProfile);
 
         SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
         SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
@@ -274,7 +263,43 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         );
 
         String errors = joinErrorDescriptions(e);
-        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 1 dependent Signing Profiles"), errors);
+        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": dependent Signing Profile(s): testSigningProfile"), errors);
+    }
+
+    @Test
+    void testRemoveTokenProfile_withSupersededSigningProfileVersion() {
+        SigningProfile signingProfile = createSigningProfile("testSigningProfile", 2);
+        createSigningProfileVersion(signingProfile, 1, tokenProfile);
+        createSigningProfileVersion(signingProfile, 2, null);
+
+        SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
+        SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
+        ValidationException e = Assertions.assertThrows(
+                ValidationException.class,
+                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
+        );
+
+        String errors = joinErrorDescriptions(e);
+        Assertions.assertTrue(errors.contains("Signing Profile(s) referencing it only in superseded versions (released only by deleting the Signing Profile): testSigningProfile"), errors);
+        Assertions.assertFalse(errors.contains("dependent Signing Profile(s)"), errors);
+    }
+
+    @Test
+    void testRemoveTokenProfile_signingProfileReferencingInLatestAndSupersededVersion() {
+        SigningProfile signingProfile = createSigningProfile("testSigningProfile", 2);
+        createSigningProfileVersion(signingProfile, 1, tokenProfile);
+        createSigningProfileVersion(signingProfile, 2, tokenProfile);
+
+        SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
+        SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
+        ValidationException e = Assertions.assertThrows(
+                ValidationException.class,
+                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
+        );
+
+        String errors = joinErrorDescriptions(e);
+        Assertions.assertTrue(errors.contains("dependent Signing Profile(s): testSigningProfile"), errors);
+        Assertions.assertFalse(errors.contains("superseded"), errors);
     }
 
     @Test
@@ -372,6 +397,25 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         nameAndUuidDto = tokenProfileInternalService.getResourceObjectExternal(tokenProfile.getSecuredUuid());
         Assertions.assertEquals(tokenProfile.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(tokenProfile.getName(), nameAndUuidDto.getName());
+    }
+
+    private SigningProfile createSigningProfile(String name, int latestVersion) {
+        SigningProfile signingProfile = new SigningProfile();
+        signingProfile.setName(name);
+        signingProfile.setSigningScheme(SigningScheme.DELEGATED);
+        signingProfile.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
+        signingProfile.setLatestVersion(latestVersion);
+        return signingProfileRepository.save(signingProfile);
+    }
+
+    private SigningProfileVersion createSigningProfileVersion(SigningProfile signingProfile, int version, TokenProfile referencedTokenProfile) {
+        SigningProfileVersion profileVersion = new SigningProfileVersion();
+        profileVersion.setSigningProfile(signingProfile);
+        profileVersion.setVersion(version);
+        profileVersion.setSigningScheme(SigningScheme.DELEGATED);
+        profileVersion.setWorkflowType(SigningWorkflowType.RAW_SIGNING);
+        profileVersion.setTokenProfile(referencedTokenProfile);
+        return signingProfileVersionRepository.save(profileVersion);
     }
 
     private CryptographicKey createKey(String name) {
