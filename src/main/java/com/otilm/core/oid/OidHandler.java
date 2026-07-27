@@ -38,6 +38,13 @@ public class OidHandler {
     private static final AtomicReference<Map<String, String>> rdnCodeToOid =
             new AtomicReference<>(Collections.emptyMap());
 
+    /**
+     * Bumped under {@link #WRITE_LOCK} by every publication. Lets a caller that read source data without
+     * holding the lock detect that the registry moved underneath it and abandon its now-stale snapshot,
+     * instead of holding the lock across those reads.
+     */
+    private static long generation;
+
     /** Code tokens claimed by more than one OID, republished on every rebuild. See {@link #getRdnCodeConflicts}. */
     private static final AtomicReference<Map<String, Set<String>>> rdnCodeConflicts =
             new AtomicReference<>(Map.of());
@@ -48,6 +55,40 @@ public class OidHandler {
      * the {@code OidHandler.class} object so foreign code cannot contend on the same lock.
      */
     private static final Object WRITE_LOCK = new Object();
+
+    /** Registry version, for the optimistic publish in {@link #cacheAllCategories}. */
+    public static long getGeneration() {
+        synchronized (WRITE_LOCK) {
+            return generation;
+        }
+    }
+
+    /**
+     * Replaces every supplied category and rebuilds the derived RDN index once, or publishes nothing if
+     * the registry moved since {@code expectedGeneration} was read.
+     *
+     * <p>The guard is what lets a full refresh read its source data without holding {@link #WRITE_LOCK}:
+     * a concurrent single-entry publication bumps the generation, so the refresh abandons a snapshot that
+     * would otherwise clobber a committed mutation. Categories absent from {@code byCategory} are left
+     * untouched — {@code null} means "not loaded" to every reader, so clearing them would break callers
+     * that dereference {@link #getOidCache} directly.
+     *
+     * @return {@code true} when published, {@code false} when abandoned as stale
+     */
+    public static boolean cacheAllCategories(long expectedGeneration, Map<OidCategory, Map<String, OidRecord>> byCategory) {
+        synchronized (WRITE_LOCK) {
+            if (generation != expectedGeneration) {
+                return false;
+            }
+            byCategory.forEach((category, records) ->
+                    oidCache.put(category, Collections.unmodifiableMap(new HashMap<>(records))));
+            generation++;
+            if (byCategory.containsKey(OidCategory.RDN_ATTRIBUTE_TYPE)) {
+                refreshRdnCodeLookup(OidCategory.RDN_ATTRIBUTE_TYPE);
+            }
+            return true;
+        }
+    }
 
     /** The published per-category map, or {@code null} when the category is not loaded. Immutable — see {@link #cacheOidCategory}. */
     public static Map<String, OidRecord> getOidCache(OidCategory oidCategory) {
@@ -61,6 +102,7 @@ public class OidHandler {
             // after publish would desync oidCache from the derived rdnCodeToOid index. Copying
             // here makes the copy-on-write contract structural rather than convention-only.
             oidCache.put(category, Collections.unmodifiableMap(new HashMap<>(oidRecordMap)));
+            generation++;
             refreshRdnCodeLookup(category);
         }
     }
@@ -73,6 +115,7 @@ public class OidHandler {
             Map<String, OidRecord> next = new HashMap<>(oidCache.getOrDefault(category, Map.of()));
             next.put(oid, oidRecord);
             oidCache.put(category, Collections.unmodifiableMap(next));
+            generation++;
             refreshRdnCodeLookup(category);
         }
     }
@@ -215,6 +258,7 @@ public class OidHandler {
             Map<String, OidRecord> next = new HashMap<>(current);
             next.remove(oid);
             oidCache.put(category, Collections.unmodifiableMap(next));
+            generation++;
             refreshRdnCodeLookup(category);
         }
     }

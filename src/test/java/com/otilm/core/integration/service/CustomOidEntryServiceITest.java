@@ -299,6 +299,24 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testBulkDeletePublishesPerEntryDeltas() {
+        // given — a plain custom row and a row shadowing a built-in, deleted together
+        seedShadowedRdnRow("LEGACYUID");
+        Assertions.assertEquals("1.2.3.4.6", OidHandler.getOidForRdnCode("RDN"));
+
+        // when
+        customOidEntryService.bulkDeleteCustomOidEntry(List.of("1.2.3.4.6", SystemOid.USER_ID.getOid()));
+
+        // then — a delta publication cannot be abandoned as stale, so both deletions take effect: the
+        // plain row leaves the registry and the shadowed one hands its OID back to the built-in
+        Assertions.assertNull(OidHandler.getOidForRdnCode("RDN"), "deleted custom code must stop resolving");
+        Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"));
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(),
+                OidHandler.getOidForRdnCode(SystemOid.USER_ID.getCode()),
+                "the built-in must take over the OID it was shadowed on");
+    }
+
+    @Test
     void testShadowedRdnRowKeepsItsCodeResolving() {
         // given — before the promotion this row's code was the only way to resolve that OID, and stored
         // request-attribute definitions and DN templates reference it
@@ -413,8 +431,10 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testRefreshCachePopulatesRecordsFromDb() {
-        // bulkDelete with empty list deletes nothing and calls refreshCache() — exercises getOidToRecordMap for all categories
-        customOidEntryService.bulkDeleteCustomOidEntry(List.of());
+        // Exercises getOidToRecordMap for every category. Previously this piggy-backed on
+        // bulkDeleteCustomOidEntry(List.of()) to trigger a full refresh; bulk delete now publishes
+        // per-entry deltas, so an empty list is a genuine no-op and the refresh is called directly.
+        customOidEntryServiceImpl.refreshCache();
 
         OidRecord rdnRecord = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).get(rdnOidEntry.getOid());
         Assertions.assertNotNull(rdnRecord);

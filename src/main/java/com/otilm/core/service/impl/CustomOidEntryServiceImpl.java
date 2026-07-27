@@ -59,14 +59,6 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     /** Rows shadowed by a built-in system OID; see {@link #getShadowedCustomOidEntries}. */
     private volatile Set<String> shadowedCustomOidEntries = Collections.emptySet();
 
-    /**
-     * Serialises whole-registry refreshes against single-entry publications. OidHandler's own monitor
-     * makes each publication atomic but cannot order a refresh's read-then-publish against a concurrent
-     * mutator: the scheduled refresh could read a category, pause, and republish its stale snapshot over
-     * a committed edit. Holding this for the whole read-and-publish closes that window.
-     */
-    private static final Object REGISTRY_PUBLISH_LOCK = new Object();
-
     @Autowired
     public void setCertificateService(CertificateInternalService certificateService) {
         this.certificateService = certificateService;
@@ -82,15 +74,18 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
 
     @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
     public void refreshCache() {
-        synchronized (REGISTRY_PUBLISH_LOCK) {
-            refreshCacheUnsynchronised();
-        }
-    }
-
-    /** Caller must hold {@link #REGISTRY_PUBLISH_LOCK}, or route through {@link #publishAfterCommit}. */
-    private void refreshCacheUnsynchronised() {
+        // Read the source data without holding OidHandler's monitor, then publish optimistically: if a
+        // mutator published while these queries ran, the snapshot is stale and is abandoned rather than
+        // allowed to clobber a committed change. The next cycle is one refresh interval away, and every
+        // mutator publishes its own delta, so nothing depends on this cycle succeeding.
+        long expectedGeneration = OidHandler.getGeneration();
+        Map<OidCategory, Map<String, OidRecord>> byCategory = new EnumMap<>(OidCategory.class);
         for (OidCategory oidCategory : OidCategory.values()) {
-            OidHandler.cacheOidCategory(oidCategory, getOidToRecordMap(oidCategory));
+            byCategory.put(oidCategory, getOidToRecordMap(oidCategory));
+        }
+        if (!OidHandler.cacheAllCategories(expectedGeneration, byCategory)) {
+            log.debug("Skipped a registry refresh: a mutation published while its source data was being read.");
+            return;
         }
         publishShadowedCustomOidEntries();
     }
@@ -102,20 +97,15 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
      * Mirrors {@code SettingServiceImpl.cacheAfterCommit}.
      */
     private void publishAfterCommit(Runnable publication) {
-        Runnable serialised = () -> {
-            synchronized (REGISTRY_PUBLISH_LOCK) {
-                publication.run();
-            }
-        };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    serialised.run();
+                    publication.run();
                 }
             });
         } else {
-            serialised.run();
+            publication.run();
         }
     }
 
@@ -288,31 +278,42 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         customOidEntryRepository.delete(customOidEntry);
         // Deleting a row that shadowed a built-in must hand the OID back to the built-in rather than drop
         // it from the registry, since the custom record was the effective one while it existed.
-        SystemOid shadowed = SystemOid.fromOID(oid);
         OidCategory deletedCategory = customOidEntry.getCategory();
-        if (shadowed != null && shadowed.getCategory() == deletedCategory) {
-            OidRecord builtIn = OidRecord.builder()
-                    .displayName(shadowed.getDisplayName())
-                    .code(shadowed.getCode())
-                    .altCodes(shadowed.getAltCodes())
-                    .defaultCritical(shadowed.getDefaultCritical())
-                    .valueEncoding(shadowed.getValueEncoding())
-                    .system(true)
-                    .build();
-            publishAfterCommit(() -> {
-                OidHandler.cacheOid(shadowed.getCategory(), oid, builtIn);
-                publishShadowedCustomOidEntries();
-            });
-        } else {
-            publishAfterCommit(() -> OidHandler.removeCachedOid(deletedCategory, oid));
+        publishAfterCommit(() -> publishDeletion(oid, deletedCategory));
+    }
+
+    /**
+     * Drops one deleted OID from the registry, handing it back to the built-in entry when the row was
+     * shadowing one — the custom record was the effective one while it existed, so simply removing it
+     * would take the OID out of the registry entirely.
+     */
+    private void publishDeletion(String oid, OidCategory deletedCategory) {
+        SystemOid shadowed = SystemOid.fromOID(oid);
+        if (shadowed == null || shadowed.getCategory() != deletedCategory) {
+            OidHandler.removeCachedOid(deletedCategory, oid);
+            return;
         }
+        OidHandler.cacheOid(shadowed.getCategory(), oid, OidRecord.builder()
+                .displayName(shadowed.getDisplayName())
+                .code(shadowed.getCode())
+                .altCodes(shadowed.getAltCodes())
+                .defaultCritical(shadowed.getDefaultCritical())
+                .valueEncoding(shadowed.getValueEncoding())
+                .system(true)
+                .build());
+        publishShadowedCustomOidEntries();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
     public void bulkDeleteCustomOidEntry(List<String> oids) {
+        // Categories must be read before the delete, and the publication must be a set of deltas rather
+        // than a full refresh: a full refresh is abandoned when it loses the generation race, which would
+        // leave these committed deletions unpublished until the next scheduled cycle.
+        Map<String, OidCategory> deletedCategories = customOidEntryRepository.findAllById(oids).stream()
+                .collect(Collectors.toMap(CustomOidEntry::getOid, CustomOidEntry::getCategory));
         customOidEntryRepository.deleteAllById(oids);
-        publishAfterCommit(this::refreshCacheUnsynchronised);
+        publishAfterCommit(() -> deletedCategories.forEach(this::publishDeletion));
     }
 
     @Override

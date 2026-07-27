@@ -230,6 +230,53 @@ class OidHandlerTest {
     }
 
     @Test
+    void cacheAllCategories_abandonsAStaleSnapshot() {
+        // given — a refresh read its source data, then a mutator published before the refresh could
+        long staleGeneration = OidHandler.getGeneration();
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                OidRecord.builder().displayName("Common Name").code("CN").build());
+
+        // when — the refresh tries to publish a snapshot that predates that mutation
+        boolean published = OidHandler.cacheAllCategories(staleGeneration,
+                Map.of(OidCategory.RDN_ATTRIBUTE_TYPE, Map.of()));
+
+        // then — abandoned, so the committed mutation is not clobbered
+        assertThat(published).isFalse();
+        assertThat(OidHandler.getOidForRdnCode("CN")).isEqualTo("2.5.4.3");
+    }
+
+    @Test
+    void cacheAllCategories_publishesWhenTheGenerationStillMatches() {
+        // given
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                OidRecord.builder().displayName("Common Name").code("CN").build());
+        long current = OidHandler.getGeneration();
+
+        // when — a full swap of the category, replacing its contents
+        boolean published = OidHandler.cacheAllCategories(current, Map.of(OidCategory.RDN_ATTRIBUTE_TYPE,
+                Map.of("2.5.4.6", OidRecord.builder().displayName("Country").code("C").build())));
+
+        // then — published, dropping what the snapshot did not contain, and the derived index is rebuilt
+        assertThat(published).isTrue();
+        assertThat(OidHandler.getOidForRdnCode("C")).isEqualTo("2.5.4.6");
+        assertThat(OidHandler.getOidForRdnCode("CN")).isNull();
+    }
+
+    @Test
+    void cacheAllCategories_leavesUnsuppliedCategoriesUntouched() {
+        // given — a category absent from the snapshot must not be cleared: null means "not loaded" to
+        // every reader, and PlatformX500NameStyle dereferences the RDN category without a null check
+        OidHandler.cacheOid(OidCategory.GENERIC, "1.2.3.4", OidRecord.builder().displayName("kept").build());
+
+        // when
+        OidHandler.cacheAllCategories(OidHandler.getGeneration(),
+                Map.of(OidCategory.RDN_ATTRIBUTE_TYPE, Map.of()));
+
+        // then
+        assertThat(OidHandler.getOidCache(OidCategory.GENERIC)).containsKey("1.2.3.4");
+    }
+
+    @Test
     void removeCachedOid_deregistersRdnCode() {
         OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
                 OidRecord.builder().displayName("Common Name").code("CN").build());
