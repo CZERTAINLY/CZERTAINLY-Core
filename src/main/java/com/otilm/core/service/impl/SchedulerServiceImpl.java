@@ -139,9 +139,11 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
                 throw new ValidationException(ValidationError.create("Unable to delete system job."));
             }
 
-            if (scheduledJobHistoryRepository.existsByScheduledJobUuid(UUID.fromString(uuid))) {
-                logger.warn("Unable to delete job with existing history.");
-                throw new ValidationException(ValidationError.create("Unable to delete job with existing history."));
+            if (scheduledJobHistoryRepository.existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(
+                    UUID.fromString(uuid), SchedulerJobExecutionStatus.STARTED)) {
+                logger.warn("Unable to delete scheduled job '{}' while it is executing.", scheduledJob.getJobName());
+                throw new ValidationException(ValidationError.create(
+                        "Unable to delete scheduled job while it is executing. Wait for the current run to finish."));
             }
 
             try {

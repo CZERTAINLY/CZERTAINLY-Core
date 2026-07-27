@@ -36,6 +36,10 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
 
     List<CryptographicKeyItem> findByKeyTokenProfileUuid(UUID tokenProfileUuid);
 
+    /**
+     * @return the number of rows inserted — 1 when this caller inserted the item, 0 when an item with the same
+     * fingerprint already existed and the caller must resolve the surviving key by fingerprint
+     */
     @Modifying
     @Query(value = """
             INSERT INTO {h-schema}cryptographic_key_item (
@@ -48,7 +52,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
                 :#{#cki.updatedAt}, :#{#cki.usageBitmask}
             ) ON CONFLICT (fingerprint) DO NOTHING
             """, nativeQuery = true)
-    void insertWithFingerprintConflictResolve(@Param("cki") CryptographicKeyItem keyItem);
+    Integer insertWithFingerprintConflictResolve(@Param("cki") CryptographicKeyItem keyItem);
 
     @Query(value = """
             SELECT COUNT(c.uuid)

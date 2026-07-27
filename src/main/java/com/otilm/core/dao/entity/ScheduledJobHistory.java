@@ -5,6 +5,8 @@ import com.otilm.api.model.core.scheduler.ScheduledJobHistoryDto;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.util.Date;
@@ -30,6 +32,8 @@ public class ScheduledJobHistory extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private SchedulerJobExecutionStatus schedulerExecutionStatus;
 
+    // Mirrors ON DELETE CASCADE from migration for test environment
+    @OnDelete(action = OnDeleteAction.CASCADE)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scheduled_job_uuid", insertable = false, updatable = false)
     @ToString.Exclude

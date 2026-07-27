@@ -41,7 +41,10 @@ public interface CryptographicKeyInternalService extends ResourceExtensionServic
      * @param publicKey    Public Key to be uploaded
      * @param keyLength    Length of the Public Key
      * @param fingerprint  Unique fingerprint of the Public Key
-     * @return UUID of the uploaded Cryptographic Key
+     * @return UUID of the Cryptographic Key holding this public key — the one created by this call, or, when a
+     * concurrent caller committed the same fingerprint first, that pre-existing key. In the latter case the key
+     * created by this call is discarded, so no key is left without a key item. Callers must therefore not
+     * assume exclusive ownership of the returned key.
      */
     UUID uploadCertificatePublicKey(String name, PublicKey publicKey, int keyLength, String fingerprint);
 }

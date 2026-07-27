@@ -37,6 +37,8 @@ import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
 import com.otilm.core.service.CryptographicKeyExternalService;
 import com.otilm.core.service.CryptographicKeyInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.CertificateUtil;
+import com.otilm.core.util.KeySizeUtil;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -47,6 +49,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.util.*;
 
 class CryptographicKeyServiceITest extends BaseSpringBootTest {
@@ -954,6 +960,37 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         return resource != null && resource.getProperties() != null &&
                 (resource.getProperties().containsKey("name") && resource.getProperties().get("name").equals(name)) &&
                 (resource.getProperties().containsKey("action") && resource.getProperties().get("action").equals(action));
+    }
+
+    /**
+     * The second upload stands in for the losing side of a concurrent race: {@code uploadCertificatePublicKey}
+     * carries no fingerprint pre-check of its own — that guard lives in its callers — so the second call always
+     * reaches the conflict-resolving insert and takes the adopt path. A two-thread version would deadlock, the
+     * holder of the open transaction waiting on a thread blocked inside its own insert.
+     */
+    @Test
+    void uploadingTheSameKeyTwiceConvergesOnOneKeyAndLeavesNoOrphan() throws NoSuchAlgorithmException {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        PublicKey publicKey = generator.generateKeyPair().getPublic();
+        int keyLength = KeySizeUtil.getKeyLength(publicKey);
+        String fingerprint = CertificateUtil.getThumbprint(
+                Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+
+        UUID firstKeyUuid = cryptographicKeyInternalService
+                .uploadCertificatePublicKey("certKey_first", publicKey, keyLength, fingerprint);
+        long keysAfterFirstUpload = cryptographicKeyRepository.count();
+        UUID secondKeyUuid = cryptographicKeyInternalService
+                .uploadCertificatePublicKey("certKey_second", publicKey, keyLength, fingerprint);
+
+        Assertions.assertNotNull(firstKeyUuid);
+        Assertions.assertEquals(firstKeyUuid, secondKeyUuid,
+                "the second caller must adopt the surviving key, not the parent it created itself");
+        Assertions.assertEquals(firstKeyUuid,
+                cryptographicKeyItemRepository.findByFingerprint(fingerprint).orElseThrow().getKey().getUuid(),
+                "the surviving key item must belong to the adopted key");
+        Assertions.assertEquals(keysAfterFirstUpload, cryptographicKeyRepository.count(),
+                "the discarded key must not be left behind");
     }
 
 }
