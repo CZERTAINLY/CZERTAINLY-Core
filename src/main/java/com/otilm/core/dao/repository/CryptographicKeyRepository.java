@@ -28,4 +28,6 @@ public interface CryptographicKeyRepository extends SecurityFilterRepository<Cry
 
     @EntityGraph(attributePaths = {"tokenProfile", "items"})
     List<CryptographicKey> findByUuidIn(List<UUID> uuids);
+
+    long countByTokenProfileUuid(UUID tokenProfileUuid);
 }
