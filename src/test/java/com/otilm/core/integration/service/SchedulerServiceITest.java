@@ -370,8 +370,17 @@ class SchedulerServiceITest extends BaseSpringBootTest {
         ScheduledJobHistory jobHistory = new ScheduledJobHistory();
         jobHistory.setScheduledJobUuid(jobDetailDto.getUuid());
         jobHistory.setJobExecution(new Date());
+        jobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.STARTED);
+        scheduledJobHistoryRepository.save(jobHistory);
+
+        final String jobUuid = jobDetailDto.getUuid().toString();
+        Assertions.assertThrows(ValidationException.class, () -> schedulerService.deleteScheduledJob(jobUuid));
+
+        jobHistory.setJobEndTime(new Date());
         jobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.SUCCESS);
         scheduledJobHistoryRepository.save(jobHistory);
+
+        Assertions.assertTrue(scheduledJobHistoryRepository.existsByScheduledJobUuid(jobDetailDto.getUuid()));
 
         schedulerService.deleteScheduledJob(jobDetailDto.getUuid().toString());
 

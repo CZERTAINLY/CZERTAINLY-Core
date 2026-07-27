@@ -32,8 +32,9 @@ public class ScheduledJobHistory extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private SchedulerJobExecutionStatus schedulerExecutionStatus;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    // Mirrors ON DELETE CASCADE from migration for test environment
     @OnDelete(action = OnDeleteAction.CASCADE)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scheduled_job_uuid", insertable = false, updatable = false)
     @ToString.Exclude
     private ScheduledJob scheduledJob;
