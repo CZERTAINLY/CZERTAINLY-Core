@@ -5,6 +5,9 @@ import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -27,5 +30,15 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
     Long countByDiscoveryAndNewlyDiscoveredAndProcessed(DiscoveryHistory history, boolean newlyDiscovered, boolean processed);
     Long countByDiscoveryAndProcessedErrorNotNull(DiscoveryHistory history);
     List<DiscoveryCertificate> findByCertificateContent(CertificateContent certificateContent);
+
+    @Modifying
+    @Query("UPDATE DiscoveryCertificate dc SET dc.processed = true, dc.processedError = :processedError, " +
+            "dc.updated = CURRENT_TIMESTAMP WHERE dc.uuid = :uuid")
+    void markProcessed(@Param("uuid") UUID uuid, @Param("processedError") String processedError);
+
+    @Modifying
+    @Query("UPDATE DiscoveryCertificate dc SET dc.processedError = :processedError, " +
+            "dc.updated = CURRENT_TIMESTAMP WHERE dc.uuid = :uuid")
+    void updateProcessedError(@Param("uuid") UUID uuid, @Param("processedError") String processedError);
 
 }

@@ -2,7 +2,9 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,4 +23,8 @@ public interface DiscoveryRepository extends SecurityFilterRepository<DiscoveryH
 
     @Query("SELECT DISTINCT connectorName FROM DiscoveryHistory ")
     List<String> findDistinctConnectorName();
+
+    @Modifying
+    @Query("UPDATE DiscoveryHistory d SET d.message = :message, d.updated = CURRENT_TIMESTAMP WHERE d.uuid = :uuid")
+    void updateMessage(@Param("uuid") UUID uuid, @Param("message") String message);
 }
