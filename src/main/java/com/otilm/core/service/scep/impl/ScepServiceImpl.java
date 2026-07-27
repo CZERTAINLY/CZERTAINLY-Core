@@ -387,6 +387,9 @@ public class ScepServiceImpl implements ScepExternalService {
             }
         } else if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
             try {
+                // Reject before issuing when the response could never be delivered, so the platform
+                // does not commit a certificate the client can never retrieve (RFC 8894 §3.2.2).
+                verifyResponseEnvelopable(scepRequest);
                 // Manual approval for the SCEP clients are configured in the SCEP Profile.
                 // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
                 if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
@@ -655,6 +658,9 @@ public class ScepServiceImpl implements ScepExternalService {
         } catch (Exception e) {
             logger.error("SCEP poll failed for transactionId={}: {}",
                     scepRequest.getTransactionId(), e.getMessage(), e);
+            // Keep the client polling rather than returning a half-initialised (possibly
+            // null-status) response that would fail response generation with an HTTP error.
+            scepResponse.setPkiStatus(PkiStatus.PENDING);
         }
         return scepResponse;
     }
@@ -701,6 +707,40 @@ public class ScepServiceImpl implements ScepExternalService {
         else return certificateChain.subList(0, Math.min(2, certificateChain.size()));
     }
 
+    /**
+     * A SUCCESS CertRep is enveloped to the client's own key: RSA keys via key transport, every
+     * other key type (e.g. EC) via the RFC 8894 password recipient, which needs the shared challenge
+     * password. When the client key cannot do key transport and the profile has no challenge password,
+     * the issued certificate could never be delivered — reject the request before issuing rather than
+     * committing an unretrievable certificate.
+     */
+    void verifyResponseEnvelopable(ScepRequest scepRequest) throws ScepException {
+        X509Certificate signerCertificate = scepRequest.getSignerCertificate();
+        if (signerCertificate == null) {
+            return;
+        }
+        boolean keyTransportCapable = "RSA".equalsIgnoreCase(signerCertificate.getPublicKey().getAlgorithm());
+        boolean challengePasswordConfigured = scepProfile.getChallengePassword() != null && !scepProfile.getChallengePassword().isEmpty();
+        if (!keyTransportCapable && !challengePasswordConfigured) {
+            throw new ScepException("A challenge password must be configured on the SCEP profile to issue certificates to non-RSA client keys", FailInfo.BAD_ALG);
+        }
+    }
+
+    private byte[] resolveRecipientKeyInfo(ScepRequest scepRequest) {
+        // Envelope the response to the resolved signer certificate (the entity that holds the private
+        // key to decrypt it), not the first element of the request's certificate SET, which is not
+        // guaranteed to be the signer.
+        X509Certificate signerCertificate = scepRequest.getSignerCertificate();
+        if (signerCertificate == null) {
+            return scepRequest.getRequestKeyInfo();
+        }
+        try {
+            return signerCertificate.getEncoded();
+        } catch (CertificateException e) {
+            return scepRequest.getRequestKeyInfo();
+        }
+    }
+
     private void prepareMessage(ScepRequest scepRequest, ScepResponse scepResponse) {
         if (scepRequest == null) {
             return;
@@ -710,10 +750,13 @@ public class ScepServiceImpl implements ScepExternalService {
         scepResponse.setRecipientNonce(scepRequest.getSenderNonce());
         scepResponse.setTransactionId(scepRequest.getTransactionId());
         scepResponse.setCaCertificate(recipient);
-        scepResponse.setRecipientKeyInfo(scepRequest.getRequestKeyInfo());
+        scepResponse.setRecipientKeyInfo(resolveRecipientKeyInfo(scepRequest));
         scepResponse.setDigestAlgorithmOid(scepRequest.getDigestAlgorithmOid());
         scepResponse.setSenderNonce(RandomUtil.generateRandomNonceBase64(16));
         scepResponse.setContentEncryptionAlgorithm(scepRequest.getContentEncryptionAlgorithm());
+        // Enveloping a SUCCESS response to a recipient key that cannot do key transport (e.g. EC)
+        // requires the shared challenge password (RFC 8894 §3.2.2).
+        scepResponse.setChallengePassword(scepProfile.getChallengePassword());
     }
 
     private ScepTransaction getTransaction(String transactionId) {
