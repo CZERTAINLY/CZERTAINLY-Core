@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
@@ -244,8 +245,72 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListSystemOidEntriesCertificateExtensionReturnsEmpty() {
-        Assertions.assertTrue(customOidEntryService.listSystemOidEntries(OidCategory.CERTIFICATE_EXTENSION).isEmpty());
+    void testListSystemOidEntriesCertificateExtensionCarriesTypedProperties() {
+        long expectedExtensionCount = Arrays.stream(SystemOid.values())
+                .filter(o -> o.getCategory() == OidCategory.CERTIFICATE_EXTENSION).count();
+        List<CustomOidEntryDetailResponseDto> extensions =
+                customOidEntryService.listSystemOidEntries(OidCategory.CERTIFICATE_EXTENSION);
+
+        Assertions.assertEquals(expectedExtensionCount, extensions.size());
+        Assertions.assertFalse(extensions.isEmpty(), "the seeded certificate extensions must be listed");
+        // Both fields are required on the response contract, so every entry must carry them.
+        for (CustomOidEntryDetailResponseDto entry : extensions) {
+            CertificateExtensionOidPropertiesDto props =
+                    (CertificateExtensionOidPropertiesDto) entry.getAdditionalProperties();
+            Assertions.assertNotNull(props, "additionalProperties missing for " + entry.getOid());
+            Assertions.assertNotNull(props.getDefaultCritical(), "defaultCritical missing for " + entry.getOid());
+            Assertions.assertNotNull(props.getValueEncoding(), "valueEncoding missing for " + entry.getOid());
+        }
+
+        CustomOidEntryDetailResponseDto nameConstraints = extensions.stream()
+                .filter(e -> e.getOid().equals(SystemOid.NAME_CONSTRAINTS.getOid()))
+                .findFirst().orElseThrow();
+        CertificateExtensionOidPropertiesDto nameConstraintsProps =
+                (CertificateExtensionOidPropertiesDto) nameConstraints.getAdditionalProperties();
+        Assertions.assertTrue(nameConstraintsProps.getDefaultCritical(),
+                "Name Constraints must be critical — RFC 5280 4.2.1.10");
+    }
+
+    @Test
+    void testEditingARowShadowedByASystemOidIsRefused() {
+        // given — a row that predates its OID's promotion to a system OID. It cannot be created through
+        // the service any more, so seed it through the repository the way an upgrade would leave it.
+        RdnAttributeTypeCustomOidEntry shadowed = new RdnAttributeTypeCustomOidEntry();
+        shadowed.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
+        shadowed.setDisplayName("legacy user id");
+        shadowed.setOid(SystemOid.USER_ID.getOid());
+        shadowed.setCode("LEGACYUID");
+        shadowed.setAltCodes(List.of());
+        customOidEntryRepository.save(shadowed);
+
+        CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
+        request.setDisplayName("renamed");
+        RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
+        props.setCode("STILLLEGACY");
+        props.setAltCodes(List.of());
+        request.setAdditionalProperties(props);
+
+        // when / then — editing would persist and rewrite certificate DNs while never reaching the
+        // cache, reporting success for a change that has no effect
+        ValidationException e = Assertions.assertThrows(ValidationException.class,
+                () -> customOidEntryService.editCustomOidEntry(SystemOid.USER_ID.getOid(), request));
+        Assertions.assertTrue(e.getMessage().contains("reserved for system OID"),
+                "expected a reserved-OID message but was: " + e.getMessage());
+        Assertions.assertEquals("LEGACYUID",
+                ((RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(SystemOid.USER_ID.getOid()).orElseThrow()).getCode(),
+                "the refused edit must not have persisted");
+    }
+
+    @Test
+    void testSystemCertificateExtensionPropertiesReachTheRuntimeRegistry() {
+        // The projector reads defaultCritical and valueEncoding from this cache, not from the DTO.
+        Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
+        Assertions.assertNotNull(registry, "certificate-extension category must be cached");
+
+        OidRecord nameConstraints = registry.get(SystemOid.NAME_CONSTRAINTS.getOid());
+        Assertions.assertNotNull(nameConstraints, "Name Constraints missing from the runtime registry");
+        Assertions.assertEquals(Boolean.TRUE, nameConstraints.defaultCritical());
+        Assertions.assertEquals(ExtensionValueEncoding.DER, nameConstraints.valueEncoding());
     }
 
     @Test

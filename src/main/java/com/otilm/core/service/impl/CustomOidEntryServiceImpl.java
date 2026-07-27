@@ -35,6 +35,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.function.TriFunction;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +46,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service(Resource.Codes.OID)
 @Transactional
 public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService {
@@ -148,6 +150,14 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.UPDATE)
     public CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto request) throws NotFoundException {
         CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
+        // A row can predate the OID's promotion to a system OID. The registry resolves that OID to the
+        // built-in entry, so an edit would persist and rewrite certificate DNs while never reaching the
+        // cache — a half-applied change reporting success. Refuse instead, and say what to do.
+        SystemOid shadowing = SystemOid.fromOID(oid);
+        if (shadowing != null)
+            throw new ValidationException(
+                    "OID %s is now reserved for system OID %s, so this custom entry no longer takes effect and cannot be edited. Delete it instead."
+                            .formatted(oid, shadowing.name()));
         String code = null;
         List<String> altCodes = null;
         Boolean defaultCritical = null;
@@ -284,6 +294,17 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                             .valueEncoding(isExt ? ((CertificateExtensionCustomOidEntry) oid).getValueEncoding() : null)
                             .build();
                 })));
+        // A row whose OID has since become a system OID is shadowed by the built-in entry below, so its
+        // configured properties stop taking effect. Report it rather than let it fail silently — the
+        // operator resolves it by deleting the row.
+        Arrays.stream(SystemOid.values())
+                .filter(systemOid -> systemOid.getCategory() == oidCategory)
+                .map(SystemOid::getOid)
+                .filter(oidToDisplayNameMap::containsKey)
+                .forEach(shadowedOid -> log.warn(
+                        "Custom OID entry {} is shadowed by the built-in system OID of the same value; its configured "
+                                + "properties no longer apply. Delete the custom entry to resolve the conflict.", shadowedOid));
+
         // Cache System OIDs. defaultCritical and valueEncoding must be carried through: the projector
         // reads them from this cache, and an unset defaultCritical silently emits a critical extension
         // such as Name Constraints as non-critical.
