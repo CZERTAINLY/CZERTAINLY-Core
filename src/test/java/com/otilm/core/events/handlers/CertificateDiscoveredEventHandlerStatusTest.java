@@ -41,8 +41,8 @@ class CertificateDiscoveredEventHandlerStatusTest {
     }
 
     /**
-     * Replaces an earlier test that asserted the errored-certificate count took precedence over the key
-     * association. That precedence was the defect: a run with both failures reported only one of them.
+     * No condition may take precedence over another: a run that hit several of them has to report all of them, not
+     * whichever one the status logic happens to check first.
      */
     @Test
     void everyConditionContributesAndNoneMasksAnother() {

@@ -11,9 +11,10 @@ import java.util.UUID;
  * Values that are invariant for a whole discovery run.
  *
  * <p>Deliberately carries the discovery's identifiers and immutable fields rather than the
- * {@code DiscoveryHistory} entity: sharing one detached instance across worker threads, and saving it from each,
- * is what corrupted progress reporting and rolled back committed certificate work. {@code eventContext} is a
- * per-run holder for the trigger evaluator and event data, not a persistent entity, so sharing it is safe.
+ * {@code DiscoveryHistory} entity. Sharing one detached instance across worker threads and saving it from each
+ * corrupts progress reporting and rolls back committed certificate work, so the entity stays out of this record.
+ * {@code eventContext} is a per-run holder for the trigger evaluator and event data, not a persistent entity, so
+ * sharing it is safe.
  */
 public record DiscoveryRunContext(UUID discoveryUuid,
                                   String discoveryName,

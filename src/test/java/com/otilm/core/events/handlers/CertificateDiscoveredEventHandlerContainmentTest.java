@@ -25,9 +25,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 
 /**
- * The post-processing phases that must survive a failure of the phase before them. A progress write that escapes, or
- * a group the consumption loop never reached, both used to end the run silently — the first by skipping key
- * association altogether, the second by leaving the lost work out of the counts that decide the status.
+ * The post-processing phases that have to survive a failure of the phase before them. An escaping progress write ends
+ * the run silently by skipping key association altogether; a group the consumption loop never reached does so by
+ * leaving lost work out of the counts that decide the status.
  */
 class CertificateDiscoveredEventHandlerContainmentTest {
 

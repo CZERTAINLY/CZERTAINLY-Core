@@ -8,7 +8,8 @@ import java.util.UUID;
  * The discovery's identity, as recorded against a certificate's metadata and event history.
  *
  * <p>Exists so neither the download phase nor post-processing has to pass the {@code DiscoveryHistory} entity
- * itself: one shared detached instance saved from parallel workers is what corrupted progress reporting.
+ * itself. One detached instance saved from parallel workers corrupts progress reporting, so the entity must not
+ * cross into either phase.
  */
 public record DiscoverySource(UUID discoveryUuid,
                               String discoveryName,

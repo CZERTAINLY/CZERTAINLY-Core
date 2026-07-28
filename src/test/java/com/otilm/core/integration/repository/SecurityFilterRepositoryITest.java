@@ -62,7 +62,7 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
     /** One content per certificate: the schema enforces a single certificate per content in both directions. */
     private CertificateContent newContent() {
         CertificateContent content = new CertificateContent();
-        content.setContent("1234567890-" + java.util.UUID.randomUUID());
+        content.setContent("1234567890-" + UUID.randomUUID());
         return certificateContentRepository.save(content);
     }
 

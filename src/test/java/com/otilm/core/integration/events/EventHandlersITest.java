@@ -159,7 +159,6 @@ class EventHandlersITest extends BaseSpringBootTest {
     @MockitoSpyBean
     private CertificateHandler certificateHandler;
 
-
     @Autowired
     private AttributeEngine attributeEngine;
     @Autowired
@@ -614,8 +613,8 @@ class EventHandlersITest extends BaseSpringBootTest {
     }
 
     /**
-     * The regression test for the reported failure: several rows carrying the same certificate used to race on an
-     * unguarded find-then-insert, and all but one rolled back — losing the certificate and the record of why.
+     * Several rows carrying the same certificate must produce one certificate and no rollback. Left to race on an
+     * unguarded find-then-insert, all but one roll back and take the certificate and the record of why with them.
      */
     @Test
     void testCertificateDiscoveredImportsOneCertificateForDuplicateRows() throws Exception {
