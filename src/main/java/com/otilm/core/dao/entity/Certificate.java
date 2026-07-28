@@ -82,9 +82,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     @ToString.Exclude
     private CertificateContent certificateContent;
 
-    // Unique in production via certificate_certificate_content_id_index. Declared here so the annotation matches
-    // the real schema and so tests, whose schema comes from these annotations rather than Flyway, can exercise the
-    // constraint-driven failures that depend on it.
     @Column(name = "certificate_content_id", unique = true)
     private Long certificateContentId;
 

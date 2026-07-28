@@ -257,10 +257,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(
                     virtualThreadExecutor, SecurityContextHolder.getContext());
 
-            // parallelToStream, not parallel: results arrive on this thread in completion order, which is what
-            // lets the steps below own the key maps and the progress counter without synchronisation. The stream
-            // is consumed lazily on purpose — materialising it first would wait for the last group before any
-            // bookkeeping or progress ran, so progress would only appear once the run was already over.
+            // parallelToStream, not parallel: results arrive on this thread, so the key maps and the progress
+            // counter below need no synchronisation. Consumed lazily so progress appears during the run, not after.
             int completed = 0;
             Iterator<GroupImportResult> results = groups.stream()
                     .collect(ParallelCollectors.parallelToStream(
@@ -290,9 +288,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 }
             }
         }
-        // Deliberately after the executor has closed. close() awaits termination, so every group has now either
-        // reached a verdict or was never started -- there is no third state, and no worker can still be writing to
-        // the rows this accounts for.
+        // After close(), which awaits termination: see accountForUnconsumedGroups for why that ordering matters.
         accountForUnconsumedGroups(accumulator, groups, consumedContentIds);
 
         associateKeys(accumulator, keyToCertificates, false);
@@ -302,9 +298,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         saveEventHistory(eventHistoryDiscovery, EventStatus.FINISHED);
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
 
-        // Contained: the import is done and committed by this point, so a messaging failure must not reach the
-        // caller's catch. There it would re-mark both histories FAILED and replace the counted status below with a
-        // generic one -- reporting nothing imported for a run that imported everything.
+        // Contained: the import has committed by this point, so a messaging failure must not reach the caller's
+        // catch, where it would re-mark both histories FAILED and replace the counted status with a generic one.
         try {
             validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null,
                     runContext.discoveryUuid(), runContext.discoveryName(), null, null));
@@ -523,9 +518,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                             resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
                                     "the import did not run to a result"), List.of(), false);
             accumulator.accept(unconsumed);
-            // Only the never-ran case is written here. The key phase owns every row carrying a key gap, so writing it
-            // here too would cost a second round trip and let a failure of that write report the detail as
-            // unrecorded when it had already been recorded.
+            // Only the never-ran case is written here; the key phase owns every row carrying a key gap. Writing it
+            // twice would let a failure of the second write report the detail as unrecorded.
             if (!committed) {
                 writeBookkeeping(accumulator, unconsumed);
             }
@@ -538,8 +532,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         // is ten there and one here. Without the word the total appears to drop for no reason.
         String message = String.format("Processed %d %% of newly discovered certificates (%d / %d unique certificates)",
                 percentage, completedGroups, context.totalGroups());
-        // Isolated per DiscoveryWriter's contract. The orchestrator carries no ambient transaction today, so leaving
-        // it bare would work -- but it would teach the next caller that the writer isolates itself.
         transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(context.discoveryUuid(), message));
     }
 
@@ -570,9 +562,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         try {
             return importContentGroupInternal(context, group);
         } catch (RuleException e) {
-            // Trigger evaluation failed. Whether the certificate committed depends on where it threw, and the key
-            // entries were never built either way — so reporting IMPORTED here would claim a clean run while the
-            // keys silently went unassociated. Roll the group back and say why instead.
+            // Only the ignore triggers reach here — action-trigger failures are contained where they happen — so
+            // nothing is inserted yet and the ignore decision is unknown. Import nothing and report why.
             logger.error("Trigger evaluation failed for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
             throw new DiscoveryImportRollbackException(
@@ -637,7 +628,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     "unable to create certificate entity: " + DiscoveryFailureReason.shape(e), e);
         } catch (Exception e) {
             // Checked, so no proxy marked the transaction for rollback and the shaped result can still commit.
-            logger.error("Unable to import certificate for discovered content {}: {}",
+            logger.error("Unable to create certificate entity for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
             return new GroupImportResult(group.certificateContentId(),
                     resultsFor(rowUuids, DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED,
