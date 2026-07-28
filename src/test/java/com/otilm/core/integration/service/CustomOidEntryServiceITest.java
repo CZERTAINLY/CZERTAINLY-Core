@@ -299,6 +299,46 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testRdnCodeCanBeRenamedToACaseVariantOfItself() throws NotFoundException {
+        // given — the row's own code must be in the registry, or the uniqueness check has nothing to
+        // collide with and the test proves nothing. setUp writes the row straight to the repository.
+        customOidEntryServiceImpl.refreshCache();
+        Assertions.assertEquals(rdnOidEntry.getOid(), OidHandler.getOidForRdnCode("RDN"));
+
+        // The contested-code warning tells an operator to rename the code, and for a collision that
+        // differs only in case a case-only rename is the only one that resolves it.
+        CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
+        request.setDisplayName(rdnOidEntry.getDisplayName());
+        RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
+        props.setCode("Rdn");
+        props.setAltCodes(rdnOidEntry.getAltCodes());
+        request.setAdditionalProperties(props);
+
+        // when / then — the uniqueness check must not reject the row against its own code
+        customOidEntryService.editCustomOidEntry(rdnOidEntry.getOid(), request);
+
+        Assertions.assertEquals("Rdn",
+                ((RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(rdnOidEntry.getOid()).orElseThrow()).getCode());
+        Assertions.assertEquals(rdnOidEntry.getOid(), OidHandler.getOidForRdnCode("Rdn"));
+    }
+
+    @Test
+    void testRdnCodeStillRejectedWhenAnotherRowOwnsIt() {
+        // given — excluding the row's own code must not weaken the check against other rows
+        customOidEntryServiceImpl.refreshCache();
+        CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
+        request.setDisplayName(rdnOidEntry.getDisplayName());
+        RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
+        props.setCode(SystemOid.COMMON_NAME.getCode());
+        props.setAltCodes(List.of());
+        request.setAdditionalProperties(props);
+
+        // when / then
+        Assertions.assertThrows(ValidationException.class,
+                () -> customOidEntryService.editCustomOidEntry(rdnOidEntry.getOid(), request));
+    }
+
+    @Test
     void testBulkDeletePublishesPerEntryDeltas() {
         // given — a plain custom row and a row shadowing a built-in, deleted together
         seedShadowedRdnRow("LEGACYUID");

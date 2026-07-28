@@ -226,8 +226,14 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
             code = additionalProperties.getCode();
             String oldCode = rdnAttributeTypeOidEntry.getCode();
             Set<String> allCodes = getAllCodesInLowerCase();
+            // The uniqueness check must not see this row's own code. The equality guard below is
+            // case-sensitive, so a case-only rename such as FOO -> Foo reaches the check and would be
+            // rejected against the row itself — while the conflict warning tells operators to rename a
+            // contested code, which for a case collision is the only rename that resolves it.
+            Set<String> otherCodes = new HashSet<>(allCodes);
+            otherCodes.remove(oldCode.toLowerCase());
             if (!oldCode.equals(code)) {
-                if (allCodes.contains(code.toLowerCase()))
+                if (otherCodes.contains(code.toLowerCase()))
                     throw new ValidationException("Code %s is already used".formatted(code));
                 rdnAttributeTypeOidEntry.setCode(code);
                 certificateService.updateCertificateDNs(oid, code, oldCode);
@@ -370,6 +376,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.LIST)
     public Set<String> getShadowedCustomOidEntries() {
         return shadowedCustomOidEntries;
     }
