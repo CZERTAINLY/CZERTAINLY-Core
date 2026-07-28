@@ -39,4 +39,18 @@ public class EcdsaCmsMessageTest {
                 () -> scepRequest.decryptData(null, null, KeyAlgorithm.ECDSA, null));
         Assertions.assertEquals(FailInfo.BAD_ALG, thrown.getFailInfo());
     }
+
+    /**
+     * An EnvelopedData with no recipientInfo leaves nothing to decrypt. That must be rejected explicitly
+     * rather than reaching the PKCS#10 parse with no content — the bare {@code assert} that used to guard
+     * this is disabled in production.
+     */
+    @Test
+    public void testGenerateEcdsaSignedMessage_noRecipientInformation() throws Exception {
+        ScepRequest scepRequest = new ScepRequest(ScepMessageTestData.recipientlessPkcsReq());
+
+        ScepException thrown = Assertions.assertThrows(ScepException.class,
+                () -> scepRequest.decryptData(null, null, KeyAlgorithm.ECDSA, ScepMessageTestData.CHALLENGE_PASSWORD));
+        Assertions.assertEquals(FailInfo.BAD_REQUEST, thrown.getFailInfo());
+    }
 }

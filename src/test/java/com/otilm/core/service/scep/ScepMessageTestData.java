@@ -53,7 +53,7 @@ public final class ScepMessageTestData {
     private static final String CSR_B64 = "MIICUzCCATsCAQAwDjEMMAoGA1UEAwwDeDExMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx3yEn1ivUp4etk3kdNrRXNP5PeIpTYobGj4lQrW57rsj9hhOhY/SwaeCu6sYPVvYIXPWnlc4tTafjcen/8Ikc7pY2NuzD0HaIAOujblcMKT2KAKA/OU+RrI2o/swU9UmEQ2wYveNYCGobimt/foURrB9opeDCx3pFXkddYsXAziaWu3AQIF5gIf/b+r7hYRIXh8V/u01t6FCnpBWCtdmYVrJ5e8KZw0yqptNpgDK1plu+8AR5tviP/vgrpBquwzNsVREsnRZJxOM6rXq9rG5scoqO+gxdsm6+EqfRiGiBvcaIr+Zpv81ryfiABLdixvyhoZ//3o8rAU0O7Pjm7HTxwIDAQABoAAwDQYJKoZIhvcNAQELBQADggEBAKM6lsrzME64G90fm98Zdgxe6IMBmIWTzA03V0OWGTYjYjYZbfsddAQAO1h3EMKjPl5nFaXkTVGoq8G4ZHvdu2fX72dyNJaGG+mG89uoW9iFd2US+nU5aN8xSpPx1k89DhPat/q5kdOwIIGAXvIbLWSXGx9A25DxdqvouuhDT7NJZqGTsPivHuFXgP3Mb1HTr/qnshx+shTnJ+FnYncARl3KmflCyCPC4NBKcorWl8kVFRDw2Y7aeg3a1hV3EJJfElFSwlmmT2Y/VDuZcMalFnnAKq2NqXByBlK9s7s67sMKzsqaAGwlg3TT37v6QN6L2q0zUU6egAuA4Av2LR6nJkw=";
     private static final String SIGNER_CERT_B64 = "MIIB5TCCAYqgAwIBAgIUQWJcNhcZ8rdJ8d+Y0/zjDauIDvAwCgYIKoZIzj0EAwIwNzELMAkGA1UEBhMCSU4xEzARBgNVBAgMClRhbWlsIE5hZHUxEzARBgNVBAcMCkNvaW1iYXRvcmUwHhcNMjMwNDE5MTAxNjI0WhcNMjQwNDE4MTAxNjI0WjA3MQswCQYDVQQGEwJJTjETMBEGA1UECAwKVGFtaWwgTmFkdTETMBEGA1UEBwwKQ29pbWJhdG9yZTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABI1ILz/GLiGtx9JIoFesLv6ssTrBr5W1c+FUuCKUGjvZpM8l5wAbC9TJaYwcA3B45iuTAzmTTOoPCwrr/ALGhoyjdDByMB0GA1UdDgQWBBT4VuTPGMKzKGqAYgAtq7eFR+nPpzAfBgNVHSMEGDAWgBT4VuTPGMKzKGqAYgAtq7eFR+nPpzAOBgNVHQ8BAf8EBAMCBaAwIAYDVR0lAQH/BBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMAoGCCqGSM49BAMCA0kAMEYCIQCUxvkZzxraytwbhhoCafIzHaj62EGVbxW5bUlvLTZPIwIhAJ6eFFyO8f9udwCHUt+4aMQGyBHCISbgvgvejMU6NSZU";
     private static final String SIGNER_KEY_B64 = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgR7jrC6SUkUlWEouD/5yVwazngKD0mHjA4YsOhesg+fShRANCAASNSC8/xi4hrcfSSKBXrC7+rLE6wa+VtXPhVLgilBo72aTPJecAGwvUyWmMHANweOYrkwM5k0zqDwsK6/wCxoaM";
-    private static final String TRANSACTION_ID = "361ba25258bfc72fe6cf8aa70f75e21facd8fc3d";
+    public static final String TRANSACTION_ID = "361ba25258bfc72fe6cf8aa70f75e21facd8fc3d";
     private static final String SENDER_NONCE_B64 = "cVpmdzRXdDBPV25JNVA0Y1pMcHZvSzJuUG9fUlR2cXhZT0RBOUdGdlE2cw==";
 
     private ScepMessageTestData() {
@@ -61,7 +61,7 @@ public final class ScepMessageTestData {
 
     /** A signed PKCSReq whose PKCS#10 request is enveloped to a password recipient. */
     public static byte[] passwordEnvelopedPkcsReq() throws Exception {
-        return signedMessage(envelopedPkcs10Request(Base64.getDecoder().decode(CSR_B64))).getEncoded();
+        return signedMessage(envelopedPkcs10Request(Base64.getDecoder().decode(CSR_B64)), MessageType.PKCS_REQ).getEncoded();
     }
 
     /**
@@ -70,7 +70,30 @@ public final class ScepMessageTestData {
      * (RFC 8894 §3.3.1.2).
      */
     public static byte[] passwordEnvelopedPkcsReq(String csrChallengePassword) throws Exception {
-        return signedMessage(envelopedPkcs10Request(generatedCsr(csrChallengePassword))).getEncoded();
+        return passwordEnvelopedMessage(MessageType.PKCS_REQ, csrChallengePassword);
+    }
+
+    /**
+     * A PKCSReq enveloped to a different password than the profile holds, so the platform cannot open it.
+     */
+    public static byte[] pkcsReqEnvelopedWith(String envelopePassword) throws Exception {
+        return signedMessage(envelopedPkcs10Request(generatedCsr(null), envelopePassword), MessageType.PKCS_REQ).getEncoded();
+    }
+
+    /** The same message declared as an arbitrary SCEP message type. */
+    public static byte[] passwordEnvelopedMessage(MessageType messageType, String csrChallengePassword) throws Exception {
+        return signedMessage(envelopedPkcs10Request(generatedCsr(csrChallengePassword)), messageType).getEncoded();
+    }
+
+    /**
+     * A PKCSReq whose EnvelopedData carries no recipientInfo at all, so nothing can be decrypted from it.
+     */
+    public static byte[] recipientlessPkcsReq() throws Exception {
+        Security.addProvider(new BouncyCastleProvider());
+        OutputEncryptor encryptor = new JceCMSContentEncryptorBuilder(CMSAlgorithm.AES256_CBC).setProvider("BC").build();
+        CMSEnvelopedData envelope = new CMSEnvelopedDataGenerator()
+                .generate(new CMSProcessableByteArray(generatedCsr(null)), encryptor);
+        return signedMessage(new CMSProcessableByteArray(envelope.getEncoded()), MessageType.PKCS_REQ).getEncoded();
     }
 
     private static byte[] generatedCsr(String challengePassword) throws Exception {
@@ -92,10 +115,14 @@ public final class ScepMessageTestData {
     }
 
     private static CMSProcessableByteArray envelopedPkcs10Request(byte[] csrBytes) throws Exception {
+        return envelopedPkcs10Request(csrBytes, CHALLENGE_PASSWORD);
+    }
+
+    private static CMSProcessableByteArray envelopedPkcs10Request(byte[] csrBytes, String envelopePassword) throws Exception {
         Security.addProvider(new BouncyCastleProvider());
 
         PasswordRecipientInfoGenerator recipientGenerator = new JcePasswordRecipientInfoGenerator(
-                CMSAlgorithm.AES128_CBC, CHALLENGE_PASSWORD.toCharArray());
+                CMSAlgorithm.AES128_CBC, envelopePassword.toCharArray());
 
         CMSEnvelopedDataGenerator envelopedDataGenerator = new CMSEnvelopedDataGenerator();
         envelopedDataGenerator.addRecipientInfoGenerator(recipientGenerator);
@@ -105,7 +132,7 @@ public final class ScepMessageTestData {
         return new CMSProcessableByteArray(envelope.getEncoded());
     }
 
-    private static org.bouncycastle.cms.CMSSignedData signedMessage(CMSProcessableByteArray content) throws Exception {
+    private static org.bouncycastle.cms.CMSSignedData signedMessage(CMSProcessableByteArray content, MessageType messageType) throws Exception {
         Security.addProvider(new BouncyCastleProvider());
 
         X509Certificate signerCertificate = signerCertificate();
@@ -117,7 +144,7 @@ public final class ScepMessageTestData {
         JcaDigestCalculatorProviderBuilder digestProviderBuilder = new JcaDigestCalculatorProviderBuilder()
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME);
         JcaSignerInfoGeneratorBuilder signerInfoBuilder = new JcaSignerInfoGeneratorBuilder(digestProviderBuilder.build());
-        signerInfoBuilder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(scepAttributes())));
+        signerInfoBuilder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(scepAttributes(messageType))));
 
         CMSSignedDataGenerator signedDataGenerator = new CMSSignedDataGenerator();
         signedDataGenerator.addSignerInfoGenerator(signerInfoBuilder.build(contentSigner, signerCertificate));
@@ -126,10 +153,10 @@ public final class ScepMessageTestData {
         return signedDataGenerator.generate(content, true);
     }
 
-    private static Hashtable<ASN1ObjectIdentifier, Attribute> scepAttributes() {
+    private static Hashtable<ASN1ObjectIdentifier, Attribute> scepAttributes(MessageType messageType) {
         Hashtable<ASN1ObjectIdentifier, Attribute> attributes = new Hashtable<>();
         addAttribute(attributes, ScepConstants.id_messageType,
-                new DERSet(new DERPrintableString(Integer.toString(MessageType.PKCS_REQ.getValue()))));
+                new DERSet(new DERPrintableString(Integer.toString(messageType.getValue()))));
         addAttribute(attributes, ScepConstants.id_transactionId, new DERSet(new DERPrintableString(TRANSACTION_ID)));
         addAttribute(attributes, ScepConstants.id_senderNonce,
                 new DERSet(new DEROctetString(Base64.getDecoder().decode(SENDER_NONCE_B64))));

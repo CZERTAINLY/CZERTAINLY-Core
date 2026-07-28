@@ -9,6 +9,7 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.scep.FailInfo;
+import com.otilm.api.model.core.scep.MessageType;
 import com.otilm.api.model.core.scep.PkiStatus;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
@@ -18,6 +19,7 @@ import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.scep.ScepProfile;
+import com.otilm.core.dao.entity.scep.ScepTransaction;
 import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
@@ -25,6 +27,7 @@ import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
+import com.otilm.core.dao.repository.scep.ScepTransactionRepository;
 import com.otilm.core.service.scep.ScepExternalService;
 import com.otilm.core.service.scep.ScepMessageTestData;
 import com.otilm.core.service.scep.impl.ScepServiceImpl;
@@ -56,6 +59,7 @@ import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Date;
+import java.util.UUID;
 
 import static com.otilm.core.util.seeders.CryptographicKeySeeder.KeyItemSpec.signingPrivateKey;
 import static com.otilm.core.util.seeders.CryptographicKeySeeder.KeyItemSpec.verifyingPublicKey;
@@ -101,10 +105,13 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
     @Autowired
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     @Autowired
+    private ScepTransactionRepository scepTransactionRepository;
+    @Autowired
     private CryptographicKeySeeder cryptographicKeySeeder;
 
     private WireMockServer mockServer;
     private RaProfile raProfile;
+    private ScepProfile scepProfile;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -149,7 +156,7 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
 
         Certificate caCertificate = storeCertificate(selfSignedEcCertificate(caKeyPair), caKey, null);
 
-        ScepProfile scepProfile = new ScepProfile();
+        scepProfile = new ScepProfile();
         scepProfile.setName(SCEP_PROFILE_NAME);
         scepProfile.setDescription("PKIOperation end-to-end profile");
         scepProfile.setEnabled(true);
@@ -158,7 +165,7 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
         scepProfile.setChallengePassword(ScepMessageTestData.CHALLENGE_PASSWORD);
         scepProfile.setCaCertificate(caCertificate);
         scepProfile.setRaProfile(raProfile);
-        scepProfileRepository.save(scepProfile);
+        scepProfile = scepProfileRepository.save(scepProfile);
 
         stubTokenSigning();
     }
@@ -209,6 +216,75 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
         assertScepFormatted(response);
         assertNotEquals(FailInfo.BAD_MESSAGE_CHECK.getValue(), Integer.parseInt(attribute(response, ScepConstants.id_failInfo)),
                 "a matching challenge password must not be reported as an integrity failure");
+    }
+
+    /**
+     * A request whose transaction is already known is answered from that transaction rather than enrolled
+     * again. PENDING is the discriminator: only the transaction branch can produce it for this profile,
+     * which has manual approval disabled.
+     */
+    @Test
+    void knownTransaction_isAnsweredFromTheTransaction() throws Exception {
+        // A certificate unrelated to the request's signer, so the request is not classified as its renewal.
+        Certificate pending = storeCertificate(
+                selfSignedEcCertificate(KeyPairGenerator.getInstance("EC").generateKeyPair()), null, raProfile);
+        pending.setState(CertificateState.PENDING_ISSUE);
+        certificateRepository.save(pending);
+        storeTransaction(pending.getUuid());
+
+        ResponseEntity<Object> response = scepService.handlePost(
+                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                ScepMessageTestData.passwordEnvelopedPkcsReq(ScepMessageTestData.CHALLENGE_PASSWORD));
+
+        assertScepFormatted(response);
+        assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
+    }
+
+    /**
+     * A request the platform cannot decrypt — enveloped to a password the profile does not hold — is
+     * answered as a SCEP failure rather than escaping as a checked exception to the JSON error handler.
+     */
+    @Test
+    void undecryptableRequest_isAnsweredAsAScepFailure() throws Exception {
+        ResponseEntity<Object> response = scepService.handlePost(
+                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                ScepMessageTestData.pkcsReqEnvelopedWith("someOtherPassword"));
+
+        assertScepFormatted(response);
+        assertEquals(String.valueOf(PkiStatus.FAILURE.getValue()), attribute(response, ScepConstants.id_pkiStatus));
+        assertEquals(String.valueOf(FailInfo.BAD_REQUEST.getValue()), attribute(response, ScepConstants.id_failInfo));
+    }
+
+    /** A CertPoll message is dispatched to polling rather than treated as an enrollment. */
+    @Test
+    void certPoll_isAnsweredInScepFormat() throws Exception {
+        ResponseEntity<Object> response = scepService.handlePost(
+                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                ScepMessageTestData.passwordEnvelopedMessage(MessageType.CERT_POLL, null));
+
+        assertScepFormatted(response);
+    }
+
+    /**
+     * RENEWAL_REQ (message type 17) is validated but has no issuance branch, so it is reported as an
+     * unsupported operation — tracked for implementation in #1901.
+     */
+    @Test
+    void renewalReqMessageType_isReportedUnsupported() throws Exception {
+        ResponseEntity<Object> response = scepService.handlePost(
+                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                ScepMessageTestData.passwordEnvelopedMessage(MessageType.RENEWAL_REQ, ScepMessageTestData.CHALLENGE_PASSWORD));
+
+        assertScepFormatted(response);
+        assertEquals(String.valueOf(FailInfo.BAD_REQUEST.getValue()), attribute(response, ScepConstants.id_failInfo));
+    }
+
+    private void storeTransaction(UUID certificateUuid) {
+        ScepTransaction transaction = new ScepTransaction();
+        transaction.setTransactionId(ScepMessageTestData.TRANSACTION_ID);
+        transaction.setCertificateUuid(certificateUuid);
+        transaction.setScepProfile(scepProfile);
+        scepTransactionRepository.save(transaction);
     }
 
     private void assertScepFormatted(ResponseEntity<Object> response) throws Exception {
