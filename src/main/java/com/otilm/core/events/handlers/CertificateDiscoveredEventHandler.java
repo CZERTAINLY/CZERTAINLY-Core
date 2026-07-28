@@ -8,6 +8,7 @@ import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.workflows.EventStatus;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.entity.workflows.EventHistory;
@@ -82,9 +83,14 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private DiscoveryWriter discoveryWriter;
     private AuthorizationEnforcer authorizationEnforcer;
 
+    // Kept alongside the inherited, more loosely typed handle: the unconsumed-group accounting needs a
+    // certificate-specific finder that SecurityFilterRepository does not expose.
+    private final CertificateRepository certificateRepository;
+
     @Autowired
     protected CertificateDiscoveredEventHandler(CertificateRepository repository, CertificateTriggerEvaluator ruleEvaluator) {
         super(repository, ruleEvaluator);
+        this.certificateRepository = repository;
     }
 
     @Autowired
@@ -164,7 +170,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         mergedTriggers.addAll(context.getPlatformTriggers().getTriggers());
         mergedIgnoreTriggers.addAll(context.getPlatformTriggers().getIgnoreTriggers());
 
-        // Get newly discovered certificates
         DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
         String originalMessage = discovery.getStatus() != DiscoveryStatus.IN_PROGRESS ? discovery.getMessage() : null;
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(eventMessage.getOverrideObjectUuid(), true, Pageable.unpaged());
@@ -211,10 +216,18 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             importAndReport(context, discovery, originalMessage, discoveredCertificates, mergedIgnoreTriggers,
                     mergedTriggers, eventHistoryDiscovery, eventHistoryPlatform);
         } catch (RuntimeException e) {
-            // The histories persist outside any transaction, so without this they stay IN_PROGRESS forever.
-            saveEventHistory(eventHistoryDiscovery, EventStatus.FAILED);
-            saveEventHistory(eventHistoryPlatform, EventStatus.FAILED);
+            // The histories persist outside any transaction, so without this they stay IN_PROGRESS forever. A
+            // history already FINISHED is left alone: the import committed, and overwriting it with FAILED would
+            // point the record at work that actually succeeded.
+            failIfUnfinished(eventHistoryDiscovery);
+            failIfUnfinished(eventHistoryPlatform);
             throw e;
+        }
+    }
+
+    private void failIfUnfinished(EventHistory eventHistory) {
+        if (eventHistory.getStatus() != EventStatus.FINISHED) {
+            saveEventHistory(eventHistory, EventStatus.FAILED);
         }
     }
 
@@ -222,7 +235,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                                  List<DiscoveryCertificate> discoveredCertificates,
                                  List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers,
                                  EventHistory eventHistoryDiscovery, EventHistory eventHistoryPlatform) {
-        // Group by content so two threads can no longer hold the same certificate and race on its insert.
+        // One group per certificate, so two threads cannot race on the same insert (see DiscoveryContentGroup).
         List<DiscoveryContentGroup> groups = discoveredCertificates.stream()
                 .collect(Collectors.groupingBy(DiscoveryCertificate::getCertificateContentId,
                         LinkedHashMap::new, Collectors.toList()))
@@ -238,6 +251,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
         Map<PublicKey, List<UUID>> keyToCertificates = new LinkedHashMap<>();
         Map<PublicKey, List<UUID>> altKeyToCertificates = new LinkedHashMap<>();
+        Set<Long> consumedContentIds = new HashSet<>();
 
         try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
             DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(
@@ -252,7 +266,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     .collect(ParallelCollectors.parallelToStream(
                             group -> importGroupSafely(runContext, group), executor, MAXIMUM_PARALLELISM))
                     .iterator();
-            Set<Long> consumedContentIds = new HashSet<>();
             while (true) {
                 GroupImportResult result;
                 try {
@@ -276,10 +289,11 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     reportProgressSafely(runContext, accumulator, completed);
                 }
             }
-            // Whatever the loop did not reach still has to appear in the status. Without this a stream failure
-            // leaves those groups invisible, and a run that lost work can still report itself clean.
-            accountForUnconsumedGroups(accumulator, groups, consumedContentIds);
         }
+        // Deliberately after the executor has closed. close() awaits termination, so every group has now either
+        // reached a verdict or was never started -- there is no third state, and no worker can still be writing to
+        // the rows this accounts for.
+        accountForUnconsumedGroups(accumulator, groups, consumedContentIds);
 
         associateKeys(accumulator, keyToCertificates, false);
         associateKeys(accumulator, altKeyToCertificates, true);
@@ -288,8 +302,17 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         saveEventHistory(eventHistoryDiscovery, EventStatus.FINISHED);
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
 
-        validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null,
-                runContext.discoveryUuid(), runContext.discoveryName(), null, null));
+        // Contained: the import is done and committed by this point, so a messaging failure must not reach the
+        // caller's catch. There it would re-mark both histories FAILED and replace the counted status below with a
+        // generic one -- reporting nothing imported for a run that imported everything.
+        try {
+            validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null,
+                    runContext.discoveryUuid(), runContext.discoveryName(), null, null));
+        } catch (Exception e) {
+            logger.error("Could not request validation of the certificates discovered by {}: {}",
+                    runContext.discoveryUuid(), e.getMessage(), e);
+            accumulator.recordBookkeepingFailure();
+        }
         DiscoveryResult result = decideFinalStatus(accumulator.counts(), originalMessage);
         emitDiscoveryFinished(runContext.discoveryUuid(), context, result.getDiscoveryStatus(), result.getMessage());
     }
@@ -328,7 +351,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * never attempted, and consuming the stream would then either dereference null or silently drop the rollback
      * outcomes this design exists to record.
      */
-    private GroupImportResult importGroupSafely(DiscoveryRunContext context, DiscoveryContentGroup group) {
+    GroupImportResult importGroupSafely(DiscoveryRunContext context, DiscoveryContentGroup group) {
         List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
         try {
             processCertSemaphore.acquire();
@@ -356,18 +379,19 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * import unit, so joining a transaction that is rolling back would discard them.
      */
     private void writeBookkeeping(DiscoveryRunAccumulator accumulator, GroupImportResult result) {
-        // A group's rows always share one outcome and one reason, so this is a single statement in a single
-        // transaction rather than one per row — on a large discovery that is the difference between one round trip
-        // per certificate and one per discovered host.
-        Map<DiscoveryCertificateOutcome, List<DiscoveryCertificateResult>> byOutcome = result.rowResults().stream()
-                .collect(Collectors.groupingBy(DiscoveryCertificateResult::outcome));
+        // Batched, so a group of rows costs one round trip rather than one per discovered host. Keyed on the reason
+        // as well as the outcome: a group's rows share both today, and grouping on the outcome alone would silently
+        // collapse distinct reasons onto whichever row came first.
+        Map<BookkeepingKey, List<DiscoveryCertificateResult>> byOutcomeAndDetail = result.rowResults().stream()
+                .collect(Collectors.groupingBy(row -> new BookkeepingKey(row.outcome(), row.detail()),
+                        LinkedHashMap::new, Collectors.toList()));
 
-        for (Map.Entry<DiscoveryCertificateOutcome, List<DiscoveryCertificateResult>> entry : byOutcome.entrySet()) {
+        for (Map.Entry<BookkeepingKey, List<DiscoveryCertificateResult>> entry : byOutcomeAndDetail.entrySet()) {
             List<UUID> rowUuids = entry.getValue().stream()
                     .map(DiscoveryCertificateResult::discoveryCertificateUuid).toList();
-            String detail = entry.getValue().getFirst().detail();
+            String detail = entry.getKey().detail();
             try {
-                if (entry.getKey() == DiscoveryCertificateOutcome.NOT_ATTEMPTED) {
+                if (entry.getKey().outcome() == DiscoveryCertificateOutcome.NOT_ATTEMPTED) {
                     // processed stays false — the truthful record for a row the platform never reached — but the
                     // reason is still written, because the status message points the operator at this list for it.
                     transactionHandler.runInNewTransaction(() ->
@@ -438,8 +462,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * overwriting each other.
      */
     private void persistKeyAssociationFailures(DiscoveryRunAccumulator accumulator) {
-        // Grouped by reason so certificates sharing one failure are written together; aggregation has already
-        // happened, so a hybrid certificate's two failures arrive here as one reason.
+        // Grouped by reason so certificates sharing one failure are written together.
         Map<String, List<UUID>> rowsByReason = accumulator.results().stream()
                 .filter(row -> row.outcome() == DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED)
                 .collect(Collectors.groupingBy(DiscoveryCertificateResult::detail, LinkedHashMap::new,
@@ -473,8 +496,13 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     /**
-     * Records every group the consumption loop did not reach. Only an early exit from the loop leaves any, and their
-     * rows are untouched in the database — so they are NOT_ATTEMPTED, and the run must not call itself clean.
+     * Records every group the consumption loop did not reach, so an early exit cannot leave lost work out of the
+     * counts and let the run call itself clean.
+     *
+     * <p>Only callable once the import executor has closed. Until then a group can still be mid-flight, and the
+     * database is the only thing that can tell a group that never ran from one whose import committed while its
+     * result never arrived. The two need opposite records: claiming a committed certificate was never attempted is
+     * the same class of lie this work exists to remove.
      */
     void accountForUnconsumedGroups(DiscoveryRunAccumulator accumulator,
                                     List<DiscoveryContentGroup> groups, Set<Long> consumedContentIds) {
@@ -483,9 +511,14 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 continue;
             }
             List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
-            GroupImportResult unconsumed = new GroupImportResult(group.certificateContentId(),
-                    resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
-                            "the import did not run to a result"), List.of(), false);
+            GroupImportResult unconsumed = certificateRepository.existsByCertificateContentId(group.certificateContentId())
+                    ? new GroupImportResult(group.certificateContentId(),
+                            resultsFor(rowUuids, DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED,
+                                    "the certificate was imported, but the run stopped before its key could be associated"),
+                            List.of(), false)
+                    : new GroupImportResult(group.certificateContentId(),
+                            resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
+                                    "the import did not run to a result"), List.of(), false);
             accumulator.accept(unconsumed);
             writeBookkeeping(accumulator, unconsumed);
         }
@@ -493,11 +526,17 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     private void reportProgress(DiscoveryRunContext context, int completedGroups) {
         int percentage = (int) ((completedGroups / (double) context.totalGroups()) * 100);
-        String message = String.format("Processed %d %% of newly discovered certificates (%d / %d certificates)",
+        // "unique" is load-bearing: the download phase counts discovered rows, so a certificate found on ten hosts
+        // is ten there and one here. Without the word the total appears to drop for no reason.
+        String message = String.format("Processed %d %% of newly discovered certificates (%d / %d unique certificates)",
                 percentage, completedGroups, context.totalGroups());
         // Isolated per DiscoveryWriter's contract. The orchestrator carries no ambient transaction today, so leaving
-        // it bare would work -- and would teach the next caller that the writer isolates itself.
+        // it bare would work -- but it would teach the next caller that the writer isolates itself.
         transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(context.discoveryUuid(), message));
+    }
+
+    /** Groups rows that can share one bookkeeping statement. {@code detail} is null for a clean import. */
+    private record BookkeepingKey(DiscoveryCertificateOutcome outcome, String detail) {
     }
 
     private static List<DiscoveryCertificateResult> resultsFor(List<UUID> rowUuids,
@@ -540,11 +579,18 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         X509Certificate x509Cert;
         Certificate candidate;
         try {
-            x509Cert = CertificateUtil.parseCertificate(group.rows().getFirst().getCertificateContent().getContent());
+            CertificateContent content = group.rows().getFirst().getCertificateContent();
+            x509Cert = CertificateUtil.parseCertificate(content.getContent());
             // Built in memory only. An ignore trigger must be able to keep this certificate out of the inventory,
             // so nothing is inserted until the ignore triggers have had their say.
             candidate = new Certificate();
             CertificateUtil.prepareIssuedCertificate(candidate, x509Cert);
+            // Trigger conditions read these reflectively, and prepareIssuedCertificate stamps neither. Left unset,
+            // a rule conditioned on the fingerprint evaluates against null: the condition is recorded as failed and
+            // then swallowed, so the rule silently stops matching and the certificate is imported despite it.
+            candidate.setFingerprint(CertificateUtil.getThumbprint(x509Cert));
+            candidate.setCertificateContent(content);
+            candidate.setCertificateContentId(content.getId());
         } catch (Exception e) {
             logger.error("Unable to create certificate for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
@@ -573,7 +619,16 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         DiscoveredCertificateImport imported;
         try {
             imported = certificateService.createDiscoveredCertificateAtomic(x509Cert);
+        } catch (RuntimeException e) {
+            logger.error("Unable to import certificate for discovered content {}: {}",
+                    group.certificateContentId(), e.getMessage(), e);
+            // The failure crossed a @Transactional boundary and has already marked this transaction rollback-only.
+            // Returning a result would let the commit throw UnexpectedRollbackException instead, and the reason
+            // shaped here would be replaced by that exception's generic text.
+            throw new DiscoveryImportRollbackException(
+                    "unable to create certificate entity: " + DiscoveryFailureReason.shape(e), e);
         } catch (Exception e) {
+            // Checked, so no proxy marked the transaction for rollback and the shaped result can still commit.
             logger.error("Unable to import certificate for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
             return new GroupImportResult(group.certificateContentId(),
@@ -599,8 +654,17 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         for (TriggerAssociation triggerAssociation : context.triggers()) {
             EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
-            context.eventContext().getTriggerEvaluator().evaluateTrigger(triggerAssociation.getTrigger(), triggerAssociation,
-                    certificate, referenceRowUuid, eventData, eventHistory);
+            try {
+                context.eventContext().getTriggerEvaluator().evaluateTrigger(triggerAssociation.getTrigger(), triggerAssociation,
+                        certificate, referenceRowUuid, eventData, eventHistory);
+            } catch (RuleException e) {
+                // Contained per trigger, and deliberately not an import failure: the certificate is already stored
+                // and trigger history is where an action failure is reported. Letting it out would roll this group
+                // back — and since every group evaluates the same triggers, one misconfigured action trigger would
+                // then lose every certificate in the discovery.
+                logger.error("Action trigger {} failed for certificate {}: {}",
+                        triggerAssociation.getTrigger().getUuid(), certificate.getUuid(), e.getMessage(), e);
+            }
         }
 
         return new GroupImportResult(group.certificateContentId(),

@@ -646,6 +646,76 @@ class EventHandlersITest extends BaseSpringBootTest {
     }
 
     /**
+     * An ignore trigger conditioned on the fingerprint must keep the certificate out of the inventory.
+     *
+     * <p>The candidate the ignore triggers evaluate is built in memory, so every field a rule can read has to be
+     * stamped on it explicitly. Miss the fingerprint and the condition reads null: the evaluator records a failed
+     * condition and swallows it, so the rule silently stops matching and the certificate is imported anyway — no
+     * exception, no warning, nothing but a trigger-history note.
+     */
+    @Test
+    void testCertificateDiscoveredHonoursAnIgnoreTriggerConditionedOnTheFingerprint() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        String fingerprint = CertificateUtil.getThumbprint(x509);
+        CertificateContent content = persistContentFor(x509);
+        DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "ignored-host");
+        createFingerprintIgnoreTrigger(discovery.getUuid(), fingerprint);
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Assertions.assertFalse(certificateRepository.findByFingerprint(fingerprint).isPresent(),
+                "the ignore trigger matched on the fingerprint, so nothing may be imported");
+        DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+        Assertions.assertTrue(reloaded.isProcessed(), "an ignored row is still handled");
+        Assertions.assertNull(reloaded.getProcessedError(), "being ignored is not a failure");
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
+                msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
+                        && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
+    }
+
+    private void createFingerprintIgnoreTrigger(UUID discoveryUuid, String fingerprint)
+            throws AlreadyExistException, NotFoundException {
+        ConditionItemRequestDto conditionItemRequest = new ConditionItemRequestDto();
+        conditionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
+        conditionItemRequest.setFieldIdentifier(FilterField.FINGERPRINT.name());
+        conditionItemRequest.setOperator(FilterConditionOperator.EQUALS);
+        conditionItemRequest.setValue(fingerprint);
+
+        ConditionRequestDto conditionRequest = new ConditionRequestDto();
+        conditionRequest.setName("FingerprintEqualsCondition");
+        conditionRequest.setResource(Resource.CERTIFICATE);
+        conditionRequest.setType(ConditionType.CHECK_FIELD);
+        conditionRequest.setItems(List.of(conditionItemRequest));
+        ConditionDto condition = ruleService.createCondition(conditionRequest);
+
+        RuleRequestDto ruleRequest = new RuleRequestDto();
+        ruleRequest.setName("FingerprintEqualsRule");
+        ruleRequest.setResource(Resource.CERTIFICATE);
+        ruleRequest.setConditionsUuids(List.of(condition.getUuid()));
+        RuleDetailDto rule = ruleService.createRule(ruleRequest);
+
+        TriggerRequestDto triggerRequest = new TriggerRequestDto();
+        triggerRequest.setName("IgnoreByFingerprintTrigger");
+        triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
+        triggerRequest.setResource(Resource.CERTIFICATE);
+        triggerRequest.setRulesUuids(List.of(rule.getUuid()));
+        triggerRequest.setActionsUuids(List.of());
+        triggerRequest.setIgnoreTrigger(true);
+        TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
+
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+        mockAuthResponse(AuthHelper.getUserIdentification());
+
+        triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
+                discoveryUuid, List.of(UUID.fromString(trigger.getUuid())), true);
+    }
+
+    /**
      * A group whose import rolls back must record why on every one of its rows — the reason has to survive the
      * failure that produced it — and must not also be counted as a missing key association.
      *
@@ -668,6 +738,12 @@ class EventHandlersITest extends BaseSpringBootTest {
         Assertions.assertTrue(reloaded.isProcessed(),
                 "the outcome must be recorded even though the import transaction failed");
         Assertions.assertNotNull(reloaded.getProcessedError(), "the row must carry the reason");
+        // The specific reason, not merely a non-null one: returning a shaped result from a transaction already
+        // marked rollback-only lets the commit's own generic text replace it, which a non-null assertion cannot see.
+        Assertions.assertEquals(
+                "Import rolled back: unable to create certificate entity: "
+                        + "a concurrent import committed the same certificate",
+                reloaded.getProcessedError());
         Assertions.assertFalse(reloaded.getProcessedError().contains("insert into"),
                 "the reason must not leak SQL: " + reloaded.getProcessedError());
         Assertions.assertFalse(reloaded.getProcessedError().contains("certificate_content_id"),

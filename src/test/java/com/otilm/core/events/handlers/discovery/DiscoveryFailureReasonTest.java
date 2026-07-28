@@ -4,6 +4,7 @@ import com.otilm.api.exception.ValidationException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.UnexpectedRollbackException;
 
 import java.security.cert.CertificateException;
@@ -86,6 +87,37 @@ class DiscoveryFailureReasonTest {
     void doesNotClaimARaceWhenTheConstraintKindIsUnknown() {
         assertThat(DiscoveryFailureReason.shape(
                 new DataIntegrityViolationException("could not execute statement")))
+                .isEqualTo("a database constraint rejected the certificate");
+    }
+
+    /**
+     * The signals a native insert actually produces. Hibernate's own constraint kind is absent there, so relying on
+     * it alone reported a genuine duplicate as an unspecified constraint failure.
+     */
+    @Test
+    void recognisesADuplicateFromTheSqlStateAlone() {
+        SQLException uniqueViolation = new SQLException(
+                "ERROR: duplicate key value violates unique constraint", "23505");
+
+        assertThat(DiscoveryFailureReason.shape(
+                new DataIntegrityViolationException("could not execute statement", uniqueViolation)))
+                .isEqualTo("a concurrent import committed the same certificate");
+    }
+
+    @Test
+    void recognisesADuplicateFromSpringsOwnTranslation() {
+        assertThat(DiscoveryFailureReason.shape(
+                new DuplicateKeyException("duplicate key value violates unique constraint")))
+                .isEqualTo("a concurrent import committed the same certificate");
+    }
+
+    @Test
+    void doesNotTreatAnotherIntegrityStateAsADuplicate() {
+        SQLException foreignKeyViolation = new SQLException(
+                "ERROR: violates foreign key constraint", "23503");
+
+        assertThat(DiscoveryFailureReason.shape(
+                new DataIntegrityViolationException("could not execute statement", foreignKeyViolation)))
                 .isEqualTo("a database constraint rejected the certificate");
     }
 

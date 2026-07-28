@@ -22,6 +22,7 @@ public class DiscoveryRunAccumulator {
     private final Map<UUID, List<String>> keyFailureReasons = new LinkedHashMap<>();
     private final Set<Long> contentIdsWithInventoryGap = new LinkedHashSet<>();
     private final Set<Long> contentIdsNotAttempted = new LinkedHashSet<>();
+    private final Set<Long> contentIdsWithKeyGap = new LinkedHashSet<>();
     private long bookkeepingFailures;
 
     public void accept(GroupImportResult group) {
@@ -31,6 +32,11 @@ public class DiscoveryRunAccumulator {
         }
         if (hasOutcome(group, DiscoveryCertificateOutcome.NOT_ATTEMPTED)) {
             contentIdsNotAttempted.add(group.certificateContentId());
+        }
+        // A group can arrive already classified as a key gap when its import committed but its result never reached
+        // the orchestrator. There is no certificate UUID to key that on, so it is counted by content instead.
+        if (hasOutcome(group, DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED)) {
+            contentIdsWithKeyGap.add(group.certificateContentId());
         }
         if (group.committed()) {
             group.keyEntries().forEach(entry -> rowsByCertificate
@@ -76,7 +82,7 @@ public class DiscoveryRunAccumulator {
     public DiscoveryRunCounts counts() {
         return new DiscoveryRunCounts(
                 contentIdsWithInventoryGap.size(),
-                keyFailureReasons.size(),
+                keyFailureReasons.size() + contentIdsWithKeyGap.size(),
                 contentIdsNotAttempted.size(),
                 bookkeepingFailures);
     }

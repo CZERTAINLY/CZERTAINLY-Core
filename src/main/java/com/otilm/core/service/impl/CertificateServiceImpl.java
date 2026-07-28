@@ -98,6 +98,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
@@ -162,6 +163,7 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     private LocationRepository locationRepository;
     private CertificateContentRepository certificateContentRepository;
     private DiscoveryCertificateContentWriter discoveryCertificateContentWriter;
+    private AuditorAware<String> auditorAware;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private ComplianceInternalService complianceService;
     private ComplianceExternalService complianceExternalService;
@@ -335,6 +337,11 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     @Autowired
     public void setDiscoveryCertificateContentWriter(DiscoveryCertificateContentWriter discoveryCertificateContentWriter) {
         this.discoveryCertificateContentWriter = discoveryCertificateContentWriter;
+    }
+
+    @Autowired
+    public void setAuditorAware(AuditorAware<String> auditorAware) {
+        this.auditorAware = auditorAware;
     }
 
     @Autowired
@@ -1375,10 +1382,13 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
         OffsetDateTime now = OffsetDateTime.now();
         Certificate entity = new Certificate();
-        // The native insert bypasses @PrePersist, so the identifier and audit columns are set here.
+        // The native insert bypasses @PrePersist and the auditing listener alike, so the identifier and every audit
+        // column -- author included -- are set here. Left to the listener, author stays null on every discovered
+        // certificate.
         entity.setUuid(UUID.randomUUID());
         entity.setCreated(now);
         entity.setUpdated(now);
+        entity.setAuthor(auditorAware.getCurrentAuditor().orElse(null));
         entity.setFingerprint(fingerprint);
         entity.setCertificateContent(content);
         entity.setCertificateContentId(content.getId());

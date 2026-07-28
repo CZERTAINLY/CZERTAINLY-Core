@@ -112,6 +112,13 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @EntityGraph(attributePaths = {"certificateContent"})
     List<Certificate> findByRaProfileUuidAndCertificateContentIdNotNullAndArchivedFalse(UUID raProfileUuid);
 
+    /**
+     * Whether a certificate for this content is already committed. Discovery post-processing uses it to tell a group
+     * that never ran from one whose import committed but whose result never reached the orchestrator — the two need
+     * opposite records, and only the database can distinguish them.
+     */
+    boolean existsByCertificateContentId(Long certificateContentId);
+
     List<Certificate> findByKeyUuid(UUID keyUuid);
 
     List<Certificate> findByAltKeyUuid(UUID altKeyUuid);

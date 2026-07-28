@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
@@ -74,6 +75,7 @@ class CertificateServiceImplDiscoveredImportTest {
         service.setCertificateRepository(certificateRepository);
         service.setCertificateContentRepository(certificateContentRepository);
         service.setDiscoveryCertificateContentWriter(contentWriter);
+        service.setAuditorAware(() -> Optional.of("discovery-operator"));
 
         x509Certificate = CertificateGeneratorHelper.generateCACertificate(null, "CN=discovered");
 
@@ -99,6 +101,32 @@ class CertificateServiceImplDiscoveredImportTest {
                 .as("the loser must adopt the committed row, not the identifier it generated itself")
                 .isEqualTo(winner.getUuid());
         verify(contentWriter).insertCertificate(any(Certificate.class));
+    }
+
+    /**
+     * The native insert bypasses both {@code @PrePersist} and the auditing listener, so every column they would have
+     * filled has to be stamped by hand. {@code author} is the one no schema constraint would catch.
+     */
+    @Test
+    void stampsTheColumnsTheNativeInsertBypasses() throws Exception {
+        when(certificateRepository.findByFingerprint(anyString()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new Certificate()));
+
+        service.createDiscoveredCertificateAtomic(x509Certificate);
+
+        ArgumentCaptor<Certificate> inserted = ArgumentCaptor.forClass(Certificate.class);
+        verify(contentWriter).insertCertificate(inserted.capture());
+        assertThat(inserted.getValue()).satisfies(entity -> {
+            assertThat(entity.getUuid()).isNotNull();
+            assertThat(entity.getCreated()).isNotNull();
+            assertThat(entity.getUpdated()).isNotNull();
+            assertThat(entity.getFingerprint()).isEqualTo(CertificateUtil.getThumbprint(x509Certificate));
+            assertThat(entity.getCertificateContentId()).isEqualTo(11L);
+            assertThat(entity.getAuthor())
+                    .as("no column constraint would catch this one, so the auditing listener's absence is invisible")
+                    .isEqualTo("discovery-operator");
+        });
     }
 
     @Test

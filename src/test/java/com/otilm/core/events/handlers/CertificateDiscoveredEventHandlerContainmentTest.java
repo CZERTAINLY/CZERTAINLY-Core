@@ -5,17 +5,22 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.evaluator.CertificateTriggerEvaluator;
 import com.otilm.core.events.handlers.discovery.DiscoveryCertificateOutcome;
 import com.otilm.core.events.handlers.discovery.DiscoveryContentGroup;
+import com.otilm.core.events.handlers.discovery.DiscoveryImportRollbackException;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunAccumulator;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunContext;
+import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
+import com.otilm.core.events.handlers.discovery.GroupImportResult;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * The post-processing phases that have to survive a failure of the phase before them. An escaping progress write ends
@@ -32,12 +38,13 @@ import static org.mockito.Mockito.mock;
 class CertificateDiscoveredEventHandlerContainmentTest {
 
     private final DiscoveryWriter discoveryWriter = mock(DiscoveryWriter.class);
+    private final CertificateRepository certificateRepository = mock(CertificateRepository.class);
+    private final TransactionHandler transactionHandler = mock(TransactionHandler.class);
     private final CertificateDiscoveredEventHandler handler = new CertificateDiscoveredEventHandler(
-            mock(CertificateRepository.class), mock(CertificateTriggerEvaluator.class));
+            certificateRepository, mock(CertificateTriggerEvaluator.class));
 
     @BeforeEach
     void setUp() {
-        TransactionHandler transactionHandler = mock(TransactionHandler.class);
         doAnswer(invocation -> {
             invocation.getArgument(0, Runnable.class).run();
             return null;
@@ -91,6 +98,69 @@ class CertificateDiscoveredEventHandlerContainmentTest {
 
         assertThat(accumulator.results()).isEmpty();
         assertThat(accumulator.counts().allClear()).isTrue();
+    }
+
+    /**
+     * The distinction the database exists to settle here: a group whose certificate is already committed did import,
+     * so calling it never-attempted would claim a missing certificate that is sitting in the inventory.
+     */
+    @Test
+    void anUnconsumedGroupWhoseCertificateCommittedIsAKeyGapNotAnUnattemptedImport() {
+        when(certificateRepository.existsByCertificateContentId(2L)).thenReturn(true);
+        DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
+
+        handler.accountForUnconsumedGroups(accumulator, List.of(group(2L, UUID.randomUUID())), Set.of());
+
+        assertThat(accumulator.results()).singleElement().satisfies(result -> {
+            assertThat(result.outcome()).isEqualTo(DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED);
+            assertThat(result.detail()).isEqualTo(
+                    "the certificate was imported, but the run stopped before its key could be associated");
+        });
+        DiscoveryRunCounts counts = accumulator.counts();
+        assertThat(counts.keyGaps()).isEqualTo(1);
+        assertThat(counts.notAttempted())
+                .as("the certificate exists, so nothing here was left unattempted")
+                .isZero();
+        assertThat(counts.inventoryGaps()).isZero();
+    }
+
+    /**
+     * The reason a group carries out through its own rollback has to survive the shaping the orchestrator applies on
+     * the way past. Shaped from an unclassified wrapper it would collapse to "an unexpected error occurred".
+     */
+    @Test
+    void anAlreadyShapedRollbackReasonSurvivesTheOrchestratorsShaping() {
+        when(transactionHandler.runInNewTransaction(ArgumentMatchers.<Supplier<GroupImportResult>>any()))
+                .thenThrow(new DiscoveryImportRollbackException(
+                        "trigger evaluation failed: the discovered certificate could not be parsed", null));
+
+        GroupImportResult result = handler.importGroupSafely(runContext(), group(3L, UUID.randomUUID()));
+
+        assertThat(result.committed()).isFalse();
+        assertThat(result.rowResults()).singleElement().satisfies(row -> {
+            assertThat(row.outcome()).isEqualTo(DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK);
+            assertThat(row.detail()).isEqualTo("Import rolled back: trigger evaluation failed: "
+                    + "the discovered certificate could not be parsed");
+        });
+    }
+
+    @Test
+    void anInterruptedGroupIsNotAttemptedRatherThanLost() {
+        Thread.currentThread().interrupt();
+        try {
+            GroupImportResult result = handler.importGroupSafely(runContext(), group(4L, UUID.randomUUID()));
+
+            assertThat(result.committed()).isFalse();
+            assertThat(result.rowResults()).singleElement().satisfies(row -> {
+                assertThat(row.outcome()).isEqualTo(DiscoveryCertificateOutcome.NOT_ATTEMPTED);
+                assertThat(row.detail()).isEqualTo("the import was interrupted before it began");
+            });
+            assertThat(Thread.currentThread().isInterrupted())
+                    .as("the interrupt must be reasserted, not swallowed")
+                    .isTrue();
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     private DiscoveryRunContext runContext() {

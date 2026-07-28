@@ -49,8 +49,8 @@ public class DiscoveryWriter {
     }
 
     /**
-     * Reports progress by discovery identifier rather than through the shared {@code DiscoveryHistory}
-     * instance, so concurrent workers no longer mutate and save one detached entity between them.
+     * Reports progress by discovery identifier rather than through the shared {@code DiscoveryHistory} instance —
+     * see {@code DiscoverySource} for why that entity must not reach a worker.
      */
     @Transactional
     public void updateProgressMessage(UUID discoveryUuid, String message) {

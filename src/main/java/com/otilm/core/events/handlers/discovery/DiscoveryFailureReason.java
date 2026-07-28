@@ -3,9 +3,11 @@ package com.otilm.core.events.handlers.discovery;
 import com.otilm.api.exception.ValidationException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.UnexpectedRollbackException;
 
 import java.security.cert.CertificateException;
+import java.sql.SQLException;
 
 /**
  * Turns an exception into text that is safe to expose.
@@ -19,6 +21,8 @@ public final class DiscoveryFailureReason {
 
     private static final String GENERIC = "an unexpected error occurred";
     private static final int MAX_CAUSE_DEPTH = 10;
+    /** SQLSTATE 23505, unique_violation. */
+    private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
 
     private DiscoveryFailureReason() {
     }
@@ -46,14 +50,27 @@ public final class DiscoveryFailureReason {
     }
 
     /**
-     * Kind rather than constraint name: the production schema is built by Flyway and the test schema by the entity
-     * annotations, so the generated names differ and matching on them would classify correctly in only one of the two.
+     * Kind and SQL state rather than constraint name: the production schema is built by Flyway and the test schema by
+     * the entity annotations, so generated names differ and matching on them would classify correctly in only one of
+     * the two.
+     *
+     * <p>Three signals because the inserts on this path are native queries. Those do not surface Hibernate's own
+     * {@link ConstraintViolationException}, so its constraint kind alone misses the case this classification exists
+     * for and reports a genuine duplicate as an unspecified constraint failure.
      */
     private static boolean isUniqueViolation(Throwable throwable) {
         Throwable cause = throwable;
         for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; cause = cause.getCause(), depth++) {
-            if (cause instanceof ConstraintViolationException constraintViolation) {
-                return constraintViolation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE;
+            if (cause instanceof DuplicateKeyException) {
+                return true;
+            }
+            if (cause instanceof ConstraintViolationException constraintViolation
+                    && constraintViolation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE) {
+                return true;
+            }
+            if (cause instanceof SQLException sqlException
+                    && UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
+                return true;
             }
         }
         return false;
