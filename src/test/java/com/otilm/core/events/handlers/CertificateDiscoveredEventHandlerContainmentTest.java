@@ -24,10 +24,13 @@ import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -88,6 +91,10 @@ class CertificateDiscoveredEventHandlerContainmentTest {
         assertThat(accumulator.counts().allClear())
                 .as("a run that lost work must not report itself clean")
                 .isFalse();
+        // Which writer is called is the whole point: markProcessed would set processed = true on rows the platform
+        // never reached, which is exactly what this outcome exists to avoid claiming.
+        verify(discoveryWriter).recordProcessedError(anyCollection(), anyString());
+        verify(discoveryWriter, never()).markProcessed(anyCollection(), anyString());
     }
 
     @Test
@@ -122,6 +129,10 @@ class CertificateDiscoveredEventHandlerContainmentTest {
                 .as("the certificate exists, so nothing here was left unattempted")
                 .isZero();
         assertThat(counts.inventoryGaps()).isZero();
+        // The key phase owns these rows and writes them after aggregation. Writing here as well would cost a second
+        // round trip, and a failure of it would report the detail as unrecorded when it had already been recorded.
+        verify(discoveryWriter, never()).markProcessed(anyCollection(), anyString());
+        verify(discoveryWriter, never()).recordProcessedError(anyCollection(), anyString());
     }
 
     /**

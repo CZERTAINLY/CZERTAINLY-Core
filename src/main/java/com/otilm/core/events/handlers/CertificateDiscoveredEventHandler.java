@@ -332,7 +332,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     .formatted(counts.inventoryGaps()));
         }
         if (counts.keyGaps() > 0) {
-            sentences.add("%d certificate(s) were imported without a public key association."
+            sentences.add("%d certificate(s) were imported without all of their public keys associated."
                     .formatted(counts.keyGaps()));
         }
         if (counts.notAttempted() > 0) {
@@ -456,13 +456,15 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     /**
-     * Writes the reasons the key phase produced. Rows were already marked processed while their group's result was
-     * consumed, so a certificate that imported cleanly and only then lost its key needs its reason written now —
-     * once per row, after aggregation, so a hybrid certificate's two failures land as one reason rather than
-     * overwriting each other.
+     * The sole writer of every row carrying a key gap, whether the gap was found by the key phase or by the
+     * unconsumed-group accounting. Written after aggregation and once per row, so a hybrid certificate's two
+     * failures land as one reason rather than overwriting each other.
+     *
+     * <p>{@code markProcessed} rather than a reason-only write: a key gap always belongs to a committed
+     * certificate — the accumulator ignores late failures for groups that never committed — so the row is handled,
+     * and one statement setting both columns keeps this the only write these rows receive.
      */
     private void persistKeyAssociationFailures(DiscoveryRunAccumulator accumulator) {
-        // Grouped by reason so certificates sharing one failure are written together.
         Map<String, List<UUID>> rowsByReason = accumulator.results().stream()
                 .filter(row -> row.outcome() == DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED)
                 .collect(Collectors.groupingBy(DiscoveryCertificateResult::detail, LinkedHashMap::new,
@@ -471,7 +473,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         for (Map.Entry<String, List<UUID>> entry : rowsByReason.entrySet()) {
             try {
                 transactionHandler.runInNewTransaction(() ->
-                        discoveryWriter.recordProcessedError(entry.getValue(), entry.getKey()));
+                        discoveryWriter.markProcessed(entry.getValue(), entry.getKey()));
             } catch (Exception e) {
                 logger.error("Could not record the key association failure of discovery certificates {}: {}",
                         entry.getValue(), e.getMessage(), e);
@@ -501,8 +503,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      *
      * <p>Only callable once the import executor has closed. Until then a group can still be mid-flight, and the
      * database is the only thing that can tell a group that never ran from one whose import committed while its
-     * result never arrived. The two need opposite records: claiming a committed certificate was never attempted is
-     * the same class of lie this work exists to remove.
+     * result never arrived. The two need opposite records: claiming a committed certificate was never attempted
+     * reports a missing certificate that is sitting in the inventory.
      */
     void accountForUnconsumedGroups(DiscoveryRunAccumulator accumulator,
                                     List<DiscoveryContentGroup> groups, Set<Long> consumedContentIds) {
@@ -511,7 +513,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 continue;
             }
             List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
-            GroupImportResult unconsumed = certificateRepository.existsByCertificateContentId(group.certificateContentId())
+            boolean committed = certificateRepository.existsByCertificateContentId(group.certificateContentId());
+            GroupImportResult unconsumed = committed
                     ? new GroupImportResult(group.certificateContentId(),
                             resultsFor(rowUuids, DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED,
                                     "the certificate was imported, but the run stopped before its key could be associated"),
@@ -520,7 +523,12 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                             resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
                                     "the import did not run to a result"), List.of(), false);
             accumulator.accept(unconsumed);
-            writeBookkeeping(accumulator, unconsumed);
+            // Only the never-ran case is written here. The key phase owns every row carrying a key gap, so writing it
+            // here too would cost a second round trip and let a failure of that write report the detail as
+            // unrecorded when it had already been recorded.
+            if (!committed) {
+                writeBookkeeping(accumulator, unconsumed);
+            }
         }
     }
 

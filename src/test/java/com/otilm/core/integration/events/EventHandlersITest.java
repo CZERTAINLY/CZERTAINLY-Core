@@ -789,8 +789,7 @@ class EventHandlersITest extends BaseSpringBootTest {
                 if (msg.getEvent() != ResourceEvent.DISCOVERY_FINISHED) return false;
                 DiscoveryResult result = (DiscoveryResult) msg.getData();
                 return result.getDiscoveryStatus() == DiscoveryStatus.WARNING
-                        // one certificate, one gap, however many rows carried it
-                        && result.getMessage().contains("1 certificate(s) were imported without a public key association")
+                        && result.getMessage().contains("1 certificate(s) were imported without all of their public keys associated")
                         && !result.getMessage().contains("could not be imported into the inventory");
             }));
         } finally {

@@ -37,7 +37,7 @@ class CertificateDiscoveredEventHandlerStatusTest {
                 new DiscoveryRunCounts(0, 2, 0, 0), ORIGINAL);
 
         assertThat(result.getMessage())
-                .isEqualTo("2 certificate(s) were imported without a public key association. " + TRAILER);
+                .isEqualTo("2 certificate(s) were imported without all of their public keys associated. " + TRAILER);
     }
 
     /**
@@ -52,7 +52,7 @@ class CertificateDiscoveredEventHandlerStatusTest {
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
         assertThat(result.getMessage()).isEqualTo(
                 "3 certificate(s) could not be imported into the inventory. "
-                        + "2 certificate(s) were imported without a public key association. "
+                        + "2 certificate(s) were imported without all of their public keys associated. "
                         + "1 certificate(s) could not be processed to a result. "
                         + "Some per-certificate detail could not be recorded. " + TRAILER);
     }
