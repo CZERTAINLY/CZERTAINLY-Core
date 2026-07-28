@@ -439,7 +439,7 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     /** Produces the response body for a request that has been decrypted and, where applicable, authenticated. */
-    private ScepResponse resolveResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) throws ScepException {
+    private ScepResponse resolveResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) {
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile)) {
             LoggingHelper.putAuditLogOperation(Operation.SCEP_TRANSACTION_CHECK);
             return existingTransactionResponse(scepRequest);

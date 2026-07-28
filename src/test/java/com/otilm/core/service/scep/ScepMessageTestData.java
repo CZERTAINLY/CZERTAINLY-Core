@@ -24,9 +24,14 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OutputEncryptor;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import com.otilm.api.model.core.scep.MessageType;
 
 import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.cert.X509Certificate;
@@ -56,7 +61,29 @@ public final class ScepMessageTestData {
 
     /** A signed PKCSReq whose PKCS#10 request is enveloped to a password recipient. */
     public static byte[] passwordEnvelopedPkcsReq() throws Exception {
-        return signedMessage(envelopedPkcs10Request()).getEncoded();
+        return signedMessage(envelopedPkcs10Request(Base64.getDecoder().decode(CSR_B64))).getEncoded();
+    }
+
+    /**
+     * The same message with a freshly generated PKCS#10 request for {@link #SUBJECT_DN}, optionally carrying
+     * a challengePassword attribute — {@code null} reproduces a renewal request, which omits it
+     * (RFC 8894 §3.3.1.2).
+     */
+    public static byte[] passwordEnvelopedPkcsReq(String csrChallengePassword) throws Exception {
+        return signedMessage(envelopedPkcs10Request(generatedCsr(csrChallengePassword))).getEncoded();
+    }
+
+    private static byte[] generatedCsr(String challengePassword) throws Exception {
+        KeyPair keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
+        JcaPKCS10CertificationRequestBuilder builder =
+                new JcaPKCS10CertificationRequestBuilder(new X500Name(SUBJECT_DN), keyPair.getPublic());
+        if (challengePassword != null) {
+            builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_challengePassword,
+                    new DERPrintableString(challengePassword));
+        }
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+        return builder.build(signer).getEncoded();
     }
 
     /** The signer certificate the message above is signed with. */
@@ -64,10 +91,9 @@ public final class ScepMessageTestData {
         return CertificateUtil.parseCertificate(SIGNER_CERT_B64);
     }
 
-    private static CMSProcessableByteArray envelopedPkcs10Request() throws Exception {
+    private static CMSProcessableByteArray envelopedPkcs10Request(byte[] csrBytes) throws Exception {
         Security.addProvider(new BouncyCastleProvider());
 
-        byte[] csrBytes = Base64.getDecoder().decode(CSR_B64.getBytes());
         PasswordRecipientInfoGenerator recipientGenerator = new JcePasswordRecipientInfoGenerator(
                 CMSAlgorithm.AES128_CBC, CHALLENGE_PASSWORD.toCharArray());
 
