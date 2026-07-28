@@ -452,9 +452,12 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     private void reportProgress(DiscoveryRunContext context, int completedGroups) {
         int percentage = (int) ((completedGroups / (double) context.totalGroups()) * 100);
-        discoveryWriter.updateProgressMessage(context.discoveryUuid(), String.format(
-                "Processed %d %% of newly discovered certificates (%d / %d certificates)",
-                percentage, completedGroups, context.totalGroups()));
+        String message = String.format("Processed %d %% of newly discovered certificates (%d / %d certificates)",
+                percentage, completedGroups, context.totalGroups());
+        // Explicitly isolated, as DiscoveryWriter documents for every one of its calls: the orchestrator has no
+        // ambient transaction today, so this is belt-and-braces rather than load-bearing -- but leaving it bare is
+        // what makes the next caller assume the writer isolates itself.
+        transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(context.discoveryUuid(), message));
     }
 
     private static List<DiscoveryCertificateResult> resultsFor(List<UUID> rowUuids,
