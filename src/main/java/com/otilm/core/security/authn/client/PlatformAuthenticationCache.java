@@ -61,18 +61,19 @@ public class PlatformAuthenticationCache implements AuthenticationCache {
     // Manual caching (instead of @Cacheable) keeps tokenJtiIndex in sync, enabling targeted
     // per-user eviction via evictTokensByUserUuid().
     @Override
-    public AuthenticationInfo getOrAuthenticateByToken(String jti, Supplier<AuthenticationInfo> loader) {
+    public AuthenticationInfo getOrAuthenticateByToken(String jti, long settingsGeneration, Supplier<AuthenticationInfo> loader) {
         if (jti == null) {
             return loader.get();
         }
-        Cache.ValueWrapper cached = tokenCache.get(jti);
+        String cacheKey = settingsGeneration + ":" + jti;
+        Cache.ValueWrapper cached = tokenCache.get(cacheKey);
         if (cached != null) {
             return (AuthenticationInfo) cached.get();
         }
         AuthenticationInfo result = loader.get();
         if (!result.isAnonymous()) {
-            tokenCache.put(jti, result);
-            tokenJtiIndex.add(UUID.fromString(result.getUserUuid()), jti);
+            tokenCache.put(cacheKey, result);
+            tokenJtiIndex.add(UUID.fromString(result.getUserUuid()), cacheKey);
         }
         return result;
     }

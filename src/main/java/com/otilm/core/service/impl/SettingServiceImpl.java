@@ -474,13 +474,28 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         settingRepository.save(disableLocalhostSetting);
 
         if (authenticationSettingsDto.getOAuth2Providers() != null) {
+            Set<String> issuerUrls = new HashSet<>();
+            for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
+                if (providerDto.getIssuerUrl() != null && !issuerUrls.add(providerDto.getIssuerUrl())) {
+                    throw new ValidationException(
+                            "Multiple OAuth2 providers in the request use issuer URL '%s'. Issuer URLs must be unique across providers.".formatted(providerDto.getIssuerUrl()));
+                }
+            }
+
+            // Validate every provider (this performs a real HTTP fetch for jwkSetUrl-based providers)
+            // before acquiring the advisory lock below, so the lock never spans an external call.
+            for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
+                validateOAuth2ProviderSettings(providerDto, false);
+            }
+
+            settingRepository.lockOAuth2ProviderWrites();
             settingRepository.deleteBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
 
             for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
-                updateOAuth2ProviderSettings(providerDto.getName(), providerDto);
+                persistOAuth2Provider(providerDto.getName(), providerDto);
             }
         }
-        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
+        cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
     }
 
     @Override
@@ -503,7 +518,17 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
+        // Validation performs a real HTTP fetch for jwkSetUrl-based providers; it must complete
+        // before the advisory lock below is acquired so the lock never spans an external call.
         validateOAuth2ProviderSettings(settingsDto, false);
+
+        settingRepository.lockOAuth2ProviderWrites();
+        validateIssuerUniqueness(providerName, settingsDto.getIssuerUrl());
+
+        persistOAuth2Provider(providerName, settingsDto);
+    }
+
+    private void persistOAuth2Provider(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
         Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         boolean isNewProvider = settingForRegistrationId == null;
 
@@ -540,15 +565,29 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         }
         settingRepository.save(setting);
 
-        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
+        cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void removeOAuth2Provider(String providerName) {
+        settingRepository.lockOAuth2ProviderWrites();
+
         Long deleted = settingRepository.deleteBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         if (deleted > 0) {
-            settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
+            cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
+        }
+    }
+
+    private void validateIssuerUniqueness(String providerName, String issuerUrl) {
+        if (issuerUrl == null) {
+            return;
+        }
+        for (Map.Entry<String, OAuth2ProviderSettingsDto> entry : getAuthenticationSettings(true).getOAuth2Providers().entrySet()) {
+            if (!entry.getKey().equals(providerName) && issuerUrl.equals(entry.getValue().getIssuerUrl())) {
+                throw new ValidationException(
+                        "OAuth2 provider '%s' already uses issuer URL '%s'. Issuer URLs must be unique across providers.".formatted(entry.getKey(), issuerUrl));
+            }
         }
     }
 

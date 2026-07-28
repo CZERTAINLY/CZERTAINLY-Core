@@ -10,6 +10,7 @@ import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.AuthHelper;
+import com.otilm.core.util.OAuth2Util;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.slf4j.Logger;
@@ -78,7 +79,7 @@ public class PlatformJwtDecoder implements JwtDecoder {
         }
 
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(issuerUri)).findFirst().orElse(null);
+        OAuth2ProviderSettingsDto providerSettings = OAuth2Util.findProviderByIssuer(authenticationSettings, issuerUri);
 
         if (providerSettings == null) {
             String message = "No OAuth2 Provider with issuer URI '%s' configured for authentication with JWT token".formatted(issuerUri);
@@ -120,7 +121,7 @@ public class PlatformJwtDecoder implements JwtDecoder {
 
         // Add audience validation
         if (!audiences.isEmpty()) {
-            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
+            audienceValidator = new JwtClaimValidator<>("aud", (List<String> aud) -> aud.stream().anyMatch(audiences::contains));
         }
 
         return JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));

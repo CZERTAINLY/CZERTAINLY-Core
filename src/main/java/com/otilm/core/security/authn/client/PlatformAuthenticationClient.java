@@ -74,10 +74,10 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
                 certificateThumbprint, () -> authenticate(AuthMethod.CERTIFICATE, rawCertHeader, false)));
     }
 
-    public AuthenticationInfo authenticateByToken(Map<String, Object> claims) {
+    public AuthenticationInfo authenticateByToken(Map<String, Object> claims, long settingsGeneration) {
         String jti = (String) claims.get("jti");
         return restoreActorMdc(authenticationCache.getOrAuthenticateByToken(
-                jti, () -> authenticate(AuthMethod.TOKEN, claims, false)));
+                jti, settingsGeneration, () -> authenticate(AuthMethod.TOKEN, claims, false)));
     }
 
     /**

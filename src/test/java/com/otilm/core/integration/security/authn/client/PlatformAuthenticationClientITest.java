@@ -240,7 +240,7 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
         Map<String, Object> claims = Map.of("jti", "jti-test-123");
 
         // when
-        AuthenticationInfo result = authenticationClient.authenticateByToken(claims);
+        AuthenticationInfo result = authenticationClient.authenticateByToken(claims, 1L);
 
         // then
         assertEquals("FrantisekJednicka", result.getUsername());
@@ -252,13 +252,29 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
         // given
         setUpSuccessfulAuthenticationResponse();
         Map<String, Object> claims = Map.of("jti", "jti-test-123");
-        authenticationClient.authenticateByToken(claims); // prime the cache
+        authenticationClient.authenticateByToken(claims, 1L); // prime the cache
 
         // when
-        authenticationClient.authenticateByToken(claims);
+        authenticationClient.authenticateByToken(claims, 1L);
 
         // then
         assertEquals(1, authServiceMock.getRequestCount());
+    }
+
+    @Test
+    void authenticateByToken_differentGeneration_missesAndCallsAuthServiceAgain() {
+        // given - same jti cached under generation 1L; a settings-generation bump must miss the cache
+        setUpSuccessfulAuthenticationResponse();
+        setUpSuccessfulAuthenticationResponse();
+        Map<String, Object> claims = Map.of("jti", "jti-test-123");
+
+        // when
+        authenticationClient.authenticateByToken(claims, 1L); // cache miss under generation 1L
+        authenticationClient.authenticateByToken(claims, 1L); // cache hit under generation 1L
+        authenticationClient.authenticateByToken(claims, 2L); // cache miss under generation 2L
+
+        // then - only the two misses reach the auth service
+        assertEquals(2, authServiceMock.getRequestCount());
     }
 
     @Test
@@ -269,8 +285,8 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
         Map<String, Object> claimsWithoutJti = Map.of("sub", "user-123");
 
         // when
-        authenticationClient.authenticateByToken(claimsWithoutJti);
-        authenticationClient.authenticateByToken(claimsWithoutJti);
+        authenticationClient.authenticateByToken(claimsWithoutJti, 1L);
+        authenticationClient.authenticateByToken(claimsWithoutJti, 1L);
 
         // then
         assertEquals(2, authServiceMock.getRequestCount());
@@ -338,11 +354,11 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
         // given
         setUpSuccessfulAuthenticationResponse();
         Map<String, Object> claims = Map.of("jti", "jti-mdc-test");
-        authenticationClient.authenticateByToken(claims);
+        authenticationClient.authenticateByToken(claims, 1L);
         MDC.clear();
 
         // when
-        authenticationClient.authenticateByToken(claims);
+        authenticationClient.authenticateByToken(claims, 1L);
 
         // then
         assertEquals(1, authServiceMock.getRequestCount());

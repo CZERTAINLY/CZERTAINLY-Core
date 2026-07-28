@@ -4,11 +4,10 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.core.settings.*;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.otilm.core.attribute.CsrAttributes;
@@ -31,6 +30,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
 import java.util.*;
 
@@ -244,6 +247,83 @@ class SettingServiceITest extends BaseSpringBootTest {
         eventSettingsDto.setTriggerUuids(List.of(UUID.fromString("3a1db3f5-f9eb-4fbf-92c9-c4c1499bfca8")));
 
         Assertions.assertThrows(NotFoundException.class, () -> settingService.updateEventSettings(eventSettingsDto), "Updating non-existing trigger event settings should throw NotFoundException");
+    }
+
+    @Test
+    void updateOAuth2ProviderSettings_duplicateIssuer_rejected() throws Exception {
+        OAuth2ProviderSettingsUpdateDto first = createProviderUpdateDto();
+        first.setIssuerUrl("https://shared-issuer.example.com");
+        settingService.updateOAuth2ProviderSettings("provider-one", first);
+
+        OAuth2ProviderSettingsUpdateDto second = createProviderUpdateDto();
+        second.setIssuerUrl("https://shared-issuer.example.com");
+        Assertions.assertThrows(ValidationException.class,
+                () -> settingService.updateOAuth2ProviderSettings("provider-two", second));
+    }
+
+    @Test
+    void updateOAuth2ProviderSettings_sameProviderKeepsItsOwnIssuer() throws Exception {
+        OAuth2ProviderSettingsUpdateDto dto = createProviderUpdateDto();
+        dto.setIssuerUrl("https://unique-issuer.example.com");
+        settingService.updateOAuth2ProviderSettings("provider-one", dto);
+        Assertions.assertDoesNotThrow(() -> settingService.updateOAuth2ProviderSettings("provider-one", dto));
+    }
+
+    @Test
+    void updateOAuth2ProviderSettings_changingIssuerIntoExistingOnes_rejected() throws Exception {
+        OAuth2ProviderSettingsUpdateDto first = createProviderUpdateDto();
+        first.setIssuerUrl("https://issuer-one.example.com");
+        settingService.updateOAuth2ProviderSettings("provider-one", first);
+
+        OAuth2ProviderSettingsUpdateDto second = createProviderUpdateDto();
+        second.setIssuerUrl("https://issuer-two.example.com");
+        settingService.updateOAuth2ProviderSettings("provider-two", second);
+
+        second.setIssuerUrl("https://issuer-one.example.com");   // update provider-two into a collision
+        Assertions.assertThrows(ValidationException.class,
+                () -> settingService.updateOAuth2ProviderSettings("provider-two", second));
+    }
+
+    @Test
+    void updateAuthenticationSettings_batchWithInternalDuplicateIssuer_rejected() throws Exception {
+        OAuth2ProviderSettingsDto p1 = createProviderDto("provider-one");
+        p1.setIssuerUrl("https://dup.example.com");
+        OAuth2ProviderSettingsDto p2 = createProviderDto("provider-two");
+        p2.setIssuerUrl("https://dup.example.com");
+        AuthenticationSettingsUpdateDto update = new AuthenticationSettingsUpdateDto();
+        update.setOAuth2Providers(List.of(p1, p2));
+        Assertions.assertThrows(ValidationException.class,
+                () -> settingService.updateAuthenticationSettings(update));
+    }
+
+    private static String encodedJwkSet() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        RSAKey rsaKey = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic()).keyID("test-key").build();
+        return Base64.getEncoder().encodeToString(
+                new JWKSet(rsaKey).toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static OAuth2ProviderSettingsUpdateDto createProviderUpdateDto() throws Exception {
+        OAuth2ProviderSettingsUpdateDto dto = new OAuth2ProviderSettingsUpdateDto();
+        dto.setClientId("client");
+        dto.setClientSecret("secret");
+        dto.setAuthorizationUrl("http://auth.example.com");
+        dto.setTokenUrl("http://token.example.com");
+        dto.setJwkSet(encodedJwkSet());
+        return dto;
+    }
+
+    private static OAuth2ProviderSettingsDto createProviderDto(String name) throws Exception {
+        OAuth2ProviderSettingsDto dto = new OAuth2ProviderSettingsDto();
+        dto.setName(name);
+        dto.setClientId("client");
+        dto.setClientSecret("secret");
+        dto.setAuthorizationUrl("http://auth.example.com");
+        dto.setTokenUrl("http://token.example.com");
+        dto.setJwkSet(encodedJwkSet());
+        return dto;
     }
 
 }

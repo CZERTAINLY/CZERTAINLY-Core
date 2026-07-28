@@ -227,12 +227,57 @@ class SecurityConfigITest extends BaseSpringBootTestNoAuth {
         Assertions.assertTrue(resultRefresh.getResponse().getContentAsString().contains(refreshedUserName));
     }
 
+    @Test
+    void testOAuth2LoginRefreshingTokenWithoutUsernameInPrincipalAttributes() throws Exception {
+        cacheProviderSettings(null);
+        String oauth2Token = OAuth2TestUtil.createJwtTokenValue(privateKey, null, null, null, "oldUsername");
+        OAuth2AccessToken oauth2AccessTokenToRefresh = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, oauth2Token, Instant.now(), Instant.now().plusMillis(1));
+        MockHttpSession mockHttpSession = new MockHttpSession();
+        mockHttpSession.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, oauth2AccessTokenToRefresh);
+        OAuth2RefreshToken oAuth2RefreshToken = new OAuth2RefreshToken("random", Instant.now());
+        mockHttpSession.setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, oAuth2RefreshToken);
+        String refreshedUserName = "refreshed-user-no-principal-claim";
+        String refreshedUserUuid = UUID.randomUUID().toString();
+        addAuthPostStub("{\"iss\":\"newInfo\",\"sub\":\"user\",\"username\":\"%s\"}".formatted(refreshedUserName), refreshedUserUuid, refreshedUserName);
+        addAuthGetSub(refreshedUserUuid, refreshedUserName);
+        addTokenEndpointStub(OAuth2TestUtil.createJwtTokenValue(privateKey, null, "newInfo", null, refreshedUserName));
+        // Deliberately no idToken claim customization: the OIDC principal attributes established at
+        // login time lack the effective username claim, while the refreshed access token carries it.
+        MvcResult resultRefresh = mvc.perform(get(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/auth/profile").with(oidcLogin()).session(mockHttpSession)).andReturn();
+        Assertions.assertTrue(resultRefresh.getResponse().getContentAsString().contains(refreshedUserName));
+    }
+
+    @Test
+    void testOauth2LoginNormalizesConfiguredUsernameClaimIntoTokenUserClaims() throws Exception {
+        String usernameClaim = "preferred_username";
+        String username = "preferred-username-login-user";
+        cacheProviderSettingsWithUsernameClaim(usernameClaim);
+
+        String userUuid = UUID.randomUUID().toString();
+        addAuthPostStub("\"%s\":\"%s\"".formatted(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, username), userUuid, username);
+        addAuthGetSub(userUuid, username);
+
+        String oauth2Token = OAuth2TestUtil.createJwtTokenValue(privateKey, null, null, null, usernameClaim, username);
+        MockHttpSession mockHttpSession = new MockHttpSession();
+        OAuth2AccessToken oauth2AccessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, oauth2Token, Instant.now(), Instant.MAX);
+        mockHttpSession.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, oauth2AccessToken);
+
+        MvcResult result = mvc.perform(get(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/auth/profile").with(oidcLogin()).session(mockHttpSession)).andReturn();
+        Assertions.assertTrue(result.getResponse().getContentAsString().contains(username));
+    }
+
     void cacheProviderSettings(String userInfoUrl) {
         cacheProviderSettings(userInfoUrl, null);
     }
 
     void cacheProviderSettings(String userInfoUrl, String issuerUrl) {
         AuthenticationSettingsDto authenticationSettingsDto = OAuth2TestUtil.getAuthenticationSettings(userInfoUrl, mockServer.port(), new ArrayList<>(), issuerUrl);
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, authenticationSettingsDto);
+    }
+
+    void cacheProviderSettingsWithUsernameClaim(String usernameClaim) {
+        AuthenticationSettingsDto authenticationSettingsDto = OAuth2TestUtil.getAuthenticationSettings(null, mockServer.port(), new ArrayList<>(), null);
+        authenticationSettingsDto.getOAuth2Providers().get("test").setUsernameClaim(usernameClaim);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, authenticationSettingsDto);
     }
 
@@ -280,7 +325,10 @@ class SecurityConfigITest extends BaseSpringBootTestNoAuth {
                   "scope":"create"
                 }
                 """.formatted(tokenValue);
-        mockServer.stubFor(WireMock.post("/token").willReturn(WireMock.okJson(responseJson).withHeader("contentType", "application/json")));
+        // "Connection: close" tells the pooled HTTP client used for the token refresh call not to keep
+        // this connection alive; otherwise a later test's fresh WireMockServer instance on the same
+        // port can be handed a stale pooled connection from an earlier test's now-stopped server.
+        mockServer.stubFor(WireMock.post("/token").willReturn(WireMock.okJson(responseJson).withHeader("contentType", "application/json").withHeader("Connection", "close")));
     }
 
     void addUserInfoStub(String userInfoUsername) {
