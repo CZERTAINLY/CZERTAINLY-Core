@@ -11,7 +11,6 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.entity.workflows.EventHistory;
-import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.CertificateRepository;
@@ -54,6 +53,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -224,14 +224,28 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     virtualThreadExecutor, SecurityContextHolder.getContext());
 
             // parallelToStream, not parallel: results arrive on this thread in completion order, which is what
-            // lets the steps below own the key maps and the progress counter without synchronisation.
-            List<GroupImportResult> results = groups.stream()
+            // lets the steps below own the key maps and the progress counter without synchronisation. The stream
+            // is consumed lazily on purpose — materialising it first would wait for the last group before any
+            // bookkeeping or progress ran, so progress would only appear once the run was already over.
+            int completed = 0;
+            Iterator<GroupImportResult> results = groups.stream()
                     .collect(ParallelCollectors.parallelToStream(
                             group -> importGroupSafely(runContext, group), executor, MAXIMUM_PARALLELISM))
-                    .toList();
-
-            int completed = 0;
-            for (GroupImportResult result : results) {
+                    .iterator();
+            while (true) {
+                GroupImportResult result;
+                try {
+                    if (!results.hasNext()) {
+                        break;
+                    }
+                    result = results.next();
+                } catch (Exception e) {
+                    // A failure surfacing from the stream itself — cancellation, or something that escaped the
+                    // mapper — must not discard the groups already consumed and recorded.
+                    logger.error("Discovery post-processing stopped consuming group results early: {}",
+                            e.getMessage(), e);
+                    break;
+                }
                 accumulator.accept(result);
                 writeBookkeeping(accumulator, result);
                 mergeKeyEntries(accumulator, result, keyToCertificates, altKeyToCertificates);
@@ -432,13 +446,12 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         try {
             return importContentGroupInternal(context, group);
         } catch (RuleException e) {
-            // Trigger evaluation failed after the certificate committed. The import stands; trigger history
-            // records the trigger-side failure, so this is not an inventory gap.
+            // Trigger evaluation failed. Whether the certificate committed depends on where it threw, and the key
+            // entries were never built either way — so reporting IMPORTED here would claim a clean run while the
+            // keys silently went unassociated. Roll the group back and say why instead.
             logger.error("Trigger evaluation failed for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
-            return new GroupImportResult(group.certificateContentId(),
-                    resultsFor(group.rows().stream().map(DiscoveryCertificate::getUuid).toList(),
-                            DiscoveryCertificateOutcome.IMPORTED, null), List.of(), true);
+            throw new IllegalStateException("Trigger evaluation failed: " + DiscoveryFailureReason.shape(e), e);
         }
     }
 
@@ -447,10 +460,13 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
 
         X509Certificate x509Cert;
-        DiscoveredCertificateImport imported;
+        Certificate candidate;
         try {
             x509Cert = CertificateUtil.parseCertificate(group.rows().getFirst().getCertificateContent().getContent());
-            imported = certificateService.createDiscoveredCertificateAtomic(x509Cert);
+            // Built in memory only. An ignore trigger must be able to keep this certificate out of the inventory,
+            // so nothing is inserted until the ignore triggers have had their say.
+            candidate = new Certificate();
+            CertificateUtil.prepareIssuedCertificate(candidate, x509Cert);
         } catch (Exception e) {
             logger.error("Unable to create certificate for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
@@ -460,10 +476,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     List.of(), false);
         }
 
-        // Always the surviving row: on a lost insert race it carries the winner's UUID, so trigger history and
-        // key entries below must be derived from it rather than from the entity this caller built.
-        Certificate certificate = imported.certificate();
-
         EventHistory discoveryEventHistory = eventHistoryRepository.getReferenceById(context.discoveryEventHistoryUuid());
         EventHistory platformEventHistory = eventHistoryRepository.getReferenceById(context.platformEventHistoryUuid());
         UUID referenceRowUuid = rowUuids.getFirst();
@@ -472,13 +484,29 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         for (TriggerAssociation triggerAssociation : context.ignoreTriggers()) {
             EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
             TriggerHistory triggerHistory = context.eventContext().getTriggerEvaluator().evaluateTrigger(
-                    triggerAssociation.getTrigger(), triggerAssociation, certificate, referenceRowUuid, null, eventHistory);
+                    triggerAssociation.getTrigger(), triggerAssociation, candidate, referenceRowUuid, null, eventHistory);
             ignoreHistories.add(triggerHistory);
             if (triggerHistory.isActionsPerformed()) {
                 return new GroupImportResult(group.certificateContentId(),
                         resultsFor(rowUuids, DiscoveryCertificateOutcome.IGNORED, null), List.of(), true);
             }
         }
+
+        DiscoveredCertificateImport imported;
+        try {
+            imported = certificateService.createDiscoveredCertificateAtomic(x509Cert);
+        } catch (Exception e) {
+            logger.error("Unable to import certificate for discovered content {}: {}",
+                    group.certificateContentId(), e.getMessage(), e);
+            return new GroupImportResult(group.certificateContentId(),
+                    resultsFor(rowUuids, DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED,
+                            "Unable to create certificate entity: " + DiscoveryFailureReason.shape(e)),
+                    List.of(), false);
+        }
+
+        // Always the surviving row: on a lost insert race it carries the winner's UUID, so trigger history and
+        // key entries below must be derived from it rather than from the candidate built above.
+        Certificate certificate = imported.certificate();
         ignoreHistories.forEach(history -> history.setObjectUuid(certificate.getUuid()));
 
         CertificateDiscoveredEventData eventData = (CertificateDiscoveredEventData) getEventData(certificate, context.eventContext().getData());

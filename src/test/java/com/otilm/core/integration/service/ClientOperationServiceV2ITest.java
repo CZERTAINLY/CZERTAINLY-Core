@@ -1021,7 +1021,8 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         CertificateRelation relation = new CertificateRelation();
         relation.setSuccessorCertificate(certificate);
         Certificate predCert = new Certificate();
-        predCert.setCertificateContent(certificateContent);
+        // Its own content: the schema allows only one certificate per content.
+        predCert.setCertificateContent(certificateContentRepository.save(new CertificateContent()));
         certificateRepository.save(predCert);
         relation.setPredecessorCertificate(predCert);
         relation.setRelationType(CertificateRelationType.PENDING);
@@ -2185,10 +2186,11 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         predecessor.setSubjectDn("CN=predecessor");
         predecessor.setIssuerDn("CN=test-issuer");
         predecessor.setSerialNumber("PRED-" + System.currentTimeMillis());
-        predecessor.setCertificateContent(certificateContent);
+        // Its own content: the schema allows only one certificate per content.
+        CertificateContent predecessorContent = certificateContentRepository.save(new CertificateContent());
         predecessor.setState(CertificateState.ISSUED);
         predecessor.setValidationStatus(CertificateValidationStatus.VALID);
-        predecessor.setCertificateContentId(certificateContent.getId());
+        predecessor.setCertificateContentId(predecessorContent.getId());
         predecessor.setRaProfile(raProfile);
         predecessor = certificateRepository.save(predecessor);
 

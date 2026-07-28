@@ -19,9 +19,29 @@ class DiscoveryFailureReasonTest {
     }
 
     @Test
-    void passesThroughACertificateExceptionMessage() {
+    void classifiesACertificateExceptionRatherThanForwardingProviderText() {
         assertThat(DiscoveryFailureReason.shape(new CertificateException("unsupported signature algorithm")))
-                .isEqualTo("unsupported signature algorithm");
+                .as("parser messages come from the JDK and BouncyCastle, not the platform")
+                .isEqualTo("the discovered certificate could not be parsed");
+    }
+
+    @Test
+    void classifiesAWrappedDataIntegrityViolationWithoutLeakingTheWrappersText() {
+        String reason = DiscoveryFailureReason.shape(new IllegalStateException(
+                "could not execute statement [insert into core.certificate (uuid,fingerprint) ...]",
+                new DataIntegrityViolationException("duplicate key value violates unique constraint")));
+
+        assertThat(reason).isEqualTo("a concurrent import committed the same certificate");
+        assertThat(reason).doesNotContain("insert into").doesNotContain("core.certificate");
+    }
+
+    @Test
+    void survivesACyclicCauseChain() {
+        RuntimeException outer = new RuntimeException("outer");
+        RuntimeException inner = new RuntimeException("inner", outer);
+        outer.initCause(inner);
+
+        assertThat(DiscoveryFailureReason.shape(outer)).isEqualTo("an unexpected error occurred");
     }
 
     @Test
@@ -48,8 +68,8 @@ class DiscoveryFailureReasonTest {
     }
 
     @Test
-    void neverReturnsNullForAMessagelessControlledException() {
-        assertThat(DiscoveryFailureReason.shape(new CertificateException()))
+    void neverEchoesAStringifiedNullMessage() {
+        assertThat(DiscoveryFailureReason.shape(new ValidationException((String) null)))
                 .isEqualTo("an unexpected error occurred");
     }
 }
