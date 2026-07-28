@@ -1,5 +1,6 @@
 package com.otilm.core.integration.events;
 
+import com.otilm.core.service.handler.CertificateHandler;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
@@ -94,6 +95,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.verify;
@@ -151,6 +155,9 @@ class EventHandlersITest extends BaseSpringBootTest {
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     @MockitoSpyBean
     private EventProducer eventProducer;
+
+    @MockitoSpyBean
+    private CertificateHandler certificateHandler;
 
 
     @Autowired
@@ -674,6 +681,46 @@ class EventHandlersITest extends BaseSpringBootTest {
                     && result.getMessage().contains("could not be imported into the inventory")
                     && !result.getMessage().contains("without a public key association");
         }));
+    }
+
+    /**
+     * A key association that fails must be attributed to the certificate, marking every discovered row behind it
+     * and counting the certificate once. The upload itself is stubbed because a failure of the cryptographic key
+     * service has no natural trigger here; the surrounding wiring — accumulator re-classification, per-row
+     * reasons, and the status message — is what this exercises.
+     */
+    @Test
+    void testCertificateDiscoveredAttributesAFailedKeyAssociationToEveryRow() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        List<DiscoveryCertificate> rows = List.of(
+                persistDiscoveryCertificate(discovery, content, "host-one"),
+                persistDiscoveryCertificate(discovery, content, "host-two"));
+        doReturn(false).when(certificateHandler).uploadDiscoveredCertificateKey(any(), anyList());
+
+        try {
+            certificateDiscoveredEventHandler.handleEvent(
+                    CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+            for (DiscoveryCertificate row : rows) {
+                DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+                Assertions.assertNotNull(reloaded.getProcessedError(),
+                        "every row behind the certificate must record the failed association");
+                Assertions.assertTrue(reloaded.getProcessedError().contains("key could not be associated"),
+                        "unexpected reason: " + reloaded.getProcessedError());
+            }
+            verify(eventProducer).produceMessage(argThat((EventMessage msg) -> {
+                if (msg.getEvent() != ResourceEvent.DISCOVERY_FINISHED) return false;
+                DiscoveryResult result = (DiscoveryResult) msg.getData();
+                return result.getDiscoveryStatus() == DiscoveryStatus.WARNING
+                        // one certificate, one gap, however many rows carried it
+                        && result.getMessage().contains("1 certificate(s) were imported without a public key association")
+                        && !result.getMessage().contains("could not be imported into the inventory");
+            }));
+        } finally {
+            reset(certificateHandler);
+        }
     }
 
     private void occupyContentIdWithAnotherCertificate(CertificateContent content) {

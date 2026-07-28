@@ -244,6 +244,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         associateKeys(accumulator, keyToCertificates, false);
         associateKeys(accumulator, altKeyToCertificates, true);
+        persistKeyAssociationFailures(accumulator);
 
         saveEventHistory(eventHistoryDiscovery, EventStatus.FINISHED);
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
@@ -377,6 +378,28 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     private static void failAll(DiscoveryRunAccumulator accumulator, List<UUID> certificateUuids, String reason) {
         certificateUuids.forEach(certificateUuid -> accumulator.failKeyAssociation(certificateUuid, reason));
+    }
+
+    /**
+     * Writes the reasons the key phase produced. Rows were already marked processed while their group's result was
+     * consumed, so a certificate that imported cleanly and only then lost its key needs its reason written now —
+     * once per row, after aggregation, so a hybrid certificate's two failures land as one reason rather than
+     * overwriting each other.
+     */
+    private void persistKeyAssociationFailures(DiscoveryRunAccumulator accumulator) {
+        for (DiscoveryCertificateResult row : accumulator.results()) {
+            if (row.outcome() != DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED) {
+                continue;
+            }
+            try {
+                transactionHandler.runInNewTransaction(() ->
+                        discoveryWriter.recordProcessedError(row.discoveryCertificateUuid(), row.detail()));
+            } catch (Exception e) {
+                logger.error("Could not record the key association failure of discovery certificate {}: {}",
+                        row.discoveryCertificateUuid(), e.getMessage(), e);
+                accumulator.recordBookkeepingFailure();
+            }
+        }
     }
 
     private void reportProgress(DiscoveryRunContext context, int completedGroups) {
