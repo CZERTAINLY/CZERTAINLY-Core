@@ -8,6 +8,7 @@ import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
 import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
@@ -163,6 +164,48 @@ class RequestAttributeDefinitionValidationTest {
         DataAttributeV3 definition = validDefinition();
         ((RdnMappedField) definition.getFieldMapping().getFields().get(0)).setRdn("NOPE");
         assertRejected(definition, "not a known RDN code");
+    }
+
+    private static DataAttributeV3 extensionDefinition(String extensionOid) {
+        DataAttributeV3 attribute = validDefinition();
+        attribute.setName("extension");
+        ExtensionMappedField field = new ExtensionMappedField();
+        field.setFieldType(FieldType.EXTENSION);
+        field.setExtensionOid(extensionOid);
+        FieldMapping mapping = new FieldMapping();
+        mapping.setObjectType(ObjectType.X509_CERTIFICATE);
+        mapping.setFields(List.of(field));
+        attribute.setFieldMapping(mapping);
+        return attribute;
+    }
+
+    @Test
+    void extensionMappingOnSubjectAlternativeNameRejected() {
+        // given — the parser diverts 2.5.29.17 into subjectAltNames, so such a mapping never matches
+        // when / then
+        assertRejected(extensionDefinition("2.5.29.17"), "SAN mapping target");
+    }
+
+    @Test
+    void extensionMappingOnRequesterOwnedSystemExtensionPasses() {
+        // given — a requester-owned system extension is a legitimate mapping target and must pass
+        // the registry check
+        List<BaseAttribute> definitions = List.of(extensionDefinition("2.5.29.37"));
+
+        // when / then
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(definitions));
+    }
+
+    @Test
+    void rdnCodeResolvesRegardlessOfCase() {
+        // given — the authoring gate reads getCodeToOidMap while request-time resolution uses the
+        // case-insensitive index; a mixed-case system code such as PostalCode must resolve either way
+        DataAttributeV3 attribute = validDefinition();
+        ((RdnMappedField) attribute.getFieldMapping().getFields().getFirst()).setRdn("postalcode");
+        List<BaseAttribute> definitions = List.of(attribute);
+
+        // when / then
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(definitions));
     }
 
     @Test

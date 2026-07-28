@@ -6,6 +6,7 @@ import com.otilm.api.model.core.oid.*;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Service for managing OID entries.
@@ -66,6 +67,17 @@ public interface CustomOidEntryExternalService {
      * @return list of system OID entries
      */
     List<CustomOidEntryDetailResponseDto> listSystemOidEntries(OidCategory category);
+
+    /**
+     * OIDs held by a custom entry that a built-in system OID now shares. The custom entry wins, so the
+     * built-in defaults do not apply; deleting it falls back to them. Empty when there is no conflict.
+     *
+     * <p>Such a row can only arise from an upgrade: creating one is rejected because the OID is reserved,
+     * so every entry here predates its OID's promotion to a system OID. The set therefore only grows at
+     * an upgrade and only shrinks as operators resolve entries, and an empty set on a fresh install is
+     * the expected state rather than an unexercised code path.
+     */
+    Set<String> getShadowedCustomOidEntries();
 
     /**
      * Returns a list of properties for filtering custom OID entries
