@@ -5,6 +5,7 @@ import com.otilm.api.model.core.oid.OidCategory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,6 +47,10 @@ public class OidHandler {
      * instead of holding the lock across those reads.
      */
     private static long generation;
+
+    /** Keeps a lasting conflict visible in recent log output without repeating it on every rebuild. */
+    private static final PersistentWarningThrottle conflictWarnings =
+            new PersistentWarningThrottle(Duration.ofHours(1));
 
     /** Code tokens claimed by more than one OID, republished on every rebuild. See {@link #getRdnCodeConflicts}. */
     private static final AtomicReference<Map<String, Set<String>>> rdnCodeConflicts =
@@ -195,9 +200,10 @@ public class OidHandler {
     }
 
     /**
-     * Publishes the current conflict set, logging only when it differs from the last one. The registry
-     * rebuilds on {@code settings.cache.refresh-interval} (30 s by default), so logging per rebuild
-     * would repeat the same warning thousands of times a day until an operator resolved it.
+     * Publishes the current conflict set, warning when it changes and periodically while it persists.
+     * The registry rebuilds on {@code settings.cache.refresh-interval} (30 s by default), so warning per
+     * rebuild would repeat thousands of times a day, while warning only on change would make silence
+     * mean both "resolved" and "still broken, already reported".
      */
     private static void publishRdnCodeConflicts(Map<String, Set<String>> conflicts, Map<String, String> resolved) {
         // Deep-immutable, and case-insensitive like every other code lookup here. Both matter because
@@ -208,7 +214,7 @@ public class OidHandler {
                 snapshot.put(token, Collections.unmodifiableSortedSet(new TreeSet<>(claimants))));
         Map<String, Set<String>> published = Collections.unmodifiableMap(snapshot);
         Map<String, Set<String>> previous = rdnCodeConflicts.getAndSet(published);
-        if (published.equals(previous)) {
+        if (!conflictWarnings.shouldWarn(!published.equals(previous), !published.isEmpty())) {
             return;
         }
         published.forEach((token, claimants) -> logger.warn(

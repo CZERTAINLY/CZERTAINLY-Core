@@ -22,6 +22,7 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import com.otilm.core.oid.PersistentWarningThrottle;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateInternalService;
@@ -45,6 +46,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -60,6 +62,9 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     private CertificateInternalService certificateService;
     /** Rows shadowed by a built-in system OID; see {@link #getShadowedCustomOidEntries}. */
     private volatile Set<String> shadowedCustomOidEntries = Collections.emptySet();
+
+    /** Keeps a lasting shadowed row visible in recent log output without repeating it on every refresh. */
+    private final PersistentWarningThrottle shadowedWarnings = new PersistentWarningThrottle(Duration.ofHours(1));
 
     @Autowired
     public void setCertificateService(CertificateInternalService certificateService) {
@@ -130,10 +135,11 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                 })
                 .map(SystemOid::getOid)
                 .collect(Collectors.toCollection(TreeSet::new));
-        if (shadowed.equals(shadowedCustomOidEntries)) {
+        boolean changed = !shadowed.equals(shadowedCustomOidEntries);
+        shadowedCustomOidEntries = Collections.unmodifiableSet(shadowed);
+        if (!shadowedWarnings.shouldWarn(changed, !shadowed.isEmpty())) {
             return;
         }
-        shadowedCustomOidEntries = Collections.unmodifiableSet(shadowed);
         shadowed.forEach(oid -> logger.warn(
                 "Custom OID entry {} shares its OID with a built-in system OID. The custom entry wins, so the "
                         + "built-in defaults do not apply; delete the custom entry to fall back to them.", oid));
