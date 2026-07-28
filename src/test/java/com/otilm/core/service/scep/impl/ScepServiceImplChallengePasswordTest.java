@@ -84,6 +84,26 @@ class ScepServiceImplChallengePasswordTest {
     }
 
     /**
+     * A present-but-empty challengePassword attribute counts as absent: clients (and our own jscep guide)
+     * are commonly configured to send an empty password on renewal.
+     */
+    @Test
+    void blankRequestPassword_authenticatedRenewal_passes() {
+        when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
+
+        assertDoesNotThrow(() -> service.validateChallengePassword("", true));
+    }
+
+    @Test
+    void blankRequestPassword_notARenewal_rejectedWithBadMessageCheck() {
+        when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
+
+        ScepException thrown = assertThrows(ScepException.class,
+                () -> service.validateChallengePassword("", false));
+        assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
+    }
+
+    /**
      * The waiver only covers an <em>absent</em> password. A renewal that does supply one must still
      * match, so a wrong shared secret is never silently ignored.
      */

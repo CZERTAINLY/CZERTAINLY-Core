@@ -324,7 +324,11 @@ public class ScepRequest {
                 decryptedData = recipient.getContent(jcePasswordEnvelopedRecipient);
             }
         }
-        assert decryptedData != null;
+        // A bare assert is a no-op in production: an EnvelopedData carrying no recipientInfo would skip the
+        // block above and reach the PKCS#10 parse with no content.
+        if (decryptedData == null) {
+            throw new ScepException("The SCEP request contains no recipient information to decrypt", FailInfo.BAD_REQUEST);
+        }
         try {
             if (messageType.equals(MessageType.PKCS_REQ) || messageType.equals(MessageType.RENEWAL_REQ)) {
                 pkcs10Request = new JcaPKCS10CertificationRequest(decryptedData);

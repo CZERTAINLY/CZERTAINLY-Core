@@ -10,7 +10,12 @@ import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.scep.message.ScepRequest;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -20,6 +25,7 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigInteger;
@@ -37,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -126,6 +133,121 @@ class ScepServiceImplRenewalAuthenticationTest {
         assertFalse(service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
     }
 
+    /**
+     * The waiver must never be earned by a certificate that is no longer usable. With no renewal threshold
+     * configured — the default — `checkRenewalTimeframe` skips its revoked/expired branch entirely, so the
+     * state gate has to stand on its own.
+     */
+    @Test
+    void revokedCertificate_isRejected_withDefaultRenewalThreshold() throws Exception {
+        when(profile.getRenewalThreshold()).thenReturn(null);
+        Certificate revoked = inventoryCertificate(RA_PROFILE_UUID);
+        revoked.setState(CertificateState.REVOKED);
+        revoked.setValidationStatus(CertificateValidationStatus.REVOKED);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(revoked);
+
+        ScepException thrown = assertThrows(ScepException.class,
+                () -> service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+        assertEquals(FailInfo.BAD_REQUEST, thrown.getFailInfo());
+    }
+
+    @Test
+    void expiredCertificate_isRejected_withDefaultRenewalThreshold() throws Exception {
+        when(profile.getRenewalThreshold()).thenReturn(null);
+        Certificate expired = inventoryCertificate(RA_PROFILE_UUID);
+        expired.setValidationStatus(CertificateValidationStatus.EXPIRED);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(expired);
+
+        assertThrows(ScepException.class, () -> service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+    }
+
+    @Test
+    void healthyCertificate_isAnAuthenticatedRenewal_withDefaultRenewalThreshold() throws Exception {
+        when(profile.getRenewalThreshold()).thenReturn(null);
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+
+        assertTrue(service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+    }
+
+    @Test
+    void certificateWithPendingIssue_isRejected() throws Exception {
+        Certificate pending = inventoryCertificate(RA_PROFILE_UUID);
+        pending.setState(CertificateState.PENDING_ISSUE);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(pending);
+
+        assertThrows(ScepException.class, () -> service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+    }
+
+    @Test
+    void certificateWithPendingRevoke_isRejected() throws Exception {
+        Certificate pending = inventoryCertificate(RA_PROFILE_UUID);
+        pending.setState(CertificateState.PENDING_REVOKE);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(pending);
+
+        assertThrows(ScepException.class, () -> service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+    }
+
+    @Test
+    void certificateWithoutRaProfile_doesNotEarnTheWaiver() throws Exception {
+        Certificate unassociated = inventoryCertificate(RA_PROFILE_UUID);
+        unassociated.setRaProfileUuid(null);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(unassociated);
+
+        assertFalse(service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+    }
+
+    /**
+     * Pins the ordering the waiver rests on: possession of the key is proven before any state of the
+     * renewed certificate is reported, so a client replaying a certificate it does not own learns nothing
+     * beyond the signature failure.
+     */
+    @Test
+    void archivedCertificateWithFailingSignature_reportsBadMessageCheck() throws Exception {
+        Certificate archived = inventoryCertificate(RA_PROFILE_UUID);
+        archived.setArchived(true);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(archived);
+
+        ScepException thrown = assertThrows(ScepException.class,
+                () -> service.authenticateRenewal(renewalRequest(SUBJECT_DN, false)));
+        assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
+    }
+
+    /** The signature must be verified against the signer certificate's key, not some other key. */
+    @Test
+    void signatureIsVerifiedAgainstTheSignerCertificateKey() throws Exception {
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+        ScepRequest request = renewalRequest(SUBJECT_DN, true);
+
+        service.authenticateRenewal(request);
+
+        ArgumentCaptor<PublicKey> verifiedKey = ArgumentCaptor.forClass(PublicKey.class);
+        verify(request).verifySignature(verifiedKey.capture());
+        assertEquals(clientCertificate.getPublicKey(), verifiedKey.getValue());
+    }
+
+    /**
+     * A waived renewal must not be able to obtain names the renewed certificate does not already carry;
+     * asking for more withholds the waiver, so the shared secret is required instead.
+     */
+    @Test
+    void requestAskingForAdditionalSans_doesNotEarnTheWaiver() throws Exception {
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+
+        assertFalse(service.authenticateRenewal(renewalRequestWithSans("extra.example.com")));
+    }
+
+    @Test
+    void requestAskingForHeldSans_isAnAuthenticatedRenewal() throws Exception {
+        clientCertificate = selfSignedCertificate(clientKeyPair, SUBJECT_DN, "held.example.com");
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+
+        assertTrue(service.authenticateRenewal(renewalRequestWithSans("held.example.com")));
+    }
+
     @Test
     void archivedCertificate_isRejected() throws Exception {
         Certificate archived = inventoryCertificate(RA_PROFILE_UUID);
@@ -159,17 +281,34 @@ class ScepServiceImplRenewalAuthenticationTest {
     private ScepRequest renewalRequest(String csrSubjectDn, boolean signatureVerifies) throws Exception {
         ScepRequest request = mock(ScepRequest.class);
         when(request.getSignerCertificate()).thenReturn(clientCertificate);
-        when(request.getPkcs10Request()).thenReturn(certificationRequest(csrSubjectDn));
+        when(request.getPkcs10Request()).thenReturn(certificationRequest(csrSubjectDn, null));
         when(request.verifySignature(any(PublicKey.class))).thenReturn(signatureVerifies);
         return request;
     }
 
-    private JcaPKCS10CertificationRequest certificationRequest(String subjectDn) throws Exception {
+    private ScepRequest renewalRequestWithSans(String dnsName) throws Exception {
+        ScepRequest request = mock(ScepRequest.class);
+        when(request.getSignerCertificate()).thenReturn(clientCertificate);
+        when(request.getPkcs10Request()).thenReturn(certificationRequest(SUBJECT_DN, dnsName));
+        when(request.verifySignature(any(PublicKey.class))).thenReturn(true);
+        return request;
+    }
+
+    private JcaPKCS10CertificationRequest certificationRequest(String subjectDn, String dnsName) throws Exception {
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(clientKeyPair.getPrivate());
-        return new JcaPKCS10CertificationRequest(
-                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), clientKeyPair.getPublic())
-                        .build(signer));
+        JcaPKCS10CertificationRequestBuilder builder =
+                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), clientKeyPair.getPublic());
+        if (dnsName != null) {
+            ExtensionsGenerator extensions = new ExtensionsGenerator();
+            extensions.addExtension(Extension.subjectAlternativeName, false, dnsNames(dnsName));
+            builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensions.generate());
+        }
+        return new JcaPKCS10CertificationRequest(builder.build(signer));
+    }
+
+    private static GeneralNames dnsNames(String dnsName) {
+        return new GeneralNames(new GeneralName(GeneralName.dNSName, dnsName));
     }
 
     private static KeyPair generateRsaKeyPair() throws Exception {
@@ -179,11 +318,18 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     private static X509Certificate selfSignedCertificate(KeyPair keyPair, String subjectDn) throws Exception {
+        return selfSignedCertificate(keyPair, subjectDn, null);
+    }
+
+    private static X509Certificate selfSignedCertificate(KeyPair keyPair, String subjectDn, String dnsName) throws Exception {
         X500Name dn = new X500Name(subjectDn);
         Date notBefore = new Date(System.currentTimeMillis() - 60_000L);
         Date notAfter = new Date(System.currentTimeMillis() + 3_600_000L);
         JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 dn, BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
+        if (dnsName != null) {
+            builder.addExtension(Extension.subjectAlternativeName, false, dnsNames(dnsName));
+        }
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
         return new JcaX509CertificateConverter()
