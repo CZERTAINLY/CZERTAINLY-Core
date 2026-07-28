@@ -5,6 +5,9 @@ import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -33,33 +36,48 @@ class ScepServiceImplChallengePasswordTest {
         ReflectionTestUtils.setField(service, "scepProfile", profile);
     }
 
-    @Test
-    void profileWithoutChallengePassword_absentRequestPassword_passes() {
-        when(profile.getChallengePassword()).thenReturn(null);
+    /** A profile that configures no challenge password never requires one. */
+    @ParameterizedTest(name = "profile password [{0}]")
+    @NullAndEmptySource
+    void profileWithoutChallengePassword_passes(String profileChallengePassword) {
+        when(profile.getChallengePassword()).thenReturn(profileChallengePassword);
 
         assertDoesNotThrow(() -> service.validateChallengePassword(null, false));
     }
 
-    @Test
-    void profileWithEmptyChallengePassword_absentRequestPassword_passes() {
-        when(profile.getChallengePassword()).thenReturn("");
-
-        assertDoesNotThrow(() -> service.validateChallengePassword(null, false));
-    }
-
-    @Test
-    void matchingRequestPassword_passes() {
+    /**
+     * The waiver covers an absent password — including a present-but-empty attribute, which clients (and
+     * our own jscep guide) are commonly configured to send on renewal. A password carrying a value is
+     * accepted only when it matches.
+     */
+    @ParameterizedTest(name = "request password [{0}], authenticated renewal {1}")
+    @CsvSource(nullValues = "NULL", value = {
+            "mysecretpassword, false",  // matches PROFILE_PASSWORD on an initial enrollment
+            "NULL,             true",   // renewal omits the attribute
+            "'',               true"    // renewal sends the attribute empty
+    })
+    void acceptedChallengePassword(String requestChallengePassword, boolean authenticatedRenewal) {
         when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
 
-        assertDoesNotThrow(() -> service.validateChallengePassword(PROFILE_PASSWORD, false));
+        assertDoesNotThrow(() -> service.validateChallengePassword(requestChallengePassword, authenticatedRenewal));
     }
 
-    @Test
-    void mismatchedRequestPassword_rejectedWithBadMessageCheck() {
+    /**
+     * A wrong password is rejected whether or not the request is a renewal: the waiver never silently
+     * accepts a supplied credential that does not match. An empty attribute is rejected wherever the
+     * shared secret is actually required.
+     */
+    @ParameterizedTest(name = "request password [{0}], authenticated renewal {1}")
+    @CsvSource(nullValues = "NULL", value = {
+            "wrong, false",  // wrong password on an initial enrollment
+            "wrong, true",   // wrong password on an otherwise authenticated renewal
+            "'',    false"   // empty attribute where the shared secret is required
+    })
+    void rejectedChallengePassword(String requestChallengePassword, boolean authenticatedRenewal) {
         when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
 
         ScepException thrown = assertThrows(ScepException.class,
-                () -> service.validateChallengePassword("wrong", false));
+                () -> service.validateChallengePassword(requestChallengePassword, authenticatedRenewal));
         assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
     }
 
@@ -73,46 +91,6 @@ class ScepServiceImplChallengePasswordTest {
 
         ScepException thrown = assertThrows(ScepException.class,
                 () -> service.validateChallengePassword(null, false));
-        assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
-    }
-
-    @Test
-    void absentRequestPassword_authenticatedRenewal_passes() {
-        when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
-
-        assertDoesNotThrow(() -> service.validateChallengePassword(null, true));
-    }
-
-    /**
-     * A present-but-empty challengePassword attribute counts as absent: clients (and our own jscep guide)
-     * are commonly configured to send an empty password on renewal.
-     */
-    @Test
-    void blankRequestPassword_authenticatedRenewal_passes() {
-        when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
-
-        assertDoesNotThrow(() -> service.validateChallengePassword("", true));
-    }
-
-    @Test
-    void blankRequestPassword_notARenewal_rejectedWithBadMessageCheck() {
-        when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
-
-        ScepException thrown = assertThrows(ScepException.class,
-                () -> service.validateChallengePassword("", false));
-        assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
-    }
-
-    /**
-     * The waiver only covers an <em>absent</em> password. A renewal that does supply one must still
-     * match, so a wrong shared secret is never silently ignored.
-     */
-    @Test
-    void mismatchedRequestPassword_authenticatedRenewal_stillRejected() {
-        when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
-
-        ScepException thrown = assertThrows(ScepException.class,
-                () -> service.validateChallengePassword("wrong", true));
         assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
     }
 }

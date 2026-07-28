@@ -17,6 +17,7 @@ import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -260,6 +262,35 @@ class ScepServiceImplRenewalAuthenticationTest {
                 .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
 
         assertTrue(service.authenticateRenewal(renewalRequestWithSans("held.example.com")));
+    }
+
+    /** An unverifiable signature is a rejection, not a crash, and reports the integrity failure. */
+    @Test
+    void signatureVerificationError_rejectedWithBadMessageCheck() throws Exception {
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+        ScepRequest request = mock(ScepRequest.class);
+        when(request.getSignerCertificate()).thenReturn(clientCertificate);
+        when(request.verifySignature(any(PublicKey.class))).thenThrow(new CMSException("broken signature"));
+
+        ScepException thrown = assertThrows(ScepException.class, () -> service.authenticateRenewal(request));
+        assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
+    }
+
+    /** Names that cannot be read withhold the waiver rather than being assumed harmless. */
+    @Test
+    void unreadableCertificationRequest_doesNotEarnTheWaiver() throws Exception {
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+        JcaPKCS10CertificationRequest unreadable = mock(JcaPKCS10CertificationRequest.class);
+        when(unreadable.getSubject()).thenReturn(new X500Name(SUBJECT_DN));
+        when(unreadable.getEncoded()).thenThrow(new IOException("unreadable"));
+        ScepRequest request = mock(ScepRequest.class);
+        when(request.getSignerCertificate()).thenReturn(clientCertificate);
+        when(request.getPkcs10Request()).thenReturn(unreadable);
+        when(request.verifySignature(any(PublicKey.class))).thenReturn(true);
+
+        assertFalse(service.authenticateRenewal(request));
     }
 
     @Test

@@ -381,33 +381,10 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     private ResponseEntity<Object> processPkiOperation(ScepRequest scepRequest) throws ScepException {
-        ScepResponse scepResponse;
-        IntuneScepServiceClient intuneClient = null;
-
         logger.debug("Processing SCEP request: transactionId={}", scepRequest.getTransactionId());
 
-        CryptographicKey key = scepProfile.getCaCertificate().getKey();
-        CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
-        var connectorDto = key.getTokenInstanceReference().getConnector().mapToDto();
-        // Get the private key from the configuration of SCEP Profile
-        PlatformPrivateKey privateKey = new PlatformPrivateKey(
-                key.getTokenInstanceReference().getTokenInstanceUuid(),
-                item.getKeyReferenceUuid().toString(),
-                connectorDto,
-                item.getKeyAlgorithm().getLabel()
-        );
-
-        CryptographicOperationsSyncApiClient cryptoApiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
-        PlatformProvider provider = PlatformProvider.getInstance(scepProfile.getName(), true, cryptoApiClient);
-
-        // decrypt the PKCS#10 request
         try {
-            scepRequest.decryptData(
-                    privateKey,
-                    provider,
-                    cryptographicKeyService.getKeyItemFromKey(scepProfile.getCaCertificate().getKey(), KeyType.PRIVATE_KEY).getKeyAlgorithm(),
-                    scepProfile.getChallengePassword()
-            );
+            decryptRequestData(scepRequest);
         } catch (ScepException | CMSException e) {
             // ScepException covers the undecryptable cases decryptData rejects itself (e.g. a password
             // recipient with no challenge password configured); answering here keeps the response in the
@@ -424,10 +401,9 @@ public class ScepServiceImpl implements ScepExternalService {
             return buildResponse(scepRequest, buildFailedResponse(failure, scepRequest.getTransactionId()));
         }
 
-        if (scepProfile.isIntuneEnabled()) {
-            Properties properties = getIntuneConfiguration();
-            intuneClient = buildIntuneClient(properties);
-        }
+        IntuneScepServiceClient intuneClient = scepProfile.isIntuneEnabled()
+                ? buildIntuneClient(getIntuneConfiguration())
+                : null;
 
         if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ) || scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
             try {
@@ -440,50 +416,83 @@ public class ScepServiceImpl implements ScepExternalService {
             }
         }
 
+        return buildResponse(scepRequest, resolveResponse(scepRequest, intuneClient));
+    }
+
+    /** Decrypts the enveloped PKCS#10 request with the private key of the SCEP profile's CA certificate. */
+    private void decryptRequestData(ScepRequest scepRequest) throws ScepException, CMSException {
+        CryptographicKey key = scepProfile.getCaCertificate().getKey();
+        CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
+        var connectorDto = key.getTokenInstanceReference().getConnector().mapToDto();
+        // Get the private key from the configuration of SCEP Profile
+        PlatformPrivateKey privateKey = new PlatformPrivateKey(
+                key.getTokenInstanceReference().getTokenInstanceUuid(),
+                item.getKeyReferenceUuid().toString(),
+                connectorDto,
+                item.getKeyAlgorithm().getLabel()
+        );
+
+        CryptographicOperationsSyncApiClient cryptoApiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
+        PlatformProvider provider = PlatformProvider.getInstance(scepProfile.getName(), true, cryptoApiClient);
+
+        scepRequest.decryptData(privateKey, provider, item.getKeyAlgorithm(), scepProfile.getChallengePassword());
+    }
+
+    /** Produces the response body for a request that has been decrypted and, where applicable, authenticated. */
+    private ScepResponse resolveResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) throws ScepException {
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile)) {
             LoggingHelper.putAuditLogOperation(Operation.SCEP_TRANSACTION_CHECK);
-            try {
-                scepResponse = getExistingTransaction(scepRequest.getTransactionId());
-            } catch (ScepException e) {
-                scepResponse = buildFailedResponse(new ScepException("Error while formatting certificate", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
-            } catch (NotFoundException e) {
-                scepResponse = buildFailedResponse(new ScepException("Transaction certificate not found", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
+            return existingTransactionResponse(scepRequest);
+        }
+        if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
+            return enrollmentResponse(scepRequest, intuneClient);
+        }
+        if (scepRequest.getMessageType().equals(MessageType.CERT_POLL)) {
+            LoggingHelper.putAuditLogOperation(Operation.SCEP_CERTIFICATE_POLL);
+            return pollCertificate(scepRequest, intuneClient);
+        }
+        return buildFailedResponse(new ScepException("Unsupported Operation. The requested operation is not supported", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
+    }
+
+    private ScepResponse existingTransactionResponse(ScepRequest scepRequest) {
+        try {
+            return getExistingTransaction(scepRequest.getTransactionId());
+        } catch (ScepException e) {
+            return buildFailedResponse(new ScepException("Error while formatting certificate", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
+        } catch (NotFoundException e) {
+            return buildFailedResponse(new ScepException("Transaction certificate not found", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
+        }
+    }
+
+    private ScepResponse enrollmentResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) {
+        try {
+            // Reject before issuing when the response could never be delivered, so the platform
+            // does not commit a certificate the client can never retrieve (RFC 8894 §3.2.2).
+            verifyResponseEnvelopable(scepRequest);
+            // Manual approval for the SCEP clients are configured in the SCEP Profile.
+            // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
+            if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
+                LoggingHelper.putAuditLogOperation(Operation.ISSUE);
+                return issueCertificate(scepRequest, intuneClient);
             }
-        } else if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
-            try {
-                // Reject before issuing when the response could never be delivered, so the platform
-                // does not commit a certificate the client can never retrieve (RFC 8894 §3.2.2).
-                verifyResponseEnvelopable(scepRequest);
-                // Manual approval for the SCEP clients are configured in the SCEP Profile.
-                // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
-                if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
-                    LoggingHelper.putAuditLogOperation(Operation.ISSUE);
-                    scepResponse = issueCertificate(scepRequest, intuneClient);
-                } else {
-                    LoggingHelper.putAuditLogOperation(Operation.REQUEST);
-                    scepResponse = generateCsr(scepRequest, intuneClient);
-                }
-            } catch (ScepException e) {
-                scepResponse = buildFailedResponse(e, scepRequest.getTransactionId());
+            LoggingHelper.putAuditLogOperation(Operation.REQUEST);
+            return generateCsr(scepRequest, intuneClient);
+        } catch (ScepException e) {
+            ScepResponse failureResponse = buildFailedResponse(e, scepRequest.getTransactionId());
+            if (scepProfile.isIntuneEnabled()) {
                 // 32-bit error code formulated using the instructions specified in https://msdn.microsoft.com/en-us/library/cc231198.aspx
                 // this is a vendor specific error code
-                final long errorCode = 0x20000000L + e.getFailInfo().getValue();
-                if (scepProfile.isIntuneEnabled()) {
-                    sendIntuneFailureMessage(
-                            intuneClient,
-                            scepRequest,
-                            errorCode,
-                            e.getMessage().substring(0, Math.min(e.getMessage().length(), 255))
-                    );
-                }
+                FailInfo failInfo = e.getFailInfo() != null ? e.getFailInfo() : FailInfo.BAD_REQUEST;
+                String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                sendIntuneFailureMessage(
+                        intuneClient,
+                        scepRequest,
+                        0x20000000L + failInfo.getValue(),
+                        detail.substring(0, Math.min(detail.length(), 255))
+                );
             }
-        } else if (scepRequest.getMessageType().equals(MessageType.CERT_POLL)) {
-            LoggingHelper.putAuditLogOperation(Operation.SCEP_CERTIFICATE_POLL);
-            scepResponse = pollCertificate(scepRequest, intuneClient);
-        } else {
-            scepResponse = buildFailedResponse(new ScepException("Unsupported Operation. The requested operation is not supported", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
+            return failureResponse;
         }
-        return buildResponse(scepRequest, scepResponse);
     }
 
     private ScepResponse buildFailedResponse(ScepException scepException, String transactionId) {
