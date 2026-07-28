@@ -19,7 +19,9 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.CustomOidEntryExternalService;
+import com.otilm.core.service.impl.CustomOidEntryServiceImpl;
 import com.otilm.core.util.BaseSpringBootTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
@@ -36,6 +39,9 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
     @Autowired
     CustomOidEntryRepository customOidEntryRepository;
+
+    @Autowired
+    CustomOidEntryServiceImpl customOidEntryServiceImpl;
 
     private CustomOidEntry genericCustomOidEntry;
     private RdnAttributeTypeCustomOidEntry rdnOidEntry;
@@ -67,6 +73,15 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         extensionOidEntry.setDefaultCritical(true);
         extensionOidEntry.setValueEncoding(ExtensionValueEncoding.IA5_STRING);
         customOidEntryRepository.save(extensionOidEntry);
+    }
+
+    @AfterEach
+    void restoreRegistry() {
+        // OidHandler is process-wide static state and the scheduled refresh never fires under test
+        // (settings.cache.refresh-interval is a year in the test profile), so a seeded row would keep
+        // resolving against an already-truncated database for the life of the shared Spring context.
+        customOidEntryRepository.deleteAll();
+        customOidEntryServiceImpl.refreshCache();
     }
 
     @Test
@@ -244,8 +259,186 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListSystemOidEntriesCertificateExtensionReturnsEmpty() {
-        Assertions.assertTrue(customOidEntryService.listSystemOidEntries(OidCategory.CERTIFICATE_EXTENSION).isEmpty());
+    void testListSystemOidEntriesCertificateExtensionCarriesTypedProperties() {
+        long expectedExtensionCount = Arrays.stream(SystemOid.values())
+                .filter(o -> o.getCategory() == OidCategory.CERTIFICATE_EXTENSION).count();
+        List<CustomOidEntryDetailResponseDto> extensions =
+                customOidEntryService.listSystemOidEntries(OidCategory.CERTIFICATE_EXTENSION);
+
+        Assertions.assertEquals(expectedExtensionCount, extensions.size());
+        Assertions.assertFalse(extensions.isEmpty(), "the seeded certificate extensions must be listed");
+        // Both fields are required on the response contract, so every entry must carry them.
+        for (CustomOidEntryDetailResponseDto entry : extensions) {
+            CertificateExtensionOidPropertiesDto props =
+                    (CertificateExtensionOidPropertiesDto) entry.getAdditionalProperties();
+            Assertions.assertNotNull(props, "additionalProperties missing for " + entry.getOid());
+            Assertions.assertNotNull(props.getDefaultCritical(), "defaultCritical missing for " + entry.getOid());
+            Assertions.assertNotNull(props.getValueEncoding(), "valueEncoding missing for " + entry.getOid());
+        }
+
+        CustomOidEntryDetailResponseDto nameConstraints = extensions.stream()
+                .filter(e -> e.getOid().equals(SystemOid.NAME_CONSTRAINTS.getOid()))
+                .findFirst().orElseThrow();
+        CertificateExtensionOidPropertiesDto nameConstraintsProps =
+                (CertificateExtensionOidPropertiesDto) nameConstraints.getAdditionalProperties();
+        Assertions.assertTrue(nameConstraintsProps.getDefaultCritical(),
+                "Name Constraints must be critical — RFC 5280 4.2.1.10");
+    }
+
+    /** Seeds a row the way an upgrade leaves it: valid when created, its OID since promoted to a system OID. */
+    private RdnAttributeTypeCustomOidEntry seedShadowedRdnRow(String code) {
+        RdnAttributeTypeCustomOidEntry shadowed = new RdnAttributeTypeCustomOidEntry();
+        shadowed.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
+        shadowed.setDisplayName("legacy user id");
+        shadowed.setOid(SystemOid.USER_ID.getOid());
+        shadowed.setCode(code);
+        shadowed.setAltCodes(List.of());
+        customOidEntryRepository.save(shadowed);
+        customOidEntryServiceImpl.refreshCache();
+        return shadowed;
+    }
+
+    @Test
+    void testRdnCodeCanBeRenamedToACaseVariantOfItself() throws NotFoundException {
+        // given — the row's own code must be in the registry, or the uniqueness check has nothing to
+        // collide with and the test proves nothing. setUp writes the row straight to the repository.
+        customOidEntryServiceImpl.refreshCache();
+        Assertions.assertEquals(rdnOidEntry.getOid(), OidHandler.getOidForRdnCode("RDN"));
+
+        // The contested-code warning tells an operator to rename the code, and for a collision that
+        // differs only in case a case-only rename is the only one that resolves it.
+        CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
+        request.setDisplayName(rdnOidEntry.getDisplayName());
+        RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
+        props.setCode("Rdn");
+        props.setAltCodes(rdnOidEntry.getAltCodes());
+        request.setAdditionalProperties(props);
+
+        // when / then — the uniqueness check must not reject the row against its own code
+        customOidEntryService.editCustomOidEntry(rdnOidEntry.getOid(), request);
+
+        Assertions.assertEquals("Rdn",
+                ((RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(rdnOidEntry.getOid()).orElseThrow()).getCode());
+        Assertions.assertEquals(rdnOidEntry.getOid(), OidHandler.getOidForRdnCode("Rdn"));
+    }
+
+    @Test
+    void testRdnCodeStillRejectedWhenAnotherRowOwnsIt() {
+        // given — excluding the row's own code must not weaken the check against other rows
+        customOidEntryServiceImpl.refreshCache();
+        CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
+        request.setDisplayName(rdnOidEntry.getDisplayName());
+        RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
+        props.setCode(SystemOid.COMMON_NAME.getCode());
+        props.setAltCodes(List.of());
+        request.setAdditionalProperties(props);
+
+        // when / then — one throwing call in the lambda, so the assertion cannot pass on the wrong one
+        String oid = rdnOidEntry.getOid();
+        Assertions.assertThrows(ValidationException.class,
+                () -> customOidEntryService.editCustomOidEntry(oid, request));
+    }
+
+    @Test
+    void testBulkDeletePublishesPerEntryDeltas() {
+        // given — a plain custom row and a row shadowing a built-in, deleted together
+        seedShadowedRdnRow("LEGACYUID");
+        Assertions.assertEquals("1.2.3.4.6", OidHandler.getOidForRdnCode("RDN"));
+
+        // when
+        customOidEntryService.bulkDeleteCustomOidEntry(List.of("1.2.3.4.6", SystemOid.USER_ID.getOid()));
+
+        // then — a delta publication cannot be abandoned as stale, so both deletions take effect: the
+        // plain row leaves the registry and the shadowed one hands its OID back to the built-in
+        Assertions.assertNull(OidHandler.getOidForRdnCode("RDN"), "deleted custom code must stop resolving");
+        Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"));
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(),
+                OidHandler.getOidForRdnCode(SystemOid.USER_ID.getCode()),
+                "the built-in must take over the OID it was shadowed on");
+    }
+
+    @Test
+    void testShadowedRdnRowKeepsItsCodeResolving() {
+        // given — before the promotion this row's code was the only way to resolve that OID, and stored
+        // request-attribute definitions and DN templates reference it
+        seedShadowedRdnRow("LEGACYUID");
+
+        // when / then — the built-in entry must not replace the operator's record wholesale; losing the
+        // code makes every DN carrying it fail to resolve at request time
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode("LEGACYUID"),
+                "the operator's code must survive the promotion");
+        Assertions.assertTrue(customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
+                "the shadowed row must be reported so an operator can resolve it");
+    }
+
+    @Test
+    void testShadowedExtensionRowKeepsItsConfiguredProperties() {
+        // given — a certificate-extension row registered before the OID was promoted, with an encoding
+        // that differs from the built-in default
+        CertificateExtensionCustomOidEntry shadowed = new CertificateExtensionCustomOidEntry();
+        shadowed.setCategory(OidCategory.CERTIFICATE_EXTENSION);
+        shadowed.setDisplayName("legacy EKU");
+        shadowed.setOid(SystemOid.EXTENDED_KEY_USAGE_EXTENSION.getOid());
+        shadowed.setDefaultCritical(true);
+        shadowed.setValueEncoding(ExtensionValueEncoding.UTF8_STRING);
+        customOidEntryRepository.save(shadowed);
+        customOidEntryServiceImpl.refreshCache();
+
+        // when / then — silently swapping the encoding to the built-in DER makes the renderer
+        // base64-decode a plain string, so issuance fails
+        OidRecord cachedRecord = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION)
+                .get(SystemOid.EXTENDED_KEY_USAGE_EXTENSION.getOid());
+        Assertions.assertNotNull(cachedRecord);
+        Assertions.assertEquals(ExtensionValueEncoding.UTF8_STRING, cachedRecord.valueEncoding(),
+                "the operator's value encoding must survive the promotion");
+        Assertions.assertEquals(Boolean.TRUE, cachedRecord.defaultCritical());
+    }
+
+    @Test
+    void testShadowedRowRemainsEditable() throws NotFoundException {
+        // given — the row is authoritative in the cache, so an edit must reach the cache too
+        seedShadowedRdnRow("LEGACYUID");
+
+        CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
+        request.setDisplayName("renamed");
+        RdnAttributeTypeOidPropertiesDto props = new RdnAttributeTypeOidPropertiesDto();
+        props.setCode("RENAMEDUID");
+        props.setAltCodes(List.of());
+        request.setAdditionalProperties(props);
+
+        // when
+        customOidEntryService.editCustomOidEntry(SystemOid.USER_ID.getOid(), request);
+
+        // then — the edit must not be half-applied: DB and cache agree
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode("RENAMEDUID"));
+        Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"), "the old code must stop resolving");
+    }
+
+    @Test
+    void testDeletingAShadowedRowRestoresTheBuiltInEntry() throws NotFoundException {
+        // given — deleting the row is the documented way to resolve the conflict
+        seedShadowedRdnRow("LEGACYUID");
+
+        // when
+        customOidEntryService.deleteCustomOidEntry(SystemOid.USER_ID.getOid());
+
+        // then — the built-in entry takes over rather than the OID disappearing from the registry
+        Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode(SystemOid.USER_ID.getCode()));
+        Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"));
+        Assertions.assertFalse(customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
+                "the conflict must clear once the row is gone");
+    }
+
+    @Test
+    void testSystemCertificateExtensionPropertiesReachTheRuntimeRegistry() {
+        // The projector reads defaultCritical and valueEncoding from this cache, not from the DTO.
+        Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
+        Assertions.assertNotNull(registry, "certificate-extension category must be cached");
+
+        OidRecord nameConstraints = registry.get(SystemOid.NAME_CONSTRAINTS.getOid());
+        Assertions.assertNotNull(nameConstraints, "Name Constraints missing from the runtime registry");
+        Assertions.assertEquals(Boolean.TRUE, nameConstraints.defaultCritical());
+        Assertions.assertEquals(ExtensionValueEncoding.DER, nameConstraints.valueEncoding());
     }
 
     @Test
@@ -279,8 +472,10 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testRefreshCachePopulatesRecordsFromDb() {
-        // bulkDelete with empty list deletes nothing and calls refreshCache() — exercises getOidToRecordMap for all categories
-        customOidEntryService.bulkDeleteCustomOidEntry(List.of());
+        // Exercises getOidToRecordMap for every category. Previously this piggy-backed on
+        // bulkDeleteCustomOidEntry(List.of()) to trigger a full refresh; bulk delete now publishes
+        // per-entry deltas, so an empty list is a genuine no-op and the refresh is called directly.
+        customOidEntryServiceImpl.refreshCache();
 
         OidRecord rdnRecord = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).get(rdnOidEntry.getOid());
         Assertions.assertNotNull(rdnRecord);
