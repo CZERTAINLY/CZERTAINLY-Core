@@ -333,9 +333,10 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         props.setAltCodes(List.of());
         request.setAdditionalProperties(props);
 
-        // when / then
+        // when / then — one throwing call in the lambda, so the assertion cannot pass on the wrong one
+        String oid = rdnOidEntry.getOid();
         Assertions.assertThrows(ValidationException.class,
-                () -> customOidEntryService.editCustomOidEntry(rdnOidEntry.getOid(), request));
+                () -> customOidEntryService.editCustomOidEntry(oid, request));
     }
 
     @Test
@@ -385,12 +386,12 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
         // when / then — silently swapping the encoding to the built-in DER makes the renderer
         // base64-decode a plain string, so issuance fails
-        OidRecord record = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION)
+        OidRecord cachedRecord = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION)
                 .get(SystemOid.EXTENDED_KEY_USAGE_EXTENSION.getOid());
-        Assertions.assertNotNull(record);
-        Assertions.assertEquals(ExtensionValueEncoding.UTF8_STRING, record.valueEncoding(),
+        Assertions.assertNotNull(cachedRecord);
+        Assertions.assertEquals(ExtensionValueEncoding.UTF8_STRING, cachedRecord.valueEncoding(),
                 "the operator's value encoding must survive the promotion");
-        Assertions.assertEquals(Boolean.TRUE, record.defaultCritical());
+        Assertions.assertEquals(Boolean.TRUE, cachedRecord.defaultCritical());
     }
 
     @Test

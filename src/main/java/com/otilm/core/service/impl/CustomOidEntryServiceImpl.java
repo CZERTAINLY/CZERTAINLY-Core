@@ -49,6 +49,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.OID)
@@ -61,7 +62,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     private final CustomOidEntryRepository customOidEntryRepository;
     private CertificateInternalService certificateService;
     /** Rows shadowed by a built-in system OID; see {@link #getShadowedCustomOidEntries}. */
-    private volatile Set<String> shadowedCustomOidEntries = Collections.emptySet();
+    private final AtomicReference<Set<String>> shadowedCustomOidEntries = new AtomicReference<>(Set.of());
 
     /** Keeps a lasting shadowed row visible in recent log output without repeating it on every refresh. */
     private final PersistentWarningThrottle shadowedWarnings = new PersistentWarningThrottle(Duration.ofHours(1));
@@ -135,8 +136,8 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                 })
                 .map(SystemOid::getOid)
                 .collect(Collectors.toCollection(TreeSet::new));
-        boolean changed = !shadowed.equals(shadowedCustomOidEntries);
-        shadowedCustomOidEntries = Collections.unmodifiableSet(shadowed);
+        Set<String> previous = shadowedCustomOidEntries.getAndSet(Collections.unmodifiableSet(shadowed));
+        boolean changed = !shadowed.equals(previous);
         if (!shadowedWarnings.shouldWarn(changed, !shadowed.isEmpty())) {
             return;
         }
@@ -384,7 +385,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.LIST)
     public Set<String> getShadowedCustomOidEntries() {
-        return shadowedCustomOidEntries;
+        return shadowedCustomOidEntries.get();
     }
 
     private Map<String, OidRecord> getOidToRecordMap(OidCategory oidCategory) {
