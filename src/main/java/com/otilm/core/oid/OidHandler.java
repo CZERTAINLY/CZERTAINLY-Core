@@ -1,7 +1,9 @@
 package com.otilm.core.oid;
 
 import com.otilm.api.model.core.oid.OidCategory;
-import lombok.extern.slf4j.Slf4j;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -13,8 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
-@Slf4j
 public class OidHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(OidHandler.class);
 
     private OidHandler() {
     }
@@ -208,7 +211,7 @@ public class OidHandler {
         if (published.equals(previous)) {
             return;
         }
-        published.forEach((token, claimants) -> log.warn(
+        published.forEach((token, claimants) -> logger.warn(
                 "RDN code '{}' is claimed by OIDs {}; resolving it to {}. Rename the custom OID entry's code "
                         + "or alt code to remove the ambiguity.", token, claimants, resolved.get(token)));
     }

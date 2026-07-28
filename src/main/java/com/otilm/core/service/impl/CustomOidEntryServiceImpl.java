@@ -34,8 +34,9 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.commons.lang3.function.TriFunction;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -48,10 +49,11 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service(Resource.Codes.OID)
 @Transactional
 public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CustomOidEntryServiceImpl.class);
 
     public static final String OID_ENTRY = "OID Entry";
     private final CustomOidEntryRepository customOidEntryRepository;
@@ -84,7 +86,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
             byCategory.put(oidCategory, getOidToRecordMap(oidCategory));
         }
         if (!OidHandler.cacheAllCategories(expectedGeneration, byCategory)) {
-            log.debug("Skipped a registry refresh: a mutation published while its source data was being read.");
+            logger.debug("Skipped a registry refresh: a mutation published while its source data was being read.");
             return;
         }
         publishShadowedCustomOidEntries();
@@ -132,7 +134,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
             return;
         }
         shadowedCustomOidEntries = Collections.unmodifiableSet(shadowed);
-        shadowed.forEach(oid -> log.warn(
+        shadowed.forEach(oid -> logger.warn(
                 "Custom OID entry {} shares its OID with a built-in system OID. The custom entry wins, so the "
                         + "built-in defaults do not apply; delete the custom entry to fall back to them.", oid));
     }
