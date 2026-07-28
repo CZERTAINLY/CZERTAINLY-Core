@@ -19,6 +19,7 @@ import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.events.transaction.CertificateValidationEvent;
+import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.ValidationMessage;
 import com.otilm.core.service.*;
@@ -66,10 +67,16 @@ public class CertificateHandler {
     private CertificateRepository certificateRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private DiscoveryWriter discoveryWriter;
+    private TransactionHandler transactionHandler;
 
     @Autowired
     public void setDiscoveryWriter(DiscoveryWriter discoveryWriter) {
         this.discoveryWriter = discoveryWriter;
+    }
+
+    @Autowired
+    public void setTransactionHandler(TransactionHandler transactionHandler) {
+        this.transactionHandler = transactionHandler;
     }
 
     @Autowired
@@ -173,13 +180,16 @@ public class CertificateHandler {
             }
         }
 
-        // By identifier rather than by saving the shared detached instance: several download batches run
-        // concurrently, and saving one instance from each of them is what rolled back committed work.
+        // By identifier rather than by saving the shared detached instance, and in its own short transaction: this
+        // method is REQUIRES_NEW, so a REQUIRED writer would otherwise join the batch and hold the discovery row's
+        // write lock for the batch's whole duration — serialising the concurrent download batches on that one row
+        // and losing the progress write if the batch rolls back.
         Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
-        discoveryWriter.updateProgressMessage(discovery.getUuid(), String.format(
+        String progress = String.format(
                 "Downloaded %d %% of discovered certificates from provider (%d / %d)",
                 (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100),
-                currentCount, discovery.getConnectorTotalCertificatesDiscovered()));
+                currentCount, discovery.getConnectorTotalCertificatesDiscovered());
+        transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(discovery.getUuid(), progress));
     }
 
     /**

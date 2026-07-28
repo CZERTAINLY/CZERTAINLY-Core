@@ -182,7 +182,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             logger.error("Post-processing of discovered certificates for discovery {} did not complete: {}", discovery.getName(), e.getMessage(), e);
         } finally {
             if (!discoveryFinishEmitted) {
-                emitDiscoveryFinished(discovery, context, DiscoveryStatus.WARNING,
+                emitDiscoveryFinished(discovery.getUuid(), context, DiscoveryStatus.WARNING,
                         "Discovery post-processing did not complete; some certificates may not have been processed.");
             }
         }
@@ -193,7 +193,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                                               List<DiscoveryCertificate> discoveredCertificates, List<TriggerAssociation> mergedIgnoreTriggers,
                                               List<TriggerAssociation> mergedTriggers) {
         if (discoveredCertificates.isEmpty()) {
-            emitDiscoveryFinished(discovery, context, DiscoveryStatus.PROCESSING, originalMessage);
+            emitDiscoveryFinished(discovery.getUuid(), context, DiscoveryStatus.PROCESSING, originalMessage);
             return;
         }
 
@@ -284,7 +284,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null,
                 runContext.discoveryUuid(), runContext.discoveryName(), null, null));
         DiscoveryResult result = decideFinalStatus(accumulator.counts(), originalMessage);
-        emitDiscoveryFinished(discovery, context, result.getDiscoveryStatus(), result.getMessage());
+        emitDiscoveryFinished(runContext.discoveryUuid(), context, result.getDiscoveryStatus(), result.getMessage());
     }
 
     /**
@@ -464,9 +464,9 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 .toList();
     }
 
-    private void emitDiscoveryFinished(DiscoveryHistory discovery, EventContext<Certificate> context, DiscoveryStatus status, String message) {
+    private void emitDiscoveryFinished(UUID discoveryUuid, EventContext<Certificate> context, DiscoveryStatus status, String message) {
         eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(
-                discovery.getUuid(), context.getUserUuid(), context.getScheduledJobInfo(),
+                discoveryUuid, context.getUserUuid(), context.getScheduledJobInfo(),
                 new DiscoveryResult(status, message)));
     }
 
