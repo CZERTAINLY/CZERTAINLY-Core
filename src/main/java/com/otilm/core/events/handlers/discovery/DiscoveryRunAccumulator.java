@@ -1,6 +1,7 @@
 package com.otilm.core.events.handlers.discovery;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -20,12 +21,16 @@ public class DiscoveryRunAccumulator {
     private final Map<UUID, List<UUID>> rowsByCertificate = new LinkedHashMap<>();
     private final Map<UUID, List<String>> keyFailureReasons = new LinkedHashMap<>();
     private final Set<Long> contentIdsWithInventoryGap = new LinkedHashSet<>();
+    private final Set<Long> contentIdsNotAttempted = new LinkedHashSet<>();
     private long bookkeepingFailures;
 
     public void accept(GroupImportResult group) {
         group.rowResults().forEach(result -> resultsByRow.put(result.discoveryCertificateUuid(), result));
         if (hasInventoryGap(group)) {
             contentIdsWithInventoryGap.add(group.certificateContentId());
+        }
+        if (hasOutcome(group, DiscoveryCertificateOutcome.NOT_ATTEMPTED)) {
+            contentIdsNotAttempted.add(group.certificateContentId());
         }
         if (group.committed()) {
             group.keyEntries().forEach(entry -> rowsByCertificate
@@ -64,24 +69,25 @@ public class DiscoveryRunAccumulator {
     }
 
     /**
-     * Gaps are counted per certificate, not per row: a certificate found on ten hosts is one certificate, so a
-     * failed group counts once however many rows it carried.
+     * Every certificate count is per certificate, not per row: a certificate found on ten hosts is one certificate,
+     * so a failed or unattempted group counts once however many rows it carried. The status message says
+     * "certificate(s)" for all of them, so mixing units here would make it lie.
      */
     public DiscoveryRunCounts counts() {
         return new DiscoveryRunCounts(
                 contentIdsWithInventoryGap.size(),
                 keyFailureReasons.size(),
-                countRowsWith(DiscoveryCertificateOutcome.NOT_ATTEMPTED),
+                contentIdsNotAttempted.size(),
                 bookkeepingFailures);
     }
 
-    private long countRowsWith(DiscoveryCertificateOutcome outcome) {
-        return resultsByRow.values().stream().filter(result -> result.outcome() == outcome).count();
+    private static boolean hasInventoryGap(GroupImportResult group) {
+        return hasOutcome(group, DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK,
+                DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED);
     }
 
-    private static boolean hasInventoryGap(GroupImportResult group) {
-        return group.rowResults().stream().anyMatch(result ->
-                result.outcome() == DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK
-                        || result.outcome() == DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED);
+    private static boolean hasOutcome(GroupImportResult group, DiscoveryCertificateOutcome... outcomes) {
+        return group.rowResults().stream()
+                .anyMatch(result -> Arrays.asList(outcomes).contains(result.outcome()));
     }
 }

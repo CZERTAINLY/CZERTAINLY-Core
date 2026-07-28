@@ -1,6 +1,7 @@
 package com.otilm.core.events.handlers.discovery;
 
 import com.otilm.api.exception.ValidationException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.UnexpectedRollbackException;
 
@@ -44,9 +45,33 @@ public final class DiscoveryFailureReason {
         return message != null && !message.isBlank() && !"null".equals(message.trim());
     }
 
+    /**
+     * Kind rather than constraint name: the production schema is built by Flyway and the test schema by the entity
+     * annotations, so the generated names differ and matching on them would classify correctly in only one of the two.
+     */
+    private static boolean isUniqueViolation(Throwable throwable) {
+        Throwable cause = throwable;
+        for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; cause = cause.getCause(), depth++) {
+            if (cause instanceof ConstraintViolationException constraintViolation) {
+                return constraintViolation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE;
+            }
+        }
+        return false;
+    }
+
     private static String classify(Throwable throwable) {
-        if (throwable instanceof DataIntegrityViolationException) {
-            return "a concurrent import committed the same certificate";
+        // First, so it matches before the cause walk reaches whatever it wraps: the reason it carries is already
+        // shaped and more specific than anything re-derived from the cause would be.
+        if (throwable instanceof DiscoveryImportRollbackException && isUsable(throwable.getMessage())) {
+            return throwable.getMessage();
+        }
+        if (throwable instanceof DataIntegrityViolationException || throwable instanceof ConstraintViolationException) {
+            // Only a UNIQUE violation is the duplicate this design guards against. A foreign-key, not-null or check
+            // violation is a different defect, and reporting it as a benign race would hide it from whoever reads the
+            // certificate list.
+            return isUniqueViolation(throwable)
+                    ? "a concurrent import committed the same certificate"
+                    : "a database constraint rejected the certificate";
         }
         if (throwable instanceof UnexpectedRollbackException) {
             return "the import transaction was rolled back";

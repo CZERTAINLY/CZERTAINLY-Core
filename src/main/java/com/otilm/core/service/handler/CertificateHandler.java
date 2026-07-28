@@ -180,16 +180,30 @@ public class CertificateHandler {
             }
         }
 
-        // By identifier rather than by saving the shared detached instance, and in its own short transaction: this
-        // method is REQUIRES_NEW, so a REQUIRED writer would otherwise join the batch and hold the discovery row's
-        // write lock for the batch's whole duration — serialising the concurrent download batches on that one row
-        // and losing the progress write if the batch rolls back.
-        Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
-        String progress = String.format(
-                "Downloaded %d %% of discovered certificates from provider (%d / %d)",
-                (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100),
-                currentCount, discovery.getConnectorTotalCertificatesDiscovered());
-        transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(discovery.getUuid(), progress));
+        reportDownloadProgress(discovery);
+    }
+
+    /**
+     * Progress is cosmetic, the certificates this batch just saved are not — so neither the write nor a failure of it
+     * may reach the batch transaction. Isolation keeps the write from holding the discovery row's lock for the batch's
+     * whole duration (which would serialise the concurrent batches on that one row); swallowing the failure keeps a
+     * lost progress message from rolling the batch's certificates back.
+     * <p>
+     * Addressed by identifier rather than by saving the shared detached instance, which the concurrent batches all
+     * hold a copy of.
+     */
+    private void reportDownloadProgress(DiscoveryHistory discovery) {
+        try {
+            Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
+            String progress = String.format(
+                    "Downloaded %d %% of discovered certificates from provider (%d / %d)",
+                    (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100),
+                    currentCount, discovery.getConnectorTotalCertificatesDiscovered());
+            transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(discovery.getUuid(), progress));
+        } catch (Exception e) {
+            logger.error("Unable to report download progress of discovery {}. Message: {}",
+                    discovery.getName(), e.getMessage(), e);
+        }
     }
 
     /**

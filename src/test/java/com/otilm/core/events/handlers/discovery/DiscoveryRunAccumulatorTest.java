@@ -132,6 +132,18 @@ class DiscoveryRunAccumulatorTest {
         assertThat(counts.allClear()).isFalse();
     }
 
+    @Test
+    void countsAnUnattemptedGroupOncePerCertificateNotPerRow() {
+        DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
+        accumulator.accept(new GroupImportResult(CONTENT_A, List.of(notAttempted(rowA), notAttempted(rowB)),
+                List.of(), false));
+
+        assertThat(accumulator.counts().notAttempted())
+                .as("the status message says certificate(s) for this count too, so rows would make it lie")
+                .isEqualTo(1);
+        assertThat(accumulator.results()).hasSize(2);
+    }
+
     private GroupImportResult committedGroup(DiscoveryCertificateResult... rows) {
         return new GroupImportResult(CONTENT_A, List.of(rows), List.of(), true);
     }
@@ -147,6 +159,11 @@ class DiscoveryRunAccumulatorTest {
     private DiscoveryCertificateResult rolledBack(UUID row) {
         return new DiscoveryCertificateResult(row, DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK,
                 "Import rolled back: database constraint violation");
+    }
+
+    private DiscoveryCertificateResult notAttempted(UUID row) {
+        return new DiscoveryCertificateResult(row, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
+                "the import did not run to a result");
     }
 
     private DiscoveryCertificateResult entityCreationFailed(UUID row) {

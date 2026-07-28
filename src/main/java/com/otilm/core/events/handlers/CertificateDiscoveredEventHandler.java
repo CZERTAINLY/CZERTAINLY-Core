@@ -53,10 +53,12 @@ import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -250,6 +252,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     .collect(ParallelCollectors.parallelToStream(
                             group -> importGroupSafely(runContext, group), executor, MAXIMUM_PARALLELISM))
                     .iterator();
+            Set<Long> consumedContentIds = new HashSet<>();
             while (true) {
                 GroupImportResult result;
                 try {
@@ -264,14 +267,18 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                             e.getMessage(), e);
                     break;
                 }
+                consumedContentIds.add(result.certificateContentId());
                 accumulator.accept(result);
                 writeBookkeeping(accumulator, result);
                 mergeKeyEntries(accumulator, result, keyToCertificates, altKeyToCertificates);
                 completed++;
                 if (completed % MAXIMUM_PARALLELISM == 0 || completed == groups.size()) {
-                    reportProgress(runContext, completed);
+                    reportProgressSafely(runContext, accumulator, completed);
                 }
             }
+            // Whatever the loop did not reach still has to appear in the status. Without this a stream failure
+            // leaves those groups invisible, and a run that lost work can still report itself clean.
+            accountForUnconsumedGroups(accumulator, groups, consumedContentIds);
         }
 
         associateKeys(accumulator, keyToCertificates, false);
@@ -450,6 +457,40 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
+    /**
+     * Progress is cosmetic; the key association and bookkeeping that follow the consumption loop are not. Letting a
+     * failed progress write escape the loop would abandon both for the whole run.
+     */
+    void reportProgressSafely(DiscoveryRunContext context, DiscoveryRunAccumulator accumulator,
+                              int completedGroups) {
+        try {
+            reportProgress(context, completedGroups);
+        } catch (Exception e) {
+            logger.error("Could not report progress of discovery {}: {}",
+                    context.discoveryUuid(), e.getMessage(), e);
+            accumulator.recordBookkeepingFailure();
+        }
+    }
+
+    /**
+     * Records every group the consumption loop did not reach. Only an early exit from the loop leaves any, and their
+     * rows are untouched in the database — so they are NOT_ATTEMPTED, and the run must not call itself clean.
+     */
+    void accountForUnconsumedGroups(DiscoveryRunAccumulator accumulator,
+                                    List<DiscoveryContentGroup> groups, Set<Long> consumedContentIds) {
+        for (DiscoveryContentGroup group : groups) {
+            if (consumedContentIds.contains(group.certificateContentId())) {
+                continue;
+            }
+            List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
+            GroupImportResult unconsumed = new GroupImportResult(group.certificateContentId(),
+                    resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
+                            "the import did not run to a result"), List.of(), false);
+            accumulator.accept(unconsumed);
+            writeBookkeeping(accumulator, unconsumed);
+        }
+    }
+
     private void reportProgress(DiscoveryRunContext context, int completedGroups) {
         int percentage = (int) ((completedGroups / (double) context.totalGroups()) * 100);
         String message = String.format("Processed %d %% of newly discovered certificates (%d / %d certificates)",
@@ -488,7 +529,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             // keys silently went unassociated. Roll the group back and say why instead.
             logger.error("Trigger evaluation failed for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
-            throw new IllegalStateException("Trigger evaluation failed: " + DiscoveryFailureReason.shape(e), e);
+            throw new DiscoveryImportRollbackException(
+                    "trigger evaluation failed: " + DiscoveryFailureReason.shape(e), e);
         }
     }
 
