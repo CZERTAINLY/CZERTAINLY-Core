@@ -58,7 +58,6 @@ import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCSException;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -324,11 +323,25 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     private ResponseEntity<Object> pkiOperation(byte[] body) throws ScepException {
-        ScepRequest scepRequest;
+        ScepRequest scepRequest = new ScepRequest(body);
+        try {
+            return processPkiOperation(scepRequest);
+        } catch (RuntimeException e) {
+            // An unexpected runtime failure would otherwise escape to the generic error handler and leave
+            // the client with an HTTP 500 JSON body it cannot parse. Answer with a SCEP FAILURE instead, so
+            // the endpoint always responds in application/x-pki-message. The failInfoText is generic on
+            // purpose: internal exception messages are not shaped for the wire.
+            logger.error("Unexpected failure while processing SCEP PKIOperation: transactionId={}",
+                    scepRequest.getTransactionId(), e);
+            return buildResponse(scepRequest, buildFailedResponse(
+                    new ScepException("SCEP request processing failed", FailInfo.BAD_REQUEST),
+                    scepRequest.getTransactionId()));
+        }
+    }
+
+    private ResponseEntity<Object> processPkiOperation(ScepRequest scepRequest) throws ScepException {
         ScepResponse scepResponse;
         IntuneScepServiceClient intuneClient = null;
-
-        scepRequest = new ScepRequest(body);
 
         logger.debug("Processing SCEP request: transactionId={}", scepRequest.getTransactionId());
 
@@ -363,13 +376,14 @@ public class ScepServiceImpl implements ScepExternalService {
             intuneClient = buildIntuneClient(properties);
         }
 
-        // validate challenge password, if configured
         if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ) || scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
-            if (!validateScepChallengePassword(scepRequest.getChallengePassword())) {
-                return buildResponse(scepRequest, buildFailedResponse(new ScepException("Challenge password validation failed.", FailInfo.BAD_MESSAGE_CHECK), scepRequest.getTransactionId()));
-            }
-            // validate the request POP
             try {
+                // Classify the request before enforcing the shared secret: a renewal authenticates with the
+                // key of the certificate it replaces and legitimately carries no challenge password.
+                boolean authenticatedRenewal = authenticateRenewal(scepRequest);
+                // validate challenge password, if configured
+                validateChallengePassword(scepRequest.getChallengePassword(), authenticatedRenewal);
+                // validate the request POP
                 verifyRequest(scepRequest);
             } catch (ScepException e) {
                 return buildResponse(scepRequest, buildFailedResponse(e, scepRequest.getTransactionId()));
@@ -763,11 +777,32 @@ public class ScepServiceImpl implements ScepExternalService {
         return scepTransactionRepository.findByTransactionId(transactionId).orElse(null);
     }
 
-    private boolean validateScepChallengePassword(String challengePassword) {
-        if (scepProfile.getChallengePassword() == null || scepProfile.getChallengePassword().isEmpty()) {
-            return true;
+    /**
+     * Enforces the challenge password configured on the SCEP profile. A renewal request is signed with
+     * the key of the certificate being replaced and carries no challengePassword attribute
+     * (RFC 8894 §3.3.1.2), so an absent password is accepted once {@link #authenticateRenewal} has
+     * proven possession of that certificate's key. The waiver covers only an absent password: one that
+     * is present must still match, so a wrong shared secret is never silently accepted.
+     *
+     * @throws ScepException with {@link FailInfo#BAD_MESSAGE_CHECK} when the password is missing where
+     *                       required, or does not match the one configured on the profile
+     */
+    void validateChallengePassword(String requestChallengePassword, boolean authenticatedRenewal) throws ScepException {
+        String profileChallengePassword = scepProfile.getChallengePassword();
+        if (profileChallengePassword == null || profileChallengePassword.isEmpty()) {
+            return;
         }
-        return challengePassword.equals(scepProfile.getChallengePassword());
+        if (requestChallengePassword == null) {
+            if (authenticatedRenewal) {
+                logger.debug("Challenge password waived for an authenticated renewal request");
+                return;
+            }
+            throw new ScepException("The SCEP profile requires a challenge password but the request does not contain one.",
+                    FailInfo.BAD_MESSAGE_CHECK);
+        }
+        if (!profileChallengePassword.equals(requestChallengePassword)) {
+            throw new ScepException("Challenge password validation failed.", FailInfo.BAD_MESSAGE_CHECK);
+        }
     }
 
     public void verifyRequest(ScepRequest scepRequest) throws ScepException {
@@ -777,12 +812,9 @@ public class ScepServiceImpl implements ScepExternalService {
             throw new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST);
         }
 
+        // The renewal classification and its validation run in authenticateRenewal, before the challenge
+        // password gate, because a renewal is authenticated by the signer certificate instead of the password.
         if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
-            // Renewal check must be done for PKCS Request also. According to the RFC Version 3.1.1.2
-            // (https://datatracker.ietf.org/doc/id/draft-nourse-scep-23.txt), RENEWAL_REQ is not part of the message type
-            // Commonly used SCEP clients like JSCEP and SSCEP uses this version of RFC and
-            // may use PKCS_REQ for renewal
-            renewalValidation(scepRequest);
             try {
                 if (!scepRequest.verifyRequest()) {
                     throw new ScepException("Failed to verify PKCS#10 request POP, invalid signature", FailInfo.BAD_REQUEST);
@@ -790,42 +822,75 @@ public class ScepServiceImpl implements ScepExternalService {
             } catch (PKCSException | NoSuchAlgorithmException | InvalidKeyException | OperatorCreationException e) {
                 throw new ScepException("Failed to verify PKCS#10 request POP", FailInfo.BAD_REQUEST);
             }
-        } else if (scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
-            renewalValidation(scepRequest);
         }
     }
 
-    private void renewalValidation(ScepRequest scepRequest) throws ScepException {
-        JcaPKCS10CertificationRequest pkcs10Request = scepRequest.getPkcs10Request();
-        Certificate extCertificate;
+    /**
+     * Classifies the request as a renewal and validates it when it is one. The classification follows the
+     * signer certificate rather than the message type: per draft-nourse-scep-23 §3.1.1.2 — the version
+     * implemented by common clients such as sscep and jscep — a renewal is a PKCS_REQ signed with the key
+     * of the certificate being replaced.
+     *
+     * @return {@code true} when the request proved possession of a certificate issued under this RA profile
+     *         and may therefore enroll without the profile's challenge password
+     * @throws ScepException when the request is a renewal that must be rejected (unverifiable signature,
+     *                       archived or pending certificate, subject DN mismatch, outside the renewal timeframe)
+     */
+    boolean authenticateRenewal(ScepRequest scepRequest) throws ScepException {
+        Certificate renewedCertificate = resolveRenewedCertificate(scepRequest);
+        if (renewedCertificate == null) {
+            // No known certificate behind the signer: an initial enrollment, not a renewal.
+            return false;
+        }
+        validateRenewal(scepRequest, renewedCertificate);
+        // Waive the challenge password only for a certificate issued under this profile's RA profile:
+        // holding some other RA profile's certificate does not entitle a client to enroll here.
+        return renewedCertificate.getRaProfileUuid() != null
+                && renewedCertificate.getRaProfileUuid().equals(raProfile.getUuid());
+    }
+
+    /**
+     * Resolves the inventory certificate the request is signed with, or {@code null} when the request has
+     * no signer certificate or the platform does not know it — both meaning this is not a renewal.
+     */
+    private Certificate resolveRenewedCertificate(ScepRequest scepRequest) throws ScepException {
+        X509Certificate signerCertificate = scepRequest.getSignerCertificate();
+        if (signerCertificate == null) {
+            return null;
+        }
         try {
-            extCertificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(scepRequest.getSignerCertificate()));
+            return certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(signerCertificate));
         } catch (NotFoundException e) {
-            // Certificate is not found with the fingerprint. Meaning its not a renewal request. So do nothing
-            return;
+            return null;
         } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
             throw new ScepException("Unable to parse the signer certificate");
         }
-        if (extCertificate.isArchived())
-            throw new ScepException("Certificate with UUID %s is archived. Cannot be renewed by SCEP.".formatted(extCertificate.getUuid()));
-        if (extCertificate.getState() == CertificateState.PENDING_ISSUE
-                || extCertificate.getState() == CertificateState.PENDING_REVOKE) {
-            throw new ScepException("Cannot renew certificate with a pending operation. Finalize or cancel "
-                    + "the pending operation first. Certificate UUID: " + extCertificate.getUuid(),
-                    FailInfo.BAD_REQUEST);
-        }
-        if (!(new X500Name(extCertificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
-            throw new ScepException("Subject DN for the renewal request does not match the original certificate");
-        }
+    }
+
+    private void validateRenewal(ScepRequest scepRequest, Certificate renewedCertificate) throws ScepException {
+        // Verify possession of the existing certificate's key first: the checks below report the state of
+        // that certificate, which an unauthenticated client must not be able to probe by replaying a
+        // certificate it does not own.
         try {
             if (!scepRequest.verifySignature(scepRequest.getSignerCertificate().getPublicKey())) {
-                throw new ScepException("SCEP Request signature verification failed");
+                throw new ScepException("SCEP Request signature verification failed", FailInfo.BAD_MESSAGE_CHECK);
             }
         } catch (OperatorCreationException | CMSException e) {
-            throw new ScepException("Exception when verifying signature." + e.getMessage());
+            throw new ScepException("Exception when verifying signature." + e.getMessage(), FailInfo.BAD_MESSAGE_CHECK);
+        }
+        if (renewedCertificate.isArchived())
+            throw new ScepException("Certificate with UUID %s is archived. Cannot be renewed by SCEP.".formatted(renewedCertificate.getUuid()));
+        if (renewedCertificate.getState() == CertificateState.PENDING_ISSUE
+                || renewedCertificate.getState() == CertificateState.PENDING_REVOKE) {
+            throw new ScepException("Cannot renew certificate with a pending operation. Finalize or cancel "
+                    + "the pending operation first. Certificate UUID: " + renewedCertificate.getUuid(),
+                    FailInfo.BAD_REQUEST);
+        }
+        if (!(new X500Name(renewedCertificate.getSubjectDn())).equals(scepRequest.getPkcs10Request().getSubject())) {
+            throw new ScepException("Subject DN for the renewal request does not match the original certificate");
         }
         // No need to verify the same key pair used in request since it is already handled by the rekey method in client operations
-        checkRenewalTimeframe(extCertificate);
+        checkRenewalTimeframe(renewedCertificate);
     }
 
     private void checkRenewalTimeframe(Certificate certificate) throws ScepException {

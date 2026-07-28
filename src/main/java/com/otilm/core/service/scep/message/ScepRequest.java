@@ -313,6 +313,12 @@ public class ScepRequest {
                     throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
                 }
             } else {
+                // A non-key-transport CA key can only unwrap the RFC 8894 password recipient, which needs
+                // the shared challenge password: without one the request is undecryptable, not malformed.
+                if (challengePassword == null || challengePassword.isEmpty()) {
+                    throw new ScepException("A challenge password must be configured on the SCEP profile to decrypt "
+                            + "requests enveloped to a non-RSA CA key", FailInfo.BAD_ALG);
+                }
                 JcePasswordEnvelopedRecipient jcePasswordEnvelopedRecipient = new JcePasswordEnvelopedRecipient(challengePassword.toCharArray());
                 jcePasswordEnvelopedRecipient.setProvider(BouncyCastleProvider.PROVIDER_NAME);
                 decryptedData = recipient.getContent(jcePasswordEnvelopedRecipient);

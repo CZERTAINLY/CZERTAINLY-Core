@@ -2,6 +2,7 @@ package com.otilm.core.service.scep;
 
 import com.otilm.api.exception.ScepException;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.MessageType;
 import com.otilm.core.service.scep.message.ScepConstants;
 import com.otilm.core.service.scep.message.ScepRequest;
@@ -57,6 +58,21 @@ public class EcdsaCmsMessageTest {
         CMSSignedData signedData = createSignedData(cmsProcessableByteArray);
         ScepRequest scepRequest = new ScepRequest(signedData.getEncoded());
         Assertions.assertThrows(CMSException.class, () -> scepRequest.decryptData(null, null, KeyAlgorithm.ECDSA, "wrongpassword"));
+    }
+
+    /**
+     * A password-enveloped request cannot be decrypted at all when the profile has no challenge password
+     * configured: that must surface as a SCEP rejection rather than a {@code NullPointerException}.
+     */
+    @Test
+    public void testGenerateEcdsaSignedMessage_noChallengePasswordConfigured() throws CertificateException, NoSuchAlgorithmException, IOException, InvalidKeySpecException, OperatorCreationException, CMSException, ScepException {
+        CMSProcessableByteArray cmsProcessableByteArray = generateEnvelopedData();
+        CMSSignedData signedData = createSignedData(cmsProcessableByteArray);
+        ScepRequest scepRequest = new ScepRequest(signedData.getEncoded());
+
+        ScepException thrown = Assertions.assertThrows(ScepException.class,
+                () -> scepRequest.decryptData(null, null, KeyAlgorithm.ECDSA, null));
+        Assertions.assertEquals(FailInfo.BAD_ALG, thrown.getFailInfo());
     }
 
     private static CMSProcessableByteArray generateEnvelopedData() throws IOException, CMSException {
