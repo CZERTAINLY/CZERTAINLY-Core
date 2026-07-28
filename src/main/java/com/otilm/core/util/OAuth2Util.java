@@ -116,7 +116,7 @@ public class OAuth2Util {
      * (two providers sharing an issuer) fails authentication instead of silently picking one.
      */
     public static OAuth2ProviderSettingsDto findProviderByIssuer(AuthenticationSettingsDto settings, String issuerUri) {
-        if (settings == null || issuerUri == null) {
+        if (settings == null || issuerUri == null || settings.getOAuth2Providers() == null) {
             return null;
         }
         List<OAuth2ProviderSettingsDto> matches = settings.getOAuth2Providers().values().stream()

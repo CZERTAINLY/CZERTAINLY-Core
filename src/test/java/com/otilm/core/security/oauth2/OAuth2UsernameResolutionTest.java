@@ -185,4 +185,11 @@ class OAuth2UsernameResolutionTest {
         assertThrows(PlatformAuthenticationException.class,
                 () -> OAuth2Util.findProviderByIssuer(settings, "https://issuer-a"));
     }
+
+    @Test
+    void findProviderByIssuer_nullProvidersMap_returnsNull() {
+        AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
+        settings.setOAuth2Providers(null);
+        assertNull(OAuth2Util.findProviderByIssuer(settings, "https://issuer-a"));
+    }
 }

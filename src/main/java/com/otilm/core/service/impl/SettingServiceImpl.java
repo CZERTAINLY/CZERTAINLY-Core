@@ -526,6 +526,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         validateIssuerUniqueness(providerName, settingsDto.getIssuerUrl());
 
         persistOAuth2Provider(providerName, settingsDto);
+        cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
     }
 
     private void persistOAuth2Provider(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
@@ -564,8 +565,6 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             throw new ValidationException("Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));
         }
         settingRepository.save(setting);
-
-        cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
     }
 
     @Override
