@@ -17,6 +17,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,7 +66,7 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
         DiscoveryCertificate row = givenDiscoveryCertificate(givenDiscovery());
 
         assertThatThrownBy(() -> newTransaction().executeWithoutResult(status -> {
-            discoveryWriter.markProcessed(row.getUuid(), "Import rolled back: database constraint violation");
+            discoveryWriter.markProcessed(List.of(row.getUuid()), "Import rolled back: database constraint violation");
             throw new IllegalStateException("caller fails after the writer ran");
         })).isInstanceOf(IllegalStateException.class);
 
@@ -86,7 +87,7 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
 
         assertThatThrownBy(() -> newTransaction().executeWithoutResult(status -> {
             transactionHandler.runInNewTransaction(() ->
-                    discoveryWriter.markProcessed(row.getUuid(), "Import rolled back: database constraint violation"));
+                    discoveryWriter.markProcessed(List.of(row.getUuid()), "Import rolled back: database constraint violation"));
             throw new IllegalStateException("caller fails after the writer ran");
         })).isInstanceOf(IllegalStateException.class);
 
@@ -100,7 +101,7 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
     void markProcessedRecordsACleanOutcomeWithNoReason() {
         DiscoveryCertificate row = givenDiscoveryCertificate(givenDiscovery());
 
-        discoveryWriter.markProcessed(row.getUuid(), null);
+        discoveryWriter.markProcessed(List.of(row.getUuid()), null);
 
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         assertThat(reloaded.isProcessed()).isTrue();
@@ -110,9 +111,9 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
     @Test
     void recordProcessedErrorLeavesTheProcessedFlagAlone() {
         DiscoveryCertificate row = givenDiscoveryCertificate(givenDiscovery());
-        discoveryWriter.markProcessed(row.getUuid(), null);
+        discoveryWriter.markProcessed(List.of(row.getUuid()), null);
 
-        discoveryWriter.recordProcessedError(row.getUuid(), "Public key could not be associated: the primary key upload failed");
+        discoveryWriter.recordProcessedError(List.of(row.getUuid()), "Public key could not be associated: the primary key upload failed");
 
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         assertThat(reloaded.isProcessed())

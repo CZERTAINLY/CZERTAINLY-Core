@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,18 +28,20 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
     Long countByDiscovery(DiscoveryHistory history);
 
     Long countByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered);
-    Long countByDiscoveryAndNewlyDiscoveredAndProcessed(DiscoveryHistory history, boolean newlyDiscovered, boolean processed);
-    Long countByDiscoveryAndProcessedErrorNotNull(DiscoveryHistory history);
     List<DiscoveryCertificate> findByCertificateContent(CertificateContent certificateContent);
 
+    /**
+     * Batched deliberately: every row of a content group shares one outcome and one reason, so a group collapses
+     * to a single statement rather than one transaction per row.
+     */
     @Modifying
     @Query("UPDATE DiscoveryCertificate dc SET dc.processed = true, dc.processedError = :processedError, " +
-            "dc.updated = CURRENT_TIMESTAMP WHERE dc.uuid = :uuid")
-    void markProcessed(@Param("uuid") UUID uuid, @Param("processedError") String processedError);
+            "dc.updated = CURRENT_TIMESTAMP WHERE dc.uuid IN :uuids")
+    void markProcessed(@Param("uuids") Collection<UUID> uuids, @Param("processedError") String processedError);
 
     @Modifying
     @Query("UPDATE DiscoveryCertificate dc SET dc.processedError = :processedError, " +
-            "dc.updated = CURRENT_TIMESTAMP WHERE dc.uuid = :uuid")
-    void updateProcessedError(@Param("uuid") UUID uuid, @Param("processedError") String processedError);
+            "dc.updated = CURRENT_TIMESTAMP WHERE dc.uuid IN :uuids")
+    void updateProcessedError(@Param("uuids") Collection<UUID> uuids, @Param("processedError") String processedError);
 
 }

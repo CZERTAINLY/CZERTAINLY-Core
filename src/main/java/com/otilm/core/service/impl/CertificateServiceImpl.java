@@ -1363,7 +1363,7 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
         Optional<Certificate> existing = certificateRepository.findByFingerprint(fingerprint);
         if (existing.isPresent()) {
-            return new DiscoveredCertificateImport(existing.get(), false);
+            return new DiscoveredCertificateImport(existing.get());
         }
 
         discoveryCertificateContentWriter.insertContent(fingerprint,
@@ -1384,11 +1384,11 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         entity.setCertificateContentId(content.getId());
         CertificateUtil.prepareIssuedCertificate(entity, certificate);
 
-        int inserted = discoveryCertificateContentWriter.insertCertificate(entity);
+        discoveryCertificateContentWriter.insertCertificate(entity);
         // Always the re-read row: on a lost race it carries the winner's UUID, not the one assigned above.
         Certificate persisted = certificateRepository.findByFingerprint(fingerprint)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
-        return new DiscoveredCertificateImport(persisted, inserted == 1);
+        return new DiscoveredCertificateImport(persisted);
     }
 
     @Override

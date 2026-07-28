@@ -25,6 +25,7 @@ import com.otilm.core.events.handlers.discovery.*;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
+import com.otilm.core.security.authz.ExternalAuthorizationProgrammatic;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.EventMessage;
@@ -187,6 +188,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
+    @ExternalAuthorizationProgrammatic(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     private void handleDiscoveredCertificates(EventContext<Certificate> context, DiscoveryHistory discovery, String originalMessage,
                                               List<DiscoveryCertificate> discoveredCertificates, List<TriggerAssociation> mergedIgnoreTriggers,
                                               List<TriggerAssociation> mergedTriggers) {
@@ -195,13 +197,29 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             return;
         }
 
+        // Before the event histories are created: those rows persist immediately, and a denial here would leave
+        // them stranded. One resource-level check per run rather than one per certificate, because enforcement is
+        // a blocking OPA request and must not be held across a transaction.
+        authorizationEnforcer.enforce(Resource.CERTIFICATE, ResourceAction.CREATE);
+
         EventHistory eventHistoryDiscovery = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid());
         EventHistory eventHistoryPlatform = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, null, null);
 
-        // One resource-level check per run rather than one per certificate: enforcement is a blocking OPA request
-        // and must not be held across a transaction.
-        authorizationEnforcer.enforce(Resource.CERTIFICATE, ResourceAction.CREATE);
+        try {
+            importAndReport(context, discovery, originalMessage, discoveredCertificates, mergedIgnoreTriggers,
+                    mergedTriggers, eventHistoryDiscovery, eventHistoryPlatform);
+        } catch (RuntimeException e) {
+            // The histories persist outside any transaction, so without this they stay IN_PROGRESS forever.
+            saveEventHistory(eventHistoryDiscovery, EventStatus.FAILED);
+            saveEventHistory(eventHistoryPlatform, EventStatus.FAILED);
+            throw e;
+        }
+    }
 
+    private void importAndReport(EventContext<Certificate> context, DiscoveryHistory discovery, String originalMessage,
+                                 List<DiscoveryCertificate> discoveredCertificates,
+                                 List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers,
+                                 EventHistory eventHistoryDiscovery, EventHistory eventHistoryPlatform) {
         // Group by content so two threads can no longer hold the same certificate and race on its insert.
         List<DiscoveryContentGroup> groups = discoveredCertificates.stream()
                 .collect(Collectors.groupingBy(DiscoveryCertificate::getCertificateContentId,
@@ -250,7 +268,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 writeBookkeeping(accumulator, result);
                 mergeKeyEntries(accumulator, result, keyToCertificates, altKeyToCertificates);
                 completed++;
-                if (completed % MAXIMUM_PARALLELISM == 0) {
+                if (completed % MAXIMUM_PARALLELISM == 0 || completed == groups.size()) {
                     reportProgress(runContext, completed);
                 }
             }
@@ -331,17 +349,29 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * import unit, so joining a transaction that is rolling back would discard them.
      */
     private void writeBookkeeping(DiscoveryRunAccumulator accumulator, GroupImportResult result) {
-        for (DiscoveryCertificateResult row : result.rowResults()) {
-            // Leaving processed = false is the truthful record for a row the platform never reached.
-            if (row.outcome() == DiscoveryCertificateOutcome.NOT_ATTEMPTED) {
-                continue;
-            }
+        // A group's rows always share one outcome and one reason, so this is a single statement in a single
+        // transaction rather than one per row — on a large discovery that is the difference between one round trip
+        // per certificate and one per discovered host.
+        Map<DiscoveryCertificateOutcome, List<DiscoveryCertificateResult>> byOutcome = result.rowResults().stream()
+                .collect(Collectors.groupingBy(DiscoveryCertificateResult::outcome));
+
+        for (Map.Entry<DiscoveryCertificateOutcome, List<DiscoveryCertificateResult>> entry : byOutcome.entrySet()) {
+            List<UUID> rowUuids = entry.getValue().stream()
+                    .map(DiscoveryCertificateResult::discoveryCertificateUuid).toList();
+            String detail = entry.getValue().getFirst().detail();
             try {
-                transactionHandler.runInNewTransaction(() ->
-                        discoveryWriter.markProcessed(row.discoveryCertificateUuid(), row.detail()));
+                if (entry.getKey() == DiscoveryCertificateOutcome.NOT_ATTEMPTED) {
+                    // processed stays false — the truthful record for a row the platform never reached — but the
+                    // reason is still written, because the status message points the operator at this list for it.
+                    transactionHandler.runInNewTransaction(() ->
+                            discoveryWriter.recordProcessedError(rowUuids, detail));
+                } else {
+                    transactionHandler.runInNewTransaction(() ->
+                            discoveryWriter.markProcessed(rowUuids, detail));
+                }
             } catch (Exception e) {
-                logger.error("Could not record the outcome of discovery certificate {}: {}",
-                        row.discoveryCertificateUuid(), e.getMessage(), e);
+                logger.error("Could not record the outcome of discovery certificates {}: {}",
+                        rowUuids, e.getMessage(), e);
                 accumulator.recordBookkeepingFailure();
             }
         }
@@ -401,16 +431,20 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * overwriting each other.
      */
     private void persistKeyAssociationFailures(DiscoveryRunAccumulator accumulator) {
-        for (DiscoveryCertificateResult row : accumulator.results()) {
-            if (row.outcome() != DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED) {
-                continue;
-            }
+        // Grouped by reason so certificates sharing one failure are written together; aggregation has already
+        // happened, so a hybrid certificate's two failures arrive here as one reason.
+        Map<String, List<UUID>> rowsByReason = accumulator.results().stream()
+                .filter(row -> row.outcome() == DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED)
+                .collect(Collectors.groupingBy(DiscoveryCertificateResult::detail, LinkedHashMap::new,
+                        Collectors.mapping(DiscoveryCertificateResult::discoveryCertificateUuid, Collectors.toList())));
+
+        for (Map.Entry<String, List<UUID>> entry : rowsByReason.entrySet()) {
             try {
                 transactionHandler.runInNewTransaction(() ->
-                        discoveryWriter.recordProcessedError(row.discoveryCertificateUuid(), row.detail()));
+                        discoveryWriter.recordProcessedError(entry.getValue(), entry.getKey()));
             } catch (Exception e) {
-                logger.error("Could not record the key association failure of discovery certificate {}: {}",
-                        row.discoveryCertificateUuid(), e.getMessage(), e);
+                logger.error("Could not record the key association failure of discovery certificates {}: {}",
+                        entry.getValue(), e.getMessage(), e);
                 accumulator.recordBookkeepingFailure();
             }
         }
@@ -419,7 +453,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private void reportProgress(DiscoveryRunContext context, int completedGroups) {
         int percentage = (int) ((completedGroups / (double) context.totalGroups()) * 100);
         discoveryWriter.updateProgressMessage(context.discoveryUuid(), String.format(
-                "Processed %d %% of newly discovered certificates (%d / %d)",
+                "Processed %d %% of newly discovered certificates (%d / %d certificates)",
                 percentage, completedGroups, context.totalGroups()));
     }
 

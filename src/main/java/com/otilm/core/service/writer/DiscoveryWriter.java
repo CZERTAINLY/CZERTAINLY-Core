@@ -5,6 +5,7 @@ import com.otilm.core.dao.repository.DiscoveryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.UUID;
 
 /**
@@ -31,19 +32,20 @@ public class DiscoveryWriter {
     /**
      * Marks a discovered-certificate row as handled, whether or not the outcome was a clean import.
      *
-     * @param processedError the shaped reason, or {@code null} when the row imported cleanly or was ignored
+     * @param processedError the shaped reason shared by every listed row, or {@code null} when they imported
+     *                       cleanly or were ignored
      */
     @Transactional
-    public void markProcessed(UUID discoveryCertificateUuid, String processedError) {
-        discoveryCertificateRepository.markProcessed(discoveryCertificateUuid, processedError);
+    public void markProcessed(Collection<UUID> discoveryCertificateUuids, String processedError) {
+        discoveryCertificateRepository.markProcessed(discoveryCertificateUuids, processedError);
     }
 
     /**
      * Records a reason against a row that finished earlier in the run, leaving {@code processed} untouched.
      */
     @Transactional
-    public void recordProcessedError(UUID discoveryCertificateUuid, String processedError) {
-        discoveryCertificateRepository.updateProcessedError(discoveryCertificateUuid, processedError);
+    public void recordProcessedError(Collection<UUID> discoveryCertificateUuids, String processedError) {
+        discoveryCertificateRepository.updateProcessedError(discoveryCertificateUuids, processedError);
     }
 
     /**

@@ -18,7 +18,6 @@ import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
-import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.events.transaction.CertificateValidationEvent;
 import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.ValidationMessage;
@@ -65,7 +64,6 @@ public class CertificateHandler {
     private CryptographicKeyInternalService cryptographicKeyService;
 
     private CertificateRepository certificateRepository;
-    private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private DiscoveryWriter discoveryWriter;
 
@@ -108,11 +106,6 @@ public class CertificateHandler {
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
-    }
-
-    @Autowired
-    public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
-        this.discoveryRepository = discoveryRepository;
     }
 
     @Autowired
