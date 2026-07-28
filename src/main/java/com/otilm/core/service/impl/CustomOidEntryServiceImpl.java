@@ -116,12 +116,17 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
      * read-modify-write across categories can drop a category's contribution however volatile the field.
      */
     private void publishShadowedCustomOidEntries() {
-        Set<String> shadowed = customOidEntryRepository.findAll().stream()
-                .filter(entry -> {
-                    SystemOid systemOid = SystemOid.fromOID(entry.getOid());
-                    return systemOid != null && systemOid.getCategory() == entry.getCategory();
+        // Derived from the published registry rather than a table scan: putIfAbsent means a shadowed OID
+        // holds the operator's record, so provenance already distinguishes the two cases. This is also the
+        // more honest answer — the set describes what the registry currently resolves, not what the
+        // database holds, and both callers run straight after the publication they are describing.
+        Set<String> shadowed = Arrays.stream(SystemOid.values())
+                .filter(systemOid -> {
+                    Map<String, OidRecord> categoryCache = OidHandler.getOidCache(systemOid.getCategory());
+                    OidRecord published = categoryCache == null ? null : categoryCache.get(systemOid.getOid());
+                    return published != null && !published.system();
                 })
-                .map(CustomOidEntry::getOid)
+                .map(SystemOid::getOid)
                 .collect(Collectors.toCollection(TreeSet::new));
         if (shadowed.equals(shadowedCustomOidEntries)) {
             return;
