@@ -412,9 +412,15 @@ public class ScepServiceImpl implements ScepExternalService {
             // ScepException covers the undecryptable cases decryptData rejects itself (e.g. a password
             // recipient with no challenge password configured); answering here keeps the response in the
             // SCEP format instead of letting it reach the generic JSON error handler.
-            ScepException failure = e instanceof ScepException scepException
-                    ? scepException
-                    : new ScepException("Unable to decrypt the data. " + e.getMessage(), FailInfo.BAD_REQUEST);
+            ScepException failure;
+            if (e instanceof ScepException scepException) {
+                failure = scepException;
+            } else {
+                // The CMS detail stays in the log: failInfoText is read by an unauthenticated client and
+                // parsing internals are not shaped for the wire.
+                logger.error("Failed to decrypt the SCEP request: transactionId={}", scepRequest.getTransactionId(), e);
+                failure = new ScepException("Unable to decrypt the request data", FailInfo.BAD_REQUEST);
+            }
             return buildResponse(scepRequest, buildFailedResponse(failure, scepRequest.getTransactionId()));
         }
 
@@ -996,6 +1002,13 @@ public class ScepServiceImpl implements ScepExternalService {
         checkRenewalTimeframe(renewedCertificate);
     }
 
+    /**
+     * Applies the profile's renewal window. Callers must have established that the certificate is in a
+     * renewable state — {@link #validateRenewal} rejects revoked, expired and otherwise unusable
+     * certificates for every threshold configuration, which is also why this method no longer repeats that
+     * test on the configured-threshold branch: it was unreachable there, and dereferenced a nullable
+     * validation status to do it.
+     */
     private void checkRenewalTimeframe(Certificate certificate) throws ScepException {
         // Empty renewal threshold or the value 0 will be considered as null value and the half life of the certificate will be assumed
         if (scepProfile.getRenewalThreshold() == null || scepProfile.getRenewalThreshold() == 0) {
@@ -1004,12 +1017,8 @@ public class ScepServiceImpl implements ScepExternalService {
             if (certificate.getValidity() / 2 < certificate.getExpiryInDays()) {
                 throw new ScepException("Cannot renew certificate. Validity exceeds the half life time of certificate", FailInfo.BAD_REQUEST);
             }
-        } else if (certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRED) || certificate.getState().equals(CertificateState.REVOKED)) {
-            throw new ScepException("Cannot renew certificate. Certificate is already in expired or revoked state", FailInfo.BAD_REQUEST);
-        } else {
-            if (certificate.getExpiryInDays() > scepProfile.getRenewalThreshold()) {
-                throw new ScepException("Cannot renew certificate. Validity exceeds the configured value in SCEP profile", FailInfo.BAD_REQUEST);
-            }
+        } else if (certificate.getExpiryInDays() > scepProfile.getRenewalThreshold()) {
+            throw new ScepException("Cannot renew certificate. Validity exceeds the configured value in SCEP profile", FailInfo.BAD_REQUEST);
         }
     }
 

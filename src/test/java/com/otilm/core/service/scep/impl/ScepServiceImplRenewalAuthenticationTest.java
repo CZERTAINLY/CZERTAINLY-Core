@@ -170,6 +170,20 @@ class ScepServiceImplRenewalAuthenticationTest {
         assertTrue(service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
     }
 
+    /**
+     * A nullable validation status must not crash the renewal-window check on the configured-threshold
+     * branch: the renewable-state gate lets a null status through, so the timeframe policy must not
+     * dereference it.
+     */
+    @Test
+    void certificateWithoutValidationStatus_isAnAuthenticatedRenewal() throws Exception {
+        Certificate uncheckedCertificate = inventoryCertificate(RA_PROFILE_UUID);
+        uncheckedCertificate.setValidationStatus(null);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(uncheckedCertificate);
+
+        assertTrue(service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+    }
+
     @Test
     void certificateWithPendingIssue_isRejected() throws Exception {
         Certificate pending = inventoryCertificate(RA_PROFILE_UUID);
