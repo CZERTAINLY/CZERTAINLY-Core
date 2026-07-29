@@ -3,8 +3,11 @@ package com.otilm.core.security.authn.tsp;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.core.logging.enums.ActorType;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
+import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.api.model.connector.secrets.content.BasicAuthSecretContent;
 import com.otilm.api.model.core.signing.TspAuthenticationMethod;
+import com.otilm.core.auth.oauth2.AuthenticationSnapshotRequestHolder;
 import com.otilm.core.auth.oauth2.PlatformJwtDecoder;
 import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
@@ -13,6 +16,8 @@ import com.otilm.core.security.authn.client.CredentialVerificationCache;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import com.otilm.core.service.SigningProfileInternalService;
 import com.otilm.core.service.TspProfileInternalService;
+import com.otilm.core.settings.AuthenticationSettingsSnapshot;
+import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.SecretsUtil;
 import org.junit.jupiter.api.AfterEach;
@@ -21,7 +26,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -30,14 +37,23 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.slf4j.MDC;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -79,12 +95,14 @@ class TspAuthenticationFilterTest {
         response = new MockHttpServletResponse();
         chain = new MockFilterChain();
         SecurityContextHolder.clearContext();
+        AuthenticationSnapshotRequestHolder.clear();
         MDC.clear();
     }
 
     @AfterEach
     void clearContext() {
         SecurityContextHolder.clearContext();
+        AuthenticationSnapshotRequestHolder.clear();
         MDC.clear();
     }
 
@@ -341,21 +359,100 @@ class TspAuthenticationFilterTest {
                     .header("alg", "none")
                     .claim("sub", "alice")
                     .claim("jti", "jti-1")
+                    .claim("username", "alice")
                     .issuedAt(issuedAt)
                     .expiresAt(issuedAt.plusSeconds(60))
                     .build();
             when(jwtDecoder.decode("the.jwt.token")).thenReturn(jwt);
-            when(authClient.authenticateByToken(any())).thenReturn(authenticatedInfo());
+            when(authClient.authenticateByToken(anyMap(), anyLong())).thenReturn(authenticatedInfo());
 
             // when
             filter.doFilter(request, response, chain);
 
             // then
             verify(jwtDecoder).decode("the.jwt.token");
-            verify(authClient).authenticateByToken(any());
+            verify(authClient).authenticateByToken(anyMap(), anyLong());
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
             assertThat(chain.getRequest()).isNotNull();
             assertActorIsPrincipal("uuid-1", "alice");
+        }
+
+        private BearerTokenAuthenticator bearerAuthenticator() {
+            return new BearerTokenAuthenticator(jwtDecoder, authClient, new TspSecurityContextWriter(authHelper));
+        }
+
+        @Test
+        void bearerToken_withoutEffectiveUsernameClaim_isRejected() {
+            Jwt jwt = mock(Jwt.class);
+            when(jwtDecoder.decode(anyString())).thenReturn(jwt);
+            when(jwt.getClaims()).thenReturn(Map.of("sub", "abc", "jti", "jti-1"));
+            request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer some-token");
+
+            assertThat(bearerAuthenticator().authenticate(request, mock(TspProfileModel.class))).isFalse();
+            verifyNoInteractions(authClient);
+        }
+
+        @Test
+        void bearerToken_forwardsNormalizedUsername() {
+            Jwt jwt = mock(Jwt.class);
+            when(jwtDecoder.decode(anyString())).thenReturn(jwt);
+            when(jwt.getClaims()).thenReturn(Map.of("username", "alice", "jti", "jti-2"));
+            when(authClient.authenticateByToken(anyMap(), anyLong()))
+                    .thenReturn(authenticatedInfo());
+            request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer some-token");
+
+            assertThat(bearerAuthenticator().authenticate(request, mock(TspProfileModel.class))).isTrue();
+            verify(authClient).authenticateByToken(argThat(claims -> "alice".equals(claims.get("username"))), anyLong());
+        }
+
+        @Test
+        void bearerToken_resolvesConfiguredClaimFromMatchingProvider() throws Exception {
+            Jwt jwt = mock(Jwt.class);
+            when(jwtDecoder.decode(anyString())).thenReturn(jwt);
+            when(jwt.getIssuer()).thenReturn(URI.create("https://issuer.example.com").toURL());
+            when(jwt.getClaims()).thenReturn(Map.of("preferred_username", "alice", "jti", "jti-3"));
+            when(authClient.authenticateByToken(anyMap(), anyLong())).thenReturn(authenticatedInfo());
+            request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer some-token");
+
+            OAuth2ProviderSettingsDto provider = new OAuth2ProviderSettingsDto();
+            provider.setName("entra");
+            provider.setIssuerUrl("https://issuer.example.com");
+            provider.setUsernameClaim("preferred_username");
+            AuthenticationSettingsDto settings = new AuthenticationSettingsDto();
+            settings.setOAuth2Providers(Map.of("entra", provider));
+
+            try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class)) {
+                settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                        .thenReturn(new AuthenticationSettingsSnapshot(settings, 7L));
+
+                assertThat(bearerAuthenticator().authenticate(request, mock(TspProfileModel.class))).isTrue();
+            }
+            verify(authClient).authenticateByToken(argThat(claims -> "alice".equals(claims.get("username"))), eq(7L));
+        }
+
+        @Test
+        void bearerToken_resolvesIdentityFromTheSnapshotTheDecoderValidatedAgainst() throws Exception {
+            OAuth2ProviderSettingsDto provider = new OAuth2ProviderSettingsDto();
+            provider.setName("entra");
+            provider.setIssuerUrl("https://issuer.example.com");
+            provider.setUsernameClaim("preferred_username");
+            AuthenticationSettingsDto validatedSettings = new AuthenticationSettingsDto();
+            validatedSettings.setOAuth2Providers(Map.of("entra", provider));
+
+            Jwt jwt = mock(Jwt.class);
+            when(jwt.getIssuer()).thenReturn(URI.create("https://issuer.example.com").toURL());
+            when(jwt.getClaims()).thenReturn(Map.of("preferred_username", "alice", "jti", "jti-4"));
+            // the decoder publishes the snapshot it validated against, as the real one does
+            when(jwtDecoder.decode(anyString())).thenAnswer(invocation -> {
+                AuthenticationSnapshotRequestHolder.set(new AuthenticationSettingsSnapshot(validatedSettings, 9L));
+                return jwt;
+            });
+            when(authClient.authenticateByToken(anyMap(), anyLong())).thenReturn(authenticatedInfo());
+            request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer some-token");
+
+            // no SettingsCache stubbing: only the published snapshot knows this provider and this generation
+            assertThat(bearerAuthenticator().authenticate(request, mock(TspProfileModel.class))).isTrue();
+            verify(authClient).authenticateByToken(argThat(claims -> "alice".equals(claims.get("username"))), eq(9L));
         }
     }
 
@@ -541,7 +638,7 @@ class TspAuthenticationFilterTest {
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
             assertThat(chain.getRequest()).isNull();
-            verify(authClient, never()).authenticateByToken(any());
+            verify(authClient, never()).authenticateByToken(anyMap(), anyLong());
         }
 
         @Test
@@ -561,7 +658,7 @@ class TspAuthenticationFilterTest {
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
             assertThat(chain.getRequest()).isNull();
-            verify(authClient, never()).authenticateByToken(any());
+            verify(authClient, never()).authenticateByToken(anyMap(), anyLong());
         }
 
         @Test
