@@ -59,12 +59,15 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
 
     private static final String TEST_SERIAL_NUMBER = "1122334455";
 
+    /** One content per certificate: the schema enforces a single certificate per content in both directions. */
+    private CertificateContent newContent() {
+        CertificateContent content = new CertificateContent();
+        content.setContent("1234567890-" + UUID.randomUUID());
+        return certificateContentRepository.save(content);
+    }
+
     @BeforeEach
     public void setUp() throws NotFoundException {
-        CertificateContent certificateContent = new CertificateContent();
-        certificateContent.setContent("1234567890");
-        certificateContent = certificateContentRepository.save(certificateContent);
-
         group = new Group();
         group.setName("TestGroup");
         groupRepository.save(group);
@@ -83,8 +86,7 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         certificateGroup.setSerialNumber(TEST_SERIAL_NUMBER);
         certificateGroup.setState(CertificateState.ISSUED);
         certificateGroup.setValidationStatus(CertificateValidationStatus.VALID);
-        certificateGroup.setCertificateContent(certificateContent);
-        certificateGroup.setCertificateContentId(certificateContent.getId());
+        certificateGroup.setCertificateContentId(newContent().getId());
         certificateGroup = certificateRepository.save(certificateGroup);
         resourceObjectAssociationService.addGroup(Resource.CERTIFICATE, certificateGroup.getUuid(), group.getUuid());
 
@@ -94,8 +96,7 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         certificateOwner.setSerialNumber("1234567");
         certificateOwner.setState(CertificateState.ISSUED);
         certificateOwner.setValidationStatus(CertificateValidationStatus.VALID);
-        certificateOwner.setCertificateContent(certificateContent);
-        certificateOwner.setCertificateContentId(certificateContent.getId());
+        certificateOwner.setCertificateContentId(newContent().getId());
         certificateOwner = certificateRepository.save(certificateOwner);
 
         NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
@@ -112,8 +113,7 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         certificateRaProfile1.setSerialNumber(TEST_SERIAL_NUMBER);
         certificateRaProfile1.setState(CertificateState.ISSUED);
         certificateRaProfile1.setValidationStatus(CertificateValidationStatus.VALID);
-        certificateRaProfile1.setCertificateContent(certificateContent);
-        certificateRaProfile1.setCertificateContentId(certificateContent.getId());
+        certificateRaProfile1.setCertificateContentId(newContent().getId());
         certificateRaProfile1.setRaProfile(raProfile);
         certificateRaProfile1 = certificateRepository.save(certificateRaProfile1);
 
@@ -123,8 +123,7 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         certificateRaProfile2.setSerialNumber("12345678");
         certificateRaProfile2.setState(CertificateState.ISSUED);
         certificateRaProfile2.setValidationStatus(CertificateValidationStatus.VALID);
-        certificateRaProfile2.setCertificateContent(certificateContent);
-        certificateRaProfile2.setCertificateContentId(certificateContent.getId());
+        certificateRaProfile2.setCertificateContentId(newContent().getId());
         certificateRaProfile2.setRaProfile(raProfile2);
         certificateRaProfile2 = certificateRepository.save(certificateRaProfile2);
     }

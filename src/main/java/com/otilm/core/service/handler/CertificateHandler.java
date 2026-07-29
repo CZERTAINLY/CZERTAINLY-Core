@@ -9,6 +9,8 @@ import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.otilm.core.events.handlers.discovery.DiscoverySource;
+import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.dao.entity.Certificate;
@@ -16,8 +18,8 @@ import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
-import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.events.transaction.CertificateValidationEvent;
+import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.ValidationMessage;
 import com.otilm.core.service.*;
@@ -63,8 +65,19 @@ public class CertificateHandler {
     private CryptographicKeyInternalService cryptographicKeyService;
 
     private CertificateRepository certificateRepository;
-    private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+    private DiscoveryWriter discoveryWriter;
+    private TransactionHandler transactionHandler;
+
+    @Autowired
+    public void setDiscoveryWriter(DiscoveryWriter discoveryWriter) {
+        this.discoveryWriter = discoveryWriter;
+    }
+
+    @Autowired
+    public void setTransactionHandler(TransactionHandler transactionHandler) {
+        this.transactionHandler = transactionHandler;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -100,11 +113,6 @@ public class CertificateHandler {
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
-    }
-
-    @Autowired
-    public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
-        this.discoveryRepository = discoveryRepository;
     }
 
     @Autowired
@@ -162,7 +170,7 @@ public class CertificateHandler {
                 if (existingCertificate == null) {
                     discoveryCertificate.setCertificateContent(certificateService.checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert)));
                 } else {
-                    updateDiscoveredCertificate(discovery, existingCertificate, certificate.getMeta());
+                    updateDiscoveredCertificate(DiscoverySource.of(discovery), existingCertificate, certificate.getMeta());
                     discoveryCertificate.setProcessed(true);
                 }
 
@@ -172,10 +180,27 @@ public class CertificateHandler {
             }
         }
 
-        // report progress
-        Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
-        discovery.setMessage(String.format("Downloaded %d %% of discovered certificates from provider (%d / %d)", (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100), currentCount, discovery.getConnectorTotalCertificatesDiscovered()));
-        discoveryRepository.save(discovery);
+    }
+
+    /**
+     * Called after {@link #createDiscoveredCertificate} returns: reporting from inside that transaction cost a second
+     * pooled connection per batch and held the discovery row's write lock, serialising the batches on it.
+     * <p>
+     * Failures are swallowed -- progress is cosmetic, and letting one out would have the caller log the batch as
+     * failed. Addressed by identifier, not by saving the detached instance every batch holds a copy of.
+     */
+    public void reportDownloadProgress(DiscoveryHistory discovery) {
+        try {
+            Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
+            String progress = String.format(
+                    "Downloaded %d %% of discovered certificates from provider (%d / %d)",
+                    (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100),
+                    currentCount, discovery.getConnectorTotalCertificatesDiscovered());
+            transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(discovery.getUuid(), progress));
+        } catch (Exception e) {
+            logger.error("Unable to report download progress of discovery {}. Message: {}",
+                    discovery.getName(), e.getMessage(), e);
+        }
     }
 
     /**
@@ -230,22 +255,22 @@ public class CertificateHandler {
     }
 
     @Transactional
-    public void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {
+    public void updateDiscoveredCertificate(DiscoverySource source, Certificate certificate, List<MetadataAttribute> metadata) {
         try {
-            attributeEngine.updateMetadataAttributes(metadata, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(discovery.getConnectorUuid()).source(Resource.DISCOVERY, discovery.getUuid()).sourceName(discovery.getName()).build());
+            attributeEngine.updateMetadataAttributes(metadata, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(source.connectorUuid()).source(Resource.DISCOVERY, source.discoveryUuid()).sourceName(source.discoveryName()).build());
         } catch (AttributeException e) {
             logger.error("Could not update metadata for discovery certificate {}.", certificate.getUuid());
         }
         Map<String, Object> additionalInfo = new HashMap<>();
-        additionalInfo.put("Discovery Name", discovery.getName());
-        additionalInfo.put("Discovery UUID", discovery.getUuid());
-        additionalInfo.put("Discovery Connector Name", discovery.getConnectorName());
-        additionalInfo.put("Discovery Kind", discovery.getKind());
+        additionalInfo.put("Discovery Name", source.discoveryName());
+        additionalInfo.put("Discovery UUID", source.discoveryUuid());
+        additionalInfo.put("Discovery Connector Name", source.connectorName());
+        additionalInfo.put("Discovery Kind", source.discoveryKind());
         certificateEventHistoryService.addEventHistory(
                 certificate.getUuid(),
                 CertificateEvent.DISCOVERY,
                 CertificateEventStatus.SUCCESS,
-                "Discovered from Connector: " + discovery.getConnectorName() + " via discovery: " + discovery.getName(),
+                "Discovered from Connector: " + source.connectorName() + " via discovery: " + source.discoveryName(),
                 MetaDefinitions.serialize(additionalInfo)
         );
     }

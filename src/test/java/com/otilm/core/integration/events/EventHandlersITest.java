@@ -1,5 +1,19 @@
 package com.otilm.core.integration.events;
 
+import com.otilm.core.service.handler.CertificateHandler;
+import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.compliance.ComplianceStatus;
+import com.otilm.api.model.core.certificate.CertificateValidationStatus;
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.core.util.X509ObjectToString;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.asn1.x500.X500Name;
+import java.security.KeyPairGenerator;
+import java.security.KeyPair;
+import java.math.BigInteger;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.EventException;
@@ -81,6 +95,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.verify;
 
@@ -137,6 +155,9 @@ class EventHandlersITest extends BaseSpringBootTest {
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     @MockitoSpyBean
     private EventProducer eventProducer;
+
+    @MockitoSpyBean
+    private CertificateHandler certificateHandler;
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -589,6 +610,270 @@ class EventHandlersITest extends BaseSpringBootTest {
         discovery.setConnectorUuid(UUID.randomUUID());
         discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
         return discoveryRepository.save(discovery);
+    }
+
+    /**
+     * Several rows carrying the same certificate must produce one certificate and no rollback. Left to race on an
+     * unguarded find-then-insert, all but one roll back and take the certificate and the record of why with them.
+     */
+    @Test
+    void testCertificateDiscoveredImportsOneCertificateForDuplicateRows() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        List<DiscoveryCertificate> rows = List.of(
+                persistDiscoveryCertificate(discovery, content, "host-one"),
+                persistDiscoveryCertificate(discovery, content, "host-two"),
+                persistDiscoveryCertificate(discovery, content, "host-three"));
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Assertions.assertTrue(certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509)).isPresent(),
+                "the group must yield exactly one certificate");
+        Assertions.assertEquals(1, certificateRepository.findAll().stream()
+                        .filter(certificate -> content.getId().equals(certificate.getCertificateContentId())).count(),
+                "no duplicate certificate rows for one content");
+        for (DiscoveryCertificate row : rows) {
+            DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+            Assertions.assertTrue(reloaded.isProcessed(), "every row in the group must be marked processed");
+            Assertions.assertNull(reloaded.getProcessedError(),
+                    "a deduplicated row is not a failure: " + reloaded.getProcessedError());
+        }
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
+                msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
+                        && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
+    }
+
+    /**
+     * An ignore trigger conditioned on the fingerprint must keep the certificate out of the inventory.
+     *
+     * <p>The candidate the ignore triggers evaluate is built in memory, so every field a rule can read has to be
+     * stamped on it explicitly. Miss the fingerprint and the condition reads null: the evaluator records a failed
+     * condition and swallows it, so the rule silently stops matching and the certificate is imported anyway — no
+     * exception, no warning, nothing but a trigger-history note.
+     */
+    @Test
+    void testCertificateDiscoveredHonoursAnIgnoreTriggerConditionedOnTheFingerprint() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        String fingerprint = CertificateUtil.getThumbprint(x509);
+        CertificateContent content = persistContentFor(x509);
+        DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "ignored-host");
+        createFingerprintIgnoreTrigger(discovery.getUuid(), fingerprint);
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Assertions.assertFalse(certificateRepository.findByFingerprint(fingerprint).isPresent(),
+                "the ignore trigger matched on the fingerprint, so nothing may be imported");
+        DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+        Assertions.assertTrue(reloaded.isProcessed(), "an ignored row is still handled");
+        Assertions.assertNull(reloaded.getProcessedError(), "being ignored is not a failure");
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
+                msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
+                        && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
+    }
+
+    private void createFingerprintIgnoreTrigger(UUID discoveryUuid, String fingerprint)
+            throws AlreadyExistException, NotFoundException {
+        createPropertyIgnoreTrigger(discoveryUuid, FilterField.FINGERPRINT, FilterConditionOperator.EQUALS, fingerprint);
+    }
+
+    private void createPropertyIgnoreTrigger(UUID discoveryUuid, FilterField field,
+                                             FilterConditionOperator operator, Object value)
+            throws AlreadyExistException, NotFoundException {
+        ConditionItemRequestDto conditionItemRequest = new ConditionItemRequestDto();
+        conditionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
+        conditionItemRequest.setFieldIdentifier(field.name());
+        conditionItemRequest.setOperator(operator);
+        conditionItemRequest.setValue(value);
+
+        ConditionRequestDto conditionRequest = new ConditionRequestDto();
+        conditionRequest.setName("FingerprintEqualsCondition");
+        conditionRequest.setResource(Resource.CERTIFICATE);
+        conditionRequest.setType(ConditionType.CHECK_FIELD);
+        conditionRequest.setItems(List.of(conditionItemRequest));
+        ConditionDto condition = ruleService.createCondition(conditionRequest);
+
+        RuleRequestDto ruleRequest = new RuleRequestDto();
+        ruleRequest.setName("FingerprintEqualsRule");
+        ruleRequest.setResource(Resource.CERTIFICATE);
+        ruleRequest.setConditionsUuids(List.of(condition.getUuid()));
+        RuleDetailDto rule = ruleService.createRule(ruleRequest);
+
+        TriggerRequestDto triggerRequest = new TriggerRequestDto();
+        triggerRequest.setName("IgnoreByFingerprintTrigger");
+        triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
+        triggerRequest.setResource(Resource.CERTIFICATE);
+        triggerRequest.setRulesUuids(List.of(rule.getUuid()));
+        triggerRequest.setActionsUuids(List.of());
+        triggerRequest.setIgnoreTrigger(true);
+        TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
+
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+        mockAuthResponse(AuthHelper.getUserIdentification());
+
+        triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
+                discoveryUuid, List.of(UUID.fromString(trigger.getUuid())), true);
+    }
+
+    /**
+     * A property condition reading through an association the certificate does not have must not cost the import.
+     * A discovered certificate has no RA profile, so resolving {@code raProfile.name} throws unchecked — and because
+     * the evaluator is {@code @Transactional}, that used to mark the group's transaction rollback-only past any catch
+     * here. Every group evaluates the same triggers, so one such rule imported nothing at all.
+     */
+    @Test
+    void testCertificateDiscoveredImportsDespiteAConditionOnAnAbsentAssociation() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "no-ra-profile-host");
+        createPropertyIgnoreTrigger(discovery.getUuid(), FilterField.RA_PROFILE_NAME,
+                FilterConditionOperator.EMPTY, null);
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Assertions.assertTrue(certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509)).isPresent(),
+                "an unevaluable condition must not cost the certificate its import");
+        DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+        Assertions.assertTrue(reloaded.isProcessed());
+        Assertions.assertNull(reloaded.getProcessedError(),
+                "unexpected reason: " + reloaded.getProcessedError());
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
+                msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
+                        && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
+    }
+
+    /**
+     * A group whose import rolls back must record why on every one of its rows — the reason has to survive the
+     * failure that produced it — and must not also be counted as a missing key association.
+     *
+     * <p>The failure is the production one, not an injected stub: an existing certificate already occupies this
+     * content id under a different fingerprint, so the group's insert violates the unique constraint on
+     * {@code certificate_content_id} — the same constraint whose violation loses certificates in the field.
+     */
+    @Test
+    void testCertificateDiscoveredRecordsARolledBackGroupWithoutCountingItAsAKeyGap() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "rolling-back-host");
+        occupyContentIdWithAnotherCertificate(content);
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+        Assertions.assertTrue(reloaded.isProcessed(),
+                "the outcome must be recorded even though the import transaction failed");
+        Assertions.assertNotNull(reloaded.getProcessedError(), "the row must carry the reason");
+        // The specific reason, not merely a non-null one: returning a shaped result from a transaction already
+        // marked rollback-only lets the commit's own generic text replace it, which a non-null assertion cannot see.
+        Assertions.assertEquals(
+                "Import rolled back: unable to create certificate entity: "
+                        + "a concurrent import committed the same certificate",
+                reloaded.getProcessedError());
+        Assertions.assertFalse(reloaded.getProcessedError().contains("insert into"),
+                "the reason must not leak SQL: " + reloaded.getProcessedError());
+        Assertions.assertFalse(reloaded.getProcessedError().contains("certificate_content_id"),
+                "the reason must not leak column names: " + reloaded.getProcessedError());
+
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) -> {
+            if (msg.getEvent() != ResourceEvent.DISCOVERY_FINISHED) return false;
+            DiscoveryResult result = (DiscoveryResult) msg.getData();
+            return result.getDiscoveryStatus() == DiscoveryStatus.WARNING
+                    && result.getMessage().contains("could not be imported into the inventory")
+                    && !result.getMessage().contains("without a public key association");
+        }));
+    }
+
+    /**
+     * A key association that fails must be attributed to the certificate, marking every discovered row behind it
+     * and counting the certificate once. The upload itself is stubbed because a failure of the cryptographic key
+     * service has no natural trigger here; the surrounding wiring — accumulator re-classification, per-row
+     * reasons, and the status message — is what this exercises.
+     */
+    @Test
+    void testCertificateDiscoveredAttributesAFailedKeyAssociationToEveryRow() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        List<DiscoveryCertificate> rows = List.of(
+                persistDiscoveryCertificate(discovery, content, "host-one"),
+                persistDiscoveryCertificate(discovery, content, "host-two"));
+        doReturn(false).when(certificateHandler).uploadDiscoveredCertificateKey(any(), anyList());
+
+        try {
+            certificateDiscoveredEventHandler.handleEvent(
+                    CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+            for (DiscoveryCertificate row : rows) {
+                DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+                Assertions.assertNotNull(reloaded.getProcessedError(),
+                        "every row behind the certificate must record the failed association");
+                Assertions.assertTrue(reloaded.getProcessedError().contains("key could not be associated"),
+                        "unexpected reason: " + reloaded.getProcessedError());
+            }
+            verify(eventProducer).produceMessage(argThat((EventMessage msg) -> {
+                if (msg.getEvent() != ResourceEvent.DISCOVERY_FINISHED) return false;
+                DiscoveryResult result = (DiscoveryResult) msg.getData();
+                return result.getDiscoveryStatus() == DiscoveryStatus.WARNING
+                        && result.getMessage().contains("1 certificate(s) were imported without all of their public keys associated")
+                        && !result.getMessage().contains("could not be imported into the inventory");
+            }));
+        } finally {
+            reset(certificateHandler);
+        }
+    }
+
+    private void occupyContentIdWithAnotherCertificate(CertificateContent content) {
+        Certificate squatter = new Certificate();
+        squatter.setUuid(UUID.randomUUID());
+        squatter.setFingerprint("squatter-" + UUID.randomUUID());
+        squatter.setCertificateContentId(content.getId());
+        squatter.setState(CertificateState.ISSUED);
+        squatter.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+        squatter.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
+        squatter.setCertificateType(CertificateType.X509);
+        certificateRepository.save(squatter);
+    }
+
+    private CertificateContent persistContentFor(X509Certificate x509) throws Exception {
+        CertificateContent content = new CertificateContent();
+        content.setFingerprint(CertificateUtil.getThumbprint(x509));
+        content.setContent(CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(x509)));
+        return certificateContentRepository.save(content);
+    }
+
+    private DiscoveryCertificate persistDiscoveryCertificate(DiscoveryHistory discovery, CertificateContent content,
+                                                             String host) {
+        DiscoveryCertificate row = new DiscoveryCertificate();
+        row.setCommonName(host);
+        row.setNewlyDiscovered(true);
+        row.setCertificateContent(content);
+        row.setDiscovery(discovery);
+        row.setDiscoveryUuid(discovery.getUuid());
+        row.setMeta(List.of());
+        return discoveryCertificateRepository.save(row);
+    }
+
+    private static X509Certificate generateSelfSignedCertificate() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        X500Name subject = new X500Name("CN=discovery-group-itest-" + UUID.randomUUID());
+        Instant now = Instant.now();
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                subject, BigInteger.valueOf(now.toEpochMilli()),
+                Date.from(now.minusSeconds(60)), Date.from(now.plusSeconds(86400)), subject, keyPair.getPublic());
+        return new JcaX509CertificateConverter()
+                .getCertificate(builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate())));
     }
 
     @Test

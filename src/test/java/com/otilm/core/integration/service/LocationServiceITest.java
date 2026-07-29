@@ -113,10 +113,13 @@ class LocationServiceITest extends BaseSpringBootTest {
         certificate.setSerialNumber("cc4ab59d436a88dae957");
         certificate = certificateRepository.save(certificate);
 
+        // Its own content: the schema allows only one certificate per content.
+        CertificateContent contentWithoutLocation = certificateContentRepository.save(new CertificateContent());
+
         certificateWithoutLocation = new Certificate();
         certificateWithoutLocation.setState(CertificateState.ISSUED);
         certificateWithoutLocation.setValidationStatus(CertificateValidationStatus.VALID);
-        certificateWithoutLocation.setCertificateContentId(certificateContent.getId());
+        certificateWithoutLocation.setCertificateContentId(contentWithoutLocation.getId());
         certificateWithoutLocation.setSerialNumber("aa4ab59d436a88dae957");
         certificateWithoutLocation = certificateRepository.save(certificateWithoutLocation);
 

@@ -75,7 +75,9 @@ import com.otilm.core.service.*;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapter;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
+import com.otilm.core.events.handlers.discovery.DiscoveredCertificateImport;
 import com.otilm.core.service.writer.CertificateValidationWriter;
+import com.otilm.core.service.writer.DiscoveryCertificateContentWriter;
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.*;
@@ -96,6 +98,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
@@ -116,6 +119,7 @@ import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.time.Duration;
 import java.time.Instant;
+import java.security.cert.CertificateEncodingException;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -158,6 +162,8 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     private GroupAssociationRepository groupAssociationRepository;
     private LocationRepository locationRepository;
     private CertificateContentRepository certificateContentRepository;
+    private DiscoveryCertificateContentWriter discoveryCertificateContentWriter;
+    private AuditorAware<String> auditorAware;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private ComplianceInternalService complianceService;
     private ComplianceExternalService complianceExternalService;
@@ -326,6 +332,16 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     @Autowired
     public void setCertificateContentRepository(CertificateContentRepository certificateContentRepository) {
         this.certificateContentRepository = certificateContentRepository;
+    }
+
+    @Autowired
+    public void setDiscoveryCertificateContentWriter(DiscoveryCertificateContentWriter discoveryCertificateContentWriter) {
+        this.discoveryCertificateContentWriter = discoveryCertificateContentWriter;
+    }
+
+    @Autowired
+    public void setAuditorAware(AuditorAware<String> auditorAware) {
+        this.auditorAware = auditorAware;
     }
 
     @Autowired
@@ -1336,6 +1352,60 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         return entity;
     }
 
+    /**
+     * Creates or adopts the certificate for a discovered content group.
+     *
+     * <p>Deliberately not annotated with {@code @ExternalAuthorization}: the caller authorizes
+     * {@code (CERTIFICATE, CREATE)} once per discovery run, outside any transaction, because that check is a
+     * blocking OPA request and must not be held across one. A new caller of this method is responsible for its
+     * own authorization.
+     *
+     * <p>Unlike {@link #createCertificateAtomic}, this performs no key upload, owner assignment or compliance
+     * check — discovery does those in its own phases.
+     */
+    @Override
+    // Pinned rather than inherited: the discovery orchestrator distinguishes a checked failure here -- whose
+    // transaction is still clean, so it can record a shaped reason and commit it -- from a runtime one, which has
+    // already marked the transaction rollback-only. Spring's default happens to agree, but the caller's correctness
+    // should not rest on a default that a class-level rollbackFor could silently reverse.
+    @Transactional(noRollbackFor = {NoSuchAlgorithmException.class, CertificateEncodingException.class,
+            NotFoundException.class})
+    public DiscoveredCertificateImport createDiscoveredCertificateAtomic(X509Certificate certificate)
+            throws NoSuchAlgorithmException, CertificateEncodingException, NotFoundException {
+        String fingerprint = CertificateUtil.getThumbprint(certificate);
+
+        Optional<Certificate> existing = certificateRepository.findByFingerprint(fingerprint);
+        if (existing.isPresent()) {
+            return new DiscoveredCertificateImport(existing.get());
+        }
+
+        discoveryCertificateContentWriter.insertContent(fingerprint,
+                CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(certificate)));
+        CertificateContent content = certificateContentRepository.findByFingerprint(fingerprint);
+        if (content == null) {
+            throw new NotFoundException(CertificateContent.class, fingerprint);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Certificate entity = new Certificate();
+        // The native insert bypasses @PrePersist and the auditing listener, so every audit column is set here --
+        // author included, which would otherwise stay null on every discovered certificate.
+        entity.setUuid(UUID.randomUUID());
+        entity.setCreated(now);
+        entity.setUpdated(now);
+        entity.setAuthor(auditorAware.getCurrentAuditor().orElse(null));
+        entity.setFingerprint(fingerprint);
+        entity.setCertificateContent(content);
+        entity.setCertificateContentId(content.getId());
+        CertificateUtil.prepareIssuedCertificate(entity, certificate);
+
+        discoveryCertificateContentWriter.insertCertificate(entity);
+        // Always the re-read row: on a lost race it carries the winner's UUID, not the one assigned above.
+        Certificate persisted = certificateRepository.findByFingerprint(fingerprint)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
+        return new DiscoveredCertificateImport(persisted);
+    }
+
     @Override
     public Certificate createCertificateAtomic(String certificate, boolean assignOwner) throws CertificateException, NoSuchAlgorithmException, NotFoundException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
@@ -1349,9 +1419,11 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
         OffsetDateTime now = OffsetDateTime.now();
         Certificate certificateEntity = new Certificate();
+        // The native insert bypasses @PrePersist and the auditing listener, so every audit column is set here.
         certificateEntity.setUuid(UUID.randomUUID());
         certificateEntity.setCreated(now);
         certificateEntity.setUpdated(now);
+        certificateEntity.setAuthor(auditorAware.getCurrentAuditor().orElse(null));
         certificateEntity.setFingerprint(fingerprint);
         certificateEntity.setCertificateContent(certificateContent);
         CertificateUtil.prepareIssuedCertificate(certificateEntity, x509Cert);

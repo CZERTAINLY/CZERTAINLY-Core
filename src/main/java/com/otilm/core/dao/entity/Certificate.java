@@ -82,7 +82,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     @ToString.Exclude
     private CertificateContent certificateContent;
 
-    @Column(name = "certificate_content_id")
+    @Column(name = "certificate_content_id", unique = true)
     private Long certificateContentId;
 
     @Column(name = "issuer_dn")

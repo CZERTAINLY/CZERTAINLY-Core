@@ -646,6 +646,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 logger.trace("Downloading batch {} of discovered certificates for discovery {}.", currentPage, discovery.getName());
 
                 certificateHandler.createDiscoveredCertificate(String.valueOf(currentPage), discovery, discoveredCertificates);
+                // After the batch commits, so the write needs neither a nested transaction nor a second connection.
+                certificateHandler.reportDownloadProgress(discovery);
             } catch (InterruptedException e) {
                 logger.error("Downloading batch {} of discovered certificates for discovery {} interrupted.", currentPage, discovery.getName(), e);
                 Thread.currentThread().interrupt();
