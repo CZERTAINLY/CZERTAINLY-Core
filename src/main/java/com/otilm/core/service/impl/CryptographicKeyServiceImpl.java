@@ -352,7 +352,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
                         tokenProfileUuid)
                 .orElseThrow(
                         () -> new NotFoundException(
-                                TokenInstanceReference.class,
+                                TokenProfile.class,
                                 tokenProfileUuid
                         )
                 );

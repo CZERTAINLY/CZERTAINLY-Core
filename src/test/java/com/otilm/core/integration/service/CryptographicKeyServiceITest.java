@@ -316,12 +316,15 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         KeyRequestDto request = new KeyRequestDto();
         request.setName("keyOnDisabledTokenProfile");
         request.setAttributes(List.of());
+        UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
+        SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
+        mockServer.resetRequests();
 
         ValidationException exception = Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicKeyService.createKey(
-                        tokenInstanceReference.getUuid(),
-                        tokenProfile.getSecuredParentUuid(),
+                        tokenInstanceUuid,
+                        tokenProfileUuid,
                         KeyRequestType.SECRET,
                         request
                 )
@@ -329,6 +332,26 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         Assertions.assertTrue(exception.getMessage().contains("Token Profile"));
         Assertions.assertTrue(exception.getMessage().contains("disabled"));
         mockServer.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()));
+    }
+
+    @Test
+    void testAddKey_tokenProfileNotFound() {
+        KeyRequestDto request = new KeyRequestDto();
+        request.setName("keyOnMissingTokenProfile");
+        UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
+        SecuredParentUUID missingTokenProfileUuid = SecuredParentUUID.fromUUID(UUID.randomUUID());
+
+        NotFoundException exception = Assertions.assertThrows(
+                NotFoundException.class,
+                () -> cryptographicKeyService.createKey(
+                        tokenInstanceUuid,
+                        missingTokenProfileUuid,
+                        KeyRequestType.SECRET,
+                        request
+                )
+        );
+
+        Assertions.assertTrue(exception.getMessage().contains(TokenProfile.class.getSimpleName()));
     }
 
     @Test
