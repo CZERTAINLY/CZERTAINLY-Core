@@ -1364,6 +1364,12 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
      * check — discovery does those in its own phases.
      */
     @Override
+    // Pinned rather than inherited: the discovery orchestrator distinguishes a checked failure here -- whose
+    // transaction is still clean, so it can record a shaped reason and commit it -- from a runtime one, which has
+    // already marked the transaction rollback-only. Spring's default happens to agree, but the caller's correctness
+    // should not rest on a default that a class-level rollbackFor could silently reverse.
+    @Transactional(noRollbackFor = {NoSuchAlgorithmException.class, CertificateEncodingException.class,
+            NotFoundException.class})
     public DiscoveredCertificateImport createDiscoveredCertificateAtomic(X509Certificate certificate)
             throws NoSuchAlgorithmException, CertificateEncodingException, NotFoundException {
         String fingerprint = CertificateUtil.getThumbprint(certificate);

@@ -82,7 +82,7 @@ public class DiscoveryRunAccumulator {
     public DiscoveryRunCounts counts() {
         return new DiscoveryRunCounts(
                 contentIdsWithInventoryGap.size(),
-                keyFailureReasons.size() + contentIdsWithKeyGap.size(),
+                (long) keyFailureReasons.size() + contentIdsWithKeyGap.size(),
                 contentIdsNotAttempted.size(),
                 bookkeepingFailures);
     }

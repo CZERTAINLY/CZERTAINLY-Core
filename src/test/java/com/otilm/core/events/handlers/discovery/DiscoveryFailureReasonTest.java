@@ -40,8 +40,8 @@ class DiscoveryFailureReasonTest {
                 new DataIntegrityViolationException("duplicate key value violates unique constraint",
                         uniqueViolation("certificate_fingerprint_key"))));
 
-        assertThat(reason).isEqualTo("a concurrent import committed the same certificate");
-        assertThat(reason).doesNotContain("insert into").doesNotContain("core.certificate");
+        assertThat(reason).isEqualTo("a concurrent import committed the same certificate")
+                .doesNotContain("insert into").doesNotContain("core.certificate");
     }
 
     @Test
@@ -80,8 +80,8 @@ class DiscoveryFailureReasonTest {
                         + "\"certificate_fingerprint_key\"] [insert into core.certificate (uuid,fingerprint) ...]",
                 uniqueViolation("certificate_fingerprint_key")));
 
-        assertThat(reason).isEqualTo("a concurrent import committed the same certificate");
-        assertThat(reason).doesNotContain("insert into").doesNotContain("certificate_fingerprint_key");
+        assertThat(reason).isEqualTo("a concurrent import committed the same certificate")
+                .doesNotContain("insert into").doesNotContain("certificate_fingerprint_key");
     }
 
     /**

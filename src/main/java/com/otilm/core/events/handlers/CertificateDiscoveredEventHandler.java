@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -212,9 +213,20 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         EventHistory eventHistoryDiscovery = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid());
         EventHistory eventHistoryPlatform = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, null, null);
 
+        // One group per certificate, so two threads cannot race on the same insert (see DiscoveryContentGroup).
+        List<DiscoveryContentGroup> groups = discoveredCertificates.stream()
+                .collect(Collectors.groupingBy(DiscoveryCertificate::getCertificateContentId,
+                        LinkedHashMap::new, Collectors.toList()))
+                .entrySet().stream()
+                .map(entry -> new DiscoveryContentGroup(entry.getKey(), entry.getValue()))
+                .toList();
+        DiscoveryRunContext runContext = new DiscoveryRunContext(discovery.getUuid(), discovery.getName(),
+                discovery.getConnectorUuid(), discovery.getConnectorName(), discovery.getKind(),
+                context.getUserUuid(), mergedIgnoreTriggers, mergedTriggers,
+                eventHistoryDiscovery.getUuid(), eventHistoryPlatform.getUuid(), groups.size(), context);
+
         try {
-            importAndReport(context, discovery, originalMessage, discoveredCertificates, mergedIgnoreTriggers,
-                    mergedTriggers, eventHistoryDiscovery, eventHistoryPlatform);
+            importAndReport(runContext, groups, originalMessage, eventHistoryDiscovery, eventHistoryPlatform);
         } catch (RuntimeException e) {
             // The histories persist outside any transaction, so without this they stay IN_PROGRESS forever. A
             // history already FINISHED is left alone: the import committed, and overwriting it with FAILED would
@@ -231,23 +243,9 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
-    private void importAndReport(EventContext<Certificate> context, DiscoveryHistory discovery, String originalMessage,
-                                 List<DiscoveryCertificate> discoveredCertificates,
-                                 List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers,
-                                 EventHistory eventHistoryDiscovery, EventHistory eventHistoryPlatform) {
-        // One group per certificate, so two threads cannot race on the same insert (see DiscoveryContentGroup).
-        List<DiscoveryContentGroup> groups = discoveredCertificates.stream()
-                .collect(Collectors.groupingBy(DiscoveryCertificate::getCertificateContentId,
-                        LinkedHashMap::new, Collectors.toList()))
-                .entrySet().stream()
-                .map(entry -> new DiscoveryContentGroup(entry.getKey(), entry.getValue()))
-                .toList();
-
-        DiscoveryRunContext runContext = new DiscoveryRunContext(discovery.getUuid(), discovery.getName(),
-                discovery.getConnectorUuid(), discovery.getConnectorName(), discovery.getKind(),
-                context.getUserUuid(), mergedIgnoreTriggers, mergedTriggers,
-                eventHistoryDiscovery.getUuid(), eventHistoryPlatform.getUuid(), groups.size(), context);
-
+    private void importAndReport(DiscoveryRunContext runContext, List<DiscoveryContentGroup> groups,
+                                 String originalMessage, EventHistory eventHistoryDiscovery,
+                                 EventHistory eventHistoryPlatform) {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
         Map<PublicKey, List<UUID>> keyToCertificates = new LinkedHashMap<>();
         Map<PublicKey, List<UUID>> altKeyToCertificates = new LinkedHashMap<>();
@@ -265,19 +263,11 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                             group -> importGroupSafely(runContext, group), executor, MAXIMUM_PARALLELISM))
                     .iterator();
             while (true) {
-                GroupImportResult result;
-                try {
-                    if (!results.hasNext()) {
-                        break;
-                    }
-                    result = results.next();
-                } catch (Exception e) {
-                    // A failure surfacing from the stream itself — cancellation, or something that escaped the
-                    // mapper — must not discard the groups already consumed and recorded.
-                    logger.error("Discovery post-processing stopped consuming group results early: {}",
-                            e.getMessage(), e);
+                Optional<GroupImportResult> next = nextResult(results);
+                if (next.isEmpty()) {
                     break;
                 }
+                GroupImportResult result = next.get();
                 consumedContentIds.add(result.certificateContentId());
                 accumulator.accept(result);
                 writeBookkeeping(accumulator, result);
@@ -309,7 +299,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             accumulator.recordBookkeepingFailure();
         }
         DiscoveryResult result = decideFinalStatus(accumulator.counts(), originalMessage);
-        emitDiscoveryFinished(runContext.discoveryUuid(), context, result.getDiscoveryStatus(), result.getMessage());
+        emitDiscoveryFinished(runContext.discoveryUuid(), runContext.eventContext(),
+                result.getDiscoveryStatus(), result.getMessage());
     }
 
     /**
@@ -474,6 +465,20 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                         entry.getValue(), e.getMessage(), e);
                 accumulator.recordBookkeepingFailure();
             }
+        }
+    }
+
+    /**
+     * The next result, or empty once the stream is done — or has failed. A failure surfacing from the stream itself
+     * (cancellation, or anything that escaped the mapper) ends consumption rather than propagating: the groups
+     * already consumed and recorded must not be discarded, and whatever went unconsumed is accounted for afterwards.
+     */
+    private Optional<GroupImportResult> nextResult(Iterator<GroupImportResult> results) {
+        try {
+            return results.hasNext() ? Optional.of(results.next()) : Optional.empty();
+        } catch (Exception e) {
+            logger.error("Discovery post-processing stopped consuming group results early: {}", e.getMessage(), e);
+            return Optional.empty();
         }
     }
 

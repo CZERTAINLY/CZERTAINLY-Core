@@ -68,7 +68,8 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
         assertThatThrownBy(() -> newTransaction().executeWithoutResult(status -> {
             discoveryWriter.markProcessed(List.of(row.getUuid()), "Import rolled back: database constraint violation");
             throw new IllegalStateException("caller fails after the writer ran");
-        })).isInstanceOf(IllegalStateException.class);
+        })).isInstanceOf(IllegalStateException.class)
+                .hasMessage("caller fails after the writer ran");
 
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         assertThat(reloaded.isProcessed())
@@ -89,7 +90,8 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
             transactionHandler.runInNewTransaction(() ->
                     discoveryWriter.markProcessed(List.of(row.getUuid()), "Import rolled back: database constraint violation"));
             throw new IllegalStateException("caller fails after the writer ran");
-        })).isInstanceOf(IllegalStateException.class);
+        })).isInstanceOf(IllegalStateException.class)
+                .hasMessage("caller fails after the writer ran");
 
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         assertThat(reloaded.isProcessed()).isTrue();
