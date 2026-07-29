@@ -356,6 +356,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
                                 tokenProfileUuid
                         )
                 );
+        if (!Boolean.TRUE.equals(tokenProfile.getEnabled())) {
+            throw new ValidationException(ValidationError.create("Token Profile is disabled"));
+        }
 
         attributeEngine.validateCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, request.getCustomAttributes());
         mergeAndValidateAttributes(type, tokenInstanceReference, request.getAttributes());

@@ -293,6 +293,45 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testAddKey_disabledTokenProfile() {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
+                .willReturn(WireMock.okJson("{}")));
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/status"))
+                .willReturn(WireMock.okJson("{}")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes/validate"))
+                .willReturn(WireMock.ok()));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret"))
+                .willReturn(WireMock.okJson("{\"name\":\"disabledProfileKey\", \"uuid\":\"249db149-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{\"type\":\"Secret\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"secret\"}}")));
+
+        tokenProfile.setEnabled(false);
+        tokenProfileRepository.saveAndFlush(tokenProfile);
+
+        KeyRequestDto request = new KeyRequestDto();
+        request.setName("keyOnDisabledTokenProfile");
+        request.setAttributes(List.of());
+
+        ValidationException exception = Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicKeyService.createKey(
+                        tokenInstanceReference.getUuid(),
+                        tokenProfile.getSecuredParentUuid(),
+                        KeyRequestType.SECRET,
+                        request
+                )
+        );
+        Assertions.assertTrue(exception.getMessage().contains("Token Profile"));
+        Assertions.assertTrue(exception.getMessage().contains("disabled"));
+        mockServer.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()));
+    }
+
+    @Test
     void testAddKey_validationFail() {
         KeyRequestDto request = new KeyRequestDto();
 
