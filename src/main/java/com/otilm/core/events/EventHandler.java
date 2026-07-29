@@ -15,6 +15,7 @@ import com.otilm.core.dao.repository.SecurityFilterRepository;
 import com.otilm.core.dao.repository.workflows.EventHistoryRepository;
 import com.otilm.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.otilm.core.evaluator.TriggerEvaluator;
+import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -24,14 +25,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 @Component
 @Transactional
@@ -202,6 +206,13 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     }
 
     protected void evaluateTriggers(EventContext<T> context, EventContextTriggers eventTriggers, T resourceObject, Object eventData, EventHistory eventHistory, List<RequestAttribute> pendingCustomAttributes) {
+        withActingUserRestored(context, () -> {
+            evaluateTriggerAssociations(context, eventTriggers, resourceObject, eventData, eventHistory, pendingCustomAttributes);
+            return null;
+        });
+    }
+
+    private void evaluateTriggerAssociations(EventContext<T> context, EventContextTriggers eventTriggers, T resourceObject, Object eventData, EventHistory eventHistory, List<RequestAttribute> pendingCustomAttributes) {
         for (TriggerAssociation triggerAssociation : eventTriggers.getTriggers()) {
             handleUser(context, triggerAssociation.getTriggeredBy());
             Trigger trigger = triggerAssociation.getTrigger();
@@ -219,6 +230,11 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     }
 
     protected boolean evaluateIgnoreTriggers(EventContext<T> context, EventContextTriggers eventTriggers, T resourceObject, Object eventData, EventHistory eventHistory, List<RequestAttribute> pendingCustomAttributes) {
+        return withActingUserRestored(context, () ->
+                evaluateIgnoreTriggerAssociations(context, eventTriggers, resourceObject, eventData, eventHistory, pendingCustomAttributes));
+    }
+
+    private boolean evaluateIgnoreTriggerAssociations(EventContext<T> context, EventContextTriggers eventTriggers, T resourceObject, Object eventData, EventHistory eventHistory, List<RequestAttribute> pendingCustomAttributes) {
         // First, check the ignore triggers
         boolean isIgnored = false;
         for (TriggerAssociation triggerAssociation : eventTriggers.getIgnoreTriggers()) {
@@ -237,8 +253,44 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         return isIgnored;
     }
 
+    /**
+     * Confines {@link #handleUser} impersonation to the trigger loop: trigger actions run as the association's owner,
+     * but the audited writes afterwards (Certificate, CertificateEventHistory) belong to the acting user, and JPA
+     * auditing stamps whoever is left in the context. Runs against a detached context because
+     * {@code authenticateAsUser} mutates the held one in place. Mirrors {@link AuthHelper#runAsSystem}.
+     */
+    private <R> R withActingUserRestored(EventContext<T> context, Supplier<R> triggerEvaluation) {
+        SecurityContext actingUserContext = SecurityContextHolder.getContext();
+        boolean actingUserWasAuthenticated = actingUserContext.getAuthentication() != null;
+        UUID actingUserUuid = context.getCurrentUserUuid();
+        Map<String, String> actingUserActor = LoggingHelper.snapshotActorInfo();
+        try {
+            SecurityContext detached = SecurityContextHolder.createEmptyContext();
+            detached.setAuthentication(actingUserContext.getAuthentication());
+            SecurityContextHolder.setContext(detached);
+            // Stops the acting user's actor name mixing with the trigger creator's uuid; restored in finally.
+            LoggingHelper.clearActorInfo();
+
+            return triggerEvaluation.get();
+        } finally {
+            if (actingUserWasAuthenticated) {
+                SecurityContextHolder.setContext(actingUserContext);
+            } else {
+                SecurityContextHolder.clearContext();
+            }
+            LoggingHelper.restoreActorInfo(actingUserActor);
+            context.setCurrentUserUuid(actingUserUuid);
+        }
+    }
+
+    /**
+     * A deleted association owner or an unreachable auth service is deliberately not degraded here, unlike the
+     * per-message failure in {@code EventListener}: that costs only attribution, whereas a trigger evaluated without
+     * its owner's identity would run its actions under other permissions. The exception escapes, marking the event
+     * FAILED.
+     */
     protected void handleUser(EventContext<T> context, UUID triggeredBy) {
-        if (!Objects.equals(context.getCurrentUserUuid(), triggeredBy)) {
+        if (!Objects.equals(installedUserUuid(context), triggeredBy)) {
             try {
                 logger.debug("Changing user from {} to {}", context.getCurrentUserUuid(), triggeredBy);
                 if (triggeredBy == null) {
@@ -254,5 +306,13 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
                 context.setCurrentUserUuid(null);
             }
         }
+    }
+
+    /**
+     * The user the thread actually holds. {@link EventContext#getCurrentUserUuid()} is seeded from the message, so it
+     * can name a user that was never installed, and trusting that memo alone would skip a needed impersonation.
+     */
+    private UUID installedUserUuid(EventContext<T> context) {
+        return SecurityContextHolder.getContext().getAuthentication() == null ? null : context.getCurrentUserUuid();
     }
 }

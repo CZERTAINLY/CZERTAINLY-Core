@@ -27,6 +27,7 @@ import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.X509ObjectToString;
 import org.bouncycastle.asn1.x509.Extension;
@@ -42,6 +43,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @Component(ResourceEvent.Codes.CERTIFICATE_UPLOADED)
 public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
@@ -81,8 +83,18 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
         this.certificateRepository = repository;
     }
 
+    /**
+     * Resolved on the producing thread — the consuming JMS listener thread has no SecurityContext, so the message is
+     * the only channel carrying the uploader to the audited writes.
+     * <p>
+     * This also widens authorization: the listener authenticates for the whole {@link #handleEvent} call, so trigger
+     * evaluation and the attribute engine's permission filters run as the uploader rather than unauthenticated.
+     * Nothing here is {@code @ExternalAuthorization}-gated, so an upload cannot newly be denied, and trigger actions
+     * still use the association owner's permissions via {@code handleUser}.
+     */
     public static EventMessage constructEventMessage(CertificateUploadEventMessageData data) {
-        return new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE, null, data);
+        return new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE, null,
+                null, null, data, AuthHelper.getActingUserUuidOrNull(), null);
     }
 
     @Override

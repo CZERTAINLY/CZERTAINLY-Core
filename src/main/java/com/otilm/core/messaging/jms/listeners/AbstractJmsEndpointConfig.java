@@ -1,5 +1,6 @@
 package com.otilm.core.messaging.jms.listeners;
 
+import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.messaging.jms.configuration.JmsRetryListener;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +14,7 @@ import org.springframework.jms.listener.MessageListenerContainer;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.MessagingException;
 import org.springframework.retry.support.RetryTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 
@@ -105,6 +107,11 @@ public abstract class AbstractJmsEndpointConfig<T> {
                     throw e; // Don't wrap, don't retry
                 } catch (Exception e) {
                     logger.error("Unexpected error in endpoint '{}'", endpointId, e);
+                } finally {
+                    // Invoker threads are long-lived: an identity installed for one message would otherwise be
+                    // inherited by the next and stamped onto its JPA-audited rows.
+                    SecurityContextHolder.clearContext();
+                    LoggingHelper.clearActorInfo();
                 }
 
                 return null;

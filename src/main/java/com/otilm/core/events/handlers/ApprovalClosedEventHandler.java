@@ -1,5 +1,6 @@
 package com.otilm.core.events.handlers;
 
+import com.otilm.api.model.client.approval.ApprovalStatusEnum;
 import com.otilm.api.model.common.events.data.ApprovalEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateEvent;
@@ -16,6 +17,7 @@ import com.otilm.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
+import com.otilm.core.util.AuthHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,7 +54,14 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
         }
     }
 
-    public static EventMessage constructEventMessage(UUID approvalUuid) {
-        return new EventMessage(ResourceEvent.APPROVAL_CLOSED, Resource.APPROVAL, approvalUuid, null);
+    /**
+     * Carries the approving or rejecting user so the certificate history row names them. A close as
+     * {@link ApprovalStatusEnum#EXPIRED} carries nobody: the expiry sweep runs as the scheduled job's user, who took
+     * no action on the approval, so that row is left to the system user.
+     */
+    public static EventMessage constructEventMessage(UUID approvalUuid, ApprovalStatusEnum closingStatus) {
+        UUID actingUser = closingStatus == ApprovalStatusEnum.EXPIRED ? null : AuthHelper.getActingUserUuidOrNull();
+        return new EventMessage(ResourceEvent.APPROVAL_CLOSED, Resource.APPROVAL, approvalUuid,
+                null, null, null, actingUser, null);
     }
 }
