@@ -313,12 +313,22 @@ public class ScepRequest {
                     throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
                 }
             } else {
+                // A non-key-transport CA key can only unwrap the RFC 8894 password recipient, which needs
+                // the shared challenge password: without one the request is undecryptable, not malformed.
+                if (challengePassword == null || challengePassword.isEmpty()) {
+                    throw new ScepException("A challenge password must be configured on the SCEP profile to decrypt "
+                            + "requests enveloped to a non-RSA CA key", FailInfo.BAD_ALG);
+                }
                 JcePasswordEnvelopedRecipient jcePasswordEnvelopedRecipient = new JcePasswordEnvelopedRecipient(challengePassword.toCharArray());
                 jcePasswordEnvelopedRecipient.setProvider(BouncyCastleProvider.PROVIDER_NAME);
                 decryptedData = recipient.getContent(jcePasswordEnvelopedRecipient);
             }
         }
-        assert decryptedData != null;
+        // A bare assert is a no-op in production: an EnvelopedData carrying no recipientInfo would skip the
+        // block above and reach the PKCS#10 parse with no content.
+        if (decryptedData == null) {
+            throw new ScepException("The SCEP request contains no recipient information to decrypt", FailInfo.BAD_REQUEST);
+        }
         try {
             if (messageType.equals(MessageType.PKCS_REQ) || messageType.equals(MessageType.RENEWAL_REQ)) {
                 pkcs10Request = new JcaPKCS10CertificationRequest(decryptedData);
