@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Secondary index: userUuid → set of opaque token-cache keys cached for that user. Each key is the
- * {@code settingsGeneration + ":" + jti} composite used by {@link PlatformAuthenticationCache}; this
+ * settings-generation, issuer and {@code jti} composite built by {@link PlatformAuthenticationCache}; this
  * index treats it as an opaque string and never parses it.
  * Enables per-user token eviction when only the userUuid is known.
  * Kept in sync automatically via the Caffeine removal listener registered in CacheConfig.

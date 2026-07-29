@@ -31,6 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PlatformAuthenticationClientITest extends BaseSpringBootTest {
+
+    private static final String ISSUER = "https://issuer.example.com";
+    private static final String OTHER_ISSUER = "https://other-issuer.example.com";
+
     private static MockWebServer authServiceMock;
 
     private PlatformAuthenticationClient authenticationClient;
@@ -237,7 +241,7 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
     void authenticateByToken_cacheMiss_callsAuthService() {
         // given
         setUpSuccessfulAuthenticationResponse();
-        Map<String, Object> claims = Map.of("jti", "jti-test-123");
+        Map<String, Object> claims = Map.of("iss", ISSUER, "jti", "jti-test-123");
 
         // when
         AuthenticationInfo result = authenticationClient.authenticateByToken(claims, 1L);
@@ -251,7 +255,7 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
     void authenticateByToken_cacheHit_doesNotCallAuthService() {
         // given
         setUpSuccessfulAuthenticationResponse();
-        Map<String, Object> claims = Map.of("jti", "jti-test-123");
+        Map<String, Object> claims = Map.of("iss", ISSUER, "jti", "jti-test-123");
         authenticationClient.authenticateByToken(claims, 1L); // prime the cache
 
         // when
@@ -266,7 +270,7 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
         // given - same jti cached under generation 1L; a settings-generation bump must miss the cache
         setUpSuccessfulAuthenticationResponse();
         setUpSuccessfulAuthenticationResponse();
-        Map<String, Object> claims = Map.of("jti", "jti-test-123");
+        Map<String, Object> claims = Map.of("iss", ISSUER, "jti", "jti-test-123");
 
         // when
         authenticationClient.authenticateByToken(claims, 1L); // cache miss under generation 1L
@@ -282,13 +286,44 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
         // given - tokens without a jti claim cannot be uniquely identified, so caching is always skipped
         setUpSuccessfulAuthenticationResponse();
         setUpSuccessfulAuthenticationResponse();
-        Map<String, Object> claimsWithoutJti = Map.of("sub", "user-123");
+        Map<String, Object> claimsWithoutJti = Map.of("iss", ISSUER, "sub", "user-123");
 
         // when
         authenticationClient.authenticateByToken(claimsWithoutJti, 1L);
         authenticationClient.authenticateByToken(claimsWithoutJti, 1L);
 
         // then
+        assertEquals(2, authServiceMock.getRequestCount());
+    }
+
+    @Test
+    void authenticateByToken_missingIssuerClaim_alwaysCallsAuthService() {
+        // given - a jti is unique only within its issuer, so without an iss claim the token cannot be cached
+        setUpSuccessfulAuthenticationResponse();
+        setUpSuccessfulAuthenticationResponse();
+        Map<String, Object> claimsWithoutIssuer = Map.of("jti", "jti-no-issuer");
+
+        // when
+        authenticationClient.authenticateByToken(claimsWithoutIssuer, 1L);
+        authenticationClient.authenticateByToken(claimsWithoutIssuer, 1L);
+
+        // then
+        assertEquals(2, authServiceMock.getRequestCount());
+    }
+
+    @Test
+    void authenticateByToken_sameJtiFromDifferentIssuers_authenticatesEachSeparately() {
+        // given - two providers minting the same jti must not share a cache entry, and therefore an identity
+        setUpSuccessfulAuthenticationResponse();
+        setUpSuccessfulAuthenticationResponse();
+        Map<String, Object> claims = Map.of("iss", ISSUER, "jti", "jti-collision");
+        Map<String, Object> claimsFromOtherIssuer = Map.of("iss", OTHER_ISSUER, "jti", "jti-collision");
+
+        // when
+        authenticationClient.authenticateByToken(claims, 1L);
+        authenticationClient.authenticateByToken(claimsFromOtherIssuer, 1L);
+
+        // then - the second token was authenticated on its own instead of reusing the first issuer's entry
         assertEquals(2, authServiceMock.getRequestCount());
     }
 
@@ -353,7 +388,7 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
     void authenticateByToken_cacheHit_restoresActorMdc() {
         // given
         setUpSuccessfulAuthenticationResponse();
-        Map<String, Object> claims = Map.of("jti", "jti-mdc-test");
+        Map<String, Object> claims = Map.of("iss", ISSUER, "jti", "jti-mdc-test");
         authenticationClient.authenticateByToken(claims, 1L);
         MDC.clear();
 

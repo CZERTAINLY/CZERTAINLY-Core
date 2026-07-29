@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
@@ -75,9 +76,19 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
     }
 
     public AuthenticationInfo authenticateByToken(Map<String, Object> claims, long settingsGeneration) {
-        String jti = (String) claims.get("jti");
         return restoreActorMdc(authenticationCache.getOrAuthenticateByToken(
-                jti, settingsGeneration, () -> authenticate(AuthMethod.TOKEN, claims, false)));
+                stringClaim(claims, JwtClaimNames.ISS), stringClaim(claims, JwtClaimNames.JTI),
+                settingsGeneration, () -> authenticate(AuthMethod.TOKEN, claims, false)));
+    }
+
+    /**
+     * Returns the claim value when it is a string, {@code null} otherwise. The token cache is keyed on the
+     * issuer and the {@code jti}; a claim of any other shape leaves the key incomplete, and an incomplete key
+     * must skip the cache rather than let one token share an entry with another.
+     */
+    private static String stringClaim(Map<String, Object> claims, String claimName) {
+        Object value = claims.get(claimName);
+        return value instanceof String text ? text : null;
     }
 
     /**
