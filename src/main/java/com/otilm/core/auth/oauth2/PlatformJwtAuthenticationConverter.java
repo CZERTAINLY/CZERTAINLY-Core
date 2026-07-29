@@ -2,8 +2,6 @@ package com.otilm.core.auth.oauth2;
 
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.logging.enums.OperationResult;
-import com.otilm.api.model.core.settings.SettingsSection;
-import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
@@ -11,6 +9,7 @@ import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import com.otilm.core.service.AuditLogInternalService;
+import com.otilm.core.settings.AuthenticationSettingsSnapshot;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.OAuth2Util;
 import jakarta.annotation.Nullable;
@@ -50,8 +49,9 @@ public class PlatformJwtAuthenticationConverter implements Converter<Jwt, Abstra
             return (AbstractAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
         }
 
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(source.getIssuer().toString())).findFirst().orElse(null);
+        AuthenticationSettingsSnapshot snapshot = validatedSnapshot();
+        OAuth2ProviderSettingsDto providerSettings = OAuth2Util.findProviderByIssuer(
+                snapshot.settings(), source.getIssuer() == null ? null : source.getIssuer().toString());
 
         Map<String, Object> claims;
         try {
@@ -61,10 +61,20 @@ public class PlatformJwtAuthenticationConverter implements Converter<Jwt, Abstra
             throw e;
         }
 
-        AuthenticationInfo authInfo = authenticationClient.authenticateByToken(claims);
+        AuthenticationInfo authInfo = authenticationClient.authenticateByToken(claims, snapshot.generation());
         PlatformUserDetails userDetails = new PlatformUserDetails(authInfo);
         // Provider settings will not be null, otherwise converter would not have been reached from decoder
         logger.debug("User '{}' has been authenticated using JWT from OAuth2 Provider '{}'.", userDetails.getUsername(), providerSettings == null ? " " : providerSettings.getName());
         return new PlatformAuthenticationToken(userDetails);
+    }
+
+    /**
+     * Returns the snapshot {@link PlatformJwtDecoder} validated the token against, so the identity is resolved
+     * under the very provider configuration that accepted the token. Falls back to the current settings when
+     * nothing was published, which keeps the converter usable when it is invoked without the decoder.
+     */
+    private static AuthenticationSettingsSnapshot validatedSnapshot() {
+        AuthenticationSettingsSnapshot published = AuthenticationSnapshotRequestHolder.get();
+        return published != null ? published : SettingsCache.getAuthenticationSnapshot();
     }
 }

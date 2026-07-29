@@ -1,15 +1,15 @@
 package com.otilm.core.auth.oauth2;
 
 import com.otilm.api.model.core.logging.enums.*;
-import com.otilm.api.model.core.settings.SettingsSection;
-import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.security.authn.PlatformAnonymousToken;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.service.AuditLogInternalService;
+import com.otilm.core.settings.AuthenticationSettingsSnapshot;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.AuthHelper;
+import com.otilm.core.util.OAuth2Util;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.slf4j.Logger;
@@ -48,6 +48,11 @@ public class PlatformJwtDecoder implements JwtDecoder {
         this.auditLogService = auditLogService;
     }
 
+    /**
+     * Validates the token against the provider configuration of a single authentication-settings snapshot and
+     * publishes that snapshot through {@link AuthenticationSnapshotRequestHolder}, so the identity resolution
+     * that follows in the same request cannot run against a concurrently updated configuration.
+     */
     @Override
     public Jwt decode(String token) throws JwtException {
         if (!isAuthenticationNeeded()) {
@@ -77,8 +82,9 @@ public class PlatformJwtDecoder implements JwtDecoder {
             throw new PlatformAuthenticationException(message);
         }
 
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(issuerUri)).findFirst().orElse(null);
+        AuthenticationSettingsSnapshot snapshot = SettingsCache.getAuthenticationSnapshot();
+        AuthenticationSnapshotRequestHolder.set(snapshot);
+        OAuth2ProviderSettingsDto providerSettings = OAuth2Util.findProviderByIssuer(snapshot.settings(), issuerUri);
 
         if (providerSettings == null) {
             String message = "No OAuth2 Provider with issuer URI '%s' configured for authentication with JWT token".formatted(issuerUri);
@@ -120,7 +126,7 @@ public class PlatformJwtDecoder implements JwtDecoder {
 
         // Add audience validation
         if (!audiences.isEmpty()) {
-            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
+            audienceValidator = new JwtClaimValidator<>("aud", (List<String> aud) -> aud.stream().anyMatch(audiences::contains));
         }
 
         return JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));

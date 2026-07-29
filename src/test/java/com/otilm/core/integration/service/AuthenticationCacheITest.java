@@ -31,6 +31,8 @@ import static org.mockito.Mockito.*;
 @Import(ManagementApiMocks.class)
 class AuthenticationCacheITest extends BaseSpringBootTest {
 
+    private static final String ISSUER = "https://issuer.example.com";
+
     @Autowired
     private AuthenticationCache authenticationCache;
 
@@ -82,15 +84,15 @@ class AuthenticationCacheITest extends BaseSpringBootTest {
             String userUuid = UUID.randomUUID().toString();
             Supplier<AuthenticationInfo> loaderA = loaderReturning(authenticatedInfo(userUuid, "user"));
             Supplier<AuthenticationInfo> loaderB = loaderReturning(authenticatedInfo(userUuid, "user"));
-            authenticationCache.getOrAuthenticateByToken("jti-A", loaderA);
-            authenticationCache.getOrAuthenticateByToken("jti-B", loaderB);
+            authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-A", 1L, loaderA);
+            authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-B", 1L, loaderB);
 
             // when
             userManagementService.deleteUser(userUuid);
 
             // then - both token entries are evicted via the JTI index
-            authenticationCache.getOrAuthenticateByToken("jti-A", loaderA);
-            authenticationCache.getOrAuthenticateByToken("jti-B", loaderB);
+            authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-A", 1L, loaderA);
+            authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-B", 1L, loaderB);
             verify(loaderA, times(2)).get();
             verify(loaderB, times(2)).get();
         }
@@ -148,7 +150,7 @@ class AuthenticationCacheITest extends BaseSpringBootTest {
             Supplier<AuthenticationInfo> tokenLoader = loaderReturning(authenticatedInfo(userUuidC, "tokenUser"));
             authenticationCache.getOrAuthenticateByUserUuid(userUuidA, uuidLoader);
             authenticationCache.getOrAuthenticateByCertificate("fp-B", certLoader);
-            authenticationCache.getOrAuthenticateByToken("jti-C", tokenLoader);
+            authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-C", 1L, tokenLoader);
 
             // when - a role is deleted, which may affect the permissions of any user that held it
             roleManagementService.deleteRole(UUID.randomUUID().toString());
@@ -156,7 +158,7 @@ class AuthenticationCacheITest extends BaseSpringBootTest {
             // then - all entries are gone; every loader is invoked again
             authenticationCache.getOrAuthenticateByUserUuid(userUuidA, uuidLoader);
             authenticationCache.getOrAuthenticateByCertificate("fp-B", certLoader);
-            authenticationCache.getOrAuthenticateByToken("jti-C", tokenLoader);
+            authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-C", 1L, tokenLoader);
             verify(uuidLoader, times(2)).get();
             verify(certLoader, times(2)).get();
             verify(tokenLoader, times(2)).get();

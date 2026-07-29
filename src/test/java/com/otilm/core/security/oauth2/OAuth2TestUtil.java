@@ -22,10 +22,14 @@ import java.util.Map;
 public class OAuth2TestUtil {
 
     public static String createJwtTokenValue(PrivateKey privateKey, Integer expiryInMilliseconds, String issuerUrl, String audience, String username) throws JOSEException {
+        return createJwtTokenValue(privateKey, expiryInMilliseconds, issuerUrl, audience, OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, username);
+    }
+
+    public static String createJwtTokenValue(PrivateKey privateKey, Integer expiryInMilliseconds, String issuerUrl, String audience, String claimName, String claimValue) throws JOSEException {
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .audience(audience)
                 .expirationTime(expiryInMilliseconds == null ? null : new Date(System.currentTimeMillis() + expiryInMilliseconds))
-                .claim(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, username)
+                .claim(claimName, claimValue)
                 .issuer(issuerUrl)
                 .build();
 

@@ -102,7 +102,7 @@ class PlatformJwtConvertorITest extends BaseSpringBootTest {
                 .claim("claim", "claim")
                 .build();
         Exception exception = Assertions.assertThrows(PlatformAuthenticationException.class, () ->  jwtAuthenticationConverter.convert(jwtNoUsername));
-        Assertions.assertTrue(exception.getMessage().contains("could not be retrieved"));
+        Assertions.assertTrue(exception.getMessage().contains("not found in token claims"));
     }
 
     @Test
