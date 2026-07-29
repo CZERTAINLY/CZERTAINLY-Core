@@ -22,7 +22,6 @@ import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.certificate.request.RequestAttributePolicyViolationException;
 import com.otilm.core.client.ConnectorApiFactory;
-import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
@@ -52,13 +51,21 @@ import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.CertificateEligibilityUtil;
 import com.otilm.core.util.CertificateRequestUtils;
 import com.otilm.core.util.RandomUtil;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.pkcs.Attribute;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCSException;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,12 +111,17 @@ public class ScepServiceImpl implements ScepExternalService {
             "Renewal",
             "SCEPStandard"
     );
-    // Validation statuses that make a certificate unusable, and therefore not renewable. EnumSet is used
-    // deliberately: unlike Set.of it tolerates a null argument to contains().
+    // The principle: reject only on evidence that the certificate itself is unusable. EnumSet is used
+    // deliberately here and below: unlike Set.of it tolerates a null argument to contains().
     private static final Set<CertificateValidationStatus> NON_RENEWABLE_VALIDATION_STATUSES = EnumSet.of(
             CertificateValidationStatus.REVOKED,
             CertificateValidationStatus.EXPIRED,
-            CertificateValidationStatus.INVALID,
+            CertificateValidationStatus.INVALID
+    );
+    // FAILED means the platform could not complete validation (an unreachable CRL or OCSP responder), which
+    // is not evidence against the certificate — so it does not reject the renewal. It is not evidence for the
+    // certificate either, so it withholds the challenge password waiver and the shared secret is required.
+    private static final Set<CertificateValidationStatus> INCONCLUSIVE_VALIDATION_STATUSES = EnumSet.of(
             CertificateValidationStatus.FAILED
     );
 
@@ -342,19 +354,27 @@ public class ScepServiceImpl implements ScepExternalService {
             // BouncyCastle reports malformed structures with unchecked exceptions.
             scepRequest = new ScepRequest(body);
             return processPkiOperation(scepRequest);
-        } catch (RuntimeException e) {
-            // An unexpected runtime failure would otherwise escape to the generic error handler and leave
-            // the client with an HTTP 500 JSON body it cannot parse. Answer with a SCEP FAILURE instead, so
-            // the endpoint responds in application/x-pki-message. The failInfoText is generic on purpose:
-            // internal exception messages are not shaped for the wire.
-            String transactionId = scepRequest != null ? scepRequest.getTransactionId() : null;
+        } catch (Exception e) {
+            // Any failure here would otherwise escape to the generic error handler and leave the client with a
+            // JSON body it cannot parse — including the checked ScepException that response building raises
+            // when signing fails. Answer with a SCEP FAILURE instead, so the endpoint responds in
+            // application/x-pki-message. The failInfoText is generic on purpose: internal exception messages
+            // are not shaped for the wire.
+            if (scepRequest == null) {
+                // The message did not parse, so there is no transaction id or nonce to echo and no SCEP
+                // response can be formed. Surface it as a protocol-level error instead.
+                logger.error("Failed to parse the SCEP PKIOperation request", e);
+                throw e instanceof ScepException scepException ? scepException
+                        : new ScepException("Failed to parse the SCEP request", FailInfo.BAD_REQUEST);
+            }
+            String transactionId = scepRequest.getTransactionId();
             logger.error("Unexpected failure while processing SCEP PKIOperation: transactionId={}", transactionId, e);
             // Discard whatever the failed attempt wrote before answering.
             markCurrentTransactionRollbackOnly();
             try {
                 return buildResponse(scepRequest, buildFailedResponse(
                         new ScepException("SCEP request processing failed", FailInfo.BAD_REQUEST), transactionId));
-            } catch (Exception failureResponseError) {
+            } catch (Exception failureResponseError) { // NOSONAR - the fallback must not itself escape
                 // Building the failure needs the profile's CA key through the token connector; when that is
                 // what broke, no SCEP message can be produced at all. Answer with a bare status rather than
                 // a JSON body the client cannot parse.
@@ -920,6 +940,12 @@ public class ScepServiceImpl implements ScepExternalService {
             logger.debug("Challenge password not waived: the signer certificate belongs to another RA profile");
             return false;
         }
+        // ... nor when the platform could not establish that the certificate is still valid.
+        if (INCONCLUSIVE_VALIDATION_STATUSES.contains(renewedCertificate.getValidationStatus())) {
+            logger.debug("Challenge password not waived: validation of certificate {} is inconclusive (status={})",
+                    renewedCertificate.getUuid(), renewedCertificate.getValidationStatus());
+            return false;
+        }
         // ... and only when the request asks for no identity the renewed certificate does not already hold,
         // so a waived renewal cannot obtain a certificate for a name it was never issued.
         if (!requestedNamesAreAlreadyHeld(scepRequest)) {
@@ -937,20 +963,45 @@ public class ScepServiceImpl implements ScepExternalService {
      */
     private boolean requestedNamesAreAlreadyHeld(ScepRequest scepRequest) {
         try {
-            Map<String, List<String>> heldNames = CertificateUtil.getSAN(scepRequest.getSignerCertificate());
-            Map<String, List<String>> requestedNames = new Pkcs10CertificateRequest(
-                    scepRequest.getPkcs10Request().getEncoded()).getSubjectAlternativeNames();
-            for (Map.Entry<String, List<String>> requested : requestedNames.entrySet()) {
-                List<String> held = heldNames.getOrDefault(requested.getKey(), List.of());
-                if (!held.containsAll(requested.getValue())) {
-                    return false;
-                }
-            }
-            return true;
-        } catch (CertificateRequestException | IOException | RuntimeException e) {
+            return subjectAlternativeNames(scepRequest.getSignerCertificate())
+                    .containsAll(subjectAlternativeNames(scepRequest.getPkcs10Request()));
+        } catch (RuntimeException e) {
             logger.debug("Unable to compare the subject alternative names of the renewal request", e);
             return false;
         }
+    }
+
+    /**
+     * The names carried by the certificate being renewed, as DER structures. The comparison is deliberately
+     * made on the encoded form rather than on the platform's string rendering of it: the renderings disagree
+     * for an iPAddress — decoded text on the certificate side, a hex octet string on the request side — which
+     * would withhold the waiver from a device renewing on an address it already holds.
+     */
+    private static Set<GeneralName> subjectAlternativeNames(X509Certificate certificate) {
+        byte[] extension = certificate.getExtensionValue(Extension.subjectAlternativeName.getId());
+        if (extension == null) {
+            return Set.of();
+        }
+        return namesOf(GeneralNames.getInstance(ASN1OctetString.getInstance(extension).getOctets()));
+    }
+
+    /** The names the request asks for, read from its extensionRequest attribute as DER structures. */
+    private static Set<GeneralName> subjectAlternativeNames(JcaPKCS10CertificationRequest pkcs10Request) {
+        for (Attribute attribute : pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
+            if (attribute.getAttrValues().size() == 0) {
+                continue;
+            }
+            GeneralNames names = GeneralNames.fromExtensions(
+                    Extensions.getInstance(attribute.getAttrValues().getObjectAt(0)), Extension.subjectAlternativeName);
+            if (names != null) {
+                return namesOf(names);
+            }
+        }
+        return Set.of();
+    }
+
+    private static Set<GeneralName> namesOf(GeneralNames names) {
+        return new HashSet<>(Arrays.asList(names.getNames()));
     }
 
     /**
@@ -1003,6 +1054,9 @@ public class ScepServiceImpl implements ScepExternalService {
                     .formatted(renewedCertificate.getUuid(), renewedCertificate.getState(), renewedCertificate.getValidationStatus()),
                     FailInfo.BAD_REQUEST);
         }
+        // A subject DN mismatch rejects the request rather than merely withholding the waiver, which is the
+        // behaviour that predates the waiver: signing with a certificate and then asking for a different
+        // subject is treated as a malformed renewal, not as an enrollment the shared secret could authorize.
         if (!(new X500Name(renewedCertificate.getSubjectDn())).equals(scepRequest.getPkcs10Request().getSubject())) {
             throw new ScepException("Subject DN for the renewal request does not match the original certificate",
                     FailInfo.BAD_REQUEST);

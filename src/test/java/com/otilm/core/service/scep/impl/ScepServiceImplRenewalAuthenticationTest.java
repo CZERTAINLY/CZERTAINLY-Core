@@ -186,6 +186,20 @@ class ScepServiceImplRenewalAuthenticationTest {
         assertTrue(service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
     }
 
+    /**
+     * A validation status of FAILED means the platform could not reach a CRL or OCSP responder. That is not
+     * evidence against the certificate, so the renewal is not rejected — but it is not evidence for it
+     * either, so the shared secret is required instead of waived.
+     */
+    @Test
+    void certificateWithInconclusiveValidation_doesNotEarnTheWaiver() throws Exception {
+        Certificate unvalidated = inventoryCertificate(RA_PROFILE_UUID);
+        unvalidated.setValidationStatus(CertificateValidationStatus.FAILED);
+        when(certificateService.getCertificateEntityByFingerprint(any())).thenReturn(unvalidated);
+
+        assertFalse(service.authenticateRenewal(renewalRequest(SUBJECT_DN, true)));
+    }
+
     @Test
     void certificateWithPendingIssue_isRejected() throws Exception {
         Certificate pending = inventoryCertificate(RA_PROFILE_UUID);
@@ -252,16 +266,39 @@ class ScepServiceImplRenewalAuthenticationTest {
         when(certificateService.getCertificateEntityByFingerprint(any()))
                 .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
 
-        assertFalse(service.authenticateRenewal(renewalRequestWithSans("extra.example.com")));
+        assertFalse(service.authenticateRenewal(renewalRequestWithSans(dnsSan("extra.example.com"))));
     }
 
     @Test
     void requestAskingForHeldSans_isAnAuthenticatedRenewal() throws Exception {
-        clientCertificate = selfSignedCertificate(clientKeyPair, SUBJECT_DN, "held.example.com");
+        clientCertificate = selfSignedCertificate(clientKeyPair, SUBJECT_DN, dnsSan("held.example.com"));
         when(certificateService.getCertificateEntityByFingerprint(any()))
                 .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
 
-        assertTrue(service.authenticateRenewal(renewalRequestWithSans("held.example.com")));
+        assertTrue(service.authenticateRenewal(renewalRequestWithSans(dnsSan("held.example.com"))));
+    }
+
+    /**
+     * An IP address SAN must compare equal across the two sides, or the waiver is silently withheld from
+     * network devices renewing on an address they already hold — and a renewal carries no challenge password
+     * to fall back on.
+     */
+    @Test
+    void requestAskingForHeldIpAddressSan_isAnAuthenticatedRenewal() throws Exception {
+        clientCertificate = selfSignedCertificate(clientKeyPair, SUBJECT_DN, ipSan("192.168.0.1"));
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+
+        assertTrue(service.authenticateRenewal(renewalRequestWithSans(ipSan("192.168.0.1"))));
+    }
+
+    @Test
+    void requestAskingForAnUnheldIpAddressSan_doesNotEarnTheWaiver() throws Exception {
+        clientCertificate = selfSignedCertificate(clientKeyPair, SUBJECT_DN, ipSan("192.168.0.1"));
+        when(certificateService.getCertificateEntityByFingerprint(any()))
+                .thenReturn(inventoryCertificate(RA_PROFILE_UUID));
+
+        assertFalse(service.authenticateRenewal(renewalRequestWithSans(ipSan("10.0.0.9"))));
     }
 
     /** An unverifiable signature is a rejection, not a crash, and reports the integrity failure. */
@@ -326,34 +363,38 @@ class ScepServiceImplRenewalAuthenticationTest {
     private ScepRequest renewalRequest(String csrSubjectDn, boolean signatureVerifies) throws Exception {
         ScepRequest request = mock(ScepRequest.class);
         when(request.getSignerCertificate()).thenReturn(clientCertificate);
-        when(request.getPkcs10Request()).thenReturn(certificationRequest(csrSubjectDn, null));
+        when(request.getPkcs10Request()).thenReturn(certificationRequest(csrSubjectDn, (GeneralNames) null));
         when(request.verifySignature(any(PublicKey.class))).thenReturn(signatureVerifies);
         return request;
     }
 
-    private ScepRequest renewalRequestWithSans(String dnsName) throws Exception {
+    private ScepRequest renewalRequestWithSans(GeneralNames sans) throws Exception {
         ScepRequest request = mock(ScepRequest.class);
         when(request.getSignerCertificate()).thenReturn(clientCertificate);
-        when(request.getPkcs10Request()).thenReturn(certificationRequest(SUBJECT_DN, dnsName));
+        when(request.getPkcs10Request()).thenReturn(certificationRequest(SUBJECT_DN, sans));
         when(request.verifySignature(any(PublicKey.class))).thenReturn(true);
         return request;
     }
 
-    private JcaPKCS10CertificationRequest certificationRequest(String subjectDn, String dnsName) throws Exception {
+    private JcaPKCS10CertificationRequest certificationRequest(String subjectDn, GeneralNames sans) throws Exception {
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(clientKeyPair.getPrivate());
         JcaPKCS10CertificationRequestBuilder builder =
                 new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), clientKeyPair.getPublic());
-        if (dnsName != null) {
+        if (sans != null) {
             ExtensionsGenerator extensions = new ExtensionsGenerator();
-            extensions.addExtension(Extension.subjectAlternativeName, false, dnsNames(dnsName));
+            extensions.addExtension(Extension.subjectAlternativeName, false, sans);
             builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensions.generate());
         }
         return new JcaPKCS10CertificationRequest(builder.build(signer));
     }
 
-    private static GeneralNames dnsNames(String dnsName) {
+    private static GeneralNames dnsSan(String dnsName) {
         return new GeneralNames(new GeneralName(GeneralName.dNSName, dnsName));
+    }
+
+    private static GeneralNames ipSan(String ipAddress) {
+        return new GeneralNames(new GeneralName(GeneralName.iPAddress, ipAddress));
     }
 
     private static KeyPair generateRsaKeyPair() throws Exception {
@@ -363,17 +404,17 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     private static X509Certificate selfSignedCertificate(KeyPair keyPair, String subjectDn) throws Exception {
-        return selfSignedCertificate(keyPair, subjectDn, null);
+        return selfSignedCertificate(keyPair, subjectDn, (GeneralNames) null);
     }
 
-    private static X509Certificate selfSignedCertificate(KeyPair keyPair, String subjectDn, String dnsName) throws Exception {
+    private static X509Certificate selfSignedCertificate(KeyPair keyPair, String subjectDn, GeneralNames sans) throws Exception {
         X500Name dn = new X500Name(subjectDn);
         Date notBefore = new Date(System.currentTimeMillis() - 60_000L);
         Date notAfter = new Date(System.currentTimeMillis() + 3_600_000L);
         JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 dn, BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
-        if (dnsName != null) {
-            builder.addExtension(Extension.subjectAlternativeName, false, dnsNames(dnsName));
+        if (sans != null) {
+            builder.addExtension(Extension.subjectAlternativeName, false, sans);
         }
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
