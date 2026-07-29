@@ -1,7 +1,6 @@
 package com.otilm.core.auth.oauth2;
 
 import com.otilm.api.model.core.logging.enums.*;
-import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.core.logging.LoggingHelper;
@@ -11,6 +10,7 @@ import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import com.otilm.core.service.AuditLogInternalService;
+import com.otilm.core.settings.AuthenticationSettingsSnapshot;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.OAuth2Constants;
 import com.otilm.core.util.OAuth2Util;
@@ -81,8 +81,9 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
             LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
 
+            AuthenticationSettingsSnapshot snapshot = SettingsCache.getAuthenticationSnapshot();
             OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
-            OAuth2ProviderSettingsDto providerSettings = getProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), request.getSession(), oauth2AccessToken);
+            OAuth2ProviderSettingsDto providerSettings = getProviderSettings(snapshot.settings(), oauthToken.getAuthorizedClientRegistrationId(), request.getSession(), oauth2AccessToken);
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
             OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), oauth2AccessToken, (OAuth2RefreshToken) request.getSession().getAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
@@ -125,7 +126,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
                 return;
             }
-            authenticate(request, claims, clientRegistration);
+            authenticate(request, claims, clientRegistration, snapshot.generation());
         }
 
         try {
@@ -136,10 +137,10 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         }
     }
 
-    private void authenticate(HttpServletRequest request, Map<String, Object> claims, ClientRegistration clientRegistration) {
+    private void authenticate(HttpServletRequest request, Map<String, Object> claims, ClientRegistration clientRegistration, long settingsGeneration) {
         AuthenticationInfo authInfo;
         try {
-            authInfo = authenticationClient.authenticateByToken(claims);
+            authInfo = authenticationClient.authenticateByToken(claims, settingsGeneration);
             PlatformAuthenticationToken authenticationToken = new PlatformAuthenticationToken(new PlatformUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
@@ -168,17 +169,8 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {
 
-                // Use configurable username claim name from provider settings, with fallback to default
-                String usernameClaimName = providerSettings.getUsernameClaim() != null && !providerSettings.getUsernameClaim().isEmpty()
-                        ? providerSettings.getUsernameClaim()
-                        : OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME;
-
-                Object usernameClaim = oauthToken.getPrincipal().getAttribute(usernameClaimName);
-                if (usernameClaim == null) {
-                    throw new PlatformAuthenticationException("Missing username claim '%s' in token attributes.".formatted(usernameClaimName));
-                }
-
-                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", usernameClaim);
+                String username = OAuth2Util.resolveUsernameOrNull(providerSettings, oauthToken.getPrincipal().getAttributes());
+                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", username);
                 session.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
                 session.setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
             } else {
@@ -190,8 +182,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         return authorizedClient;
     }
 
-    private OAuth2ProviderSettingsDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+    private OAuth2ProviderSettingsDto getProviderSettings(AuthenticationSettingsDto authenticationSettings, String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(clientRegistrationId);
         if (providerSettings == null) {
             session.invalidate();

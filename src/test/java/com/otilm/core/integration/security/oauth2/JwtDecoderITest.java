@@ -4,6 +4,7 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.SettingsSectionCategory;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.otilm.core.auth.oauth2.AuthenticationSnapshotRequestHolder;
 import com.otilm.core.auth.oauth2.LoginController;
 import com.otilm.core.dao.entity.Setting;
 import com.otilm.core.dao.repository.SettingRepository;
@@ -12,6 +13,7 @@ import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.oauth2.OAuth2TestUtil;
 import com.otilm.core.service.SettingExternalService;
+import com.otilm.core.settings.AuthenticationSettingsSnapshot;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -117,8 +119,9 @@ class JwtDecoderITest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    void stopServer() {
+    void tearDown() {
         mockServer.stop();
+        AuthenticationSnapshotRequestHolder.clear();
     }
 
     @Test
@@ -134,6 +137,20 @@ class JwtDecoderITest extends BaseSpringBootTest {
 
         authentication.setAccessingPermitAllEndpoint(true);
         Assertions.assertNull(jwtDecoder.decode(tokenValue));
+    }
+
+    @Test
+    void publishesSnapshotUsedForValidation() {
+        SecurityContextHolder.clearContext();
+        AuthenticationSnapshotRequestHolder.clear();
+
+        Jwt jwt = jwtDecoder.decode(tokenValue);
+
+        // the settings the token was validated against are handed to the identity resolution that follows
+        AuthenticationSettingsSnapshot published = AuthenticationSnapshotRequestHolder.get();
+        Assertions.assertNotNull(jwt);
+        Assertions.assertNotNull(published);
+        Assertions.assertEquals(ISSUER_URL, published.settings().getOAuth2Providers().get(PROVIDER_NAME).getIssuerUrl());
     }
 
     @Test

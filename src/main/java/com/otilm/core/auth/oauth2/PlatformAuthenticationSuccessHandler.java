@@ -60,14 +60,9 @@ public class PlatformAuthenticationSuccessHandler implements AuthenticationSucce
             throw new PlatformAuthenticationException(message);
         }
 
-        // Get username using configurable claim name from provider settings
-        String usernameClaimName = providerSettings.getUsernameClaim();
-        if (usernameClaimName == null || usernameClaimName.isEmpty()) {
-            usernameClaimName = OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME;
-        }
-        Object username = oidcUser.getAttribute(usernameClaimName);
+        String username = OAuth2Util.resolveUsernameOrNull(providerSettings, oidcUser.getAttributes());
         if (username != null) {
-            LoggingHelper.putActorInfoWhenNull(null, null, username.toString());
+            LoggingHelper.putActorInfoWhenNull(null, null, username);
         }
         try {
             OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
