@@ -220,6 +220,11 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             objectValue = getPropertyValue(object, nonNestedJoinAttributes, fieldAttribute);
         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
+        } catch (RuntimeException e) {
+            // A null link in a nested path throws unchecked, and the value is read before the operator is applied --
+            // so an EMPTY check on an absent association throws too. It must not leave this class: see below.
+            throw new RuleException("Cannot resolve property " + fieldIdentifier + " on resource " + resource
+                    + "; the object does not hold the association the condition reads through.");
         }
 
         FilterFieldType fieldType = filterField.getType().getFieldType();
@@ -476,6 +481,17 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             }
         } catch (RuleException e) {
             TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory.getUuid(), conditionItem.getCondition().getUuid(), null, e.getMessage());
+            triggerHistory.getRecords().add(triggerHistoryRecord);
+            return false;
+        } catch (RuntimeException e) {
+            // Broad on purpose, and only defensible here: this class is @Transactional, so anything unchecked leaving
+            // it marks the caller's transaction rollback-only, past any catch of theirs. Recorded and treated as
+            // unsatisfied instead -- the safe direction, since a non-matching ignore rule imports rather than drops.
+            logger.error("Condition item '{}' of rule {} could not be evaluated: {}",
+                    conditionItem.getFieldIdentifier(), rule.getName(), e.getMessage(), e);
+            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(
+                    triggerHistory.getUuid(), conditionItem.getCondition().getUuid(), null,
+                    "Condition could not be evaluated: " + e.getClass().getSimpleName());
             triggerHistory.getRecords().add(triggerHistoryRecord);
             return false;
         }

@@ -677,11 +677,17 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     private void createFingerprintIgnoreTrigger(UUID discoveryUuid, String fingerprint)
             throws AlreadyExistException, NotFoundException {
+        createPropertyIgnoreTrigger(discoveryUuid, FilterField.FINGERPRINT, FilterConditionOperator.EQUALS, fingerprint);
+    }
+
+    private void createPropertyIgnoreTrigger(UUID discoveryUuid, FilterField field,
+                                             FilterConditionOperator operator, Object value)
+            throws AlreadyExistException, NotFoundException {
         ConditionItemRequestDto conditionItemRequest = new ConditionItemRequestDto();
         conditionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
-        conditionItemRequest.setFieldIdentifier(FilterField.FINGERPRINT.name());
-        conditionItemRequest.setOperator(FilterConditionOperator.EQUALS);
-        conditionItemRequest.setValue(fingerprint);
+        conditionItemRequest.setFieldIdentifier(field.name());
+        conditionItemRequest.setOperator(operator);
+        conditionItemRequest.setValue(value);
 
         ConditionRequestDto conditionRequest = new ConditionRequestDto();
         conditionRequest.setName("FingerprintEqualsCondition");
@@ -713,6 +719,35 @@ class EventHandlersITest extends BaseSpringBootTest {
 
         triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
                 discoveryUuid, List.of(UUID.fromString(trigger.getUuid())), true);
+    }
+
+    /**
+     * A property condition reading through an association the certificate does not have must not cost the import.
+     * A discovered certificate has no RA profile, so resolving {@code raProfile.name} throws unchecked — and because
+     * the evaluator is {@code @Transactional}, that used to mark the group's transaction rollback-only past any catch
+     * here. Every group evaluates the same triggers, so one such rule imported nothing at all.
+     */
+    @Test
+    void testCertificateDiscoveredImportsDespiteAConditionOnAnAbsentAssociation() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "no-ra-profile-host");
+        createPropertyIgnoreTrigger(discovery.getUuid(), FilterField.RA_PROFILE_NAME,
+                FilterConditionOperator.EMPTY, null);
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Assertions.assertTrue(certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509)).isPresent(),
+                "an unevaluable condition must not cost the certificate its import");
+        DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+        Assertions.assertTrue(reloaded.isProcessed());
+        Assertions.assertNull(reloaded.getProcessedError(),
+                "unexpected reason: " + reloaded.getProcessedError());
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
+                msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
+                        && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
     }
 
     /**

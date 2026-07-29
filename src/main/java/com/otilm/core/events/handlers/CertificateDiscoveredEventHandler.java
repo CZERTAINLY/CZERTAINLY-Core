@@ -499,12 +499,15 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     /**
      * Records every group the consumption loop did not reach, so an early exit cannot leave lost work out of the
-     * counts and let the run call itself clean.
+     * counts and let the run call itself clean. Callable only once the import executor has closed, since until then
+     * a group can still be mid-flight.
      *
-     * <p>Only callable once the import executor has closed. Until then a group can still be mid-flight, and the
-     * database is the only thing that can tell a group that never ran from one whose import committed while its
-     * result never arrived. The two need opposite records: claiming a committed certificate was never attempted
-     * reports a missing certificate that is sitting in the inventory.
+     * <p>A present certificate is evidence the group reached its import, not proof: another actor may have committed
+     * that row, and a group that committed an IGNORED verdict leaves none and so reads as never attempted. Both
+     * mislabel conservatively, on a path only an abnormal exit reaches.
+     *
+     * <p>Contained per group, being the last phase before key association: a probe failure escaping here would
+     * discard the key maps of every group that did consume, whose rows already read as processed without a reason.
      */
     void accountForUnconsumedGroups(DiscoveryRunAccumulator accumulator,
                                     List<DiscoveryContentGroup> groups, Set<Long> consumedContentIds) {
@@ -512,22 +515,32 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             if (consumedContentIds.contains(group.certificateContentId())) {
                 continue;
             }
-            List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
-            boolean committed = certificateRepository.existsByCertificateContentId(group.certificateContentId());
-            GroupImportResult unconsumed = committed
-                    ? new GroupImportResult(group.certificateContentId(),
-                            resultsFor(rowUuids, DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED,
-                                    "the certificate was imported, but the run stopped before its key could be associated"),
-                            List.of(), false)
-                    : new GroupImportResult(group.certificateContentId(),
-                            resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
-                                    "the import did not run to a result"), List.of(), false);
-            accumulator.accept(unconsumed);
-            // Only the never-ran case is written here; the key phase owns every row carrying a key gap. Writing it
-            // twice would let a failure of the second write report the detail as unrecorded.
-            if (!committed) {
-                writeBookkeeping(accumulator, unconsumed);
+            try {
+                accountForUnconsumedGroup(accumulator, group);
+            } catch (Exception e) {
+                logger.error("Could not record the outcome of unconsumed discovered content {}: {}",
+                        group.certificateContentId(), e.getMessage(), e);
+                accumulator.recordBookkeepingFailure();
             }
+        }
+    }
+
+    private void accountForUnconsumedGroup(DiscoveryRunAccumulator accumulator, DiscoveryContentGroup group) {
+        List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
+        boolean committed = certificateRepository.existsByCertificateContentId(group.certificateContentId());
+        GroupImportResult unconsumed = committed
+                ? new GroupImportResult(group.certificateContentId(),
+                        resultsFor(rowUuids, DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED,
+                                "the certificate was imported, but the run stopped before its key could be associated"),
+                        List.of(), false)
+                : new GroupImportResult(group.certificateContentId(),
+                        resultsFor(rowUuids, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
+                                "the import did not run to a result"), List.of(), false);
+        accumulator.accept(unconsumed);
+        // Only the never-ran case is written here; the key phase owns every row carrying a key gap. Writing it
+        // twice would let a failure of the second write report the detail as unrecorded.
+        if (!committed) {
+            writeBookkeeping(accumulator, unconsumed);
         }
     }
 
@@ -608,11 +621,16 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         EventHistory platformEventHistory = eventHistoryRepository.getReferenceById(context.platformEventHistoryUuid());
         UUID referenceRowUuid = rowUuids.getFirst();
 
+        // Attribute conditions are keyed on the object's UUID, which only a persisted row carries: judged as the
+        // bare candidate, an existing certificate answers false to every one of them and is then adopted anyway.
+        Certificate ignoreSubject = certificateRepository.findByFingerprint(candidate.getFingerprint())
+                .orElse(candidate);
+
         List<TriggerHistory> ignoreHistories = new ArrayList<>();
         for (TriggerAssociation triggerAssociation : context.ignoreTriggers()) {
             EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
             TriggerHistory triggerHistory = context.eventContext().getTriggerEvaluator().evaluateTrigger(
-                    triggerAssociation.getTrigger(), triggerAssociation, candidate, referenceRowUuid, null, eventHistory);
+                    triggerAssociation.getTrigger(), triggerAssociation, ignoreSubject, referenceRowUuid, null, eventHistory);
             ignoreHistories.add(triggerHistory);
             if (triggerHistory.isActionsPerformed()) {
                 return new GroupImportResult(group.certificateContentId(),

@@ -96,6 +96,23 @@ class CertificateDiscoveredEventHandlerContainmentTest {
         verify(discoveryWriter, never()).markProcessed(anyCollection(), anyString());
     }
 
+    /**
+     * A probe failure escaping this phase would discard the key maps of every group that did consume, whose rows
+     * already read as processed without a reason.
+     */
+    @Test
+    void aFailedProbeIsContainedSoTheKeyPhaseStillRuns() {
+        when(certificateRepository.existsByCertificateContentId(5L))
+                .thenThrow(new org.springframework.dao.QueryTimeoutException("the probe timed out"));
+        DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
+
+        handler.accountForUnconsumedGroups(accumulator, List.of(group(5L, UUID.randomUUID())), Set.of());
+
+        assertThat(accumulator.counts().bookkeepingFailures())
+                .as("the failure is recorded rather than thrown, so the caller reaches key association")
+                .isEqualTo(1);
+    }
+
     @Test
     void aFullyConsumedRunAccountsForNothingExtra() {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
