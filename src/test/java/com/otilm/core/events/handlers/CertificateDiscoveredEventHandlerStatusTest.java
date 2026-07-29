@@ -66,7 +66,8 @@ class CertificateDiscoveredEventHandlerStatusTest {
                 .as("the persisted detail is knowingly incomplete, so the run is not clean")
                 .isEqualTo(DiscoveryStatus.WARNING);
         assertThat(result.getMessage())
-                .isEqualTo("Some per-certificate detail could not be recorded. " + TRAILER);
+                .as("no row carries a reason to go and read, so the pointer would contradict the sentence")
+                .isEqualTo("Some per-certificate detail could not be recorded.");
     }
 
     /**
@@ -80,8 +81,23 @@ class CertificateDiscoveredEventHandlerStatusTest {
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
         assertThat(result.getMessage())
-                .isEqualTo("Validation of the discovered certificates could not be requested. " + TRAILER);
+                .isEqualTo("Validation of the discovered certificates could not be requested.");
         assertThat(result.getMessage()).doesNotContain("per-certificate detail could not be recorded");
+    }
+
+    /**
+     * The pointer to the certificate list appears only when some row actually carries a reason. A run whose only
+     * fault was the bookkeeping write has nothing there to read, and one whose only fault was validation never
+     * being requested has nothing per-certificate at all.
+     */
+    @Test
+    void thePointerToTheListAppearsOnlyWhenARowCarriesAReason() {
+        assertThat(CertificateDiscoveredEventHandler.decideFinalStatus(
+                new DiscoveryRunCounts(0, 0, 0, 1, true), ORIGINAL).getMessage())
+                .doesNotContain(TRAILER);
+        assertThat(CertificateDiscoveredEventHandler.decideFinalStatus(
+                new DiscoveryRunCounts(0, 0, 1, 1, true), ORIGINAL).getMessage())
+                .endsWith(TRAILER);
     }
 
     @Test

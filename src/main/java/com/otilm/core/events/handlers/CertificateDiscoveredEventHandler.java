@@ -329,7 +329,12 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         if (counts.validationNotQueued()) {
             sentences.add("Validation of the discovered certificates could not be requested.");
         }
-        sentences.add("See the discovery certificate list for per-certificate detail.");
+        // Only when some row actually carries a reason to read. A bookkeeping failure means the detail did not get
+        // written, and validation never being requested says nothing about any individual row -- pointing at the
+        // list for either contradicts the sentence before it.
+        if (counts.inventoryGaps() + counts.keyGaps() + counts.notAttempted() > 0) {
+            sentences.add("See the discovery certificate list for per-certificate detail.");
+        }
         return new DiscoveryResult(DiscoveryStatus.WARNING, String.join(" ", sentences));
     }
 
@@ -381,10 +386,10 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     // processed stays false for a row never reached, but the reason is still written -- the status
                     // message sends the operator here to read it.
                     transactionHandler.runInNewTransaction(() ->
-                            discoveryWriter.recordProcessedError(rowUuids, detail));
+                            discoveryWriter.recordProcessedError(rowUuids, asSentence(detail)));
                 } else {
                     transactionHandler.runInNewTransaction(() ->
-                            discoveryWriter.markProcessed(rowUuids, detail));
+                            discoveryWriter.markProcessed(rowUuids, asSentence(detail)));
                 }
             } catch (Exception e) {
                 logger.error("Could not record the outcome of discovery certificates {}: {}",
@@ -459,7 +464,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         for (Map.Entry<String, List<UUID>> entry : rowsByReason.entrySet()) {
             try {
                 transactionHandler.runInNewTransaction(() ->
-                        discoveryWriter.markProcessed(entry.getValue(), entry.getKey()));
+                        discoveryWriter.markProcessed(entry.getValue(), asSentence(entry.getKey())));
             } catch (Exception e) {
                 logger.error("Could not record the key association failure of discovery certificates {}: {}",
                         entry.getValue(), e.getMessage(), e);
@@ -552,6 +557,18 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     /** Groups rows that can share one bookkeeping statement. {@code detail} is null for a clean import. */
     private record BookkeepingKey(DiscoveryCertificateOutcome outcome, String detail) {
+    }
+
+    /**
+     * Capitalises a reason as it is written, so the strings that build one stay free to compose: prefixes carry their
+     * own case and the fragments after them stay lowercase, yet a reason persisted without a prefix still reads as a
+     * sentence in an operator-facing field.
+     */
+    private static String asSentence(String reason) {
+        if (reason == null || reason.isEmpty()) {
+            return reason;
+        }
+        return Character.toUpperCase(reason.charAt(0)) + reason.substring(1);
     }
 
     private static List<DiscoveryCertificateResult> resultsFor(List<UUID> rowUuids,
