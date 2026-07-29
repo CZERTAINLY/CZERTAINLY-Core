@@ -13,9 +13,13 @@ import java.sql.SQLException;
  * Turns an exception into text that is safe to expose.
  *
  * <p>{@code processedError} is returned to API clients through {@code DiscoveryCertificate.mapToDto}, so a raw
- * {@code getMessage()} would put SQL fragments, table and column names, and provider internals on the wire. Only
- * {@link ValidationException}, whose messages the platform authors itself, passes through; every other failure is
- * classified.
+ * {@code getMessage()} would put SQL fragments, table and column names, and provider internals on the wire.
+ *
+ * <p>Exactly one type is forwarded verbatim: {@link DiscoveryImportRollbackException}, whose message this class
+ * shaped in the first place. Everything else is classified, {@link ValidationException} included — and it in
+ * particular, because a platform-authored message is not the same as a payload-free one. Reachable throw sites
+ * concatenate entity data into theirs (a key upload failure embeds the key material), and no property of the type
+ * distinguishes those from the useful ones. The full exception still reaches the log.
  */
 public final class DiscoveryFailureReason {
 
@@ -36,11 +40,6 @@ public final class DiscoveryFailureReason {
             if (classified != null) {
                 return classified;
             }
-        }
-        // Blank-checked, not just null-checked: ValidationException stringifies a null message, so a
-        // message-less one yields the literal "null", which would read as a bug in the certificate list.
-        if (throwable instanceof ValidationException && isUsable(throwable.getMessage())) {
-            return throwable.getMessage();
         }
         return GENERIC;
     }
@@ -92,6 +91,9 @@ public final class DiscoveryFailureReason {
         }
         if (throwable instanceof UnexpectedRollbackException) {
             return "the import transaction was rolled back";
+        }
+        if (throwable instanceof ValidationException) {
+            return "the certificate did not pass validation";
         }
         // Parser messages come from the JDK and BouncyCastle, not from the platform, so they are classified
         // rather than forwarded.

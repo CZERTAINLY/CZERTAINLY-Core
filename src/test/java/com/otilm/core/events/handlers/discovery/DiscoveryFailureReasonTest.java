@@ -14,11 +14,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DiscoveryFailureReasonTest {
 
+    /**
+     * Classified, not forwarded. Reachable throw sites concatenate entity data into their message -- a key upload
+     * failure embeds the key material -- and nothing about the type separates those from the harmless ones.
+     */
     @Test
-    void passesThroughAControlledDomainMessage() {
+    void classifiesAValidationFailureRatherThanForwardingItsMessage() {
         assertThat(DiscoveryFailureReason.shape(
-                new ValidationException("the certificate has no subject alternative names")))
-                .isEqualTo("the certificate has no subject alternative names");
+                new ValidationException("Failed to calculate fingerprint from key content: MIIBIjANBgkq")))
+                .as("no entity data may reach an API-exposed field")
+                .isEqualTo("the certificate did not pass validation");
     }
 
     @Test
@@ -148,6 +153,6 @@ class DiscoveryFailureReasonTest {
     @Test
     void neverEchoesAStringifiedNullMessage() {
         assertThat(DiscoveryFailureReason.shape(new ValidationException((String) null)))
-                .isEqualTo("an unexpected error occurred");
+                .isEqualTo("the certificate did not pass validation");
     }
 }
