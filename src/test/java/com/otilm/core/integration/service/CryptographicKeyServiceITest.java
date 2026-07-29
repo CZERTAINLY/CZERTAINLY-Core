@@ -293,6 +293,51 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testAddKey_disabledTokenProfile() {
+        tokenProfile.setEnabled(false);
+        tokenProfileRepository.saveAndFlush(tokenProfile);
+
+        KeyRequestDto request = new KeyRequestDto();
+        request.setName("keyOnDisabledTokenProfile");
+        request.setAttributes(List.of());
+        UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
+        SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
+
+        ValidationException exception = Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicKeyService.createKey(
+                        tokenInstanceUuid,
+                        tokenProfileUuid,
+                        KeyRequestType.SECRET,
+                        request
+                )
+        );
+        Assertions.assertTrue(exception.getMessage().contains("Token Profile"));
+        Assertions.assertTrue(exception.getMessage().contains("disabled"));
+        mockServer.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()));
+    }
+
+    @Test
+    void testAddKey_tokenProfileNotFound() {
+        KeyRequestDto request = new KeyRequestDto();
+        request.setName("keyOnMissingTokenProfile");
+        UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
+        SecuredParentUUID missingTokenProfileUuid = SecuredParentUUID.fromUUID(UUID.randomUUID());
+
+        NotFoundException exception = Assertions.assertThrows(
+                NotFoundException.class,
+                () -> cryptographicKeyService.createKey(
+                        tokenInstanceUuid,
+                        missingTokenProfileUuid,
+                        KeyRequestType.SECRET,
+                        request
+                )
+        );
+
+        Assertions.assertTrue(exception.getMessage().contains(TokenProfile.class.getSimpleName()));
+    }
+
+    @Test
     void testAddKey_validationFail() {
         KeyRequestDto request = new KeyRequestDto();
 
@@ -500,6 +545,63 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         EditKeyRequestDto requestEmpty = new EditKeyRequestDto();
         keyDetailDto = cryptographicKeyService.editKey(key.getSecuredUuid(), requestEmpty);
         Assertions.assertEquals("updatedName", keyDetailDto.getName());
+    }
+
+    @Test
+    void testUpdateKey_tokenProfileNotFound() {
+        EditKeyRequestDto request = new EditKeyRequestDto();
+        request.setTokenProfileUuid(UUID.randomUUID().toString());
+        SecuredUUID keyUuid = key.getSecuredUuid();
+
+        NotFoundException exception = Assertions.assertThrows(
+                NotFoundException.class,
+                () -> cryptographicKeyService.editKey(keyUuid, request)
+        );
+
+        Assertions.assertTrue(exception.getMessage().contains(TokenProfile.class.getSimpleName()));
+    }
+
+    @Test
+    void testUpdateKey_disabledTokenProfile() {
+        tokenProfile2.setEnabled(false);
+        tokenProfileRepository.saveAndFlush(tokenProfile2);
+        UUID originalTokenProfileUuid = key.getTokenProfileUuid();
+        String originalName = key.getName();
+        String originalDescription = key.getDescription();
+        EditKeyRequestDto request = new EditKeyRequestDto();
+        request.setName("rejectedName");
+        request.setDescription("rejectedDescription");
+        request.setTokenProfileUuid(tokenProfile2.getUuid().toString());
+        SecuredUUID keyUuid = key.getSecuredUuid();
+
+        Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicKeyService.editKey(keyUuid, request)
+        );
+
+        CryptographicKey persistedKey = cryptographicKeyRepository.findByUuid(key.getUuid()).orElseThrow();
+        Assertions.assertEquals(originalTokenProfileUuid, persistedKey.getTokenProfileUuid());
+        Assertions.assertEquals(originalName, persistedKey.getName());
+        Assertions.assertEquals(originalDescription, persistedKey.getDescription());
+    }
+
+    @Test
+    void testListCreateKeyAttributes_disabledTokenProfile() {
+        tokenProfile.setEnabled(false);
+        tokenProfileRepository.saveAndFlush(tokenProfile);
+        UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
+        SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
+
+        Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicKeyService.listCreateKeyAttributes(
+                        tokenInstanceUuid,
+                        tokenProfileUuid,
+                        KeyRequestType.SECRET
+                )
+        );
+
+        mockServer.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()));
     }
 
     @Test

@@ -484,6 +484,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     )
             );
         }
+        if (!Boolean.TRUE.equals(key.getTokenProfile().getEnabled())) {
+            throw new ValidationException(ValidationError.create("Token Profile is disabled"));
+        }
         CryptographicKeyItem privateKeyItem = null;
         CryptographicKeyItem publicKeyItem = null;
 
