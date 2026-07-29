@@ -356,9 +356,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
                                 tokenProfileUuid
                         )
                 );
-        if (!Boolean.TRUE.equals(tokenProfile.getEnabled())) {
-            throw new ValidationException(ValidationError.create("Token Profile is disabled"));
-        }
+        validateTokenProfileEnabled(tokenProfile);
 
         attributeEngine.validateCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, request.getCustomAttributes());
         mergeAndValidateAttributes(type, tokenInstanceReference, request.getAttributes());
@@ -411,28 +409,31 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         if (tokenInstanceUuid != null)
             authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.MEMBERS, SecuredUUID.fromUUID(tokenInstanceUuid));
 
-        attributeEngine.validateCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, request.getCustomAttributes());
-
-        if (request.getName() != null && !request.getName().isEmpty()) key.setName(request.getName());
-        if (request.getDescription() != null) key.setDescription(request.getDescription());
+        TokenProfile requestedTokenProfile = null;
         if (request.getTokenProfileUuid() != null) {
-            TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
+            requestedTokenProfile = tokenProfileRepository.findByUuid(
                             SecuredUUID.fromString(request.getTokenProfileUuid()))
                     .orElseThrow(
                             () -> new NotFoundException(
-                                    TokenInstanceReference.class,
+                                    TokenProfile.class,
                                     request.getTokenProfileUuid()
                             )
                     );
-            if (!tokenProfile.getTokenInstanceReferenceUuid().equals(key.getTokenInstanceReferenceUuid())) {
+            if (!requestedTokenProfile.getTokenInstanceReferenceUuid().equals(key.getTokenInstanceReferenceUuid())) {
                 throw new ValidationException(
                         ValidationError.create(
                                 "Cannot assign Token Profile from different provider"
                         )
                 );
             }
-            key.setTokenProfile(tokenProfile);
+            validateTokenProfileEnabled(requestedTokenProfile);
         }
+
+        attributeEngine.validateCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, request.getCustomAttributes());
+
+        if (request.getName() != null && !request.getName().isEmpty()) key.setName(request.getName());
+        if (request.getDescription() != null) key.setDescription(request.getDescription());
+        if (requestedTokenProfile != null) key.setTokenProfile(requestedTokenProfile);
         key = cryptographicKeyRepository.save(key);
         key.getItems().forEach(item -> evictKeyItemCache(item.getUuid()));
 
@@ -761,6 +762,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
                                 tokenProfileUuid
                         )
                 );
+        validateTokenProfileEnabled(tokenProfile);
         logger.debug("Token profile details: {}", tokenProfile);
         List<BaseAttribute> attributes;
         ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(tokenProfile.getTokenInstanceReference().getConnectorUuid());
@@ -777,6 +779,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         }
         logger.debug("Attributes for the new creation: {}", attributes);
         return attributes;
+    }
+
+    private void validateTokenProfileEnabled(TokenProfile tokenProfile) {
+        if (!Boolean.TRUE.equals(tokenProfile.getEnabled())) {
+            throw new ValidationException(ValidationError.create("Token Profile is disabled"));
+        }
     }
 
     @Override

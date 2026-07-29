@@ -859,6 +859,31 @@ class CryptographicOperationServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(Arrays.stream(pkcs10CertificationRequest.getAttributes()).filter(attribute -> attribute.getAttrType().equals(Extension.altSignatureValue)));
     }
 
+    @Test
+    void testGenerateCsr_disabledTokenProfile() {
+        tokenProfile.setEnabled(false);
+        tokenProfileRepository.saveAndFlush(tokenProfile);
+        UUID keyUuid = key.getUuid();
+        UUID tokenProfileUuid = tokenProfile.getUuid();
+        X500Principal principal = new X500Principal("CN=disabled");
+
+        Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicOperationInternalService.generateCsr(
+                        keyUuid,
+                        tokenProfileUuid,
+                        principal,
+                        null,
+                        List.of(),
+                        null,
+                        null,
+                        List.of()
+                )
+        );
+
+        mockServer.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()));
+    }
+
     private void mockSignResponse(String keyUuid, String signature) {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathEqualTo("/v1/cryptographyProvider/tokens/%s/keys/%s/sign".formatted(tokenInstanceReference.getTokenInstanceUuid(), keyUuid)))
