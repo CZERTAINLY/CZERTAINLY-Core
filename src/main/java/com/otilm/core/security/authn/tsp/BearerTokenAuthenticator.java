@@ -2,6 +2,7 @@ package com.otilm.core.security.authn.tsp;
 
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.api.model.core.signing.TspAuthenticationMethod;
+import com.otilm.core.auth.oauth2.AuthenticationSnapshotRequestHolder;
 import com.otilm.core.auth.oauth2.PlatformJwtDecoder;
 import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
@@ -51,11 +52,11 @@ public class BearerTokenAuthenticator implements TspAuthenticator {
     public boolean authenticate(HttpServletRequest request, TspProfileModel profile) {
         String token = request.getHeader(HttpHeaders.AUTHORIZATION).substring(BEARER_PREFIX.length()).trim();
         try {
-            AuthenticationSettingsSnapshot snapshot = SettingsCache.getAuthenticationSnapshot();
             Jwt jwt = jwtDecoder.decode(token);
             if (jwt == null) {
                 return false;
             }
+            AuthenticationSettingsSnapshot snapshot = validatedSnapshot();
             OAuth2ProviderSettingsDto provider = OAuth2Util.findProviderByIssuer(
                     snapshot.settings(), jwt.getIssuer() == null ? null : jwt.getIssuer().toString());
             Map<String, Object> claims = new HashMap<>(jwt.getClaims());
@@ -66,5 +67,15 @@ public class BearerTokenAuthenticator implements TspAuthenticator {
             log.warn("TSP authentication: bearer-token authentication failed: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Returns the snapshot the decoder validated the token against, so the username claim and the cache
+     * generation come from the very provider configuration that accepted the token. Falls back to the current
+     * settings only when the decoder published nothing.
+     */
+    private static AuthenticationSettingsSnapshot validatedSnapshot() {
+        AuthenticationSettingsSnapshot published = AuthenticationSnapshotRequestHolder.get();
+        return published != null ? published : SettingsCache.getAuthenticationSnapshot();
     }
 }

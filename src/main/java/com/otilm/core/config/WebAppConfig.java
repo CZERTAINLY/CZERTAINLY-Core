@@ -3,6 +3,7 @@ package com.otilm.core.config;
 import com.otilm.api.model.client.dashboard.SigningRecordStatisticsPeriod;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.core.auth.oauth2.AuthenticationSnapshotRequestFilter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +14,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -110,6 +112,21 @@ public class WebAppConfig implements WebMvcConfigurer {
         });
         registry.addConverter(String.class, OidCategory.class,
                 source -> StringUtils.isBlank(source) ? null : OidCategory.fromCode(source));
+    }
+
+    /**
+     * Registered ahead of every other filter, including the Spring Security chains, so that no component can
+     * observe an authentication-settings snapshot published by an earlier request on the same pooled thread.
+     */
+    @Bean
+    public FilterRegistrationBean<AuthenticationSnapshotRequestFilter> authenticationSnapshotRequestFilter() {
+        FilterRegistrationBean<AuthenticationSnapshotRequestFilter> registrationBean = new FilterRegistrationBean<>();
+
+        registrationBean.setFilter(new AuthenticationSnapshotRequestFilter());
+        registrationBean.addUrlPatterns("/*");
+        registrationBean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+
+        return registrationBean;
     }
 
     @Bean

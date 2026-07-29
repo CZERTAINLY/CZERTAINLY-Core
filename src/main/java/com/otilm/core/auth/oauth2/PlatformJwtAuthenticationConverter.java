@@ -49,7 +49,7 @@ public class PlatformJwtAuthenticationConverter implements Converter<Jwt, Abstra
             return (AbstractAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
         }
 
-        AuthenticationSettingsSnapshot snapshot = SettingsCache.getAuthenticationSnapshot();
+        AuthenticationSettingsSnapshot snapshot = validatedSnapshot();
         OAuth2ProviderSettingsDto providerSettings = OAuth2Util.findProviderByIssuer(
                 snapshot.settings(), source.getIssuer() == null ? null : source.getIssuer().toString());
 
@@ -66,5 +66,15 @@ public class PlatformJwtAuthenticationConverter implements Converter<Jwt, Abstra
         // Provider settings will not be null, otherwise converter would not have been reached from decoder
         logger.debug("User '{}' has been authenticated using JWT from OAuth2 Provider '{}'.", userDetails.getUsername(), providerSettings == null ? " " : providerSettings.getName());
         return new PlatformAuthenticationToken(userDetails);
+    }
+
+    /**
+     * Returns the snapshot {@link PlatformJwtDecoder} validated the token against, so the identity is resolved
+     * under the very provider configuration that accepted the token. Falls back to the current settings when
+     * nothing was published, which keeps the converter usable when it is invoked without the decoder.
+     */
+    private static AuthenticationSettingsSnapshot validatedSnapshot() {
+        AuthenticationSettingsSnapshot published = AuthenticationSnapshotRequestHolder.get();
+        return published != null ? published : SettingsCache.getAuthenticationSnapshot();
     }
 }

@@ -279,7 +279,7 @@ class SettingServiceITest extends BaseSpringBootTest {
         second.setIssuerUrl("https://issuer-two.example.com");
         settingService.updateOAuth2ProviderSettings("provider-two", second);
 
-        second.setIssuerUrl("https://issuer-one.example.com");   // update provider-two into a collision
+        second.setIssuerUrl("https://issuer-one.example.com");
         Assertions.assertThrows(ValidationException.class,
                 () -> settingService.updateOAuth2ProviderSettings("provider-two", second));
     }
