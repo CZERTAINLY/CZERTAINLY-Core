@@ -1,6 +1,7 @@
 package com.otilm.core.security.authn.client;
 
 import com.otilm.core.config.cache.CacheConfig;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -61,20 +62,35 @@ public class PlatformAuthenticationCache implements AuthenticationCache {
     // Manual caching (instead of @Cacheable) keeps tokenJtiIndex in sync, enabling targeted
     // per-user eviction via evictTokensByUserUuid().
     @Override
-    public AuthenticationInfo getOrAuthenticateByToken(String jti, Supplier<AuthenticationInfo> loader) {
-        if (jti == null) {
+    public AuthenticationInfo getOrAuthenticateByToken(String issuer, String jti, long settingsGeneration, Supplier<AuthenticationInfo> loader) {
+        if (jti == null || StringUtils.isBlank(issuer)) {
             return loader.get();
         }
-        Cache.ValueWrapper cached = tokenCache.get(jti);
+        String cacheKey = tokenCacheKey(issuer, jti, settingsGeneration);
+        Cache.ValueWrapper cached = tokenCache.get(cacheKey);
         if (cached != null) {
             return (AuthenticationInfo) cached.get();
         }
         AuthenticationInfo result = loader.get();
         if (!result.isAnonymous()) {
-            tokenCache.put(jti, result);
-            tokenJtiIndex.add(UUID.fromString(result.getUserUuid()), jti);
+            tokenCache.put(cacheKey, result);
+            tokenJtiIndex.add(UUID.fromString(result.getUserUuid()), cacheKey);
         }
         return result;
+    }
+
+    /**
+     * Builds the token cache key as {@code generation:issuerLength:issuer:jti}.
+     * The generation is decimal digits and therefore self-delimiting, but an issuer URL contains colons and
+     * slashes and a {@code jti} is an opaque string chosen by the issuer, so a plain separator would let one
+     * (generation, issuer, jti) triple render as the key of another - issuer {@code https://a} with
+     * {@code jti} {@code x:y} and issuer {@code https://a:x} with {@code jti} {@code y} would collide.
+     * Prefixing the issuer with its character length makes the split deterministic: the digits before the
+     * second colon give the issuer length, the next that many characters are the issuer, and everything after
+     * the following colon is the {@code jti}. Every distinct triple therefore yields a distinct key.
+     */
+    private static String tokenCacheKey(String issuer, String jti, long settingsGeneration) {
+        return settingsGeneration + ":" + issuer.length() + ":" + issuer + ":" + jti;
     }
 
     @Override

@@ -3,7 +3,6 @@ package com.otilm.core.auth.oauth2;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.logging.enums.OperationResult;
-import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
@@ -11,6 +10,7 @@ import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import com.otilm.core.service.AuditLogInternalService;
+import com.otilm.core.settings.AuthenticationSettingsSnapshot;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.OAuth2Util;
 import org.junit.jupiter.api.AfterEach;
@@ -54,11 +54,13 @@ class PlatformJwtAuthenticationConverterTest {
         converter.setAuthenticationClient(authenticationClient);
         converter.setAuditLogService(auditLogService);
         SecurityContextHolder.clearContext();
+        AuthenticationSnapshotRequestHolder.clear();
     }
 
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        AuthenticationSnapshotRequestHolder.clear();
     }
 
     @Test
@@ -92,12 +94,13 @@ class PlatformJwtAuthenticationConverterTest {
         // given
         Jwt jwt = mockJwt(ISSUER_URL);
         Map<String, Object> claims = Map.of("username", "alice", "jti", "jti-123");
-        when(authenticationClient.authenticateByToken(claims)).thenReturn(authenticatedInfo());
+        when(authenticationClient.authenticateByToken(claims, 1L)).thenReturn(authenticatedInfo());
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
              MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(() -> SettingsCache.getSettings(SettingsSection.AUTHENTICATION))
-                    .thenReturn(authSettingsWithProvider(ISSUER_URL));
+            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                    .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 1L));
+            oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
             oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(
                             argThat(p -> p != null && ISSUER_URL.equals(p.getIssuerUrl())),
                             eq(TOKEN_VALUE), isNull()))
@@ -107,7 +110,7 @@ class PlatformJwtAuthenticationConverterTest {
             AbstractAuthenticationToken result = converter.convert(jwt);
 
             // then
-            verify(authenticationClient).authenticateByToken(claims);
+            verify(authenticationClient).authenticateByToken(claims, 1L);
             assertInstanceOf(PlatformAuthenticationToken.class, result);
         }
     }
@@ -120,8 +123,9 @@ class PlatformJwtAuthenticationConverterTest {
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
              MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(() -> SettingsCache.getSettings(SettingsSection.AUTHENTICATION))
-                    .thenReturn(authSettingsWithProvider(ISSUER_URL));
+            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                    .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 1L));
+            oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
             oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(any(), anyString(), isNull()))
                     .thenThrow(cause);
 
@@ -138,12 +142,13 @@ class PlatformJwtAuthenticationConverterTest {
         // given - JWT issuer does not match the single configured provider
         Jwt jwt = mockJwt("https://unknown-issuer.example.com");
         Map<String, Object> claims = Map.of("username", "alice");
-        when(authenticationClient.authenticateByToken(any())).thenReturn(authenticatedInfo());
+        when(authenticationClient.authenticateByToken(any(), anyLong())).thenReturn(authenticatedInfo());
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
              MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(() -> SettingsCache.getSettings(SettingsSection.AUTHENTICATION))
-                    .thenReturn(authSettingsWithProvider(ISSUER_URL));
+            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                    .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 1L));
+            oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
             oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(isNull(), eq(TOKEN_VALUE), isNull()))
                     .thenReturn(claims);
 
@@ -152,6 +157,53 @@ class PlatformJwtAuthenticationConverterTest {
 
             // then - null provider settings forwarded because no configured issuer matched the JWT
             oauth2Mock.verify(() -> OAuth2Util.getAllClaimsAvailable(isNull(), eq(TOKEN_VALUE), isNull()));
+        }
+    }
+
+    @Test
+    void publishedSnapshot_isPreferredOverTheCurrentSettings() throws MalformedURLException {
+        // given - the decoder validated the token against generation 7, and the settings changed since
+        Jwt jwt = mockJwt(ISSUER_URL);
+        Map<String, Object> claims = Map.of("username", "alice", "jti", "jti-123");
+        AuthenticationSettingsDto validatedSettings = authSettingsWithProvider(ISSUER_URL);
+        AuthenticationSnapshotRequestHolder.set(new AuthenticationSettingsSnapshot(validatedSettings, 7L));
+        when(authenticationClient.authenticateByToken(any(), anyLong())).thenReturn(authenticatedInfo());
+
+        try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
+             MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
+            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                    .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider("https://rotated-issuer.example.com"), 8L));
+            oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
+            oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(any(), anyString(), isNull())).thenReturn(claims);
+
+            // when
+            converter.convert(jwt);
+
+            // then - identity and cache generation come from the snapshot the token was validated against
+            verify(authenticationClient).authenticateByToken(claims, 7L);
+            oauth2Mock.verify(() -> OAuth2Util.findProviderByIssuer(same(validatedSettings), eq(ISSUER_URL)));
+        }
+    }
+
+    @Test
+    void noPublishedSnapshot_fallsBackToTheCurrentSettings() throws MalformedURLException {
+        // given - the converter is invoked without the decoder having published anything
+        Jwt jwt = mockJwt(ISSUER_URL);
+        Map<String, Object> claims = Map.of("username", "alice", "jti", "jti-123");
+        when(authenticationClient.authenticateByToken(any(), anyLong())).thenReturn(authenticatedInfo());
+
+        try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
+             MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
+            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                    .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 5L));
+            oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
+            oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(any(), anyString(), isNull())).thenReturn(claims);
+
+            // when
+            converter.convert(jwt);
+
+            // then
+            verify(authenticationClient).authenticateByToken(claims, 5L);
         }
     }
 

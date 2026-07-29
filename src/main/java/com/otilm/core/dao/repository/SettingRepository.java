@@ -2,6 +2,7 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.core.dao.entity.Setting;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,4 +23,9 @@ public interface SettingRepository extends SecurityFilterRepository<Setting, UUI
     void deleteBySectionAndCategory(SettingsSection section, String category);
 
     Long deleteBySectionAndCategoryAndName(SettingsSection section, String category, String name);
+
+    // Transaction-scoped advisory lock serializing OAuth2 provider settings writes so that concurrent
+    // updates cannot both pass the in-process issuer-uniqueness check before either commits.
+    @Query(value = "SELECT pg_advisory_xact_lock(hashtext('oauth2-provider-settings'))", nativeQuery = true)
+    Object lockOAuth2ProviderWrites();
 }

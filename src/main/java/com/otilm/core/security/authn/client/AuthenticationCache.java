@@ -40,15 +40,21 @@ public interface AuthenticationCache {
 
     /**
      * Returns cached authentication for a bearer-token request, or invokes {@code loader} and caches the result.
-     * Cached by the {@code jti} claim, which is unique per token issuance. All requests that carry the same
-     * access token share one cache entry for its lifetime. When the token is refreshed, a new {@code jti}
-     * causes a cache miss, triggering a fresh auth-service call. Tokens without a {@code jti} are never cached.
+     * Cached by authentication-settings generation plus the issuer and the {@code jti} claim. A {@code jti} is
+     * only unique within the issuer that minted it, so two configured providers may legitimately issue tokens
+     * carrying the same {@code jti}; keying on the issuer as well keeps their identities apart. The generation
+     * must come from the same settings snapshot the claims were resolved against, so a settings change makes
+     * every previously cached identity unreachable and an in-flight authentication can never publish a stale
+     * identity under the new generation. Tokens whose issuer or {@code jti} is missing are never cached, because
+     * an incomplete key cannot distinguish one token from another.
      *
-     * @param jti    the {@code jti} claim of the access token, used as the cache key; {@code null} skips caching
-     * @param loader called on a cache miss to produce the {@link AuthenticationInfo}
+     * @param issuer             the {@code iss} claim of the access token; {@code null} or blank skips caching
+     * @param jti                the {@code jti} claim of the access token; {@code null} skips caching
+     * @param settingsGeneration generation of the authentication-settings snapshot used to resolve the claims
+     * @param loader             called on a cache miss to produce the {@link AuthenticationInfo}
      * @return the cached or freshly loaded {@link AuthenticationInfo}
      */
-    AuthenticationInfo getOrAuthenticateByToken(String jti, Supplier<AuthenticationInfo> loader);
+    AuthenticationInfo getOrAuthenticateByToken(String issuer, String jti, long settingsGeneration, Supplier<AuthenticationInfo> loader);
 
     /**
      * Evicts all auth cache entries for a single user: their UUID entry, all token entries tracked

@@ -110,6 +110,65 @@ public class OAuth2Util {
         return mergedClaims;
     }
 
+    /**
+     * Finds the OAuth2 provider whose issuer URL equals the given issuer, or {@code null} when none
+     * matches. The provider's username claim decides the user's identity, so an ambiguous match
+     * (two providers sharing an issuer) fails authentication instead of silently picking one.
+     */
+    public static OAuth2ProviderSettingsDto findProviderByIssuer(AuthenticationSettingsDto settings, String issuerUri) {
+        if (settings == null || issuerUri == null || settings.getOAuth2Providers() == null) {
+            return null;
+        }
+        List<OAuth2ProviderSettingsDto> matches = settings.getOAuth2Providers().values().stream()
+                .filter(p -> issuerUri.equals(p.getIssuerUrl()))
+                .toList();
+        if (matches.size() > 1) {
+            throw new PlatformAuthenticationException(
+                    "Multiple OAuth2 providers are configured with issuer '%s'; provider selection is ambiguous.".formatted(issuerUri));
+        }
+        return matches.isEmpty() ? null : matches.getFirst();
+    }
+
+    /**
+     * Returns the claim name that identifies the user for the given provider: the provider's
+     * configured username claim when non-blank, otherwise {@link OAuth2Constants#TOKEN_USERNAME_CLAIM_NAME}.
+     */
+    public static String effectiveUsernameClaim(OAuth2ProviderSettingsDto providerSettings) {
+        return providerSettings != null && StringUtils.isNotBlank(providerSettings.getUsernameClaim())
+                ? providerSettings.getUsernameClaim()
+                : OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME;
+    }
+
+    /**
+     * Resolves the platform identity from token claims. The identity is the value of the effective
+     * username claim and must be a non-blank string. There is deliberately no fallback to any other
+     * claim: which claim identifies the user is an operator decision made via the provider settings.
+     *
+     * @throws PlatformAuthenticationException when the claim is absent, blank, or not a string
+     */
+    public static String resolveUsername(OAuth2ProviderSettingsDto providerSettings, Map<String, Object> claims) {
+        String claimName = effectiveUsernameClaim(providerSettings);
+        Object value = claims == null ? null : claims.get(claimName);
+        if (value == null) {
+            throw new PlatformAuthenticationException(
+                    "Username claim '%s' not found in token claims.".formatted(claimName));
+        }
+        if (!(value instanceof String username) || StringUtils.isBlank(username)) {
+            throw new PlatformAuthenticationException(
+                    "Username claim '%s' must be a non-blank string value.".formatted(claimName));
+        }
+        return username;
+    }
+
+    /**
+     * Lenient variant of {@link #resolveUsername(OAuth2ProviderSettingsDto, Map)} for logging
+     * contexts where a missing username must not fail the request.
+     */
+    public static String resolveUsernameOrNull(OAuth2ProviderSettingsDto providerSettings, Map<String, Object> claims) {
+        Object value = claims == null ? null : claims.get(effectiveUsernameClaim(providerSettings));
+        return value instanceof String username && StringUtils.isNotBlank(username) ? username : null;
+    }
+
     public static Map<String, Object> getAllClaimsAvailable(OAuth2ProviderSettingsDto providerSettings, String accessTokenValue, OidcIdToken idToken) {
         Map<String, Object> userInfoClaims = null;
         if (providerSettings != null && providerSettings.getUserInfoUrl() != null) {
@@ -129,16 +188,8 @@ public class OAuth2Util {
         }
 
         Map<String, Object> claims = mergeClaims(accessTokenClaims, idToken == null ? null : idToken.getClaims(), userInfoClaims);
-        // Use configurable username claim name from provider settings, with fallback to default
-        String usernameClaimName = providerSettings != null && providerSettings.getUsernameClaim() != null && !providerSettings.getUsernameClaim().isEmpty()
-                ? providerSettings.getUsernameClaim()
-                : OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME;
-
-        if (!claims.containsKey(usernameClaimName)) {
-            String message = "The username claim '%s' could not be retrieved from the Access Token, User Info Endpoint, or ID Token claims for user authenticating with Access Token. Claims %s, Token: %s".formatted(usernameClaimName, StringUtils.join(claims), accessTokenValue);
-            throw new PlatformAuthenticationException(message);
-        }
-
+        String username = resolveUsername(providerSettings, claims);
+        claims.put(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, username);
         return claims;
     }
 
