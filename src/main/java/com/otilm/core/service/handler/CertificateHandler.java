@@ -180,19 +180,16 @@ public class CertificateHandler {
             }
         }
 
-        reportDownloadProgress(discovery);
     }
 
     /**
-     * Progress is cosmetic, the certificates this batch just saved are not — so neither the write nor a failure of it
-     * may reach the batch transaction. Isolation keeps the write from holding the discovery row's lock for the batch's
-     * whole duration (which would serialise the concurrent batches on that one row); swallowing the failure keeps a
-     * lost progress message from rolling the batch's certificates back.
+     * Called after {@link #createDiscoveredCertificate} returns: reporting from inside that transaction cost a second
+     * pooled connection per batch and held the discovery row's write lock, serialising the batches on it.
      * <p>
-     * Addressed by identifier rather than by saving the shared detached instance, which the concurrent batches all
-     * hold a copy of.
+     * Failures are swallowed -- progress is cosmetic, and letting one out would have the caller log the batch as
+     * failed. Addressed by identifier, not by saving the detached instance every batch holds a copy of.
      */
-    private void reportDownloadProgress(DiscoveryHistory discovery) {
+    public void reportDownloadProgress(DiscoveryHistory discovery) {
         try {
             Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
             String progress = String.format(

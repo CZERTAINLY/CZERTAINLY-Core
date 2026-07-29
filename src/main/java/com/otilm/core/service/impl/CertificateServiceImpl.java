@@ -1388,9 +1388,8 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
         OffsetDateTime now = OffsetDateTime.now();
         Certificate entity = new Certificate();
-        // The native insert bypasses @PrePersist and the auditing listener alike, so the identifier and every audit
-        // column -- author included -- are set here. Left to the listener, author stays null on every discovered
-        // certificate.
+        // The native insert bypasses @PrePersist and the auditing listener, so every audit column is set here --
+        // author included, which would otherwise stay null on every discovered certificate.
         entity.setUuid(UUID.randomUUID());
         entity.setCreated(now);
         entity.setUpdated(now);
@@ -1420,9 +1419,11 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
         OffsetDateTime now = OffsetDateTime.now();
         Certificate certificateEntity = new Certificate();
+        // The native insert bypasses @PrePersist and the auditing listener, so every audit column is set here.
         certificateEntity.setUuid(UUID.randomUUID());
         certificateEntity.setCreated(now);
         certificateEntity.setUpdated(now);
+        certificateEntity.setAuthor(auditorAware.getCurrentAuditor().orElse(null));
         certificateEntity.setFingerprint(fingerprint);
         certificateEntity.setCertificateContent(certificateContent);
         CertificateUtil.prepareIssuedCertificate(certificateEntity, x509Cert);

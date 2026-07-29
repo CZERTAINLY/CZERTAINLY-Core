@@ -15,7 +15,7 @@ class CertificateDiscoveredEventHandlerStatusTest {
     @Test
     void cleanRunReportsProcessingAndKeepsTheOriginalMessage() {
         DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 0, 0), ORIGINAL);
+                new DiscoveryRunCounts(0, 0, 0, 0, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
         assertThat(result.getMessage()).isEqualTo(ORIGINAL);
@@ -24,7 +24,7 @@ class CertificateDiscoveredEventHandlerStatusTest {
     @Test
     void inventoryGapsAloneAreReported() {
         DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(3, 0, 0, 0), ORIGINAL);
+                new DiscoveryRunCounts(3, 0, 0, 0, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
         assertThat(result.getMessage())
@@ -34,7 +34,7 @@ class CertificateDiscoveredEventHandlerStatusTest {
     @Test
     void keyGapsAloneAreReported() {
         DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 2, 0, 0), ORIGINAL);
+                new DiscoveryRunCounts(0, 2, 0, 0, false), ORIGINAL);
 
         assertThat(result.getMessage())
                 .isEqualTo("2 certificate(s) were imported without all of their public keys associated. " + TRAILER);
@@ -47,7 +47,7 @@ class CertificateDiscoveredEventHandlerStatusTest {
     @Test
     void everyConditionContributesAndNoneMasksAnother() {
         DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(3, 2, 1, 4), ORIGINAL);
+                new DiscoveryRunCounts(3, 2, 1, 4, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
         assertThat(result.getMessage()).isEqualTo(
@@ -60,7 +60,7 @@ class CertificateDiscoveredEventHandlerStatusTest {
     @Test
     void aBookkeepingFailureAloneStillWarns() {
         DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 0, 1), ORIGINAL);
+                new DiscoveryRunCounts(0, 0, 0, 1, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus())
                 .as("the persisted detail is knowingly incomplete, so the run is not clean")
@@ -69,10 +69,25 @@ class CertificateDiscoveredEventHandlerStatusTest {
                 .isEqualTo("Some per-certificate detail could not be recorded. " + TRAILER);
     }
 
+    /**
+     * Its own sentence rather than a bookkeeping failure: the consequence is a whole run of unvalidated certificates,
+     * which the per-certificate wording described neither accurately nor visibly.
+     */
+    @Test
+    void validationNotQueuedIsReportedOnItsOwnTerms() {
+        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
+                new DiscoveryRunCounts(0, 0, 0, 0, true), ORIGINAL);
+
+        assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
+        assertThat(result.getMessage())
+                .isEqualTo("Validation of the discovered certificates could not be requested. " + TRAILER);
+        assertThat(result.getMessage()).doesNotContain("per-certificate detail could not be recorded");
+    }
+
     @Test
     void notAttemptedAloneStillWarns() {
         DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 5, 0), ORIGINAL);
+                new DiscoveryRunCounts(0, 0, 5, 0, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
         assertThat(result.getMessage())

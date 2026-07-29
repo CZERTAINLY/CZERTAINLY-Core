@@ -21,7 +21,7 @@ class DiscoveryRunAccumulatorTest {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
         accumulator.accept(committedGroup(imported(rowA), ignored(rowB)));
 
-        assertThat(accumulator.counts()).isEqualTo(new DiscoveryRunCounts(0, 0, 0, 0));
+        assertThat(accumulator.counts()).isEqualTo(new DiscoveryRunCounts(0, 0, 0, 0, false));
         assertThat(accumulator.counts().allClear()).isTrue();
     }
 

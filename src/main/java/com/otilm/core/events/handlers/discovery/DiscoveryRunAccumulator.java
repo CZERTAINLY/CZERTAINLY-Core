@@ -24,6 +24,7 @@ public class DiscoveryRunAccumulator {
     private final Set<Long> contentIdsNotAttempted = new LinkedHashSet<>();
     private final Set<Long> contentIdsWithKeyGap = new LinkedHashSet<>();
     private long bookkeepingFailures;
+    private boolean validationNotQueued;
 
     public void accept(GroupImportResult group) {
         group.rowResults().forEach(result -> resultsByRow.put(result.discoveryCertificateUuid(), result));
@@ -70,6 +71,10 @@ public class DiscoveryRunAccumulator {
         bookkeepingFailures++;
     }
 
+    public void recordValidationNotQueued() {
+        validationNotQueued = true;
+    }
+
     public List<DiscoveryCertificateResult> results() {
         return List.copyOf(resultsByRow.values());
     }
@@ -84,7 +89,8 @@ public class DiscoveryRunAccumulator {
                 contentIdsWithInventoryGap.size(),
                 (long) keyFailureReasons.size() + contentIdsWithKeyGap.size(),
                 contentIdsNotAttempted.size(),
-                bookkeepingFailures);
+                bookkeepingFailures,
+                validationNotQueued);
     }
 
     private static boolean hasInventoryGap(GroupImportResult group) {

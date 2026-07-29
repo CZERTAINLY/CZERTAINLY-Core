@@ -205,9 +205,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             return;
         }
 
-        // Before the event histories are created: those rows persist immediately, and a denial here would leave
-        // them stranded. One resource-level check per run rather than one per certificate, because enforcement is
-        // a blocking OPA request and must not be held across a transaction.
+        // Before the event histories, whose rows persist immediately and would be stranded by a denial. Once per
+        // run, not per certificate: enforcement is a blocking OPA call and must not be held across a transaction.
         authorizationEnforcer.enforce(Resource.CERTIFICATE, ResourceAction.CREATE);
 
         EventHistory eventHistoryDiscovery = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid());
@@ -228,9 +227,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         try {
             importAndReport(runContext, groups, originalMessage, eventHistoryDiscovery, eventHistoryPlatform);
         } catch (RuntimeException e) {
-            // The histories persist outside any transaction, so without this they stay IN_PROGRESS forever. A
-            // history already FINISHED is left alone: the import committed, and overwriting it with FAILED would
-            // point the record at work that actually succeeded.
+            // The histories persist outside any transaction, so without this they stay IN_PROGRESS forever. One
+            // already FINISHED is left alone -- its work committed.
             failIfUnfinished(eventHistoryDiscovery);
             failIfUnfinished(eventHistoryPlatform);
             throw e;
@@ -255,8 +253,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(
                     virtualThreadExecutor, SecurityContextHolder.getContext());
 
-            // parallelToStream, not parallel: results arrive on this thread, so the key maps and the progress
-            // counter below need no synchronisation. Consumed lazily so progress appears during the run, not after.
+            // parallelToStream, not parallel: results arrive on this thread, so the key maps and counter below need
+            // no synchronisation. Lazy, so progress appears during the run.
             int completed = 0;
             Iterator<GroupImportResult> results = groups.stream()
                     .collect(ParallelCollectors.parallelToStream(
@@ -288,15 +286,15 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         saveEventHistory(eventHistoryDiscovery, EventStatus.FINISHED);
         saveEventHistory(eventHistoryPlatform, EventStatus.FINISHED);
 
-        // Contained: the import has committed by this point, so a messaging failure must not reach the caller's
-        // catch, where it would re-mark both histories FAILED and replace the counted status with a generic one.
+        // Contained: the import has committed, so a messaging failure must not reach the caller's catch, where it
+        // would re-mark both histories FAILED and replace the counted status.
         try {
             validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null,
                     runContext.discoveryUuid(), runContext.discoveryName(), null, null));
         } catch (Exception e) {
             logger.error("Could not request validation of the certificates discovered by {}: {}",
                     runContext.discoveryUuid(), e.getMessage(), e);
-            accumulator.recordBookkeepingFailure();
+            accumulator.recordValidationNotQueued();
         }
         DiscoveryResult result = decideFinalStatus(accumulator.counts(), originalMessage);
         emitDiscoveryFinished(runContext.discoveryUuid(), runContext.eventContext(),
@@ -327,6 +325,9 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
         if (counts.bookkeepingFailures() > 0) {
             sentences.add("Some per-certificate detail could not be recorded.");
+        }
+        if (counts.validationNotQueued()) {
+            sentences.add("Validation of the discovered certificates could not be requested.");
         }
         sentences.add("See the discovery certificate list for per-certificate detail.");
         return new DiscoveryResult(DiscoveryStatus.WARNING, String.join(" ", sentences));
@@ -365,9 +366,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * import unit, so joining a transaction that is rolling back would discard them.
      */
     private void writeBookkeeping(DiscoveryRunAccumulator accumulator, GroupImportResult result) {
-        // Batched, so a group of rows costs one round trip rather than one per discovered host. Keyed on the reason
-        // as well as the outcome: a group's rows share both today, and grouping on the outcome alone would silently
-        // collapse distinct reasons onto whichever row came first.
+        // Batched, so a group costs one round trip rather than one per host. Keyed on the reason as well as the
+        // outcome, since grouping on the outcome alone would collapse distinct reasons onto the first row's.
         Map<BookkeepingKey, List<DiscoveryCertificateResult>> byOutcomeAndDetail = result.rowResults().stream()
                 .collect(Collectors.groupingBy(row -> new BookkeepingKey(row.outcome(), row.detail()),
                         LinkedHashMap::new, Collectors.toList()));
@@ -378,8 +378,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             String detail = entry.getKey().detail();
             try {
                 if (entry.getKey().outcome() == DiscoveryCertificateOutcome.NOT_ATTEMPTED) {
-                    // processed stays false — the truthful record for a row the platform never reached — but the
-                    // reason is still written, because the status message points the operator at this list for it.
+                    // processed stays false for a row never reached, but the reason is still written -- the status
+                    // message sends the operator here to read it.
                     transactionHandler.runInNewTransaction(() ->
                             discoveryWriter.recordProcessedError(rowUuids, detail));
                 } else {
@@ -469,9 +469,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     /**
-     * The next result, or empty once the stream is done — or has failed. A failure surfacing from the stream itself
-     * (cancellation, or anything that escaped the mapper) ends consumption rather than propagating: the groups
-     * already consumed and recorded must not be discarded, and whatever went unconsumed is accounted for afterwards.
+     * The next result, or empty once the stream is done or has failed. A stream-level failure ends consumption rather
+     * than propagating, so the groups already recorded survive; the rest are accounted for after the loop.
      */
     private Optional<GroupImportResult> nextResult(Iterator<GroupImportResult> results) {
         try {
@@ -499,15 +498,13 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     /**
      * Records every group the consumption loop did not reach, so an early exit cannot leave lost work out of the
-     * counts and let the run call itself clean. Callable only once the import executor has closed, since until then
-     * a group can still be mid-flight.
+     * counts. Callable only after the executor has closed, since until then a group can still be mid-flight.
      *
-     * <p>A present certificate is evidence the group reached its import, not proof: another actor may have committed
-     * that row, and a group that committed an IGNORED verdict leaves none and so reads as never attempted. Both
-     * mislabel conservatively, on a path only an abnormal exit reaches.
+     * <p>A present certificate is evidence of an import, not proof — another actor may have committed it, and an
+     * IGNORED verdict leaves none. Both mislabel conservatively, on a path only an abnormal exit reaches.
      *
-     * <p>Contained per group, being the last phase before key association: a probe failure escaping here would
-     * discard the key maps of every group that did consume, whose rows already read as processed without a reason.
+     * <p>Contained per group: a probe failure escaping the last phase before key association would discard the key
+     * maps of every group that did consume.
      */
     void accountForUnconsumedGroups(DiscoveryRunAccumulator accumulator,
                                     List<DiscoveryContentGroup> groups, Set<Long> consumedContentIds) {
