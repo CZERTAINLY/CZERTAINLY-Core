@@ -19,7 +19,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 
 @Service
-@Transactional
+// Spring rolls back only on unchecked exceptions by default, and this declares checked ones. A failed bootstrap
+// must leave nothing behind.
+@Transactional(rollbackFor = Exception.class)
 public class LocalAdminServiceImpl implements LocalAdminExternalService {
 
     private RoleManagementApiClient roleManagementApiClient;
@@ -44,8 +46,8 @@ public class LocalAdminServiceImpl implements LocalAdminExternalService {
     @Override
     @UnauthenticatedEndpoint
     public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, AttributeException {
-        // Resolved first: without the role there is nothing to grant, and creating the user anyway would leave the
-        // first administrator holding no permissions, with its username blocking the retry.
+        // Resolved first: creating the user without it would strand the first administrator holding nothing, its
+        // username then blocking the retry.
         String superadminRoleUuid = getSuperadminRoleUuid();
 
         UserDetailDto userDetailDto = userManagementService.createUser(request);

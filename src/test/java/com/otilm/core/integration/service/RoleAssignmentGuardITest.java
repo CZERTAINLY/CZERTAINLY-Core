@@ -122,6 +122,34 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(userManagementApiClient, never()).updateRole(any(), any());
     }
 
+    /** A request that omits the list entirely asks for the same thing an empty one does: no members remain. */
+    @Test
+    void updateUsers_treatsAnAbsentMemberListAsRemovingEveryone() {
+        String roleUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(roleUuid))
+                .thenReturn(role(roleUuid, AuthHelper.ACME_USERNAME, true, List.of(systemUser(AuthHelper.ACME_USERNAME))));
+
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> roleManagementService.updateUsers(roleUuid, null));
+
+        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.ACME_USERNAME), exception.getMessage());
+        verify(roleManagementApiClient, never()).updateUsers(any(), any());
+    }
+
+    @Test
+    void updateRoles_treatsAnAbsentRoleListAsClearingThem() {
+        String roleUuid = UUID.randomUUID().toString();
+        String acmeUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserHolding(acmeUuid, AuthHelper.ACME_USERNAME, roleUuid, AuthHelper.ACME_USERNAME));
+
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> userManagementService.updateRoles(acmeUuid, null));
+
+        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.ACME_USERNAME), exception.getMessage());
+        verify(userManagementApiClient, never()).updateRoles(any(), any());
+    }
+
     // Rule 1b: a system user holds its own role and nothing else — otherwise a ROLE:UPDATE holder could widen a
     // protocol identity by adding it to a role that grants more than the protocol needs.
 
@@ -257,6 +285,20 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(userManagementApiClient).removeRole(humanUuid, roleUuid);
     }
 
+    @Test
+    void updateRoles_allowsASystemUserToKeepItsOwnRole() {
+        String roleUuid = UUID.randomUUID().toString();
+        String acmeUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserHolding(acmeUuid, AuthHelper.ACME_USERNAME, roleUuid, AuthHelper.ACME_USERNAME));
+        when(userManagementApiClient.updateRoles(eq(acmeUuid), any())).thenReturn(humanUser(acmeUuid));
+        List<String> retained = List.of(roleUuid);
+
+        userManagementService.updateRoles(acmeUuid, retained);
+
+        verify(userManagementApiClient).updateRoles(acmeUuid, retained);
+    }
+
     // Rule 2: a role that allows all resources may only be assigned by someone who already holds it.
 
     @Test
@@ -312,6 +354,42 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         roleManagementService.updateUsers(adminUuid, members);
 
         verify(roleManagementApiClient).updateUsers(adminUuid, members);
+    }
+
+    /** A caller the platform cannot resolve holds nothing, so it is refused rather than treated as privileged. */
+    @Test
+    void updateRoles_rejectsAnAllResourcesRoleWhenTheCallerCannotBeResolved() {
+        String roleUuid = UUID.randomUUID().toString();
+        String targetUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(roleUuid))
+                .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true, List.of()));
+        when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(true));
+        when(userManagementApiClient.getUserDetail(targetUuid)).thenReturn(humanUser(targetUuid));
+        authenticateWithUnreadableProfile();
+        List<String> granted = List.of(roleUuid);
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> userManagementService.updateRoles(targetUuid, granted));
+
+        verify(userManagementApiClient, never()).updateRoles(any(), any());
+    }
+
+    /** A caller carrying no permissions at all is not the same as one carrying all of them. */
+    @Test
+    void updateRoles_rejectsAnAllResourcesRoleWhenTheCallerCarriesNoPermissions() {
+        String roleUuid = UUID.randomUUID().toString();
+        String targetUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(roleUuid))
+                .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true, List.of()));
+        when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(true));
+        when(userManagementApiClient.getUserDetail(targetUuid)).thenReturn(humanUser(targetUuid));
+        authenticateWithoutPermissions();
+        List<String> granted = List.of(roleUuid);
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> userManagementService.updateRoles(targetUuid, granted));
+
+        verify(userManagementApiClient, never()).updateRoles(any(), any());
     }
 
     @Test
@@ -402,15 +480,28 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(userManagementApiClient).enableUser(humanUuid);
     }
 
-    /**
-     * The first administrator is created by the localhost identity, which holds no roles at all, so the rule that an
-     * all-resources role may only be granted by a holder would refuse every fresh install if the bootstrap went
-     * through the guarded path.
-     */
-    /**
-     * The role is resolved before the user is created, so a missing superadmin role does not leave the very first
-     * administrator behind holding nothing — an account that cannot be used and whose username blocks the retry.
-     */
+    @Test
+    void createUser_grantsSuperadminToTheFirstAdministrator() throws Exception {
+        String superadminUuid = UUID.randomUUID().toString();
+        String createdUuid = UUID.randomUUID().toString();
+        RoleWithPaginationDto roles = new RoleWithPaginationDto();
+        roles.setData(List.of(
+                namedRole(UUID.randomUUID().toString(), AuthHelper.SUPERADMIN_ROLE_NAME, false),
+                namedRole(UUID.randomUUID().toString(), "operators", true),
+                namedRole(superadminUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true)));
+        when(roleManagementApiClient.getRoles()).thenReturn(roles);
+        when(userManagementApiClient.createUser(any())).thenReturn(humanUser(createdUuid));
+        when(userManagementApiClient.updateRole(createdUuid, superadminUuid)).thenReturn(humanUser(createdUuid));
+
+        AddUserRequestDto request = new AddUserRequestDto();
+        request.setUsername("first-admin");
+
+        localAdminService.createUser(request);
+
+        verify(userManagementApiClient).updateRole(createdUuid, superadminUuid);
+    }
+
+    /** The role is resolved before the user is created, so a missing one strands no half-made administrator. */
     @Test
     void createUser_failsWithoutCreatingAUserWhenTheSuperadminRoleIsMissing() {
         RoleWithPaginationDto noRoles = new RoleWithPaginationDto();
@@ -423,6 +514,11 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(userManagementApiClient, never()).createUser(any());
     }
 
+    /**
+     * The first administrator is created by the localhost identity, which holds no roles at all, so the rule that an
+     * all-resources role may only be granted by a holder would refuse every fresh install if the bootstrap went
+     * through the guarded path.
+     */
     @Test
     void updateRoleInternal_bypassesTheGuardSoTheFirstAdministratorCanBeCreated() {
         String superadminRoleUuid = UUID.randomUUID().toString();
@@ -435,27 +531,45 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(roleManagementApiClient, never()).getRoleDetail(any());
     }
 
-    /**
-     * A caller whose own permissions cover everything, as superadmin's and admin's do. The auth service merges every
-     * role's permissions into the profile, so holding such a role and carrying the flag are the same state.
-     */
+    /** Rawdata the profile cannot be parsed from, which is how an unresolvable caller presents itself. */
+    private void authenticateWithUnreadableProfile() {
+        setAuthentication("not-a-profile");
+    }
+
+    private void authenticateWithoutPermissions() {
+        UserProfileDto profile = callerProfile();
+        profile.setRoles(List.of());
+        setAuthentication(writeProfile(profile));
+    }
+
+    /** A caller whose permissions cover everything, as superadmin's and admin's do. */
     private void authenticateHoldingAllResources(String roleUuid, String roleName) {
+        UserProfileDto profile = callerProfile();
+        profile.setRoles(List.of(new NameAndUuidDto(roleUuid, roleName)));
+        profile.setPermissions(permissions(true));
+        setAuthentication(writeProfile(profile));
+    }
+
+    private static UserProfileDto callerProfile() {
         UserProfileDto profile = new UserProfileDto();
         UserDto caller = new UserDto();
         caller.setUuid(UUID.randomUUID().toString());
         caller.setUsername("tst-user");
         profile.setUser(caller);
-        profile.setRoles(List.of(new NameAndUuidDto(roleUuid, roleName)));
-        profile.setPermissions(permissions(true));
+        return profile;
+    }
 
-        String rawData;
+    private static String writeProfile(UserProfileDto profile) {
         try {
-            rawData = new ObjectMapper().writeValueAsString(profile);
+            return new ObjectMapper().writeValueAsString(profile);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static void setAuthentication(String rawData) {
         AuthenticationInfo info = new AuthenticationInfo(
-                AuthMethod.USER_PROXY, caller.getUuid(), caller.getUsername(), List.of(), rawData);
+                AuthMethod.USER_PROXY, UUID.randomUUID().toString(), "tst-user", List.of(), rawData);
         SecurityContextHolder.getContext().setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
     }
 
@@ -472,6 +586,14 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         SubjectPermissionsDto dto = new SubjectPermissionsDto();
         dto.setAllowAllResources(allowAllResources);
         dto.setResources(List.of());
+        return dto;
+    }
+
+    private static RoleDto namedRole(String uuid, String name, boolean systemRole) {
+        RoleDto dto = new RoleDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setSystemRole(systemRole);
         return dto;
     }
 

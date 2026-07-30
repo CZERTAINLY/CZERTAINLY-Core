@@ -186,12 +186,9 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * A caller who already holds every resource gains nothing by granting a role that holds every resource, so
-     * superadmin is not confined to handing out superadmin. What this refuses is the caller who would gain from it:
-     * {@code USER:UPDATE} on its own reached full administration by assigning superadmin to itself.
-     * <p>
-     * Holding the role itself needs no separate check — the auth service merges every role's permissions into the
-     * caller's profile, so holding an all-resources role already sets the flag this reads.
+     * A caller who already holds every resource gains nothing by granting one, so superadmin is not confined to
+     * handing out superadmin. Holding the role itself needs no separate check: the auth service merges every role's
+     * permissions into the profile, so holding an all-resources role already sets the flag this reads.
      */
     private static void requireCallerHoldsAllResources(RoleDetailDto role) {
         if (!callerHoldsAllResources()) {
