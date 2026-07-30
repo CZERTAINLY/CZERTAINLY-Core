@@ -3,6 +3,7 @@ package com.otilm.core.integration.service;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.RoleDetailDto;
+import com.otilm.api.model.core.auth.RoleDto;
 import com.otilm.api.model.core.auth.SubjectPermissionsDto;
 import com.otilm.api.model.core.auth.UserDetailDto;
 import com.otilm.api.model.core.auth.UserDto;
@@ -16,6 +17,7 @@ import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.service.RoleManagementExternalService;
 import com.otilm.core.service.UserManagementExternalService;
+import com.otilm.core.service.UserManagementInternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -49,6 +51,9 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
 
     @Autowired
     private UserManagementExternalService userManagementService;
+
+    @Autowired
+    private UserManagementInternalService userManagementInternalService;
 
     @MockitoBean
     private RoleManagementApiClient roleManagementApiClient;
@@ -160,6 +165,49 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(roleManagementApiClient).updateUsers(roleUuid, List.of(acme.getUuid()));
     }
 
+    // Rule 1c: a system user keeps the role it holds. updateRoles replaces the whole list and removeRole detaches
+    // one, so both can strand the identity even though neither assigns anything.
+
+    @Test
+    void updateRoles_rejectsClearingTheRolesOfASystemUser() {
+        String roleUuid = UUID.randomUUID().toString();
+        String acmeUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserHolding(acmeUuid, AuthHelper.ACME_USERNAME, roleUuid, AuthHelper.ACME_USERNAME));
+
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> userManagementService.updateRoles(acmeUuid, List.of()));
+
+        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.ACME_USERNAME), exception.getMessage());
+        verify(userManagementApiClient, never()).updateRoles(any(), any());
+    }
+
+    @Test
+    void removeRole_rejectsDetachingTheRoleOfASystemUser() {
+        String roleUuid = UUID.randomUUID().toString();
+        String acmeUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserHolding(acmeUuid, AuthHelper.ACME_USERNAME, roleUuid, AuthHelper.ACME_USERNAME));
+
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> userManagementService.removeRole(acmeUuid, roleUuid));
+
+        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.ACME_USERNAME), exception.getMessage());
+        verify(userManagementApiClient, never()).removeRole(any(), any());
+    }
+
+    @Test
+    void removeRole_allowsDetachingARoleFromAHumanUser() {
+        String roleUuid = UUID.randomUUID().toString();
+        String humanUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(humanUuid)).thenReturn(humanUser(humanUuid));
+        when(userManagementApiClient.removeRole(humanUuid, roleUuid)).thenReturn(humanUser(humanUuid));
+
+        userManagementService.removeRole(humanUuid, roleUuid);
+
+        verify(userManagementApiClient).removeRole(humanUuid, roleUuid);
+    }
+
     // Rule 2: a role that allows all resources may only be assigned by someone who already holds it.
 
     @Test
@@ -239,6 +287,63 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(roleManagementApiClient).updateUsers(roleUuid, List.of(humanUuid));
     }
 
+    // A system user's account state is as load-bearing as its role: disabling acme stops ACME enrolment just as
+    // surely as detaching its role would. The auth service refuses to update or delete a system user but not to
+    // disable one, so nothing rejected this before.
+
+    @Test
+    void disableUser_rejectsDisablingASystemUser() {
+        String acmeUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserDetail(acmeUuid, AuthHelper.ACME_USERNAME));
+
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> userManagementService.disableUser(acmeUuid));
+
+        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.ACME_USERNAME), exception.getMessage());
+        verify(userManagementApiClient, never()).disableUser(any());
+    }
+
+    @Test
+    void enableUser_rejectsEnablingASystemUser() {
+        String acmeUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserDetail(acmeUuid, AuthHelper.ACME_USERNAME));
+
+        Assertions.assertThrows(ValidationException.class, () -> userManagementService.enableUser(acmeUuid));
+
+        verify(userManagementApiClient, never()).enableUser(any());
+    }
+
+    /** enableUser is the permit case because disableUser also clears session state, which this context has no table for. */
+    @Test
+    void enableUser_allowsEnablingAHumanUser() {
+        String humanUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.getUserDetail(humanUuid)).thenReturn(humanUser(humanUuid));
+        when(userManagementApiClient.enableUser(humanUuid)).thenReturn(humanUser(humanUuid));
+
+        userManagementService.enableUser(humanUuid);
+
+        verify(userManagementApiClient).enableUser(humanUuid);
+    }
+
+    /**
+     * The first administrator is created by the localhost identity, which holds no roles at all, so the rule that an
+     * all-resources role may only be granted by a holder would refuse every fresh install if the bootstrap went
+     * through the guarded path.
+     */
+    @Test
+    void updateRoleInternal_bypassesTheGuardSoTheFirstAdministratorCanBeCreated() {
+        String superadminRoleUuid = UUID.randomUUID().toString();
+        String humanUuid = UUID.randomUUID().toString();
+        when(userManagementApiClient.updateRole(humanUuid, superadminRoleUuid)).thenReturn(humanUser(humanUuid));
+
+        userManagementInternalService.updateRoleInternal(humanUuid, superadminRoleUuid);
+
+        verify(userManagementApiClient).updateRole(humanUuid, superadminRoleUuid);
+        verify(roleManagementApiClient, never()).getRoleDetail(any());
+    }
+
     private void authenticateHoldingRole(String roleUuid, String roleName) {
         UserProfileDto profile = new UserProfileDto();
         UserDto caller = new UserDto();
@@ -279,6 +384,15 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         dto.setUuid(UUID.randomUUID().toString());
         dto.setUsername(username);
         dto.setSystemUser(true);
+        return dto;
+    }
+
+    private static UserDetailDto systemUserHolding(String uuid, String username, String roleUuid, String roleName) {
+        UserDetailDto dto = systemUserDetail(uuid, username);
+        RoleDto role = new RoleDto();
+        role.setUuid(roleUuid);
+        role.setName(roleName);
+        dto.setRoles(List.of(role));
         return dto;
     }
 

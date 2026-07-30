@@ -236,6 +236,7 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateRoles(String userUuid, List<String> roleUuids) {
         roleAssignmentGuard.checkRolesAssignableToUser(userUuid, roleUuids);
+        roleAssignmentGuard.checkRolesRetainedForUser(userUuid, roleUuids);
         UserDetailDto result = userManagementApiClient.updateRoles(userUuid, roleUuids);
         authenticationCache.evictByUserUuid(UUID.fromString(userUuid));
         return result;
@@ -264,15 +265,30 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto enableUser(String userUuid) {
+        rejectSystemUser(userUuid);
         return userManagementApiClient.enableUser(userUuid);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto disableUser(String userUuid) {
+        rejectSystemUser(userUuid);
         UserDetailDto result = userManagementApiClient.disableUser(userUuid);
         clearAuthenticationData(userUuid, "disabled");
         return result;
+    }
+
+    /**
+     * A system user's account state carries the identity as much as its role does — disabling acme stops ACME
+     * enrolment as surely as detaching its role would. The auth service refuses to update or delete a system user
+     * but not to disable one, so this is the only check standing between USER:ENABLE and a broken protocol.
+     */
+    private void rejectSystemUser(String userUuid) {
+        UserDetailDto user = userManagementApiClient.getUserDetail(userUuid);
+        if (user != null && Boolean.TRUE.equals(user.getSystemUser())) {
+            throw new ValidationException("User '%s' is a system user and its state cannot be changed."
+                    .formatted(user.getUsername()));
+        }
     }
 
     @Override
@@ -284,6 +300,7 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto removeRole(String userUuid, String roleUuid) {
+        roleAssignmentGuard.checkRoleRemovableFromUser(userUuid, roleUuid);
         UserDetailDto result = userManagementApiClient.removeRole(userUuid, roleUuid);
         authenticationCache.evictByUserUuid(UUID.fromString(userUuid));
         return result;

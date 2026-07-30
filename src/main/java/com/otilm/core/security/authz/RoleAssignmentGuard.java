@@ -3,6 +3,7 @@ package com.otilm.core.security.authz;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.RoleDetailDto;
+import com.otilm.api.model.core.auth.RoleDto;
 import com.otilm.api.model.core.auth.SubjectPermissionsDto;
 import com.otilm.api.model.core.auth.UserDetailDto;
 import com.otilm.api.model.core.auth.UserDto;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -56,6 +58,38 @@ public class RoleAssignmentGuard {
         }
         for (String roleUuid : roleUuids) {
             checkAssignment(roleManagementApiClient.getRoleDetail(roleUuid), List.of(userUuid));
+        }
+    }
+
+    /**
+     * Guards a replacement of a user's roles: a system user must keep the role it holds. Assigning nothing is
+     * still a detachment, so an empty list has to be refused rather than skipped.
+     */
+    public void checkRolesRetainedForUser(String userUuid, List<String> retainedRoleUuids) {
+        List<String> retained = retainedRoleUuids == null ? List.of() : retainedRoleUuids;
+        rejectStrandingSystemUser(userUuid, held -> !retained.contains(held.getUuid()));
+    }
+
+    /** Guards an explicit removal, which detaches without assigning anything the other rules could inspect. */
+    public void checkRoleRemovableFromUser(String userUuid, String roleUuid) {
+        rejectStrandingSystemUser(userUuid, held -> held.getUuid().equals(roleUuid));
+    }
+
+    /**
+     * The pairing between a system user and its role is that identity's permission boundary. Stranding it leaves
+     * the identity unable to do the job it exists for, and unpairs the role so the rules above stop recognising it.
+     */
+    private void rejectStrandingSystemUser(String userUuid, Predicate<RoleDto> losesRole) {
+        UserDetailDto user = userManagementApiClient.getUserDetail(userUuid);
+        if (!isSystemUser(user) || user.getRoles() == null) {
+            return;
+        }
+        for (RoleDto held : user.getRoles()) {
+            if (losesRole.test(held)) {
+                throw new ValidationException(
+                        "Role '%s' belongs to system user '%s' and cannot be removed from it."
+                                .formatted(held.getName(), user.getUsername()));
+            }
         }
     }
 
