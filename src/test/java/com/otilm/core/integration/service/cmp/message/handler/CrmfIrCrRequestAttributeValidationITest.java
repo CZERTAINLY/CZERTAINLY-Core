@@ -3,6 +3,7 @@ package com.otilm.core.integration.service.cmp.message.handler;
 import com.otilm.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.otilm.core.certificate.request.RequestAttributePolicyViolationException;
 import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.cmp.CmpProfile;
 import com.otilm.core.service.cmp.CmpEntityUtil;
 import com.otilm.core.service.cmp.CmpTestUtil;
 import com.otilm.core.service.cmp.configurations.variants.Mobile3gppProfileContext;
@@ -53,11 +54,12 @@ class CrmfIrCrRequestAttributeValidationITest extends BaseSpringBootTest {
         PKIMessage request = CmpTestUtil.createSignatureBasedMessage("888", keyPair.getPrivate(), body).toASN1Structure();
         RaProfile raProfile = CmpEntityUtil.createRaProfile();
         raProfile.setAuthorityInstanceReferenceUuid(UUID.randomUUID());
+        CmpProfile cmpProfile = CmpEntityUtil.createCmpProfile(raProfile, "sharedSecret");
 
         // when / then — the handler shapes the policy violation into a CmpCrmfValidationException carrying
         // the safe, platform-authored message and no internal identifiers
         assertThatThrownBy(() -> crmfIrCrMessageHandler.handle(request,
-                new Mobile3gppProfileContext(null, raProfile, request, certificateKeyService, null, null)))
+                new Mobile3gppProfileContext(cmpProfile, raProfile, request, certificateKeyService, null, null)))
                 .isInstanceOf(CmpCrmfValidationException.class)
                 .hasMessageContaining(policyMessage)
                 .satisfies(ex -> assertThat(ex.getMessage())
