@@ -357,6 +357,10 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
+        // The issue/renew/rekey paths reach this body by self-invocation, which bypasses the annotation above, so
+        // without this probe a platform key would sign a CSR before the nested CREATE gate below could deny. It
+        // denies nobody the nested gate would admit: the body is linear and every earlier exit already throws.
+        certificateService.checkCreatePermissions();
         boolean createCustomAttributes = !AuthHelper.isLoggedProtocolUser();
         if (createCustomAttributes) {
             attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
@@ -481,6 +485,10 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto registerCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
                                                                 ClientCertificateRegistrationDto request) throws NotFoundException, ConnectorException, AttributeException {
+        // The annotation above only gates use of the RA profile (a read action), while this method creates a
+        // placeholder certificate, drives state transitions and calls the connector. Gate the write itself, through
+        // the injected bean so the proxy applies the check.
+        certificateService.checkRegisterPermissions();
         if (request == null) {
             throw new ValidationException("A certificate registration request is required.");
         }
@@ -898,47 +906,70 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
      * deny; CLOSED passes as unregistered. The failed-attempt increment and lockout are committed before the caller
      * rejects the request, so the counter survives the rejection — a rollback would erase it and lockout could never
      * trigger.
+     *
+     * @return {@code true} when an ACTIVE authorization's challenge was actually verified — the self-service
+     * credential that stands in for the caller's operator permission on the completion write
      */
-    private void verifyRegistrationChallenge(UUID certificateUuid, String presentedSecret) {
+    private boolean verifyRegistrationChallenge(UUID certificateUuid, String presentedSecret) {
         if (registrationAuthorizationRepository.findByCertificateUuid(certificateUuid).isEmpty()) {
-            return;
+            return false;
         }
-        String denial = evaluateRegistrationChallengeUnderLock(certificateUuid, presentedSecret);
-        if (denial != null) {
-            throw new ValidationException(ValidationError.create(denial));
+        RegistrationChallengeOutcome outcome = evaluateRegistrationChallengeUnderLock(certificateUuid, presentedSecret);
+        if (outcome.denial() != null) {
+            throw new ValidationException(ValidationError.create(outcome.denial()));
+        }
+        return outcome.challengeVerified();
+    }
+
+    /**
+     * Result of the registration-challenge gate: a denial reason, or — when the request passes — whether it passed
+     * because an ACTIVE challenge verified, as opposed to the certificate simply not being challenge-protected.
+     */
+    private record RegistrationChallengeOutcome(String denial, boolean challengeVerified) {
+
+        private static RegistrationChallengeOutcome notChallengeProtected() {
+            return new RegistrationChallengeOutcome(null, false);
+        }
+
+        private static RegistrationChallengeOutcome verified() {
+            return new RegistrationChallengeOutcome(null, true);
+        }
+
+        private static RegistrationChallengeOutcome denied(String reason) {
+            return new RegistrationChallengeOutcome(reason, false);
         }
     }
 
-    private String evaluateRegistrationChallengeUnderLock(UUID certificateUuid, String presentedSecret) {
+    private RegistrationChallengeOutcome evaluateRegistrationChallengeUnderLock(UUID certificateUuid, String presentedSecret) {
         TransactionStatus tx = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            String denial = registrationAuthorizationRepository.findAndLockByCertificateUuid(certificateUuid)
+            RegistrationChallengeOutcome outcome = registrationAuthorizationRepository.findAndLockByCertificateUuid(certificateUuid)
                     .map(authorization -> evaluateLockedAuthorization(authorization, presentedSecret))
                     // Raced with a delete/close between the peek and the lock — treat as non-self-service.
-                    .orElse(null);
+                    .orElseGet(RegistrationChallengeOutcome::notChallengeProtected);
             transactionManager.commit(tx);
-            return denial;
+            return outcome;
         } catch (RuntimeException e) {
             transactionManager.rollback(tx);
             throw e;
         }
     }
 
-    private String evaluateLockedAuthorization(CertificateRegistrationAuthorization authorization, String presentedSecret) {
+    private RegistrationChallengeOutcome evaluateLockedAuthorization(CertificateRegistrationAuthorization authorization, String presentedSecret) {
         UUID certificateUuid = authorization.getCertificateUuid();
         RegistrationState state = authorization.getState();
         if (state == RegistrationState.CLOSED) {
-            return null;
+            return RegistrationChallengeOutcome.notChallengeProtected();
         }
         if (state == RegistrationState.LOCKED) {
             // Record every attempt against an already-locked authorization — persistent hammering is exactly when
             // the audit trail matters most.
             certificateEventHistoryService.addEventHistory(certificateUuid, CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
                     "Certificate registration challenge attempted against a locked authorization", "");
-            return "The certificate registration authorization is locked after too many failed attempts.";
+            return RegistrationChallengeOutcome.denied("The certificate registration authorization is locked after too many failed attempts.");
         }
         if (state == RegistrationState.EXPIRED) {
-            return "The certificate registration issuance window has expired.";
+            return RegistrationChallengeOutcome.denied("The certificate registration issuance window has expired.");
         }
         OffsetDateTime expiresAt = authorization.getExpiresAt();
         if (expiresAt != null && !OffsetDateTime.now(ZoneOffset.UTC).isBefore(expiresAt)) {
@@ -946,14 +977,14 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             registrationAuthorizationRepository.save(authorization);
             certificateEventHistoryService.addEventHistory(certificateUuid, CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
                     "Certificate registration issuance window expired", "");
-            return "The certificate registration issuance window has expired.";
+            return RegistrationChallengeOutcome.denied("The certificate registration issuance window has expired.");
         }
         if (registrationChallengeStore.verify(authorization, presentedSecret)) {
             if (authorization.getFailedAttempts() != 0) {
                 authorization.setFailedAttempts(0);
                 registrationAuthorizationRepository.save(authorization);
             }
-            return null;
+            return RegistrationChallengeOutcome.verified();
         }
         int attempts = authorization.getFailedAttempts() + 1;
         authorization.setFailedAttempts(attempts);
@@ -963,7 +994,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         registrationAuthorizationRepository.save(authorization);
         certificateEventHistoryService.addEventHistory(certificateUuid, CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
                 "Certificate registration challenge verification failed (attempt %d)".formatted(attempts), "");
-        return "The certificate registration challenge is invalid.";
+        return RegistrationChallengeOutcome.denied("The certificate registration challenge is invalid.");
     }
 
     /**
@@ -1608,10 +1639,17 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         // Self-service gate: verify the operator challenge before the CSR attach and the async enqueue, so a bad
         // challenge rejects the caller synchronously and the secret never rides the ActionMessage. No-op when the
         // certificate carries no registration authorization.
-        verifyRegistrationChallenge(certificate.getUuid(),
+        boolean challengeAuthorized = verifyRegistrationChallenge(certificate.getUuid(),
                 request != null ? request.getAuthorizationSecret() : null);
 
         if (registered) {
+            // Completing a placeholder attaches the CSR and persists completion attributes; both commit before the
+            // asynchronous ISSUE probe can deny, so the write is gated here. A verified registration challenge is
+            // itself the holder's authorization — requiring the operator permission on top would make challenge-based
+            // self-service unusable for the low-privilege identities it exists for.
+            if (!challengeAuthorized) {
+                certificateService.checkCreatePermissions();
+            }
             UUID certificateRequestUuid;
             try {
                 certificateRequestUuid = certificateService.addCertificateRequestToExisting(certificate.getUuid(), request);

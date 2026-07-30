@@ -3,6 +3,7 @@ package com.otilm.core.integration.service;
 import com.otilm.api.exception.*;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.certificate.CancelPendingCertificateRequestDto;
 import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
 import com.otilm.api.model.common.NameAndIdDto;
@@ -11,6 +12,7 @@ import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
+import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
@@ -26,8 +28,10 @@ import com.otilm.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRevocationDto;
 import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
+import com.otilm.core.attribute.CsrAttributes;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.entity.Certificate;
@@ -81,6 +85,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -2670,5 +2676,34 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         Assertions.assertThrows(NotFoundException.class, () ->
                 clientOperationService.cancelPendingCertificateOperation(authority, raProfileSecured, missingId, req));
+    }
+
+    @Test
+    void issueCertificateDeniesCreateBeforeSigningTheCsr() throws Exception {
+        // The issue path reaches submitCertificateRequest by self-invocation, which bypasses that method's own
+        // CREATE annotation, so the platform used to sign a CSR with its own key before the nested gate denied.
+        // The denial must land ahead of the signing.
+        stubAuthorityProviderAttributesEndpoints();
+        CryptographicKey key = createCryptographicKey(null);
+        denyResourceAccess(Resource.CERTIFICATE, ResourceAction.CREATE);
+
+        ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
+        request.setFormat(CertificateRequestFormat.PKCS10);
+        request.setKeyUuid(key.getUuid());
+        request.setTokenProfileUuid(key.getTokenProfileUuid());
+        request.setCsrAttributes(List.of(new RequestAttributeV3(UUID.fromString(CsrAttributes.COMMON_NAME_UUID),
+                CsrAttributes.COMMON_NAME_ATTRIBUTE_NAME, AttributeContentType.STRING,
+                List.of(new StringAttributeContentV3("DenyBeforeSigning")))));
+        request.setSignatureAttributes(List.of());
+        request.setAttributes(List.of());
+        SecuredParentUUID authorityUuid = authorityInstanceReference.getSecuredParentUuid();
+        SecuredUUID raProfileUuid = raProfile.getSecuredUuid();
+
+        Assertions.assertThrows(CertificateOperationException.class,
+                () -> clientOperationService.issueCertificate(authorityUuid, raProfileUuid, request, null));
+
+        verify(cryptographicOperationService, never()).generateCsr(any(), any(), any(), any(), any(), any(), any(), any());
+        Assertions.assertEquals(1, certificateRepository.count(),
+                "only the fixture certificate exists; the denied request must persist none");
     }
 }

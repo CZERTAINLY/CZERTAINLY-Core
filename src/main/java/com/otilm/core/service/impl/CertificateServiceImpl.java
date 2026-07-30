@@ -1672,6 +1672,11 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REGISTER)
+    public void checkRegisterPermissions() {
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ISSUE)
     public void checkIssuePermissions() {
     }
