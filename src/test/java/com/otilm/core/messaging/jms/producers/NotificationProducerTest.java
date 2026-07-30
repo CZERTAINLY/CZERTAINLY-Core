@@ -22,7 +22,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationProducerTest {
@@ -75,8 +74,9 @@ class NotificationProducerTest {
     @Test
     void aDirectDispatchStillReportsTheFailure() {
         makeDispatchFail();
+        NotificationMessage message = message();
 
-        assertThatThrownBy(() -> producer.produceMessage(message()))
+        assertThatThrownBy(() -> producer.produceMessage(message))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("broker unreachable");
     }

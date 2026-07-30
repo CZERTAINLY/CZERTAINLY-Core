@@ -685,7 +685,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         Assertions.assertFalse(histories.getFirst().isActionsPerformed(),
                 "its execution failed, so the history must say the actions were not applied");
         Assertions.assertTrue(triggerHistoryRecordRepository.findAll().stream()
-                        .anyMatch(record -> histories.getFirst().getUuid().equals(record.getTriggerHistoryUuid())),
+                        .anyMatch(historyRecord -> histories.getFirst().getUuid().equals(historyRecord.getTriggerHistoryUuid())),
                 "and must carry a record naming the failure");
         Assertions.assertNull(imported.getRaProfile(),
                 "the execution failed, so the RA profile it tried to set must not be applied");
@@ -787,7 +787,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      * configuration, so the execution fails inside the RA-profile switch.
      */
     private void createFailingSetFieldActionTrigger(UUID discoveryUuid)
-            throws AlreadyExistException, NotFoundException, AttributeException {
+            throws AlreadyExistException, NotFoundException {
         RaProfile raProfile = new RaProfile();
         raProfile.setName("ra-profile-without-authority");
         raProfile = raProfileRepository.save(raProfile);
