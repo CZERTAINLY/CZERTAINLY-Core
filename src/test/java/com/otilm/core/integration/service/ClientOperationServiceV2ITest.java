@@ -2680,9 +2680,8 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
     @Test
     void issueCertificateDeniesCreateBeforeSigningTheCsr() throws Exception {
-        // The issue path reaches submitCertificateRequest by self-invocation, which bypasses that method's own
-        // CREATE annotation, so the platform used to sign a CSR with its own key before the nested gate denied.
-        // The denial must land ahead of the signing.
+        // Self-invocation bypasses submitCertificateRequest's CREATE annotation, so the denial must land before
+        // a platform key signs anything.
         stubAuthorityProviderAttributesEndpoints();
         CryptographicKey key = createCryptographicKey(null);
         denyResourceAccess(Resource.CERTIFICATE, ResourceAction.CREATE);
