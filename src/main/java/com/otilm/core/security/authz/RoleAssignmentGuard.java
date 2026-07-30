@@ -1,7 +1,6 @@
 package com.otilm.core.security.authz;
 
 import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.RoleDetailDto;
 import com.otilm.api.model.core.auth.RoleDto;
 import com.otilm.api.model.core.auth.SubjectPermissionsDto;
@@ -21,9 +20,9 @@ import java.util.stream.Collectors;
 /**
  * Decides which roles may be attached to which users. Membership is editable from both directions, so both enforce
  * the same rules — otherwise the weaker endpoint is the way around the stronger one. A role paired with a system
- * user is refused, as is a role granting all resources unless the caller already holds it; without the latter,
- * {@code USER:UPDATE} alone would grant full platform administration. Everything else, {@code auditor} included,
- * stays assignable.
+ * user is refused, as is a role granting all resources unless the caller already holds all resources itself;
+ * without the latter, {@code USER:UPDATE} alone would grant full platform administration. Everything else,
+ * {@code auditor} included, stays assignable.
  */
 @Component
 public class RoleAssignmentGuard {
@@ -47,7 +46,7 @@ public class RoleAssignmentGuard {
         RoleDetailDto role = roleManagementApiClient.getRoleDetail(roleUuid);
         checkMembers(role, members);
         if (addsAMember(role, members) && grantsAllResources(roleUuid)) {
-            requireCallerHoldsRole(role);
+            requireCallerHoldsAllResources(role);
         }
         if (isPairedWithSystemUser(role)) {
             requireSystemMembersRetained(role, members);
@@ -69,7 +68,7 @@ public class RoleAssignmentGuard {
             RoleDetailDto role = roleManagementApiClient.getRoleDetail(roleUuid);
             checkMembers(role, List.of(userUuid));
             if (grantsAllResources(roleUuid)) {
-                requireCallerHoldsRole(role);
+                requireCallerHoldsAllResources(role);
             }
         }
     }
@@ -186,23 +185,31 @@ public class RoleAssignmentGuard {
         return permissions != null && Boolean.TRUE.equals(permissions.getAllowAllResources());
     }
 
-    private static void requireCallerHoldsRole(RoleDetailDto role) {
-        if (!callerRoleUuids().contains(role.getUuid())) {
+    /**
+     * A caller who already holds every resource gains nothing by granting a role that holds every resource, so
+     * superadmin is not confined to handing out superadmin. What this refuses is the caller who would gain from it:
+     * {@code USER:UPDATE} on its own reached full administration by assigning superadmin to itself.
+     * <p>
+     * Holding the role itself needs no separate check — the auth service merges every role's permissions into the
+     * caller's profile, so holding an all-resources role already sets the flag this reads.
+     */
+    private static void requireCallerHoldsAllResources(RoleDetailDto role) {
+        if (!callerHoldsAllResources()) {
             throw new ValidationException(
-                    "Role '%s' grants access to all resources and can only be assigned by a user who already holds it."
-                            .formatted(role.getName()));
+                    "Role '%s' grants access to all resources and can only be assigned by a user who holds all"
+                            .formatted(role.getName()) + " resources.");
         }
     }
 
-    private static Set<String> callerRoleUuids() {
-        List<NameAndUuidDto> roles;
+    /** An unidentifiable caller holds nothing, so it is refused like any other caller without the permission. */
+    private static boolean callerHoldsAllResources() {
+        SubjectPermissionsDto permissions;
         try {
-            roles = AuthHelper.getUserProfile().getRoles();
+            permissions = AuthHelper.getUserProfile().getPermissions();
         } catch (ValidationException e) {
-            // An unidentifiable caller holds no roles, so it fails the check like any other caller without the role.
-            return Set.of();
+            return false;
         }
-        return roles == null ? Set.of() : roles.stream().map(NameAndUuidDto::getUuid).collect(Collectors.toSet());
+        return permissions != null && Boolean.TRUE.equals(permissions.getAllowAllResources());
     }
 
     private static boolean isSystemUser(UserDto user) {

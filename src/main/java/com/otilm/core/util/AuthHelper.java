@@ -50,9 +50,8 @@ public class AuthHelper {
     public static final String SYSTEM_USER_HEADER_NAME = "systemUsername";
     public static final String USER_UUID_HEADER_NAME = "userUuid";
 
+    // System users: each is an identity the platform authenticates as, created alongside a role of the same name.
     public static final String LOCALHOST_USERNAME = "localhost";
-    public static final String SUPERADMIN_USERNAME = "superadmin";
-
     public static final String ACME_USERNAME = "acme";
     public static final String SCEP_USERNAME = "scep";
     public static final String CMP_USERNAME = "cmp";
@@ -64,10 +63,10 @@ public class AuthHelper {
      */
     public static final String ATTRIBUTE_CONTENT_RESOLVER_USERNAME = "attribute-content-resolver";
 
-    /**
-     * A role name, not a username: unlike the identities above it carries no system user, because it is assigned to
-     * operators. {@code AuthResourceSynchronizer} rederives its grants on every startup.
-     */
+    // System roles with no system user behind them: they exist to be assigned to people.
+    public static final String SUPERADMIN_ROLE_NAME = "superadmin";
+
+    /** {@code AuthResourceSynchronizer} rederives this role's grants from the resource catalogue on every startup. */
     public static final String AUDITOR_ROLE_NAME = "auditor";
 
     public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");

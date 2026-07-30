@@ -51,6 +51,6 @@ public class LocalAdminServiceImpl implements LocalAdminExternalService {
     }
 
     private String getSuperadminRoleUuid() {
-        return roleManagementApiClient.getRoles().getData().stream().filter(e -> e.getSystemRole().equals(true) && e.getName().equals(AuthHelper.SUPERADMIN_USERNAME)).toList().getFirst().getUuid();
+        return roleManagementApiClient.getRoles().getData().stream().filter(e -> e.getSystemRole().equals(true) && e.getName().equals(AuthHelper.SUPERADMIN_ROLE_NAME)).toList().getFirst().getUuid();
     }
 }

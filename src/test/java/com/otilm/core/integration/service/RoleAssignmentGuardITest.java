@@ -176,13 +176,13 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         String operatorsUuid = UUID.randomUUID().toString();
         String targetUuid = UUID.randomUUID().toString();
         when(roleManagementApiClient.getRoleDetail(superadminUuid))
-                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of()));
+                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true, List.of()));
         when(roleManagementApiClient.getPermissions(superadminUuid)).thenReturn(permissions(true));
         when(roleManagementApiClient.getRoleDetail(operatorsUuid))
                 .thenReturn(role(operatorsUuid, "operators", false, List.of()));
         when(roleManagementApiClient.getPermissions(operatorsUuid)).thenReturn(permissions(false));
         when(userManagementApiClient.getUserDetail(targetUuid))
-                .thenReturn(humanUserHolding(targetUuid, superadminUuid, AuthHelper.SUPERADMIN_USERNAME));
+                .thenReturn(humanUserHolding(targetUuid, superadminUuid, AuthHelper.SUPERADMIN_ROLE_NAME));
         when(userManagementApiClient.updateRoles(eq(targetUuid), any())).thenReturn(humanUser(targetUuid));
 
         userManagementService.updateRoles(targetUuid, List.of(superadminUuid, operatorsUuid));
@@ -196,11 +196,11 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         UserDto keptMember = humanMember("kept");
         UserDto removedMember = humanMember("removed");
         when(roleManagementApiClient.getRoleDetail(superadminUuid))
-                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of(keptMember, removedMember)));
+                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true, List.of(keptMember, removedMember)));
         when(roleManagementApiClient.getPermissions(superadminUuid)).thenReturn(permissions(true));
         when(userManagementApiClient.getUserDetail(keptMember.getUuid())).thenReturn(humanUser(keptMember.getUuid()));
         when(roleManagementApiClient.updateUsers(eq(superadminUuid), any()))
-                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of(keptMember)));
+                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true, List.of(keptMember)));
 
         roleManagementService.updateUsers(superadminUuid, List.of(keptMember.getUuid()));
 
@@ -257,7 +257,7 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         String roleUuid = UUID.randomUUID().toString();
         String targetUuid = UUID.randomUUID().toString();
         when(roleManagementApiClient.getRoleDetail(roleUuid))
-                .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of()));
+                .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true, List.of()));
         when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(true));
 
         List<String> granted = List.of(roleUuid);
@@ -265,24 +265,26 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         ValidationException exception = Assertions.assertThrows(ValidationException.class,
                 () -> userManagementService.updateRoles(targetUuid, granted));
 
-        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.SUPERADMIN_USERNAME), exception.getMessage());
+        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.SUPERADMIN_ROLE_NAME), exception.getMessage());
         verify(userManagementApiClient, never()).updateRoles(any(), any());
     }
 
     @Test
-    void updateRoles_allowsAllowAllResourcesRoleWhenCallerHoldsIt() {
-        String roleUuid = UUID.randomUUID().toString();
+    void updateRoles_allowsACallerHoldingAllResourcesToGrantAnAllResourcesRole() {
+        String superadminUuid = UUID.randomUUID().toString();
+        String adminUuid = UUID.randomUUID().toString();
         String targetUuid = UUID.randomUUID().toString();
-        when(roleManagementApiClient.getRoleDetail(roleUuid))
-                .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of()));
-        when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(true));
+        when(roleManagementApiClient.getRoleDetail(adminUuid))
+                .thenReturn(role(adminUuid, "admin", true, List.of()));
+        when(roleManagementApiClient.getPermissions(adminUuid)).thenReturn(permissions(true));
         when(userManagementApiClient.getUserDetail(targetUuid)).thenReturn(humanUser(targetUuid));
         when(userManagementApiClient.updateRoles(eq(targetUuid), any())).thenReturn(humanUser(targetUuid));
-        authenticateHoldingRole(roleUuid, AuthHelper.SUPERADMIN_USERNAME);
+        authenticateHoldingAllResources(superadminUuid, AuthHelper.SUPERADMIN_ROLE_NAME);
+        List<String> granted = List.of(adminUuid);
 
-        userManagementService.updateRoles(targetUuid, List.of(roleUuid));
+        userManagementService.updateRoles(targetUuid, granted);
 
-        verify(userManagementApiClient).updateRoles(targetUuid, List.of(roleUuid));
+        verify(userManagementApiClient).updateRoles(targetUuid, granted);
     }
 
     @Test
@@ -290,7 +292,7 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         String roleUuid = UUID.randomUUID().toString();
         String humanUuid = UUID.randomUUID().toString();
         when(roleManagementApiClient.getRoleDetail(roleUuid))
-                .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of()));
+                .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_ROLE_NAME, true, List.of()));
         when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(true));
         when(userManagementApiClient.getUserDetail(humanUuid)).thenReturn(humanUser(humanUuid));
 
@@ -390,13 +392,18 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(roleManagementApiClient, never()).getRoleDetail(any());
     }
 
-    private void authenticateHoldingRole(String roleUuid, String roleName) {
+    /**
+     * A caller whose own permissions cover everything, as superadmin's and admin's do. The auth service merges every
+     * role's permissions into the profile, so holding such a role and carrying the flag are the same state.
+     */
+    private void authenticateHoldingAllResources(String roleUuid, String roleName) {
         UserProfileDto profile = new UserProfileDto();
         UserDto caller = new UserDto();
         caller.setUuid(UUID.randomUUID().toString());
         caller.setUsername("tst-user");
         profile.setUser(caller);
         profile.setRoles(List.of(new NameAndUuidDto(roleUuid, roleName)));
+        profile.setPermissions(permissions(true));
 
         String rawData;
         try {
