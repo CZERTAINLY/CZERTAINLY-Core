@@ -65,10 +65,8 @@ public class AuthHelper {
     public static final String ATTRIBUTE_CONTENT_RESOLVER_USERNAME = "attribute-content-resolver";
 
     /**
-     * The system role granting every read action on every resource and nothing else. A role name rather than a
-     * username: unlike the identities above it carries no system user, because it is meant to be assigned to
-     * operators. Its permissions are not maintained by hand - {@code AuthResourceSynchronizer} rederives them from
-     * the resource catalogue on every startup.
+     * A role name, not a username: unlike the identities above it carries no system user, because it is assigned to
+     * operators. {@code AuthResourceSynchronizer} rederives its grants on every startup.
      */
     public static final String AUDITOR_ROLE_NAME = "auditor";
 

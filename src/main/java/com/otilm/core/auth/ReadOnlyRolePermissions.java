@@ -20,21 +20,15 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
- * Turns the resource/action catalogue the startup scan produces into the permission set of a role that may read
- * everything and change nothing. Deriving it means a resource or action added anywhere in the platform lands on the
- * right side of the boundary the moment it is annotated, instead of waiting for someone to remember this role.
- * <p>
- * A pure function over the scanned catalogue, deliberately free of Spring and of the auth-service client, so the
- * whole boundary can be pinned by unit tests - it is the half of the reconciliation where a mistake silently grants
- * write access.
+ * Derives the permission set of a role that may read everything and change nothing, so a newly annotated resource
+ * or action lands on the right side of the boundary without anyone remembering this role. Kept free of Spring and
+ * of the auth client, because this is the half where a mistake silently grants write access.
  */
 public final class ReadOnlyRolePermissions {
 
     /**
-     * The action codes a read-only role may hold, taken from {@link ResourceAction#isGrantableToReadOnlyRole()} so
-     * that classifying a new action on the enum is the only step needed. Membership is the whole rule: a code that
-     * is not here is either a write, a sensitive read that discloses stored secret material, a sentinel the auth
-     * service has no action for, or a code this platform version no longer knows - and none of those is grantable.
+     * Taken from {@link ResourceAction#isGrantableToReadOnlyRole()}, so classifying a new action on the enum is the
+     * only step needed. A code absent here is a write, a sensitive read, a sentinel, or unknown to this version.
      */
     private static final Set<String> READ_ONLY_ACTION_CODES = Arrays.stream(ResourceAction.values())
             .filter(ResourceAction::isGrantableToReadOnlyRole)
@@ -54,10 +48,7 @@ public final class ReadOnlyRolePermissions {
         return derive(actionCodesByResource);
     }
 
-    /**
-     * Derives the payload from the catalogue the auth service already holds, for the migration that seeds the role -
-     * granting only pairs the auth service knows, which is what it accepts.
-     */
+    /** Derives from the catalogue the auth service already holds, so the seed names only pairs it will accept. */
     public static RolePermissionsRequestDto deriveFromAuthResources(List<AuthResourceDto> catalogue) {
         Map<String, List<String>> actionCodesByResource = new LinkedHashMap<>();
         for (AuthResourceDto resource : catalogue) {
@@ -68,14 +59,9 @@ public final class ReadOnlyRolePermissions {
     }
 
     /**
-     * Builds the full-replacement permission payload for a role that may read everything and change nothing.
-     * <p>
-     * A resource left with no grantable action is dropped rather than emitted with an empty action list, because
-     * the auth service reads an empty list next to {@code allowAllActions} as every action on that resource - the
-     * exact inverse of a read-only grant.
-     * <p>
-     * Actions come out deduplicated and sorted, so an unchanged catalogue yields an identical payload however the
-     * catalogue happened to order it.
+     * A resource left with no grantable action is dropped, not emitted with an empty action list: an empty list
+     * reads as every action on that resource, the exact inverse of a read-only grant. Actions are deduplicated and
+     * sorted so an unchanged catalogue yields an identical payload whatever order it arrived in.
      */
     private static RolePermissionsRequestDto derive(Map<String, List<String>> actionCodesByResource) {
         List<ResourcePermissionsRequestDto> resources = new ArrayList<>();
@@ -97,9 +83,8 @@ public final class ReadOnlyRolePermissions {
     }
 
     /**
-     * Whether the role already holds exactly the derived grants, so the reconciliation can leave it alone and stay
-     * quiet. Compares grants rather than payloads: action order is the auth service's own and means nothing, while
-     * an object-level entry - which the derivation never emits - is a grant that has to go.
+     * Compares grants rather than payloads: action order is the auth service's own and means nothing, while an
+     * object-level entry — which the derivation never emits — is a grant that has to go.
      */
     public static boolean matches(RolePermissionsRequestDto derived, SubjectPermissionsDto stored) {
         if (stored == null) {

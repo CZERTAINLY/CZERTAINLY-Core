@@ -12,19 +12,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Creates the {@code auditor} system role: every read action on every resource, and no action that changes anything.
- * It exists so that oversight - auditors, security reviewers, support - can be granted with one role instead of a
- * hand-assembled permission set that drifts behind the platform.
+ * Creates the {@code auditor} system role: every read action on every resource and nothing that changes anything.
+ * It carries no system user, unlike acme/scep/cmp/localhost, because it is meant to be assigned to people.
  * <p>
- * <b>No system user:</b> unlike acme/scep/cmp/localhost, this role is not an identity the platform assumes. It is
- * meant to be assigned to people, which is also why {@code RoleAssignmentGuard} keeps system roles without a system
- * user assignable to operators.
- * <p>
- * <b>Seeded, not authored:</b> the grants are derived from the catalogue the auth service already holds, so nothing
- * here has to be revisited when a resource or action is added, and nothing is granted that the auth service would
- * reject as unknown. On an upgrade that catalogue is complete and the role is usable immediately; on a fresh install
- * it is still sparse, and the role starts out granting little. Either way {@code AuthResourceSynchronizer} rederives
- * the role from the freshly scanned catalogue at the end of this same startup and every one after it.
+ * The grants are derived from the catalogue the auth service already holds, so nothing is granted that it would
+ * reject as unknown. On a fresh install that catalogue is still sparse and the role starts narrow;
+ * {@code AuthResourceSynchronizer} rederives it later in this same startup and every one after.
  */
 // Flyway mandates the V<version>__<Description> class-name format, which cannot match Sonar's S101 identifier pattern.
 @SuppressWarnings("java:S101")
@@ -40,9 +33,8 @@ public class V202607301200__CreateAuditorRole extends BaseJavaMigration {
     @Override
     public void migrate(Context context) throws Exception {
         if (DatabaseAuthMigration.getRoleNames().contains(AuthHelper.AUDITOR_ROLE_NAME)) {
-            // Refusing to start over a name collision would be a harsh upgrade for a deployment that simply has a
-            // role of its own called auditor. Leaving that role alone costs it the built-in one - the startup
-            // reconciliation only touches system roles - and says so on every boot until the name is freed.
+            // Refusing to start over a name collision would be harsh on a deployment that has its own auditor role.
+            // Leaving it alone costs that deployment the built-in one, and says so on every boot.
             logger.warn("A role named '{}' already exists and was left untouched, so the read-only system role was"
                     + " not created. Rename the existing role to have the platform manage '{}'.",
                     AuthHelper.AUDITOR_ROLE_NAME, AuthHelper.AUDITOR_ROLE_NAME);

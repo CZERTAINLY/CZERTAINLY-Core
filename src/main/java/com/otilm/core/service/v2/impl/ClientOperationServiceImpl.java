@@ -357,9 +357,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
-        // The issue/renew/rekey paths reach this body by self-invocation, which bypasses the annotation above, so
-        // without this probe a platform key would sign a CSR before the nested CREATE gate below could deny. It
-        // denies nobody the nested gate would admit: the body is linear and every earlier exit already throws.
+        // Issue/renew/rekey reach this body by self-invocation, bypassing the annotation above, so without this probe
+        // a platform key signs a CSR before the nested CREATE gate can deny. Denies nobody that gate would admit.
         certificateService.checkCreatePermissions();
         boolean createCustomAttributes = !AuthHelper.isLoggedProtocolUser();
         if (createCustomAttributes) {
@@ -485,9 +484,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto registerCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
                                                                 ClientCertificateRegistrationDto request) throws NotFoundException, ConnectorException, AttributeException {
-        // The annotation above only gates use of the RA profile (a read action), while this method creates a
-        // placeholder certificate, drives state transitions and calls the connector. Gate the write itself, through
-        // the injected bean so the proxy applies the check.
+        // The annotation above gates only use of the RA profile, a read action, while this creates a placeholder
+        // certificate and calls the connector. Gate the write itself, via the injected bean so the proxy applies it.
         certificateService.checkRegisterPermissions();
         if (request == null) {
             throw new ValidationException("A certificate registration request is required.");
@@ -1643,10 +1641,9 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                 request != null ? request.getAuthorizationSecret() : null);
 
         if (registered) {
-            // Completing a placeholder attaches the CSR and persists completion attributes; both commit before the
-            // asynchronous ISSUE probe can deny, so the write is gated here. A verified registration challenge is
-            // itself the holder's authorization — requiring the operator permission on top would make challenge-based
-            // self-service unusable for the low-privilege identities it exists for.
+            // The CSR attach and completion attributes commit before the async ISSUE probe can deny, so gate here.
+            // A verified challenge is itself the holder's authorization; demanding the operator permission on top
+            // would make challenge-based self-service unusable for the identities it exists for.
             if (!challengeAuthorized) {
                 certificateService.checkCreatePermissions();
             }

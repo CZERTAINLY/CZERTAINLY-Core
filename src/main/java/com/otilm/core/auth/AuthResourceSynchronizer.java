@@ -58,12 +58,9 @@ public class AuthResourceSynchronizer {
     }
 
     /**
-     * Rebuilds the auditor role from the catalogue this boot has just synced, so a resource or action added
-     * anywhere in the platform is covered by the role as soon as it exists, rather than at the next hand-written
-     * migration. Runs only after {@code syncResources} succeeded: the auth service rejects a permission naming a
-     * resource or action it does not yet know.
-     * <p>
-     * Best effort by design - a role the platform can start without must never be the reason it does not.
+     * Rebuilds the auditor role from the catalogue this boot just synced. Runs only after {@code syncResources}
+     * succeeded, since the auth service rejects a permission naming a resource or action it does not yet know.
+     * Best effort: a role the platform can start without must never stop it starting.
      */
     private void reconcileAuditorRole(List<ResourceSyncRequestDto> resources) {
         try {

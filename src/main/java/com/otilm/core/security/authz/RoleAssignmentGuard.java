@@ -17,17 +17,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Decides which roles may be attached to which users. Role membership is editable from two directions -
- * role -&gt; users and user -&gt; roles - and both must enforce the same rules, otherwise the weaker endpoint
- * becomes the way around the stronger one.
- * <p>
- * Two roles are refused:
- * <ul>
- *     <li>a role paired with a system user, which belongs to that identity and never to an operator;</li>
- *     <li>a role granting access to all resources, unless the caller already holds it - without this,
- *     {@code USER:UPDATE} would be enough to grant oneself full platform administration.</li>
- * </ul>
- * Every other role, including read-only system roles such as {@code auditor}, is assignable as before.
+ * Decides which roles may be attached to which users. Membership is editable from both directions, so both enforce
+ * the same rules — otherwise the weaker endpoint is the way around the stronger one. A role paired with a system
+ * user is refused, as is a role granting all resources unless the caller already holds it; without the latter,
+ * {@code USER:UPDATE} alone would grant full platform administration. Everything else, {@code auditor} included,
+ * stays assignable.
  */
 @Component
 public class RoleAssignmentGuard {
@@ -73,9 +67,8 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * A system user holds the role seeded with it and no other, and that role takes no other members. The pairing
-     * is the whole permission boundary of the identity, so either half of it being editable either widens the
-     * identity or hands its permissions to an operator.
+     * A system user holds the role seeded with it and no other, and that role takes no other members: the pairing is
+     * the identity's whole permission boundary, so an editable half either widens it or hands it to an operator.
      */
     private void checkMembers(RoleDetailDto role, List<String> userUuids) {
         Set<String> systemMembers = systemMemberUuids(role);
@@ -109,9 +102,8 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * A membership update replaces the whole list, so an omitted system user is a detached one. Allowing that
-     * would both strand the identity that depends on the role and unpair the role, leaving the rule above with
-     * nothing to recognise on a second call.
+     * A membership update replaces the whole list, so an omitted system user is a detached one — stranding that
+     * identity and unpairing the role, leaving the rule above nothing to recognise on a second call.
      */
     private static void requireSystemMembersRetained(RoleDetailDto role, List<String> userUuids) {
         for (UserDto member : role.getUsers()) {
@@ -124,9 +116,8 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * The pairing is read from the auth service instead of a hardcoded name list, so that the roles seeded
-     * alongside a system user (acme, scep, cmp, localhost, attribute-content-resolver) are recognised while
-     * {@code superadmin} - a system role that carries no system user - stays assignable to operators.
+     * Read from the auth service rather than a hardcoded name list, so roles seeded alongside a system user are
+     * recognised while {@code superadmin} — a system role carrying no system user — stays assignable.
      */
     private static boolean isPairedWithSystemUser(RoleDetailDto role) {
         return role.getUsers() != null && role.getUsers().stream().anyMatch(RoleAssignmentGuard::isSystemUser);

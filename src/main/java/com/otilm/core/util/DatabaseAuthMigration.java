@@ -108,10 +108,9 @@ public class DatabaseAuthMigration {
     }
 
     /**
-     * Creates a role from an already-built permission set, for a role whose grants are derived rather than listed.
-     * The map-based {@link #createRole(RoleRequestDto, Map)} cannot express such a role safely: it reads an empty
-     * collection as "allow everything", both for the resource list and per resource, so a derived set that happens
-     * to come out empty would become a blanket grant.
+     * For a role whose grants are derived rather than listed. The map-based {@link #createRole(RoleRequestDto, Map)}
+     * reads an empty collection as "allow everything", so a derived set that comes out empty would become a blanket
+     * grant.
      */
     public static RoleDetailDto createRole(RoleRequestDto request, RolePermissionsRequestDto permissions) throws IOException, URISyntaxException {
         request.setPermissions(permissions);
