@@ -9,4 +9,11 @@ import java.security.cert.CertificateException;
 public interface UserManagementInternalService extends ResourceExtensionService {
 
     UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerPrint) throws NotFoundException, CertificateException;
+
+    /**
+     * Assigns a role without consulting {@link com.otilm.core.security.authz.RoleAssignmentGuard}. Reserved for
+     * the first-administrator bootstrap, which must grant {@code superadmin} while acting as the {@code localhost}
+     * system user - a caller that by definition cannot already hold the role the guard would demand of it.
+     */
+    UserDetailDto updateRoleInternal(String userUuid, String roleUuid);
 }

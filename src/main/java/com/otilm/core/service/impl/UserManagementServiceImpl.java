@@ -31,6 +31,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.ExternalAuthorization;
+import com.otilm.core.security.authz.RoleAssignmentGuard;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.*;
@@ -74,6 +75,13 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
 
     private AuthenticationCache authenticationCache;
+
+    private RoleAssignmentGuard roleAssignmentGuard;
+
+    @Autowired
+    public void setRoleAssignmentGuard(RoleAssignmentGuard roleAssignmentGuard) {
+        this.roleAssignmentGuard = roleAssignmentGuard;
+    }
 
     @Autowired
     public void setCertificateUploadService(CertificateUploadService certificateUploadService) {
@@ -227,6 +235,7 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateRoles(String userUuid, List<String> roleUuids) {
+        roleAssignmentGuard.checkRolesAssignableToUser(userUuid, roleUuids);
         UserDetailDto result = userManagementApiClient.updateRoles(userUuid, roleUuids);
         authenticationCache.evictByUserUuid(UUID.fromString(userUuid));
         return result;
@@ -235,6 +244,12 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateRole(String userUuid, String roleUuid) {
+        roleAssignmentGuard.checkRolesAssignableToUser(userUuid, List.of(roleUuid));
+        return updateRoleInternal(userUuid, roleUuid);
+    }
+
+    @Override
+    public UserDetailDto updateRoleInternal(String userUuid, String roleUuid) {
         UserDetailDto result = userManagementApiClient.updateRole(userUuid, roleUuid);
         authenticationCache.evictByUserUuid(UUID.fromString(userUuid));
         return result;
