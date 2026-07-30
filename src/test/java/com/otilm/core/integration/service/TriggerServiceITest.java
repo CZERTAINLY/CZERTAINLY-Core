@@ -19,8 +19,10 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.RuleExternalService;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,6 +71,39 @@ class TriggerServiceITest extends BaseSpringBootTest {
         requestDto.setRepetitions(1);
         requestDto.setInternalNotification(true);
         notificationProfile = notificationProfileService.createNotificationProfile(requestDto);
+    }
+
+    @Test
+    void createTriggerAssociationsRequiresUpdatePermission() throws NotFoundException, AlreadyExistException {
+        ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
+        executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
+        executionItemRequest.setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
+        executionItemRequest.setData("CZ");
+
+        ExecutionRequestDto executionRequest = new ExecutionRequestDto();
+        executionRequest.setName("AssociationExecution");
+        executionRequest.setResource(Resource.CERTIFICATE);
+        executionRequest.setType(ExecutionType.SET_FIELD);
+        executionRequest.setItems(List.of(executionItemRequest));
+        ExecutionDto execution = actionService.createExecution(executionRequest);
+
+        ActionRequestDto actionRequest = new ActionRequestDto();
+        actionRequest.setName("AssociationAction");
+        actionRequest.setResource(Resource.CERTIFICATE);
+        actionRequest.setExecutionsUuids(List.of(execution.getUuid()));
+        ActionDetailDto action = actionService.createAction(actionRequest);
+
+        TriggerDto trigger = createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_DISCOVERED, List.of(), List.of(action.getUuid()));
+        denyResourceAccess(Resource.TRIGGER, ResourceAction.UPDATE);
+
+        List<UUID> triggerUuids = List.of(UUID.fromString(trigger.getUuid()));
+        UUID associationObjectUuid = UUID.randomUUID();
+
+        Assertions.assertThrows(
+                AccessDeniedException.class,
+                () -> triggerService.createTriggerAssociations(
+                        ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, associationObjectUuid, triggerUuids, true)
+        );
     }
 
     @Test
