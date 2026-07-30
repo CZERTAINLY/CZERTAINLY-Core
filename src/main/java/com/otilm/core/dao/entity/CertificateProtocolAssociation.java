@@ -33,7 +33,7 @@ public class CertificateProtocolAssociation extends UniquelyIdentified implement
     @Enumerated(EnumType.STRING)
     private CertificateProtocol protocol;
 
-    @Column(name = "protocol_profile_uuid", nullable = false)
+    @Column(name = "protocol_profile_uuid")
     private UUID protocolProfileUuid;
 
     @Column(name = "additional_protocol_uuid")
