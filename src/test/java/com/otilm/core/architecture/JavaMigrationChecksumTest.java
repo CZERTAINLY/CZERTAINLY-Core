@@ -53,7 +53,7 @@ class JavaMigrationChecksumTest {
 
     /** A vacuous pass would hide exactly the mistake this guards, so there must be something left to check. */
     @Test
-    void atLeastOneMigrationChecksumIsActuallyVerified() throws IOException {
+    void atLeastOneMigrationChecksumIsActuallyVerified() {
         long verifiable = 0;
         for (DatabaseMigration.JavaMigrationChecksums entry : DatabaseMigration.JavaMigrationChecksums.values()) {
             if (!entry.isAltered() && Files.exists(MIGRATION_ROOT.resolve(entry.name() + ".java"))) {

@@ -101,9 +101,8 @@ public final class ReadOnlyRolePermissions {
     }
 
     private static String grantSignature(Boolean allowAllActions, List<String> actions, List<?> objects) {
-        String actionSignature = Boolean.TRUE.equals(allowAllActions)
-                ? "*"
-                : String.join(",", actions == null ? List.of() : actions.stream().sorted().toList());
+        List<String> sortedActions = actions == null ? List.of() : actions.stream().sorted().toList();
+        String actionSignature = Boolean.TRUE.equals(allowAllActions) ? "*" : String.join(",", sortedActions);
         return objects == null || objects.isEmpty() ? actionSignature : actionSignature + "+objects";
     }
 
