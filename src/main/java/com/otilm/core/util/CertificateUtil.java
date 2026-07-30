@@ -12,6 +12,7 @@ import com.otilm.api.model.core.settings.CertificateValidationSettingsDto;
 import com.otilm.api.model.core.settings.PlatformSettingsDto;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRequestEntity;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.model.request.CrmfCertificateRequest;
@@ -33,18 +34,11 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.asn1.x509.qualified.ETSIQCObjectIdentifiers;
 import org.bouncycastle.asn1.x509.qualified.QCStatement;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.X509v3CertificateBuilder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +46,6 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.cert.CertificateEncodingException;
@@ -62,7 +55,6 @@ import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CertificateUtil {
@@ -556,7 +548,37 @@ public class CertificateUtil {
     }
 
 
-    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+    public static void prepareCertificateFromCsr(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+        CsrIdentity identity = deriveCsrIdentity(certificateRequest);
+        modal.setSubjectDn(identity.subjectDn());
+        modal.setCommonName(identity.commonName());
+        modal.setPublicKeyAlgorithm(identity.publicKeyAlgorithm());
+        modal.setSubjectAlternativeNames(identity.serializedSans());
+        try {
+            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
+        }
+        modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
+    }
+
+    public static void prepareCertificateRequestEntityFromCsr(CertificateRequestEntity modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+        CsrIdentity identity = deriveCsrIdentity(certificateRequest);
+        modal.setSubjectDn(identity.subjectDn());
+        modal.setCommonName(identity.commonName());
+        modal.setPublicKeyAlgorithm(identity.publicKeyAlgorithm());
+        modal.setSubjectAlternativeNames(identity.serializedSans());
+    }
+
+    /**
+     * Identity fields shared by the certificate and certificate-request rows, derived once from a
+     * parsed request. {@code Certificate} and {@code CertificateRequestEntity} have no common
+     * supertype, so both prepare methods apply these values through their own setters.
+     */
+    private record CsrIdentity(String subjectDn, String commonName, String publicKeyAlgorithm, String serializedSans) {
+    }
+
+    private static CsrIdentity deriveCsrIdentity(CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
         if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
@@ -564,29 +586,21 @@ public class CertificateUtil {
                     )
             );
         }
-        setSubjectDNParams(modal, X500Name.getInstance(new PlatformX500NameStyle(false), certificateRequest.getSubject()));
-        try {
-            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
-        }
-        if (getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
-            modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
-        }
-        modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
-        modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
+        // CertTemplate.subject is OPTIONAL in CRMF, so the parsed name can be null; the subject
+        // columns stay empty for a subject-less request (identity carried in the SAN).
+        X500Name subjectDN = X500Name.getInstance(new PlatformX500NameStyle(false), certificateRequest.getSubject());
+        return new CsrIdentity(
+                subjectDN != null ? subjectDN.toString() : null,
+                subjectDN != null ? getCommonNameFromDn(subjectDN) : null,
+                getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null
+                        ? getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm())
+                        : null,
+                serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }
 
     private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
         modal.setIssuerDn(issuerDN.toString());
-
-        for (RDN i : issuerDN.getRDNs()) {
-            if (i.getFirst() == null) continue;
-
-            if (SystemOid.COMMON_NAME.getOid().equals(i.getFirst().getType().getId())) {
-                modal.setIssuerCommonName(i.getFirst().getValue().toString());
-            }
-        }
+        modal.setIssuerCommonName(getCommonNameFromDn(issuerDN));
     }
 
     /**
@@ -643,16 +657,26 @@ public class CertificateUtil {
         return "%s=%s".formatted(oid, value);
     }
 
-    private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
-        modal.setSubjectDn(subjectDN.toString());
-
-        for (RDN i : subjectDN.getRDNs()) {
+    /**
+     * Extracts the common name from the subject DN. With multiple CN RDNs the last one in
+     * {@link X500Name#getRDNs()} order wins — the non-normalized rendering reverses the RDN array,
+     * so this is the leading CN of the {@code subjectDn} string persisted alongside it.
+     */
+    private static String getCommonNameFromDn(X500Name subjectDn) {
+        String commonName = null;
+        for (RDN i : subjectDn.getRDNs()) {
             if (i.getFirst() == null) continue;
 
             if (SystemOid.COMMON_NAME.getOid().equals(i.getFirst().getType().getId())) {
-                modal.setCommonName(i.getFirst().getValue().toString());
+                commonName = i.getFirst().getValue().toString();
             }
         }
+        return commonName;
+    }
+
+    private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
+        modal.setSubjectDn(subjectDN.toString());
+        modal.setCommonName(getCommonNameFromDn(subjectDN));
     }
 
     public static KeyAlgorithm getKeyAlgorithmEnumFromProviderName(String providerName) {

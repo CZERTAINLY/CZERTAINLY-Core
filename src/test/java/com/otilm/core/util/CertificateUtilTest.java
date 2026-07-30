@@ -6,16 +6,37 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.certificate.QcType;
 import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRequestEntity;
+import com.otilm.core.model.request.CertificateRequest;
+import com.otilm.core.model.request.CrmfCertificateRequest;
+import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
+import org.bouncycastle.asn1.crmf.CertReqMessages;
+import org.bouncycastle.asn1.crmf.SubsequentMessage;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.crmf.CertificateRequestMessageBuilder;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -268,6 +289,90 @@ class CertificateUtilTest {
         assertThrows(ValidationException.class,
                 () -> CertificateUtil.applyRegistrationSan(cert, List.of(otherName)));
         assertNull(cert.getSubjectAlternativeNames());
+    }
+
+    @Test
+    void prepareCertificateRequestEntityFromCsr_populatesIdentityFromCsr() throws Exception {
+        CertificateRequestEntity entity = new CertificateRequestEntity();
+
+        CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, generatePkcs10("CN=csr-cn", "csr.example.com"));
+
+        assertEquals("csr-cn", entity.getCommonName());
+        assertEquals("CN=csr-cn", entity.getSubjectDn());
+        assertEquals(KeyAlgorithm.RSA.getCode(), entity.getPublicKeyAlgorithm());
+        Map<String, List<String>> sans = CertificateUtil.deserializeSans(entity.getSubjectAlternativeNames());
+        assertEquals(List.of("csr.example.com"), sans.get("dNSName"));
+    }
+
+    @Test
+    void prepareCertificateRequestEntityFromCsr_multiCnSubject_keepsLeadingCnOfRenderedSubjectDn() throws Exception {
+        CertificateRequestEntity entity = new CertificateRequestEntity();
+
+        CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, generatePkcs10("CN=first,CN=last", null));
+
+        // The rendered subjectDn reverses RDN order, so last-wins CN extraction keeps commonName
+        // aligned with the leading CN of the persisted subjectDn.
+        assertEquals("CN=last, CN=first", entity.getSubjectDn());
+        assertEquals("last", entity.getCommonName());
+    }
+
+    @Test
+    void prepareCertificateRequestEntityFromCsr_leavesCommonNameNullWhenSubjectHasNone() throws Exception {
+        CertificateRequestEntity entity = new CertificateRequestEntity();
+
+        CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, generatePkcs10("O=Acme", null));
+
+        assertNull(entity.getCommonName());
+        assertEquals("O=Acme", entity.getSubjectDn());
+    }
+
+    @Test
+    void prepareCertificateRequestEntityFromCsr_subjectlessCrmf_leavesSubjectColumnsNull() throws Exception {
+        CertificateRequestEntity entity = new CertificateRequestEntity();
+
+        CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, generateSubjectlessCrmf());
+
+        assertNull(entity.getSubjectDn());
+        assertNull(entity.getCommonName());
+        assertEquals(KeyAlgorithm.RSA.getCode(), entity.getPublicKeyAlgorithm());
+    }
+
+    @Test
+    void prepareCertificateRequestEntityFromCsr_rejectsRequestWithoutPublicKey() throws Exception {
+        CertificateRequest requestWithoutKey = mock(CertificateRequest.class);
+        when(requestWithoutKey.getPublicKey()).thenReturn(null);
+        CertificateRequestEntity entity = new CertificateRequestEntity();
+
+        assertThrows(ValidationException.class,
+                () -> CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, requestWithoutKey));
+    }
+
+    private static CertificateRequest generatePkcs10(String subjectDn, String sanDnsName) throws Exception {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+        JcaPKCS10CertificationRequestBuilder builder =
+                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), keyPair.getPublic());
+        if (sanDnsName != null) {
+            ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
+            extensionsGenerator.addExtension(Extension.subjectAlternativeName, false,
+                    new GeneralNames(new GeneralName(GeneralName.dNSName, sanDnsName)));
+            builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
+        }
+        return new Pkcs10CertificateRequest(
+                builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate())).getEncoded());
+    }
+
+    /** CRMF with a public key but no subject — CertTemplate.subject is OPTIONAL in RFC 4211. */
+    private static CertificateRequest generateSubjectlessCrmf() throws Exception {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+        CertificateRequestMessageBuilder builder = new CertificateRequestMessageBuilder(BigInteger.ONE)
+                .setPublicKey(SubjectPublicKeyInfo.getInstance(keyPair.getPublic().getEncoded()))
+                .setProofOfPossessionSubsequentMessage(SubsequentMessage.encrCert);
+        CertReqMessages messages = new CertReqMessages(builder.build().toASN1Structure());
+        return new CrmfCertificateRequest(messages.getEncoded());
     }
 
 }

@@ -2081,6 +2081,29 @@ class CertificateServiceITest extends BaseSpringBootTest {
             CertificateRequestEntity stored = certificateRequestRepository.findByFingerprint(expectedFingerprint).orElseThrow();
             assertThat(stored.getContent()).isEqualTo(Base64.getEncoder().encodeToString(expectedDer));
         }
+
+        @Test
+        void attachesCsr_requestEntityIdentityComesFromCsrNotFromPlaceholder() throws Exception {
+            // given — a REGISTERED placeholder whose pre-registration identity differs from the CSR
+            Certificate registered = certificateRepository.save(
+                    aCertificate().withRaProfile(raProfile).withState(CertificateState.REGISTERED)
+                            .withCommonName("placeholder-cn").withSubjectDn("CN=placeholder-cn").build());
+            ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+            issueRequest.setRequest(SAMPLE_PKCS10);
+            issueRequest.setFormat(CertificateRequestFormat.PKCS10);
+
+            // when
+            certificateService.addCertificateRequestToExisting(registered.getUuid(), issueRequest);
+
+            // then — identity and format come from the CSR, not the placeholder
+            String expectedFingerprint = CertificateUtil.getThumbprint(Base64.getDecoder().decode(SAMPLE_PKCS10));
+            CertificateRequestEntity stored = certificateRequestRepository.findByFingerprint(expectedFingerprint).orElseThrow();
+            assertThat(stored.getCommonName()).isEqualTo("new_cert");
+            assertThat(stored.getSubjectDn()).isEqualTo("CN=new_cert");
+            assertThat(stored.getCertificateRequestFormat()).isEqualTo(CertificateRequestFormat.PKCS10);
+            registered = certificateRepository.findByUuid(registered.getUuid()).orElseThrow();
+            assertThat(registered.getCommonName()).isEqualTo("placeholder-cn");
+        }
     }
 
     // ── IssueRequestedCertificate SM ─────────────────────────────────────────
