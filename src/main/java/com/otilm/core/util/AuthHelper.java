@@ -64,6 +64,14 @@ public class AuthHelper {
      */
     public static final String ATTRIBUTE_CONTENT_RESOLVER_USERNAME = "attribute-content-resolver";
 
+    /**
+     * The system role granting every read action on every resource and nothing else. A role name rather than a
+     * username: unlike the identities above it carries no system user, because it is meant to be assigned to
+     * operators. Its permissions are not maintained by hand - {@code AuthResourceSynchronizer} rederives them from
+     * the resource catalogue on every startup.
+     */
+    public static final String AUDITOR_ROLE_NAME = "auditor";
+
     public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");
     public static final List<String> OAUTH2_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/oauth2/**", "/v?/health/**", "/v?/connector/register");
 

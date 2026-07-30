@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class DatabaseAuthMigration {
 
@@ -104,6 +105,23 @@ public class DatabaseAuthMigration {
 
         request.setPermissions(permissionsRequest);
         return getRoleManagementApiClient().createRole(request);
+    }
+
+    /**
+     * Creates a role from an already-built permission set, for a role whose grants are derived rather than listed.
+     * The map-based {@link #createRole(RoleRequestDto, Map)} cannot express such a role safely: it reads an empty
+     * collection as "allow everything", both for the resource list and per resource, so a derived set that happens
+     * to come out empty would become a blanket grant.
+     */
+    public static RoleDetailDto createRole(RoleRequestDto request, RolePermissionsRequestDto permissions) throws IOException, URISyntaxException {
+        request.setPermissions(permissions);
+        return getRoleManagementApiClient().createRole(request);
+    }
+
+    /** Every role name in the auth service, system and operator-defined alike. */
+    public static Set<String> getRoleNames() throws IOException, URISyntaxException {
+        List<RoleDto> roles = getRoleManagementApiClient().getRoles().getData();
+        return roles == null ? Set.of() : roles.stream().map(RoleDto::getName).collect(Collectors.toSet());
     }
 
     public static void updateRolePermissions(String roleUuid, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
