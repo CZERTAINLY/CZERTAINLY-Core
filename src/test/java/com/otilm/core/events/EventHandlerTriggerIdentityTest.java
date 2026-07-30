@@ -12,6 +12,7 @@ import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
 import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.messaging.model.EventMessage;
+import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
@@ -27,13 +28,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -205,6 +209,61 @@ class EventHandlerTriggerIdentityTest {
                 .isNull();
     }
 
+    /**
+     * A deleted or disabled owner does not make {@code authenticateAsUser} throw — the auth service answers "not
+     * authenticated" and the client installs an anonymous principal. Evaluating the trigger's actions under that
+     * principal is the wrong-permissions outcome the impersonation exists to prevent.
+     */
+    @Test
+    void failsRatherThanEvaluatingATriggerWhoseOwnerNoLongerResolves() throws Exception {
+        UUID deletedOwnerUuid = UUID.randomUUID();
+        authenticateAs(UUID.randomUUID(), UPLOADER);
+        doAnswer(invocation -> {
+            AuthenticationInfo anonymous = AuthenticationInfo.getAnonymousAuthenticationInfo();
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(anonymous)));
+            return null;
+        }).when(authHelper).authenticateAsUser(deletedOwnerUuid);
+
+        TestEventHandler handler = handler();
+        EventContext<Certificate> context = contextFor(null);
+        context.getPlatformTriggers().getTriggers().add(associationCreatedBy(deletedOwnerUuid));
+
+        assertThatThrownBy(() ->
+                handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null))
+                .as("the event must fail rather than evaluate the trigger under an anonymous principal")
+                .isInstanceOf(PlatformAuthenticationException.class);
+
+        verify(triggerEvaluator, never()).evaluateTrigger(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    /**
+     * Two associations owned by different users: the second must not inherit the first owner's actor attribution.
+     */
+    @Test
+    void actorAttributionDoesNotCarryBetweenAssociationOwners() throws Exception {
+        UUID firstOwner = UUID.randomUUID();
+        UUID secondOwner = UUID.randomUUID();
+        authenticateAs(UUID.randomUUID(), UPLOADER);
+        impersonateOnAuthenticateAsUser(firstOwner);
+        impersonateOnAuthenticateAsUser(secondOwner);
+        List<String> actorUuidsSeen = new ArrayList<>();
+        doAnswer(invocation -> {
+            actorUuidsSeen.add(LoggingHelper.hasActorInfo() && LoggingHelper.getActorInfo().uuid() != null
+                    ? LoggingHelper.getActorInfo().uuid().toString() : null);
+            return null;
+        }).when(triggerEvaluator).evaluateTrigger(any(), any(), any(), any(), any(), any(), any());
+
+        TestEventHandler handler = handler();
+        EventContext<Certificate> context = contextFor(null);
+        context.getPlatformTriggers().getTriggers().add(associationCreatedBy(firstOwner));
+        context.getPlatformTriggers().getTriggers().add(associationCreatedBy(secondOwner));
+
+        handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null);
+
+        assertThat(actorUuidsSeen).containsExactly(firstOwner.toString(), secondOwner.toString());
+    }
+
     private void recordIdentityInsideLoop() throws Exception {
         doAnswer(invocation -> {
             usernameInsideLoop = currentUsername();
@@ -241,8 +300,10 @@ class EventHandlerTriggerIdentityTest {
         return association;
     }
 
+    /** Mirrors production {@code AuthHelper.authenticateAsUser}: installs the principal AND writes the actor MDC. */
     private void impersonateOnAuthenticateAsUser(UUID userUuid) {
         doAnswer(invocation -> {
+            LoggingHelper.putActorInfoWhenNull(ActorType.USER, userUuid.toString(), null);
             authenticateAs(userUuid, TRIGGER_CREATOR);
             return null;
         }).when(authHelper).authenticateAsUser(userUuid);

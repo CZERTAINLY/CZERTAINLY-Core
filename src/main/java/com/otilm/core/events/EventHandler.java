@@ -18,6 +18,7 @@ import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.model.EventMessage;
+import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.util.AuthHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -284,10 +285,9 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     }
 
     /**
-     * A deleted association owner or an unreachable auth service is deliberately not degraded here, unlike the
-     * per-message failure in {@code EventListener}: that costs only attribution, whereas a trigger evaluated without
-     * its owner's identity would run its actions under other permissions. The exception escapes, marking the event
-     * FAILED.
+     * A trigger owner that cannot be impersonated is deliberately not degraded here, unlike the per-message failure in
+     * {@code EventListener}: that costs only attribution, whereas a trigger evaluated without its owner's identity
+     * would run its actions under other permissions. The exception escapes, marking the event FAILED.
      */
     protected void handleUser(EventContext<T> context, UUID triggeredBy) {
         // Read from the installed principal, never from EventContext.currentUserUuid: that memo is seeded from the
@@ -300,6 +300,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
                     SecurityContextHolder.clearContext();
                 } else {
                     authHelper.authenticateAsUser(triggeredBy);
+                    requireImpersonated(triggeredBy);
                 }
 
                 context.setCurrentUserUuid(triggeredBy);
@@ -311,4 +312,16 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         }
     }
 
+
+    /**
+     * Only an unreachable auth service makes {@code authenticateAsUser} throw. A deleted or disabled owner instead has
+     * the auth service answer "not authenticated", which the client turns into an anonymous principal - so the call
+     * returns normally and the trigger would otherwise evaluate under an identity that is neither its owner nor absent.
+     */
+    private void requireImpersonated(UUID triggeredBy) {
+        if (!triggeredBy.equals(AuthHelper.getActingUserUuidOrNull())) {
+            throw new PlatformAuthenticationException(
+                    "User %s that associated the trigger could not be authenticated".formatted(triggeredBy));
+        }
+    }
 }
