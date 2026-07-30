@@ -215,6 +215,10 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         if (recipientType != RecipientType.OWNER && recipientType != RecipientType.DEFAULT) {
+            if (recipientUuids == null || recipientUuids.isEmpty()) {
+                logger.warn("Notification profile with recipient type {} has no configured recipients; nothing to notify.", recipientType);
+                return List.of();
+            }
             return recipientUuids.stream().map(recipientUuid -> new NotificationRecipient(recipientType, recipientUuid)).toList();
         }
 
