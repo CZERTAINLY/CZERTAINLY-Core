@@ -154,6 +154,10 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     private boolean sendExternalNotificationsForProfile(NotificationMessage message, NotificationProfileVersion notificationProfileVersion, List<NotificationRecipient> recipients) {
         boolean notificationSent = false;
         if (notificationProfileVersion.getNotificationInstanceRefUuid() != null) {
+            if (recipients.isEmpty()) {
+                handleNotificationErrorWithWarnLog("Notification profile %s in event %s resolved no recipients; skipping external notification.".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
+                return false;
+            }
             UUID notificationInstanceUUID = notificationProfileVersion.getNotificationInstanceRefUuid();
             logger.debug("Sending notification message externally. Notification instance UUID: {}", notificationInstanceUUID);
             try {
@@ -215,7 +219,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         if (recipientType != RecipientType.OWNER && recipientType != RecipientType.DEFAULT) {
-            return recipientUuids.stream().map(recipientUuid -> new NotificationRecipient(recipientType, recipientUuid)).toList();
+            return explicitRecipients(recipientType, recipientUuids);
         }
 
         if (recipientType == RecipientType.OWNER) {
@@ -225,6 +229,18 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         return getDefaultRecipients(event, data, resource, objectUuid);
+    }
+
+    /**
+     * Maps an explicit recipient type (USER / GROUP / ROLE) to its recipients. A misconfigured profile may
+     * carry a null or empty UUID list; return no recipients rather than dereferencing null. The caller logs
+     * the empty outcome with profile and event context.
+     */
+    static List<NotificationRecipient> explicitRecipients(RecipientType recipientType, List<UUID> recipientUuids) {
+        if (recipientUuids == null || recipientUuids.isEmpty()) {
+            return List.of();
+        }
+        return recipientUuids.stream().map(uuid -> new NotificationRecipient(recipientType, uuid)).toList();
     }
 
     private List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource, UUID objectUuid) {

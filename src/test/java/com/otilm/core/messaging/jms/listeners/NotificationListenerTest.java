@@ -27,6 +27,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
@@ -79,5 +80,27 @@ class NotificationListenerTest {
         assertTrue(text.getValue().contains("CN=device-7"), "the internal notification names the certificate");
         assertFalse((text.getValue() + detail.getValue()).contains("s3cret-challenge-value"),
                 "the credential must never be written into the persisted internal notification");
+    }
+
+    @Test
+    void explicitRecipientsYieldsNoneWhenUuidListMissing() {
+        // A profile configured with an explicit recipient type but no UUIDs must not dereference the null list.
+        assertTrue(NotificationListener.explicitRecipients(RecipientType.GROUP, null).isEmpty(),
+                "a null recipient UUID list yields no recipients instead of throwing");
+        assertTrue(NotificationListener.explicitRecipients(RecipientType.USER, List.of()).isEmpty(),
+                "an empty recipient UUID list yields no recipients");
+    }
+
+    @Test
+    void explicitRecipientsMapsEachConfiguredUuid() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+
+        List<NotificationRecipient> mapped = NotificationListener.explicitRecipients(RecipientType.ROLE, List.of(first, second));
+
+        assertEquals(2, mapped.size());
+        assertEquals(RecipientType.ROLE, mapped.get(0).getRecipientType());
+        assertEquals(first, mapped.get(0).getRecipientUuid());
+        assertEquals(second, mapped.get(1).getRecipientUuid());
     }
 }
