@@ -1243,8 +1243,10 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         final String fingerprint = CertificateUtil.getThumbprint(normalizedDer);
         CertificateRequestEntity certificateRequestEntity = certificateRequestRepository.findByFingerprint(fingerprint).orElse(null);
         if (certificateRequestEntity == null) {
-            certificateRequestEntity = certificate.prepareCertificateRequest(issueRequest.getFormat());
+            certificateRequestEntity = new CertificateRequestEntity();
+            CertificateUtil.prepareCertificateRequestEntityFromCsr(certificateRequestEntity, request);
             certificateRequestEntity.setCertificateType(CertificateType.X509);
+            certificateRequestEntity.setCertificateRequestFormat(issueRequest.getFormat());
             certificateRequestEntity.setFingerprint(fingerprint);
             certificateRequestEntity.setContent(Base64.getEncoder().encodeToString(normalizedDer));
             setCertificateRequestEntitySignatureAlgorithms(request, certificateRequestEntity);
@@ -1810,7 +1812,7 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
         Certificate certificate = new Certificate();
         // prepare certificate request data for certificate
-        CertificateUtil.prepareCsrObject(certificate, request);
+        CertificateUtil.prepareCertificateFromCsr(certificate, request);
 
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);

@@ -12,6 +12,7 @@ import com.otilm.api.model.core.settings.CertificateValidationSettingsDto;
 import com.otilm.api.model.core.settings.PlatformSettingsDto;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRequestEntity;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.model.request.CrmfCertificateRequest;
@@ -33,18 +34,11 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.asn1.x509.qualified.ETSIQCObjectIdentifiers;
 import org.bouncycastle.asn1.x509.qualified.QCStatement;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.X509v3CertificateBuilder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +46,6 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.cert.CertificateEncodingException;
@@ -62,7 +55,6 @@ import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CertificateUtil {
@@ -556,7 +548,7 @@ public class CertificateUtil {
     }
 
 
-    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+    public static void prepareCertificateFromCsr(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
         if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
@@ -574,6 +566,23 @@ public class CertificateUtil {
             modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
         }
         modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
+        modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
+    }
+
+    public static void prepareCertificateRequestEntityFromCsr(CertificateRequestEntity modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+        if (certificateRequest.getPublicKey() == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Invalid public key in certificate request"
+                    )
+            );
+        }
+        X500Name subjectDN = X500Name.getInstance(new PlatformX500NameStyle(false), certificateRequest.getSubject());
+        modal.setSubjectDn(subjectDN.toString());
+        modal.setCommonName(getCommonNameFromSubjectDn(subjectDN));
+        if (getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
+            modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
+        }
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }
 
@@ -643,16 +652,20 @@ public class CertificateUtil {
         return "%s=%s".formatted(oid, value);
     }
 
-    private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
-        modal.setSubjectDn(subjectDN.toString());
-
-        for (RDN i : subjectDN.getRDNs()) {
+    private static String getCommonNameFromSubjectDn(X500Name subjectDn) {
+        for (RDN i : subjectDn.getRDNs()) {
             if (i.getFirst() == null) continue;
 
             if (SystemOid.COMMON_NAME.getOid().equals(i.getFirst().getType().getId())) {
-                modal.setCommonName(i.getFirst().getValue().toString());
+                return i.getFirst().getValue().toString();
             }
         }
+        return null;
+    }
+
+    private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
+        modal.setSubjectDn(subjectDN.toString());
+        modal.setCommonName(getCommonNameFromSubjectDn(subjectDN));
     }
 
     public static KeyAlgorithm getKeyAlgorithmEnumFromProviderName(String providerName) {
