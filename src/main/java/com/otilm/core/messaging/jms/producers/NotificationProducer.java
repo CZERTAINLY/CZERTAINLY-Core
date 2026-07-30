@@ -44,7 +44,8 @@ public class NotificationProducer {
     /**
      * Spring propagates what an {@code AFTER_COMMIT} synchronization throws to whoever called commit, by which point
      * the transaction has committed -- so letting a dispatch failure out reports committed work as failed. Retries
-     * are exhausted by here, so the log is all that is left.
+     * are exhausted by here, so the log is all that is left. Not loss-free on the {@code fallbackExecution} path
+     * though: with no transaction the listener runs inline, where the publisher could still have acted on the failure.
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onNotificationMessage(NotificationMessage notificationMessage) {
