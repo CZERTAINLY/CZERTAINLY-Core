@@ -131,6 +131,20 @@ class AuthResourceSynchronizerTest {
         verifyNoInteractions(roleManagementApiClient);
     }
 
+    /**
+     * A reachable auth service that rejects the sync fails with something other than a connection error, so
+     * narrowing this to {@code WebClientRequestException} would make an unexpected response abort startup.
+     */
+    @Test
+    void completesStartupWhenTheResourceSyncIsRejectedRatherThanUnreachable() {
+        when(resourceApiClient.syncResources(any()))
+                .thenThrow(new AuthenticationServiceException("Request was not matched"));
+
+        assertThatCode(() -> synchronizer.register()).doesNotThrowAnyException();
+
+        verifyNoInteractions(roleManagementApiClient);
+    }
+
     @Test
     void completesStartupWhenTheAuthServiceRejectsThePermissionSave() {
         auditorRoleExists(true);

@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 import java.util.List;
 
@@ -52,8 +51,10 @@ public class AuthResourceSynchronizer {
             SyncResponseDto response = resourceApiClient.syncResources(resources);
             logger.info("Sync operation completed, Response is {}", response);
             reconcileAuditorRole(resources);
-        } catch (WebClientRequestException e) {
-            logger.error("Unable to communicate with Auth Service: {}", e.getMessage());
+        } catch (Exception e) {
+            // Not only connection errors: a reachable auth service that rejects the sync fails with something else
+            // entirely, and no response from it is worth refusing to start over.
+            logger.error("Unable to synchronize resources with Auth Service: {}", e.getMessage());
         }
     }
 
