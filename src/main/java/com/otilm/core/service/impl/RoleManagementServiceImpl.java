@@ -11,6 +11,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authz.ExternalAuthorization;
+import com.otilm.core.security.authz.RoleAssignmentGuard;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.RoleManagementExternalService;
@@ -29,10 +30,16 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
     private RoleManagementApiClient roleManagementApiClient;
     private AttributeEngine attributeEngine;
     private AuthenticationCache authenticationCache;
+    private RoleAssignmentGuard roleAssignmentGuard;
 
     @Autowired
     public void setRoleManagementApiClient(RoleManagementApiClient roleManagementApiClient) {
         this.roleManagementApiClient = roleManagementApiClient;
+    }
+
+    @Autowired
+    public void setRoleAssignmentGuard(RoleAssignmentGuard roleAssignmentGuard) {
+        this.roleAssignmentGuard = roleAssignmentGuard;
     }
 
     @Autowired
@@ -156,6 +163,7 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) {
+        roleAssignmentGuard.checkUsersAssignableToRole(roleUuid, userUuids);
         RoleDetailDto result = roleManagementApiClient.updateUsers(roleUuid, userUuids);
         authenticationCache.evictAll();
         return result;

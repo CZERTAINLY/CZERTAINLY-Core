@@ -9,6 +9,7 @@ import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authz.UnauthenticatedEndpoint;
 import com.otilm.core.service.LocalAdminExternalService;
 import com.otilm.core.service.UserManagementExternalService;
+import com.otilm.core.service.UserManagementInternalService;
 import com.otilm.core.util.AuthHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,10 +24,16 @@ public class LocalAdminServiceImpl implements LocalAdminExternalService {
 
     private RoleManagementApiClient roleManagementApiClient;
     private UserManagementExternalService userManagementService;
+    private UserManagementInternalService userManagementInternalService;
 
     @Autowired
     private void setUserManagementExternalService(UserManagementExternalService userManagementService) {
         this.userManagementService = userManagementService;
+    }
+
+    @Autowired
+    public void setUserManagementInternalService(UserManagementInternalService userManagementInternalService) {
+        this.userManagementInternalService = userManagementInternalService;
     }
 
     @Autowired
@@ -40,9 +47,7 @@ public class LocalAdminServiceImpl implements LocalAdminExternalService {
         UserDetailDto userDetailDto = userManagementService.createUser(request);
 
         String superadminRoleUuid = getSuperadminRoleUuid();
-        userDetailDto = userManagementService.updateRole(userDetailDto.getUuid(), superadminRoleUuid);
-
-        return userDetailDto;
+        return userManagementInternalService.updateRoleInternal(userDetailDto.getUuid(), superadminRoleUuid);
     }
 
     private String getSuperadminRoleUuid() {

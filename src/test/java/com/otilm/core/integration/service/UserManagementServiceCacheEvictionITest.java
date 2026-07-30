@@ -1,8 +1,10 @@
 package com.otilm.core.integration.service;
 
 import com.otilm.api.model.client.auth.UpdateUserRequestDto;
+import com.otilm.api.model.core.auth.RoleDetailDto;
 import com.otilm.api.model.core.auth.UserDetailDto;
 import com.otilm.core.security.authn.client.AuthenticationCache;
+import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.service.UserManagementExternalService;
 import com.otilm.core.service.UserManagementInternalService;
@@ -36,6 +38,9 @@ class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
 
     @MockitoBean
     private UserManagementApiClient userManagementApiClient;
+
+    @MockitoBean
+    private RoleManagementApiClient roleManagementApiClient;
 
     @MockitoBean
     private AuthenticationCache authenticationCache;
@@ -125,6 +130,8 @@ class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
         // given
         UUID userUuid = UUID.randomUUID();
         UUID roleUuid = UUID.randomUUID();
+        when(roleManagementApiClient.getRoleDetail(roleUuid.toString())).thenReturn(roleDetailDto(roleUuid.toString()));
+        when(userManagementApiClient.getUserDetail(userUuid.toString())).thenReturn(userDetailDto(userUuid.toString()));
         when(userManagementApiClient.updateRole(userUuid.toString(), roleUuid.toString())).thenReturn(userDetailDto(userUuid.toString()));
 
         // when
@@ -146,6 +153,14 @@ class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
 
         // then
         verify(authenticationCache).evictByUserUuid(userUuid);
+    }
+
+    private static RoleDetailDto roleDetailDto(String uuid) {
+        RoleDetailDto dto = new RoleDetailDto();
+        dto.setUuid(uuid);
+        dto.setName("role-" + uuid);
+        dto.setSystemRole(false);
+        return dto;
     }
 
     private static UserDetailDto userDetailDto(String uuid) {

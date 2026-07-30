@@ -104,6 +104,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -596,6 +597,25 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     }
 
     @Test
+    void issueRegisteredCertificateWithoutChallengeRequiresCreatePermission() throws Exception {
+        // Completing a registered placeholder attaches the operator CSR and persists completion attributes — writes
+        // that commit before the asynchronous ISSUE probe can deny. With no registration challenge standing in for
+        // the authorization, the caller must hold CERTIFICATE CREATE.
+        String certUuid = registerSyncRegistered();
+        ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+        issueRequest.setRequest(generateCsrBase64());
+        denyResourceAccess(Resource.CERTIFICATE, ResourceAction.CREATE);
+
+        Assertions.assertThrows(AccessDeniedException.class, () -> clientOperationService.issueExistingCertificate(
+                authorityParent, securedRaProfile, certUuid, issueRequest));
+
+        Assertions.assertNull(
+                certificateRepository.findByUuid(UUID.fromString(certUuid)).orElseThrow().getCertificateRequestUuid(),
+                "a denied completion must not attach the CSR");
+        verify(actionProducer, never()).produceMessage(Mockito.any());
+    }
+
+    @Test
     void issuingTwoRegisteredCertsWithTheSameCsrSharesOneCertificateRequest() throws Exception {
         // Get-or-create by fingerprint: an identical CSR attached to two registered placeholders must be
         // shared, not duplicated (matching the canonical CSR-attach path).
@@ -715,6 +735,23 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
         ClientCertificateRegistrationDto request = registrationRequest();
         Assertions.assertThrows(ValidationException.class, () -> clientOperationService.registerCertificate(
                 wrongAuthority, securedRaProfile, request));
+    }
+
+    @Test
+    void registerRequiresCertificateRegisterPermission() throws Exception {
+        // registerCertificate writes: it creates a placeholder certificate, transitions it and calls the connector.
+        // Its own annotation only gates RA-profile use (a read action), so the write needs an explicit CERTIFICATE
+        // REGISTER gate ahead of every side effect.
+        RegisterCapability adapter = registeringAdapter();
+        when(adapter.register(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(AdapterOperationResult.syncOk(null, null, CertificateType.X509));
+        denyResourceAccess(Resource.CERTIFICATE, ResourceAction.REGISTER);
+
+        Assertions.assertThrows(AccessDeniedException.class, this::register);
+
+        Assertions.assertEquals(0, certificateRepository.count(),
+                "a denied registration must not create a placeholder");
+        verify(adapter, never()).register(Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -1429,6 +1466,25 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
                 .findByCertificateUuid(UUID.fromString(certUuid)).orElseThrow();
         Assertions.assertEquals(0, auth.getFailedAttempts(), "a successful challenge keeps the counter at zero");
         Assertions.assertEquals(RegistrationState.ACTIVE, auth.getState());
+    }
+
+    @Test
+    void issueWithVerifiedChallengeNeedsNoCreatePermission() throws Exception {
+        // The verified challenge IS the authorization for self-service completion. A holder that presents the
+        // correct secret must not additionally need CERTIFICATE CREATE, or challenge-based completion becomes
+        // unusable for the low-privilege identities it exists for.
+        String certUuid = registerWithSecret(null);
+        ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+        issueRequest.setRequest(generateCsrBase64());
+        issueRequest.setAuthorizationSecret(CHALLENGE);
+        denyResourceAccess(Resource.CERTIFICATE, ResourceAction.CREATE);
+
+        clientOperationService.issueExistingCertificate(authorityParent, securedRaProfile, certUuid, issueRequest);
+
+        verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.ISSUE));
+        Assertions.assertNotNull(
+                certificateRepository.findByUuid(UUID.fromString(certUuid)).orElseThrow().getCertificateRequestUuid(),
+                "the challenge-authorized completion must attach the CSR");
     }
 
     @Test

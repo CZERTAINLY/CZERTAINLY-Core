@@ -763,6 +763,21 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void editKeyItemRequiresUpdatePermission() {
+        denyResourceAccess(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.UPDATE);
+
+        EditKeyItemDto request = new EditKeyItemDto();
+        request.setName("renamed");
+        SecuredUUID keyUuid = SecuredUUID.fromUUID(key.getUuid());
+        UUID keyItemUuid = privateKeyItem.getUuid();
+
+        Assertions.assertThrows(
+                AccessDeniedException.class,
+                () -> cryptographicKeyService.editKeyItem(keyUuid, keyItemUuid, request)
+        );
+    }
+
+    @Test
     void testListingKeys() {
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setItemsPerPage(10);

@@ -222,7 +222,7 @@ public class TriggerServiceImpl implements TriggerExternalService, TriggerIntern
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.UPDATE)
     public void createTriggerAssociations(ResourceEvent event, Resource resource, UUID associationObjectUuid, List<UUID> triggerUuids, boolean replace) throws NotFoundException {
         if (resource != null && resource != event.getResource() && !event.getOverridingResources().contains(resource)) {
             throw new ValidationException("Resource %s cannot be associated with event %s.".formatted(resource.getLabel(), event.getLabel()));
