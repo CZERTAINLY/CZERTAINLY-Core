@@ -24,7 +24,9 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -308,11 +310,12 @@ class CertificateUtilTest {
 
     @Test
     void prepareCertificateRequestEntityFromCsr_rejectsRequestWithoutPublicKey() throws Exception {
-        CertificateRequest requestWithoutKey = Mockito.mock(CertificateRequest.class);
-        Mockito.when(requestWithoutKey.getPublicKey()).thenReturn(null);
+        CertificateRequest requestWithoutKey = mock(CertificateRequest.class);
+        when(requestWithoutKey.getPublicKey()).thenReturn(null);
+        CertificateRequestEntity entity = new CertificateRequestEntity();
 
         assertThrows(ValidationException.class,
-                () -> CertificateUtil.prepareCertificateRequestEntityFromCsr(new CertificateRequestEntity(), requestWithoutKey));
+                () -> CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, requestWithoutKey));
     }
 
     private static CertificateRequest generatePkcs10(String subjectDn, String sanDnsName) throws Exception {
