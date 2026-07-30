@@ -64,7 +64,7 @@ public class TriggerHistory extends UniquelyIdentified {
     @Column(name = "triggered_by")
     private UUID triggeredBy;
 
-    @Column(name = "message")
+    @Column(name = "message", columnDefinition = "TEXT")
     private String message;
 
     @OneToMany(mappedBy = "triggerHistory", fetch = FetchType.LAZY)

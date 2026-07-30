@@ -18,6 +18,7 @@ import com.otilm.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
+import com.otilm.core.util.AuthHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,7 +64,21 @@ public class ApprovalRequestedEventHandler extends EventHandler<Approval> {
         }
     }
 
+    /**
+     * Falls back to the acting user. Callers that already know the requester should use
+     * {@link #constructEventMessage(UUID, ApprovalStepDto, UUID)} — the first step is produced on the
+     * actions-listener thread, which has no SecurityContext.
+     */
     public static EventMessage constructEventMessage(UUID approvalUuid, ApprovalStepDto approvalStepDto) {
-        return new EventMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid, approvalStepDto);
+        return constructEventMessage(approvalUuid, approvalStepDto, AuthHelper.getActingUserUuidOrNull());
+    }
+
+    /**
+     * Carries the requester so the certificate history row published by {@link #sendFollowUpEventsNotifications} names
+     * them; that row is written on a JMS listener thread with no SecurityContext of its own.
+     */
+    public static EventMessage constructEventMessage(UUID approvalUuid, ApprovalStepDto approvalStepDto, UUID requesterUuid) {
+        return new EventMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid,
+                null, null, approvalStepDto, requesterUuid, null);
     }
 }
