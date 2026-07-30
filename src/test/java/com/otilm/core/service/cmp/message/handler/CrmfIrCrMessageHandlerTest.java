@@ -35,7 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link CrmfIrCrMessageHandler} (issue #1884).
+ * Unit tests for {@link CrmfIrCrMessageHandler}.
  */
 class CrmfIrCrMessageHandlerTest {
 
