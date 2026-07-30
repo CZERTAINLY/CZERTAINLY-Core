@@ -51,6 +51,11 @@ public class CertificateStatusChangedEventHandler extends CertificateEventsHandl
         applicationEventPublisher.publishEvent(new UpdateCertificateHistoryEvent(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, statusArrayData[0], statusArrayData[1]));
     }
 
+    /**
+     * Deliberately carries no acting user, unlike the upload and approval events: a validation-status change is
+     * produced by scheduled validation or revocation processing, not by a person, so its history row is the
+     * platform's and is correctly audited as the system user.
+     */
     public static EventMessage constructEventMessage(UUID certificateUuid, CertificateValidationStatus oldStatus, CertificateValidationStatus newStatus) {
         CertificateValidationStatus[] statusArrayData = new CertificateValidationStatus[] { oldStatus, newStatus };
         return new EventMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificateUuid, statusArrayData);
