@@ -150,6 +150,26 @@ class EventHandlerTriggerIdentityTest {
     }
 
     /**
+     * The memo can name a different user than the thread actually holds, so it must not decide whether impersonation
+     * is needed — only the installed principal can.
+     */
+    @Test
+    void impersonatesWhenTheMemoDisagreesWithTheInstalledPrincipal() {
+        UUID triggerCreatorUuid = UUID.randomUUID();
+        authenticateAs(UUID.randomUUID(), UPLOADER);
+        impersonateOnAuthenticateAsUser(triggerCreatorUuid);
+
+        TestEventHandler handler = handler();
+        // memo claims the trigger creator is already installed, while the thread actually holds the uploader
+        EventContext<Certificate> context = contextFor(triggerCreatorUuid);
+        context.getPlatformTriggers().getTriggers().add(associationCreatedBy(triggerCreatorUuid));
+
+        handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null);
+
+        verify(authHelper).authenticateAsUser(triggerCreatorUuid);
+    }
+
+    /**
      * {@code currentUserUuid} is seeded from the message, so it can name a user the thread never held — the listener
      * degrades to no identity when the carried user fails to authenticate.
      */

@@ -290,9 +290,12 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
      * FAILED.
      */
     protected void handleUser(EventContext<T> context, UUID triggeredBy) {
-        if (!Objects.equals(installedUserUuid(context), triggeredBy)) {
+        // Read from the installed principal, never from EventContext.currentUserUuid: that memo is seeded from the
+        // message and can name a user the thread does not hold, which would skip a needed impersonation.
+        UUID installedUserUuid = AuthHelper.getActingUserUuidOrNull();
+        if (!Objects.equals(installedUserUuid, triggeredBy)) {
             try {
-                logger.debug("Changing user from {} to {}", context.getCurrentUserUuid(), triggeredBy);
+                logger.debug("Changing user from {} to {}", installedUserUuid, triggeredBy);
                 if (triggeredBy == null) {
                     SecurityContextHolder.clearContext();
                 } else {
@@ -308,11 +311,4 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         }
     }
 
-    /**
-     * The user the thread actually holds. {@link EventContext#getCurrentUserUuid()} is seeded from the message, so it
-     * can name a user that was never installed, and trusting that memo alone would skip a needed impersonation.
-     */
-    private UUID installedUserUuid(EventContext<T> context) {
-        return SecurityContextHolder.getContext().getAuthentication() == null ? null : context.getCurrentUserUuid();
-    }
 }
