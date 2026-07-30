@@ -428,17 +428,21 @@ public class ExceptionHandlingAdvice {
     /**
      * Handler for {@link UnsupportedAuthorityVersionException}.
      *
-     * <p>400 rather than 500: a connector reporting a version the platform does not recognise is registrable
-     * configuration, and the caller selected the authority it reached this through, so another selection can
-     * succeed. The message is platform-authored and carries only a version string and an authority identifier.
+     * <p>400 rather than 500: an unrecognised connector interface version is caller-fixable configuration.
+     *
+     * <p>The body is fixed rather than the exception's message. That message names the authority and the version
+     * string the connector itself reported, which is stored unvalidated -- so forwarding it would put a
+     * connector-controlled value and an entity identifier in front of a caller who asked about something else.
+     * Logged at warn with the exception, because reaching this means a connector is registered that the platform
+     * cannot dispatch to.
      *
      * @return
      */
     @ExceptionHandler(UnsupportedAuthorityVersionException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleUnsupportedAuthorityVersionException(UnsupportedAuthorityVersionException ex) {
-        LOG.info("HTTP 400: {}", ex.getMessage());
-        return ErrorMessageDto.getInstance(ex.getMessage());
+        LOG.warn("HTTP 400: {}", ex.getMessage(), ex);
+        return ErrorMessageDto.getInstance("The authority's connector interface version is not supported.");
     }
 
     /**

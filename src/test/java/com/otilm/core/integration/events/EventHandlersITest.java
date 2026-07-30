@@ -52,7 +52,6 @@ import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
 import com.otilm.core.dao.entity.notifications.PendingNotification;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
-import com.otilm.core.dao.entity.GroupAssociation;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
@@ -60,6 +59,7 @@ import com.otilm.core.dao.repository.notifications.PendingNotificationRepository
 import com.otilm.core.dao.entity.workflows.EventHistory;
 import com.otilm.core.dao.repository.workflows.EventHistoryRepository;
 import com.otilm.core.dao.repository.workflows.TriggerAssociationRepository;
+import com.otilm.core.dao.repository.workflows.TriggerHistoryRecordRepository;
 import com.otilm.core.dao.repository.workflows.TriggerHistoryRepository;
 import com.otilm.core.dao.repository.workflows.TriggerRepository;
 import com.otilm.core.enums.FilterField;
@@ -177,6 +177,9 @@ class EventHandlersITest extends BaseSpringBootTest {
     private EventHistoryRepository eventHistoryRepository;
     @Autowired
     private TriggerHistoryRepository triggerHistoryRepository;
+
+    @Autowired
+    private TriggerHistoryRecordRepository triggerHistoryRecordRepository;
 
     @Autowired
     private ScheduledJobsRepository scheduledJobsRepository;
@@ -652,10 +655,10 @@ class EventHandlersITest extends BaseSpringBootTest {
     /**
      * An action trigger whose execution fails must not cost the discovery its certificates.
      *
-     * <p>The failure mode is not the exception itself — {@code performActions} already records those — but where it
-     * is raised. A set-field execution calls into a class-level {@code @Transactional} service, so an unchecked
-     * failure there marks the group's transaction rollback-only before any catch runs, and the commit throws. Since
-     * every group evaluates the same triggers, one misconfigured execution loses every certificate in the run.
+     * <p>Guards where an execution failure lands: a set-field execution reaches services that are class-level
+     * {@code @Transactional}, so a failure raised inside one must not be able to take the group's import with it.
+     * This execution fails checked, so what it exercises is the containment and the surviving history — not the
+     * rollback-only path, which no execution reachable from here produces.
      */
     @Test
     void testCertificateDiscoveredImportsWhenAnActionTriggerExecutionFails() throws Exception {
@@ -677,8 +680,16 @@ class EventHandlersITest extends BaseSpringBootTest {
                         + reloaded.getProcessedError());
         // Asserted positively: every check above also holds when the trigger never ran at all, so without this the
         // test would pass on a mis-scoped association or an early return.
-        Assertions.assertFalse(triggerHistoryRepository.findAll().isEmpty(),
-                "the trigger must have been evaluated, and its history must survive the execution's failure");
+        List<TriggerHistory> histories = triggerHistoryRepository.findAll().stream()
+                .filter(history -> imported.getUuid().equals(history.getObjectUuid()))
+                .toList();
+        Assertions.assertEquals(1, histories.size(),
+                "the configured trigger must have been evaluated against the imported certificate");
+        Assertions.assertFalse(histories.getFirst().isActionsPerformed(),
+                "its execution failed, so the history must say the actions were not applied");
+        Assertions.assertTrue(triggerHistoryRecordRepository.findAll().stream()
+                        .anyMatch(record -> histories.getFirst().getUuid().equals(record.getTriggerHistoryUuid())),
+                "and must carry a record naming the failure");
         Assertions.assertNull(imported.getRaProfile(),
                 "the execution failed, so the RA profile it tried to set must not be applied");
         verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
@@ -716,8 +727,9 @@ class EventHandlersITest extends BaseSpringBootTest {
     }
 
     /**
-     * One trigger per transaction, so a failing trigger costs only itself. Sharing one transaction discarded every
-     * trigger's work, including that of the ones that had already succeeded.
+     * One trigger per transaction, so a failing trigger costs only itself: a shared transaction would lose the
+     * writes of the triggers that already succeeded. This trigger fails checked, so the end-to-end path is what is
+     * asserted here; the isolation itself is pinned by {@code eachActionTriggerGetsItsOwnTransaction}.
      */
     @Test
     void testCertificateDiscoveredKeepsASucceedingTriggerWhenAnotherFails() throws Exception {
@@ -728,8 +740,9 @@ class EventHandlersITest extends BaseSpringBootTest {
         Group group = new Group();
         group.setName("SurvivesTheOtherFailure");
         group = groupRepository.save(group);
-        createFailingSetFieldActionTrigger(discovery.getUuid());
+        // The succeeding trigger first: the property at risk is that an earlier success survives a later failure.
         createSetGroupActionTrigger(discovery.getUuid(), group.getUuid());
+        createFailingSetFieldActionTrigger(discovery.getUuid());
 
         certificateDiscoveredEventHandler.handleEvent(
                 CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
@@ -776,7 +789,7 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     /**
      * A SET_FIELD execution switching the RA profile to one that has no authority instance — reachable
-     * configuration, so the execution fails inside a class-level @Transactional service.
+     * configuration, so the execution fails inside the RA-profile switch.
      */
     private void createFailingSetFieldActionTrigger(UUID discoveryUuid)
             throws AlreadyExistException, NotFoundException, AttributeException {
@@ -816,7 +829,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         mockAuthResponse(AuthHelper.getUserIdentification());
 
         triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
-                discoveryUuid, List.of(UUID.fromString(trigger.getUuid())), true);
+                discoveryUuid, List.of(UUID.fromString(trigger.getUuid())), false);
     }
 
     /**

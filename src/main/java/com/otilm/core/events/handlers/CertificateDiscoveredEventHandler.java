@@ -32,6 +32,7 @@ import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.ValidationMessage;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.handler.CertificateHandler;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.util.CertificateUtil;
@@ -83,6 +84,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private DiscoveryWriter discoveryWriter;
     private AuthorizationEnforcer authorizationEnforcer;
+    private TriggerInternalService triggerService;
 
     // Kept alongside the inherited, more loosely typed handle, for the finders SecurityFilterRepository does not
     // expose.
@@ -132,6 +134,11 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Autowired
     public void setAuthorizationEnforcer(AuthorizationEnforcer authorizationEnforcer) {
         this.authorizationEnforcer = authorizationEnforcer;
+    }
+
+    @Autowired
+    public void setTriggerService(TriggerInternalService triggerService) {
+        this.triggerService = triggerService;
     }
 
     @Override
@@ -702,7 +709,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     /**
-     * A committed group's result, plus what its action triggers need once the import transaction has closed.
+     * A group's import result, plus what its action triggers need once the import transaction has closed --
+     * absent when the group imported nothing.
      *
      * @param certificateUuid   the imported certificate, or null when the group imported nothing
      * @param eventData         the trigger payload; non-null exactly when {@code certificateUuid} is
@@ -745,11 +753,38 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             try {
                 transactionHandler.runInNewTransaction(() -> runActionTrigger(context, imported, triggerAssociation));
             } catch (Exception e) {
-                // Nothing is swallowed inside the transaction, so it rolls back cleanly and the next trigger starts
-                // from a sound one.
+                // Only a failure that escaped the trigger's own handling reaches here, and its transaction is
+                // already gone -- taking the history the evaluator wrote in it. The next trigger starts in a fresh
+                // one, and the failure is recorded in a fresh one too, so it does not exist only in the log.
                 logger.error("Action trigger {} failed for discovered certificate {}: {}",
                         triggerAssociation.getTrigger().getUuid(), imported.certificateUuid(), e.getMessage(), e);
+                recordActionTriggerFailure(context, imported, triggerAssociation, e);
             }
+        }
+    }
+
+    /**
+     * Writes the failure where an operator looks for it. The evaluator records a failed execution itself, but into
+     * the transaction the failure poisoned, so that record dies with it — leaving the trigger looking as though it
+     * never ran. This one is written in its own transaction and therefore survives.
+     */
+    private void recordActionTriggerFailure(DiscoveryRunContext context, ImportedGroup imported,
+                                            TriggerAssociation triggerAssociation, Exception failure) {
+        try {
+            transactionHandler.runInNewTransaction(() -> {
+                TriggerHistory history = triggerService.createTriggerHistory(
+                        triggerAssociation.getTrigger().getUuid(), triggerAssociation, imported.certificateUuid(),
+                        imported.referenceRowUuid(), eventHistoryFor(context, triggerAssociation),
+                        Resource.CERTIFICATE);
+                history.setConditionsMatched(true);
+                history.setActionsPerformed(false);
+                triggerService.createTriggerHistoryRecord(history.getUuid(), null, null,
+                        "The trigger's actions could not be applied: " + DiscoveryFailureReason.shape(failure));
+            });
+        } catch (Exception e) {
+            // The last place the failure could have been recorded, so the log is all that is left.
+            logger.error("Could not record the failure of action trigger {} for certificate {}: {}",
+                    triggerAssociation.getTrigger().getUuid(), imported.certificateUuid(), e.getMessage(), e);
         }
     }
 

@@ -4,6 +4,7 @@ import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
 import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.workflows.EventHistoryRepository;
 import com.otilm.core.evaluator.CertificateTriggerEvaluator;
 import com.otilm.core.events.handlers.discovery.DiscoveryCertificateOutcome;
 import com.otilm.core.events.handlers.discovery.DiscoveryCertificateResult;
@@ -13,13 +14,16 @@ import com.otilm.core.events.handlers.discovery.DiscoveryRunAccumulator;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunContext;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
 import com.otilm.core.events.handlers.discovery.GroupImportResult;
+import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.events.transaction.TransactionHandler;
+import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.springframework.transaction.UnexpectedRollbackException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -48,6 +53,8 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     private final DiscoveryWriter discoveryWriter = mock(DiscoveryWriter.class);
     private final CertificateRepository certificateRepository = mock(CertificateRepository.class);
     private final TransactionHandler transactionHandler = mock(TransactionHandler.class);
+    private final TriggerInternalService triggerService = mock(TriggerInternalService.class);
+    private final EventHistoryRepository eventHistoryRepository = mock(EventHistoryRepository.class);
     private final CertificateDiscoveredEventHandler handler = new CertificateDiscoveredEventHandler(
             certificateRepository, mock(CertificateTriggerEvaluator.class));
 
@@ -60,6 +67,9 @@ class CertificateDiscoveredEventHandlerContainmentTest {
 
         handler.setTransactionHandler(transactionHandler);
         handler.setDiscoveryWriter(discoveryWriter);
+        handler.setTriggerService(triggerService);
+        // The failure record resolves the event history in its own transaction, so the repository must be present.
+        handler.setEventHistoryRepository(eventHistoryRepository);
     }
 
     @Test
@@ -207,6 +217,39 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     /**
+     * When a trigger's transaction is lost, the evaluator's own record of the failure goes with it — so the failure
+     * is written again in a fresh one. Only reachable with a stub: no execution an integration test can configure
+     * fails unchecked, which is why the end-to-end tests cannot cover this.
+     */
+    @Test
+    void aLostTriggerTransactionStillLeavesAFailureRecord() {
+        UUID rowUuid = UUID.randomUUID();
+        UUID certificateUuid = UUID.randomUUID();
+        GroupImportResult committed = new GroupImportResult(8L,
+                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)),
+                List.of(), true);
+        when(transactionHandler.runInNewTransaction(
+                ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
+                .thenReturn(new CertificateDiscoveredEventHandler.ImportedGroup(
+                        committed, certificateUuid, null, rowUuid));
+        TriggerHistory history = new TriggerHistory();
+        history.setUuid(UUID.randomUUID());
+        when(triggerService.createTriggerHistory(any(), any(), any(), any(), any(), any())).thenReturn(history);
+        // The trigger's own transaction is lost; the one that records the failure is not.
+        doThrow(new UnexpectedRollbackException("an execution poisoned the trigger transaction"))
+                .doAnswer(invocation -> {
+                    invocation.getArgument(0, Runnable.class).run();
+                    return null;
+                })
+                .when(transactionHandler).runInNewTransaction(any(Runnable.class));
+
+        handler.importGroupSafely(runContextWithTriggers(), group(8L, rowUuid));
+
+        verify(triggerService).createTriggerHistory(any(), any(), eq(certificateUuid), eq(rowUuid), any(), any());
+        verify(triggerService).createTriggerHistoryRecord(eq(history.getUuid()), any(), any(), anyString());
+    }
+
+    /**
      * The reason a group carries out through its own rollback has to survive the shaping the orchestrator applies on
      * the way past. Shaped from an unclassified wrapper it would collapse to "an unexpected error occurred".
      */
@@ -250,7 +293,7 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     private DiscoveryRunContext runContextWithTriggers(int triggerCount) {
-        List<TriggerAssociation> associations = new java.util.ArrayList<>();
+        List<TriggerAssociation> associations = new ArrayList<>();
         for (int i = 0; i < triggerCount; i++) {
             TriggerAssociation association = new TriggerAssociation();
             Trigger trigger = new Trigger();

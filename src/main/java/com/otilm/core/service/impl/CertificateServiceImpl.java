@@ -2323,10 +2323,13 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
                 throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Identification by authority of new RA profile %s rejected the certificate: %s. Certificate: %s", newRaProfile.getName(), reason, certificate.toStringShort()));
             } catch (UnsupportedAuthorityVersionException e) {
                 // Caught here rather than left to escape: unchecked, it would cross this class's @Transactional
-                // proxy and mark the caller's transaction rollback-only. Rewrapped, the operator gets the same
-                // event history and 400 as the other two rejections.
-                certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Authority of new RA profile %s cannot serve this platform: %s", newRaProfile.getName(), e.getMessage()), null);
-                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Authority of new RA profile %s cannot serve this platform: %s. Certificate: %s", newRaProfile.getName(), e.getMessage(), certificate.toStringShort()));
+                // proxy and mark the caller's transaction rollback-only. Its own message names the version the
+                // connector reported, which is stored unvalidated, so only the RA profile is reported outward and
+                // the raw text stays in the log.
+                log.warn("RA profile {} has an authority the platform cannot dispatch to: {}",
+                        newRaProfile.getName(), e.getMessage(), e);
+                certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Authority of RA profile %s uses a connector interface version this platform does not support.", newRaProfile.getName()), null);
+                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Authority of RA profile %s uses a connector interface version this platform does not support. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
             }
         }
 
