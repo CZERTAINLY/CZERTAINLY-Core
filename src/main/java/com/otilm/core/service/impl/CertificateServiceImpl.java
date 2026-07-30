@@ -64,6 +64,7 @@ import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
@@ -2312,6 +2313,12 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
                 String reason = identifyRejectionReason(e);
                 certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Identification by authority of new RA profile %s rejected the certificate: %s", newRaProfile.getName(), reason), null);
                 throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Identification by authority of new RA profile %s rejected the certificate: %s. Certificate: %s", newRaProfile.getName(), reason, certificate.toStringShort()));
+            } catch (UnsupportedAuthorityVersionException e) {
+                // Caught here rather than left to escape: unchecked, it would cross this class's @Transactional
+                // proxy and mark the caller's transaction rollback-only. Rewrapped, the operator gets the same
+                // event history and 400 as the other two rejections.
+                certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Authority of new RA profile %s cannot serve this platform: %s", newRaProfile.getName(), e.getMessage()), null);
+                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Authority of new RA profile %s cannot serve this platform: %s. Certificate: %s", newRaProfile.getName(), e.getMessage(), certificate.toStringShort()));
             }
         }
 

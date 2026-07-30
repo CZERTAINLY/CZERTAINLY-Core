@@ -5,6 +5,7 @@ import com.otilm.api.model.common.AuthenticationServiceExceptionDto;
 import com.otilm.api.model.common.ErrorMessageDto;
 import com.otilm.api.model.core.acme.ProblemDocument;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.exception.AuthenticationServiceException;
 import com.otilm.core.util.AuthHelper;
@@ -420,6 +421,22 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(CertificateOperationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleCertificateOperationException(CertificateOperationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link UnsupportedAuthorityVersionException}.
+     *
+     * <p>400 rather than 500: a connector reporting a version the platform does not recognise is registrable
+     * configuration, and the caller selected the authority it reached this through, so another selection can
+     * succeed. The message is platform-authored and carries only a version string and an authority identifier.
+     *
+     * @return
+     */
+    @ExceptionHandler(UnsupportedAuthorityVersionException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleUnsupportedAuthorityVersionException(UnsupportedAuthorityVersionException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
