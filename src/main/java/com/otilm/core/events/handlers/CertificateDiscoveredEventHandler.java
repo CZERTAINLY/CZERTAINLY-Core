@@ -780,7 +780,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 history.setConditionsMatched(true);
                 history.setActionsPerformed(false);
                 triggerService.createTriggerHistoryRecord(history.getUuid(), null, null,
-                        "The trigger's actions could not be applied: " + DiscoveryFailureReason.shape(failure));
+                        "The trigger's actions could not be applied: "
+                                + DiscoveryFailureReason.shapeTriggerFailure(failure));
             });
         } catch (Exception e) {
             // The last place the failure could have been recorded, so the log is all that is left.
