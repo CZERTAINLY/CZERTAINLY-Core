@@ -57,7 +57,7 @@ class CustomAuditAwareTest {
         assertThat(auditAware.getCurrentAuditor()).contains("anonymousUser");
     }
 
-    /** The string-principal branch, kept for the connector self-registration case it was written for. */
+    /** The string-principal branch supports connector self-registration. */
     @Test
     void stringAnonymousPrincipalIsAttributedToAnonymousUser() {
         SecurityContextHolder.getContext().setAuthentication(new AnonymousAuthenticationToken(

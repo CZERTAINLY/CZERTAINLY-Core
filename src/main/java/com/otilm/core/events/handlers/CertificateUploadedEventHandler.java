@@ -43,7 +43,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 @Component(ResourceEvent.Codes.CERTIFICATE_UPLOADED)
 public class CertificateUploadedEventHandler extends EventHandler<Certificate> {

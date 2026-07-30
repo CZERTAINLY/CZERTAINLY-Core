@@ -4,6 +4,7 @@ import com.otilm.api.exception.EventException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.logging.enums.ActorType;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.workflows.EventStatus;
 import com.otilm.core.dao.entity.UniquelyIdentifiedObject;
@@ -293,22 +294,33 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         // Read from the installed principal, never from EventContext.currentUserUuid: that memo is seeded from the
         // message and can name a user the thread does not hold, which would skip a needed impersonation.
         UUID installedUserUuid = AuthHelper.getActingUserUuidOrNull();
-        if (!Objects.equals(installedUserUuid, triggeredBy)) {
-            try {
-                logger.debug("Changing user from {} to {}", installedUserUuid, triggeredBy);
-                if (triggeredBy == null) {
-                    SecurityContextHolder.clearContext();
-                } else {
-                    authHelper.authenticateAsUser(triggeredBy);
-                    requireImpersonated(triggeredBy);
-                }
-
-                context.setCurrentUserUuid(triggeredBy);
-            } catch (ValidationException e) {
-                // anonymous user
-                SecurityContextHolder.clearContext();
-                context.setCurrentUserUuid(null);
+        if (Objects.equals(installedUserUuid, triggeredBy)) {
+            // No switch needed, but the actor MDC still has to name the identity in effect: the loop clears it on
+            // entry, so without this the first trigger owned by the acting user would be audited with no actor at all.
+            if (triggeredBy != null) {
+                LoggingHelper.putActorInfoWhenNull(ActorType.USER, triggeredBy.toString(), null);
             }
+            return;
+        }
+
+        try {
+            logger.debug("Changing user from {} to {}", installedUserUuid, triggeredBy);
+            // Drop the previous owner's attribution before installing the next: authenticateAsUser only overwrites the
+            // actor uuid, and an ownerless trigger writes no actor at all, so a stale one would otherwise survive.
+            LoggingHelper.clearActorInfo();
+            if (triggeredBy == null) {
+                SecurityContextHolder.clearContext();
+            } else {
+                authHelper.authenticateAsUser(triggeredBy);
+                requireImpersonated(triggeredBy);
+            }
+
+            context.setCurrentUserUuid(triggeredBy);
+        } catch (ValidationException e) {
+            // anonymous user
+            SecurityContextHolder.clearContext();
+            LoggingHelper.clearActorInfo();
+            context.setCurrentUserUuid(null);
         }
     }
 
@@ -320,6 +332,9 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
      */
     private void requireImpersonated(UUID triggeredBy) {
         if (!triggeredBy.equals(AuthHelper.getActingUserUuidOrNull())) {
+            // Leave nothing installed for the caller to run under, independently of the loop's restore.
+            SecurityContextHolder.clearContext();
+            LoggingHelper.clearActorInfo();
             throw new PlatformAuthenticationException(
                     "User %s that associated the trigger could not be authenticated".formatted(triggeredBy));
         }

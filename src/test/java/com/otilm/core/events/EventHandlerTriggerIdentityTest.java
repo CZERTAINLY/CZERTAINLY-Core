@@ -164,7 +164,6 @@ class EventHandlerTriggerIdentityTest {
         impersonateOnAuthenticateAsUser(triggerCreatorUuid);
 
         TestEventHandler handler = handler();
-        // memo claims the trigger creator is already installed, while the thread actually holds the uploader
         EventContext<Certificate> context = contextFor(triggerCreatorUuid);
         context.getPlatformTriggers().getTriggers().add(associationCreatedBy(triggerCreatorUuid));
 
@@ -262,6 +261,50 @@ class EventHandlerTriggerIdentityTest {
         handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null);
 
         assertThat(actorUuidsSeen).containsExactly(firstOwner.toString(), secondOwner.toString());
+    }
+
+    /** An association owned by the acting user needs no switch, but its trigger must still be audited as them. */
+    @Test
+    void actorAttributionIsRestatedWhenTheOwnerIsAlreadyInstalled() throws Exception {
+        UUID uploaderUuid = UUID.randomUUID();
+        authenticateAs(uploaderUuid, UPLOADER);
+        List<String> actorUuidsSeen = recordActorUuidsInsideLoop();
+
+        TestEventHandler handler = handler();
+        EventContext<Certificate> context = contextFor(uploaderUuid);
+        context.getPlatformTriggers().getTriggers().add(associationCreatedBy(uploaderUuid));
+
+        handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null);
+
+        assertThat(actorUuidsSeen).containsExactly(uploaderUuid.toString());
+    }
+
+    /** An ownerless association clears the principal, so it must clear the previous owner's attribution too. */
+    @Test
+    void actorAttributionIsClearedWhenAnOwnerlessAssociationFollowsAnOwnedOne() throws Exception {
+        UUID ownerUuid = UUID.randomUUID();
+        authenticateAs(UUID.randomUUID(), UPLOADER);
+        impersonateOnAuthenticateAsUser(ownerUuid);
+        List<String> actorUuidsSeen = recordActorUuidsInsideLoop();
+
+        TestEventHandler handler = handler();
+        EventContext<Certificate> context = contextFor(null);
+        context.getPlatformTriggers().getTriggers().add(associationCreatedBy(ownerUuid));
+        context.getPlatformTriggers().getTriggers().add(associationCreatedBy(null));
+
+        handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null);
+
+        assertThat(actorUuidsSeen).containsExactly(ownerUuid.toString(), null);
+    }
+
+    private List<String> recordActorUuidsInsideLoop() throws Exception {
+        List<String> seen = new ArrayList<>();
+        doAnswer(invocation -> {
+            seen.add(LoggingHelper.hasActorInfo() && LoggingHelper.getActorInfo().uuid() != null
+                    ? LoggingHelper.getActorInfo().uuid().toString() : null);
+            return null;
+        }).when(triggerEvaluator).evaluateTrigger(any(), any(), any(), any(), any(), any(), any());
+        return seen;
     }
 
     private void recordIdentityInsideLoop() throws Exception {
