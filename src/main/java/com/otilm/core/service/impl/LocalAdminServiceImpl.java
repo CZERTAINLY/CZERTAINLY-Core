@@ -44,13 +44,20 @@ public class LocalAdminServiceImpl implements LocalAdminExternalService {
     @Override
     @UnauthenticatedEndpoint
     public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, AttributeException {
-        UserDetailDto userDetailDto = userManagementService.createUser(request);
-
+        // Resolved first: without the role there is nothing to grant, and creating the user anyway would leave the
+        // first administrator holding no permissions, with its username blocking the retry.
         String superadminRoleUuid = getSuperadminRoleUuid();
+
+        UserDetailDto userDetailDto = userManagementService.createUser(request);
         return userManagementInternalService.updateRoleInternal(userDetailDto.getUuid(), superadminRoleUuid);
     }
 
-    private String getSuperadminRoleUuid() {
-        return roleManagementApiClient.getRoles().getData().stream().filter(e -> e.getSystemRole().equals(true) && e.getName().equals(AuthHelper.SUPERADMIN_ROLE_NAME)).toList().getFirst().getUuid();
+    private String getSuperadminRoleUuid() throws NotFoundException {
+        return roleManagementApiClient.getRoles().getData().stream()
+                .filter(role -> Boolean.TRUE.equals(role.getSystemRole())
+                        && AuthHelper.SUPERADMIN_ROLE_NAME.equals(role.getName()))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Role", AuthHelper.SUPERADMIN_ROLE_NAME))
+                .getUuid();
     }
 }

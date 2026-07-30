@@ -1,9 +1,12 @@
 package com.otilm.core.integration.service;
 
+import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.auth.AddUserRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.RoleDetailDto;
 import com.otilm.api.model.core.auth.RoleDto;
+import com.otilm.api.model.core.auth.RoleWithPaginationDto;
 import com.otilm.api.model.core.auth.SubjectPermissionsDto;
 import com.otilm.api.model.core.auth.UserDetailDto;
 import com.otilm.api.model.core.auth.UserDto;
@@ -15,6 +18,7 @@ import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
+import com.otilm.core.service.LocalAdminExternalService;
 import com.otilm.core.service.RoleManagementExternalService;
 import com.otilm.core.service.UserManagementExternalService;
 import com.otilm.core.service.UserManagementInternalService;
@@ -54,6 +58,9 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
 
     @Autowired
     private UserManagementInternalService userManagementInternalService;
+
+    @Autowired
+    private LocalAdminExternalService localAdminService;
 
     @MockitoBean
     private RoleManagementApiClient roleManagementApiClient;
@@ -400,6 +407,22 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
      * all-resources role may only be granted by a holder would refuse every fresh install if the bootstrap went
      * through the guarded path.
      */
+    /**
+     * The role is resolved before the user is created, so a missing superadmin role does not leave the very first
+     * administrator behind holding nothing — an account that cannot be used and whose username blocks the retry.
+     */
+    @Test
+    void createUser_failsWithoutCreatingAUserWhenTheSuperadminRoleIsMissing() {
+        RoleWithPaginationDto noRoles = new RoleWithPaginationDto();
+        noRoles.setData(List.of());
+        when(roleManagementApiClient.getRoles()).thenReturn(noRoles);
+        AddUserRequestDto request = new AddUserRequestDto();
+
+        Assertions.assertThrows(NotFoundException.class, () -> localAdminService.createUser(request));
+
+        verify(userManagementApiClient, never()).createUser(any());
+    }
+
     @Test
     void updateRoleInternal_bypassesTheGuardSoTheFirstAdministratorCanBeCreated() {
         String superadminRoleUuid = UUID.randomUUID().toString();
