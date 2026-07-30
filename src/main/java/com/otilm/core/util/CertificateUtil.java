@@ -577,9 +577,13 @@ public class CertificateUtil {
                     )
             );
         }
+        // CertTemplate.subject is OPTIONAL in CRMF, so the parsed name can be null; both columns are
+        // nullable and stay empty for a subject-less request (identity carried in the SAN).
         X500Name subjectDN = X500Name.getInstance(new PlatformX500NameStyle(false), certificateRequest.getSubject());
-        modal.setSubjectDn(subjectDN.toString());
-        modal.setCommonName(getCommonNameFromSubjectDn(subjectDN));
+        if (subjectDN != null) {
+            modal.setSubjectDn(subjectDN.toString());
+            modal.setCommonName(getCommonNameFromSubjectDn(subjectDN));
+        }
         if (getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
             modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
         }
