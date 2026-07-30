@@ -646,6 +646,82 @@ class EventHandlersITest extends BaseSpringBootTest {
     }
 
     /**
+     * An action trigger whose execution fails must not cost the discovery its certificates.
+     *
+     * <p>The failure mode is not the exception itself — {@code performActions} already records those — but where it
+     * is raised. A set-field execution calls into a class-level {@code @Transactional} service, so an unchecked
+     * failure there marks the group's transaction rollback-only before any catch runs, and the commit throws. Since
+     * every group evaluates the same triggers, one misconfigured execution loses every certificate in the run.
+     */
+    @Test
+    void testCertificateDiscoveredImportsWhenAnActionTriggerExecutionFails() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "action-failing-host");
+        createFailingSetFieldActionTrigger(discovery.getUuid());
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Assertions.assertTrue(certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509)).isPresent(),
+                "a failing action trigger must not roll back the certificate it acts on");
+        DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
+        Assertions.assertTrue(reloaded.isProcessed());
+        Assertions.assertNull(reloaded.getProcessedError(),
+                "an action failure belongs in trigger history, not on the discovered row: "
+                        + reloaded.getProcessedError());
+        verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
+                msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
+                        && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
+    }
+
+    /**
+     * A SET_FIELD execution switching the RA profile to one that has no authority instance — reachable
+     * configuration, and what the reported failure hit in the field.
+     */
+    private void createFailingSetFieldActionTrigger(UUID discoveryUuid)
+            throws AlreadyExistException, NotFoundException, AttributeException {
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("ra-profile-without-authority");
+        raProfile = raProfileRepository.save(raProfile);
+
+        ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
+        executionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
+        executionItemRequest.setFieldIdentifier(FilterField.RA_PROFILE_NAME.name());
+        executionItemRequest.setData(raProfile.getUuid().toString());
+
+        ExecutionRequestDto executionRequest = new ExecutionRequestDto();
+        executionRequest.setName("SwitchToAuthoritylessRaProfile");
+        executionRequest.setResource(Resource.CERTIFICATE);
+        executionRequest.setType(ExecutionType.SET_FIELD);
+        executionRequest.setItems(List.of(executionItemRequest));
+        ExecutionDto execution = actionService.createExecution(executionRequest);
+
+        ActionRequestDto actionRequest = new ActionRequestDto();
+        actionRequest.setName("SwitchRaProfileAction");
+        actionRequest.setResource(Resource.CERTIFICATE);
+        actionRequest.setExecutionsUuids(List.of(execution.getUuid()));
+        ActionDetailDto action = actionService.createAction(actionRequest);
+
+        TriggerRequestDto triggerRequest = new TriggerRequestDto();
+        triggerRequest.setName("SwitchRaProfileTrigger");
+        triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
+        triggerRequest.setResource(Resource.CERTIFICATE);
+        triggerRequest.setActionsUuids(List.of(action.getUuid()));
+        TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
+
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+        mockAuthResponse(AuthHelper.getUserIdentification());
+
+        triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
+                discoveryUuid, List.of(UUID.fromString(trigger.getUuid())), true);
+    }
+
+    /**
      * An ignore trigger conditioned on the fingerprint must keep the certificate out of the inventory.
      *
      * <p>The candidate the ignore triggers evaluate is built in memory, so every field a rule can read has to be

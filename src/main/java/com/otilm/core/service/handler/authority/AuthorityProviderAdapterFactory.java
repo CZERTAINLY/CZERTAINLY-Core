@@ -34,6 +34,11 @@ public class AuthorityProviderAdapterFactory {
     }
 
     public AuthorityProviderAdapter forAuthority(AuthorityInstanceReference authority) {
+        if (authority == null) {
+            // An RA profile without an authority instance is reachable configuration, so this arrives as a domain
+            // failure rather than a NullPointerException from the dereference below.
+            throw new UnsupportedAuthorityVersionException("The RA profile has no authority instance to serve it.");
+        }
         ConnectorInterfaceEntity iface = authority.getConnectorInterface();
         if (iface == null) {
             // No interface row → a framework-v1 connector speaking the v2 authority protocol (see class Javadoc).
