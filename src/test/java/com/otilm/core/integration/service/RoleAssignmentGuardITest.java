@@ -287,6 +287,26 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(userManagementApiClient).updateRoles(targetUuid, granted);
     }
 
+    /** The role side of the same rule: adding a member is the grant, and a caller holding everything may make it. */
+    @Test
+    void updateUsers_allowsACallerHoldingAllResourcesToAddAMember() {
+        String adminUuid = UUID.randomUUID().toString();
+        String superadminUuid = UUID.randomUUID().toString();
+        String humanUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(adminUuid))
+                .thenReturn(role(adminUuid, "admin", true, List.of()));
+        when(roleManagementApiClient.getPermissions(adminUuid)).thenReturn(permissions(true));
+        when(userManagementApiClient.getUserDetail(humanUuid)).thenReturn(humanUser(humanUuid));
+        when(roleManagementApiClient.updateUsers(eq(adminUuid), any()))
+                .thenReturn(role(adminUuid, "admin", true, List.of()));
+        authenticateHoldingAllResources(superadminUuid, AuthHelper.SUPERADMIN_ROLE_NAME);
+        List<String> members = List.of(humanUuid);
+
+        roleManagementService.updateUsers(adminUuid, members);
+
+        verify(roleManagementApiClient).updateUsers(adminUuid, members);
+    }
+
     @Test
     void updateUsers_rejectsAllowAllResourcesRoleWhenCallerDoesNotHoldIt() {
         String roleUuid = UUID.randomUUID().toString();
