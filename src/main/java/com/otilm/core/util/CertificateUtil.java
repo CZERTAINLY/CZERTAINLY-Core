@@ -549,27 +549,36 @@ public class CertificateUtil {
 
 
     public static void prepareCertificateFromCsr(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
-        if (certificateRequest.getPublicKey() == null) {
-            throw new ValidationException(
-                    ValidationError.create(
-                            "Invalid public key in certificate request"
-                    )
-            );
-        }
-        setSubjectDNParams(modal, X500Name.getInstance(new PlatformX500NameStyle(false), certificateRequest.getSubject()));
+        CsrIdentity identity = deriveCsrIdentity(certificateRequest);
+        modal.setSubjectDn(identity.subjectDn());
+        modal.setCommonName(identity.commonName());
+        modal.setPublicKeyAlgorithm(identity.publicKeyAlgorithm());
+        modal.setSubjectAlternativeNames(identity.serializedSans());
         try {
             modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
         }
-        if (getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
-            modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
-        }
         modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
-        modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }
 
     public static void prepareCertificateRequestEntityFromCsr(CertificateRequestEntity modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+        CsrIdentity identity = deriveCsrIdentity(certificateRequest);
+        modal.setSubjectDn(identity.subjectDn());
+        modal.setCommonName(identity.commonName());
+        modal.setPublicKeyAlgorithm(identity.publicKeyAlgorithm());
+        modal.setSubjectAlternativeNames(identity.serializedSans());
+    }
+
+    /**
+     * Identity fields shared by the certificate and certificate-request rows, derived once from a
+     * parsed request. {@code Certificate} and {@code CertificateRequestEntity} have no common
+     * supertype, so both prepare methods apply these values through their own setters.
+     */
+    private record CsrIdentity(String subjectDn, String commonName, String publicKeyAlgorithm, String serializedSans) {
+    }
+
+    private static CsrIdentity deriveCsrIdentity(CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
         if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
@@ -577,29 +586,21 @@ public class CertificateUtil {
                     )
             );
         }
-        // CertTemplate.subject is OPTIONAL in CRMF, so the parsed name can be null; both columns are
-        // nullable and stay empty for a subject-less request (identity carried in the SAN).
+        // CertTemplate.subject is OPTIONAL in CRMF, so the parsed name can be null; the subject
+        // columns stay empty for a subject-less request (identity carried in the SAN).
         X500Name subjectDN = X500Name.getInstance(new PlatformX500NameStyle(false), certificateRequest.getSubject());
-        if (subjectDN != null) {
-            modal.setSubjectDn(subjectDN.toString());
-            modal.setCommonName(getCommonNameFromSubjectDn(subjectDN));
-        }
-        if (getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
-            modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
-        }
-        modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
+        return new CsrIdentity(
+                subjectDN != null ? subjectDN.toString() : null,
+                subjectDN != null ? getCommonNameFromDn(subjectDN) : null,
+                getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null
+                        ? getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm())
+                        : null,
+                serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }
 
     private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
         modal.setIssuerDn(issuerDN.toString());
-
-        for (RDN i : issuerDN.getRDNs()) {
-            if (i.getFirst() == null) continue;
-
-            if (SystemOid.COMMON_NAME.getOid().equals(i.getFirst().getType().getId())) {
-                modal.setIssuerCommonName(i.getFirst().getValue().toString());
-            }
-        }
+        modal.setIssuerCommonName(getCommonNameFromDn(issuerDN));
     }
 
     /**
@@ -661,7 +662,7 @@ public class CertificateUtil {
      * {@link X500Name#getRDNs()} order wins — the non-normalized rendering reverses the RDN array,
      * so this is the leading CN of the {@code subjectDn} string persisted alongside it.
      */
-    private static String getCommonNameFromSubjectDn(X500Name subjectDn) {
+    private static String getCommonNameFromDn(X500Name subjectDn) {
         String commonName = null;
         for (RDN i : subjectDn.getRDNs()) {
             if (i.getFirst() == null) continue;
@@ -675,7 +676,7 @@ public class CertificateUtil {
 
     private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
         modal.setSubjectDn(subjectDN.toString());
-        modal.setCommonName(getCommonNameFromSubjectDn(subjectDN));
+        modal.setCommonName(getCommonNameFromDn(subjectDN));
     }
 
     public static KeyAlgorithm getKeyAlgorithmEnumFromProviderName(String providerName) {
