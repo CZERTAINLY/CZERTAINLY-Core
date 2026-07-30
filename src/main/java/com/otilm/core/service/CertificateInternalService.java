@@ -212,6 +212,11 @@ public interface CertificateInternalService extends ResourceExtensionService {
     void checkCreatePermissions();
 
     /**
+     * Method to check if the permission is available for the user to pre-register certificate
+     */
+    void checkRegisterPermissions();
+
+    /**
      * Method to check if the permission is available for the user to issue certificate
      */
     void checkIssuePermissions();

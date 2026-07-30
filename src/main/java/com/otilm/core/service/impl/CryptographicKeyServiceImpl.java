@@ -1047,7 +1047,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE)
     public KeyItemDetailDto editKeyItem(SecuredUUID keyUuid, UUID keyItemUuid, EditKeyItemDto editKeyItemDto) throws NotFoundException {
         CryptographicKey key = getCryptographicKeyEntityWithAssociations(keyUuid.getValue());
         if (key.getTokenInstanceReferenceUuid() != null)

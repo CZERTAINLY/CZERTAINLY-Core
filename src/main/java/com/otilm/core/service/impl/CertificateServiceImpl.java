@@ -1674,6 +1674,13 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REGISTER)
+    public void checkRegisterPermissions() {
+        // Deliberately empty: the annotation is the whole method. Callers invoke it through the proxy to have the
+        // write evaluated where their own entry gate only covers reading the RA profile.
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ISSUE)
     public void checkIssuePermissions() {
     }

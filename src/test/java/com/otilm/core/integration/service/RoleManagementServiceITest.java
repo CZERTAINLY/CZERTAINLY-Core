@@ -122,6 +122,7 @@ class RoleManagementServiceITest extends BaseSpringBootTest {
     void updateUsers_evictsEntireCache() {
         // given
         String roleUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(roleUuid)).thenReturn(roleDetailDto(roleUuid, false));
         when(roleManagementApiClient.updateUsers(eq(roleUuid), any()))
                 .thenReturn(roleDetailDto(roleUuid, false));
 
