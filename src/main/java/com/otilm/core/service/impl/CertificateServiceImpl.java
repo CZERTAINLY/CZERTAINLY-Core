@@ -2301,10 +2301,8 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
             // identify certificate by new authority
             if (newRaProfile.getAuthorityInstanceReference() == null) {
-                // Checked, and reported in the RA profile's own terms: an authority-less RA profile is
-                // configuration the operator can fix, and it is not a connector rejection -- the connector is
-                // never contacted. Unchecked here would cross this class's @Transactional proxy and doom the
-                // caller's transaction, which for a discovery action trigger costs that trigger its history.
+                // Checked, and in the RA profile's own terms: the connector is never contacted, and unchecked would
+                // cross this class's @Transactional proxy and doom the caller's transaction.
                 certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("RA profile %s has no authority instance, so the certificate cannot be identified.", newRaProfile.getName()), null);
                 throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. RA profile %s has no authority instance, so the certificate cannot be identified. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
             }
@@ -2322,10 +2320,8 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
                 certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Identification by authority of new RA profile %s rejected the certificate: %s", newRaProfile.getName(), reason), null);
                 throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Identification by authority of new RA profile %s rejected the certificate: %s. Certificate: %s", newRaProfile.getName(), reason, certificate.toStringShort()));
             } catch (UnsupportedAuthorityVersionException e) {
-                // Caught here rather than left to escape: unchecked, it would cross this class's @Transactional
-                // proxy and mark the caller's transaction rollback-only. Its own message names the version the
-                // connector reported, which is stored unvalidated, so only the RA profile is reported outward and
-                // the raw text stays in the log.
+                // Caught, not escaped: unchecked would mark the caller's transaction rollback-only. Its message
+                // names a connector-reported version stored unvalidated, so only the RA profile goes outward.
                 log.warn("RA profile {} has an authority the platform cannot dispatch to: {}",
                         newRaProfile.getName(), e.getMessage(), e);
                 certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Authority of RA profile %s uses a connector interface version this platform does not support.", newRaProfile.getName()), null);
@@ -2337,8 +2333,7 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         certificateRepository.save(certificate);
 
         // delete old metadata
-        // Null-checked on the authority too: an RA profile without one has no connector whose metadata could
-        // exist, and the same configuration is reachable on the way out as on the way in.
+        // An RA profile without an authority has no connector whose metadata could exist.
         if (currentRaProfile != null && currentRaProfile.getAuthorityInstanceReference() != null) {
             attributeEngine.deleteObjectAttributesContent(AttributeType.META, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(currentRaProfile.getAuthorityInstanceReference().getConnectorUuid()).build());
         }

@@ -42,10 +42,9 @@ public class NotificationProducer {
     }
 
     /**
-     * Dispatch failures stay here rather than reaching the publisher. Spring propagates an exception thrown from an
-     * {@code AFTER_COMMIT} synchronization to whoever called commit, and by then the transaction has committed and
-     * cannot be undone -- so letting one out reports committed work as failed. The retry template has already
-     * exhausted its attempts, so the message is lost either way and the log is the only useful disposition.
+     * Spring propagates what an {@code AFTER_COMMIT} synchronization throws to whoever called commit, by which point
+     * the transaction has committed -- so letting a dispatch failure out reports committed work as failed. Retries
+     * are exhausted by here, so the log is all that is left.
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onNotificationMessage(NotificationMessage notificationMessage) {

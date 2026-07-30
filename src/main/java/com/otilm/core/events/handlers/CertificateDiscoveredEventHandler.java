@@ -731,20 +731,13 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     /**
      * Runs the action triggers once the import has committed, one transaction per trigger.
      *
-     * <p>Not inside the import transaction: an execution reaches services that are class-level
-     * {@code @Transactional}, so an unchecked failure in one marks the transaction it joined rollback-only before
-     * {@code performActions} can record it, and the import's commit then throws. Every group evaluates the same
-     * triggers, so one misconfigured execution would cost the discovery every certificate.
+     * <p>An execution reaches services that are class-level {@code @Transactional}, and an unchecked failure inside
+     * one marks the transaction it joined rollback-only: sharing one with the import cost the discovery every
+     * certificate, sharing one across the phase would discard the successful triggers' writes. A notification is
+     * therefore released as its own trigger commits, and implies nothing about the triggers after it.
      *
-     * <p>And one transaction each rather than one for the phase, for the same reason one level down: a poisoned
-     * transaction discards every write made in it, so sharing one would lose the trigger history of the triggers
-     * that succeeded, their applied changes, and their notifications — which are published on commit — along with
-     * the failing one's own record. A notification is therefore released as its own trigger commits, and does not
-     * imply that the triggers ordered after it have run.
-     *
-     * <p>An action failure deliberately does not reach the discovery's status; trigger history is where it is
-     * reported. Note that the failing trigger's own history is written in the transaction its failure poisoned, so
-     * for an unchecked failure that record is lost with it and the log is the only trace.
+     * <p>Failures are reported in trigger history, not the discovery's status -- except an unchecked one, whose
+     * history is written in the transaction it poisoned and lost with it.
      */
     private void runActionTriggersSafely(DiscoveryRunContext context, ImportedGroup imported) {
         if (!imported.isImported()) {
@@ -754,9 +747,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             try {
                 transactionHandler.runInNewTransaction(() -> runActionTrigger(context, imported, triggerAssociation));
             } catch (Exception e) {
-                // Only a failure that escaped the trigger's own handling reaches here, and its transaction is
-                // already gone -- taking the history the evaluator wrote in it. The next trigger starts in a fresh
-                // one, and the failure is recorded in a fresh one too, so it does not exist only in the log.
+                // Its transaction is already gone, taking the history the evaluator wrote in it -- so the failure
+                // is recorded in a fresh one rather than left in the log alone.
                 logger.error("Action trigger {} failed for discovered certificate {}: {}",
                         triggerAssociation.getTrigger().getUuid(), imported.certificateUuid(), e.getMessage(), e);
                 recordActionTriggerFailure(context, imported, triggerAssociation, e);
@@ -765,9 +757,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     /**
-     * Writes the failure where an operator looks for it. The evaluator records a failed execution itself, but into
-     * the transaction the failure poisoned, so that record dies with it — leaving the trigger looking as though it
-     * never ran. This one is written in its own transaction and therefore survives.
+     * The evaluator's own record of a failed execution goes into the transaction the failure poisoned and dies with
+     * it, leaving the trigger looking as though it never ran. This one is written in its own transaction.
      */
     private void recordActionTriggerFailure(DiscoveryRunContext context, ImportedGroup imported,
                                             TriggerAssociation triggerAssociation, Exception failure) {

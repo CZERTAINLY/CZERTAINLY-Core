@@ -454,11 +454,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     }
 
     /**
-     * Publishes through the application event bus rather than to the producer directly: the listener is
-     * {@code AFTER_COMMIT}, so the message leaves only if the current transaction commits, by which point the
-     * {@code TriggerHistory} it carries is visible to whoever writes records against it. A caller that gives each
-     * trigger its own transaction therefore releases each notification as that trigger commits, and the message
-     * implies nothing about triggers evaluated after it.
+     * Published through the event bus, not to the producer: the listener is {@code AFTER_COMMIT}, so the message
+     * leaves only if this transaction commits, and the {@code TriggerHistory} it carries is visible by then. Where
+     * each trigger has its own transaction, each notification is released as that trigger commits.
      */
     protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data, TriggerHistory triggerHistory) {
         List<UUID> notificationProfileUuids = new ArrayList<>();

@@ -196,9 +196,8 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     /**
-     * One transaction per trigger, asserted structurally because no execution available to an integration test
-     * reaches a service that fails unchecked. Sharing one transaction is what let a single poisoned execution
-     * discard the trigger history and applied writes of every trigger in the group.
+     * Asserted structurally because no execution an integration test can reach fails unchecked. Sharing one
+     * transaction is what let a single poisoned execution discard every other trigger's history and writes.
      */
     @Test
     void eachActionTriggerGetsItsOwnTransaction() {
@@ -217,9 +216,8 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     /**
-     * When a trigger's transaction is lost, the evaluator's own record of the failure goes with it — so the failure
-     * is written again in a fresh one. Only reachable with a stub: no execution an integration test can configure
-     * fails unchecked, which is why the end-to-end tests cannot cover this.
+     * A lost trigger transaction takes the evaluator's own record of the failure with it, so it is written again in
+     * a fresh one. Only reachable with a stub, which is why the end-to-end tests cannot cover it.
      */
     @Test
     void aLostTriggerTransactionStillLeavesAFailureRecord() {

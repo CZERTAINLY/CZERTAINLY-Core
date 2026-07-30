@@ -653,12 +653,9 @@ class EventHandlersITest extends BaseSpringBootTest {
     }
 
     /**
-     * An action trigger whose execution fails must not cost the discovery its certificates.
-     *
-     * <p>Guards where an execution failure lands: a set-field execution reaches services that are class-level
-     * {@code @Transactional}, so a failure raised inside one must not be able to take the group's import with it.
-     * This execution fails checked, so what it exercises is the containment and the surviving history — not the
-     * rollback-only path, which no execution reachable from here produces.
+     * An action trigger whose execution fails must not cost the discovery its certificates. This execution fails
+     * checked, so it exercises the containment and the surviving history, not the rollback-only path — no execution
+     * reachable from here produces that.
      */
     @Test
     void testCertificateDiscoveredImportsWhenAnActionTriggerExecutionFails() throws Exception {
@@ -699,8 +696,7 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     /**
      * The load-bearing half of running actions after the import: the certificate is re-resolved in the trigger's own
-     * transaction, so an execution's write actually persists. Only a failing execution exercised that before, which
-     * a broken re-resolution would have passed just as happily.
+     * transaction, so an execution's write persists. A broken re-resolution passes every failing-execution test.
      */
     @Test
     void testCertificateDiscoveredAppliesASucceedingActionTriggerAcrossTheTransactionBoundary() throws Exception {
@@ -727,9 +723,8 @@ class EventHandlersITest extends BaseSpringBootTest {
     }
 
     /**
-     * One trigger per transaction, so a failing trigger costs only itself: a shared transaction would lose the
-     * writes of the triggers that already succeeded. This trigger fails checked, so the end-to-end path is what is
-     * asserted here; the isolation itself is pinned by {@code eachActionTriggerGetsItsOwnTransaction}.
+     * A failing trigger costs only itself; a shared transaction would lose the writes of those that succeeded. This
+     * one fails checked, so the isolation itself is pinned by {@code eachActionTriggerGetsItsOwnTransaction}.
      */
     @Test
     void testCertificateDiscoveredKeepsASucceedingTriggerWhenAnotherFails() throws Exception {

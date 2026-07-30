@@ -428,13 +428,9 @@ public class ExceptionHandlingAdvice {
     /**
      * Handler for {@link UnsupportedAuthorityVersionException}.
      *
-     * <p>400 rather than 500: an unrecognised connector interface version is caller-fixable configuration.
-     *
-     * <p>The body is fixed rather than the exception's message. That message names the authority and the version
-     * string the connector itself reported, which is stored unvalidated -- so forwarding it would put a
-     * connector-controlled value and an entity identifier in front of a caller who asked about something else.
-     * Logged at warn with the exception, because reaching this means a connector is registered that the platform
-     * cannot dispatch to.
+     * <p>400 rather than 500: an unrecognised connector interface version is caller-fixable configuration. The body
+     * is fixed rather than the exception's message, which names the authority and a version string the connector
+     * reported into an unvalidated column. Logged at warn -- a connector is registered that cannot be dispatched to.
      *
      * @return a fixed message that names neither the authority nor the version
      */
