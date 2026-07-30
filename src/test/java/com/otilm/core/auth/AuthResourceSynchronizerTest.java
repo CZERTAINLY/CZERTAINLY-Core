@@ -1,8 +1,10 @@
 package com.otilm.core.auth;
 
 import com.otilm.api.model.core.auth.ResourcePermissionsDto;
+import com.otilm.api.model.core.auth.RoleDetailDto;
 import com.otilm.api.model.core.auth.RoleDto;
 import com.otilm.api.model.core.auth.RolePermissionsRequestDto;
+import com.otilm.api.model.core.auth.RoleRequestDto;
 import com.otilm.api.model.core.auth.RoleWithPaginationDto;
 import com.otilm.api.model.core.auth.SubjectPermissionsDto;
 import com.otilm.core.model.auth.Resource;
@@ -16,6 +18,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,9 +44,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Covers the startup step that realigns the auditor role with the resource catalogue the same boot has just synced.
- * The mapping itself is pinned by {@link ReadOnlyRolePermissionsTest}; what matters here is that the role is found,
- * written only when it is out of step, and that nothing here can stop the platform from starting.
+ * Covers the startup step that brings the auditor role in line with the resource catalogue the same boot has just
+ * synced, creating it when it is missing. The mapping itself is pinned by {@link ReadOnlyRolePermissionsTest}; what
+ * matters here is which role is acted on, that it is written only when it is out of step, and that nothing here can
+ * stop the platform from starting.
  */
 class AuthResourceSynchronizerTest {
 
@@ -70,6 +74,14 @@ class AuthResourceSynchronizerTest {
                 resource(Resource.SECRET, ResourceAction.GET_SECRET_CONTENT)));
     }
 
+    /** The logger is a process-wide singleton, so a capturing appender left on it would follow the next test. */
+    @AfterEach
+    void releaseTheSynchronizerLogger() {
+        Logger logger = (Logger) LoggerFactory.getLogger(AuthResourceSynchronizer.class);
+        logger.detachAndStopAllAppenders();
+        logger.setLevel(null);
+    }
+
     @Test
     void rebuildsTheAuditorPermissionsFromTheCatalogueItJustSynced() {
         auditorRoleExists(true);
@@ -87,24 +99,102 @@ class AuthResourceSynchronizerTest {
         });
     }
 
-    /** The role is identified the way the migrations identify system roles - by name among the system roles. */
+    /**
+     * Nothing else creates the role now that no migration does, so a deployment that has never had it must end this
+     * startup holding it - as a system role, with exactly the derived read set and no paired system user.
+     */
     @Test
-    void ignoresARoleNamedAuditorThatIsNotASystemRole() {
-        auditorRoleExists(false);
+    void createsTheAuditorRoleWhenItIsAbsent() {
+        noRoleNamedAuditorExists();
+        when(roleManagementApiClient.createRole(any())).thenReturn(createdRole());
 
         synchronizer.register();
 
-        verify(roleManagementApiClient, never()).savePermissions(any(), any());
+        ArgumentCaptor<RoleRequestDto> created = ArgumentCaptor.forClass(RoleRequestDto.class);
+        verify(roleManagementApiClient).createRole(created.capture());
+        assertThat(created.getValue().getName()).isEqualTo(AuthHelper.AUDITOR_ROLE_NAME);
+        assertThat(created.getValue().getSystemRole()).isTrue();
+        assertThat(created.getValue().getDescription()).isNotBlank();
+        assertThat(created.getValue().getPermissions()).satisfies(permissions -> {
+            assertThat(permissions.getAllowAllResources()).isFalse();
+            assertThat(permissions.getResources()).singleElement().satisfies(certificates -> {
+                assertThat(certificates.getName()).isEqualTo(Resource.CERTIFICATE.getCode());
+                assertThat(certificates.getActions())
+                        .containsExactly(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode());
+            });
+        });
     }
 
-    /** A deployment whose migration has not created the role yet must still boot, and say why it did nothing. */
     @Test
-    void skipsReconciliationWhenTheAuditorRoleIsAbsent() {
-        when(roleManagementApiClient.getRoles()).thenReturn(roles(role("superadmin", true)));
+    void logsThatItCreatedTheRoleRatherThanRebuiltIt() {
+        noRoleNamedAuditorExists();
+        when(roleManagementApiClient.createRole(any())).thenReturn(createdRole());
 
+        ListAppender<ILoggingEvent> logged = captureLogsOfSynchronizer();
+        synchronizer.register();
+
+        assertThat(messagesLoggedAt(logged, Level.INFO))
+                .anySatisfy(message -> assertThat(message)
+                        .contains(AuthHelper.AUDITOR_ROLE_NAME)
+                        .contains("created"))
+                .noneSatisfy(message -> assertThat(message).contains("rebuilt"));
+    }
+
+    /**
+     * A role of that name the deployment defined itself is not this one: rewriting it would strip or widen grants
+     * someone there relies on, and creating a second one of the same name is what the auth service forbids anyway.
+     */
+    @Test
+    void leavesARoleNamedAuditorAloneWhenItIsNotASystemRole() {
+        auditorRoleExists(false);
+
+        ListAppender<ILoggingEvent> logged = captureLogsOfSynchronizer();
         synchronizer.register();
 
         verify(roleManagementApiClient, never()).savePermissions(any(), any());
+        verify(roleManagementApiClient, never()).createRole(any());
+        assertThat(messagesLoggedAt(logged, Level.WARN))
+                .anySatisfy(message -> assertThat(message)
+                        .contains(AuthHelper.AUDITOR_ROLE_NAME)
+                        .contains("not a system role"));
+    }
+
+    /**
+     * Replicas start together and each finds the role missing, so several will try to create it. Role names are
+     * unique in the auth service, so the losers are refused - and must go on reconciling the role that now exists
+     * instead of leaving it unmanaged for this boot.
+     */
+    @Test
+    void reconcilesTheRoleAnotherInstanceCreatedFirst() {
+        RoleDto auditor = role(AuthHelper.AUDITOR_ROLE_NAME, true);
+        auditor.setUuid(AUDITOR_ROLE_UUID);
+        when(roleManagementApiClient.getRoles())
+                .thenReturn(roles(role("superadmin", true)), roles(role("superadmin", true), auditor));
+        when(roleManagementApiClient.createRole(any()))
+                .thenThrow(new AuthenticationServiceException("Role with name auditor already exists"));
+
+        ListAppender<ILoggingEvent> logged = captureLogsOfSynchronizer();
+        synchronizer.register();
+
+        verify(roleManagementApiClient).savePermissions(eq(AUDITOR_ROLE_UUID), any());
+        assertThat(messagesLoggedAt(logged, Level.ERROR)).isEmpty();
+    }
+
+    /** A creation that failed for a reason other than losing that race is a failure, and has to be reported as one. */
+    @Test
+    void completesStartupWhenTheRoleCannotBeCreated() {
+        noRoleNamedAuditorExists();
+        when(roleManagementApiClient.createRole(any()))
+                .thenThrow(new AuthenticationServiceException("Unknown resource 'certificates'"));
+
+        ListAppender<ILoggingEvent> logged = captureLogsOfSynchronizer();
+        assertThatCode(() -> synchronizer.register()).doesNotThrowAnyException();
+
+        verify(roleManagementApiClient, never()).savePermissions(any(), any());
+        assertThat(messagesLoggedAt(logged, Level.ERROR))
+                .anySatisfy(message -> assertThat(message)
+                        .contains(AuthHelper.AUDITOR_ROLE_NAME)
+                        .contains("Unable to reconcile"));
     }
 
     @Test
@@ -113,9 +203,14 @@ class AuthResourceSynchronizerTest {
         when(roleManagementApiClient.getPermissions(AUDITOR_ROLE_UUID)).thenReturn(storedPermissions(
                 storedResource(Resource.CERTIFICATE, ResourceAction.LIST.getCode(), ResourceAction.DETAIL.getCode())));
 
+        ListAppender<ILoggingEvent> logged = captureLogsOfSynchronizer();
         synchronizer.register();
 
         verify(roleManagementApiClient, never()).savePermissions(any(), any());
+        assertThat(messagesLoggedAt(logged, Level.DEBUG))
+                .anySatisfy(message -> assertThat(message)
+                        .contains(AuthHelper.AUDITOR_ROLE_NAME)
+                        .contains("already holds"));
     }
 
     /**
@@ -189,14 +284,36 @@ class AuthResourceSynchronizerTest {
     private ListAppender<ILoggingEvent> captureLogsOfSynchronizer() {
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
-        ((Logger) LoggerFactory.getLogger(AuthResourceSynchronizer.class)).addAppender(appender);
+        Logger logger = (Logger) LoggerFactory.getLogger(AuthResourceSynchronizer.class);
+        // The "nothing to do" verdict is a debug line, and the surrounding configuration need not be emitting those.
+        logger.setLevel(Level.DEBUG);
+        logger.addAppender(appender);
         return appender;
+    }
+
+    private static List<String> messagesLoggedAt(ListAppender<ILoggingEvent> logged, Level level) {
+        return logged.list.stream()
+                .filter(event -> event.getLevel() == level)
+                .map(ILoggingEvent::getFormattedMessage)
+                .toList();
     }
 
     private void auditorRoleExists(boolean systemRole) {
         RoleDto auditor = role(AuthHelper.AUDITOR_ROLE_NAME, systemRole);
         auditor.setUuid(AUDITOR_ROLE_UUID);
         when(roleManagementApiClient.getRoles()).thenReturn(roles(role("superadmin", true), auditor));
+    }
+
+    private void noRoleNamedAuditorExists() {
+        when(roleManagementApiClient.getRoles()).thenReturn(roles(role("superadmin", true)));
+    }
+
+    private static RoleDetailDto createdRole() {
+        RoleDetailDto dto = new RoleDetailDto();
+        dto.setUuid(AUDITOR_ROLE_UUID);
+        dto.setName(AuthHelper.AUDITOR_ROLE_NAME);
+        dto.setSystemRole(true);
+        return dto;
     }
 
     private static WebClientRequestException unreachableAuthService() {

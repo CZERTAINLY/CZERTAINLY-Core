@@ -1,7 +1,5 @@
 package com.otilm.core.auth;
 
-import com.otilm.api.model.core.auth.AuthActionDto;
-import com.otilm.api.model.core.auth.AuthResourceDto;
 import com.otilm.api.model.core.auth.ObjectPermissionsDto;
 import com.otilm.api.model.core.auth.ResourcePermissionsDto;
 import com.otilm.api.model.core.auth.RolePermissionsRequestDto;
@@ -130,58 +128,13 @@ class ReadOnlyRolePermissionsTest {
                 ResourceAction.DETAIL.getCode(), ResourceAction.EXPORT.getCode(), ResourceAction.LIST.getCode());
     }
 
-    // The migration that seeds the role derives it from the catalogue the auth service already holds, rather than
-    // from a hand-written list that would start rotting the moment a resource is added.
-
-    @Test
-    void derivesTheSameGrantsFromTheCatalogueTheAuthServiceHolds() {
-        List<AuthResourceDto> catalogue = List.of(
-                authResource(Resource.CERTIFICATE, ResourceAction.LIST.getCode(), ResourceAction.REVOKE.getCode()),
-                authResource(Resource.SECRET, ResourceAction.GET_SECRET_CONTENT.getCode()));
-
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFromAuthResources(catalogue);
-
-        assertThat(derived.getAllowAllResources()).isFalse();
-        assertThat(derived.getResources()).singleElement().satisfies(certificates -> {
-            assertThat(certificates.getName()).isEqualTo(Resource.CERTIFICATE.getCode());
-            assertThat(certificates.getActions()).containsExactly(ResourceAction.LIST.getCode());
-        });
-    }
-
-    /**
-     * The auth service keeps whatever the previous platform version synced, so its catalogue can name an action this
-     * version has dropped. Unknown means unclassified, and unclassified is never a read.
-     */
-    @Test
-    void doesNotGrantAnActionCodeThisVersionNoLongerKnows() {
-        List<AuthResourceDto> catalogue = List.of(
-                authResource(Resource.CERTIFICATE, "actionRetiredInAnEarlierRelease", ResourceAction.LIST.getCode()));
-
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFromAuthResources(catalogue);
-
-        assertThat(actionsOf(derived, Resource.CERTIFICATE)).containsExactly(ResourceAction.LIST.getCode());
-    }
-
-    /**
-     * On a fresh install the auth service holds barely any catalogue when the role is seeded. The seed must then be
-     * a role that grants nothing until the first startup reconciliation fills it in - the surrounding convention of
-     * reading an empty set as "allow everything" would instead seed a second superadmin.
-     */
-    @Test
-    void anEmptyAuthCatalogueSeedsARoleThatGrantsNothing() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFromAuthResources(List.of());
-
-        assertThat(derived.getAllowAllResources()).isFalse();
-        assertThat(derived.getResources()).isNotNull().isEmpty();
-    }
-
     /** A duplicated grant is a duplicated permission row in the auth service, and a spurious "changed" verdict. */
     @Test
     void doesNotRepeatAnActionTheCatalogueListsTwice() {
-        List<AuthResourceDto> catalogue = List.of(authResource(Resource.CERTIFICATE,
-                ResourceAction.LIST.getCode(), ResourceAction.LIST.getCode()));
+        List<ResourceSyncRequestDto> catalogue = List.of(
+                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.LIST));
 
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFromAuthResources(catalogue);
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
         assertThat(actionsOf(derived, Resource.CERTIFICATE)).containsExactly(ResourceAction.LIST.getCode());
     }
@@ -327,17 +280,6 @@ class ReadOnlyRolePermissionsTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(resource.getCode() + " missing from derived payload"))
                 .getActions();
-    }
-
-    private static AuthResourceDto authResource(Resource resource, String... actionCodes) {
-        AuthResourceDto dto = new AuthResourceDto();
-        dto.setName(resource.getCode());
-        dto.setActions(Arrays.stream(actionCodes).map(code -> {
-            AuthActionDto action = new AuthActionDto();
-            action.setName(code);
-            return action;
-        }).toList());
-        return dto;
     }
 
     private static ResourceSyncRequestDto resource(Resource resource, ResourceAction... actions) {

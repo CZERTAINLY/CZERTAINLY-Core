@@ -1,7 +1,5 @@
 package com.otilm.core.auth;
 
-import com.otilm.api.model.core.auth.AuthActionDto;
-import com.otilm.api.model.core.auth.AuthResourceDto;
 import com.otilm.api.model.core.auth.ResourcePermissionsDto;
 import com.otilm.api.model.core.auth.ResourcePermissionsRequestDto;
 import com.otilm.api.model.core.auth.RolePermissionsRequestDto;
@@ -44,16 +42,6 @@ public final class ReadOnlyRolePermissions {
         for (ResourceSyncRequestDto scanned : catalogue) {
             actionCodesByResource.put(scanned.getName().getCode(),
                     scanned.getActions() == null ? List.of() : scanned.getActions());
-        }
-        return derive(actionCodesByResource);
-    }
-
-    /** Derives from the catalogue the auth service already holds, so the seed names only pairs it will accept. */
-    public static RolePermissionsRequestDto deriveFromAuthResources(List<AuthResourceDto> catalogue) {
-        Map<String, List<String>> actionCodesByResource = new LinkedHashMap<>();
-        for (AuthResourceDto resource : catalogue) {
-            actionCodesByResource.put(resource.getName(), resource.getActions() == null ? List.of()
-                    : resource.getActions().stream().map(AuthActionDto::getName).toList());
         }
         return derive(actionCodesByResource);
     }
