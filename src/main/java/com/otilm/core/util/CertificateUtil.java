@@ -652,15 +652,21 @@ public class CertificateUtil {
         return "%s=%s".formatted(oid, value);
     }
 
+    /**
+     * Extracts the common name from the subject DN. With multiple CN RDNs the last one in
+     * {@link X500Name#getRDNs()} order wins — the non-normalized rendering reverses the RDN array,
+     * so this is the leading CN of the {@code subjectDn} string persisted alongside it.
+     */
     private static String getCommonNameFromSubjectDn(X500Name subjectDn) {
+        String commonName = null;
         for (RDN i : subjectDn.getRDNs()) {
             if (i.getFirst() == null) continue;
 
             if (SystemOid.COMMON_NAME.getOid().equals(i.getFirst().getType().getId())) {
-                return i.getFirst().getValue().toString();
+                commonName = i.getFirst().getValue().toString();
             }
         }
-        return null;
+        return commonName;
     }
 
     private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {

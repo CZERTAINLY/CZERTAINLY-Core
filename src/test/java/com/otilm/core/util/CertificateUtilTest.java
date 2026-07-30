@@ -299,6 +299,18 @@ class CertificateUtilTest {
     }
 
     @Test
+    void prepareCertificateRequestEntityFromCsr_multiCnSubject_keepsLeadingCnOfRenderedSubjectDn() throws Exception {
+        CertificateRequestEntity entity = new CertificateRequestEntity();
+
+        CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, generatePkcs10("CN=first,CN=last", null));
+
+        // The rendered subjectDn reverses RDN order, so last-wins CN extraction keeps commonName
+        // aligned with the leading CN of the persisted subjectDn.
+        assertEquals("CN=last, CN=first", entity.getSubjectDn());
+        assertEquals("last", entity.getCommonName());
+    }
+
+    @Test
     void prepareCertificateRequestEntityFromCsr_leavesCommonNameNullWhenSubjectHasNone() throws Exception {
         CertificateRequestEntity entity = new CertificateRequestEntity();
 
