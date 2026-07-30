@@ -150,7 +150,7 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testObjectRecipient_certificateWithoutCustomAttribute_connectorCalledWithoutMappedAttribute() {
+    void testObjectRecipient_certificateWithoutCustomAttribute_connectorNotCalled() {
         // No updateObjectCustomAttributeContent call — this certificate has no attribute value set
         UUID certificateWithoutAttribute = UUID.randomUUID();
 
@@ -163,13 +163,14 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         // Processing must not throw — missing attribute is handled gracefully
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        // Connector is still called — the notification is not dropped, but the recipient carries no mapped attributes (required: false means the missing value is silently skipped)
-        mockServer.verify(1, WireMock.postRequestedFor(
+        // The OBJECT recipient carries no contact details, so there is nobody to deliver to. Calling the
+        // connector with an empty recipient list only earns a rejection from a provider that needs addresses.
+        mockServer.verify(0, WireMock.postRequestedFor(
                 WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
     }
 
     @Test
-    void testObjectRecipient_requiredMappingAttributeMissingOnCertificate_connectorCalledWithEmptyRecipients() {
+    void testObjectRecipient_requiredMappingAttributeMissingOnCertificate_connectorNotCalled() {
         // Override the @BeforeEach stub: the connector now declares the attribute as required.
         // WireMock matches stubs in reverse registration order, so this takes precedence.
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping"))
@@ -191,10 +192,42 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         // attributes is caught by the per-recipient exception handler, so the recipient is skipped
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        // Connector is still called with an empty recipients list — same observable result as
-        // required: false, but reached via the exception path rather than the isEmpty() guard
-        mockServer.verify(1, WireMock.postRequestedFor(
+        // Same outcome as the required: false case, reached via the exception path rather than the isEmpty() guard
+        mockServer.verify(0, WireMock.postRequestedFor(
                 WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+    }
+
+    /**
+     * A NONE profile is recipient-less by design: a webhook instance posts to the URL configured on the instance,
+     * so there is nothing to resolve and an empty recipient list is the contract, not a failure to deliver.
+     */
+    @Test
+    void testNoneRecipient_connectorCalledWithoutRecipients() throws AlreadyExistException, NotFoundException {
+        NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
+        webhookInstance.setName("testWebhookInstance");
+        webhookInstance.setKind("WEBHOOK");
+        webhookInstance.setConnectorUuid(notificationInstanceReferenceRepository.findAll().getFirst().getConnectorUuid());
+        webhookInstance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(webhookInstance);
+
+        NotificationProfileRequestDto noneProfileRequest = new NotificationProfileRequestDto();
+        noneProfileRequest.setName("noneRecipientProfile");
+        noneProfileRequest.setRecipientType(RecipientType.NONE);
+        noneProfileRequest.setInternalNotification(false);
+        noneProfileRequest.setNotificationInstanceUuid(webhookInstance.getUuid());
+        NotificationProfileDetailDto noneProfile = notificationProfileService.createNotificationProfile(noneProfileRequest);
+
+        NotificationMessage message = new NotificationMessage(
+                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
+                UUID.randomUUID(),
+                List.of(UUID.fromString(noneProfile.getUuid())),
+                List.of(), null);
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
+
+        mockServer.verify(1, WireMock.postRequestedFor(
+                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
+                .withRequestBody(WireMock.matchingJsonPath("$.recipients", WireMock.equalToJson("[]"))));
     }
 
     @Test

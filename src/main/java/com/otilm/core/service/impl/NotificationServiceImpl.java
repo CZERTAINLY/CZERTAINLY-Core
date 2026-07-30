@@ -68,6 +68,11 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
 
     @Override
     public NotificationDto createNotificationForUsers(String message, String detail, List<String> userUuids, Resource target, String targetUuids) throws ValidationException {
+        if (userUuids == null || userUuids.isEmpty()) {
+            logger.debug("Internal notification for {} {} resolved no users; nothing to create.", target, targetUuids);
+            return null;
+        }
+
         Notification notification = new Notification();
         notification.setUuid(UUID.randomUUID());
         notification.setMessage(message);
@@ -83,10 +88,6 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
             notificationRecipients.add(notificationRecipient);
         }
         notification.setNotificationRecipients(notificationRecipients);
-
-        if (notificationRecipients.isEmpty()) {
-            throw new ValidationException("Unable to create notification for no recipients.");
-        }
 
         notificationRepository.save(notification);
         return notification.mapToDto();

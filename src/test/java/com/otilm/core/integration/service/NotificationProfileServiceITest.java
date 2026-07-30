@@ -3,6 +3,7 @@ package com.otilm.core.integration.service;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
@@ -313,6 +314,70 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
                 () -> notificationProfileService.createNotificationProfile(requestDto));
         Assertions.assertTrue(notificationProfileRepository.findByName(requestDto.getName()).isEmpty(),
                 "Failed create should not leave a partially created profile behind");
+    }
+
+    @Test
+    void testCreateWithRecipientTypeNamingObjectsButNoRecipientsIsRejected() {
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("ProfileWithoutRecipients");
+        requestDto.setRecipientType(RecipientType.GROUP);
+        requestDto.setInternalNotification(true);
+
+        // Rejected at save time rather than resolving to nobody on a background thread when the event fires
+        Assertions.assertThrows(ValidationException.class,
+                () -> notificationProfileService.createNotificationProfile(requestDto));
+        Assertions.assertTrue(notificationProfileRepository.findByName(requestDto.getName()).isEmpty(),
+                "Rejected create should not leave a profile behind");
+    }
+
+    @Test
+    void testCreateWithRecipientTypeNoneCarryingRecipientsIsRejected() {
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("NoneProfileWithRecipients");
+        requestDto.setRecipientType(RecipientType.NONE);
+        requestDto.setRecipientUuids(List.of(UUID.randomUUID()));
+        requestDto.setInternalNotification(true);
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> notificationProfileService.createNotificationProfile(requestDto));
+    }
+
+    @Test
+    void testCreateWithRecipientTypeNoneOnEmailInstanceIsRejected() {
+        Connector connector = new Connector();
+        connector.setName("emailKindConnector");
+        connector.setUrl("http://localhost:1");
+        connector.setVersion(ConnectorVersion.V1);
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connector = connectorRepository.save(connector);
+
+        NotificationInstanceReference emailInstance = new NotificationInstanceReference();
+        emailInstance.setName("emailKindInstance");
+        emailInstance.setKind("EMAIL");
+        emailInstance.setConnectorUuid(connector.getUuid());
+        emailInstance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(emailInstance);
+
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("NoneProfileOnEmailInstance");
+        requestDto.setRecipientType(RecipientType.NONE);
+        requestDto.setInternalNotification(false);
+        requestDto.setNotificationInstanceUuid(emailInstance.getUuid());
+
+        // An e-mail provider has no address to deliver to without recipients; a webhook would be fine
+        Assertions.assertThrows(ValidationException.class,
+                () -> notificationProfileService.createNotificationProfile(requestDto));
+    }
+
+    @Test
+    void testEditWithRecipientTypeNamingObjectsButNoRecipientsIsRejected() {
+        NotificationProfileUpdateRequestDto requestDto = new NotificationProfileUpdateRequestDto();
+        requestDto.setRecipientType(RecipientType.USER);
+        requestDto.setInternalNotification(true);
+        SecuredUUID profileUuid = SecuredUUID.fromString(originalNotificationProfile.getUuid());
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> notificationProfileService.editNotificationProfile(profileUuid, requestDto));
     }
 
     @Test

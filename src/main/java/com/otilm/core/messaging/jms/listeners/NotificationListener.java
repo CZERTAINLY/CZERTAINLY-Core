@@ -23,6 +23,7 @@ import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRepository;
 import com.otilm.core.dao.repository.notifications.PendingNotificationRepository;
+import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
@@ -65,6 +66,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     private UserManagementApiClient userManagementApiClient;
     private RoleManagementApiClient roleManagementApiClient;
     private ResourceObjectAssociationService resourceObjectAssociationService;
+    private TransactionHandler transactionHandler;
 
     private static final Map<ResourceEvent, String> eventToLegacyNotificationTypeMapping = new EnumMap<>(ResourceEvent.class);
 
@@ -154,14 +156,18 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     private boolean sendExternalNotificationsForProfile(NotificationMessage message, NotificationProfileVersion notificationProfileVersion, List<NotificationRecipient> recipients) {
         boolean notificationSent = false;
         if (notificationProfileVersion.getNotificationInstanceRefUuid() != null) {
-            if (recipients.isEmpty()) {
+            RecipientType recipientType = notificationProfileVersion.getRecipientType();
+            if (recipients.isEmpty() && requiresResolvedRecipients(recipientType)) {
                 handleNotificationErrorWithWarnLog("Notification profile %s in event %s resolved no recipients; skipping external notification.".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
                 return false;
             }
             UUID notificationInstanceUUID = notificationProfileVersion.getNotificationInstanceRefUuid();
             logger.debug("Sending notification message externally. Notification instance UUID: {}", notificationInstanceUUID);
             try {
-                sendExternalNotifications(notificationInstanceUUID, recipients, message.getData(), message.getEvent(), message.getResource());
+                if (!sendExternalNotifications(notificationInstanceUUID, recipientType, recipients, message.getData(), message.getEvent(), message.getResource())) {
+                    handleNotificationErrorWithWarnLog("Notification profile %s in event %s resolved recipients but none of them could be prepared for delivery; skipping external notification.".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
+                    return false;
+                }
                 logger.debug("Sending notification message externally successful.");
                 notificationSent = true;
             } catch (ConnectorEntityNotFoundException e) {
@@ -175,19 +181,44 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         return notificationSent;
     }
 
+    /**
+     * NONE declares that delivery does not depend on resolving recipients -- a webhook instance posts to the URL
+     * configured on the instance itself. Every other type names recipients to resolve, so resolving none of them
+     * leaves nothing to deliver and the connector must not be called with an empty recipient list.
+     */
+    private static boolean requiresResolvedRecipients(RecipientType recipientType) {
+        return recipientType != RecipientType.NONE;
+    }
+
     private void handleNotificationErrorWithErrorLog(String errorMessage, NotificationMessage message) {
         logger.error(errorMessage);
-        if (message.getTriggerHistoryUuid() != null) {
-            triggerService.createTriggerHistoryRecord(message.getTriggerHistoryUuid(), null, message.getExecutionUuid(), errorMessage);
-            triggerService.setTriggerHistoryActionsPerformedFalse(message.getTriggerHistoryUuid());
-        }
+        recordNotificationFailureOnTriggerHistory(errorMessage, message);
     }
 
     private void handleNotificationErrorWithWarnLog(String errorMessage, NotificationMessage message) {
         logger.warn(errorMessage);
-        if (message.getTriggerHistoryUuid() != null) {
-            triggerService.createTriggerHistoryRecord(message.getTriggerHistoryUuid(), null, message.getExecutionUuid(), errorMessage);
-            triggerService.setTriggerHistoryActionsPerformedFalse(message.getTriggerHistoryUuid());
+        recordNotificationFailureOnTriggerHistory(errorMessage, message);
+    }
+
+    /**
+     * Written in its own transaction: the caller's transaction may already be rollback-only from the failure being
+     * reported here, and this record is the only durable trace of why the trigger's notification did not go out.
+     * The trigger history row it references is committed well before this runs -- the notification message is
+     * dispatched from an {@code AFTER_COMMIT} listener on the transaction that created it.
+     */
+    private void recordNotificationFailureOnTriggerHistory(String errorMessage, NotificationMessage message) {
+        if (message.getTriggerHistoryUuid() == null) {
+            return;
+        }
+
+        try {
+            transactionHandler.runInNewTransaction(() -> {
+                triggerService.createTriggerHistoryRecord(message.getTriggerHistoryUuid(), null, message.getExecutionUuid(), errorMessage);
+                triggerService.setTriggerHistoryActionsPerformedFalse(message.getTriggerHistoryUuid());
+            });
+        } catch (Exception e) {
+            // The last place the failure could have been recorded, so the log is all that is left.
+            logger.error("Could not record the notification failure on trigger history {}: {}", message.getTriggerHistoryUuid(), e.getMessage(), e);
         }
     }
 
@@ -295,7 +326,11 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         return recipients;
     }
 
-    private void sendExternalNotifications(UUID notificationInstanceUUID, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent
+    /**
+     * @return whether the connector was called. False when every named recipient was skipped -- there is nothing
+     * left to deliver, and the connector would reject the empty recipient list anyway.
+     */
+    private boolean sendExternalNotifications(UUID notificationInstanceUUID, RecipientType recipientType, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent
             event, Resource resource) throws ConnectorException, ValidationException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
         if (notificationInstanceReference.getConnectorUuid() == null) {
@@ -340,6 +375,10 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             }
         }
 
+        if (recipientsDto.isEmpty() && requiresResolvedRecipients(recipientType)) {
+            return false;
+        }
+
         NotificationProviderNotifyRequestDto notificationProviderNotifyRequestDto = new NotificationProviderNotifyRequestDto();
         notificationProviderNotifyRequestDto.setNotificationData(notificationData);
         notificationProviderNotifyRequestDto.setResource(resource);
@@ -353,6 +392,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             logger.error("Cannot send notification to connector: {}", e.getMessage());
             throw e;
         }
+        return true;
     }
 
     private NotificationRecipientDto constructNotificationRecipientDto(NotificationRecipient recipient, String
@@ -443,22 +483,21 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             notificationData, Resource resource, UUID objectUuid) {
         logger.debug("Sending internal notification. Message: {}. Detail: {}", notificationData.getText(), notificationData.getDetail());
         for (NotificationRecipient recipient : recipients) {
-            switch (recipient.getRecipientType()) {
-                case USER ->
-                        notificationService.createNotificationForUser(notificationData.getText(), notificationData.getDetail(),
-                                recipient.getRecipientUuid().toString(),
-                                resource, objectUuid != null ? objectUuid.toString() : null);
-                case ROLE ->
-                        notificationService.createNotificationForRole(notificationData.getText(), notificationData.getDetail(),
-                                recipient.getRecipientUuid().toString(),
-                                resource, objectUuid != null ? objectUuid.toString() : null);
-                case GROUP ->
-                        notificationService.createNotificationForGroup(notificationData.getText(), notificationData.getDetail(),
-                                recipient.getRecipientUuid().toString(),
-                                resource, objectUuid != null ? objectUuid.toString() : null);
-                default ->
-                        throw new ValidationException("Unhandled recipient type for internal notification: " + recipient.getRecipientType());
-            }
+            // Each recipient commits on its own. Anything unchecked raised while creating one would otherwise mark
+            // the shared transaction rollback-only past the caller's catch, discarding the notifications already
+            // created for the recipients before it.
+            transactionHandler.runInNewTransaction(() -> createInternalNotification(recipient, notificationData, resource, objectUuid));
+        }
+    }
+
+    private void createInternalNotification(NotificationRecipient recipient, InternalNotificationEventData notificationData, Resource resource, UUID objectUuid) {
+        String targetUuid = objectUuid != null ? objectUuid.toString() : null;
+        String recipientUuid = recipient.getRecipientUuid().toString();
+        switch (recipient.getRecipientType()) {
+            case USER -> notificationService.createNotificationForUser(notificationData.getText(), notificationData.getDetail(), recipientUuid, resource, targetUuid);
+            case ROLE -> notificationService.createNotificationForRole(notificationData.getText(), notificationData.getDetail(), recipientUuid, resource, targetUuid);
+            case GROUP -> notificationService.createNotificationForGroup(notificationData.getText(), notificationData.getDetail(), recipientUuid, resource, targetUuid);
+            default -> throw new ValidationException("Unhandled recipient type for internal notification: " + recipient.getRecipientType());
         }
     }
 
