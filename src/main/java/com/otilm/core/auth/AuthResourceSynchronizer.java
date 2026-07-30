@@ -143,6 +143,10 @@ public class AuthResourceSynchronizer {
     /**
      * Matched by name across every role rather than among the system ones, so a name already taken by a role the
      * platform did not create is told apart from the role being absent - which would create a duplicate of it.
+     * <p>
+     * Assumes the auth service returns every role in one response. It does today: the endpoint ignores paging
+     * parameters and asks for a page of 1000. Beyond that the role would look absent on every boot and each one
+     * would attempt a creation the auth service refuses.
      */
     private RoleDto findRoleNamedAuditor() {
         RoleWithPaginationDto roles = roleManagementApiClient.getRoles();

@@ -88,7 +88,8 @@ public final class ReadOnlyRolePermissions {
                     grantSignature(resource.getAllowAllActions(), resource.getActions(), resource.getObjects()));
         }
         Map<String, String> storedGrants = new TreeMap<>();
-        for (ResourcePermissionsDto resource : stored.getResources()) {
+        // A remote DTO can arrive with the list absent rather than empty, which is the same thing: no grants.
+        for (ResourcePermissionsDto resource : stored.getResources() == null ? List.<ResourcePermissionsDto>of() : stored.getResources()) {
             storedGrants.put(resource.getName(),
                     grantSignature(resource.getAllowAllActions(), resource.getActions(), resource.getObjects()));
         }

@@ -200,6 +200,18 @@ class ReadOnlyRolePermissionsTest {
         assertThat(ReadOnlyRolePermissions.matches(derived, stored)).isFalse();
     }
 
+    /** The auth service can report a role with no grants as an absent list rather than an empty one. */
+    @Test
+    void differsWhenStoredHasNoResourceListAtAll() {
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
+                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+
+        SubjectPermissionsDto stored = new SubjectPermissionsDto();
+        stored.setAllowAllResources(false);
+
+        assertThat(ReadOnlyRolePermissions.matches(derived, stored)).isFalse();
+    }
+
     @Test
     void differsWhenStoredAllowsAllActionsOnAResource() {
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(

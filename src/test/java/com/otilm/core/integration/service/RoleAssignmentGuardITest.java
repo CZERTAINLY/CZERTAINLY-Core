@@ -165,6 +165,46 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(roleManagementApiClient).updateUsers(roleUuid, List.of(acme.getUuid()));
     }
 
+    // The all-resources rule is about granting. A role the user already holds, or a member already in the role, is
+    // not being granted anything, and updateRoles replaces the whole list so a role-picker always resends them.
+
+    @Test
+    void updateRoles_allowsAddingARoleWhileRetainingAnAllResourcesRoleTheUserAlreadyHolds() {
+        String superadminUuid = UUID.randomUUID().toString();
+        String operatorsUuid = UUID.randomUUID().toString();
+        String targetUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(superadminUuid))
+                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of()));
+        when(roleManagementApiClient.getPermissions(superadminUuid)).thenReturn(permissions(true));
+        when(roleManagementApiClient.getRoleDetail(operatorsUuid))
+                .thenReturn(role(operatorsUuid, "operators", false, List.of()));
+        when(roleManagementApiClient.getPermissions(operatorsUuid)).thenReturn(permissions(false));
+        when(userManagementApiClient.getUserDetail(targetUuid))
+                .thenReturn(humanUserHolding(targetUuid, superadminUuid, AuthHelper.SUPERADMIN_USERNAME));
+        when(userManagementApiClient.updateRoles(eq(targetUuid), any())).thenReturn(humanUser(targetUuid));
+
+        userManagementService.updateRoles(targetUuid, List.of(superadminUuid, operatorsUuid));
+
+        verify(userManagementApiClient).updateRoles(targetUuid, List.of(superadminUuid, operatorsUuid));
+    }
+
+    @Test
+    void updateUsers_allowsRemovingAMemberFromAnAllResourcesRoleWithoutHoldingIt() {
+        String superadminUuid = UUID.randomUUID().toString();
+        UserDto keptMember = humanMember("kept");
+        UserDto removedMember = humanMember("removed");
+        when(roleManagementApiClient.getRoleDetail(superadminUuid))
+                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of(keptMember, removedMember)));
+        when(roleManagementApiClient.getPermissions(superadminUuid)).thenReturn(permissions(true));
+        when(userManagementApiClient.getUserDetail(keptMember.getUuid())).thenReturn(humanUser(keptMember.getUuid()));
+        when(roleManagementApiClient.updateUsers(eq(superadminUuid), any()))
+                .thenReturn(role(superadminUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of(keptMember)));
+
+        roleManagementService.updateUsers(superadminUuid, List.of(keptMember.getUuid()));
+
+        verify(roleManagementApiClient).updateUsers(superadminUuid, List.of(keptMember.getUuid()));
+    }
+
     // Rule 1c: a system user keeps the role it holds. updateRoles replaces the whole list and removeRole detaches
     // one, so both can strand the identity even though neither assigns anything.
 
@@ -376,6 +416,23 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         SubjectPermissionsDto dto = new SubjectPermissionsDto();
         dto.setAllowAllResources(allowAllResources);
         dto.setResources(List.of());
+        return dto;
+    }
+
+    private static UserDto humanMember(String username) {
+        UserDto dto = new UserDto();
+        dto.setUuid(UUID.randomUUID().toString());
+        dto.setUsername(username);
+        dto.setSystemUser(false);
+        return dto;
+    }
+
+    private static UserDetailDto humanUserHolding(String uuid, String roleUuid, String roleName) {
+        UserDetailDto dto = humanUser(uuid);
+        RoleDto role = new RoleDto();
+        role.setUuid(roleUuid);
+        role.setName(roleName);
+        dto.setRoles(List.of(role));
         return dto;
     }
 

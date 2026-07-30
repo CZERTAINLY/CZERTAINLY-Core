@@ -45,7 +45,10 @@ public class RoleAssignmentGuard {
     public void checkUsersAssignableToRole(String roleUuid, List<String> userUuids) {
         List<String> members = userUuids == null ? List.of() : userUuids;
         RoleDetailDto role = roleManagementApiClient.getRoleDetail(roleUuid);
-        checkAssignment(role, members);
+        checkMembers(role, members);
+        if (addsAMember(role, members) && grantsAllResources(roleUuid)) {
+            requireCallerHoldsRole(role);
+        }
         if (isPairedWithSystemUser(role)) {
             requireSystemMembersRetained(role, members);
         }
@@ -53,12 +56,40 @@ public class RoleAssignmentGuard {
 
     /** Guards the user -&gt; roles direction: the roles that would end up held by {@code userUuid}. */
     public void checkRolesAssignableToUser(String userUuid, List<String> roleUuids) {
-        if (roleUuids == null) {
+        if (roleUuids == null || roleUuids.isEmpty()) {
             return;
         }
+        Set<String> alreadyHeld = heldRoleUuids(userUuid);
+
         for (String roleUuid : roleUuids) {
-            checkAssignment(roleManagementApiClient.getRoleDetail(roleUuid), List.of(userUuid));
+            // A replacement resends every role the user keeps, and keeping one grants nothing.
+            if (alreadyHeld.contains(roleUuid)) {
+                continue;
+            }
+            RoleDetailDto role = roleManagementApiClient.getRoleDetail(roleUuid);
+            checkMembers(role, List.of(userUuid));
+            if (grantsAllResources(roleUuid)) {
+                requireCallerHoldsRole(role);
+            }
         }
+    }
+
+    /**
+     * Only an added member is being granted the role. Keeping the members a role already has, or dropping some of
+     * them, grants nobody anything — and refusing a removal would be stricter than the rule it enforces.
+     */
+    private static boolean addsAMember(RoleDetailDto role, List<String> members) {
+        Set<String> current = role.getUsers() == null ? Set.of()
+                : role.getUsers().stream().map(UserDto::getUuid).collect(Collectors.toSet());
+        return members.stream().anyMatch(member -> !current.contains(member));
+    }
+
+    private Set<String> heldRoleUuids(String userUuid) {
+        UserDetailDto user = userManagementApiClient.getUserDetail(userUuid);
+        if (user == null || user.getRoles() == null) {
+            return Set.of();
+        }
+        return user.getRoles().stream().map(RoleDto::getUuid).collect(Collectors.toSet());
     }
 
     /**
@@ -90,13 +121,6 @@ public class RoleAssignmentGuard {
                         "Role '%s' belongs to system user '%s' and cannot be removed from it."
                                 .formatted(held.getName(), user.getUsername()));
             }
-        }
-    }
-
-    private void checkAssignment(RoleDetailDto role, List<String> userUuids) {
-        checkMembers(role, userUuids);
-        if (grantsAllResources(role.getUuid())) {
-            requireCallerHoldsRole(role);
         }
     }
 
