@@ -35,6 +35,16 @@ class AuthorityProviderAdapterFactoryTest {
         assertTrue(ex.getMessage().contains("v1"));
     }
 
+    /**
+     * A precondition, so a plain NullPointerException with a message rather than a domain type. Any type a caller
+     * catches would route a missing authority into whatever that caller's handler means by it.
+     */
+    @Test
+    void rejectsNullAuthority() {
+        NullPointerException ex = assertThrows(NullPointerException.class, () -> factory.forAuthority(null));
+        assertTrue(ex.getMessage().contains("authority instance"));
+    }
+
     @Test
     void rejectsNullVersion() {
         // A non-null connector interface carrying a null version is malformed; the factory throws

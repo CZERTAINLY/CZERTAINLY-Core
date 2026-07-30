@@ -5,6 +5,7 @@ import com.otilm.api.model.common.AuthenticationServiceExceptionDto;
 import com.otilm.api.model.common.ErrorMessageDto;
 import com.otilm.api.model.core.acme.ProblemDocument;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.exception.AuthenticationServiceException;
 import com.otilm.core.util.AuthHelper;
@@ -422,6 +423,22 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleCertificateOperationException(CertificateOperationException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link UnsupportedAuthorityVersionException}.
+     *
+     * <p>400 rather than 500: an unrecognised connector interface version is caller-fixable configuration. The body
+     * is fixed rather than the exception's message, which names the authority and a version string the connector
+     * reported into an unvalidated column. Logged at warn -- a connector is registered that cannot be dispatched to.
+     *
+     * @return a fixed message that names neither the authority nor the version
+     */
+    @ExceptionHandler(UnsupportedAuthorityVersionException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleUnsupportedAuthorityVersionException(UnsupportedAuthorityVersionException ex) {
+        LOG.warn("HTTP 400: {}", ex.getMessage(), ex);
+        return ErrorMessageDto.getInstance("The authority's connector interface version is not supported.");
     }
 
     /**

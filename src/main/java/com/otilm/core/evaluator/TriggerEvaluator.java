@@ -453,6 +453,11 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
                 parseNameAndContentType(fieldIdentifier)[0], attributeContents);
     }
 
+    /**
+     * Published through the event bus, not to the producer: the listener is {@code AFTER_COMMIT}, so the message
+     * leaves only if this transaction commits, and the {@code TriggerHistory} it carries is visible by then. Where
+     * each trigger has its own transaction, each notification is released as that trigger commits.
+     */
     protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data, TriggerHistory triggerHistory) {
         List<UUID> notificationProfileUuids = new ArrayList<>();
         for (ExecutionItem executionItem : execution.getItems()) {
@@ -460,8 +465,6 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
 
         NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(), notificationProfileUuids, null, data, triggerHistory.getUuid(), execution.getUuid());
-        // Delay publication until after the current transaction commits, so TriggerHistory is
-        // visible to the NotificationListener when it creates TriggerHistoryRecords.
         applicationEventPublisher.publishEvent(message);
     }
 
