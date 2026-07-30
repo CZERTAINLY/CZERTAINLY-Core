@@ -198,6 +198,22 @@ public class AuthHelper {
         }
     }
 
+    /**
+     * The acting user's UUID, or {@code null} when the thread carries no identifiable user. Resolved on the producing
+     * thread so attribution can travel with an async message, whose consumer has no SecurityContext of its own.
+     * <p>
+     * Absence has two shapes, neither an error: no authentication makes {@link #getUserIdentification()} throw, while
+     * an anonymous caller's principal is a real {@link PlatformUserDetails} whose userUuid is null. Protocol and
+     * system users (acme, scep, cmp, localhost) are ordinary auth-service users and are carried like any other.
+     */
+    public static UUID getActingUserUuidOrNull() {
+        try {
+            return NullUtil.parseUuidOrNull(getUserIdentification().getUuid());
+        } catch (ValidationException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     public static UserProfileDto getUserProfile() {
         UserProfileDto userProfileDto;
         try {

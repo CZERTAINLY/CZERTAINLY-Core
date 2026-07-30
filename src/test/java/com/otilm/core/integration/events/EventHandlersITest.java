@@ -276,13 +276,17 @@ class EventHandlersITest extends BaseSpringBootTest {
         historyList = certificateEventHistoryService.getCertificateEventHistory(certificate.getUuid());
         Assertions.assertEquals(2, historyList.size());
         Assertions.assertEquals(CertificateEvent.APPROVAL_REQUEST, historyList.getFirst().getEvent());
+        Assertions.assertEquals("tst-user", historyList.getFirst().getCreatedBy(),
+                "the approval-request history row must name the acting user, not the system user");
 
         Assertions.assertDoesNotThrow(() -> certificateActionPerformedEventHandler.handleEvent(CertificateActionPerformedEventHandler.constructEventMessage(certificate.getUuid(), ResourceAction.REVOKE)));
 
-        approvalClosedEventHandler.handleEvent(ApprovalClosedEventHandler.constructEventMessage(approval.getUuid()));
+        approvalClosedEventHandler.handleEvent(ApprovalClosedEventHandler.constructEventMessage(approval.getUuid(), ApprovalStatusEnum.APPROVED));
         historyList = certificateEventHistoryService.getCertificateEventHistory(certificate.getUuid());
         Assertions.assertEquals(3, historyList.size());
         Assertions.assertEquals(CertificateEvent.APPROVAL_CLOSE, historyList.getFirst().getEvent());
+        Assertions.assertEquals("tst-user", historyList.getFirst().getCreatedBy(),
+                "the approval-close history row must name the approving user, not the system user");
     }
 
     private void createCertificateTriggerAssociation(ResourceEvent event, Resource eventResource, UUID eventObjectUuid, boolean ignoreTrigger) throws AttributeException, AlreadyExistException, NotFoundException {
