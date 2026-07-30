@@ -768,6 +768,9 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                         triggerAssociation.getTrigger().getUuid(), triggerAssociation, imported.certificateUuid(),
                         imported.referenceRowUuid(), eventHistoryFor(context, triggerAssociation),
                         Resource.CERTIFICATE);
+                // Both columns are non-nullable, so there is no "not determined". False would read as the trigger
+                // legitimately skipping this certificate and hide the failure; this pairing plus a record is how the
+                // evaluator itself reports actions that did not complete.
                 history.setConditionsMatched(true);
                 history.setActionsPerformed(false);
                 triggerService.createTriggerHistoryRecord(history.getUuid(), null, null,
