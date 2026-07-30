@@ -2085,8 +2085,6 @@ class CertificateServiceITest extends BaseSpringBootTest {
         @Test
         void attachesCsr_requestEntityIdentityComesFromCsrNotFromPlaceholder() throws Exception {
             // given — a REGISTERED placeholder whose pre-registration identity differs from the CSR
-            // subject; before the fix the request entity copied the placeholder's identity, so the
-            // Request tab kept showing the pre-registration snapshot after issuance
             Certificate registered = certificateRepository.save(
                     aCertificate().withRaProfile(raProfile).withState(CertificateState.REGISTERED)
                             .withCommonName("placeholder-cn").withSubjectDn("CN=placeholder-cn").build());
@@ -2097,13 +2095,14 @@ class CertificateServiceITest extends BaseSpringBootTest {
             // when
             certificateService.addCertificateRequestToExisting(registered.getUuid(), issueRequest);
 
-            // then — the stored request carries the CSR's subject (CN=new_cert), not the placeholder
-            // snapshot, and the format survives the CSR-derived construction
+            // then — identity and format come from the CSR, not the placeholder
             String expectedFingerprint = CertificateUtil.getThumbprint(Base64.getDecoder().decode(SAMPLE_PKCS10));
             CertificateRequestEntity stored = certificateRequestRepository.findByFingerprint(expectedFingerprint).orElseThrow();
             assertThat(stored.getCommonName()).isEqualTo("new_cert");
             assertThat(stored.getSubjectDn()).isEqualTo("CN=new_cert");
             assertThat(stored.getCertificateRequestFormat()).isEqualTo(CertificateRequestFormat.PKCS10);
+            registered = certificateRepository.findByUuid(registered.getUuid()).orElseThrow();
+            assertThat(registered.getCommonName()).isEqualTo("placeholder-cn");
         }
     }
 
