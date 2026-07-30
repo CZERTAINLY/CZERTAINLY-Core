@@ -86,7 +86,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             return clientOperationService.issueCertificate(
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
                     raProfile.getSecuredUuid(),
-                    dto, CertificateProtocolInfo.Cmp(raProfile.getUuid()));
+                    dto, CertificateProtocolInfo.Cmp(configuration.getCmpProfile().getUuid()));
         } catch (RequestAttributePolicyViolationException e) {
             throw new CmpCrmfValidationException(tid, request.getBody().getType(), PKIFailureInfo.badCertTemplate, e.getMessage());
         } catch (CertificateRequestException | NotFoundException | CertificateException | IOException |
