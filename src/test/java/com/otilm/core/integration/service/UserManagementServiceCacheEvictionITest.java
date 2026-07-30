@@ -131,6 +131,7 @@ class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
         UUID userUuid = UUID.randomUUID();
         UUID roleUuid = UUID.randomUUID();
         when(roleManagementApiClient.getRoleDetail(roleUuid.toString())).thenReturn(roleDetailDto(roleUuid.toString()));
+        when(userManagementApiClient.getUserDetail(userUuid.toString())).thenReturn(userDetailDto(userUuid.toString()));
         when(userManagementApiClient.updateRole(userUuid.toString(), roleUuid.toString())).thenReturn(userDetailDto(userUuid.toString()));
 
         // when

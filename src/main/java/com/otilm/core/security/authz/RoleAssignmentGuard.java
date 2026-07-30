@@ -66,12 +66,46 @@ public class RoleAssignmentGuard {
     }
 
     private void checkAssignment(RoleDetailDto role, List<String> userUuids) {
-        if (isPairedWithSystemUser(role)) {
-            rejectHumanMembers(role, userUuids);
-        }
+        checkMembers(role, userUuids);
         if (grantsAllResources(role.getUuid())) {
             requireCallerHoldsRole(role);
         }
+    }
+
+    /**
+     * A system user holds the role seeded with it and no other, and that role takes no other members. The pairing
+     * is the whole permission boundary of the identity, so either half of it being editable either widens the
+     * identity or hands its permissions to an operator.
+     */
+    private void checkMembers(RoleDetailDto role, List<String> userUuids) {
+        Set<String> systemMembers = systemMemberUuids(role);
+
+        for (String userUuid : userUuids) {
+            if (systemMembers.contains(userUuid)) {
+                continue;
+            }
+            UserDetailDto user = userManagementApiClient.getUserDetail(userUuid);
+            if (isSystemUser(user)) {
+                throw new ValidationException(
+                        "System user '%s' holds only its own role and cannot be added to role '%s'."
+                                .formatted(user.getUsername(), role.getName()));
+            }
+            if (!systemMembers.isEmpty()) {
+                throw new ValidationException(
+                        "Role '%s' belongs to a system user and cannot be assigned to user '%s'."
+                                .formatted(role.getName(), user.getUsername()));
+            }
+        }
+    }
+
+    private static Set<String> systemMemberUuids(RoleDetailDto role) {
+        if (role.getUsers() == null) {
+            return Set.of();
+        }
+        return role.getUsers().stream()
+                .filter(RoleAssignmentGuard::isSystemUser)
+                .map(UserDto::getUuid)
+                .collect(Collectors.toSet());
     }
 
     /**
@@ -96,25 +130,6 @@ public class RoleAssignmentGuard {
      */
     private static boolean isPairedWithSystemUser(RoleDetailDto role) {
         return role.getUsers() != null && role.getUsers().stream().anyMatch(RoleAssignmentGuard::isSystemUser);
-    }
-
-    private void rejectHumanMembers(RoleDetailDto role, List<String> userUuids) {
-        Set<String> systemMembers = role.getUsers().stream()
-                .filter(RoleAssignmentGuard::isSystemUser)
-                .map(UserDto::getUuid)
-                .collect(Collectors.toSet());
-
-        for (String userUuid : userUuids) {
-            if (systemMembers.contains(userUuid)) {
-                continue;
-            }
-            UserDetailDto user = userManagementApiClient.getUserDetail(userUuid);
-            if (!isSystemUser(user)) {
-                throw new ValidationException(
-                        "Role '%s' belongs to a system user and cannot be assigned to user '%s'."
-                                .formatted(role.getName(), user.getUsername()));
-            }
-        }
     }
 
     private boolean grantsAllResources(String roleUuid) {
@@ -142,6 +157,6 @@ public class RoleAssignmentGuard {
     }
 
     private static boolean isSystemUser(UserDto user) {
-        return Boolean.TRUE.equals(user.getSystemUser());
+        return user != null && Boolean.TRUE.equals(user.getSystemUser());
     }
 }

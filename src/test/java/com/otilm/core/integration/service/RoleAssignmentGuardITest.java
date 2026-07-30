@@ -109,6 +109,57 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         verify(userManagementApiClient, never()).updateRole(any(), any());
     }
 
+    // Rule 1b: a system user holds its own role and nothing else — otherwise a ROLE:UPDATE holder could widen a
+    // protocol identity by adding it to a role that grants more than the protocol needs.
+
+    @Test
+    void updateUsers_rejectsAttachingASystemUserToAnotherRole() {
+        String roleUuid = UUID.randomUUID().toString();
+        String acmeUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(roleUuid))
+                .thenReturn(role(roleUuid, "operators", false, List.of()));
+        when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(false));
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserDetail(acmeUuid, AuthHelper.ACME_USERNAME));
+
+        ValidationException exception = Assertions.assertThrows(ValidationException.class,
+                () -> roleManagementService.updateUsers(roleUuid, List.of(acmeUuid)));
+
+        Assertions.assertTrue(exception.getMessage().contains(AuthHelper.ACME_USERNAME), exception.getMessage());
+        verify(roleManagementApiClient, never()).updateUsers(any(), any());
+    }
+
+    @Test
+    void updateRole_rejectsGivingAnotherRoleToASystemUser() {
+        String roleUuid = UUID.randomUUID().toString();
+        String acmeUuid = UUID.randomUUID().toString();
+        when(roleManagementApiClient.getRoleDetail(roleUuid))
+                .thenReturn(role(roleUuid, "operators", false, List.of()));
+        when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(false));
+        when(userManagementApiClient.getUserDetail(acmeUuid))
+                .thenReturn(systemUserDetail(acmeUuid, AuthHelper.ACME_USERNAME));
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> userManagementService.updateRole(acmeUuid, roleUuid));
+
+        verify(userManagementApiClient, never()).updateRole(any(), any());
+    }
+
+    @Test
+    void updateUsers_allowsTheSystemUserToStayOnItsOwnRole() {
+        String roleUuid = UUID.randomUUID().toString();
+        UserDto acme = systemUser(AuthHelper.ACME_USERNAME);
+        when(roleManagementApiClient.getRoleDetail(roleUuid))
+                .thenReturn(role(roleUuid, AuthHelper.ACME_USERNAME, true, List.of(acme)));
+        when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(false));
+        when(roleManagementApiClient.updateUsers(eq(roleUuid), any()))
+                .thenReturn(role(roleUuid, AuthHelper.ACME_USERNAME, true, List.of(acme)));
+
+        roleManagementService.updateUsers(roleUuid, List.of(acme.getUuid()));
+
+        verify(roleManagementApiClient).updateUsers(roleUuid, List.of(acme.getUuid()));
+    }
+
     // Rule 2: a role that allows all resources may only be assigned by someone who already holds it.
 
     @Test
@@ -133,6 +184,7 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         when(roleManagementApiClient.getRoleDetail(roleUuid))
                 .thenReturn(role(roleUuid, AuthHelper.SUPERADMIN_USERNAME, true, List.of()));
         when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(true));
+        when(userManagementApiClient.getUserDetail(targetUuid)).thenReturn(humanUser(targetUuid));
         when(userManagementApiClient.updateRoles(eq(targetUuid), any())).thenReturn(humanUser(targetUuid));
         authenticateHoldingRole(roleUuid, AuthHelper.SUPERADMIN_USERNAME);
 
@@ -162,7 +214,7 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
     void updateRole_allowsAuditorSystemRole() {
         String roleUuid = UUID.randomUUID().toString();
         String humanUuid = UUID.randomUUID().toString();
-        when(roleManagementApiClient.getRoleDetail(roleUuid)).thenReturn(role(roleUuid, "auditor", true, List.of()));
+        when(roleManagementApiClient.getRoleDetail(roleUuid)).thenReturn(role(roleUuid, AuthHelper.AUDITOR_ROLE_NAME, true, List.of()));
         when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(false));
         when(userManagementApiClient.getUserDetail(humanUuid)).thenReturn(humanUser(humanUuid));
         when(userManagementApiClient.updateRole(humanUuid, roleUuid)).thenReturn(humanUser(humanUuid));
@@ -176,7 +228,7 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
     void updateUsers_allowsAuditorSystemRole() {
         String roleUuid = UUID.randomUUID().toString();
         String humanUuid = UUID.randomUUID().toString();
-        RoleDetailDto auditorRole = role(roleUuid, "auditor", true, List.of());
+        RoleDetailDto auditorRole = role(roleUuid, AuthHelper.AUDITOR_ROLE_NAME, true, List.of());
         when(roleManagementApiClient.getRoleDetail(roleUuid)).thenReturn(auditorRole);
         when(roleManagementApiClient.getPermissions(roleUuid)).thenReturn(permissions(false));
         when(userManagementApiClient.getUserDetail(humanUuid)).thenReturn(humanUser(humanUuid));
@@ -227,6 +279,15 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
         dto.setUuid(UUID.randomUUID().toString());
         dto.setUsername(username);
         dto.setSystemUser(true);
+        return dto;
+    }
+
+    private static UserDetailDto systemUserDetail(String uuid, String username) {
+        UserDetailDto dto = new UserDetailDto();
+        dto.setUuid(uuid);
+        dto.setUsername(username);
+        dto.setSystemUser(true);
+        dto.setRoles(List.of());
         return dto;
     }
 
