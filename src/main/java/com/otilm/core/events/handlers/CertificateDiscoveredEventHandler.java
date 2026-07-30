@@ -739,7 +739,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * <p>And one transaction each rather than one for the phase, for the same reason one level down: a poisoned
      * transaction discards every write made in it, so sharing one would lose the trigger history of the triggers
      * that succeeded, their applied changes, and their notifications — which are published on commit — along with
-     * the failing one's own record.
+     * the failing one's own record. A notification is therefore released as its own trigger commits, and does not
+     * imply that the triggers ordered after it have run.
      *
      * <p>An action failure deliberately does not reach the discovery's status; trigger history is where it is
      * reported. Note that the failing trigger's own history is written in the transaction its failure poisoned, so
