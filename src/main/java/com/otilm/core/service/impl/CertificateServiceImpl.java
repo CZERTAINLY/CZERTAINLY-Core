@@ -2300,6 +2300,14 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
             newRaProfileName = newRaProfile.getName();
 
             // identify certificate by new authority
+            if (newRaProfile.getAuthorityInstanceReference() == null) {
+                // Checked, and reported in the RA profile's own terms: an authority-less RA profile is
+                // configuration the operator can fix, and it is not a connector rejection -- the connector is
+                // never contacted. Unchecked here would cross this class's @Transactional proxy and doom the
+                // caller's transaction, which for a discovery action trigger costs that trigger its history.
+                certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("RA profile %s has no authority instance, so the certificate cannot be identified.", newRaProfile.getName()), null);
+                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. RA profile %s has no authority instance, so the certificate cannot be identified. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
+            }
             try {
                 AuthorityProviderAdapter adapter = adapterFactory.forAuthority(newRaProfile.getAuthorityInstanceReference());
                 identifiedMeta = adapter.identify(newRaProfile, certificate.getCertificateContent().getContent());
@@ -2326,7 +2334,9 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         certificateRepository.save(certificate);
 
         // delete old metadata
-        if (currentRaProfile != null) {
+        // Null-checked on the authority too: an RA profile without one has no connector whose metadata could
+        // exist, and the same configuration is reachable on the way out as on the way in.
+        if (currentRaProfile != null && currentRaProfile.getAuthorityInstanceReference() != null) {
             attributeEngine.deleteObjectAttributesContent(AttributeType.META, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(currentRaProfile.getAuthorityInstanceReference().getConnectorUuid()).build());
         }
 

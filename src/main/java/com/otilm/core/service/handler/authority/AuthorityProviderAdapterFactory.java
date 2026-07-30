@@ -2,10 +2,11 @@ package com.otilm.core.service.handler.authority;
 
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
-import com.otilm.api.exception.ValidationException;
 import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.Objects;
 
 /**
  * Dispatches authority operations to the adapter matching the authority's connector interface
@@ -35,14 +36,11 @@ public class AuthorityProviderAdapterFactory {
     }
 
     public AuthorityProviderAdapter forAuthority(AuthorityInstanceReference authority) {
-        if (authority == null) {
-            // Reachable configuration -- an RA profile with no authority instance -- so not a NullPointerException
-            // from the dereference below. ValidationException specifically, because the callers that can act on it
-            // already handle that type: CertificateServiceImpl.switchRaProfile catches it in place, records an event
-            // history that survives rollback and rethrows a checked exception, so the failure never crosses a
-            // @Transactional proxy to mark the caller's transaction rollback-only.
-            throw new ValidationException("No authority instance was supplied for adapter selection.");
-        }
+        // A precondition, not a domain condition: callers that can legitimately hold a null reference check it
+        // themselves and report it in their own terms. Deliberately not a type any caller catches -- selecting one
+        // to land in another class's handler routes this into whatever that handler means, which is how a missing
+        // authority once became "the authority refused to cancel" and stranded certificates mid-operation.
+        Objects.requireNonNull(authority, "An authority instance is required to select an adapter.");
         ConnectorInterfaceEntity iface = authority.getConnectorInterface();
         if (iface == null) {
             // No interface row → a framework-v1 connector speaking the v2 authority protocol (see class Javadoc).
