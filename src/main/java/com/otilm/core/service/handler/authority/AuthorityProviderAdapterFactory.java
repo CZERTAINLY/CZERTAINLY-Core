@@ -38,8 +38,8 @@ public class AuthorityProviderAdapterFactory {
     public AuthorityProviderAdapter forAuthority(AuthorityInstanceReference authority) {
         // A precondition, not a domain condition: callers that can legitimately hold a null reference check it
         // themselves and report it in their own terms. Deliberately not a type any caller catches -- selecting one
-        // to land in another class's handler routes this into whatever that handler means, which is how a missing
-        // authority once became "the authority refused to cancel" and stranded certificates mid-operation.
+        // to land in another class's handler makes a missing authority mean whatever that handler means, such as
+        // "the authority refused to cancel", stranding certificates mid-operation.
         Objects.requireNonNull(authority, "An authority instance is required to select an adapter.");
         ConnectorInterfaceEntity iface = authority.getConnectorInterface();
         if (iface == null) {

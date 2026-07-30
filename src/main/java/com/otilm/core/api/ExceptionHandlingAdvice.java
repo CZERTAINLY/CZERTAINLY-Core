@@ -436,7 +436,7 @@ public class ExceptionHandlingAdvice {
      * Logged at warn with the exception, because reaching this means a connector is registered that the platform
      * cannot dispatch to.
      *
-     * @return
+     * @return a fixed message that names neither the authority nor the version
      */
     @ExceptionHandler(UnsupportedAuthorityVersionException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
