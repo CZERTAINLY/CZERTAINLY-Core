@@ -32,6 +32,7 @@ import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.ValidationMessage;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.handler.CertificateHandler;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.util.CertificateUtil;
@@ -83,9 +84,10 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private DiscoveryWriter discoveryWriter;
     private AuthorizationEnforcer authorizationEnforcer;
+    private TriggerInternalService triggerService;
 
-    // Kept alongside the inherited, more loosely typed handle: the unconsumed-group accounting needs a
-    // certificate-specific finder that SecurityFilterRepository does not expose.
+    // Kept alongside the inherited, more loosely typed handle, for the finders SecurityFilterRepository does not
+    // expose.
     private final CertificateRepository certificateRepository;
 
     @Autowired
@@ -132,6 +134,11 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Autowired
     public void setAuthorizationEnforcer(AuthorizationEnforcer authorizationEnforcer) {
         this.authorizationEnforcer = authorizationEnforcer;
+    }
+
+    @Autowired
+    public void setTriggerService(TriggerInternalService triggerService) {
+        this.triggerService = triggerService;
     }
 
     @Override
@@ -354,13 +361,20 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                             "the import was interrupted before it began"), List.of(), false);
         }
         try {
-            return transactionHandler.runInNewTransaction(() -> importContentGroup(context, group));
-        } catch (Exception e) {
-            logger.error("Unable to import discovered certificate content {}: {}",
-                    group.certificateContentId(), e.getMessage(), e);
-            return new GroupImportResult(group.certificateContentId(),
-                    resultsFor(rowUuids, DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK,
-                            "Import rolled back: " + DiscoveryFailureReason.shape(e)), List.of(), false);
+            ImportedGroup imported;
+            try {
+                imported = transactionHandler.runInNewTransaction(() -> importContentGroup(context, group));
+            } catch (Exception e) {
+                logger.error("Unable to import discovered certificate content {}: {}",
+                        group.certificateContentId(), e.getMessage(), e);
+                return new GroupImportResult(group.certificateContentId(),
+                        resultsFor(rowUuids, DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK,
+                                "Import rolled back: " + DiscoveryFailureReason.shape(e)), List.of(), false);
+            }
+            // Outside the catch above on purpose: the certificate has committed by here, so nothing this phase does
+            // may be reported as a rollback.
+            runActionTriggersSafely(context, imported);
+            return imported.result();
         } finally {
             processCertSemaphore.release();
         }
@@ -590,7 +604,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * <p>Returns its outcomes and pending key associations rather than writing to shared state, so a transaction
      * that rolls back cannot leave a queued key behind pointing at a certificate that no longer exists.
      */
-    GroupImportResult importContentGroup(DiscoveryRunContext context, DiscoveryContentGroup group) {
+    ImportedGroup importContentGroup(DiscoveryRunContext context, DiscoveryContentGroup group) {
         try {
             return importContentGroupInternal(context, group);
         } catch (RuleException e) {
@@ -603,7 +617,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
-    private GroupImportResult importContentGroupInternal(DiscoveryRunContext context, DiscoveryContentGroup group)
+    private ImportedGroup importContentGroupInternal(DiscoveryRunContext context, DiscoveryContentGroup group)
             throws RuleException {
         List<UUID> rowUuids = group.rows().stream().map(DiscoveryCertificate::getUuid).toList();
 
@@ -625,14 +639,12 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         } catch (Exception e) {
             logger.error("Unable to create certificate for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
-            return new GroupImportResult(group.certificateContentId(),
+            return ImportedGroup.withoutActions(new GroupImportResult(group.certificateContentId(),
                     resultsFor(rowUuids, DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED,
                             "Unable to create certificate entity: " + DiscoveryFailureReason.shape(e)),
-                    List.of(), false);
+                    List.of(), false));
         }
 
-        EventHistory discoveryEventHistory = eventHistoryRepository.getReferenceById(context.discoveryEventHistoryUuid());
-        EventHistory platformEventHistory = eventHistoryRepository.getReferenceById(context.platformEventHistoryUuid());
         UUID referenceRowUuid = rowUuids.getFirst();
 
         // Attribute conditions are keyed on the object's UUID, which only a persisted row carries: judged as the
@@ -642,13 +654,13 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         List<TriggerHistory> ignoreHistories = new ArrayList<>();
         for (TriggerAssociation triggerAssociation : context.ignoreTriggers()) {
-            EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
             TriggerHistory triggerHistory = context.eventContext().getTriggerEvaluator().evaluateTrigger(
-                    triggerAssociation.getTrigger(), triggerAssociation, ignoreSubject, referenceRowUuid, null, eventHistory);
+                    triggerAssociation.getTrigger(), triggerAssociation, ignoreSubject, referenceRowUuid, null,
+                    eventHistoryFor(context, triggerAssociation));
             ignoreHistories.add(triggerHistory);
             if (triggerHistory.isActionsPerformed()) {
-                return new GroupImportResult(group.certificateContentId(),
-                        resultsFor(rowUuids, DiscoveryCertificateOutcome.IGNORED, null), List.of(), true);
+                return ImportedGroup.withoutActions(new GroupImportResult(group.certificateContentId(),
+                        resultsFor(rowUuids, DiscoveryCertificateOutcome.IGNORED, null), List.of(), true));
             }
         }
 
@@ -667,10 +679,10 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             // Checked, so no proxy marked the transaction for rollback and the shaped result can still commit.
             logger.error("Unable to create certificate entity for discovered content {}: {}",
                     group.certificateContentId(), e.getMessage(), e);
-            return new GroupImportResult(group.certificateContentId(),
+            return ImportedGroup.withoutActions(new GroupImportResult(group.certificateContentId(),
                     resultsFor(rowUuids, DiscoveryCertificateOutcome.ENTITY_CREATION_FAILED,
                             "Unable to create certificate entity: " + DiscoveryFailureReason.shape(e)),
-                    List.of(), false);
+                    List.of(), false));
         }
 
         // Always the surviving row: on a lost insert race it carries the winner's UUID, so trigger history and
@@ -688,24 +700,118 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         // Every row carries its own per-host metadata; grouping deduplicates the certificate, not the metadata.
         group.rows().forEach(row -> certificateHandler.updateDiscoveredCertificate(DiscoverySource.of(context), certificate, row.getMeta()));
 
-        for (TriggerAssociation triggerAssociation : context.triggers()) {
-            EventHistory eventHistory = triggerAssociation.getResource() == null ? platformEventHistory : discoveryEventHistory;
-            try {
-                context.eventContext().getTriggerEvaluator().evaluateTrigger(triggerAssociation.getTrigger(), triggerAssociation,
-                        certificate, referenceRowUuid, eventData, eventHistory);
-            } catch (RuleException e) {
-                // Contained per trigger, and deliberately not an import failure: the certificate is already stored
-                // and trigger history is where an action failure is reported. Letting it out would roll this group
-                // back — and since every group evaluates the same triggers, one misconfigured action trigger would
-                // then lose every certificate in the discovery.
-                logger.error("Action trigger {} failed for certificate {}: {}",
-                        triggerAssociation.getTrigger().getUuid(), certificate.getUuid(), e.getMessage(), e);
-            }
+        // Action triggers deliberately do not run here -- see runActionTriggersSafely.
+        return new ImportedGroup(
+                new GroupImportResult(group.certificateContentId(),
+                        resultsFor(rowUuids, DiscoveryCertificateOutcome.IMPORTED, null),
+                        keyEntriesFor(certificate, x509Cert, rowUuids), true),
+                certificate.getUuid(), eventData, referenceRowUuid);
+    }
+
+    /**
+     * A group's import result, plus what its action triggers need once the import transaction has closed --
+     * absent when the group imported nothing.
+     *
+     * @param certificateUuid   the imported certificate, or null when the group imported nothing
+     * @param eventData         the trigger payload; non-null exactly when {@code certificateUuid} is
+     * @param referenceRowUuid  the row the trigger history is recorded against; non-null on the same condition
+     */
+    record ImportedGroup(GroupImportResult result, UUID certificateUuid,
+                         CertificateDiscoveredEventData eventData, UUID referenceRowUuid) {
+
+        static ImportedGroup withoutActions(GroupImportResult result) {
+            return new ImportedGroup(result, null, null, null);
         }
 
-        return new GroupImportResult(group.certificateContentId(),
-                resultsFor(rowUuids, DiscoveryCertificateOutcome.IMPORTED, null),
-                keyEntriesFor(certificate, x509Cert, rowUuids), true);
+        boolean isImported() {
+            return certificateUuid != null;
+        }
+    }
+
+    /**
+     * Runs the action triggers once the import has committed, one transaction per trigger.
+     *
+     * <p>An execution reaches services that are class-level {@code @Transactional}, and an unchecked failure inside
+     * one marks the transaction it joined rollback-only: sharing one with the import cost the discovery every
+     * certificate, sharing one across the phase would discard the successful triggers' writes. A notification is
+     * therefore released as its own trigger commits, and implies nothing about the triggers after it.
+     *
+     * <p>Failures are reported in trigger history, not the discovery's status -- except an unchecked one, whose
+     * history is written in the transaction it poisoned and lost with it.
+     */
+    private void runActionTriggersSafely(DiscoveryRunContext context, ImportedGroup imported) {
+        if (!imported.isImported()) {
+            return;
+        }
+        for (TriggerAssociation triggerAssociation : context.triggers()) {
+            try {
+                transactionHandler.runInNewTransaction(() -> runActionTrigger(context, imported, triggerAssociation));
+            } catch (Exception e) {
+                // Its transaction is already gone, taking the history the evaluator wrote in it -- so the failure
+                // is recorded in a fresh one rather than left in the log alone.
+                logger.error("Action trigger {} failed for discovered certificate {}: {}",
+                        triggerAssociation.getTrigger().getUuid(), imported.certificateUuid(), e.getMessage(), e);
+                recordActionTriggerFailure(context, imported, triggerAssociation, e);
+            }
+        }
+    }
+
+    /**
+     * The evaluator's own record of a failed execution goes into the transaction the failure poisoned and dies with
+     * it, leaving the trigger looking as though it never ran. This one is written in its own transaction.
+     */
+    private void recordActionTriggerFailure(DiscoveryRunContext context, ImportedGroup imported,
+                                            TriggerAssociation triggerAssociation, Exception failure) {
+        try {
+            transactionHandler.runInNewTransaction(() -> {
+                TriggerHistory history = triggerService.createTriggerHistory(
+                        triggerAssociation.getTrigger().getUuid(), triggerAssociation, imported.certificateUuid(),
+                        imported.referenceRowUuid(), eventHistoryFor(context, triggerAssociation),
+                        Resource.CERTIFICATE);
+                // Both columns are non-nullable, so there is no "not determined". False would read as the trigger
+                // legitimately skipping this certificate and hide the failure; this pairing plus a record is how the
+                // evaluator itself reports actions that did not complete.
+                history.setConditionsMatched(true);
+                history.setActionsPerformed(false);
+                triggerService.createTriggerHistoryRecord(history.getUuid(), null, null,
+                        "The trigger's actions could not be applied: "
+                                + DiscoveryFailureReason.shapeTriggerFailure(failure));
+            });
+        } catch (Exception e) {
+            // The last place the failure could have been recorded, so the log is all that is left.
+            logger.error("Could not record the failure of action trigger {} for certificate {}: {}",
+                    triggerAssociation.getTrigger().getUuid(), imported.certificateUuid(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Re-resolves the certificate so this transaction manages it: rule and condition evaluation reflects over its
+     * lazy associations, which a detached instance cannot serve.
+     */
+    private void runActionTrigger(DiscoveryRunContext context, ImportedGroup imported,
+                                  TriggerAssociation triggerAssociation) {
+        Certificate certificate = certificateRepository.findByUuid(imported.certificateUuid()).orElse(null);
+        if (certificate == null) {
+            // An operator deleting it between the import and here is a race, not a platform failure.
+            logger.warn("Discovered certificate {} no longer exists, so trigger {} did not run",
+                    imported.certificateUuid(), triggerAssociation.getTrigger().getUuid());
+            return;
+        }
+        try {
+            context.eventContext().getTriggerEvaluator().evaluateTrigger(triggerAssociation.getTrigger(),
+                    triggerAssociation, certificate, imported.referenceRowUuid(), imported.eventData(),
+                    eventHistoryFor(context, triggerAssociation));
+        } catch (RuleException e) {
+            // Checked, so it has marked nothing: this transaction still commits and keeps the history recorded.
+            logger.error("Action trigger {} could not be evaluated for certificate {}: {}",
+                    triggerAssociation.getTrigger().getUuid(), certificate.getUuid(), e.getMessage(), e);
+        }
+    }
+
+    private EventHistory eventHistoryFor(DiscoveryRunContext context, TriggerAssociation triggerAssociation) {
+        return eventHistoryRepository.getReferenceById(triggerAssociation.getResource() == null
+                ? context.platformEventHistoryUuid()
+                : context.discoveryEventHistoryUuid());
     }
 
     private static List<KeyQueueEntry> keyEntriesFor(Certificate certificate, X509Certificate x509Cert,

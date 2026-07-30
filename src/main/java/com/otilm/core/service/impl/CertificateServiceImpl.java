@@ -64,6 +64,7 @@ import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
@@ -2297,29 +2298,15 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         if (raProfileUuid != null) {
             newRaProfile = raProfileRepository.findByUuid(raProfileUuid).orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
             newRaProfileName = newRaProfile.getName();
-
-            // identify certificate by new authority
-            try {
-                AuthorityProviderAdapter adapter = adapterFactory.forAuthority(newRaProfile.getAuthorityInstanceReference());
-                identifiedMeta = adapter.identify(newRaProfile, certificate.getCertificateContent().getContent());
-            } catch (ConnectorException e) {
-                certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), null);
-                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
-            } catch (ValidationException e) {
-                // A connector may reject identification for any policy it implements: trust
-                // anchor mismatch, validity, key usage, RA-profile attribute violation, etc.
-                // Forward the connector's own reason so the operator sees the specific cause.
-                String reason = identifyRejectionReason(e);
-                certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Identification by authority of new RA profile %s rejected the certificate: %s", newRaProfile.getName(), reason), null);
-                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Identification by authority of new RA profile %s rejected the certificate: %s. Certificate: %s", newRaProfile.getName(), reason, certificate.toStringShort()));
-            }
+            identifiedMeta = identifyByNewAuthority(certificate, newRaProfile);
         }
 
         certificate.setRaProfile(newRaProfile);
         certificateRepository.save(certificate);
 
         // delete old metadata
-        if (currentRaProfile != null) {
+        // An RA profile without an authority has no connector whose metadata could exist.
+        if (currentRaProfile != null && currentRaProfile.getAuthorityInstanceReference() != null) {
             attributeEngine.deleteObjectAttributesContent(AttributeType.META, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(currentRaProfile.getAuthorityInstanceReference().getConnectorUuid()).build());
         }
 
@@ -2336,6 +2323,38 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         }
 
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, currentRaProfileName + " -> " + newRaProfileName, "");
+    }
+
+    /**
+     * Every failure here is reported to the operator and then raised checked, so the caller's transaction survives to
+     * keep that report -- for a discovery action trigger, an unchecked one would cost the trigger its history.
+     */
+    private List<MetadataAttribute> identifyByNewAuthority(Certificate certificate, RaProfile newRaProfile)
+            throws CertificateOperationException {
+        if (newRaProfile.getAuthorityInstanceReference() == null) {
+            // The connector is never contacted, so this is not a rejection and must not be reported as one.
+            certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("RA profile %s has no authority instance, so the certificate cannot be identified.", newRaProfile.getName()), null);
+            throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. RA profile %s has no authority instance, so the certificate cannot be identified. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
+        }
+        try {
+            AuthorityProviderAdapter adapter = adapterFactory.forAuthority(newRaProfile.getAuthorityInstanceReference());
+            return adapter.identify(newRaProfile, certificate.getCertificateContent().getContent());
+        } catch (ConnectorException e) {
+            certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), null);
+            throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
+        } catch (ValidationException e) {
+            // A connector may reject identification for any policy it implements: trust anchor mismatch, validity,
+            // key usage, RA-profile attribute violation. Forward its own reason so the operator sees the cause.
+            String reason = identifyRejectionReason(e);
+            certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Identification by authority of new RA profile %s rejected the certificate: %s", newRaProfile.getName(), reason), null);
+            throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Identification by authority of new RA profile %s rejected the certificate: %s. Certificate: %s", newRaProfile.getName(), reason, certificate.toStringShort()));
+        } catch (UnsupportedAuthorityVersionException e) {
+            // Its message names a connector-reported version stored unvalidated, so only the RA profile goes outward.
+            log.warn("RA profile {} has an authority the platform cannot dispatch to: {}",
+                    newRaProfile.getName(), e.getMessage(), e);
+            certificateEventHistoryService.addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Authority of RA profile %s uses a connector interface version this platform does not support.", newRaProfile.getName()), null);
+            throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Authority of RA profile %s uses a connector interface version this platform does not support. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
+        }
     }
 
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)

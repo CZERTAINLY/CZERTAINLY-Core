@@ -144,6 +144,26 @@ class DiscoveryFailureReasonTest {
                 .isEqualTo("the import transaction was rolled back");
     }
 
+    /**
+     * Same exception, different transaction: after the import has committed, only the trigger's own can have rolled
+     * back, and naming the import's would send the operator looking at the wrong thing.
+     */
+    @Test
+    void namesTheTriggerTransactionWhenTheImportHasAlreadyCommitted() {
+        assertThat(DiscoveryFailureReason.shapeTriggerFailure(new UnexpectedRollbackException(
+                "Transaction silently rolled back because it has been marked as rollback-only")))
+                .isEqualTo("the trigger's transaction was rolled back");
+    }
+
+    /** The scope only changes the rollback wording; every other classification is shared. */
+    @Test
+    void classifiesEverythingElseTheSameWayForATriggerFailure() {
+        assertThat(DiscoveryFailureReason.shapeTriggerFailure(new CertificateException("bad signature")))
+                .isEqualTo("the discovered certificate could not be parsed");
+        assertThat(DiscoveryFailureReason.shapeTriggerFailure(new IllegalStateException("core.cert_content.id is null")))
+                .isEqualTo("an unexpected error occurred");
+    }
+
     @Test
     void classifiesAnythingElseGenerically() {
         assertThat(DiscoveryFailureReason.shape(new IllegalStateException("core.certificate_content.id is null")))

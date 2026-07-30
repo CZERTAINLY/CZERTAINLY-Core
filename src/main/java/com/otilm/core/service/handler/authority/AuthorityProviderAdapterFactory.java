@@ -6,6 +6,8 @@ import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 /**
  * Dispatches authority operations to the adapter matching the authority's connector interface
  * version. v2 → {@link AuthorityProviderV2Adapter}, v3 → {@link AuthorityProviderV3Adapter}.
@@ -34,6 +36,10 @@ public class AuthorityProviderAdapterFactory {
     }
 
     public AuthorityProviderAdapter forAuthority(AuthorityInstanceReference authority) {
+        // A precondition, not a domain condition: callers that can hold a null reference check it themselves. Any
+        // type a caller catches would make a missing authority mean whatever that handler means -- "the authority
+        // refused to cancel", stranding certificates mid-operation.
+        Objects.requireNonNull(authority, "An authority instance is required to select an adapter.");
         ConnectorInterfaceEntity iface = authority.getConnectorInterface();
         if (iface == null) {
             // No interface row → a framework-v1 connector speaking the v2 authority protocol (see class Javadoc).
