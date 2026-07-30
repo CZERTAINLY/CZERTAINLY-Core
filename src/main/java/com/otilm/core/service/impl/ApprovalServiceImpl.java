@@ -268,7 +268,10 @@ public class ApprovalServiceImpl implements ApprovalExternalService, ApprovalInt
                     || lastProcessedApprovalRecipient.getApprovalStep().getOrder() != nextApprovalStep.getOrder()) {
 
                 final Approval approval = findApprovalByUuid(approvalUuid);
-                final EventMessage approvalRequestedMessage = ApprovalRequestedEventHandler.constructEventMessage(approval.getUuid(), nextApprovalStep.mapToDto());
+                // The creator, not the acting user: the first step runs on the actions-listener thread, which has no
+                // SecurityContext.
+                final EventMessage approvalRequestedMessage = ApprovalRequestedEventHandler.constructEventMessage(
+                        approval.getUuid(), nextApprovalStep.mapToDto(), approval.getCreatorUuid());
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
@@ -324,7 +327,7 @@ public class ApprovalServiceImpl implements ApprovalExternalService, ApprovalInt
         actionMessage.setResourceAction(approval.getAction());
 
         // send event of approval closed
-        final EventMessage approvalClosedMessage = ApprovalClosedEventHandler.constructEventMessage(approval.getUuid());
+        final EventMessage approvalClosedMessage = ApprovalClosedEventHandler.constructEventMessage(approval.getUuid(), approvalStatus);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

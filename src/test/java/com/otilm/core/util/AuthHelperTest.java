@@ -1,13 +1,21 @@
 package com.otilm.core.util;
 
 import com.otilm.api.model.core.logging.enums.ActorType;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.logging.records.ActorRecord;
 import com.otilm.core.logging.LoggingHelper;
+import com.otilm.core.security.authn.PlatformAnonymousToken;
+import com.otilm.core.security.authn.PlatformAuthenticationToken;
+import com.otilm.core.security.authn.PlatformUserDetails;
+import com.otilm.core.security.authn.client.AuthenticationInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -97,6 +105,36 @@ class AuthHelperTest {
         assertEquals(ActorType.USER, after.type(), "caller's actor type must be restored, not left as the system identity");
         assertEquals("operator-jane", after.name(), "caller's actor name must be restored");
         assertEquals(callerUuid, after.uuid().toString(), "caller's actor uuid must be restored, not left stale");
+    }
+
+    /**
+     * An anonymous caller's principal IS a {@link PlatformUserDetails}, with a null userUuid, so
+     * {@code getUserIdentification()} succeeds rather than throwing and the uuid must be treated as absent.
+     */
+    @Test
+    void getActingUserUuidOrNull_returnsNullForAnonymousPrincipal() {
+        AuthenticationInfo anonymous = AuthenticationInfo.getAnonymousAuthenticationInfo();
+        SecurityContextHolder.getContext().setAuthentication(new PlatformAnonymousToken(
+                UUID.randomUUID().toString(), new PlatformUserDetails(anonymous), anonymous.getAuthorities()));
+
+        assertNull(AuthHelper.getActingUserUuidOrNull());
+    }
+
+    @Test
+    void getActingUserUuidOrNull_returnsNullWhenNobodyIsAuthenticated() {
+        SecurityContextHolder.clearContext();
+
+        assertNull(AuthHelper.getActingUserUuidOrNull());
+    }
+
+    @Test
+    void getActingUserUuidOrNull_returnsTheAuthenticatedUsersUuid() {
+        UUID userUuid = UUID.randomUUID();
+        SecurityContextHolder.getContext().setAuthentication(new PlatformAuthenticationToken(
+                new PlatformUserDetails(new AuthenticationInfo(
+                        AuthMethod.USER_PROXY, userUuid.toString(), "operator", List.of()))));
+
+        assertEquals(userUuid, AuthHelper.getActingUserUuidOrNull());
     }
 
     @Test
