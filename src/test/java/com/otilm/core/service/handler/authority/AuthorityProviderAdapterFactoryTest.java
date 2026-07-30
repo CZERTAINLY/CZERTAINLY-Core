@@ -2,6 +2,7 @@ package com.otilm.core.service.handler.authority;
 
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import org.junit.jupiter.api.Test;
 
@@ -33,6 +34,16 @@ class AuthorityProviderAdapterFactoryTest {
                 UnsupportedAuthorityVersionException.class,
                 () -> factory.forAuthority(auth));
         assertTrue(ex.getMessage().contains("v1"));
+    }
+
+    /**
+     * ValidationException rather than the factory's own type: the callers that can act on a missing authority already
+     * handle that one in place, so the failure never crosses a transactional proxy to doom the caller's transaction.
+     */
+    @Test
+    void rejectsNullAuthority() {
+        ValidationException ex = assertThrows(ValidationException.class, () -> factory.forAuthority(null));
+        assertTrue(ex.getMessage().contains("authority instance"));
     }
 
     @Test

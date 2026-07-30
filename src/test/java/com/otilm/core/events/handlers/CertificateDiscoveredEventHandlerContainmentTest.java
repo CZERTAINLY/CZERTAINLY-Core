@@ -1,9 +1,12 @@
 package com.otilm.core.events.handlers;
 
 import com.otilm.core.dao.entity.DiscoveryCertificate;
+import com.otilm.core.dao.entity.workflows.Trigger;
+import com.otilm.core.dao.entity.workflows.TriggerAssociation;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.evaluator.CertificateTriggerEvaluator;
 import com.otilm.core.events.handlers.discovery.DiscoveryCertificateOutcome;
+import com.otilm.core.events.handlers.discovery.DiscoveryCertificateResult;
 import com.otilm.core.events.handlers.discovery.DiscoveryContentGroup;
 import com.otilm.core.events.handlers.discovery.DiscoveryImportRollbackException;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunAccumulator;
@@ -15,6 +18,7 @@ import com.otilm.core.service.writer.DiscoveryWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
+import org.springframework.transaction.UnexpectedRollbackException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,6 +34,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -151,12 +156,63 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     /**
+     * A failing action-trigger phase must leave the group's outcome alone. The certificate has committed by then, so
+     * reporting a rollback would put a reason on rows whose certificate is in the inventory.
+     */
+    @Test
+    void aFailingActionTriggerPhaseLeavesTheImportedResultIntact() {
+        UUID rowUuid = UUID.randomUUID();
+        UUID certificateUuid = UUID.randomUUID();
+        GroupImportResult committed = new GroupImportResult(6L,
+                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)),
+                List.of(), true);
+        when(transactionHandler.runInNewTransaction(
+                ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
+                .thenReturn(new CertificateDiscoveredEventHandler.ImportedGroup(
+                        committed, certificateUuid, null, rowUuid));
+        doThrow(new UnexpectedRollbackException("an execution poisoned the trigger transaction"))
+                .when(transactionHandler).runInNewTransaction(any(Runnable.class));
+
+        GroupImportResult result = handler.importGroupSafely(
+                runContextWithTriggers(), group(6L, rowUuid));
+
+        assertThat(result.committed())
+                .as("the import committed, so the group is imported however the triggers fared")
+                .isTrue();
+        assertThat(result.rowResults()).singleElement().satisfies(row -> {
+            assertThat(row.outcome()).isEqualTo(DiscoveryCertificateOutcome.IMPORTED);
+            assertThat(row.detail()).isNull();
+        });
+    }
+
+    /**
+     * One transaction per trigger, asserted structurally because no execution available to an integration test
+     * reaches a service that fails unchecked. Sharing one transaction is what let a single poisoned execution
+     * discard the trigger history and applied writes of every trigger in the group.
+     */
+    @Test
+    void eachActionTriggerGetsItsOwnTransaction() {
+        UUID rowUuid = UUID.randomUUID();
+        GroupImportResult committed = new GroupImportResult(7L,
+                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)),
+                List.of(), true);
+        when(transactionHandler.runInNewTransaction(
+                ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
+                .thenReturn(new CertificateDiscoveredEventHandler.ImportedGroup(
+                        committed, UUID.randomUUID(), null, rowUuid));
+
+        handler.importGroupSafely(runContextWithTriggers(3), group(7L, rowUuid));
+
+        verify(transactionHandler, times(3)).runInNewTransaction(any(Runnable.class));
+    }
+
+    /**
      * The reason a group carries out through its own rollback has to survive the shaping the orchestrator applies on
      * the way past. Shaped from an unclassified wrapper it would collapse to "an unexpected error occurred".
      */
     @Test
     void anAlreadyShapedRollbackReasonSurvivesTheOrchestratorsShaping() {
-        when(transactionHandler.runInNewTransaction(ArgumentMatchers.<Supplier<GroupImportResult>>any()))
+        when(transactionHandler.runInNewTransaction(ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
                 .thenThrow(new DiscoveryImportRollbackException(
                         "trigger evaluation failed: the discovered certificate could not be parsed", null));
 
@@ -187,6 +243,24 @@ class CertificateDiscoveredEventHandlerContainmentTest {
         } finally {
             Thread.interrupted();
         }
+    }
+
+    private DiscoveryRunContext runContextWithTriggers() {
+        return runContextWithTriggers(1);
+    }
+
+    private DiscoveryRunContext runContextWithTriggers(int triggerCount) {
+        List<TriggerAssociation> associations = new java.util.ArrayList<>();
+        for (int i = 0; i < triggerCount; i++) {
+            TriggerAssociation association = new TriggerAssociation();
+            Trigger trigger = new Trigger();
+            trigger.setUuid(UUID.randomUUID());
+            association.setTrigger(trigger);
+            associations.add(association);
+        }
+        return new DiscoveryRunContext(UUID.randomUUID(), "discovery", UUID.randomUUID(), "connector",
+                "kind", UUID.randomUUID(), List.of(), associations, UUID.randomUUID(), UUID.randomUUID(),
+                7, null);
     }
 
     private DiscoveryRunContext runContext() {

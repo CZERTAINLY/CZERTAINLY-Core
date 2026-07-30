@@ -52,6 +52,7 @@ import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
 import com.otilm.core.dao.entity.notifications.PendingNotification;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
+import com.otilm.core.dao.entity.GroupAssociation;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
@@ -133,6 +134,9 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     @Autowired
     private GroupRepository groupRepository;
+
+    @Autowired
+    private GroupAssociationRepository groupAssociationRepository;
     @Autowired
     private ResourceObjectAssociationService associationService;
 
@@ -664,21 +668,115 @@ class EventHandlersITest extends BaseSpringBootTest {
         certificateDiscoveredEventHandler.handleEvent(
                 CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
 
-        Assertions.assertTrue(certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509)).isPresent(),
-                "a failing action trigger must not roll back the certificate it acts on");
+        Certificate imported = certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509))
+                .orElseThrow(() -> new AssertionError("a failing action trigger must not roll back the certificate"));
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         Assertions.assertTrue(reloaded.isProcessed());
         Assertions.assertNull(reloaded.getProcessedError(),
                 "an action failure belongs in trigger history, not on the discovered row: "
                         + reloaded.getProcessedError());
+        // Asserted positively: every check above also holds when the trigger never ran at all, so without this the
+        // test would pass on a mis-scoped association or an early return.
+        Assertions.assertFalse(triggerHistoryRepository.findAll().isEmpty(),
+                "the trigger must have been evaluated, and its history must survive the execution's failure");
+        Assertions.assertNull(imported.getRaProfile(),
+                "the execution failed, so the RA profile it tried to set must not be applied");
         verify(eventProducer).produceMessage(argThat((EventMessage msg) ->
                 msg.getEvent() == ResourceEvent.DISCOVERY_FINISHED
                         && ((DiscoveryResult) msg.getData()).getDiscoveryStatus() == DiscoveryStatus.PROCESSING));
     }
 
     /**
+     * The load-bearing half of running actions after the import: the certificate is re-resolved in the trigger's own
+     * transaction, so an execution's write actually persists. Only a failing execution exercised that before, which
+     * a broken re-resolution would have passed just as happily.
+     */
+    @Test
+    void testCertificateDiscoveredAppliesASucceedingActionTriggerAcrossTheTransactionBoundary() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        persistDiscoveryCertificate(discovery, content, "group-setting-host");
+        Group group = new Group();
+        group.setName("DiscoveredCertificates");
+        group = groupRepository.save(group);
+        UUID groupUuid = group.getUuid();
+        createSetGroupActionTrigger(discovery.getUuid(), groupUuid);
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Certificate imported = certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509))
+                .orElseThrow();
+        List<GroupAssociation> associations = groupAssociationRepository.findByResourceAndObjectUuid(
+                Resource.CERTIFICATE, imported.getUuid());
+        Assertions.assertEquals(1, associations.size(),
+                "the execution's write must survive the transaction it ran in");
+        Assertions.assertEquals(groupUuid, associations.getFirst().getGroupUuid());
+    }
+
+    /**
+     * One trigger per transaction, so a failing trigger costs only itself. Sharing one transaction discarded every
+     * trigger's work, including that of the ones that had already succeeded.
+     */
+    @Test
+    void testCertificateDiscoveredKeepsASucceedingTriggerWhenAnotherFails() throws Exception {
+        DiscoveryHistory discovery = persistProcessingDiscovery();
+        X509Certificate x509 = generateSelfSignedCertificate();
+        CertificateContent content = persistContentFor(x509);
+        persistDiscoveryCertificate(discovery, content, "two-trigger-host");
+        Group group = new Group();
+        group.setName("SurvivesTheOtherFailure");
+        group = groupRepository.save(group);
+        createFailingSetFieldActionTrigger(discovery.getUuid());
+        createSetGroupActionTrigger(discovery.getUuid(), group.getUuid());
+
+        certificateDiscoveredEventHandler.handleEvent(
+                CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
+
+        Certificate imported = certificateRepository.findByFingerprint(CertificateUtil.getThumbprint(x509))
+                .orElseThrow();
+        Assertions.assertEquals(1, groupAssociationRepository.findByResourceAndObjectUuid(
+                        Resource.CERTIFICATE, imported.getUuid()).size(),
+                "the succeeding trigger's write must not be discarded by the failing one");
+        Assertions.assertNull(imported.getRaProfile(), "the failing execution must still not apply");
+    }
+
+    private void createSetGroupActionTrigger(UUID discoveryUuid, UUID groupUuid)
+            throws AlreadyExistException, NotFoundException {
+        ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
+        executionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
+        executionItemRequest.setFieldIdentifier(FilterField.GROUP_NAME.name());
+        executionItemRequest.setData(groupUuid.toString());
+
+        ExecutionRequestDto executionRequest = new ExecutionRequestDto();
+        executionRequest.setName("SetDiscoveredGroup");
+        executionRequest.setResource(Resource.CERTIFICATE);
+        executionRequest.setType(ExecutionType.SET_FIELD);
+        executionRequest.setItems(List.of(executionItemRequest));
+        ExecutionDto execution = actionService.createExecution(executionRequest);
+
+        ActionRequestDto actionRequest = new ActionRequestDto();
+        actionRequest.setName("SetDiscoveredGroupAction");
+        actionRequest.setResource(Resource.CERTIFICATE);
+        actionRequest.setExecutionsUuids(List.of(execution.getUuid()));
+        ActionDetailDto action = actionService.createAction(actionRequest);
+
+        TriggerRequestDto triggerRequest = new TriggerRequestDto();
+        triggerRequest.setName("SetDiscoveredGroupTrigger");
+        triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
+        triggerRequest.setResource(Resource.CERTIFICATE);
+        triggerRequest.setActionsUuids(List.of(action.getUuid()));
+        TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
+
+        triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
+                discoveryUuid, List.of(UUID.fromString(trigger.getUuid())), false);
+    }
+
+    /**
      * A SET_FIELD execution switching the RA profile to one that has no authority instance — reachable
-     * configuration, and what the reported failure hit in the field.
+     * configuration, so the execution fails inside a class-level @Transactional service.
      */
     private void createFailingSetFieldActionTrigger(UUID discoveryUuid)
             throws AlreadyExistException, NotFoundException, AttributeException {

@@ -2,6 +2,7 @@ package com.otilm.core.service.handler.authority;
 
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -35,9 +36,12 @@ public class AuthorityProviderAdapterFactory {
 
     public AuthorityProviderAdapter forAuthority(AuthorityInstanceReference authority) {
         if (authority == null) {
-            // An RA profile without an authority instance is reachable configuration, so this arrives as a domain
-            // failure rather than a NullPointerException from the dereference below.
-            throw new UnsupportedAuthorityVersionException("The RA profile has no authority instance to serve it.");
+            // Reachable configuration -- an RA profile with no authority instance -- so not a NullPointerException
+            // from the dereference below. ValidationException specifically, because the callers that can act on it
+            // already handle that type: CertificateServiceImpl.switchRaProfile catches it in place, records an event
+            // history that survives rollback and rethrows a checked exception, so the failure never crosses a
+            // @Transactional proxy to mark the caller's transaction rollback-only.
+            throw new ValidationException("No authority instance was supplied for adapter selection.");
         }
         ConnectorInterfaceEntity iface = authority.getConnectorInterface();
         if (iface == null) {
