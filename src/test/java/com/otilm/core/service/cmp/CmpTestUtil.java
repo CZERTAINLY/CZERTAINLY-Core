@@ -138,63 +138,45 @@ public class CmpTestUtil {
     }
 
     public static PKIBody createRevocationBody(BigInteger serialNumber) throws IOException {
-        // Just preparations
-        X500Name issuerDN = new X500Name("CN=ManagementCA");
-        X500Name userDN = new X500Name("CN=user");
-
-        // Cert template
-        CertTemplateBuilder myCertTemplate = new CertTemplateBuilder();
-        myCertTemplate.setIssuer(issuerDN);
-        myCertTemplate.setSubject(userDN);
-        myCertTemplate.setSerialNumber(new ASN1Integer(serialNumber));
-
-        // Extension with revocation reason
-        ExtensionsGenerator extGenerator = new ExtensionsGenerator();
-        extGenerator.addExtension(Extension.reasonCode,
-                false, CRLReason.lookup(CRLReason.cessationOfOperation));
-
-        ASN1EncodableVector v = new ASN1EncodableVector();
-        v.add(myCertTemplate.build());
-        v.add(extGenerator.generate());
-        RevReqContent myRevReqContent = new RevReqContent(
-                RevDetails.getInstance(new DERSequence(v)));
-        return new PKIBody(PKIBody.TYPE_REVOCATION_REQ, myRevReqContent);
+        return revocationBody(serialNumber, reasonCodeExtensions(CRLReason.cessationOfOperation));
     }
 
     public static PKIBody createRevocationBody(BigInteger serialNumber, int reasonCode) throws IOException {
-        X500Name issuerDN = new X500Name("CN=ManagementCA");
-        X500Name userDN = new X500Name("CN=user");
+        return revocationBody(serialNumber, reasonCodeExtensions(reasonCode));
+    }
 
-        CertTemplateBuilder myCertTemplate = new CertTemplateBuilder();
-        myCertTemplate.setIssuer(issuerDN);
-        myCertTemplate.setSubject(userDN);
-        myCertTemplate.setSerialNumber(new ASN1Integer(serialNumber));
+    public static PKIBody createRevocationBodyWithoutReason(BigInteger serialNumber) {
+        return revocationBody(serialNumber, null);
+    }
 
+    /** A revocation body whose crlEntryDetails carries a non-reasonCode extension only. */
+    public static PKIBody createRevocationBodyWithNonReasonExtension(BigInteger serialNumber) throws IOException {
         ExtensionsGenerator extGenerator = new ExtensionsGenerator();
-        extGenerator.addExtension(Extension.reasonCode, false, new ASN1Enumerated(reasonCode));
+        extGenerator.addExtension(Extension.invalidityDate, false,
+                new DERGeneralizedTime("20260101000000Z"));
+        return revocationBody(serialNumber, extGenerator.generate());
+    }
+
+    private static PKIBody revocationBody(BigInteger serialNumber, Extensions crlEntryDetails) {
+        CertTemplateBuilder myCertTemplate = new CertTemplateBuilder();
+        myCertTemplate.setIssuer(new X500Name("CN=ManagementCA"));
+        myCertTemplate.setSubject(new X500Name("CN=user"));
+        myCertTemplate.setSerialNumber(new ASN1Integer(serialNumber));
 
         ASN1EncodableVector v = new ASN1EncodableVector();
         v.add(myCertTemplate.build());
-        v.add(extGenerator.generate());
+        if (crlEntryDetails != null) {
+            v.add(crlEntryDetails);
+        }
         RevReqContent myRevReqContent = new RevReqContent(
                 RevDetails.getInstance(new DERSequence(v)));
         return new PKIBody(PKIBody.TYPE_REVOCATION_REQ, myRevReqContent);
     }
 
-    public static PKIBody createRevocationBodyWithoutReason(BigInteger serialNumber) {
-        X500Name issuerDN = new X500Name("CN=ManagementCA");
-        X500Name userDN = new X500Name("CN=user");
-
-        CertTemplateBuilder myCertTemplate = new CertTemplateBuilder();
-        myCertTemplate.setIssuer(issuerDN);
-        myCertTemplate.setSubject(userDN);
-        myCertTemplate.setSerialNumber(new ASN1Integer(serialNumber));
-
-        ASN1EncodableVector v = new ASN1EncodableVector();
-        v.add(myCertTemplate.build());
-        RevReqContent myRevReqContent = new RevReqContent(
-                RevDetails.getInstance(new DERSequence(v)));
-        return new PKIBody(PKIBody.TYPE_REVOCATION_REQ, myRevReqContent);
+    private static Extensions reasonCodeExtensions(int reasonCode) throws IOException {
+        ExtensionsGenerator extGenerator = new ExtensionsGenerator();
+        extGenerator.addExtension(Extension.reasonCode, false, new ASN1Enumerated(reasonCode));
+        return extGenerator.generate();
     }
 
     public static PKIBody createCertConfBody(X509CertificateHolder cert, BigInteger certReqId) throws

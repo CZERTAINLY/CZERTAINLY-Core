@@ -31,13 +31,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for {@link BodyRevocationValidator#validateIn}.
  *
- * <p>Regression coverage for OmniTrustILM/core#1925: the CMP {@code rr} validator used to
- * reject a revocation request that omitted {@code crlEntryDetails} / {@code reasonCode},
- * although RFC 4210 &sect;5.3.9 marks {@code crlEntryDetails} OPTIONAL (see the validator's
- * own Javadoc), while at the same time <em>accepting</em> reason codes 7 (unused) and 8
- * (removeFromCRL) that {@link com.otilm.api.model.core.authority.CertificateRevocationReason}
- * cannot map. This validator must now treat a missing reason as valid and reject only the
- * reason codes the platform cannot represent.</p>
+ * <p>RFC 4210 &sect;5.3.9 marks {@code crlEntryDetails} OPTIONAL, so a reason-less {@code rr}
+ * is valid and only reason codes the platform cannot represent are rejected: out of range,
+ * 7 (unused per RFC 5280) and 8 (removeFromCRL). {@link
+ * com.otilm.api.model.core.authority.CertificateRevocationReason} defines the mappable set.</p>
  */
 class BodyRevocationValidatorTest {
 
@@ -100,6 +97,19 @@ class BodyRevocationValidatorTest {
     }
 
     @Test
+    void rejectsRr_withOversizedReasonCode() {
+        // An ASN.1 ENUMERATED whose value is 2^64 + 4 truncates to 4 (superseded) through
+        // BigInteger.longValue(); the validator must reject on the raw value, not the
+        // truncated one, so a crafted oversized code cannot masquerade as an in-range reason.
+        PKIMessage msg = rrMessage(fullCertTemplate(),
+                reasonCodeExtensions(new BigInteger("18446744073709551620")));
+
+        assertThatThrownBy(() -> new BodyRevocationValidator().validateIn(msg, null))
+                .isInstanceOf(CmpProcessingException.class)
+                .hasMessageContaining("is not supported");
+    }
+
+    @Test
     void rejectsRr_withoutSerialNumber() {
         PKIMessage msg = rrMessage(certTemplateWithoutSerialNumber(), reasonCodeExtensions(4));
 
@@ -139,9 +149,13 @@ class BodyRevocationValidatorTest {
     }
 
     private static Extensions reasonCodeExtensions(long code) {
+        return reasonCodeExtensions(BigInteger.valueOf(code));
+    }
+
+    private static Extensions reasonCodeExtensions(BigInteger code) {
         try {
             ExtensionsGenerator g = new ExtensionsGenerator();
-            g.addExtension(Extension.reasonCode, false, new ASN1Enumerated(BigInteger.valueOf(code)));
+            g.addExtension(Extension.reasonCode, false, new ASN1Enumerated(code));
             return g.generate();
         } catch (IOException e) {
             throw new IllegalStateException(e);

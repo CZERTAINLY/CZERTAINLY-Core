@@ -481,9 +481,8 @@ class RevocationMessageHandlerITest extends BaseSpringBootTest {
     }
 
     /**
-     * OmniTrustILM/core#1925 (defect B): the reason a CMP client puts in the rr
-     * crlEntryDetails/reasonCode must reach the revoke call. Before the fix, getReason
-     * dropped the parsed reason and every revocation was recorded as UNSPECIFIED.
+     * The reason a CMP client puts in the rr crlEntryDetails/reasonCode must reach the
+     * revoke call rather than being flattened to UNSPECIFIED.
      */
     @Test
     @Transactional
@@ -522,9 +521,8 @@ class RevocationMessageHandlerITest extends BaseSpringBootTest {
     }
 
     /**
-     * OmniTrustILM/core#1925 (defect A): a reason-less rr (no crlEntryDetails) is valid per
-     * RFC 4210 §5.3.9 and must default to UNSPECIFIED. Before the fix, getReason dereferenced
-     * a null crlEntryDetails and threw, so the revoke call never happened.
+     * A reason-less rr (no crlEntryDetails) is valid per RFC 4210 §5.3.9 and must default to
+     * UNSPECIFIED, reaching the revoke call rather than being rejected.
      */
     @Test
     @Transactional
@@ -540,6 +538,82 @@ class RevocationMessageHandlerITest extends BaseSpringBootTest {
                         CmpTestUtil.generateKeyPairEC().getPrivate(),
                         CmpTestUtil.createRevocationBodyWithoutReason(
                                 x509Certificate.getSerialNumber()))
+                .toASN1Structure();
+
+        given(pollFeature.pollCertificate(any(), any(), any(), any()))
+                .willReturn(new PollResult.Reached(revokedCertificate));
+
+        testedHandler.handle(request,
+                new Mobile3gppProfileContext(cmpProfileSigPrt,
+                        raProfile,
+                        request,
+                        certificateKeyService,
+                        null,
+                        null));
+
+        ArgumentCaptor<ClientCertificateRevocationDto> captor =
+                ArgumentCaptor.forClass(ClientCertificateRevocationDto.class);
+        verify(clientOperationService).revokeCertificate(any(), any(), any(), captor.capture());
+        assertEquals(CertificateRevocationReason.UNSPECIFIED, captor.getValue().getReason());
+    }
+
+    /**
+     * A crlEntryDetails present with other crlEntryExtensions but no reasonCode is still a
+     * reason-less rr and must default to UNSPECIFIED.
+     */
+    @Test
+    @Transactional
+    void test_handle_revocation_defaultsToUnspecified_whenCrlEntryDetailsHasNoReasonCode() throws Exception {
+        revokedCertificate.setState(CertificateState.ISSUED);
+        revokedCertificate.setRaProfile(raProfile);
+        revokedCertificate.setRaProfileUuid(raProfile.getUuid());
+        certificateRepository.save(revokedCertificate);
+
+        String trxId = "785";
+        PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
+                        trxId,
+                        CmpTestUtil.generateKeyPairEC().getPrivate(),
+                        CmpTestUtil.createRevocationBodyWithNonReasonExtension(
+                                x509Certificate.getSerialNumber()))
+                .toASN1Structure();
+
+        given(pollFeature.pollCertificate(any(), any(), any(), any()))
+                .willReturn(new PollResult.Reached(revokedCertificate));
+
+        testedHandler.handle(request,
+                new Mobile3gppProfileContext(cmpProfileSigPrt,
+                        raProfile,
+                        request,
+                        certificateKeyService,
+                        null,
+                        null));
+
+        ArgumentCaptor<ClientCertificateRevocationDto> captor =
+                ArgumentCaptor.forClass(ClientCertificateRevocationDto.class);
+        verify(clientOperationService).revokeCertificate(any(), any(), any(), captor.capture());
+        assertEquals(CertificateRevocationReason.UNSPECIFIED, captor.getValue().getReason());
+    }
+
+    /**
+     * Defense-in-depth: BodyRevocationValidator rejects unmappable reason codes upstream, but
+     * if one reaches the handler directly (as here, bypassing the validator) getReason falls
+     * back to UNSPECIFIED rather than propagating a null reason.
+     */
+    @Test
+    @Transactional
+    void test_handle_revocation_fallsBackToUnspecified_whenReasonCodeUnmappable() throws Exception {
+        revokedCertificate.setState(CertificateState.ISSUED);
+        revokedCertificate.setRaProfile(raProfile);
+        revokedCertificate.setRaProfileUuid(raProfile.getUuid());
+        certificateRepository.save(revokedCertificate);
+
+        String trxId = "786";
+        // reasonCode 8 == removeFromCRL — no CertificateRevocationReason maps to it.
+        PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
+                        trxId,
+                        CmpTestUtil.generateKeyPairEC().getPrivate(),
+                        CmpTestUtil.createRevocationBody(
+                                x509Certificate.getSerialNumber(), 8))
                 .toASN1Structure();
 
         given(pollFeature.pollCertificate(any(), any(), any(), any()))

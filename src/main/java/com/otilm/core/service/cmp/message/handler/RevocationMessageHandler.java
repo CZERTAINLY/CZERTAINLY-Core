@@ -19,16 +19,14 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
+import com.otilm.core.service.cmp.message.RevocationReasonCodec;
 import com.otilm.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.otilm.core.service.v2.ClientOperationInternalService;
-import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertId;
 import org.bouncycastle.asn1.crmf.CertTemplate;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigInteger;
 import java.util.Optional;
 
 /**
@@ -224,21 +223,21 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
 
     private CertificateRevocationReason getReason(RevDetails revocation) {
         // crlEntryDetails / reasonCode are OPTIONAL (RFC 4210 §5.3.9); a reason-less rr
-        // defaults to UNSPECIFIED. BodyRevocationValidator has already rejected any
-        // reasonCode that fromReasonCode cannot map, so the null-fallback here is only
-        // defense-in-depth.
-        Extensions crlEntryDetails = revocation.getCrlEntryDetails();
-        if (crlEntryDetails == null) {
+        // defaults to UNSPECIFIED.
+        Optional<BigInteger> reasonCode =
+                RevocationReasonCodec.requestedReasonCode(revocation.getCrlEntryDetails());
+        if (reasonCode.isEmpty()) {
             return CertificateRevocationReason.UNSPECIFIED;
         }
-        Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
-        if (reasonCodeExt == null) {
+        Optional<CertificateRevocationReason> reason = RevocationReasonCodec.mapReasonCode(reasonCode.get());
+        if (reason.isEmpty()) {
+            // BodyRevocationValidator rejects unmappable codes before the handler runs, so
+            // this is defense-in-depth: log if a future path ever bypasses that guard rather
+            // than silently recording the wrong reason.
+            LOG.warn("Unmappable CMP revocation reasonCode {} defaulted to UNSPECIFIED", reasonCode.get());
             return CertificateRevocationReason.UNSPECIFIED;
         }
-        int reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
-                .getValue().intValue();
-        CertificateRevocationReason reason = CertificateRevocationReason.fromReasonCode(reasonCode);
-        return reason != null ? reason : CertificateRevocationReason.UNSPECIFIED;
+        return reason.get();
     }
 
     private void revokeCertificate(ASN1OctetString tid, RevDetails revocation, Certificate certificate,
