@@ -12,6 +12,7 @@ import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRepository;
 import com.otilm.core.dao.repository.notifications.PendingNotificationRepository;
+import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
@@ -53,7 +54,10 @@ class NotificationListenerTest {
                 mock(GroupRepository.class),
                 mock(UserManagementApiClient.class),
                 mock(RoleManagementApiClient.class),
-                mock(ResourceObjectAssociationService.class));
+                mock(ResourceObjectAssociationService.class),
+                // The real handler, invoked directly rather than through its proxy, runs the work without a
+                // transaction -- which is what this unencumbered unit context wants.
+                new TransactionHandler());
     }
 
     @Test
