@@ -1,6 +1,7 @@
 package com.otilm.core.api;
 
 import com.otilm.api.exception.CbomRepositoryException;
+import com.otilm.api.exception.CertificateRequestException;
 import com.otilm.api.model.common.ErrorMessageDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -61,5 +62,25 @@ class ExceptionHandlingAdviceTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("Upload of BOM failed.", response.getBody().getMessage());
+    }
+
+    @Test
+    void handleCertificateRequestException_ShouldNotFailWhenCauseIsNull() {
+        CertificateRequestException ex = new CertificateRequestException("Invalid CSR");
+
+        ErrorMessageDto response = advice.handleCertificateRequestException(ex);
+
+        assertNotNull(response);
+        assertEquals("Invalid CSR", response.getMessage());
+    }
+
+    @Test
+    void handleCertificateRequestException_ShouldAppendCauseWhenPresent() {
+        CertificateRequestException ex =
+                new CertificateRequestException("Invalid CSR", new IllegalArgumentException("bad encoding"));
+
+        ErrorMessageDto response = advice.handleCertificateRequestException(ex);
+
+        assertEquals("Invalid CSR: bad encoding", response.getMessage());
     }
 }
