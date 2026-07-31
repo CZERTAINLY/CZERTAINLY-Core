@@ -59,7 +59,14 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
         // cannot perform). The check runs on the raw BigInteger so an oversized value cannot
         // truncate into an in-range code.
         Extensions crlEntryDetails = revDetails[0].getCrlEntryDetails();
-        Optional<BigInteger> reasonCode = RevocationReasonCodec.requestedReasonCode(crlEntryDetails);
+        Optional<BigInteger> reasonCode;
+        try {
+            reasonCode = RevocationReasonCodec.requestedReasonCode(crlEntryDetails);
+        } catch (IllegalArgumentException e) {
+            // reasonCode extension present but not a well-formed ENUMERATED.
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                    "reasonCode is malformed", e);
+        }
         if (reasonCode.isPresent() && RevocationReasonCodec.mapReasonCode(reasonCode.get()).isEmpty()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
                     "reasonCode " + reasonCode.get() + " is not supported");

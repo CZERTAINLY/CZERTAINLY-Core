@@ -157,6 +157,13 @@ public class CmpTestUtil {
         return revocationBody(serialNumber, extGenerator.generate());
     }
 
+    /** A revocation body whose reasonCode extension carries a non-ENUMERATED (malformed) value. */
+    public static PKIBody createRevocationBodyWithMalformedReason(BigInteger serialNumber) throws IOException {
+        ExtensionsGenerator extGenerator = new ExtensionsGenerator();
+        extGenerator.addExtension(Extension.reasonCode, false, new ASN1Integer(4));
+        return revocationBody(serialNumber, extGenerator.generate());
+    }
+
     private static PKIBody revocationBody(BigInteger serialNumber, Extensions crlEntryDetails) {
         CertTemplateBuilder myCertTemplate = new CertTemplateBuilder();
         myCertTemplate.setIssuer(new X500Name("CN=ManagementCA"));

@@ -223,9 +223,15 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
 
     private CertificateRevocationReason getReason(RevDetails revocation) {
         // crlEntryDetails / reasonCode are OPTIONAL (RFC 4210 §5.3.9); a reason-less rr
-        // defaults to UNSPECIFIED.
-        Optional<BigInteger> reasonCode =
-                RevocationReasonCodec.requestedReasonCode(revocation.getCrlEntryDetails());
+        // defaults to UNSPECIFIED. BodyRevocationValidator rejects malformed/unmappable codes
+        // upstream, so a parse failure here is defense-in-depth: default rather than propagate.
+        Optional<BigInteger> reasonCode;
+        try {
+            reasonCode = RevocationReasonCodec.requestedReasonCode(revocation.getCrlEntryDetails());
+        } catch (IllegalArgumentException e) {
+            LOG.warn("Malformed CMP revocation reasonCode defaulted to UNSPECIFIED", e);
+            return CertificateRevocationReason.UNSPECIFIED;
+        }
         if (reasonCode.isEmpty()) {
             return CertificateRevocationReason.UNSPECIFIED;
         }

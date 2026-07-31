@@ -10,6 +10,7 @@ import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIHeader;
 import org.bouncycastle.asn1.cmp.PKIHeaderBuilder;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.cmp.RevDetails;
 import org.bouncycastle.asn1.cmp.RevReqContent;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.math.BigInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -110,6 +112,21 @@ class BodyRevocationValidatorTest {
     }
 
     @Test
+    void rejectsRr_withMalformedReasonCode() {
+        // A reasonCode extension whose value is not an ENUMERATED (here an INTEGER) is
+        // malformed wire input; the validator must surface a badDataFormat rejection rather
+        // than letting the ASN.1 parse throw an unchecked exception.
+        PKIMessage msg = rrMessage(fullCertTemplate(), malformedReasonExtensions());
+
+        // Malformed wire input must surface as a badDataFormat CMP rejection, not an unchecked
+        // exception leaking the raw ASN.1 parse error out of the validator.
+        assertThatThrownBy(() -> new BodyRevocationValidator().validateIn(msg, null))
+                .isInstanceOf(CmpProcessingException.class)
+                .satisfies(ex -> assertThat(((CmpProcessingException) ex).getFailureInfo())
+                        .isEqualTo(PKIFailureInfo.badDataFormat));
+    }
+
+    @Test
     void rejectsRr_withoutSerialNumber() {
         PKIMessage msg = rrMessage(certTemplateWithoutSerialNumber(), reasonCodeExtensions(4));
 
@@ -156,6 +173,17 @@ class BodyRevocationValidatorTest {
         try {
             ExtensionsGenerator g = new ExtensionsGenerator();
             g.addExtension(Extension.reasonCode, false, new ASN1Enumerated(code));
+            return g.generate();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static Extensions malformedReasonExtensions() {
+        try {
+            ExtensionsGenerator g = new ExtensionsGenerator();
+            // Wrong ASN.1 type for reasonCode — INTEGER instead of ENUMERATED.
+            g.addExtension(Extension.reasonCode, false, new ASN1Integer(4));
             return g.generate();
         } catch (IOException e) {
             throw new IllegalStateException(e);

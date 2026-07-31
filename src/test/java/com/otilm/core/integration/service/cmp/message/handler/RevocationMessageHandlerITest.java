@@ -633,6 +633,44 @@ class RevocationMessageHandlerITest extends BaseSpringBootTest {
         assertEquals(CertificateRevocationReason.UNSPECIFIED, captor.getValue().getReason());
     }
 
+    /**
+     * Defense-in-depth: a malformed reasonCode (not a well-formed ENUMERATED) reaching the
+     * handler directly must default to UNSPECIFIED rather than propagating the ASN.1 parse
+     * failure. BodyRevocationValidator rejects such input as badDataFormat upstream.
+     */
+    @Test
+    @Transactional
+    void test_handle_revocation_fallsBackToUnspecified_whenReasonCodeMalformed() throws Exception {
+        revokedCertificate.setState(CertificateState.ISSUED);
+        revokedCertificate.setRaProfile(raProfile);
+        revokedCertificate.setRaProfileUuid(raProfile.getUuid());
+        certificateRepository.save(revokedCertificate);
+
+        String trxId = "787";
+        PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
+                        trxId,
+                        CmpTestUtil.generateKeyPairEC().getPrivate(),
+                        CmpTestUtil.createRevocationBodyWithMalformedReason(
+                                x509Certificate.getSerialNumber()))
+                .toASN1Structure();
+
+        given(pollFeature.pollCertificate(any(), any(), any(), any()))
+                .willReturn(new PollResult.Reached(revokedCertificate));
+
+        testedHandler.handle(request,
+                new Mobile3gppProfileContext(cmpProfileSigPrt,
+                        raProfile,
+                        request,
+                        certificateKeyService,
+                        null,
+                        null));
+
+        ArgumentCaptor<ClientCertificateRevocationDto> captor =
+                ArgumentCaptor.forClass(ClientCertificateRevocationDto.class);
+        verify(clientOperationService).revokeCertificate(any(), any(), any(), captor.capture());
+        assertEquals(CertificateRevocationReason.UNSPECIFIED, captor.getValue().getReason());
+    }
+
     // ----------------------------------------------------------------------------------------------------------
     // HELPER METHODS
     // ----------------------------------------------------------------------------------------------------------
