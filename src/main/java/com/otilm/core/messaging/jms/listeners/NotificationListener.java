@@ -44,9 +44,16 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.*;
 
+/**
+ * Rolls back on checked exceptions too, rather than leaving Spring's default to be inferred: several methods here
+ * declare {@code NotFoundException} and {@code ConnectorException}, and under the default rules one escaping would
+ * commit whatever the message had accumulated -- a repetition counter advanced for a notification that failed.
+ * Nothing the recipients depend on rides on this transaction: internal notifications and trigger history each
+ * commit in one of their own, so they survive a rollback here by design.
+ */
 @Component
 @AllArgsConstructor
-@Transactional
+@Transactional(rollbackFor = Exception.class)
 public class NotificationListener implements MessageProcessor<NotificationMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
