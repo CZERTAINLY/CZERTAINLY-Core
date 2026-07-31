@@ -153,7 +153,7 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testObjectRecipient_certificateWithoutCustomAttribute_connectorNotCalled() {
+    void testObjectRecipient_certificateWithoutCustomAttribute_connectorCalledWithoutMappedAttribute() {
         // No updateObjectCustomAttributeContent call — this certificate has no attribute value set
         UUID certificateWithoutAttribute = UUID.randomUUID();
 
@@ -166,14 +166,14 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         // Processing must not throw — missing attribute is handled gracefully
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        // The OBJECT recipient carries no contact details, so there is nobody to deliver to. Calling the
-        // connector with an empty recipient list only earns a rejection from a provider that needs addresses.
-        mockServer.verify(0, WireMock.postRequestedFor(
+        // Still handed to the connector: whether an empty recipient list can be delivered is the provider's call.
+        // One needing addresses rejects it and says so; one posting to its own URL delivers regardless.
+        mockServer.verify(1, WireMock.postRequestedFor(
                 WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
     }
 
     @Test
-    void testObjectRecipient_requiredMappingAttributeMissingOnCertificate_connectorNotCalled() {
+    void testObjectRecipient_requiredMappingAttributeMissingOnCertificate_connectorCalledWithEmptyRecipients() {
         // Override the @BeforeEach stub: the connector now declares the attribute as required.
         // WireMock matches stubs in reverse registration order, so this takes precedence.
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping"))
@@ -195,8 +195,8 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         // attributes is caught by the per-recipient exception handler, so the recipient is skipped
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        // Same outcome as the required: false case, reached via the exception path rather than the isEmpty() guard
-        mockServer.verify(0, WireMock.postRequestedFor(
+        // Same outcome as the required: false case, reached via the exception path rather than the empty result
+        mockServer.verify(1, WireMock.postRequestedFor(
                 WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
     }
 

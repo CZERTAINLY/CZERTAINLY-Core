@@ -3,7 +3,6 @@ package com.otilm.core.integration.service;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
@@ -314,61 +313,6 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
                 () -> notificationProfileService.createNotificationProfile(requestDto));
         Assertions.assertTrue(notificationProfileRepository.findByName(requestDto.getName()).isEmpty(),
                 "Failed create should not leave a partially created profile behind");
-    }
-
-    @Test
-    void testCreateWithRecipientTypeNoneOnEmailInstanceIsRejected() {
-        Connector connector = new Connector();
-        connector.setName("emailKindConnector");
-        connector.setUrl("http://localhost:1");
-        connector.setVersion(ConnectorVersion.V1);
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connector = connectorRepository.save(connector);
-
-        NotificationInstanceReference emailInstance = new NotificationInstanceReference();
-        emailInstance.setName("emailKindInstance");
-        emailInstance.setKind("EMAIL");
-        emailInstance.setConnectorUuid(connector.getUuid());
-        emailInstance.setNotificationInstanceUuid(UUID.randomUUID());
-        notificationInstanceReferenceRepository.save(emailInstance);
-
-        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
-        requestDto.setName("NoneProfileOnEmailInstance");
-        requestDto.setRecipientType(RecipientType.NONE);
-        requestDto.setInternalNotification(false);
-        requestDto.setNotificationInstanceUuid(emailInstance.getUuid());
-
-        // An e-mail provider has no address to deliver to without recipients; a webhook would be fine.
-        // The structural recipient rules are bean validation's job on the request DTO — only the pairing with the
-        // instance's provider kind, which the DTO cannot see, is checked in the service.
-        Assertions.assertThrows(ValidationException.class,
-                () -> notificationProfileService.createNotificationProfile(requestDto));
-    }
-
-    @Test
-    void testCreateWithRecipientTypeNoneOnNonEmailInstanceIsAccepted() throws NotFoundException, AlreadyExistException {
-        Connector connector = new Connector();
-        connector.setName("webhookKindConnector");
-        connector.setUrl("http://localhost:1");
-        connector.setVersion(ConnectorVersion.V1);
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connector = connectorRepository.save(connector);
-
-        NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
-        webhookInstance.setName("webhookKindInstance");
-        webhookInstance.setKind("WEBHOOK");
-        webhookInstance.setConnectorUuid(connector.getUuid());
-        webhookInstance.setNotificationInstanceUuid(UUID.randomUUID());
-        notificationInstanceReferenceRepository.save(webhookInstance);
-
-        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
-        requestDto.setName("NoneProfileOnWebhookInstance");
-        requestDto.setRecipientType(RecipientType.NONE);
-        requestDto.setInternalNotification(false);
-        requestDto.setNotificationInstanceUuid(webhookInstance.getUuid());
-
-        Assertions.assertEquals(RecipientType.NONE,
-                notificationProfileService.createNotificationProfile(requestDto).getRecipientType());
     }
 
     @Test

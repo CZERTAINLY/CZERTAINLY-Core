@@ -33,7 +33,6 @@ import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
-import com.otilm.core.util.NotificationProviderKinds;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -51,6 +50,7 @@ import java.util.*;
 public class NotificationListener implements MessageProcessor<NotificationMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
+    private static final String EMAIL_NOTIFICATION_PROVIDER_KIND = "EMAIL";
 
     private ObjectMapper mapper;
     private AttributeEngine attributeEngine;
@@ -169,8 +169,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             logger.debug("Sending notification message externally. Notification instance UUID: {}", notificationInstanceUUID);
             try {
                 if (!sendExternalNotifications(notificationInstanceUUID, recipients, message.getData(), message.getEvent(), message.getResource())) {
-                    handleNotificationErrorWithWarnLog("Notification profile %s in event %s resolved no recipients its notification instance could deliver to; skipping external notification.".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
-                    return false;
+                    // The connector still received the notification -- reported so a recipient that never resolves
+                    // is visible, rather than the notification quietly reaching fewer people than configured.
+                    handleNotificationErrorWithWarnLog("Notification profile %s in event %s could not prepare all of its recipients for delivery.".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
                 }
                 logger.debug("Sending notification message externally successful.");
                 notificationSent = true;
@@ -322,22 +323,19 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     }
 
     /**
-     * Whether the connector was called. Delivering to nobody is only a failure for a provider that delivers to
-     * addresses; one that posts to the URL configured on its own instance takes an empty recipient list as normal
-     * input, so the decision keys on the instance's kind rather than on the profile's recipient type -- a
-     * recipient type resolves to nothing for several ordinary reasons, none of which tell us what the provider
-     * can do.
+     * Whether every named recipient was prepared for delivery. The notification is handed to the connector either
+     * way: only the provider knows whether it can deliver without recipients -- a webhook posts to the URL on its
+     * own instance and ignores them, while an e-mail provider has no address and rejects the request, saying so.
+     * Deciding that here would mean guessing from the instance's kind, which is a string the connector chooses,
+     * and guessing "cannot deliver" wrongly loses the notification silently.
+     *
+     * @return false when some named recipient could not be prepared, so the caller can report the gap.
      */
     private boolean sendExternalNotifications(UUID notificationInstanceUUID, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent
             event, Resource resource) throws ConnectorException, ValidationException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
         if (notificationInstanceReference.getConnectorUuid() == null) {
             throw new ValidationException("Notification instance does not have assigned connector");
-        }
-
-        boolean recipientsRequired = NotificationProviderKinds.requiresRecipients(notificationInstanceReference.getKind());
-        if (recipients.isEmpty() && recipientsRequired) {
-            return false;
         }
 
         List<DataAttribute> mappingAttributes;
@@ -378,10 +376,6 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             }
         }
 
-        if (recipientsDto.isEmpty() && recipientsRequired) {
-            return false;
-        }
-
         NotificationProviderNotifyRequestDto notificationProviderNotifyRequestDto = new NotificationProviderNotifyRequestDto();
         notificationProviderNotifyRequestDto.setNotificationData(notificationData);
         notificationProviderNotifyRequestDto.setResource(resource);
@@ -395,7 +389,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             logger.error("Cannot send notification to connector: {}", e.getMessage());
             throw e;
         }
-        return true;
+        return recipientsDto.size() == recipients.size();
     }
 
     private NotificationRecipientDto constructNotificationRecipientDto(NotificationRecipient recipient, String
@@ -411,7 +405,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             case ROLE -> {
                 RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(recipient.getRecipientUuid().toString());
                 String email = roleDetailDto.getEmail();
-                if (NotificationProviderKinds.requiresRecipients(notificationProviderKind)
+                if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)
                         && (email == null || email.isBlank())) {
                     throw new NotSupportedException("Role does not have specified email");
                 }
@@ -422,7 +416,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             case GROUP -> {
                 Group group = groupRepository.findByUuid(recipient.getRecipientUuid()).orElseThrow();
                 String email = group.getEmail();
-                if (NotificationProviderKinds.requiresRecipients(notificationProviderKind)
+                if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)
                         && (email == null || email.isBlank())) {
                     throw new NotSupportedException("Group does not have specified email");
                 }
@@ -431,8 +425,8 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 recipientDto.setEmail(email);
             }
             case NONE -> {
-                if (NotificationProviderKinds.requiresRecipients(notificationProviderKind)) {
-                    throw new NotSupportedException("Notification recipient type None is not supported for kind " + notificationProviderKind);
+                if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)) {
+                    throw new NotSupportedException("Notification recipient type None is not supported for kind " + EMAIL_NOTIFICATION_PROVIDER_KIND);
                 }
 
                 recipientDto = null;
