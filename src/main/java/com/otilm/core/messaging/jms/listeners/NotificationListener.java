@@ -87,10 +87,8 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
 
         if (message.getNotificationProfileUuids() == null) {
             try {
-                List<NotificationRecipient> recipients = message.getRecipients();
-                if (sendInternalNotifications(recipients, getInternalNotificationData(message), message.getResource(), message.getObjectUuid()) == 0 && !recipients.isEmpty()) {
-                    handleNotificationErrorWithWarnLog("Event %s on %s %s notified no one internally; its %d recipient(s) resolved to no users.".formatted(message.getEvent(), message.getResource(), message.getObjectUuid(), recipients.size()), message);
-                }
+                InternalNotificationOutcome outcome = sendInternalNotifications(message.getRecipients(), getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
+                reportInternalNotificationGap(outcome, "Event %s on %s %s".formatted(message.getEvent(), message.getResource(), message.getObjectUuid()), message);
             } catch (Exception e) {
                 logger.error("Error in internal notification: {}", e.toString());
             }
@@ -144,13 +142,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         // send internal notification when not Default recipient type. Default internal notifications for events are sent in corresponding event handlers
         if (sendInternalNotifications) {
             try {
-                if (sendInternalNotifications(recipients, getInternalNotificationData(message), message.getResource(), message.getObjectUuid()) > 0) {
-                    notificationSent = true;
-                } else {
-                    // Reported, not silent: an event that notified nobody must not burn the profile's repetition
-                    // budget, and the operator needs to see that the profile's recipients resolve to no one.
-                    handleNotificationErrorWithWarnLog("Notification profile %s in event %s notified no one internally; its recipients resolved to no users.".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
-                }
+                InternalNotificationOutcome outcome = sendInternalNotifications(recipients, getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
+                notificationSent = outcome.notified() > 0;
+                reportInternalNotificationGap(outcome, "Notification profile %s in event %s".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
             } catch (ValidationException e) {
                 handleNotificationErrorWithErrorLog("Error in internal notification: %s".formatted(e.toString()), message);
             }
@@ -184,6 +178,19 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             }
         }
         return notificationSent;
+    }
+
+    /**
+     * Reports what the internal notification did not manage to do, so a recipient that never gets notified is
+     * visible on trigger history rather than only in a log line. Recipients that failed are reported even when
+     * others succeeded -- the external path reports its equivalent gap the same way.
+     */
+    private void reportInternalNotificationGap(InternalNotificationOutcome outcome, String context, NotificationMessage message) {
+        if (outcome.failed() > 0) {
+            handleNotificationErrorWithWarnLog("%s could not notify %d of its %d internal recipient(s).".formatted(context, outcome.failed(), outcome.total()), message);
+        } else if (outcome.notifiedNoOne()) {
+            handleNotificationErrorWithWarnLog("%s notified no one internally; its %d recipient(s) resolved to no users.".formatted(context, outcome.total()), message);
+        }
     }
 
     private void handleNotificationErrorWithErrorLog(String errorMessage, NotificationMessage message) {
@@ -240,6 +247,24 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 && (notificationProfileVersion.getRepetitions() == null || pendingNotification.getRepetitions() < notificationProfileVersion.getRepetitions());
     }
 
+    /**
+     * Reads through collaborators that carry their own {@code @Transactional} are made in a transaction of their
+     * own. Joining this listener's transaction, anything unchecked they raise marks it rollback-only past the catch
+     * that handles it: the notification still goes out to the connector, and the commit then fails and rolls local
+     * state back behind a delivery that already happened.
+     */
+    private NameAndUuidDto ownerOf(Resource resource, UUID objectUuid) {
+        return transactionHandler.runInNewTransaction(() -> resourceObjectAssociationService.getOwner(resource, objectUuid));
+    }
+
+    private List<UUID> groupUuidsOf(Resource resource, UUID objectUuid) {
+        return transactionHandler.runInNewTransaction(() -> resourceObjectAssociationService.getGroupUuids(resource, objectUuid));
+    }
+
+    private List<ResponseAttribute> customAttributesOf(Resource resource, UUID objectUuid) {
+        return transactionHandler.runInNewTransaction(() -> attributeEngine.getObjectCustomAttributesContentForSystemContext(resource, objectUuid));
+    }
+
     private List<NotificationRecipient> getRecipients(RecipientType recipientType, List<UUID> recipientUuids, ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
         if (recipientType == RecipientType.OBJECT) {
             return List.of(new NotificationRecipient(RecipientType.OBJECT, objectUuid));
@@ -250,7 +275,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         if (recipientType == RecipientType.OWNER) {
-            NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
+            NameAndUuidDto ownerInfo = ownerOf(resource, objectUuid);
             if (ownerInfo == null) return List.of();
             return List.of(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
         }
@@ -275,12 +300,12 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         switch (event) {
             case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING,
                  CERTIFICATE_NOT_COMPLIANT, CERTIFICATE_UPLOADED -> {
-                NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
+                NameAndUuidDto ownerInfo = ownerOf(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
                 }
 
-                for (UUID groupUuid : resourceObjectAssociationService.getGroupUuids(resource, objectUuid)) {
+                for (UUID groupUuid : groupUuidsOf(resource, objectUuid)) {
                     recipients.add(new NotificationRecipient(RecipientType.GROUP, groupUuid));
                 }
             }
@@ -312,7 +337,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             }
             case CERTIFICATE_REGISTERED -> {
                 // Owner only by default (no groups) — a credential-bearing event; a profile can override.
-                NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
+                NameAndUuidDto ownerInfo = ownerOf(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
                 }
@@ -362,7 +387,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                         ? resource
                         : recipient.getRecipientType().getRecipientResource();
                 // Unauthenticated lookup is correct here, since the access to the custom attributes has been resolved when defining mapping attributes.
-                List<ResponseAttribute> recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContentForSystemContext(customAttributeResource, recipient.getRecipientUuid());
+                List<ResponseAttribute> recipientCustomAttributes = customAttributesOf(customAttributeResource, recipient.getRecipientUuid());
                 // prepare mapped attributes
                 List<RequestAttribute> mappedAttributes = getMappedAttributes(notificationInstanceReference, mappingAttributes, recipientCustomAttributes);
                 if (recipient.getRecipientType() == RecipientType.OBJECT && mappedAttributes.isEmpty()) {
@@ -477,13 +502,21 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     }
 
     /**
-     * @return how many recipients actually received a notification. Fewer than were asked for means some resolved
-     * to nobody or failed; none at all means the event notified no one, which the caller must not report as sent.
+     * What became of each recipient of one event. A recipient that resolved to no users is neither notified nor
+     * failed -- an empty group is configuration, while a failure is something the operator has to act on -- so the
+     * two are counted apart and reported differently.
      */
-    private int sendInternalNotifications(List<NotificationRecipient> recipients, InternalNotificationEventData
+    private record InternalNotificationOutcome(int notified, int failed, int total) {
+        boolean notifiedNoOne() {
+            return notified == 0 && total > 0;
+        }
+    }
+
+    private InternalNotificationOutcome sendInternalNotifications(List<NotificationRecipient> recipients, InternalNotificationEventData
             notificationData, Resource resource, UUID objectUuid) {
         logger.debug("Sending internal notification. Message: {}. Detail: {}", notificationData.getText(), notificationData.getDetail());
         int notified = 0;
+        int failed = 0;
         for (NotificationRecipient recipient : recipients) {
             try {
                 // Each recipient commits on its own. Anything unchecked raised while creating one would otherwise
@@ -494,11 +527,12 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 }
             } catch (Exception e) {
                 // Recipients are independent, so one that cannot be notified must not cost the rest their notification.
+                ++failed;
                 logger.warn("Internal notification could not be created for {} with UUID {}: {}",
                         recipient.getRecipientType().getLabel(), recipient.getRecipientUuid(), e.getMessage());
             }
         }
-        return notified;
+        return new InternalNotificationOutcome(notified, failed, recipients.size());
     }
 
     /**

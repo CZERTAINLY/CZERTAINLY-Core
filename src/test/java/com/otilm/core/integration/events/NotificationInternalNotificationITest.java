@@ -33,6 +33,7 @@ class NotificationInternalNotificationITest extends BaseSpringBootTest {
 
     private static final int AUTH_SERVICE_MOCK_PORT = 10001;
     private static final UUID EMPTY_GROUP_UUID = UUID.randomUUID();
+    private static final UUID BROKEN_ROLE_UUID = UUID.randomUUID();
 
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
@@ -108,6 +109,32 @@ class NotificationInternalNotificationITest extends BaseSpringBootTest {
         Assertions.assertTrue(notifications.stream()
                         .allMatch(n -> certificateUuid.toString().equals(n.getTargetObjectIdentification())),
                 "each notification targets the certificate the event was raised for");
+    }
+
+    /**
+     * The memberless-group case no longer throws, so on its own it cannot prove the isolation: only a recipient
+     * that genuinely fails inside a transactional collaborator does. The auth service returns a malformed user
+     * UUID for this role, so {@code createNotificationForUsers} raises an unchecked exception from inside its own
+     * {@code @Transactional} boundary -- which, without a transaction of its own, marks the listener's transaction
+     * rollback-only and takes both users' notifications down with it at commit.
+     */
+    @Test
+    void recipientFailingInsideATransactionalCollaboratorIsIsolatedFromTheOthers() {
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/" + BROKEN_ROLE_UUID + "/users"))
+                .willReturn(WireMock.okJson("""
+                        [{"uuid": "not-a-uuid", "username": "broken", "enabled": true, "systemUser": false, "groups": []}]
+                        """)));
+
+        NotificationMessage message = statusChangedMessage(UUID.randomUUID(),
+                List.of(new NotificationRecipient(RecipientType.USER, UUID.randomUUID()),
+                        new NotificationRecipient(RecipientType.ROLE, BROKEN_ROLE_UUID),
+                        new NotificationRecipient(RecipientType.USER, UUID.randomUUID())));
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message),
+                "the failing recipient must not surface as UnexpectedRollbackException on commit");
+
+        Assertions.assertEquals(2, notificationRepository.findAll().size(),
+                "both users keep their notification despite the recipient that failed between them");
     }
 
     @Test
