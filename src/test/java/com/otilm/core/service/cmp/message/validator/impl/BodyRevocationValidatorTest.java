@@ -22,6 +22,8 @@ import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -68,30 +70,12 @@ class BodyRevocationValidatorTest {
                 .doesNotThrowAnyException();
     }
 
-    @Test
-    void rejectsRr_withUnusedReasonCode_7() {
-        PKIMessage msg = rrMessage(fullCertTemplate(), reasonCodeExtensions(7));
-
-        // reasonCode 7 is unused per RFC 5280 — no CertificateRevocationReason maps to it.
-        assertThatThrownBy(() -> new BodyRevocationValidator().validateIn(msg, null))
-                .isInstanceOf(CmpProcessingException.class)
-                .hasMessageContaining("is not supported");
-    }
-
-    @Test
-    void rejectsRr_withRemoveFromCrlReasonCode_8() {
-        PKIMessage msg = rrMessage(fullCertTemplate(), reasonCodeExtensions(8));
-
-        // reasonCode 8 (removeFromCRL) is an un-revoke this path cannot perform — reject
-        // rather than silently record it as UNSPECIFIED.
-        assertThatThrownBy(() -> new BodyRevocationValidator().validateIn(msg, null))
-                .isInstanceOf(CmpProcessingException.class)
-                .hasMessageContaining("is not supported");
-    }
-
-    @Test
-    void rejectsRr_withReasonCodeAboveRange_11() {
-        PKIMessage msg = rrMessage(fullCertTemplate(), reasonCodeExtensions(11));
+    // 7 (unused per RFC 5280), 8 (removeFromCRL — an un-revoke this path cannot perform) and
+    // 11 (out of range): none maps to a CertificateRevocationReason, all must be rejected.
+    @ParameterizedTest
+    @ValueSource(ints = {7, 8, 11})
+    void rejectsRr_withUnsupportedReasonCode(int reasonCode) {
+        PKIMessage msg = rrMessage(fullCertTemplate(), reasonCodeExtensions(reasonCode));
 
         assertThatThrownBy(() -> new BodyRevocationValidator().validateIn(msg, null))
                 .isInstanceOf(CmpProcessingException.class)
