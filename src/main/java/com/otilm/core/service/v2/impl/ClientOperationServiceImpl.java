@@ -2079,7 +2079,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         }
         final Certificate certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         if (certificate.getState() != CertificateState.ISSUED && certificate.getState() != CertificateState.PENDING_APPROVAL) {
-            throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate in state %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
+            throw new ValidationException(ValidationError.create(String.format("Cannot revoke certificate in state %s. Certificate: %s", certificate.getState().getLabel(), certificate.toStringShort())));
         }
         final CertificateState entryState = certificate.getState();
 
