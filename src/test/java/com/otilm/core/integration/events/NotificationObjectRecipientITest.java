@@ -68,6 +68,7 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     private WireMockServer mockServer;
     private CustomAttributeDefinitionDetailDto customAttr;
     private NotificationProfileDetailDto profile;
+    private UUID connectorUuid;
 
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException, NotFoundException {
@@ -101,10 +102,12 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
+        connectorUuid = connector.getUuid();
+
         NotificationInstanceReference instance = new NotificationInstanceReference();
         instance.setName("testObjectRecipientInstance");
         instance.setKind("EMAIL");
-        instance.setConnectorUuid(connector.getUuid());
+        instance.setConnectorUuid(connectorUuid);
         instance.setNotificationInstanceUuid(UUID.randomUUID());
         notificationInstanceReferenceRepository.save(instance);
 
@@ -202,20 +205,8 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
      * so there is nothing to resolve and an empty recipient list is the contract, not a failure to deliver.
      */
     @Test
-    void testNoneRecipient_connectorCalledWithoutRecipients() throws AlreadyExistException, NotFoundException {
-        NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
-        webhookInstance.setName("testWebhookInstance");
-        webhookInstance.setKind("WEBHOOK");
-        webhookInstance.setConnectorUuid(notificationInstanceReferenceRepository.findAll().getFirst().getConnectorUuid());
-        webhookInstance.setNotificationInstanceUuid(UUID.randomUUID());
-        notificationInstanceReferenceRepository.save(webhookInstance);
-
-        NotificationProfileRequestDto noneProfileRequest = new NotificationProfileRequestDto();
-        noneProfileRequest.setName("noneRecipientProfile");
-        noneProfileRequest.setRecipientType(RecipientType.NONE);
-        noneProfileRequest.setInternalNotification(false);
-        noneProfileRequest.setNotificationInstanceUuid(webhookInstance.getUuid());
-        NotificationProfileDetailDto noneProfile = notificationProfileService.createNotificationProfile(noneProfileRequest);
+    void testNoneRecipient_onNonEmailInstance_connectorCalledWithoutRecipients() throws AlreadyExistException, NotFoundException {
+        NotificationProfileDetailDto noneProfile = webhookProfile("noneRecipientProfile", RecipientType.NONE);
 
         NotificationMessage message = new NotificationMessage(
                 ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
@@ -228,6 +219,44 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         mockServer.verify(1, WireMock.postRequestedFor(
                 WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
                 .withRequestBody(WireMock.matchingJsonPath("$.recipients", WireMock.equalToJson("[]"))));
+    }
+
+    /**
+     * Whether an empty recipient list blocks delivery is a property of the provider, not of the recipient type. The
+     * webhook provider declares no mapping attributes at all, so every OBJECT recipient is skipped and the list is
+     * always empty -- suppressing the call on that basis would stop webhook delivery entirely.
+     */
+    @Test
+    void testObjectRecipient_onNonEmailInstance_connectorStillCalled() throws AlreadyExistException, NotFoundException {
+        NotificationProfileDetailDto objectProfileOnWebhook = webhookProfile("objectRecipientWebhookProfile", RecipientType.OBJECT);
+
+        // No custom attribute value on this certificate, so nothing resolves for the OBJECT recipient
+        NotificationMessage message = new NotificationMessage(
+                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
+                UUID.randomUUID(),
+                List.of(UUID.fromString(objectProfileOnWebhook.getUuid())),
+                List.of(), null);
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
+
+        mockServer.verify(1, WireMock.postRequestedFor(
+                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+    }
+
+    private NotificationProfileDetailDto webhookProfile(String name, RecipientType recipientType) throws AlreadyExistException, NotFoundException {
+        NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
+        webhookInstance.setName("testWebhookInstance-" + name);
+        webhookInstance.setKind("WEBHOOK");
+        webhookInstance.setConnectorUuid(connectorUuid);
+        webhookInstance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(webhookInstance);
+
+        NotificationProfileRequestDto profileRequest = new NotificationProfileRequestDto();
+        profileRequest.setName(name);
+        profileRequest.setRecipientType(recipientType);
+        profileRequest.setInternalNotification(false);
+        profileRequest.setNotificationInstanceUuid(webhookInstance.getUuid());
+        return notificationProfileService.createNotificationProfile(profileRequest);
     }
 
     @Test

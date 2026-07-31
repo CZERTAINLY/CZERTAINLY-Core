@@ -23,9 +23,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * A group or role that resolves to no users is ordinary configuration. Reporting it by throwing would mark the
- * caller's shared transaction rollback-only past its catch, taking the notifications created for the event's other
- * recipients with it.
+ * A group or role that resolves to no users is ordinary configuration, so it is reported by returning null. The
+ * caller counts what was created and reports an event that reached no one; see
+ * {@code NotificationInternalNotificationITest} for that half of the contract.
  */
 class NotificationServiceImplEmptyRecipientsTest {
 

@@ -317,32 +317,6 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateWithRecipientTypeNamingObjectsButNoRecipientsIsRejected() {
-        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
-        requestDto.setName("ProfileWithoutRecipients");
-        requestDto.setRecipientType(RecipientType.GROUP);
-        requestDto.setInternalNotification(true);
-
-        // Rejected at save time rather than resolving to nobody on a background thread when the event fires
-        Assertions.assertThrows(ValidationException.class,
-                () -> notificationProfileService.createNotificationProfile(requestDto));
-        Assertions.assertTrue(notificationProfileRepository.findByName(requestDto.getName()).isEmpty(),
-                "Rejected create should not leave a profile behind");
-    }
-
-    @Test
-    void testCreateWithRecipientTypeNoneCarryingRecipientsIsRejected() {
-        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
-        requestDto.setName("NoneProfileWithRecipients");
-        requestDto.setRecipientType(RecipientType.NONE);
-        requestDto.setRecipientUuids(List.of(UUID.randomUUID()));
-        requestDto.setInternalNotification(true);
-
-        Assertions.assertThrows(ValidationException.class,
-                () -> notificationProfileService.createNotificationProfile(requestDto));
-    }
-
-    @Test
     void testCreateWithRecipientTypeNoneOnEmailInstanceIsRejected() {
         Connector connector = new Connector();
         connector.setName("emailKindConnector");
@@ -364,20 +338,37 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
         requestDto.setInternalNotification(false);
         requestDto.setNotificationInstanceUuid(emailInstance.getUuid());
 
-        // An e-mail provider has no address to deliver to without recipients; a webhook would be fine
+        // An e-mail provider has no address to deliver to without recipients; a webhook would be fine.
+        // The structural recipient rules are bean validation's job on the request DTO — only the pairing with the
+        // instance's provider kind, which the DTO cannot see, is checked in the service.
         Assertions.assertThrows(ValidationException.class,
                 () -> notificationProfileService.createNotificationProfile(requestDto));
     }
 
     @Test
-    void testEditWithRecipientTypeNamingObjectsButNoRecipientsIsRejected() {
-        NotificationProfileUpdateRequestDto requestDto = new NotificationProfileUpdateRequestDto();
-        requestDto.setRecipientType(RecipientType.USER);
-        requestDto.setInternalNotification(true);
-        SecuredUUID profileUuid = SecuredUUID.fromString(originalNotificationProfile.getUuid());
+    void testCreateWithRecipientTypeNoneOnNonEmailInstanceIsAccepted() throws NotFoundException, AlreadyExistException {
+        Connector connector = new Connector();
+        connector.setName("webhookKindConnector");
+        connector.setUrl("http://localhost:1");
+        connector.setVersion(ConnectorVersion.V1);
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connector = connectorRepository.save(connector);
 
-        Assertions.assertThrows(ValidationException.class,
-                () -> notificationProfileService.editNotificationProfile(profileUuid, requestDto));
+        NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
+        webhookInstance.setName("webhookKindInstance");
+        webhookInstance.setKind("WEBHOOK");
+        webhookInstance.setConnectorUuid(connector.getUuid());
+        webhookInstance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(webhookInstance);
+
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("NoneProfileOnWebhookInstance");
+        requestDto.setRecipientType(RecipientType.NONE);
+        requestDto.setInternalNotification(false);
+        requestDto.setNotificationInstanceUuid(webhookInstance.getUuid());
+
+        Assertions.assertEquals(RecipientType.NONE,
+                notificationProfileService.createNotificationProfile(requestDto).getRecipientType());
     }
 
     @Test

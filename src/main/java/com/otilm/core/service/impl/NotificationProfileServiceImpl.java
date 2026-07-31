@@ -22,6 +22,7 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
+import com.otilm.core.util.NotificationProviderKinds;
 import com.otilm.core.util.RequestValidatorHelper;
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -36,10 +37,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -48,10 +47,6 @@ import java.util.stream.Collectors;
 public class NotificationProfileServiceImpl implements NotificationProfileExternalService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationProfileServiceImpl.class);
-    private static final String EMAIL_NOTIFICATION_PROVIDER_KIND = "EMAIL";
-
-    /** Recipient types that name inventory objects to notify, as opposed to resolving them from the event. */
-    private static final Set<RecipientType> RECIPIENT_TYPES_NAMING_OBJECTS = EnumSet.of(RecipientType.USER, RecipientType.GROUP, RecipientType.ROLE);
 
     private NotificationProfileServiceImpl self;
     private NotificationProfileRepository notificationProfileRepository;
@@ -145,8 +140,9 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
         if (notificationProfileRepository.findByName(requestDto.getName()).isPresent()) {
             throw new AlreadyExistException("Notification profile with name " + requestDto.getName() + " already exists.");
         }
-        validateRecipientConfiguration(requestDto.getRecipientType(), requestDto.getRecipientUuids(),
-                validateNotificationInstanceExists(requestDto.getNotificationInstanceUuid()));
+        // The instance lookup runs first so an unknown instance reports as not-found rather than as a recipient error
+        NotificationInstanceReference notificationInstance = validateNotificationInstanceExists(requestDto.getNotificationInstanceUuid());
+        validateRecipientConfiguration(requestDto.getRecipientType(), notificationInstance);
 
         NotificationProfile notificationProfile = new NotificationProfile();
         notificationProfile.setName(requestDto.getName());
@@ -173,8 +169,9 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
     @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.UPDATE)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public NotificationProfileDetailDto editNotificationProfile(SecuredUUID uuid, NotificationProfileUpdateRequestDto updateRequestDto) throws NotFoundException {
-        validateRecipientConfiguration(updateRequestDto.getRecipientType(), updateRequestDto.getRecipientUuids(),
-                validateNotificationInstanceExists(updateRequestDto.getNotificationInstanceUuid()));
+        // The instance lookup runs first so an unknown instance reports as not-found rather than as a recipient error
+        NotificationInstanceReference notificationInstance = validateNotificationInstanceExists(updateRequestDto.getNotificationInstanceUuid());
+        validateRecipientConfiguration(updateRequestDto.getRecipientType(), notificationInstance);
         // Resolve recipient info from the request before opening the write transaction: recipient lookup
         // can call the auth service over HTTP and must not hold a DB connection or the profile row lock.
         List<NameAndUuidDto> recipients = resolveRecipients(updateRequestDto.getRecipientType(), updateRequestDto.getRecipientUuids());
@@ -243,29 +240,19 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
     }
 
     /**
-     * Recipient configuration is checked when the profile is saved rather than when a notification fires: caught
-     * here it is an error the operator sees and can act on, caught at delivery time it is a warning on a background
-     * thread that nobody is watching.
+     * The structural recipient rules -- a type is required, USER/GROUP/ROLE need recipients, the others must carry
+     * none -- are already enforced by bean validation on the request DTO, so only the rule it cannot express lives
+     * here: whether the chosen type works with the notification instance's provider kind, which the DTO cannot see.
+     * Checked on save rather than at delivery so the operator gets an error instead of a warning on a background
+     * thread nobody is watching.
      */
-    private static void validateRecipientConfiguration(RecipientType recipientType, List<UUID> recipientUuids, NotificationInstanceReference notificationInstance) {
-        if (recipientType == null) {
-            throw new ValidationException("Recipient type must be specified.");
-        }
-
-        boolean hasRecipientUuids = recipientUuids != null && !recipientUuids.isEmpty();
-        if (RECIPIENT_TYPES_NAMING_OBJECTS.contains(recipientType) && !hasRecipientUuids) {
-            throw new ValidationException("Recipient type %s requires at least one recipient to be specified.".formatted(recipientType.getLabel()));
-        }
-        if (recipientType == RecipientType.NONE && hasRecipientUuids) {
-            throw new ValidationException("Recipient type %s cannot be combined with specific recipients.".formatted(recipientType.getLabel()));
-        }
-
+    private static void validateRecipientConfiguration(RecipientType recipientType, NotificationInstanceReference notificationInstance) {
         // NONE relies on the instance delivering without recipients, which an e-mail provider cannot do -- it has
         // no address to send to. Other kinds, e.g. a webhook posting to its own configured URL, can.
         if (recipientType == RecipientType.NONE && notificationInstance != null
-                && EMAIL_NOTIFICATION_PROVIDER_KIND.equals(notificationInstance.getKind())) {
-            throw new ValidationException("Recipient type %s is not supported for notification instance %s of kind %s."
-                    .formatted(recipientType.getLabel(), notificationInstance.getName(), EMAIL_NOTIFICATION_PROVIDER_KIND));
+                && NotificationProviderKinds.requiresRecipients(notificationInstance.getKind())) {
+            throw new ValidationException("Recipient type %s is not supported for notification instance %s of kind %s, which delivers to recipients."
+                    .formatted(recipientType.getLabel(), notificationInstance.getName(), notificationInstance.getKind()));
         }
     }
 

@@ -7,10 +7,9 @@ import com.otilm.api.model.core.auth.Resource;
 import java.util.List;
 
 /**
- * A group or role with no members is ordinary configuration, so the create methods report "nobody to notify" by
- * returning {@code null} rather than by throwing. Callers run inside a shared transaction, and an exception raised
- * here would mark that transaction rollback-only past any catch of theirs, discarding the notifications already
- * created for the other recipients of the same event.
+ * A group or role with no members is ordinary configuration, not a failure, so the create methods report "nobody to
+ * notify" by returning {@code null} rather than by throwing. Callers are expected to count what was actually created
+ * and report an event that reached no one, rather than to treat every return as a delivery.
  */
 public interface NotificationInternalService {
 
