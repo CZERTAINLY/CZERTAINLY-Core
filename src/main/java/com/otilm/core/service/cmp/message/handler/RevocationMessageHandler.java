@@ -19,16 +19,14 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
+import com.otilm.core.service.cmp.message.RevocationReasonCodec;
 import com.otilm.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.otilm.core.service.v2.ClientOperationInternalService;
-import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertId;
 import org.bouncycastle.asn1.crmf.CertTemplate;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigInteger;
 import java.util.Optional;
 
 /**
@@ -223,13 +222,28 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
     }
 
     private CertificateRevocationReason getReason(RevDetails revocation) {
-        Extensions crlEntryDetails = revocation.getCrlEntryDetails();
-        Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
-        int reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
-                .getValue().intValue();
-        CertificateRevocationReason reason = CertificateRevocationReason.UNSPECIFIED;
-        CertificateRevocationReason.fromReasonCode(reasonCode);
-        return reason;
+        // crlEntryDetails / reasonCode are OPTIONAL (RFC 4210 §5.3.9); a reason-less rr
+        // defaults to UNSPECIFIED. BodyRevocationValidator rejects malformed/unmappable codes
+        // upstream, so a parse failure here is defense-in-depth: default rather than propagate.
+        Optional<BigInteger> reasonCode;
+        try {
+            reasonCode = RevocationReasonCodec.requestedReasonCode(revocation.getCrlEntryDetails());
+        } catch (IllegalArgumentException e) {
+            LOG.warn("Malformed CMP revocation reasonCode defaulted to UNSPECIFIED", e);
+            return CertificateRevocationReason.UNSPECIFIED;
+        }
+        if (reasonCode.isEmpty()) {
+            return CertificateRevocationReason.UNSPECIFIED;
+        }
+        Optional<CertificateRevocationReason> reason = RevocationReasonCodec.mapReasonCode(reasonCode.get());
+        if (reason.isEmpty()) {
+            // BodyRevocationValidator rejects unmappable codes before the handler runs, so
+            // this is defense-in-depth: log if a future path ever bypasses that guard rather
+            // than silently recording the wrong reason.
+            LOG.warn("Unmappable CMP revocation reasonCode {} defaulted to UNSPECIFIED", reasonCode.get());
+            return CertificateRevocationReason.UNSPECIFIED;
+        }
+        return reason.get();
     }
 
     private void revokeCertificate(ASN1OctetString tid, RevDetails revocation, Certificate certificate,

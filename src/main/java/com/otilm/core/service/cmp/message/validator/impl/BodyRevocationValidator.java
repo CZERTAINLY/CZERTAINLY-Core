@@ -2,13 +2,15 @@ package com.otilm.core.service.cmp.message.validator.impl;
 
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
+import com.otilm.core.service.cmp.message.RevocationReasonCodec;
 import com.otilm.core.service.cmp.message.validator.BiValidator;
-import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertTemplate;
-import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
+
+import java.math.BigInteger;
+import java.util.Optional;
 
 /**
  * Validate of revocation based messages, {@link RevReqContent}
@@ -50,15 +52,24 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
         checkValueNotNull(tid, certDetails, PKIFailureInfo.badCertId, "certDetails");
         checkValueNotNull(tid, certDetails.getSerialNumber(), PKIFailureInfo.badCertId, "SerialNumber");
         checkValueNotNull(tid, certDetails.getIssuer(), PKIFailureInfo.badCertId, "Issuer");
+        // crlEntryDetails / reasonCode are OPTIONAL per RFC 4210 §5.3.9 — a reason-less rr
+        // (e.g. `openssl cmp -cmd rr` without -revreason) is valid and defaults to UNSPECIFIED.
+        // When a reasonCode is present, reject only the codes the platform cannot represent:
+        // out of range, 7 (unused, RFC 5280) and 8 (removeFromCRL — an un-revoke this path
+        // cannot perform). The check runs on the raw BigInteger so an oversized value cannot
+        // truncate into an in-range code.
         Extensions crlEntryDetails = revDetails[0].getCrlEntryDetails();
-        checkValueNotNull(tid, crlEntryDetails, PKIFailureInfo.addInfoNotAvailable, "CrlEntryDetails");
-        Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
-        checkValueNotNull(tid, reasonCodeExt, PKIFailureInfo.incorrectData, "reasonCode");
-
-        long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
-                .getValue().longValue();
-        if (reasonCode < 0 || reasonCode > 10) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat, "reasonCode is out of range <0,10>");
+        Optional<BigInteger> reasonCode;
+        try {
+            reasonCode = RevocationReasonCodec.requestedReasonCode(crlEntryDetails);
+        } catch (IllegalArgumentException e) {
+            // reasonCode extension present but not a well-formed ENUMERATED.
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                    "reasonCode is malformed", e);
+        }
+        if (reasonCode.isPresent() && RevocationReasonCodec.mapReasonCode(reasonCode.get()).isEmpty()) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                    "reasonCode " + reasonCode.get() + " is not supported");
         }
 
         return null;// validation is ok
