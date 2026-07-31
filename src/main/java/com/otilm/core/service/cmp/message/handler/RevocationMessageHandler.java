@@ -223,13 +223,22 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
     }
 
     private CertificateRevocationReason getReason(RevDetails revocation) {
+        // crlEntryDetails / reasonCode are OPTIONAL (RFC 4210 §5.3.9); a reason-less rr
+        // defaults to UNSPECIFIED. BodyRevocationValidator has already rejected any
+        // reasonCode that fromReasonCode cannot map, so the null-fallback here is only
+        // defense-in-depth.
         Extensions crlEntryDetails = revocation.getCrlEntryDetails();
+        if (crlEntryDetails == null) {
+            return CertificateRevocationReason.UNSPECIFIED;
+        }
         Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
+        if (reasonCodeExt == null) {
+            return CertificateRevocationReason.UNSPECIFIED;
+        }
         int reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
                 .getValue().intValue();
-        CertificateRevocationReason reason = CertificateRevocationReason.UNSPECIFIED;
-        CertificateRevocationReason.fromReasonCode(reasonCode);
-        return reason;
+        CertificateRevocationReason reason = CertificateRevocationReason.fromReasonCode(reasonCode);
+        return reason != null ? reason : CertificateRevocationReason.UNSPECIFIED;
     }
 
     private void revokeCertificate(ASN1OctetString tid, RevDetails revocation, Certificate certificate,

@@ -1,6 +1,7 @@
 package com.otilm.core.service.cmp.message.validator.impl;
 
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.otilm.api.model.core.authority.CertificateRevocationReason;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.validator.BiValidator;
 import org.bouncycastle.asn1.ASN1Enumerated;
@@ -50,15 +51,24 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
         checkValueNotNull(tid, certDetails, PKIFailureInfo.badCertId, "certDetails");
         checkValueNotNull(tid, certDetails.getSerialNumber(), PKIFailureInfo.badCertId, "SerialNumber");
         checkValueNotNull(tid, certDetails.getIssuer(), PKIFailureInfo.badCertId, "Issuer");
+        // crlEntryDetails is OPTIONAL per RFC 4210 §5.3.9 — a reason-less rr (e.g.
+        // `openssl cmp -cmd rr` without -revreason) is valid and defaults to UNSPECIFIED.
         Extensions crlEntryDetails = revDetails[0].getCrlEntryDetails();
-        checkValueNotNull(tid, crlEntryDetails, PKIFailureInfo.addInfoNotAvailable, "CrlEntryDetails");
-        Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
-        checkValueNotNull(tid, reasonCodeExt, PKIFailureInfo.incorrectData, "reasonCode");
-
-        long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
-                .getValue().longValue();
-        if (reasonCode < 0 || reasonCode > 10) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat, "reasonCode is out of range <0,10>");
+        if (crlEntryDetails != null) {
+            Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
+            if (reasonCodeExt != null) {
+                long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
+                        .getValue().longValue();
+                // Reject codes the platform cannot represent: out-of-range values (the
+                // bound also stops a large value wrapping through the int cast below) plus
+                // 7 (unused, RFC 5280) and 8 (removeFromCRL — an un-revoke this path cannot
+                // perform). fromReasonCode returns null for every unmappable code.
+                if (reasonCode < 0 || reasonCode > 10
+                        || CertificateRevocationReason.fromReasonCode((int) reasonCode) == null) {
+                    throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                            "reasonCode " + reasonCode + " is not supported");
+                }
+            }
         }
 
         return null;// validation is ok

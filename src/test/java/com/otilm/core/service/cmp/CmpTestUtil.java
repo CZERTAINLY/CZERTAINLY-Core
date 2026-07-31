@@ -161,6 +161,42 @@ public class CmpTestUtil {
         return new PKIBody(PKIBody.TYPE_REVOCATION_REQ, myRevReqContent);
     }
 
+    public static PKIBody createRevocationBody(BigInteger serialNumber, int reasonCode) throws IOException {
+        X500Name issuerDN = new X500Name("CN=ManagementCA");
+        X500Name userDN = new X500Name("CN=user");
+
+        CertTemplateBuilder myCertTemplate = new CertTemplateBuilder();
+        myCertTemplate.setIssuer(issuerDN);
+        myCertTemplate.setSubject(userDN);
+        myCertTemplate.setSerialNumber(new ASN1Integer(serialNumber));
+
+        ExtensionsGenerator extGenerator = new ExtensionsGenerator();
+        extGenerator.addExtension(Extension.reasonCode, false, new ASN1Enumerated(reasonCode));
+
+        ASN1EncodableVector v = new ASN1EncodableVector();
+        v.add(myCertTemplate.build());
+        v.add(extGenerator.generate());
+        RevReqContent myRevReqContent = new RevReqContent(
+                RevDetails.getInstance(new DERSequence(v)));
+        return new PKIBody(PKIBody.TYPE_REVOCATION_REQ, myRevReqContent);
+    }
+
+    public static PKIBody createRevocationBodyWithoutReason(BigInteger serialNumber) {
+        X500Name issuerDN = new X500Name("CN=ManagementCA");
+        X500Name userDN = new X500Name("CN=user");
+
+        CertTemplateBuilder myCertTemplate = new CertTemplateBuilder();
+        myCertTemplate.setIssuer(issuerDN);
+        myCertTemplate.setSubject(userDN);
+        myCertTemplate.setSerialNumber(new ASN1Integer(serialNumber));
+
+        ASN1EncodableVector v = new ASN1EncodableVector();
+        v.add(myCertTemplate.build());
+        RevReqContent myRevReqContent = new RevReqContent(
+                RevDetails.getInstance(new DERSequence(v)));
+        return new PKIBody(PKIBody.TYPE_REVOCATION_REQ, myRevReqContent);
+    }
+
     public static PKIBody createCertConfBody(X509CertificateHolder cert, BigInteger certReqId) throws
             OperatorCreationException, CMPException {
         CertificateConfirmationContent content = new CertificateConfirmationContentBuilder()
