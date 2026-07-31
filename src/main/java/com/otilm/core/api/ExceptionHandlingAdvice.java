@@ -548,9 +548,10 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(CertificateRequestException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleCertificateRequestException(CertificateRequestException ex) {
-        String cause = ex.getCause() == null ? "" : ": " + ex.getCause().getMessage();
-        LOG.error("HTTP 400 (CertificateRequestException): {}{}", ex.getMessage(), cause);
-        return ErrorMessageDto.getInstance(ex.getMessage() + cause);
+        // Log the cause for diagnostics, but return only our top-level message — the cause is an arbitrary
+        // runtime exception whose message could leak internal detail to the API consumer.
+        LOG.info("HTTP 400 (CertificateRequestException): {}", ex.getMessage(), ex);
+        return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
     /**

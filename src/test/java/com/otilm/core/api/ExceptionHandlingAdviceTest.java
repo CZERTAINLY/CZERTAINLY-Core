@@ -81,13 +81,13 @@ class ExceptionHandlingAdviceTest {
     }
 
     @Test
-    void handleCertificateRequestException_ShouldAppendCauseWhenPresent() {
+    void handleCertificateRequestException_ShouldNotExposeCauseInResponse() {
         CertificateRequestException ex =
                 new CertificateRequestException("Invalid CSR", new IllegalArgumentException("bad encoding"));
 
         ErrorMessageDto response = advice.handleCertificateRequestException(ex);
 
-        assertEquals("Invalid CSR: bad encoding", response.getMessage());
+        assertEquals("Invalid CSR", response.getMessage());
     }
 
     @Test
