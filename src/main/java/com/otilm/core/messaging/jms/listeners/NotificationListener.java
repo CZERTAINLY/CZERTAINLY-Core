@@ -44,16 +44,9 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.*;
 
-/**
- * Rolls back on checked exceptions too, rather than leaving Spring's default to be inferred: several methods here
- * declare {@code NotFoundException} and {@code ConnectorException}, and under the default rules one escaping would
- * commit whatever the message had accumulated -- a repetition counter advanced for a notification that failed.
- * Nothing the recipients depend on rides on this transaction: internal notifications and trigger history each
- * commit in one of their own, so they survive a rollback here by design.
- */
 @Component
 @AllArgsConstructor
-@Transactional(rollbackFor = Exception.class)
+@Transactional
 public class NotificationListener implements MessageProcessor<NotificationMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
@@ -150,7 +143,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         if (sendInternalNotifications) {
             try {
                 InternalNotificationOutcome outcome = sendInternalNotifications(recipients, getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
-                notificationSent = outcome.notified() > 0;
+                notificationSent = notificationSent || outcome.notified() > 0;
                 reportInternalNotificationGap(outcome, "Notification profile %s in event %s".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
             } catch (ValidationException e) {
                 handleNotificationErrorWithErrorLog("Error in internal notification: %s".formatted(e.toString()), message);
@@ -380,6 +373,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         List<NotificationRecipientDto> recipientsDto = new ArrayList<>();
+        int skippedByDesign = 0; // NONE recipients resolve to no delivery DTO on purpose, not a gap to report
         for (NotificationRecipient recipient : recipients) {
             logger.debug("Processing recipient {} of type {}.", recipient.getRecipientUuid(), recipient.getRecipientType());
             try {
@@ -387,6 +381,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 NotificationRecipientDto recipientDto = constructNotificationRecipientDto(recipient, notificationInstanceReference.getKind(), resource);
                 if (recipientDto == null) {
                     // this should happen only in case of recipient type NONE
+                    ++skippedByDesign;
                     continue;
                 }
 
@@ -421,7 +416,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             logger.error("Cannot send notification to connector: {}", e.getMessage());
             throw e;
         }
-        return recipientsDto.size() == recipients.size();
+        return recipientsDto.size() + skippedByDesign == recipients.size();
     }
 
     private NotificationRecipientDto constructNotificationRecipientDto(NotificationRecipient recipient, String
