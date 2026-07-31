@@ -147,17 +147,13 @@ public class ExceptionHandlingAdvice {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
-    public ErrorMessageDto handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
-        StringBuilder messageBuilder = new StringBuilder();
-        messageBuilder.append("Validation error: ");
-        ex.getBindingResult().getFieldErrors().forEach(
-                err -> messageBuilder.append(err.getField()).append(" ").append(err.getDefaultMessage()).append(", ")
-        );
-        // remote trailing comma and space
-        messageBuilder.delete(messageBuilder.length() - 2, messageBuilder.length());
-
-        LOG.info("HTTP 422: {}", messageBuilder);
-        return ErrorMessageDto.getInstance(messageBuilder.toString());
+    public List<String> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
+        // Return a string array, matching the ValidationException 422 body, so every 422 has one shape.
+        List<String> errors = ex.getBindingResult().getFieldErrors().stream()
+                .map(err -> err.getField() + " " + err.getDefaultMessage())
+                .toList();
+        LOG.info("HTTP 422: {}", errors);
+        return errors;
     }
 
     /**
