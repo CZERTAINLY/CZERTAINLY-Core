@@ -12,10 +12,10 @@ jobs:
     name: Compile
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           java-version: 21
           distribution: 'temurin'
@@ -30,7 +30,7 @@ jobs:
         run: tar -czf compiled.tar.gz target/classes target/test-classes
 
       - name: Upload compiled output
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: compiled
           path: compiled.tar.gz
@@ -45,17 +45,17 @@ jobs:
       matrix:
         group: [non-integration, integration-core, integration-service-1, integration-service-2]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           java-version: 21
           distribution: 'temurin'
           cache: maven
 
       - name: Download compiled output
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: compiled
 
@@ -68,7 +68,7 @@ jobs:
         run: mvn -B -U -ntp test -Ptest-${{ matrix.group }} -Dmaven.compiler.skip=true
 
       - name: Upload coverage exec
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jacoco-exec-${{ matrix.group }}
           path: target/jacoco.exec
@@ -79,17 +79,17 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           java-version: 21
           distribution: 'temurin'
           cache: maven
 
       - name: Download compiled output
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: compiled
 
@@ -97,25 +97,25 @@ jobs:
         run: tar -xzf compiled.tar.gz
 
       - name: Download non-integration coverage exec
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: jacoco-exec-non-integration
           path: jacoco-partial/group1
 
       - name: Download integration-core coverage exec
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: jacoco-exec-integration-core
           path: jacoco-partial/group2
 
       - name: Download integration-service-1 coverage exec
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: jacoco-exec-integration-service-1
           path: jacoco-partial/group3
 
       - name: Download integration-service-2 coverage exec
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: jacoco-exec-integration-service-2
           path: jacoco-partial/group4
@@ -138,21 +138,21 @@ jobs:
 
       # Upload PR number artifact
       - name: Upload PR number artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pr-number
           path: pr-number.txt
 
       # Upload compiled classes
       - name: Upload Compiled Classes
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: compiled-classes
           path: target/classes
 
       # Upload Jacoco XML report(s)
       - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-reports
           path: target/site/jacoco/jacoco.xml
