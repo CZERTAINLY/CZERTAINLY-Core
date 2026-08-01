@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class TspProtocolUrlFactoryTest {
 
-    private static final String BASE_URL = "https://czertainly.example.com";
+    private static final String BASE_URL = "https://ilm.example.com";
 
     @Test
     void forTspProfile_composesProtocolPathWithProfileName() {
@@ -23,7 +23,7 @@ class TspProtocolUrlFactoryTest {
         String url = TspProtocolUrlFactory.forTspProfile(BASE_URL, tspProfileName);
 
         // then
-        assertEquals("https://czertainly.example.com/v1/protocols/tsp/my-tsp-profile", url);
+        assertEquals("https://ilm.example.com/v1/protocols/tsp/my-tsp-profile", url);
     }
 
     @Test
@@ -35,7 +35,7 @@ class TspProtocolUrlFactoryTest {
         String url = TspProtocolUrlFactory.forSigningProfile(BASE_URL, signingProfileName);
 
         // then
-        assertEquals("https://czertainly.example.com/v1/protocols/tsp/signingProfiles/my-signing-profile", url);
+        assertEquals("https://ilm.example.com/v1/protocols/tsp/signingProfiles/my-signing-profile", url);
     }
 
     @Test
@@ -55,12 +55,12 @@ class TspProtocolUrlFactoryTest {
     @Test
     void forTspProfile_concatenatesBaseUrlVerbatimWithoutNormalization() {
         // given a base URL carrying a context path; the web layer is responsible for supplying it clean
-        var baseUrlWithContextPath = "https://czertainly.example.com/api";
+        var baseUrlWithContextPath = "https://ilm.example.com/api";
 
         // when
         String url = TspProtocolUrlFactory.forTspProfile(baseUrlWithContextPath, "profile");
 
         // then
-        assertEquals("https://czertainly.example.com/api/v1/protocols/tsp/profile", url);
+        assertEquals("https://ilm.example.com/api/v1/protocols/tsp/profile", url);
     }
 }
