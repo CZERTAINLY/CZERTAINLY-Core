@@ -3,8 +3,8 @@
 echo "Pre-build ILM CORE docker image"
 
 echo "Cleaning containers if exists"
-docker rm ilmcont
-docker rmi prebuild
+docker rm -f ilmcont 2>/dev/null || true
+docker rmi -f prebuild 2>/dev/null || true
 
 echo "Refreshing directory for data from container"
 rm -r data
