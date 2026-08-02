@@ -8,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,9 +25,7 @@ class ProducerMocksExclusionArchTest {
 
     private static final String MODULE = "ProducerMocks";
 
-    // Line-anchored: a real annotation starts its line, so the module's own Javadoc mention does not match.
-    private static final Pattern DECLARES_EXCLUSION = Pattern.compile(
-            "(?m)^[ \\t]*@TypeExcludeFilters\\(\\s*ProducerMocks\\.MockedProducersTypeExcludeFilter\\.class\\s*\\)");
+    private static final String EXCLUSION_FILTER = "ProducerMocks.MockedProducersTypeExcludeFilter";
 
     @Test
     void everyProducerMocksImportAlsoExcludesTheRealProducersFromTheScan() {
@@ -41,14 +38,18 @@ class ProducerMocksExclusionArchTest {
 
         assertThat(importers)
                 .describedAs("ProducerMocks is expected to be in use; this guard is vacuous otherwise")
-                .isNotEmpty();
-
-        assertThat(importers)
+                .isNotEmpty()
                 .describedAs("every test class importing ProducerMocks must also declare "
                         + "@TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class) — without it "
                         + "the real producers stay in the component scan, so NotificationProducer's "
                         + "@TransactionalEventListener can still dispatch real JMS sends after a commit")
-                .allMatch(file -> DECLARES_EXCLUSION.matcher(read(file)).find());
+                .allMatch(ProducerMocksExclusionArchTest::declaresExclusion);
+    }
+
+    /** Any declaration form counts: an array of filters, wrapped lines, or a fully-qualified filter reference. */
+    private static boolean declaresExclusion(Path file) {
+        return TestClassTaxonomy.annotationTokens(file).typeExcludeFilters().stream()
+                .anyMatch(filter -> filter.endsWith(EXCLUSION_FILTER));
     }
 
     private static Stream<Path> testSources() {
@@ -57,14 +58,6 @@ class ProducerMocksExclusionArchTest {
                     .filter(file -> file.toString().endsWith(".java"))
                     .toList()
                     .stream();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private static String read(Path file) {
-        try {
-            return Files.readString(file);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
