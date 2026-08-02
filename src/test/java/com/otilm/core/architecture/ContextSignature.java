@@ -17,8 +17,9 @@ import java.util.stream.Stream;
  * - @TestPropertySource args,
  * - @DirtiesContext mode,
  * - nested @TestConfiguration class simple-names,
- * - verbatim @SpringBootTest arguments, and
- * - @AutoConfigure* annotation names.
+ * - verbatim @SpringBootTest arguments,
+ * - @AutoConfigure* annotation names, and
+ * - @TypeExcludeFilters filter-class names.
  *
  * Two classes with equal signatures are expected to share one cached context. Import order is not a signature axis
  */
@@ -47,6 +48,7 @@ final class ContextSignature {
         TreeSet<String> configs = new TreeSet<>();
         TreeSet<String> springBootTest = new TreeSet<>();
         TreeSet<String> autoconfig = new TreeSet<>();
+        TreeSet<String> typeExcludeFilters = new TreeSet<>();
 
         String simple = startSimpleName;
         int hops = 0;
@@ -62,13 +64,15 @@ final class ContextSignature {
                 configs.addAll(t.configs());
                 springBootTest.addAll(t.springBootTest());
                 autoconfig.addAll(t.autoconfig());
+                typeExcludeFilters.addAll(t.typeExcludeFilters());
             }
             simple = extendsGraph.get(simple);
         }
         return "imports=" + imports + ";mocks=" + mocks + ";profiles=" + profiles
                 + ";props=" + props + ";dirties=" + dirties
                 + ";configs=" + configs + ";sbt=" + springBootTest
-                + ";autoconfig=" + autoconfig;
+                + ";autoconfig=" + autoconfig
+                + ";typeExcludeFilters=" + typeExcludeFilters;
     }
 
     static int distinctCount(Path testRoot) {
