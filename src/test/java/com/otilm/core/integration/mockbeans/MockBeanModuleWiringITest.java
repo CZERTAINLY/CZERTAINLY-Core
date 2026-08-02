@@ -14,12 +14,15 @@ import com.otilm.core.util.mockbeans.PollMocks;
 import com.otilm.core.util.mockbeans.ProducerMocks;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mockingDetails;
 
 @Import({ProducerMocks.class, ManagementApiMocks.class, PollMocks.class})
+@TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
 class MockBeanModuleWiringITest extends BaseSpringBootTest {
 
     @Autowired NotificationProducer notificationProducer;
@@ -30,6 +33,7 @@ class MockBeanModuleWiringITest extends BaseSpringBootTest {
     @Autowired RoleManagementApiClient roleManagementApiClient;
     @Autowired PlatformAuthenticationClient authenticationClient;
     @Autowired PollFeature pollFeature;
+    @Autowired ApplicationContext applicationContext;
 
     @Test
     void allModuleBeansAreMocks() {
@@ -41,5 +45,17 @@ class MockBeanModuleWiringITest extends BaseSpringBootTest {
         assertThat(mockingDetails(roleManagementApiClient).isMock()).isTrue();
         assertThat(mockingDetails(authenticationClient).isMock()).isTrue();
         assertThat(mockingDetails(pollFeature).isMock()).isTrue();
+    }
+
+    @Test
+    void producerModuleLeavesNoRealProducerBeanBehind() {
+        assertThat(applicationContext.getBeanNamesForType(NotificationProducer.class))
+                .containsExactly("mockNotificationProducer");
+        assertThat(applicationContext.getBeanNamesForType(ActionProducer.class))
+                .containsExactly("mockActionProducer");
+        assertThat(applicationContext.getBeanNamesForType(EventProducer.class))
+                .containsExactly("mockEventProducer");
+        assertThat(applicationContext.getBeanNamesForType(ValidationProducer.class))
+                .containsExactly("mockValidationProducer");
     }
 }
