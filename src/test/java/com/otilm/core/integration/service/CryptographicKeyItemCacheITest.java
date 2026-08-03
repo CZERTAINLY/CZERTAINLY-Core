@@ -31,6 +31,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
@@ -50,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and evicted after mutations that change the key item's observable state.
  */
 @Import(ProducerMocks.class)
+@TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
 class CryptographicKeyItemCacheITest extends BaseSpringBootTest {
 
     @Autowired

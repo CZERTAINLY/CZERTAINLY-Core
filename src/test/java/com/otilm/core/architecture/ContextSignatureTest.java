@@ -121,6 +121,121 @@ class ContextSignatureTest {
     }
 
     @Test
+    void typeExcludeFiltersForkSignature(@TempDir Path dir) throws IOException {
+        Path filtered = write(dir, "FilteredITest.java", """
+                @SpringBootTest
+                @Import(ProducerMocks.class)
+                @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
+                class FilteredITest {}
+                """);
+        write(dir, "UnfilteredITest.java", """
+                @SpringBootTest
+                @Import(ProducerMocks.class)
+                class UnfilteredITest {}
+                """);
+        assertThat(TestClassTaxonomy.annotationTokens(filtered).typeExcludeFilters())
+                .containsExactly("ProducerMocks.MockedProducersTypeExcludeFilter");
+
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("FilteredITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("UnfilteredITest", graph, byName));
+    }
+
+    @Test
+    void typeExcludeFilterOrderIsNotASignatureAxis(@TempDir Path dir) throws IOException {
+        // TypeExcludeFiltersContextCustomizer's equals/hashCode are the filter SET, so order cannot fork the context.
+        write(dir, "AbFilterITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters({ProducerMocks.MockedProducersTypeExcludeFilter.class, PollMocks.PollFilter.class})
+                class AbFilterITest {}
+                """);
+        write(dir, "BaFilterITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters({PollMocks.PollFilter.class, ProducerMocks.MockedProducersTypeExcludeFilter.class})
+                class BaFilterITest {}
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("AbFilterITest", graph, byName))
+                .isEqualTo(ContextSignature.of("BaFilterITest", graph, byName));
+    }
+
+    @Test
+    void typeExcludeFiltersKeepTheirOuterClassQualifier(@TempDir Path dir) throws IOException {
+        // Two modules may each declare a same-named nested filter; dropping the qualifier would collapse them.
+        Path a = write(dir, "AModuleITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(AMocks.ExcludeFilter.class)
+                class AModuleITest {}
+                """);
+        write(dir, "BModuleITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(BMocks.ExcludeFilter.class)
+                class BModuleITest {}
+                """);
+        assertThat(TestClassTaxonomy.annotationTokens(a).typeExcludeFilters())
+                .containsExactly("AMocks.ExcludeFilter");
+
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("AModuleITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("BModuleITest", graph, byName));
+    }
+
+    @Test
+    void typeExcludeFiltersAreInheritedWhenTheSubclassDeclaresNone(@TempDir Path dir) throws IOException {
+        // @TypeExcludeFilters is @Inherited, so a base class's filters apply to a subclass that declares none.
+        write(dir, "BaseFilteredTest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
+                abstract class BaseFilteredTest {}
+                """);
+        write(dir, "ChildITest.java", """
+                class ChildITest extends BaseFilteredTest {}
+                """);
+        write(dir, "StandaloneITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
+                class StandaloneITest {}
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("ChildITest", graph, byName))
+                .isEqualTo(ContextSignature.of("StandaloneITest", graph, byName));
+    }
+
+    @Test
+    void aSubclassTypeExcludeFiltersDeclarationShadowsTheAncestors(@TempDir Path dir) throws IOException {
+        // TypeExcludeFiltersContextCustomizerFactory resolves the NEAREST @TypeExcludeFilters declaration and uses
+        // only its value(), so the base class's filter A does not reach the context at all.
+        write(dir, "BaseFilteredTest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(AMocks.ExcludeFilter.class)
+                abstract class BaseFilteredTest {}
+                """);
+        write(dir, "ShadowingITest.java", """
+                @TypeExcludeFilters(BMocks.ExcludeFilter.class)
+                class ShadowingITest extends BaseFilteredTest {}
+                """);
+        write(dir, "OnlyBITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(BMocks.ExcludeFilter.class)
+                class OnlyBITest {}
+                """);
+        write(dir, "BothFiltersITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters({AMocks.ExcludeFilter.class, BMocks.ExcludeFilter.class})
+                class BothFiltersITest {}
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("ShadowingITest", graph, byName))
+                .isEqualTo(ContextSignature.of("OnlyBITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("BothFiltersITest", graph, byName));
+    }
+
+    @Test
     void textBlockFixtureContentIsNotParsedAsRealAnnotations(@TempDir Path dir) throws IOException {
         // A meta-test whose only "annotations" live inside a text block (fixture data), like this very
         // class. code() strips text blocks, so these must not be misread as real context annotations.

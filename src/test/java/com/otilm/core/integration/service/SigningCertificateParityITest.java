@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
 import org.springframework.context.annotation.Import;
 
 import java.security.KeyPair;
@@ -55,6 +56,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
  * reproduces the signer inputs available from the live {@code Certificate} entity graph.
  */
 @Import(ProducerMocks.class)
+@TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
 class SigningCertificateParityITest extends BaseSpringBootTest {
 
     @Autowired

@@ -78,6 +78,12 @@ final class TestClassTaxonomy {
     private static final Pattern SPRING_BOOT_TEST_ARGS = Pattern.compile("@SpringBootTest\\b\\s*(?:\\(([^)]*)\\))?");
     // @AutoConfigure* slice/test annotations (e.g. @AutoConfigureMockMvc) fork the context cache key.
     private static final Pattern AUTOCONFIGURE = Pattern.compile("@(AutoConfigure\\w+)\\b");
+    // @TypeExcludeFilters becomes a TypeExcludeFiltersContextCustomizer whose equals/hashCode are the filter SET,
+    // so the filter classes fork the context cache key and their declaration order does not.
+    private static final Pattern TYPE_EXCLUDE_FILTERS = Pattern.compile("@TypeExcludeFilters\\s*\\(([^)]*)\\)");
+    // Filter class references keep their outer-class qualifier: the filters here are nested types, and two modules
+    // could each declare a same-named nested filter.
+    private static final Pattern FILTER_CLASS = Pattern.compile("((?:\\w+\\.)*\\w+)\\.class");
 
     private TestClassTaxonomy() {
     }
@@ -135,7 +141,8 @@ final class TestClassTaxonomy {
 
     /**
      * Context-affecting annotation tokens parsed from ONE file (not its ancestors). Each list is an axis of the
-     * Spring context cache key; {@link ContextSignature} unions the axes across the inheritance chain.
+     * Spring context cache key; {@link ContextSignature} combines the axes across the inheritance chain — unioning
+     * the inherited ones, and taking only the nearest declaration where Spring itself does (see {@link #typeExcludeFilters()}).
      */
     record ContextTokens(
             List<String> imports,
@@ -145,7 +152,8 @@ final class TestClassTaxonomy {
             List<String> dirties,
             List<String> configs,
             List<String> springBootTest,
-            List<String> autoconfig) {
+            List<String> autoconfig,
+            List<String> typeExcludeFilters) {
     }
 
     static ContextTokens annotationTokens(Path javaFile) {
@@ -164,7 +172,8 @@ final class TestClassTaxonomy {
                 parseDirties(src),
                 allMatches(NESTED_CONFIG, 1, src),
                 normalizedArgs(SPRING_BOOT_TEST_ARGS, src),
-                allMatches(AUTOCONFIGURE, 1, src));
+                allMatches(AUTOCONFIGURE, 1, src),
+                parseTypeExcludeFilters(src));
     }
 
     /** Every {@code group} capture across all matches of {@code p} in {@code src}. */
@@ -198,6 +207,14 @@ final class TestClassTaxonomy {
         Matcher inherit = INHERIT.matcher(args);
         profiles.add("inheritProfiles=" + (inherit.find() ? inherit.group(1) : "true"));
         return profiles;
+    }
+
+    private static List<String> parseTypeExcludeFilters(String src) {
+        List<String> filters = new ArrayList<>();
+        for (String args : allMatches(TYPE_EXCLUDE_FILTERS, 1, src)) {
+            filters.addAll(allMatches(FILTER_CLASS, 1, args.replaceAll("\\s+", "")));
+        }
+        return filters;
     }
 
     private static List<String> parseDirties(String src) {
