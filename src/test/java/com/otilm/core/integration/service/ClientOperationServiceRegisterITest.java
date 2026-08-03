@@ -51,17 +51,25 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.CertificateEventHistory;
 import com.otilm.core.dao.entity.CertificateRegistration;
 import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
+import com.otilm.core.dao.entity.CertificateRelation;
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
 import com.otilm.core.dao.entity.RegistrationState;
 import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
 import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
 import com.otilm.core.dao.repository.CertificateRegistrationRepository;
+import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.api.model.core.certificate.CertificateEvent;
+import com.otilm.api.model.core.certificate.CertificateRelationType;
 import com.otilm.core.exception.ConnectorAcceptedButLocalFailureException;
 import com.otilm.core.messaging.jms.producers.ActionProducer;
 import com.otilm.core.messaging.jms.producers.EventProducer;
@@ -92,6 +100,7 @@ import com.otilm.core.service.writer.registration.CertificateRegistrationWriter;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.CertificateUtil;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -111,6 +120,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.List;
@@ -154,6 +164,12 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     private CertificateRegistrationRepository registrationRepository;
     @Autowired
     private CertificateRegistrationAuthorizationRepository authorizationRepository;
+    @Autowired
+    private CertificateRelationRepository certificateRelationRepository;
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
+    @Autowired
+    private CertificateEventHistoryRepository eventHistoryRepository;
     @Autowired
     private CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter;
     @Autowired
@@ -1551,7 +1567,7 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     }
 
     @Test
-    void renewOfCertWithActiveAuthorizationIsDenied() {
+    void renewWithoutSecretOfChallengeProtectedCertIsDeniedAndCounted() {
         Certificate issued = seedIssuedCert();
         activeAuthorizationFor(issued.getUuid());
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
@@ -1559,12 +1575,34 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
 
         ValidationException ex = Assertions.assertThrows(ValidationException.class,
                 () -> clientOperationService.renewCertificate(authorityParent, securedRaProfile, certUuid, request));
-        Assertions.assertTrue(ex.getMessage().contains("not supported yet"),
-                "the fail-closed guard must reject, not some downstream step");
+        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("challenge"),
+                "the challenge gate must reject, not some downstream step");
+        Assertions.assertEquals(1,
+                authorizationRepository.findByCertificateUuid(issued.getUuid()).orElseThrow().getFailedAttempts(),
+                "a secretless renew of a challenge-protected certificate is a failed attempt and must be counted");
+        verify(actionProducer, never()).produceMessage(Mockito.any());
     }
 
     @Test
-    void rekeyOfCertWithActiveAuthorizationIsDenied() {
+    void renewWithWrongSecretIsDeniedAndRecordsRenewEvent() {
+        Certificate issued = seedIssuedCert();
+        activeAuthorizationFor(issued.getUuid());
+        ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
+        request.setAuthorizationSecret("wrong-secret-9999");
+        String certUuid = issued.getUuid().toString();
+
+        Assertions.assertThrows(ValidationException.class,
+                () -> clientOperationService.renewCertificate(authorityParent, securedRaProfile, certUuid, request));
+
+        Assertions.assertEquals(1,
+                authorizationRepository.findByCertificateUuid(issued.getUuid()).orElseThrow().getFailedAttempts());
+        List<CertificateEventHistory> history = eventHistoryRepository.findByCertificateOrderByCreatedDesc(issued);
+        Assertions.assertTrue(history.stream().anyMatch(h -> h.getEvent() == CertificateEvent.RENEW),
+                "the failed challenge on the renew path must be recorded as a RENEW event, not ISSUE");
+    }
+
+    @Test
+    void rekeyWithoutSecretOfChallengeProtectedCertIsDeniedAndCounted() {
         Certificate issued = seedIssuedCert();
         activeAuthorizationFor(issued.getUuid());
         ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
@@ -1572,8 +1610,93 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
 
         ValidationException ex = Assertions.assertThrows(ValidationException.class,
                 () -> clientOperationService.rekeyCertificate(authorityParent, securedRaProfile, certUuid, request));
-        Assertions.assertTrue(ex.getMessage().contains("not supported yet"),
-                "the fail-closed guard must reject rekey too (verification comes later)");
+        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("challenge"),
+                "the challenge gate must reject, not some downstream step");
+        Assertions.assertEquals(1,
+                authorizationRepository.findByCertificateUuid(issued.getUuid()).orElseThrow().getFailedAttempts(),
+                "a secretless rekey of a challenge-protected certificate is a failed attempt and must be counted");
+        verify(actionProducer, never()).produceMessage(Mockito.any());
+    }
+
+    @Test
+    void renewOfCertWithoutAuthorizationProceedsUngated() throws Exception {
+        // A certificate that was never challenge-protected renews exactly as before the gate existed.
+        KeyPair keyPair = generateKeyPair();
+        Certificate issued = seedIssuedCertWithContent(keyPair);
+        ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
+        request.setRequest(csrBase64(keyPair, RENEWABLE_SUBJECT_DN));
+
+        ClientCertificateDataResponseDto response = clientOperationService.renewCertificate(
+                authorityParent, securedRaProfile, issued.getUuid().toString(), request);
+
+        Assertions.assertEquals(0, authorizationRepository.count(),
+                "an unprotected renew must not create any authorization");
+        verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.RENEW));
+        Assertions.assertNotNull(response.getUuid());
+    }
+
+    @Test
+    void renewWithCorrectChallengeCopiesAuthorizationToSuccessor() throws Exception {
+        KeyPair keyPair = generateKeyPair();
+        Certificate issued = seedIssuedCertWithContent(keyPair);
+        activeAuthorizationFor(issued.getUuid());
+        ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
+        request.setRequest(csrBase64(keyPair, RENEWABLE_SUBJECT_DN));
+        request.setAuthorizationSecret(CHALLENGE);
+
+        ClientCertificateDataResponseDto response = clientOperationService.renewCertificate(
+                authorityParent, securedRaProfile, issued.getUuid().toString(), request);
+
+        UUID successorUuid = UUID.fromString(response.getUuid());
+        CertificateRegistrationAuthorization copied =
+                authorizationRepository.findByCertificateUuid(successorUuid).orElseThrow();
+        Assertions.assertEquals(RegistrationState.ACTIVE, copied.getState());
+        Assertions.assertEquals(0, copied.getFailedAttempts());
+        Assertions.assertTrue(registrationChallengeStore.verify(copied, CHALLENGE),
+                "the successor's copied authorization must verify against the same challenge");
+        Assertions.assertEquals(2, authorizationRepository.count(),
+                "the predecessor keeps its own authorization; the successor gets a copy");
+        verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.RENEW));
+    }
+
+    @Test
+    void rekeyWithCorrectChallengeCopiesAuthorizationToSuccessor() throws Exception {
+        KeyPair keyPair = generateKeyPair();
+        Certificate issued = seedIssuedCertWithContent(keyPair);
+        activeAuthorizationFor(issued.getUuid());
+        ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
+        // Rekey demands a different key under the same subject DN.
+        request.setRequest(csrBase64(generateKeyPair(), RENEWABLE_SUBJECT_DN));
+        request.setAuthorizationSecret(CHALLENGE);
+
+        ClientCertificateDataResponseDto response = clientOperationService.rekeyCertificate(
+                authorityParent, securedRaProfile, issued.getUuid().toString(), request);
+
+        UUID successorUuid = UUID.fromString(response.getUuid());
+        CertificateRegistrationAuthorization copied =
+                authorizationRepository.findByCertificateUuid(successorUuid).orElseThrow();
+        Assertions.assertEquals(RegistrationState.ACTIVE, copied.getState());
+        Assertions.assertTrue(registrationChallengeStore.verify(copied, CHALLENGE),
+                "the successor's copied authorization must verify against the same challenge");
+        verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.REKEY));
+    }
+
+    @Test
+    void renewWithCorrectChallengeOfLockedAuthorizationIsDenied() {
+        Certificate issued = seedIssuedCert();
+        activeAuthorizationFor(issued.getUuid());
+        CertificateRegistrationAuthorization seeded =
+                authorizationRepository.findByCertificateUuid(issued.getUuid()).orElseThrow();
+        seeded.setState(RegistrationState.LOCKED);
+        authorizationRepository.save(seeded);
+        ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
+        request.setAuthorizationSecret(CHALLENGE);
+        String certUuid = issued.getUuid().toString();
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class,
+                () -> clientOperationService.renewCertificate(authorityParent, securedRaProfile, certUuid, request));
+        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("locked"),
+                "a locked authorization stays fail-closed on the renew path");
     }
 
     @Test
@@ -1744,6 +1867,104 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
                 "the placeholder is failed, not orphaned in PENDING_REGISTRATION");
     }
 
+    // ── successor pre-registration (sourceCertificateUuid) ──────────────────
+
+    @Test
+    void registerWithSourceCertificateLinksPlaceholderAsPendingSuccessor() throws Exception {
+        Certificate source = seedIssuedCert();
+        when(registeringAdapter().register(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(AdapterOperationResult.syncOk(null, null, CertificateType.X509));
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setSourceCertificateUuid(source.getUuid());
+
+        String certUuid = clientOperationService.registerCertificate(authorityParent, securedRaProfile, request).getUuid();
+
+        CertificateRelation relation = certificateRelationRepository
+                .findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(
+                        UUID.fromString(certUuid), CertificateRelationType.PENDING)
+                .orElseThrow();
+        Assertions.assertEquals(source.getUuid(), relation.getId().getPredecessorCertificateUuid(),
+                "the placeholder must be linked to the source certificate as its pending successor");
+        Assertions.assertEquals(CertificateState.REGISTERED,
+                certificateRepository.findByUuid(UUID.fromString(certUuid)).orElseThrow().getState());
+    }
+
+    @Test
+    void platformLevelRegisterWithSourceCertificateLinksToo() throws Exception {
+        Certificate source = seedIssuedCert();
+        // Adapter without RegisterCapability -> platform-level pre-registration path.
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setSourceCertificateUuid(source.getUuid());
+
+        String certUuid = clientOperationService.registerCertificate(authorityParent, securedRaProfile, request).getUuid();
+
+        Assertions.assertTrue(certificateRelationRepository
+                        .findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(
+                                UUID.fromString(certUuid), CertificateRelationType.PENDING)
+                        .isPresent(),
+                "the platform-level path must link the successor the same way as the connector-backed one");
+    }
+
+    @Test
+    void registerWithUnknownSourceIsRejectedBeforePlaceholder() {
+        registeringAdapter();
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setSourceCertificateUuid(UUID.randomUUID());
+
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.registerCertificate(
+                authorityParent, securedRaProfile, request));
+        Assertions.assertEquals(0, certificateRepository.count(),
+                "an unknown source is rejected before the placeholder, leaving no orphaned certificate");
+    }
+
+    @Test
+    void registerWithNonIssuedSourceIsRejectedBeforePlaceholder() {
+        registeringAdapter();
+        Certificate requested = new Certificate();
+        requested.setState(CertificateState.REQUESTED);
+        requested.setRaProfile(raProfile);
+        requested.setRaProfileUuid(raProfile.getUuid());
+        UUID sourceUuid = certificateRepository.save(requested).getUuid();
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setSourceCertificateUuid(sourceUuid);
+
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.registerCertificate(
+                authorityParent, securedRaProfile, request));
+        Assertions.assertEquals(1, certificateRepository.count(),
+                "only the seeded source row remains — the rejection leaves no placeholder");
+    }
+
+    @Test
+    void registerWithArchivedSourceIsRejectedBeforePlaceholder() {
+        registeringAdapter();
+        Certificate archived = seedIssuedCert();
+        archived.setArchived(true);
+        certificateRepository.save(archived);
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setSourceCertificateUuid(archived.getUuid());
+
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.registerCertificate(
+                authorityParent, securedRaProfile, request));
+        Assertions.assertEquals(1, certificateRepository.count(),
+                "only the seeded source row remains — the rejection leaves no placeholder");
+    }
+
+    @Test
+    void connectorRejectionOfSuccessorRegistrationRemovesTheRelation() throws Exception {
+        Certificate source = seedIssuedCert();
+        when(registeringAdapter().register(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenThrow(new ConnectorException("upstream refused"));
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setSourceCertificateUuid(source.getUuid());
+
+        Assertions.assertThrows(ConnectorException.class, () -> clientOperationService.registerCertificate(
+                authorityParent, securedRaProfile, request));
+
+        Assertions.assertEquals(0, certificateRelationRepository.count(),
+                "a failed successor registration must not leave a dangling pending relation on the source");
+    }
+
     private String registerWithSecret(OffsetDateTime expiresAt) throws Exception {
         when(registeringAdapter().register(Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(AdapterOperationResult.syncOk(null, null, CertificateType.X509));
@@ -1764,6 +1985,25 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
         return certificateRepository.save(issued);
     }
 
+    // The subject DN CertificateTestUtil.generateRandomX509Certificate issues under; a rekey CSR must repeat it.
+    private static final String RENEWABLE_SUBJECT_DN = "CN=generatedCertificate,O=random";
+
+    /** An ISSUED certificate with real content, so the renew/rekey CSR validations can run against its key. */
+    private Certificate seedIssuedCertWithContent(KeyPair keyPair) throws Exception {
+        X509Certificate x509 = CertificateTestUtil.generateRandomX509Certificate(keyPair);
+        CertificateContent content = new CertificateContent();
+        content.setContent(Base64.getEncoder().encodeToString(x509.getEncoded()));
+        content.setFingerprint(UUID.randomUUID().toString());
+        content = certificateContentRepository.save(content);
+        Certificate issued = new Certificate();
+        issued.setState(CertificateState.ISSUED);
+        issued.setRaProfile(raProfile);
+        issued.setRaProfileUuid(raProfile.getUuid());
+        issued.setCertificateContent(content);
+        issued.setCertificateContentId(content.getId());
+        return certificateRepository.save(issued);
+    }
+
     private void activeAuthorizationFor(UUID certificateUuid) {
         CertificateRegistrationAuthorization auth = new CertificateRegistrationAuthorization();
         auth.setCertificateUuid(certificateUuid);
@@ -1781,10 +2021,17 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     }
 
     private String generateCsrBase64() throws Exception {
+        return csrBase64(generateKeyPair(), "CN=device-1,O=Acme");
+    }
+
+    private KeyPair generateKeyPair() throws Exception {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
         keyPairGenerator.initialize(2048);
-        KeyPair keyPair = keyPairGenerator.generateKeyPair();
-        PKCS10CertificationRequest csr = new JcaPKCS10CertificationRequestBuilder(new X500Name("CN=device-1,O=Acme"), keyPair.getPublic())
+        return keyPairGenerator.generateKeyPair();
+    }
+
+    private String csrBase64(KeyPair keyPair, String subjectDn) throws Exception {
+        PKCS10CertificationRequest csr = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), keyPair.getPublic())
                 .build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate()));
         return Base64.getEncoder().encodeToString(csr.getEncoded());
     }

@@ -1163,7 +1163,7 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
     @Override
     @Transactional
-    public Certificate createRegistrationPlaceholder(RaProfile raProfile, String effectiveSubjectDn, X509RequestContent registrationContent) {
+    public Certificate createRegistrationPlaceholder(RaProfile raProfile, String effectiveSubjectDn, X509RequestContent registrationContent, Certificate sourceCertificate) throws NotFoundException {
         // Identity-only placeholder: no key/CSR/content yet. The registered identity — subject DN plus any
         // subject alternative names from the projected registration content — is captured here; the
         // authoritative subject, SAN and key material are overwritten when the follow-up CSR issuance
@@ -1178,7 +1178,14 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
         certificate.setCertificateType(CertificateType.X509);
         certificate.setRaProfile(raProfile);
-        return certificateRepository.save(certificate);
+        certificate = certificateRepository.save(certificate);
+        if (sourceCertificate != null) {
+            // Same-transaction PENDING relation, self-invoked like the submitCertificateRequest path so the
+            // caller's register permission is not additionally burdened with CERTIFICATE UPDATE. A relation
+            // failure rolls the placeholder back with it — no half-linked registration can exist.
+            associateCertificates(certificate.getUuid(), sourceCertificate.getUuid());
+        }
+        return certificate;
     }
 
     @Override
