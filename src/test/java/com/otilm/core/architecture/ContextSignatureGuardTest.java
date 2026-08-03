@@ -11,8 +11,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ContextSignatureGuardTest {
 
-    /** Committed baseline: the exact current distinct count. Update in lock-step with any change. */
-    static final int BASELINE = 57;
+    /**
+     * Committed baseline: the exact current distinct count. Update in lock-step with any change.
+     * <p>
+     * Teaching {@link ContextSignature} a context-cache axis it did not model before also moves this number, without
+     * any test class changing: the count was always an estimate of Spring's real behaviour, and a more faithful model
+     * can only reveal forks that were already being paid for. Such a rise is a correction, not a regression.
+     */
+    static final int BASELINE = 61;
 
     private static final Path TEST_ROOT = Path.of("src/test/java");
 

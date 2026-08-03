@@ -22,7 +22,7 @@ import java.util.stream.Stream;
  *   <li><b>First class per file is the primary type.</b> {@link #parseExtends} records the first {@code class} declaration
  *   in each file and ignores nested/secondary classes. Every test file in this tree declares its primary type first;
  *   files whose primary type is an {@code interface}/{@code enum}/{@code record} are absent from the graph.</li>
- *   <li><b>Source is comment-stripped, not string-literal-aware.</b> Comments are removed so prose containing Java keywords
+ *   <li><b>Source is comment-stripped by a string-literal-aware scan.</b> Comments are removed so prose containing Java keywords
  *   (e.g. "Base class for ...") is not matched, and annotation/keyword checks are token-anchored (word boundaries) so that
  *   {@code @TestConfiguration} is not mistaken for {@code @Test} nor a {@code "abstract class"} string literal for an abstract
  *   declaration.</li>
@@ -52,13 +52,6 @@ final class TestClassTaxonomy {
     private static final Pattern TEST_ANNOTATION = Pattern.compile("(?m)^[ \\t]*(?:@Test\\b|@ParameterizedTest\\b|@RepeatedTest\\b)");
     private static final Pattern SPRING_BOOT_TEST = Pattern.compile("(?m)^[ \\t]*@SpringBootTest\\b");
 
-    // Block comments (incl. Javadoc) and line comments — stripped before any matching.
-    private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
-    private static final Pattern LINE_COMMENT = Pattern.compile("//[^\\n]*");
-    // Text blocks hold fixture SOURCE as data (e.g. meta-tests embedding "@SpringBootTest ..." strings).
-    // Their content is never real annotations; strip it so detection/parsing is not fooled by fixtures.
-    private static final Pattern TEXT_BLOCK = Pattern.compile("\"\"\"[\\s\\S]*?\"\"\"");
-
     // Context-affecting annotations parsed by annotationTokens(). Each contributes one axis of the context cache key.
     private static final Pattern IMPORTS = Pattern.compile("@Import\\s*\\(([^)]*)\\)");
     private static final Pattern IMPORT_CLASS = Pattern.compile("(\\w+)\\s*\\.\\s*class");
@@ -84,6 +77,21 @@ final class TestClassTaxonomy {
     // Filter class references keep their outer-class qualifier: the filters here are nested types, and two modules
     // could each declare a same-named nested filter.
     private static final Pattern FILTER_CLASS = Pattern.compile("((?:\\w+\\.)*\\w+)\\.class");
+    // @DynamicPropertySource becomes a DynamicPropertiesContextCustomizer whose equals/hashCode are the Set<Method>
+    // it collected, so each declaring method forks the context cache key. Captures the method name; the declaring
+    // class is supplied by ContextSignature, which knows which hop of the chain the file is. Interposed annotations
+    // and modifiers are tolerated, as in NESTED_CONFIG above — a brace-carrying one such as
+    // @SuppressWarnings({"unused"}) must not hide the declaration.
+    private static final Pattern DYNAMIC_PROPERTY_SOURCE = Pattern.compile(
+            "@DynamicPropertySource\\b(?:\\s*\\([^)]*\\))?"
+                    + "(?:\\s+(?:@\\w+(?:\\([^)]*\\))?|public|protected|private|static|final|synchronized))*"
+                    + "\\s+void\\s+(\\w+)\\s*\\(");
+    // Counts declarations independently of the capture above so an unparseable shape fails loudly: a dropped method
+    // models a class as sharing a context Spring actually forks, and the guard would still pass because the distinct
+    // count only ever falls. Anchored at line start — a declaration always begins its own line, and the anchor keeps
+    // this file's own pattern-source literals from counting as declarations.
+    private static final Pattern DYNAMIC_PROPERTY_SOURCE_MARKER =
+            Pattern.compile("(?m)^\\s*@DynamicPropertySource\\b");
 
     private TestClassTaxonomy() {
     }
@@ -166,7 +174,8 @@ final class TestClassTaxonomy {
             List<String> configs,
             List<String> springBootTest,
             List<String> autoconfig,
-            List<String> typeExcludeFilters) {
+            List<String> typeExcludeFilters,
+            List<String> dynamicPropertySources) {
     }
 
     static ContextTokens annotationTokens(Path javaFile) {
@@ -186,7 +195,26 @@ final class TestClassTaxonomy {
                 allMatches(NESTED_CONFIG, 1, src),
                 normalizedArgs(SPRING_BOOT_TEST_ARGS, src),
                 allMatches(AUTOCONFIGURE, 1, src),
-                parseTypeExcludeFilters(src));
+                parseTypeExcludeFilters(src),
+                parseDynamicPropertySources(javaFile, src));
+    }
+
+    /**
+     * Method names of every {@code @DynamicPropertySource} declaration, cross-checked against an independent count of
+     * the annotation itself. A declaration the capture pattern cannot parse would otherwise be dropped silently, in
+     * the dangerous direction: the class gets modelled as sharing a context Spring forks, and
+     * {@code ContextSignatureGuardTest} still passes because the distinct count only fell.
+     */
+    private static List<String> parseDynamicPropertySources(Path javaFile, String src) {
+        List<String> methods = allMatches(DYNAMIC_PROPERTY_SOURCE, 1, src);
+        int declared = allMatches(DYNAMIC_PROPERTY_SOURCE_MARKER, 0, src).size();
+        if (methods.size() != declared) {
+            throw new IllegalStateException("Parsed " + methods.size() + " @DynamicPropertySource method name(s) "
+                    + methods + " but found " + declared + " declaration(s) in " + javaFile
+                    + "; DYNAMIC_PROPERTY_SOURCE cannot parse this declaration shape. Widen the pattern rather than "
+                    + "reshaping the test class — a dropped method models a forked context as a shared one.");
+        }
+        return methods;
     }
 
     /** Every {@code group} capture across all matches of {@code p} in {@code src}. */
@@ -252,14 +280,43 @@ final class TestClassTaxonomy {
     }
 
     /**
-     * File source with comments removed, so prose containing Java keywords is not matched.
+     * Source with comments removed and text blocks emptied, so prose containing Java keywords is not matched and
+     * fixture source embedded as data is not read as real annotations.
+     * <p>
+     * The scan is string-literal aware, which the axes depend on: a {@code //} inside a string literal — the scheme
+     * separator of a URL in a {@code @TestPropertySource} value, say — is content, not the start of a comment.
+     * Treating it as one truncates the line and silently swallows the rest of the annotation, including its closing
+     * parenthesis, so the arg capture then runs on into unrelated code.
      */
     private static String code(Path p) {
         String src = read(p);
-        src = TEXT_BLOCK.matcher(src).replaceAll("\"\"");
-        src = BLOCK_COMMENT.matcher(src).replaceAll("");
-        src = LINE_COMMENT.matcher(src).replaceAll("");
-        return src;
+        StringBuilder out = new StringBuilder(src.length());
+        int i = 0;
+        while (i < src.length()) {
+            char c = src.charAt(i);
+            if (src.startsWith("\"\"\"", i)) {
+                int end = src.indexOf("\"\"\"", i + 3);
+                out.append("\"\"");
+                i = end < 0 ? src.length() : end + 3;
+            } else if (src.startsWith("/*", i)) {
+                int end = src.indexOf("*/", i + 2);
+                i = end < 0 ? src.length() : end + 2;
+            } else if (src.startsWith("//", i)) {
+                int end = src.indexOf('\n', i);
+                i = end < 0 ? src.length() : end;
+            } else if (c == '"' || c == '\'') {
+                int j = i + 1;
+                while (j < src.length() && src.charAt(j) != c) {
+                    j += src.charAt(j) == '\\' ? 2 : 1;
+                }
+                out.append(src, i, Math.min(j + 1, src.length()));
+                i = j + 1;
+            } else {
+                out.append(c);
+                i++;
+            }
+        }
+        return out.toString();
     }
 
     private static String read(Path p) {

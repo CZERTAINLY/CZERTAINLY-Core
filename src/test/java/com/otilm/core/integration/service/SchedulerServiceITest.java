@@ -47,6 +47,7 @@ import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.tasks.SystemScheduledJobs;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -54,8 +55,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.io.IOException;
 import java.security.cert.CertificateException;
@@ -65,17 +65,13 @@ import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
+@TestPropertySource(properties = "scheduler.base-url=http://localhost:" + WireMockPorts.SCHEDULER)
 class SchedulerServiceITest extends BaseSpringBootTest {
 
     @RegisterExtension
     static WireMockExtension schedulerMock = WireMockExtension.newInstance()
-            .options(wireMockConfig().dynamicPort())
+            .options(wireMockConfig().port(WireMockPorts.SCHEDULER))
             .build();
-
-    @DynamicPropertySource
-    static void schedulerProperties(DynamicPropertyRegistry registry) {
-        registry.add("scheduler.base-url", schedulerMock::baseUrl);
-    }
 
     @Autowired
     private SchedulerExternalService schedulerService;

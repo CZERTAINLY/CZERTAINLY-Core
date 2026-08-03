@@ -39,6 +39,7 @@ import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.GroupExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.hibernate.exception.ConstraintViolationException;
@@ -48,8 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -62,12 +62,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class NotificationProfileServiceITest extends BaseSpringBootTest {
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
-    }
 
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -202,7 +198,7 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testUpdateNotificationProfile() throws NotFoundException {
-        WireMockServer mockServer = new WireMockServer(10001);
+        WireMockServer mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 

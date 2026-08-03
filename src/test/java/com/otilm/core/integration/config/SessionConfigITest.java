@@ -17,8 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  */
 @AutoConfigureMockMvc
 @SpringBootTest
+@TestPropertySource(properties = "server.servlet.context-path=")
 class SessionConfigITest extends BaseSpringBootTestNoAuth {
 
     /**
@@ -56,12 +56,6 @@ class SessionConfigITest extends BaseSpringBootTestNoAuth {
 
     @MockitoBean
     PlatformAuthenticationClient authenticationClient;
-
-    @DynamicPropertySource
-    static void overrideProperties(DynamicPropertyRegistry registry) {
-        // Use empty context path so the URL constants above are unambiguous
-        registry.add("server.servlet.context-path", () -> "");
-    }
 
     @BeforeEach
     void setUp() {

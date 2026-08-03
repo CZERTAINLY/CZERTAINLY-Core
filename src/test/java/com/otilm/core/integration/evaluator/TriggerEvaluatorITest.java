@@ -46,14 +46,14 @@ import com.otilm.core.evaluator.CertificateTriggerEvaluator;
 import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.service.*;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.io.IOException;
 import java.security.cert.CertificateException;
@@ -63,12 +63,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class TriggerEvaluatorITest extends BaseSpringBootTest {
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
-    }
 
     @Autowired
     private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyTriggerEvaluator;
@@ -949,7 +945,7 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
         executionItem.setFieldIdentifier(FilterField.OWNER.toString());
         executionItem.setData(UUID.randomUUID());
 
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 

@@ -9,6 +9,7 @@ import com.otilm.core.service.NotificationExternalService;
 import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
@@ -17,8 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -26,9 +26,9 @@ import java.util.UUID;
 @SpringBootTest
 @Transactional
 @Rollback
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class NotificationServiceITest extends BaseSpringBootTest {
 
-    private static final int AUTH_SERVICE_MOCK_PORT = 10001;
     private static final String MOCK_ROLE_UUID = UUID.randomUUID().toString();
     private String mockUser1Uuid;
     private static final String MOCK_USER_2_UUID = UUID.randomUUID().toString();
@@ -46,11 +46,6 @@ class NotificationServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private NotificationRecipientRepository notificationRecipientRepository;
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:" + AUTH_SERVICE_MOCK_PORT);
-    }
 
     @BeforeEach
     public void setUp() {
@@ -91,7 +86,7 @@ class NotificationServiceITest extends BaseSpringBootTest {
     }
 
     private void setupAuthServiceMock() {
-        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
