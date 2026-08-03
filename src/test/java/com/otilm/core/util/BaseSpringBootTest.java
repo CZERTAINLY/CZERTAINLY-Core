@@ -123,6 +123,26 @@ public class BaseSpringBootTest {
         ).thenReturn(denied);
     }
 
+    /**
+     * Restricts object-level access for one (resource, action) pair to an allow-list, so
+     * {@code AuthHelper.loadObjectPermissions} reports the user as restricted. Everything else
+     * keeps the default allow-all stub.
+     */
+    protected void restrictObjectAccess(Resource resource, ResourceAction action) {
+        OpaObjectAccessResult restricted = new OpaObjectAccessResult();
+        restricted.setActionAllowedForGroupOfObjects(false);
+        restricted.setAllowedObjects(List.of(UUID.randomUUID().toString()));
+        restricted.setForbiddenObjects(List.of());
+        Mockito.when(opaClient.checkObjectAccess(
+                Mockito.any(),
+                Mockito.argThat(req -> req != null
+                        && req.getProperties() != null
+                        && resource.getCode().equals(req.getProperties().get("name"))
+                        && action.getCode().equals(req.getProperties().get("action"))),
+                Mockito.any(), Mockito.any())
+        ).thenReturn(restricted);
+    }
+
     protected void allowResourceAccess(Resource resource, ResourceAction action) {
         OpaResourceAccessResult allowed = new OpaResourceAccessResult();
         allowed.setAuthorized(true);

@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity.notifications;
 
+import com.otilm.api.model.core.notification.NotificationDataCategory;
 import com.otilm.core.dao.entity.UniquelyIdentified;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -8,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -33,6 +36,21 @@ public class NotificationProfile extends UniquelyIdentified {
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreationTimestamp
     protected OffsetDateTime createdAt;
+
+    // Parent-level, not versioned: a data-exposure switch must apply at send time to every
+    // delivery, including monitoring streams pinned to older profile versions.
+    @Column(name = "event_data_categories")
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    private List<NotificationDataCategory> eventDataCategories = new ArrayList<>();
+
+    /**
+     * Never null: rows created before the column existed load as null, which means the same
+     * as an empty list -- no enrichment.
+     */
+    public List<NotificationDataCategory> getEventDataCategories() {
+        return eventDataCategories == null ? List.of() : eventDataCategories;
+    }
 
     @ToString.Exclude
     @JsonBackReference

@@ -2,24 +2,29 @@ package com.otilm.core.service.impl;
 
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.notification.NotificationProfileUpdateRequestDto;
+import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.core.notification.NotificationDataCategory;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.core.dao.entity.notifications.NotificationProfile;
 import com.otilm.core.dao.entity.notifications.NotificationProfileVersion;
 import com.otilm.core.dao.repository.notifications.NotificationProfileRepository;
 import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRepository;
 import com.otilm.core.security.authz.SecuredUUID;
+import jakarta.persistence.EntityManager;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -43,12 +48,16 @@ class NotificationProfileServiceImplPersistEditTest {
 
     private SecuredUUID profileUuid;
     private NotificationProfileUpdateRequestDto updateRequest;
+    private final List<NameAndUuidDto> noRecipients = List.of();
+    private final Set<NotificationDataCategory> noGatedCategories = Set.of();
 
     @BeforeEach
     void setUp() {
         service = new NotificationProfileServiceImpl();
         service.setNotificationProfileRepository(notificationProfileRepository);
         service.setNotificationProfileVersionRepository(notificationProfileVersionRepository);
+        // The under-lock refresh is a no-op here: the mocked repositories return detached fixtures.
+        service.setEntityManager(Mockito.mock(EntityManager.class));
 
         profileUuid = SecuredUUID.fromUUID(UUID.randomUUID());
 
@@ -76,7 +85,7 @@ class NotificationProfileServiceImplPersistEditTest {
                 .thenThrow(integrityViolation(NotificationProfileVersion.UNIQUE_VERSION_CONSTRAINT));
 
         ValidationException e = Assertions.assertThrows(ValidationException.class,
-                () -> service.persistEditedVersion(profileUuid, updateRequest, List.of()));
+                () -> service.persistEditedVersion(profileUuid, updateRequest, noRecipients, noGatedCategories));
         Assertions.assertTrue(e.getMessage().contains("concurrently modified"),
                 "Message should tell the client to retry, but was: " + e.getMessage());
     }
@@ -87,7 +96,7 @@ class NotificationProfileServiceImplPersistEditTest {
         when(notificationProfileVersionRepository.saveAndFlush(any())).thenThrow(foreignKeyViolation);
 
         DataIntegrityViolationException e = Assertions.assertThrows(DataIntegrityViolationException.class,
-                () -> service.persistEditedVersion(profileUuid, updateRequest, List.of()));
+                () -> service.persistEditedVersion(profileUuid, updateRequest, noRecipients, noGatedCategories));
         Assertions.assertSame(foreignKeyViolation, e, "Non-duplicate integrity violations must surface unchanged");
     }
 
@@ -97,7 +106,7 @@ class NotificationProfileServiceImplPersistEditTest {
         when(notificationProfileVersionRepository.saveAndFlush(any())).thenThrow(anonymousViolation);
 
         DataIntegrityViolationException e = Assertions.assertThrows(DataIntegrityViolationException.class,
-                () -> service.persistEditedVersion(profileUuid, updateRequest, List.of()));
+                () -> service.persistEditedVersion(profileUuid, updateRequest, noRecipients, noGatedCategories));
         Assertions.assertSame(anonymousViolation, e);
     }
 
