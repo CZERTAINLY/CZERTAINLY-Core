@@ -159,10 +159,11 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     }
 
     /**
-     * Records the successful send in the suppression row. A write failure is logged and swallowed:
-     * the connector already accepted this notification, so suppression state stays as-is and the
-     * next occurrence may send one extra notification -- rolling anything back or reporting a
-     * delivery failure would put local state behind a delivery that already happened.
+     * Records the successful delivery in the suppression row. A write failure is logged and
+     * swallowed: the notification was already delivered -- to the connector, internally, or both
+     * -- so suppression state stays as-is and the next occurrence may send one extra
+     * notification. Rolling anything back or reporting a delivery failure would put local state
+     * behind a delivery that already happened.
      */
     private void recordSuppressionState(UUID notificationProfileUuid, NotificationMessage message, int pinnedVersion) {
         try {

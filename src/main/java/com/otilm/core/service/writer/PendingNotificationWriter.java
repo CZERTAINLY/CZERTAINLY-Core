@@ -11,9 +11,10 @@ import java.util.UUID;
 
 /**
  * Writer half of the notification listener's orchestrator/writer pair. Records a successful
- * external send as an atomic upsert so concurrent notification consumers cannot create duplicate
- * suppression rows for one (profile, resource, object, event). REQUIRED propagation so it
- * composes: joins an ambient transaction when present, starts a short one otherwise.
+ * notification delivery -- external, internal, or both -- as an atomic upsert so concurrent
+ * notification consumers cannot create duplicate suppression rows for one (profile, resource,
+ * object, event). REQUIRED propagation so it composes: joins an ambient transaction when
+ * present, starts a short one otherwise.
  */
 @Service
 public class PendingNotificationWriter {
