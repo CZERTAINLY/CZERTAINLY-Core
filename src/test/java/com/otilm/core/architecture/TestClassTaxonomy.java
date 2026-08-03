@@ -127,8 +127,21 @@ final class TestClassTaxonomy {
     static boolean loadsContext(Path javaFile, Map<String, String> graph) {
         String src = code(javaFile);
         if (SPRING_BOOT_TEST.matcher(src).find()) return true;
+        String primary = primaryClassName(src);
+        return primary != null && hasContextBearingAncestor(primary, graph);
+    }
+
+    /**
+     * Simple name of the file's primary type — the first {@code class} declaration, the same one
+     * {@link #parseExtends} keys the inheritance graph by — or {@code null} for a file declaring none.
+     */
+    static String primaryClassName(Path javaFile) {
+        return primaryClassName(code(javaFile));
+    }
+
+    private static String primaryClassName(String src) {
         Matcher m = CLASS_DECL.matcher(src);
-        return m.find() && hasContextBearingAncestor(m.group(2), graph);
+        return m.find() ? m.group(2) : null;
     }
 
     static boolean isRunnableTest(Path javaFile) {
