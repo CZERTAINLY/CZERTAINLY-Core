@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 import static com.otilm.core.service.cmp.message.PkiMessageDumper.ifNotNull;
 
 /**
- * <p></p>Implementation of signature-based (see rfc4210, 5.1.3) protection of {@link PKIMessage}.
+ * <p>Implementation of signature-based (see rfc4210, 5.1.3) protection of {@link PKIMessage}.
  * When protection is applied, the following structure is used:</p>
  *
  * <pre>

@@ -34,10 +34,12 @@ public abstract class BaseValidator {
     }
 
     /**
-     * Check if given values (<code>value1</code>, <code>value2</>) are the same
+     * Check if given values (<code>value1</code>, <code>value2</code>) are the same
      *
-     * @param value1 first value for
-     * @param value2 first value for
+     * @param tid transaction ID reported with the failure
+     * @param value1 first value
+     * @param value2 second value
+     * @param errorMsg message carried by the exception when the values differ
      * @throws CmpProcessingException if values are different
      */
     protected void assertEqual(ASN1OctetString tid, Object value1, Object value2, String errorMsg)
