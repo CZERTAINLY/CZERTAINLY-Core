@@ -2,10 +2,13 @@ package com.otilm.core.messaging.jms.listeners;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.otilm.api.interfaces.client.v1.NotificationInstanceSyncApiClient;
 import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
+import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
+import com.otilm.core.dao.entity.notifications.NotificationProfileVersion;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.repository.GroupRepository;
@@ -21,19 +24,27 @@ import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.service.writer.PendingNotificationWriter;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class NotificationListenerTest {
 
@@ -57,7 +68,8 @@ class NotificationListenerTest {
                 mock(ResourceObjectAssociationService.class),
                 // The real handler, invoked directly rather than through its proxy, runs the work without a
                 // transaction -- which is what this unencumbered unit context wants.
-                new TransactionHandler());
+                new TransactionHandler(),
+                mock(PendingNotificationWriter.class));
     }
 
     @Test
@@ -84,6 +96,75 @@ class NotificationListenerTest {
         assertTrue(text.getValue().contains("CN=device-7"), "the internal notification names the certificate");
         assertFalse((text.getValue() + detail.getValue()).contains("s3cret-challenge-value"),
                 "the credential must never be written into the persisted internal notification");
+    }
+
+    @Test
+    void connectorAcceptedSendSurvivesFailedSuppressionWrite() throws Exception {
+        // The connector accepted the notification; the suppression-state write then fails. The
+        // failure must be logged and swallowed: reporting it as a delivery failure (trigger
+        // history) would misstate a delivery that already happened, and letting it escape would
+        // trigger a redelivery and a duplicate send.
+        UUID profileUuid = UUID.randomUUID();
+        UUID instanceRefUuid = UUID.randomUUID();
+
+        NotificationProfileVersion version = new NotificationProfileVersion();
+        version.setNotificationProfileUuid(profileUuid);
+        version.setVersion(1);
+        version.setRecipientType(RecipientType.NONE);
+        version.setInternalNotification(false);
+        version.setRepetitions(5);
+        version.setNotificationInstanceRefUuid(instanceRefUuid);
+
+        NotificationInstanceReference instanceRef = new NotificationInstanceReference();
+        instanceRef.setKind("WEBHOOK");
+        instanceRef.setConnectorUuid(UUID.randomUUID());
+        instanceRef.setNotificationInstanceUuid(UUID.randomUUID());
+        instanceRef.setMappedAttributes(List.of());
+
+        NotificationProfileVersionRepository versionRepository = mock(NotificationProfileVersionRepository.class);
+        when(versionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(profileUuid)).thenReturn(Optional.of(version));
+        NotificationInstanceReferenceRepository instanceRefRepository = mock(NotificationInstanceReferenceRepository.class);
+        when(instanceRefRepository.findWithMappedAttributesByUuid(instanceRefUuid)).thenReturn(Optional.of(instanceRef));
+
+        ConnectorInternalService connectorService = mock(ConnectorInternalService.class);
+        NotificationInstanceSyncApiClient apiClient = mock(NotificationInstanceSyncApiClient.class);
+        when(apiClient.listMappingAttributes(any(), any())).thenReturn(List.of());
+        ConnectorApiFactory connectorApiFactory = mock(ConnectorApiFactory.class);
+        when(connectorApiFactory.getNotificationInstanceApiClient(any())).thenReturn(apiClient);
+
+        PendingNotificationWriter failingWriter = mock(PendingNotificationWriter.class);
+        doThrow(new RuntimeException("suppression store unavailable")).when(failingWriter)
+                .recordSent(any(), any(), any(), any(), anyInt());
+        TriggerInternalService triggerService = mock(TriggerInternalService.class);
+
+        NotificationListener listener = new NotificationListener(
+                JsonMapper.builder().findAndAddModules().build(),
+                mock(AttributeEngine.class),
+                notificationService,
+                triggerService,
+                connectorApiFactory,
+                connectorService,
+                mock(PendingNotificationRepository.class),
+                versionRepository,
+                instanceRefRepository,
+                mock(GroupRepository.class),
+                mock(UserManagementApiClient.class),
+                mock(RoleManagementApiClient.class),
+                mock(ResourceObjectAssociationService.class),
+                new TransactionHandler(),
+                failingWriter);
+
+        NotificationMessage message = new NotificationMessage(
+                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, UUID.randomUUID(),
+                List.of(profileUuid), List.of(), null,
+                UUID.randomUUID(), null);
+
+        assertDoesNotThrow(() -> listener.processMessage(message));
+
+        verify(apiClient).sendNotification(any(), any(), any());
+        verify(failingWriter).recordSent(eq(profileUuid), eq(Resource.CERTIFICATE), any(), eq(ResourceEvent.CERTIFICATE_EXPIRING), eq(1));
+        // The failed suppression write is not a delivery failure: trigger history stays untouched.
+        verifyNoInteractions(triggerService);
     }
 
     @Test

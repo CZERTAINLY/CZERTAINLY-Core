@@ -33,11 +33,13 @@ import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.service.writer.PendingNotificationWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -46,7 +48,7 @@ import java.util.*;
 
 @Component
 @AllArgsConstructor
-@Transactional
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class NotificationListener implements MessageProcessor<NotificationMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
@@ -68,6 +70,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     private RoleManagementApiClient roleManagementApiClient;
     private ResourceObjectAssociationService resourceObjectAssociationService;
     private TransactionHandler transactionHandler;
+    private PendingNotificationWriter pendingNotificationWriter;
 
     private static final Map<ResourceEvent, String> eventToLegacyNotificationTypeMapping = new EnumMap<>(ResourceEvent.class);
 
@@ -151,8 +154,22 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         if (pendingNotification != null && notificationSent) {
-            pendingNotification.setRepetitions(pendingNotification.getRepetitions() + 1);
-            pendingNotificationRepository.save(pendingNotification);
+            recordSuppressionState(notificationProfileUuid, message, pendingNotification.getVersion());
+        }
+    }
+
+    /**
+     * Records the successful send in the suppression row. A write failure is logged and swallowed:
+     * the connector already accepted this notification, so suppression state stays as-is and the
+     * next occurrence may send one extra notification -- rolling anything back or reporting a
+     * delivery failure would put local state behind a delivery that already happened.
+     */
+    private void recordSuppressionState(UUID notificationProfileUuid, NotificationMessage message, int pinnedVersion) {
+        try {
+            pendingNotificationWriter.recordSent(notificationProfileUuid, message.getResource(), message.getObjectUuid(), message.getEvent(), pinnedVersion);
+        } catch (RuntimeException e) {
+            logger.error("Notification for profile {} event {} on {} {} was sent but recording suppression state failed",
+                    notificationProfileUuid, message.getEvent(), message.getResource(), message.getObjectUuid(), e);
         }
     }
 
@@ -204,10 +221,11 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     }
 
     /**
-     * Written in its own transaction: the caller's transaction may already be rollback-only from the failure being
-     * reported here, and this record is the only durable trace of why the trigger's notification did not go out.
-     * The trigger history row it references is committed well before this runs -- the notification message is
-     * dispatched from an {@code AFTER_COMMIT} listener on the transaction that created it.
+     * Written in its own transaction: the listener runs without an ambient one, and the two history
+     * writes must land atomically -- this record is the only durable trace of why the trigger's
+     * notification did not go out. The trigger history row it references is committed well before
+     * this runs -- the notification message is dispatched from an {@code AFTER_COMMIT} listener on
+     * the transaction that created it.
      */
     private void recordNotificationFailureOnTriggerHistory(String errorMessage, NotificationMessage message) {
         if (message.getTriggerHistoryUuid() == null) {
@@ -247,24 +265,6 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 && (notificationProfileVersion.getRepetitions() == null || pendingNotification.getRepetitions() < notificationProfileVersion.getRepetitions());
     }
 
-    /**
-     * Reads through collaborators that carry their own {@code @Transactional} are made in a transaction of their
-     * own. Joining this listener's transaction, anything unchecked they raise marks it rollback-only past the catch
-     * that handles it: the notification still goes out to the connector, and the commit then fails and rolls local
-     * state back behind a delivery that already happened.
-     */
-    private NameAndUuidDto ownerOf(Resource resource, UUID objectUuid) {
-        return transactionHandler.runInNewTransaction(() -> resourceObjectAssociationService.getOwner(resource, objectUuid));
-    }
-
-    private List<UUID> groupUuidsOf(Resource resource, UUID objectUuid) {
-        return transactionHandler.runInNewTransaction(() -> resourceObjectAssociationService.getGroupUuids(resource, objectUuid));
-    }
-
-    private List<ResponseAttribute> customAttributesOf(Resource resource, UUID objectUuid) {
-        return transactionHandler.runInNewTransaction(() -> attributeEngine.getObjectCustomAttributesContentForSystemContext(resource, objectUuid));
-    }
-
     private List<NotificationRecipient> getRecipients(RecipientType recipientType, List<UUID> recipientUuids, ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
         if (recipientType == RecipientType.OBJECT) {
             return List.of(new NotificationRecipient(RecipientType.OBJECT, objectUuid));
@@ -275,7 +275,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         if (recipientType == RecipientType.OWNER) {
-            NameAndUuidDto ownerInfo = ownerOf(resource, objectUuid);
+            NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
             if (ownerInfo == null) return List.of();
             return List.of(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
         }
@@ -300,12 +300,12 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         switch (event) {
             case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING,
                  CERTIFICATE_NOT_COMPLIANT, CERTIFICATE_UPLOADED -> {
-                NameAndUuidDto ownerInfo = ownerOf(resource, objectUuid);
+                NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
                 }
 
-                for (UUID groupUuid : groupUuidsOf(resource, objectUuid)) {
+                for (UUID groupUuid : resourceObjectAssociationService.getGroupUuids(resource, objectUuid)) {
                     recipients.add(new NotificationRecipient(RecipientType.GROUP, groupUuid));
                 }
             }
@@ -337,7 +337,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             }
             case CERTIFICATE_REGISTERED -> {
                 // Owner only by default (no groups) — a credential-bearing event; a profile can override.
-                NameAndUuidDto ownerInfo = ownerOf(resource, objectUuid);
+                NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
                 }
@@ -358,7 +358,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
      */
     private boolean sendExternalNotifications(UUID notificationInstanceUUID, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent
             event, Resource resource) throws ConnectorException, ValidationException, NotFoundException {
-        NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
+        // Fetch-join the mapped attributes: the listener runs without an ambient transaction, so the
+        // entity is detached the moment the repository call returns and lazy loading would fail.
+        NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findWithMappedAttributesByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
         if (notificationInstanceReference.getConnectorUuid() == null) {
             throw new ValidationException("Notification instance does not have assigned connector");
         }
@@ -389,7 +391,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                         ? resource
                         : recipient.getRecipientType().getRecipientResource();
                 // Unauthenticated lookup is correct here, since the access to the custom attributes has been resolved when defining mapping attributes.
-                List<ResponseAttribute> recipientCustomAttributes = customAttributesOf(customAttributeResource, recipient.getRecipientUuid());
+                List<ResponseAttribute> recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContentForSystemContext(customAttributeResource, recipient.getRecipientUuid());
                 // prepare mapped attributes
                 List<RequestAttribute> mappedAttributes = getMappedAttributes(notificationInstanceReference, mappingAttributes, recipientCustomAttributes);
                 if (recipient.getRecipientType() == RecipientType.OBJECT && mappedAttributes.isEmpty()) {
@@ -521,10 +523,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         int failed = 0;
         for (NotificationRecipient recipient : recipients) {
             try {
-                // Each recipient commits on its own. Anything unchecked raised while creating one would otherwise
-                // mark the shared transaction rollback-only past the caller's catch, discarding the notifications
-                // already created for the recipients before it.
-                if (transactionHandler.runInNewTransaction(() -> createInternalNotification(recipient, notificationData, resource, objectUuid)) != null) {
+                // Each recipient commits on its own: the listener runs without an ambient transaction, so
+                // every notification-service call opens and commits its own short transaction.
+                if (createInternalNotification(recipient, notificationData, resource, objectUuid) != null) {
                     ++notified;
                 }
             } catch (Exception e) {
