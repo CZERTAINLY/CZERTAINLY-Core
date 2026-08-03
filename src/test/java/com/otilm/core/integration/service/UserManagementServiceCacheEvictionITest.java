@@ -10,10 +10,12 @@ import com.otilm.core.service.UserManagementExternalService;
 import com.otilm.core.service.UserManagementInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SessionTableHelper;
+import com.otilm.core.util.mockbeans.ManagementApiMocks;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -25,6 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@Import(ManagementApiMocks.class)
 class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
 
     @Autowired
@@ -36,10 +39,10 @@ class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @MockitoBean
+    @Autowired
     private UserManagementApiClient userManagementApiClient;
 
-    @MockitoBean
+    @Autowired
     private RoleManagementApiClient roleManagementApiClient;
 
     @MockitoBean

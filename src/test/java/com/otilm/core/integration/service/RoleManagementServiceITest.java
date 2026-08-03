@@ -6,8 +6,10 @@ import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.service.RoleManagementExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.mockbeans.ManagementApiMocks;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
@@ -18,12 +20,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@Import(ManagementApiMocks.class)
 class RoleManagementServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private RoleManagementExternalService roleManagementService;
 
-    @MockitoBean
+    @Autowired
     private RoleManagementApiClient roleManagementApiClient;
 
     @MockitoBean
