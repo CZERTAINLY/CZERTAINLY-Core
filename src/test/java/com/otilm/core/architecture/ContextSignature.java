@@ -19,7 +19,7 @@ import java.util.stream.Stream;
  * - nested @TestConfiguration class simple-names,
  * - verbatim @SpringBootTest arguments,
  * - @AutoConfigure* annotation names, and
- * - @TypeExcludeFilters filter-class names.
+ * - @TypeExcludeFilters filter-class names of the NEAREST declaration in the chain.
  *
  * Two classes with equal signatures are expected to share one cached context. Import order is not a signature axis
  */
@@ -64,7 +64,10 @@ final class ContextSignature {
                 configs.addAll(t.configs());
                 springBootTest.addAll(t.springBootTest());
                 autoconfig.addAll(t.autoconfig());
-                typeExcludeFilters.addAll(t.typeExcludeFilters());
+                // Spring resolves @TypeExcludeFilters to the NEAREST declaration only.
+                if (typeExcludeFilters.isEmpty()) {
+                    typeExcludeFilters.addAll(t.typeExcludeFilters());
+                }
             }
             simple = extendsGraph.get(simple);
         }

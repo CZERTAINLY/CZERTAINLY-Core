@@ -184,8 +184,8 @@ class ContextSignatureTest {
     }
 
     @Test
-    void typeExcludeFiltersAreUnionedAcrossTheInheritanceChain(@TempDir Path dir) throws IOException {
-        // @TypeExcludeFilters is @Inherited, so a base class's filters apply to every subclass.
+    void typeExcludeFiltersAreInheritedWhenTheSubclassDeclaresNone(@TempDir Path dir) throws IOException {
+        // @TypeExcludeFilters is @Inherited, so a base class's filters apply to a subclass that declares none.
         write(dir, "BaseFilteredTest.java", """
                 @SpringBootTest
                 @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
@@ -203,6 +203,36 @@ class ContextSignatureTest {
         Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
         assertThat(ContextSignature.of("ChildITest", graph, byName))
                 .isEqualTo(ContextSignature.of("StandaloneITest", graph, byName));
+    }
+
+    @Test
+    void aSubclassTypeExcludeFiltersDeclarationShadowsTheAncestors(@TempDir Path dir) throws IOException {
+        // TypeExcludeFiltersContextCustomizerFactory resolves the NEAREST @TypeExcludeFilters declaration and uses
+        // only its value(), so the base class's filter A does not reach the context at all.
+        write(dir, "BaseFilteredTest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(AMocks.ExcludeFilter.class)
+                abstract class BaseFilteredTest {}
+                """);
+        write(dir, "ShadowingITest.java", """
+                @TypeExcludeFilters(BMocks.ExcludeFilter.class)
+                class ShadowingITest extends BaseFilteredTest {}
+                """);
+        write(dir, "OnlyBITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters(BMocks.ExcludeFilter.class)
+                class OnlyBITest {}
+                """);
+        write(dir, "BothFiltersITest.java", """
+                @SpringBootTest
+                @TypeExcludeFilters({AMocks.ExcludeFilter.class, BMocks.ExcludeFilter.class})
+                class BothFiltersITest {}
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("ShadowingITest", graph, byName))
+                .isEqualTo(ContextSignature.of("OnlyBITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("BothFiltersITest", graph, byName));
     }
 
     @Test

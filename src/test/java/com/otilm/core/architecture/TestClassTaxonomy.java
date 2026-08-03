@@ -141,7 +141,8 @@ final class TestClassTaxonomy {
 
     /**
      * Context-affecting annotation tokens parsed from ONE file (not its ancestors). Each list is an axis of the
-     * Spring context cache key; {@link ContextSignature} unions the axes across the inheritance chain.
+     * Spring context cache key; {@link ContextSignature} combines the axes across the inheritance chain — unioning
+     * the inherited ones, and taking only the nearest declaration where Spring itself does (see {@link #typeExcludeFilters()}).
      */
     record ContextTokens(
             List<String> imports,
