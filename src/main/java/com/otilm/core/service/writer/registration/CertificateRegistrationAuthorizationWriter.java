@@ -54,6 +54,13 @@ public class CertificateRegistrationAuthorizationWriter {
      * (null once the predecessor's first issuance cleared it). Only an ACTIVE authorization is copied — a
      * LOCKED/EXPIRED/CLOSED credential must not be resurrected on the successor — and the predecessor's own
      * row is left untouched. No-op when the predecessor carries no authorization.
+     *
+     * <p>Insert-only, deliberately not an upsert: the successor is freshly created in the same renew/rekey
+     * invocation, so it can never legitimately carry a prior authorization row. If a caller ever points this
+     * at a certificate that already has one — such as an operator-staged successor registration, whose
+     * challenge is independent of the predecessor's by design — the unique constraint on
+     * {@code certificate_uuid} must fail the call loudly rather than let a copy silently replace an
+     * operator-supplied credential.</p>
      */
     @Transactional
     public void copyToSuccessor(UUID predecessorCertificateUuid, UUID successorCertificateUuid) {
