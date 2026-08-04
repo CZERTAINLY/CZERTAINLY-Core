@@ -2013,6 +2013,21 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     }
 
     @Test
+    void placeholderRollsBackWhenSourceVanishesDuringLinking() {
+        // The fresh in-transaction source read aborts before the placeholder is written when the source
+        // disappears between the up-front validation and the linking — a missing source must never leave
+        // a committed orphan placeholder.
+        Certificate source = seedIssuedCert();
+        certificateRepository.delete(source);
+
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.createRegistrationPlaceholder(
+                raProfile, "CN=device-1,O=Acme", null, source));
+
+        Assertions.assertEquals(0, certificateRepository.count(),
+                "a checked failure during relation creation must roll the placeholder back, not commit an orphan");
+    }
+
+    @Test
     void registerWithSourceRequiresUpdatePermissionOnTheSource() {
         // The successor relation mutates the source certificate's lineage, so registering a successor demands
         // object-scoped CERTIFICATE UPDATE on the source — enforced by the proxied evaluatePermissionChain call
