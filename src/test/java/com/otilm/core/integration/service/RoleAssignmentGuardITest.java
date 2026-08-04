@@ -24,11 +24,13 @@ import com.otilm.core.service.UserManagementExternalService;
 import com.otilm.core.service.UserManagementInternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.mockbeans.ManagementApiMocks;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -46,6 +48,7 @@ import static org.mockito.Mockito.when;
  * role -> users ({@link RoleManagementExternalService#updateUsers}) and user -> roles
  * ({@link UserManagementExternalService#updateRoles} / {@code updateRole}).
  */
+@Import(ManagementApiMocks.class)
 class RoleAssignmentGuardITest extends BaseSpringBootTest {
 
     private static final String HUMAN_USERNAME = "operator";
@@ -62,10 +65,10 @@ class RoleAssignmentGuardITest extends BaseSpringBootTest {
     @Autowired
     private LocalAdminExternalService localAdminService;
 
-    @MockitoBean
+    @Autowired
     private RoleManagementApiClient roleManagementApiClient;
 
-    @MockitoBean
+    @Autowired
     private UserManagementApiClient userManagementApiClient;
 
     @MockitoBean

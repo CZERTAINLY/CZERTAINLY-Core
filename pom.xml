@@ -16,7 +16,6 @@
     <properties>
         <archunit.version>1.4.2</archunit.version>
         <log-schema.version>1.1</log-schema.version>
-        <querydsl.version>5.1.0</querydsl.version>
         <hsqldb.version>2.7.3</hsqldb.version>
         <nimbus-jose-jwt.version>10.8</nimbus-jose-jwt.version>
         <mockwebserver.version>5.3.2</mockwebserver.version>
@@ -157,21 +156,6 @@
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.querydsl</groupId>
-            <artifactId>querydsl-apt</artifactId>
-            <version>${querydsl.version}</version>
-            <classifier>jakarta</classifier>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.querydsl</groupId>
-            <artifactId>querydsl-jpa</artifactId>
-            <version>${querydsl.version}</version>
-            <classifier>jakarta</classifier>
         </dependency>
 
         <dependency>
