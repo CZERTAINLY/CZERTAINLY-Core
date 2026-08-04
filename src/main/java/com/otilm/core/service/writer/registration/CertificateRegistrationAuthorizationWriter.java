@@ -1,5 +1,6 @@
 package com.otilm.core.service.writer.registration;
 
+import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
 import com.otilm.core.dao.entity.RegistrationState;
 import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
 import org.springframework.stereotype.Component;
@@ -44,5 +45,34 @@ public class CertificateRegistrationAuthorizationWriter {
     @Transactional
     public void clearIssuanceWindow(UUID certificateUuid) {
         authorizationRepository.clearIssuanceWindowByCertificateUuid(certificateUuid);
+    }
+
+    /**
+     * Copies the predecessor certificate's registration authorization onto its renew/rekey successor, so the
+     * challenge credential follows the certificate lineage without ever being decrypted: the ciphertext is
+     * reused verbatim, the failed-attempt counter restarts at zero, and the issuance window carries over
+     * (null once the predecessor's first issuance cleared it). Only an ACTIVE authorization is copied — a
+     * LOCKED/EXPIRED/CLOSED credential must not be resurrected on the successor — and the predecessor's own
+     * row is left untouched. No-op when the predecessor carries no authorization.
+     *
+     * <p>Insert-only, deliberately not an upsert: the successor is freshly created in the same renew/rekey
+     * invocation, so it can never legitimately carry a prior authorization row. If a caller ever points this
+     * at a certificate that already has one — such as an operator-staged successor registration, whose
+     * challenge is independent of the predecessor's by design — the unique constraint on
+     * {@code certificate_uuid} must fail the call loudly rather than let a copy silently replace an
+     * operator-supplied credential.</p>
+     */
+    @Transactional
+    public void copyToSuccessor(UUID predecessorCertificateUuid, UUID successorCertificateUuid) {
+        authorizationRepository.findByCertificateUuid(predecessorCertificateUuid)
+                .filter(predecessor -> predecessor.getState() == RegistrationState.ACTIVE)
+                .ifPresent(predecessor -> {
+                    CertificateRegistrationAuthorization successor = new CertificateRegistrationAuthorization();
+                    successor.setCertificateUuid(successorCertificateUuid);
+                    successor.setChallenge(predecessor.getChallenge());
+                    successor.setState(RegistrationState.ACTIVE);
+                    successor.setFailedAttempts(0);
+                    authorizationRepository.save(successor);
+                });
     }
 }
