@@ -186,6 +186,22 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     )
     List<UUID> findStalePendingIssueWithoutPollRow(@Param("threshold") OffsetDateTime threshold, Pageable pageable);
 
+    /**
+     * The pre-registrations a protocol enrolment can complete under the RA profile: REGISTERED placeholders
+     * whose registration authorization is ACTIVE. Registrations without a challenge have no authorization
+     * row and are excluded — they cannot authenticate an enrolment.
+     */
+    @Query("""
+            SELECT c FROM Certificate c
+                WHERE c.raProfileUuid = :raProfileUuid
+                    AND c.state = ?#{T(com.otilm.api.model.core.certificate.CertificateState).REGISTERED}
+                    AND EXISTS (SELECT 1 FROM CertificateRegistrationAuthorization a
+                        WHERE a.certificateUuid = c.uuid
+                            AND a.state = ?#{T(com.otilm.core.dao.entity.RegistrationState).ACTIVE})
+            """
+    )
+    List<Certificate> findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(@Param("raProfileUuid") UUID raProfileUuid);
+
     List<Certificate> findByRaProfileAndComplianceStatusIsNotNullAndArchivedIsFalse(RaProfile raProfile);
 
     Optional<Certificate> findBySubjectDnNormalizedAndSerialNumber(String subjectDnNormalized, String serialNumber);
