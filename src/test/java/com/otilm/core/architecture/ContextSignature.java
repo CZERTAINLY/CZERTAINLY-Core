@@ -22,12 +22,6 @@ import java.util.stream.Stream;
  * - @TypeExcludeFilters filter-class names of the NEAREST declaration in the chain, and
  * - @DynamicPropertySource methods as declaringClass#method, unioned over the chain.
  *
- * A @DynamicPropertySource method is keyed by the class that DECLARES it, because Spring keys the customizer on the
- * Set&lt;Method&gt; it collected: two classes each declaring their own method can never share a context, however
- * identical the properties they register, while subclasses inheriting one method all resolve to the same Method and
- * do share. Registering a STATIC value through it therefore buys a whole context boot that @TestPropertySource — the
- * props axis above — would not; prefer the latter unless the value is genuinely dynamic (a container's mapped port).
- *
  * Two classes with equal signatures are expected to share one cached context. Import order is not a signature axis
  */
 final class ContextSignature {

@@ -78,18 +78,12 @@ final class TestClassTaxonomy {
     // could each declare a same-named nested filter.
     private static final Pattern FILTER_CLASS = Pattern.compile("((?:\\w+\\.)*\\w+)\\.class");
     // @DynamicPropertySource becomes a DynamicPropertiesContextCustomizer whose equals/hashCode are the Set<Method>
-    // it collected, so each declaring method forks the context cache key. Captures the method name; the declaring
-    // class is supplied by ContextSignature, which knows which hop of the chain the file is. Interposed annotations
-    // and modifiers are tolerated, as in NESTED_CONFIG above — a brace-carrying one such as
-    // @SuppressWarnings({"unused"}) must not hide the declaration.
+    // it collected, so each declaring method forks the context cache key.
     private static final Pattern DYNAMIC_PROPERTY_SOURCE = Pattern.compile(
             "@DynamicPropertySource\\b(?:\\s*\\([^)]*\\))?"
                     + "(?:\\s+(?:@\\w+(?:\\([^)]*\\))?|public|protected|private|static|final|synchronized))*"
                     + "\\s+void\\s+(\\w+)\\s*\\(");
-    // Counts declarations independently of the capture above so an unparseable shape fails loudly: a dropped method
-    // models a class as sharing a context Spring actually forks, and the guard would still pass because the distinct
-    // count only ever falls. Anchored at line start — a declaration always begins its own line, and the anchor keeps
-    // this file's own pattern-source literals from counting as declarations.
+    // Counts declarations independently of the capture above so an unparseable shape fails.
     private static final Pattern DYNAMIC_PROPERTY_SOURCE_MARKER =
             Pattern.compile("(?m)^\\s*@DynamicPropertySource\\b");
 
@@ -201,9 +195,7 @@ final class TestClassTaxonomy {
 
     /**
      * Method names of every {@code @DynamicPropertySource} declaration, cross-checked against an independent count of
-     * the annotation itself. A declaration the capture pattern cannot parse would otherwise be dropped silently, in
-     * the dangerous direction: the class gets modelled as sharing a context Spring forks, and
-     * {@code ContextSignatureGuardTest} still passes because the distinct count only fell.
+     * the annotation itself.
      */
     private static List<String> parseDynamicPropertySources(Path javaFile, String src) {
         List<String> methods = allMatches(DYNAMIC_PROPERTY_SOURCE, 1, src);
@@ -280,13 +272,7 @@ final class TestClassTaxonomy {
     }
 
     /**
-     * Source with comments removed and text blocks emptied, so prose containing Java keywords is not matched and
-     * fixture source embedded as data is not read as real annotations.
-     * <p>
-     * The scan is string-literal aware, which the axes depend on: a {@code //} inside a string literal — the scheme
-     * separator of a URL in a {@code @TestPropertySource} value, say — is content, not the start of a comment.
-     * Treating it as one truncates the line and silently swallows the rest of the annotation, including its closing
-     * parenthesis, so the arg capture then runs on into unrelated code.
+     * Source with comments removed and text blocks emptied.
      */
     private static String code(Path p) {
         String src = read(p);
