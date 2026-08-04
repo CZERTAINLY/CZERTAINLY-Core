@@ -1,6 +1,7 @@
 package com.otilm.core.util;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
@@ -25,15 +26,21 @@ import java.util.Map;
  */
 class OAuth2UtilUserInfoTest {
 
+    /**
+     * Bound explicitly instead of the wildcard address: with 0.0.0.0 the OS hands out ephemeral ports
+     * that another local process already holds on loopback, and the traffic reaches that process.
+     */
+    private static final String LOOPBACK = "127.0.0.1";
+
     private WireMockServer mockServer;
     private String userInfoUrl;
 
     @BeforeEach
     void startServer() {
-        mockServer = new WireMockServer(0);
+        mockServer = new WireMockServer(WireMockConfiguration.options().bindAddress(LOOPBACK).dynamicPort());
         mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
-        userInfoUrl = "http://localhost:" + mockServer.port() + "/userinfo";
+        WireMock.configureFor(LOOPBACK, mockServer.port());
+        userInfoUrl = "http://" + LOOPBACK + ":" + mockServer.port() + "/userinfo";
     }
 
     @AfterEach
@@ -87,9 +94,9 @@ class OAuth2UtilUserInfoTest {
         String previousHost = System.getProperty("http.proxyHost");
         String previousPort = System.getProperty("http.proxyPort");
         MultiServerAuthenticator proxyAuthenticator = new MultiServerAuthenticator();
-        proxyAuthenticator.add("localhost:" + mockServer.port(), "proxy-user", "proxy-password");
+        proxyAuthenticator.add(LOOPBACK + ":" + mockServer.port(), "proxy-user", "proxy-password");
         Authenticator.setDefault(proxyAuthenticator);
-        System.setProperty("http.proxyHost", "localhost");
+        System.setProperty("http.proxyHost", LOOPBACK);
         System.setProperty("http.proxyPort", String.valueOf(mockServer.port()));
         try {
             mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
