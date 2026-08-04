@@ -22,6 +22,7 @@ import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
+import com.otilm.api.model.core.scep.ScepChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -497,6 +498,19 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         ValidationException ex = Assertions.assertThrows(ValidationException.class,
                 () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Challenge password is required"), ex.getMessage());
+    }
+
+    @Test
+    void testCreateScepProfile_defaultsChallengeSourceToProfilePassword() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        ScepProfileRequestDto request = new ScepProfileRequestDto();
+        request.setName("DefaultChallengeSource");
+        request.setCaCertificateUuid(certificate.getUuid().toString());
+
+        ScepProfileDetailDto dto = scepProfileService.createScepProfile(request);
+
+        Assertions.assertEquals(ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD, dto.getChallengeSource());
+        ScepProfile created = scepProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElseThrow();
+        Assertions.assertEquals(ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD, created.getChallengeSource());
     }
 
     @Test

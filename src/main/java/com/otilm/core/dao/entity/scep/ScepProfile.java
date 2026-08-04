@@ -1,6 +1,7 @@
 package com.otilm.core.dao.entity.scep;
 
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.core.scep.ScepChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.core.dao.entity.Certificate;
@@ -74,6 +75,10 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @ToString.Exclude
     private String challengePassword;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "challenge_source", nullable = false)
+    private ScepChallengeSource challengeSource = ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD;
+
     @Column(name = "intune_enabled")
     private boolean intuneEnabled;
 
@@ -113,6 +118,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setRenewThreshold(renewalThreshold);
         scepProfileDto.setEnableIntune(intuneEnabled);
         scepProfileDto.setEnableChallengePassword(challengePassword != null);
+        scepProfileDto.setChallengeSource(challengeSource);
         return scepProfileDto;
     }
 
@@ -135,6 +141,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         }
         scepProfileDto.setEnableIntune(intuneEnabled);
         scepProfileDto.setEnableChallengePassword(challengePassword != null);
+        scepProfileDto.setChallengeSource(challengeSource);
         scepProfileDto.setIntuneTenant(intuneTenant);
         scepProfileDto.setIntuneApplicationId(intuneApplicationId);
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
