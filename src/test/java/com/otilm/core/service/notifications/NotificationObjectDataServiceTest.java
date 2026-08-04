@@ -75,7 +75,7 @@ class NotificationObjectDataServiceTest {
         when(attributeEngine.getObjectCustomAttributesContentForSystemContext(any(), any())).thenReturn(List.of());
         when(attributeEngine.getMappedMetadataContent(any())).thenReturn(List.of());
         when(resourceObjectAssociationService.getGroupUuids(any(), any())).thenReturn(List.of());
-        when(certificateRepository.findByUuid(any(UUID.class))).thenReturn(Optional.empty());
+        when(certificateRepository.findWithRaProfileByUuid(any(UUID.class))).thenReturn(Optional.empty());
         when(certificateExporter.export(any())).thenReturn(Optional.empty());
 
         service = new NotificationObjectDataService(attributeEngine, attributeProtectionExclusions,
@@ -191,6 +191,25 @@ class NotificationObjectDataServiceTest {
 
         assertEquals(Set.of("plain"), objectData.getCustomAttributes().keySet(),
                 "protected and oversized attributes never reach the wire");
+    }
+
+    @Test
+    void associationsIncludeTheCertificatesRaProfile() {
+        UUID certificateUuid = UUID.randomUUID();
+        com.otilm.core.dao.entity.RaProfile raProfile = mock(com.otilm.core.dao.entity.RaProfile.class);
+        when(raProfile.getUuid()).thenReturn(UUID.randomUUID());
+        when(raProfile.getName()).thenReturn("acme-web-servers");
+        com.otilm.core.dao.entity.Certificate certificate = mock(com.otilm.core.dao.entity.Certificate.class);
+        when(certificate.getRaProfile()).thenReturn(raProfile);
+        when(certificateRepository.findWithRaProfileByUuid(certificateUuid)).thenReturn(Optional.of(certificate));
+
+        NotificationEventObjectDataDto objectData = service.getObjectData(
+                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                Set.of(NotificationDataCategory.ASSOCIATIONS));
+
+        assertNotNull(objectData.getAssociations());
+        assertEquals(Resource.RA_PROFILE, objectData.getAssociations().getFirst().getResource());
+        assertEquals("acme-web-servers", objectData.getAssociations().getFirst().getName());
     }
 
     @Test

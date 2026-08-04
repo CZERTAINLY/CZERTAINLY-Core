@@ -222,12 +222,26 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             if (categories.isEmpty()) {
                 return null;
             }
-            EventData eventData = getEventData(message.getEvent(), message.getData());
             return notificationObjectDataService.getObjectData(message.getEvent(), message.getResource(),
-                    message.getObjectUuid(), eventData, EnumSet.copyOf(categories));
+                    message.getObjectUuid(), convertEventDataBestEffort(message), EnumSet.copyOf(categories));
         } catch (Exception e) {
             logger.warn("Notification object data could not be built for profile version {} in event {}; sending without it",
                     notificationProfileVersion.getUuid(), message.getEvent(), e);
+            return null;
+        }
+    }
+
+    /**
+     * The typed event payload is needed only for subject resolution (approval events carry their
+     * target's coordinates in it); a malformed payload therefore falls back to the event object
+     * as the subject instead of disabling every enrichment category.
+     */
+    private EventData convertEventDataBestEffort(NotificationMessage message) {
+        try {
+            return getEventData(message.getEvent(), message.getData());
+        } catch (Exception e) {
+            logger.warn("Event data of {} for {} {} could not be converted; the enrichment subject falls back to the event object: {}",
+                    message.getEvent(), message.getResource(), message.getObjectUuid(), e.getMessage());
             return null;
         }
     }

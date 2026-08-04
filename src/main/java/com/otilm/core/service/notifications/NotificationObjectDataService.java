@@ -17,6 +17,7 @@ import com.otilm.api.model.core.other.ResourceObjectDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.repository.AttributeContent2ObjectRepository;
 import com.otilm.core.dao.repository.AttributeContent2ObjectRepository.AttributeContentFootprint;
 import com.otilm.core.dao.repository.CertificateRepository;
@@ -113,7 +114,9 @@ public class NotificationObjectDataService {
         NotificationEventObjectDataDto objectData = new NotificationEventObjectDataDto();
         objectData.setSubject(resolveSubjectReference(subject));
 
-        Set<UUID> oversizedAttributes = guardExclusions(subject, event);
+        boolean loadsAttributeContent = categories.contains(NotificationDataCategory.CUSTOM_ATTRIBUTES)
+                || categories.contains(NotificationDataCategory.METADATA);
+        Set<UUID> oversizedAttributes = loadsAttributeContent ? guardExclusions(subject, event) : Set.of();
 
         if (categories.contains(NotificationDataCategory.CUSTOM_ATTRIBUTES) && subject.resource().hasCustomAttributes()) {
             loadCategory(NotificationDataCategory.CUSTOM_ATTRIBUTES, subject, event, () -> {
@@ -138,8 +141,26 @@ public class NotificationObjectDataService {
                     loadContent(subject).ifPresent(objectData::setContent));
         }
 
-        NotificationObjectDataMapper.applyTotalCap(objectData, wireMapper);
+        applyTotalCapSafely(objectData, subject);
         return objectData;
+    }
+
+    /**
+     * The size cap serializes the payload, which can fail on a pathological value; the
+     * never-throws contract then degrades the payload to its subject reference rather than
+     * letting the failure reach the caller.
+     */
+    private void applyTotalCapSafely(NotificationEventObjectDataDto objectData, SubjectRef subject) {
+        try {
+            NotificationObjectDataMapper.applyTotalCap(objectData, wireMapper);
+        } catch (RuntimeException e) {
+            logger.warn("Notification object data for {} {} could not be size-capped; sending the subject reference only",
+                    subject.resource(), subject.objectUuid(), e);
+            objectData.setCustomAttributes(null);
+            objectData.setMetadata(null);
+            objectData.setAssociations(null);
+            objectData.setContent(null);
+        }
     }
 
     private void loadCategory(NotificationDataCategory category, SubjectRef subject, ResourceEvent event, Runnable loader) {
@@ -229,9 +250,11 @@ public class NotificationObjectDataService {
             }
         }
         if (subject.resource().hasGroups()) {
-            for (UUID groupUuid : resourceObjectAssociationService.getGroupUuids(subject.resource(), subject.objectUuid())) {
-                groupRepository.findByUuid(groupUuid).ifPresent(group ->
-                        associations.add(association(Resource.GROUP, group.getUuid().toString(), group.getName())));
+            List<UUID> groupUuids = resourceObjectAssociationService.getGroupUuids(subject.resource(), subject.objectUuid());
+            if (!groupUuids.isEmpty()) {
+                for (Group group : groupRepository.findByUuidIn(groupUuids)) {
+                    associations.add(association(Resource.GROUP, group.getUuid().toString(), group.getName()));
+                }
             }
         }
         if (subject.resource() == Resource.CERTIFICATE) {
