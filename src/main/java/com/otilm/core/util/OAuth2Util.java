@@ -7,19 +7,29 @@ import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.settings.SettingsCache;
 import com.nimbusds.jwt.SignedJWT;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.util.TimeValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorHandler;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.IOException;
 import java.net.URI;
 import java.text.ParseException;
 import java.util.*;
@@ -28,6 +38,85 @@ public class OAuth2Util {
 
     private static final Logger logger = LoggerFactory.getLogger(OAuth2Util.class);
 
+    /**
+     * Upper bound on concurrent connections the shared client may hold, per provider endpoint and in
+     * total. The default Apache pool allows only 5 per route, which would throttle the userinfo call
+     * made on every JWT-authenticated request; the server runs on virtual threads, so request
+     * concurrency is not otherwise capped.
+     */
+    private static final int MAX_CONNECTIONS = 100;
+
+    /**
+     * Shared client for the provider-side OAuth2 endpoints (end-session, userinfo). {@link RestClient}
+     * is immutable and thread-safe, so a single instance serves all calls.
+     */
+    private static final RestClient restClient = buildRestClient();
+
+    /**
+     * Builds the client on Apache HttpClient with a pool sized for the authentication path. Apache is
+     * deliberate: the JDK client would drop the {@code Authorization} header of every userinfo request
+     * as soon as an authenticator is registered on it, and without one it ignores the JVM default
+     * {@link java.net.Authenticator} that {@code ProxyConfiguration} installs, so calls through an
+     * authenticating forward proxy would fail. {@code useSystemProperties} keeps that proxy wiring.
+     * <p>
+     * Cookie management is off because the client is shared process-wide: a single jar would replay one
+     * user's provider session cookie onto every other user's userinfo and logout call. Status-code
+     * retries are off because Apache honours a {@code Retry-After} header verbatim, which would let a
+     * degraded provider stall every authenticated request for as long as it likes; the retry on an I/O
+     * error is kept, as it is what recovers a pooled connection the provider closed concurrently.
+     */
+    private static RestClient buildRestClient() {
+        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create()
+                .useSystemProperties()
+                .disableCookieManagement()
+                .setRetryStrategy(new IdempotentIoErrorRetryStrategy())
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .useSystemProperties()
+                        .setMaxConnTotal(MAX_CONNECTIONS)
+                        .setMaxConnPerRoute(MAX_CONNECTIONS)
+                        .build());
+        return RestClient.builder()
+                .requestFactory(new HttpComponentsClientHttpRequestFactory(httpClientBuilder.build()))
+                .defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
+                .defaultStatusHandler(HttpStatusCode::is3xxRedirection, OAuth2Util::rejectUnfollowedRedirect)
+                .build();
+    }
+
+    /**
+     * Retries an idempotent request once when the connection failed, and never because of the status the
+     * provider returned — the response-driven branch is what honours {@code Retry-After}.
+     */
+    private static final class IdempotentIoErrorRetryStrategy extends DefaultHttpRequestRetryStrategy {
+
+        private IdempotentIoErrorRetryStrategy() {
+            super(1, TimeValue.ZERO_MILLISECONDS);
+        }
+
+        @Override
+        public boolean retryRequest(HttpResponse response, int execCount, HttpContext context) {
+            return false;
+        }
+    }
+
+    /**
+     * A redirect reaching the caller means Apache declined to follow it — it refuses cross-authority
+     * redirects on requests carrying an {@code Authorization} header. Left alone, {@code retrieve()}
+     * would hand back a {@code null} body and the userinfo claims would vanish without a trace.
+     */
+    private static void rejectUnfollowedRedirect(HttpRequest request, ClientHttpResponse response) throws IOException {
+        throw new RestClientException("OAuth2 provider endpoint %s answered with redirect %s, which was not followed."
+                .formatted(withoutQuery(request.getURI()), response.getStatusCode()));
+    }
+
+    /**
+     * The logout URI carries the ID token in {@code id_token_hint} and the message of anything thrown
+     * here is logged, so the query string must not travel with it.
+     */
+    private static String withoutQuery(URI uri) {
+        String text = uri.toString();
+        int queryStart = text.indexOf('?');
+        return queryStart < 0 ? text : text.substring(0, queryStart);
+    }
 
     private OAuth2Util() {
         throw new IllegalStateException("Utility class");
@@ -66,8 +155,6 @@ public class OAuth2Util {
             }
             DefaultOidcUser oidcUser = (DefaultOidcUser) authenticationToken.getPrincipal();
             String idToken = oidcUser.getIdToken().getTokenValue();
-            RestTemplate restTemplate = new RestTemplate();
-            restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
             String endSessionEndpoint = provider.getLogoutUrl();
             URI uri = UriComponentsBuilder
                     .fromUriString(endSessionEndpoint)
@@ -75,29 +162,25 @@ public class OAuth2Util {
                     .build()
                     .toUri();
             try {
-                restTemplate.getForEntity(uri, Void.class);
+                restClient.get().uri(uri).retrieve().toBodilessEntity();
             } catch (Exception e) {
                 logger.error("Failed to log out user {} from OAuth2 provider {} at endpoint {}: {}", authenticationToken.getName(), provider.getName(), endSessionEndpoint, e.getMessage(), e);
             }
         }
     }
 
-    private static Map<String, Object> getUserInfo(String userInfoUrl, String accessToken) {
-        RestTemplate restTemplate = new RestTemplate();
-        restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
-        HttpMethod httpMethod = HttpMethod.GET;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+    static Map<String, Object> getUserInfo(String userInfoUrl, String accessToken) {
         URI uri = UriComponentsBuilder
                 .fromUriString(userInfoUrl)
                 .build()
                 .toUri();
 
-        RequestEntity<?> request;
-        headers.setBearerAuth(accessToken);
-        request = new RequestEntity<>(headers, httpMethod, uri);
-        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(request, new ParameterizedTypeReference<>() {});
-        return response.getBody();
+        return restClient.get()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .headers(headers -> headers.setBearerAuth(accessToken))
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
     }
 
     private static Map<String, Object> mergeClaims(Map<String, Object> accessTokenClaims, Map<String,Object> idTokenClaims, Map<String, Object> userInfoClaims) {
