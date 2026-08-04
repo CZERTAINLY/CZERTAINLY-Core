@@ -9,13 +9,12 @@ import com.otilm.core.provisioning.TrustedCertificateProvisioningRequestDTO;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TrustedCertificateExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.lang.NonNull;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -26,6 +25,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
+@TestPropertySource(properties = "provisioning.api.url=http://localhost:" + WireMockPorts.PROVISIONING_API)
 class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     private static final String TEST_UUID = "abfbc322-29e1-11ed-a261-0242ac120002";
@@ -48,13 +48,8 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     @RegisterExtension
     static WireMockExtension wireMockServer = WireMockExtension.newInstance()
-        .options(wireMockConfig().dynamicPort())
+        .options(wireMockConfig().port(WireMockPorts.PROVISIONING_API))
         .build();
-
-    @DynamicPropertySource
-    static void provisioningTestProperties(@NonNull DynamicPropertyRegistry registry) {
-        registry.add("provisioning.api.url", wireMockServer::baseUrl);
-    }
 
     @Autowired
     private TrustedCertificateExternalService trustedCertificateService;

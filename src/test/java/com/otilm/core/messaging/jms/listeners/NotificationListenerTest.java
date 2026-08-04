@@ -24,6 +24,7 @@ import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.service.notifications.NotificationObjectDataService;
 import com.otilm.core.service.writer.PendingNotificationWriter;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -69,7 +70,8 @@ class NotificationListenerTest {
                 // The real handler, invoked directly rather than through its proxy, runs the work without a
                 // transaction -- which is what this unencumbered unit context wants.
                 new TransactionHandler(),
-                mock(PendingNotificationWriter.class));
+                mock(PendingNotificationWriter.class),
+                mock(NotificationObjectDataService.class));
     }
 
     @Test
@@ -152,7 +154,8 @@ class NotificationListenerTest {
                 mock(RoleManagementApiClient.class),
                 mock(ResourceObjectAssociationService.class),
                 new TransactionHandler(),
-                failingWriter);
+                failingWriter,
+                mock(NotificationObjectDataService.class));
 
         NotificationMessage message = new NotificationMessage(
                 ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, UUID.randomUUID(),

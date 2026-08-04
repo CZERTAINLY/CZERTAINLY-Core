@@ -10,7 +10,6 @@ import com.otilm.core.service.AuditLogExternalService;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.SessionTableHelper;
-import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,8 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.net.HttpCookie;
@@ -41,15 +39,8 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestPropertySource(properties = "server.servlet.context-path=")
 class OAuth2LoginControllerITest {
-
-    private static WireMockServer mockServer;
-
-    @DynamicPropertySource
-    static void props(DynamicPropertyRegistry registry) {
-        registry.add("server.servlet.context-path", () -> "");
-        registry.add("auth-service.base-url", () -> "http://localhost:10003");
-    }
 
     @LocalServerPort
     int port;
@@ -70,9 +61,6 @@ class OAuth2LoginControllerITest {
 
     @BeforeEach
     void setUp() {
-        mockServer = new WireMockServer(0);
-        mockServer.start();
-
         http = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
@@ -85,9 +73,6 @@ class OAuth2LoginControllerITest {
     @AfterEach
     void tearDown() {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, new AuthenticationSettingsDto());
-        if (mockServer != null) {
-            mockServer.stop();
-        }
         SessionTableHelper.dropSessionTables(jdbcTemplate);
     }
 

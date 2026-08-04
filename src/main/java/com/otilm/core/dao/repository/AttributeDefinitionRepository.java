@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +20,7 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     Optional<AttributeDefinition> findByUuidAndType(UUID uuid, AttributeType type);
     Optional<AttributeDefinition> findByUuidAndTypeAndGlobalTrue(UUID uuid, AttributeType type);
     Optional<AttributeDefinition> findByAttributeUuid(UUID uuid);
+    List<AttributeDefinition> findByAttributeUuidIn(Collection<UUID> attributeUuids);
     List<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(AttributeType type, UUID connectorUuid, List<UUID> uuids, List<String> names);
     List<AttributeDefinition> findAllByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid, String attributeName);
     List<AttributeDefinition> findByTypeAndGlobal(AttributeType type, boolean global);

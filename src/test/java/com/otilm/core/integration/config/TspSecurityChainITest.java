@@ -3,6 +3,7 @@ package com.otilm.core.integration.config;
 import com.otilm.core.config.CookieConfig;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.util.BaseSpringBootTestNoAuth;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.servlet.FilterChain;
@@ -20,8 +21,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import org.springframework.session.web.http.SessionRepositoryFilter;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -42,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * </ul>
  */
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {"auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE_SECURITY_CHAIN,
+        "server.servlet.context-path="})
 class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
 
     @Autowired
@@ -64,12 +66,6 @@ class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
     static final String CERTIFICATE_HEADER_VALUE = "certificate";
     static final String CERTIFICATE_USER_USERNAME = "certificate-user";
 
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10003");
-        registry.add("server.servlet.context-path", () -> "");
-    }
-
     @BeforeEach
     void resetCachesAndStubAuthService() throws Exception {
         authenticationCache.evictAll();
@@ -82,7 +78,7 @@ class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
             return null;
         }).when(springSessionRepositoryFilter).doFilter(Mockito.any(), Mockito.any(), Mockito.any());
 
-        mockServer = new WireMockServer(10003);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE_SECURITY_CHAIN);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 

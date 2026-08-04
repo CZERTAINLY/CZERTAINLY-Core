@@ -20,15 +20,14 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ProxyExternalService;
 import com.otilm.core.service.ProxyInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.lang.NonNull;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +35,7 @@ import java.util.Optional;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
+@TestPropertySource(properties = "provisioning.api.url=http://localhost:" + WireMockPorts.PROVISIONING_API)
 class ProxyServiceITest extends BaseSpringBootTest {
 
     private static final String PROXY_NAME = "testProxy1";
@@ -49,13 +49,8 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @RegisterExtension
     static WireMockExtension wireMockServer = WireMockExtension.newInstance()
-        .options(wireMockConfig().dynamicPort())
+        .options(wireMockConfig().port(WireMockPorts.PROVISIONING_API))
         .build();
-
-    @DynamicPropertySource
-    static void proxyProvisioningTestProperties(@NonNull DynamicPropertyRegistry registry) {
-        registry.add("provisioning.api.url", () -> wireMockServer.baseUrl());
-    }
 
     @Autowired
     private ProxyExternalService proxyService;
