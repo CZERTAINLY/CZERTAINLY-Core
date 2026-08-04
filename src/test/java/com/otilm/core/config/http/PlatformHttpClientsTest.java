@@ -10,7 +10,6 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,12 +37,10 @@ class PlatformHttpClientsTest {
 
     @BeforeEach
     void startServer() throws IOException {
-        // Bound to loopback rather than the wildcard address: with 0.0.0.0 the OS hands out ephemeral
-        // ports another local process already holds on loopback, and the traffic reaches that process.
-        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server = HttpServer.create(new InetSocketAddress(0), 0);
         serverExecutor = Executors.newFixedThreadPool(CONCURRENT_REQUESTS * 2);
         server.setExecutor(serverExecutor);
-        url = "http://" + server.getAddress().getAddress().getHostAddress() + ":" + server.getAddress().getPort() + "/probe";
+        url = "http://localhost:" + server.getAddress().getPort() + "/probe";
     }
 
     @AfterEach
