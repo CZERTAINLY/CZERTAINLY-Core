@@ -18,6 +18,33 @@ import java.util.UUID;
 @Repository
 public interface AttributeContent2ObjectRepository extends SecurityFilterRepository<AttributeContent2Object, String> {
 
+    /**
+     * Per-attribute footprint of an object's stored attribute content, for the notification
+     * enrichment load guard: how many content rows each attribute definition contributes and the
+     * largest serialized row. Grouped by the definition's stable attribute UUID so oversized
+     * attributes can be excluded before their values are put on the wire.
+     */
+    @Query(value = """
+            SELECT ad.attribute_uuid AS attributeUuid, ad.type AS attributeType,
+                   count(*) AS rowCount, max(octet_length(aci.json::text)) AS maxBytes
+            FROM {h-schema}attribute_content_2_object aco
+            JOIN {h-schema}attribute_content_item aci ON aci.uuid = aco.attribute_content_item_uuid
+            JOIN {h-schema}attribute_definition ad ON ad.uuid = aci.attribute_definition_uuid
+            WHERE aco.object_type = :objectType AND aco.object_uuid = :objectUuid
+            GROUP BY ad.attribute_uuid, ad.type
+            """, nativeQuery = true)
+    List<AttributeContentFootprint> summarizeContentFootprint(@Param("objectType") String objectType, @Param("objectUuid") UUID objectUuid);
+
+    interface AttributeContentFootprint {
+        UUID getAttributeUuid();
+
+        String getAttributeType();
+
+        long getRowCount();
+
+        long getMaxBytes();
+    }
+
     // ── Deduplication check — version-aware and purpose-aware ───────────────
     /**
      * Locates the content mapping that would collide with a new (content item, object, version, purpose, source, connector) tuple,

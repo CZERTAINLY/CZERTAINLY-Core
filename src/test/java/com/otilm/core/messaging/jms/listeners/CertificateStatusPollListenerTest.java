@@ -10,18 +10,25 @@ import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRelation;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
+import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.jms.configuration.StatusPollProperties;
 import com.otilm.core.messaging.model.CertificateStatusPollMessage;
+import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.handler.authority.AsyncOperationCapability;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapter;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.CertificateOperation;
 import com.otilm.core.service.handler.authority.StatusPollResult;
+import com.otilm.core.service.handler.authority.lifecycle.CertificateRevocationFinalizer;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
+import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
+import com.otilm.core.service.writer.registration.CertificateRegistrationWriter;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +40,7 @@ import org.springframework.dao.TransientDataAccessResourceException;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -60,13 +68,14 @@ class CertificateStatusPollListenerTest {
     @Mock private CertificateStatusPollWriter pollWriter;
     @Mock private StatusPollProperties statusPollProperties;
     @Mock private AttributeEngine attributeEngine;
-    @Mock private com.otilm.core.events.transaction.TransactionHandler transactionHandler;
-    @Mock private com.otilm.core.service.CertificateInternalService certificateService;
-    @Mock private com.otilm.core.service.handler.authority.lifecycle.CertificateRevocationFinalizer revocationFinalizer;
-    @Mock private com.otilm.core.service.writer.registration.CertificateRegistrationWriter registrationWriter;
+    @Mock private TransactionHandler transactionHandler;
+    @Mock private CertificateInternalService certificateService;
+    @Mock private CertificateRevocationFinalizer revocationFinalizer;
+    @Mock private CertificateRegistrationWriter registrationWriter;
     @Mock private EventProducer eventProducer;
     @Mock private CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository;
-    @Mock private com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter;
+    @Mock private CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter;
+    @Mock private CertificateRelationRepository certificateRelationRepository;
 
     /**
      * Combined mock implementing both AuthorityProviderAdapter and AsyncOperationCapability.
@@ -100,6 +109,7 @@ class CertificateStatusPollListenerTest {
         listener.setEventProducer(eventProducer);
         listener.setRegistrationAuthorizationRepository(registrationAuthorizationRepository);
         listener.setRegistrationAuthorizationWriter(registrationAuthorizationWriter);
+        listener.setCertificateRelationRepository(certificateRelationRepository);
 
         StatusPollProperties.PollSchedule schedule = mock(StatusPollProperties.PollSchedule.class);
         lenient().when(schedule.maxAttempts()).thenReturn(3);
@@ -483,6 +493,39 @@ class CertificateStatusPollListenerTest {
 
         verify(stateMachine).transition(eq(cert), eq(CertificateState.FAILED), isNull(), anyString());
         verify(pollWriter).delete(CERT_UUID);
+    }
+
+    @Test
+    void terminalRegisterFailureDeletesPredecessorRelations() throws MessageHandlingException, ConnectorException {
+        // A successor placeholder (register with sourceCertificateUuid) that terminally fails must not stay
+        // linked as its source's pending successor — the relation retires with the placeholder, matching the
+        // synchronous failure paths.
+        Certificate cert = certInState(CertificateState.PENDING_REGISTRATION);
+        Set<CertificateRelation> relations = Set.of(new CertificateRelation());
+        when(cert.getPredecessorRelations()).thenReturn(relations);
+        when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
+        when(asyncAdapter.pollStatus(cert, CertificateOperation.REGISTER))
+                .thenReturn(new StatusPollResult(CertificateOperationStatus.FAILED, null, null, "CA error"));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
+
+        listener.processMessage(pollMsg(CertificateOperation.REGISTER, 0));
+
+        verify(stateMachine).transition(eq(cert), eq(CertificateState.FAILED), isNull(), anyString());
+        verify(certificateRelationRepository).deleteAll(relations);
+    }
+
+    @Test
+    void completedRegisterKeepsPredecessorRelations() throws MessageHandlingException, ConnectorException {
+        Certificate cert = certInState(CertificateState.PENDING_REGISTRATION);
+        lenient().when(cert.getPredecessorRelations()).thenReturn(Set.of(new CertificateRelation()));
+        when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
+        when(asyncAdapter.pollStatus(cert, CertificateOperation.REGISTER))
+                .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, null, null, "OK"));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
+
+        listener.processMessage(pollMsg(CertificateOperation.REGISTER, 0));
+
+        verify(certificateRelationRepository, never()).deleteAll(any());
     }
 
     @Test
