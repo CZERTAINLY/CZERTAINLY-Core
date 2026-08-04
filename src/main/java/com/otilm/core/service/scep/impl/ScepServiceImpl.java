@@ -11,9 +11,12 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.certificate.CertificateEvent;
+import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.MessageType;
 import com.otilm.api.model.core.scep.PkiStatus;
+import com.otilm.api.model.core.scep.ScepChallengeSource;
 import com.otilm.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.otilm.api.model.core.v2.ClientCertificateRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
@@ -28,6 +31,9 @@ import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.dao.entity.scep.ScepTransaction;
+import com.otilm.core.model.request.Pkcs10CertificateRequest;
+import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepTransactionRepository;
@@ -38,13 +44,17 @@ import com.otilm.core.model.auth.CertificateProtocolInfo;
 import com.otilm.core.provider.PlatformProvider;
 import com.otilm.core.provider.key.PlatformPrivateKey;
 import com.otilm.core.security.authz.SecuredUUID;
+import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.CryptographicKeyInternalService;
 import com.otilm.core.service.handler.CertificateValidationStatusPoller;
 import com.otilm.core.security.authz.ProtocolEndpoint;
+import com.otilm.core.service.registration.RegistrationChallengeStore;
 import com.otilm.core.service.scep.ScepExternalService;
+import com.otilm.core.service.scep.ScepRegistrationMatcher;
 import com.otilm.core.service.scep.message.ScepRequest;
 import com.otilm.core.service.scep.message.ScepResponse;
+import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.CertificateUtil;
@@ -133,10 +143,17 @@ public class ScepServiceImpl implements ScepExternalService {
     private RaProfile raProfile;
     private List<RequestAttribute> issueAttributes;
     private ScepProfile scepProfile;
+    /** The pre-registered certificate a registration-mode enrolment was matched to; set per request. */
+    private Certificate matchedRegistration;
     private RaProfileRepository raProfileRepository;
     private ScepProfileRepository scepProfileRepository;
     private ScepTransactionRepository scepTransactionRepository;
+    private CertificateRepository certificateRepository;
+    private CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository;
+    private RegistrationChallengeStore registrationChallengeStore;
+    private CertificateEventHistoryInternalService certificateEventHistoryService;
     private ClientOperationInternalService clientOperationService;
+    private ClientOperationExternalService clientOperationExternalService;
     private CertificateInternalService certificateService;
     private CertificateValidationStatusPoller validationStatusPoller;
     private CryptographicKeyInternalService cryptographicKeyService;
@@ -171,6 +188,31 @@ public class ScepServiceImpl implements ScepExternalService {
     @Autowired
     public void setClientOperationService(ClientOperationInternalService clientOperationService) {
         this.clientOperationService = clientOperationService;
+    }
+
+    @Autowired
+    public void setClientOperationExternalService(ClientOperationExternalService clientOperationExternalService) {
+        this.clientOperationExternalService = clientOperationExternalService;
+    }
+
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
+
+    @Autowired
+    public void setRegistrationAuthorizationRepository(CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository) {
+        this.registrationAuthorizationRepository = registrationAuthorizationRepository;
+    }
+
+    @Autowired
+    public void setRegistrationChallengeStore(RegistrationChallengeStore registrationChallengeStore) {
+        this.registrationChallengeStore = registrationChallengeStore;
+    }
+
+    @Autowired
+    public void setCertificateEventHistoryService(CertificateEventHistoryInternalService certificateEventHistoryService) {
+        this.certificateEventHistoryService = certificateEventHistoryService;
     }
 
     @Autowired
@@ -427,9 +469,18 @@ public class ScepServiceImpl implements ScepExternalService {
 
         if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ) || scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
             try {
-                // Classify first: the challenge password gate needs the renewal verdict.
+                // Classify first: both challenge regimes need the renewal verdict.
                 boolean authenticatedRenewal = authenticateRenewal(scepRequest);
-                validateChallengePassword(scepRequest.getChallengePassword(), authenticatedRenewal);
+                if (registrationMode()) {
+                    // An authenticated renewal proved possession of the replaced certificate's key — the
+                    // RFC-blessed equivalent of a challenge — so only initial enrolments must match a
+                    // pre-registration.
+                    if (!authenticatedRenewal) {
+                        matchedRegistration = matchRegistration(scepRequest);
+                    }
+                } else {
+                    validateChallengePassword(scepRequest.getChallengePassword(), authenticatedRenewal);
+                }
                 verifyProofOfPossession(scepRequest);
             } catch (ScepException e) {
                 return buildResponse(scepRequest, buildFailedResponse(e, scepRequest.getTransactionId()));
@@ -489,6 +540,10 @@ public class ScepServiceImpl implements ScepExternalService {
             // Reject before issuing when the response could never be delivered, so the platform
             // does not commit a certificate the client can never retrieve (RFC 8894 §3.2.2).
             verifyResponseEnvelopable(scepRequest);
+            if (registrationMode() && matchedRegistration != null) {
+                LoggingHelper.putAuditLogOperation(Operation.ISSUE);
+                return completeRegistration(scepRequest);
+            }
             // Manual approval for the SCEP clients are configured in the SCEP Profile.
             // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
             if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
@@ -803,10 +858,11 @@ public class ScepServiceImpl implements ScepExternalService {
 
     /**
      * A SUCCESS CertRep is enveloped to the client's own key: RSA keys via key transport, every
-     * other key type (e.g. EC) via the RFC 8894 password recipient, which needs the shared challenge
-     * password. When the client key cannot do key transport and the profile has no challenge password,
-     * the issued certificate could never be delivered — reject the request before issuing rather than
-     * committing an unretrievable certificate.
+     * other key type (e.g. EC) via the RFC 8894 password recipient, which needs a challenge password —
+     * the profile's shared one, or in registration mode the matched registration's challenge. When the
+     * client key cannot do key transport and no envelope password is available, the issued certificate
+     * could never be delivered — reject the request before issuing rather than committing an
+     * unretrievable certificate.
      */
     void verifyResponseEnvelopable(ScepRequest scepRequest) throws ScepException {
         X509Certificate signerCertificate = scepRequest.getSignerCertificate();
@@ -814,9 +870,8 @@ public class ScepServiceImpl implements ScepExternalService {
             return;
         }
         boolean keyTransportCapable = "RSA".equalsIgnoreCase(signerCertificate.getPublicKey().getAlgorithm());
-        boolean challengePasswordConfigured = scepProfile.getChallengePassword() != null && !scepProfile.getChallengePassword().isEmpty();
-        if (!keyTransportCapable && !challengePasswordConfigured) {
-            throw new ScepException("A challenge password must be configured on the SCEP profile to issue certificates to non-RSA client keys", FailInfo.BAD_ALG);
+        if (!keyTransportCapable && resolveEnvelopePassword(scepRequest) == null) {
+            throw new ScepException("A challenge password must be configured on the SCEP profile, or the enrolment must complete a certificate registration, to issue certificates to non-RSA client keys", FailInfo.BAD_ALG);
         }
     }
 
@@ -849,12 +904,153 @@ public class ScepServiceImpl implements ScepExternalService {
         scepResponse.setSenderNonce(RandomUtil.generateRandomNonceBase64(16));
         scepResponse.setContentEncryptionAlgorithm(scepRequest.getContentEncryptionAlgorithm());
         // Enveloping a SUCCESS response to a recipient key that cannot do key transport (e.g. EC)
-        // requires the shared challenge password (RFC 8894 §3.2.2).
-        scepResponse.setChallengePassword(scepProfile.getChallengePassword());
+        // requires a password recipient (RFC 8894 §3.2.2).
+        scepResponse.setChallengePassword(resolveEnvelopePassword(scepRequest));
+    }
+
+    /**
+     * The RFC 8894 password-recipient secret for enveloping a response to a non-key-transport client key.
+     * In the profile-password regime it is the shared challenge password. In registration mode it is the
+     * per-registration challenge: the one presented in the enrolment CSR, or — on a poll, where no CSR
+     * rides the request — the one recovered from the durable authorization behind the poll's transaction.
+     * {@code null} when no password is available (the enveloper then raises its delivery error).
+     */
+    // package-private for unit tests
+    String resolveEnvelopePassword(ScepRequest scepRequest) {
+        if (!registrationMode()) {
+            String profilePassword = scepProfile.getChallengePassword();
+            return profilePassword == null || profilePassword.isEmpty() ? null : profilePassword;
+        }
+        if (scepRequest == null) {
+            return null;
+        }
+        if (scepRequest.getPkcs10Request() != null) {
+            String presented = scepRequest.getChallengePassword();
+            if (presented != null && !presented.isEmpty()) {
+                return presented;
+            }
+        }
+        return resolvePollEnvelopePassword(scepRequest);
+    }
+
+    private String resolvePollEnvelopePassword(ScepRequest scepRequest) {
+        ScepTransaction transaction = getTransaction(scepRequest.getTransactionId());
+        if (transaction == null) {
+            return null;
+        }
+        return registrationAuthorizationRepository.findByCertificateUuid(transaction.getCertificateUuid())
+                .map(registrationChallengeStore::resolvePlaintext)
+                .orElse(null);
     }
 
     private ScepTransaction getTransaction(String transactionId) {
         return scepTransactionRepository.findByTransactionId(transactionId).orElse(null);
+    }
+
+    /** The single wire message for every registration-mode rejection, so a prober cannot enumerate registrations. */
+    static final String REGISTRATION_REJECTION = "The request does not match an active certificate registration.";
+
+    private boolean registrationMode() {
+        return scepProfile.getChallengeSource() == ScepChallengeSource.CERTIFICATE_REGISTRATION;
+    }
+
+    /**
+     * Binds a registration-mode initial enrolment to its pre-registered certificate: the CSR identity is
+     * matched against the RA profile's REGISTERED placeholders holding an ACTIVE authorization, and only
+     * the single matched registration later has its challenge verified (inside the completion, so each
+     * wrong challenge is counted exactly once against exactly one authorization). Every rejection carries
+     * {@link #REGISTRATION_REJECTION}; the reason stays in the log and, when the failed candidate is
+     * known, in its certificate event history.
+     */
+    // package-private for unit tests
+    Certificate matchRegistration(ScepRequest scepRequest) throws ScepException {
+        String presented = scepRequest.getChallengePassword();
+        if (presented == null || presented.isEmpty()) {
+            logger.info("SCEP registration enrolment rejected: no challenge password presented");
+            throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
+        }
+        Map<String, List<String>> csrSans;
+        try {
+            csrSans = CertificateUtil.getSAN(new Pkcs10CertificateRequest(scepRequest.getPkcs10Request().getEncoded()));
+        } catch (IOException | CertificateRequestException e) {
+            logger.info("SCEP registration enrolment rejected: unable to read the CSR identity", e);
+            throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
+        }
+        List<Certificate> candidates =
+                certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(raProfile.getUuid());
+        ScepRegistrationMatcher.MatchResult result = ScepRegistrationMatcher.match(
+                scepRequest.getPkcs10Request().getSubject(),
+                csrSans,
+                candidates.stream()
+                        .map(c -> new ScepRegistrationMatcher.Candidate(c.getUuid(), c.getSubjectDn(), c.getSubjectAlternativeNames()))
+                        .toList());
+        switch (result.outcome()) {
+            case MATCHED -> {
+                return candidates.stream()
+                        .filter(c -> c.getUuid().equals(result.certificateUuid()))
+                        .findFirst().orElseThrow();
+            }
+            case SAN_MISMATCH -> {
+                certificateEventHistoryService.addEventHistory(result.certificateUuid(), CertificateEvent.ISSUE,
+                        CertificateEventStatus.FAILED,
+                        "SCEP enrolment subject alternative names do not match the registered ones", "");
+                logger.info("SCEP registration enrolment rejected: SAN mismatch with registration {}", result.certificateUuid());
+            }
+            case AMBIGUOUS -> logger.info("SCEP registration enrolment rejected: several registrations match the CSR identity");
+            case NO_MATCH -> logger.info("SCEP registration enrolment rejected: no registration matches the CSR identity");
+        }
+        throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
+    }
+
+    /**
+     * Completes the matched pre-registration through the standard completion operation, presenting the
+     * CSR's challenge as the authorization secret — the challenge gate, CSR attach and ISSUE enqueue are
+     * the same as for an operator completion. Registration completion is always asynchronous: the client
+     * receives PENDING and polls the transaction.
+     */
+    // package-private for unit tests
+    ScepResponse completeRegistration(ScepRequest scepRequest) throws ScepException {
+        ClientCertificateIssueRequestDto requestDto = new ClientCertificateIssueRequestDto();
+        try {
+            requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+        } catch (IOException e) {
+            throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
+        }
+        requestDto.setFormat(CertificateRequestFormat.PKCS10);
+        requestDto.setAttributes(issueAttributes);
+        requestDto.setAuthorizationSecret(scepRequest.getChallengePassword());
+        try {
+            clientOperationExternalService.issueExistingCertificate(
+                    raProfile.getAuthorityInstanceReference().getSecuredParentUuid(),
+                    raProfile.getSecuredUuid(),
+                    matchedRegistration.getUuid().toString(),
+                    requestDto);
+        } catch (ValidationException | NotFoundException e) {
+            // Denial detail (locked authorization, expired window, wrong challenge) stays in the log and
+            // the certificate event history; the wire carries the anti-enumeration text so challenge
+            // failures are indistinguishable from lookup misses.
+            logger.info("SCEP registration completion rejected: {}", e.getMessage());
+            throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
+        }
+        applyProtocolAssociationBestEffort();
+        addTransactionEntity(scepRequest.getTransactionId(), matchedRegistration.getUuid().toString());
+        ScepResponse scepResponse = new ScepResponse();
+        scepResponse.setPkiStatus(PkiStatus.PENDING);
+        return scepResponse;
+    }
+
+    /**
+     * The completion is already committed and the ISSUE action enqueued, so an association failure must
+     * not fail the enrolment: the certificate is REQUESTED now, a retry would no longer match, and the
+     * client would be stranded. Best-effort with the failure logged.
+     */
+    private void applyProtocolAssociationBestEffort() {
+        try {
+            certificateService.applyProtocolAssociations(matchedRegistration.getUuid(), CertificateProtocolInfo.Scep(scepProfile.getUuid()));
+        } catch (Exception e) {
+            logger.warn("Failed to apply SCEP protocol associations to completed registration {}: {}",
+                    matchedRegistration.getUuid(), e.getMessage());
+        }
     }
 
     /**
