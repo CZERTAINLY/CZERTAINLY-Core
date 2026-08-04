@@ -32,20 +32,31 @@ jobs:
           route: GET /repos/${{ github.event.repository.full_name }}/pulls/${{ steps.pr_number.outputs.content }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Checkout the PR branch
+      # allow-unsafe-pr-checkout re-enables fork-PR checkout, refused by default
+      # from workflow_run since checkout v6.1.0. Accepted only until the scan moves
+      # to the sonar-scanner CLI, because the mvn step below executes the fork's
+      # pom with SONAR_TOKEN in scope. Pinned to head_sha rather than the
+      # fork-writable branch ref, so the tree matches the PR data read above.
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
+          allow-unsafe-pr-checkout: true
       # Checkout the base branch to keep the information about the new lines of code
       - name: Checkout base branch
         if: github.event.workflow_run.event == 'pull_request'
+        # PR-derived values go through env, not ${{ }} in the script: git permits
+        # ';' and backticks in ref names, so a crafted fork branch would execute.
+        env:
+          UPSTREAM_URL: ${{ github.event.repository.clone_url }}
+          BASE_REF: ${{ fromJson(steps.get_pr_data.outputs.data).base.ref }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          git remote add upstream ${{ github.event.repository.clone_url }}
+          git remote add upstream "$UPSTREAM_URL"
           git fetch upstream
-          git checkout -B ${{ fromJson(steps.get_pr_data.outputs.data).base.ref }} upstream/${{ fromJson(steps.get_pr_data.outputs.data).base.ref }}
-          git checkout ${{ github.event.workflow_run.head_branch }}
+          git checkout -B "$BASE_REF" "upstream/$BASE_REF"
+          git checkout "$HEAD_SHA"
           git clean -ffdx && git reset --hard HEAD
       # Download compiled classes
       - name: Download Compiled Classes
@@ -84,9 +95,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_REVISION: ${{ github.event.workflow_run.head_sha }}
+          SONAR_PR_KEY: ${{ fromJson(steps.get_pr_data.outputs.data).number }}
+          SONAR_PR_BRANCH: ${{ fromJson(steps.get_pr_data.outputs.data).head.ref }}
+          SONAR_PR_BASE: ${{ fromJson(steps.get_pr_data.outputs.data).base.ref }}
         run: |
           mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }} \
-            -Dsonar.pullrequest.key=${{ fromJson(steps.get_pr_data.outputs.data).number }} \
-            -Dsonar.pullrequest.branch=${{ fromJson(steps.get_pr_data.outputs.data).head.ref }} \
-            -Dsonar.pullrequest.base=${{ fromJson(steps.get_pr_data.outputs.data).base.ref }}
+            -Dsonar.scm.revision="$SONAR_REVISION" \
+            -Dsonar.pullrequest.key="$SONAR_PR_KEY" \
+            -Dsonar.pullrequest.branch="$SONAR_PR_BRANCH" \
+            -Dsonar.pullrequest.base="$SONAR_PR_BASE"
