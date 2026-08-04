@@ -85,6 +85,7 @@ public class NotificationProfileVersion extends UniquelyIdentified {
         notificationProfileDto.setRecipientUuids(this.recipientUuids);
         notificationProfileDto.setNotificationInstanceUuid(this.notificationInstanceRefUuid);
         notificationProfileDto.setInternalNotification(this.internalNotification);
+        notificationProfileDto.setEventDataCategories(this.getNotificationProfile().getEventDataCategories());
 
         return notificationProfileDto;
     }
@@ -101,6 +102,7 @@ public class NotificationProfileVersion extends UniquelyIdentified {
         notificationProfileDetailDto.setInternalNotification(this.internalNotification);
         notificationProfileDetailDto.setFrequency(this.frequency);
         notificationProfileDetailDto.setRepetitions(this.repetitions);
+        notificationProfileDetailDto.setEventDataCategories(this.getNotificationProfile().getEventDataCategories());
 
         return notificationProfileDetailDto;
     }
