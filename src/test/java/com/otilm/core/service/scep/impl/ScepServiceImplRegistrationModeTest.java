@@ -43,9 +43,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.lang.reflect.UndeclaredThrowableException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Security;
@@ -69,6 +71,8 @@ class ScepServiceImplRegistrationModeTest {
     private static final UUID RA_PROFILE_UUID = UUID.randomUUID();
     private static final UUID CANDIDATE_UUID = UUID.randomUUID();
     private static final String CHALLENGE = "registration-challenge";
+    /** Pinned copy of the wire contract: changing the production message must consciously change this test. */
+    private static final String REGISTRATION_REJECTION = "The request does not match an active certificate registration.";
 
     private static KeyPair keyPair;
     private static Map<String, OidRecord> savedRdnCache;
@@ -141,9 +145,9 @@ class ScepServiceImplRegistrationModeTest {
     void missingChallengeRejectsWithGenericMessage() throws Exception {
         ScepRequest request = scepRequest(csr("CN=device-1"), null);
 
-        ScepException ex = Assertions.assertThrows(ScepException.class, () -> service.matchRegistration(request));
+        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
-        Assertions.assertEquals(ScepServiceImpl.REGISTRATION_REJECTION, ex.getMessage());
+        Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
         Assertions.assertEquals(FailInfo.BAD_MESSAGE_CHECK, ex.getFailInfo());
     }
 
@@ -152,9 +156,9 @@ class ScepServiceImplRegistrationModeTest {
         stubCandidates(registeredCertificate("CN=other-device", null));
         ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
 
-        ScepException ex = Assertions.assertThrows(ScepException.class, () -> service.matchRegistration(request));
+        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
-        Assertions.assertEquals(ScepServiceImpl.REGISTRATION_REJECTION, ex.getMessage());
+        Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
         Assertions.assertEquals(FailInfo.BAD_MESSAGE_CHECK, ex.getFailInfo());
     }
 
@@ -163,9 +167,9 @@ class ScepServiceImplRegistrationModeTest {
         stubCandidates(registeredCertificate("CN=device-1", null), registeredCertificate("CN=device-1", null));
         ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
 
-        ScepException ex = Assertions.assertThrows(ScepException.class, () -> service.matchRegistration(request));
+        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
-        Assertions.assertEquals(ScepServiceImpl.REGISTRATION_REJECTION, ex.getMessage());
+        Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
     }
 
     @Test
@@ -174,9 +178,9 @@ class ScepServiceImplRegistrationModeTest {
                 CertificateUtil.serializeSans(Map.of("dNSName", List.of("a.example")))));
         ScepRequest request = scepRequest(csr("CN=device-1", "b.example"), CHALLENGE);
 
-        ScepException ex = Assertions.assertThrows(ScepException.class, () -> service.matchRegistration(request));
+        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
-        Assertions.assertEquals(ScepServiceImpl.REGISTRATION_REJECTION, ex.getMessage());
+        Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
         verify(eventHistoryService).addEventHistory(eq(CANDIDATE_UUID), eq(CertificateEvent.ISSUE),
                 eq(CertificateEventStatus.FAILED), anyString(), anyString());
     }
@@ -187,7 +191,7 @@ class ScepServiceImplRegistrationModeTest {
                 CertificateUtil.serializeSans(Map.of("dNSName", List.of("a.example")))));
         ScepRequest request = scepRequest(csr("CN=device-1", "a.example"), CHALLENGE);
 
-        Certificate matched = service.matchRegistration(request);
+        Certificate matched = ReflectionTestUtils.invokeMethod(service, "matchRegistration", request);
 
         Assertions.assertEquals(CANDIDATE_UUID, matched.getUuid());
     }
@@ -199,7 +203,7 @@ class ScepServiceImplRegistrationModeTest {
         ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
         when(request.getTransactionId()).thenReturn("tx-1");
 
-        ScepResponse response = service.completeRegistration(request);
+        ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request);
 
         Assertions.assertEquals(PkiStatus.PENDING, response.getPkiStatus());
         verify(clientOperationExternalService).issueExistingCertificate(any(), any(), eq(matched.getUuid().toString()),
@@ -216,9 +220,9 @@ class ScepServiceImplRegistrationModeTest {
         when(clientOperationExternalService.issueExistingCertificate(any(), any(), anyString(), any()))
                 .thenThrow(new ValidationException("The certificate registration challenge is invalid."));
 
-        ScepException ex = Assertions.assertThrows(ScepException.class, () -> service.completeRegistration(request));
+        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "completeRegistration", request));
 
-        Assertions.assertEquals(ScepServiceImpl.REGISTRATION_REJECTION, ex.getMessage());
+        Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
         Assertions.assertEquals(FailInfo.BAD_MESSAGE_CHECK, ex.getFailInfo());
     }
 
@@ -231,7 +235,7 @@ class ScepServiceImplRegistrationModeTest {
         doThrow(new RuntimeException("association failed"))
                 .when(certificateService).applyProtocolAssociations(any(), any());
 
-        ScepResponse response = service.completeRegistration(request);
+        ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request);
 
         Assertions.assertEquals(PkiStatus.PENDING, response.getPkiStatus());
         verify(scepTransactionRepository).save(any());
@@ -242,14 +246,14 @@ class ScepServiceImplRegistrationModeTest {
         when(profile.getChallengeSource()).thenReturn(ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD);
         when(profile.getChallengePassword()).thenReturn("profile-password");
 
-        Assertions.assertEquals("profile-password", service.resolveEnvelopePassword(null));
+        Assertions.assertEquals("profile-password", ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", (Object) null));
     }
 
     @Test
     void envelopePasswordIsThePresentedChallengeOnEnrolment() throws Exception {
         ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
 
-        Assertions.assertEquals(CHALLENGE, service.resolveEnvelopePassword(request));
+        Assertions.assertEquals(CHALLENGE, ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
     }
 
     @Test
@@ -264,7 +268,7 @@ class ScepServiceImplRegistrationModeTest {
                 .thenReturn(Optional.of(authorization));
         when(registrationChallengeStore.resolvePlaintext(authorization)).thenReturn("stored-challenge");
 
-        Assertions.assertEquals("stored-challenge", service.resolveEnvelopePassword(request));
+        Assertions.assertEquals("stored-challenge", ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
     }
 
     @Test
@@ -273,7 +277,16 @@ class ScepServiceImplRegistrationModeTest {
         when(request.getTransactionId()).thenReturn("tx-unknown");
         when(scepTransactionRepository.findByTransactionId("tx-unknown")).thenReturn(Optional.empty());
 
-        Assertions.assertNull(service.resolveEnvelopePassword(request));
+        Assertions.assertNull(ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
+    }
+
+    /**
+     * The private methods are invoked reflectively, which wraps their checked {@link ScepException} in an
+     * {@link UndeclaredThrowableException}; this unwraps it for assertion.
+     */
+    private static ScepException scepRejection(Executable invocation) {
+        UndeclaredThrowableException wrapped = Assertions.assertThrows(UndeclaredThrowableException.class, invocation);
+        return Assertions.assertInstanceOf(ScepException.class, wrapped.getUndeclaredThrowable());
     }
 
     private void stubCandidates(Certificate... candidates) {

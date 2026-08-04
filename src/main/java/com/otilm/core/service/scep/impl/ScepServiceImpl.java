@@ -284,6 +284,9 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     private void init(String profileName) throws ScepException {
+        // Per-request state: a match left over from a previous request must never leak into this one
+        // (an authenticated renewal skips matching and would otherwise complete a stale registration).
+        this.matchedRegistration = null;
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -915,8 +918,7 @@ public class ScepServiceImpl implements ScepExternalService {
      * rides the request — the one recovered from the durable authorization behind the poll's transaction.
      * {@code null} when no password is available (the enveloper then raises its delivery error).
      */
-    // package-private for unit tests
-    String resolveEnvelopePassword(ScepRequest scepRequest) {
+    private String resolveEnvelopePassword(ScepRequest scepRequest) {
         if (!registrationMode()) {
             String profilePassword = scepProfile.getChallengePassword();
             return profilePassword == null || profilePassword.isEmpty() ? null : profilePassword;
@@ -948,7 +950,7 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     /** The single wire message for every registration-mode rejection, so a prober cannot enumerate registrations. */
-    static final String REGISTRATION_REJECTION = "The request does not match an active certificate registration.";
+    private static final String REGISTRATION_REJECTION = "The request does not match an active certificate registration.";
 
     private boolean registrationMode() {
         return scepProfile.getChallengeSource() == ScepChallengeSource.CERTIFICATE_REGISTRATION;
@@ -962,8 +964,7 @@ public class ScepServiceImpl implements ScepExternalService {
      * {@link #REGISTRATION_REJECTION}; the reason stays in the log and, when the failed candidate is
      * known, in its certificate event history.
      */
-    // package-private for unit tests
-    Certificate matchRegistration(ScepRequest scepRequest) throws ScepException {
+    private Certificate matchRegistration(ScepRequest scepRequest) throws ScepException {
         String presented = scepRequest.getChallengePassword();
         if (presented == null || presented.isEmpty()) {
             logger.info("SCEP registration enrolment rejected: no challenge password presented");
@@ -1008,8 +1009,7 @@ public class ScepServiceImpl implements ScepExternalService {
      * the same as for an operator completion. Registration completion is always asynchronous: the client
      * receives PENDING and polls the transaction.
      */
-    // package-private for unit tests
-    ScepResponse completeRegistration(ScepRequest scepRequest) throws ScepException {
+    private ScepResponse completeRegistration(ScepRequest scepRequest) throws ScepException {
         ClientCertificateIssueRequestDto requestDto = new ClientCertificateIssueRequestDto();
         try {
             requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
