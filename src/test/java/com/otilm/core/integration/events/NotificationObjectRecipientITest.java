@@ -387,15 +387,36 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testObjectRecipient_approvalEvent_nonWhitelistedTargetKeepsTodaysBehavior() throws AlreadyExistException, NotFoundException {
-        NotificationProfileDetailDto secretTargetProfile = webhookProfile("approvalObjectSecretProfile", RecipientType.OBJECT);
+    void testObjectRecipient_approvalEvent_nonWhitelistedTargetKeepsTodaysBehavior() throws AlreadyExistException, AttributeException, NotFoundException {
+        // The secret target carries a mapped attribute value; a whitelist regression that starts
+        // resolving mapped attributes from non-whitelisted subjects would put it on the wire.
+        CustomAttributeCreateRequestDto secretAttrRequest = new CustomAttributeCreateRequestDto();
+        secretAttrRequest.setName("secretContact");
+        secretAttrRequest.setLabel("Secret Contact");
+        secretAttrRequest.setResources(List.of(Resource.SECRET));
+        secretAttrRequest.setContentType(AttributeContentType.STRING);
+        CustomAttributeDefinitionDetailDto secretAttr = attributeService.createCustomAttribute(secretAttrRequest);
+
+        UUID secretTargetUuid = UUID.randomUUID();
+        String secretMarker = "secret-target-contact@example.com";
+        attributeEngine.updateObjectCustomAttributeContent(Resource.SECRET, secretTargetUuid,
+                UUID.fromString(secretAttr.getUuid()), secretAttr.getName(),
+                List.of(new StringAttributeContentV3(secretMarker)));
+
+        NotificationInstanceMappedAttributes secretMapping = new NotificationInstanceMappedAttributes();
+        secretMapping.setAttributeDefinitionUuid(UUID.fromString(secretAttr.getUuid()));
+        secretMapping.setMappingAttributeUuid(UUID.fromString(MAPPING_ATTRIBUTE_UUID));
+        secretMapping.setNotificationInstanceRefUuid(notificationInstanceReferenceRepository.findAll().getFirst().getUuid());
+        notificationInstanceMappedAttributeRepository.save(secretMapping);
 
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
-                approvalMessage(secretTargetProfile, Resource.SECRET, UUID.randomUUID())));
+                approvalMessage(profile, Resource.SECRET, secretTargetUuid)));
 
         String body = onlyNotifyBody();
         Assertions.assertTrue(body.contains("\"recipients\":[]"),
                 "a non-whitelisted target resolves no attribute content and the recipient is skipped: " + body);
+        Assertions.assertFalse(body.contains(secretMarker),
+                "the secret target's attribute content must never reach the wire through recipient resolution: " + body);
     }
 
     @Test
