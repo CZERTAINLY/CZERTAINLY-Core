@@ -81,15 +81,15 @@ import com.otilm.core.tasks.DiscoveryCertificateTask;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.security.cert.X509Certificate;
 import java.time.Instant;
@@ -103,17 +103,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.verify;
 
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class EventHandlersITest extends BaseSpringBootTest {
 
     public static final String CERTIFICATE_CUSTOM_ATTRIBUTE_UUID = UUID.randomUUID().toString();
     public static final String CERTIFICATE_CUSTOM_ATTRIBUTE_NAME = "category";
     @Autowired
     private TriggerRepository triggerRepository;
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
-    }
 
     @Autowired
     private CertificateServiceImpl certificateService;
@@ -358,7 +354,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
 
         // set up WireMock as auth service (required by createTriggerAssociations)
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
@@ -408,7 +404,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         triggerRequest.setIgnoreTrigger(true);
         TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
 
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
@@ -822,7 +818,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         triggerRequest.setActionsUuids(List.of(action.getUuid()));
         TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
 
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockAuthResponse(AuthHelper.getUserIdentification());
@@ -898,7 +894,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         triggerRequest.setIgnoreTrigger(true);
         TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
 
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockAuthResponse(AuthHelper.getUserIdentification());
@@ -1155,7 +1151,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
         UUID userUuid = UUID.fromString(userInfo.getUuid());
 
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
@@ -1346,7 +1342,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         group.setEmail("grouptest@example.com");
         group = groupRepository.save(group);
 
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 

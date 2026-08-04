@@ -12,6 +12,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.JOSEException;
 import com.otilm.core.util.BaseSpringBootTestNoAuth;
 import com.otilm.core.util.OAuth2Constants;
+import com.otilm.core.util.WireMockPorts;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
@@ -26,8 +27,7 @@ import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import org.springframework.session.web.http.SessionRepositoryFilter;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -53,6 +53,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @AutoConfigureMockMvc
 @SpringBootTest
+@TestPropertySource(properties = {"auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE_SECURITY_CHAIN,
+        "server.servlet.context-path="})
 class SecurityConfigITest extends BaseSpringBootTestNoAuth {
 
     @Autowired
@@ -77,12 +79,6 @@ class SecurityConfigITest extends BaseSpringBootTestNoAuth {
     public SessionRepositoryFilter springSessionRepositoryFilter;
 
 
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10003");
-        registry.add("server.servlet.context-path", () -> "");
-    }
-
     static final String CERTIFICATE_USER_USERNAME = "certificate-user";
     static final String CERTIFICATE_HEADER_VALUE = "certificate";
     static final String TOKEN_USER_USERNAME = "token-user";
@@ -105,7 +101,7 @@ class SecurityConfigITest extends BaseSpringBootTestNoAuth {
             return null;
         }).when(springSessionRepositoryFilter).doFilter(Mockito.any(), Mockito.any(), Mockito.any());
 
-        mockServer = new WireMockServer(10003);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE_SECURITY_CHAIN);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 

@@ -18,8 +18,9 @@ import java.util.stream.Stream;
  * - @DirtiesContext mode,
  * - nested @TestConfiguration class simple-names,
  * - verbatim @SpringBootTest arguments,
- * - @AutoConfigure* annotation names, and
- * - @TypeExcludeFilters filter-class names of the NEAREST declaration in the chain.
+ * - @AutoConfigure* annotation names,
+ * - @TypeExcludeFilters filter-class names of the NEAREST declaration in the chain, and
+ * - @DynamicPropertySource methods as declaringClass#method, unioned over the chain.
  *
  * Two classes with equal signatures are expected to share one cached context. Import order is not a signature axis
  */
@@ -49,6 +50,7 @@ final class ContextSignature {
         TreeSet<String> springBootTest = new TreeSet<>();
         TreeSet<String> autoconfig = new TreeSet<>();
         TreeSet<String> typeExcludeFilters = new TreeSet<>();
+        TreeSet<String> dynamicPropertySources = new TreeSet<>();
 
         String simple = startSimpleName;
         int hops = 0;
@@ -68,6 +70,9 @@ final class ContextSignature {
                 if (typeExcludeFilters.isEmpty()) {
                     typeExcludeFilters.addAll(t.typeExcludeFilters());
                 }
+                for (String method : t.dynamicPropertySources()) {
+                    dynamicPropertySources.add(simple + "#" + method);
+                }
             }
             simple = extendsGraph.get(simple);
         }
@@ -75,7 +80,8 @@ final class ContextSignature {
                 + ";props=" + props + ";dirties=" + dirties
                 + ";configs=" + configs + ";sbt=" + springBootTest
                 + ";autoconfig=" + autoconfig
-                + ";typeExcludeFilters=" + typeExcludeFilters;
+                + ";typeExcludeFilters=" + typeExcludeFilters
+                + ";dynamicPropertySources=" + dynamicPropertySources;
     }
 
     static int distinctCount(Path testRoot) {

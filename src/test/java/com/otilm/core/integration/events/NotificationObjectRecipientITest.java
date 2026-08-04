@@ -19,11 +19,13 @@ import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.notifications.NotificationInstanceMappedAttributes;
 import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
+import com.otilm.core.dao.entity.notifications.PendingNotification;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceMappedAttributeRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
+import com.otilm.core.dao.repository.notifications.PendingNotificationRepository;
 import com.otilm.core.dao.repository.workflows.TriggerHistoryRepository;
 import com.otilm.core.dao.repository.workflows.TriggerRepository;
 import com.otilm.core.messaging.jms.listeners.NotificationListener;
@@ -31,6 +33,7 @@ import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -38,22 +41,17 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class NotificationObjectRecipientITest extends BaseSpringBootTest {
 
     private static final String MAPPING_ATTRIBUTE_UUID = "1e5657af-423b-4b4b-a9f7-b1150c584a4a";
     private static final String CONTACT_VALUE = "alice@example.com";
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
-    }
 
     @Autowired private NotificationListener notificationListener;
     @Autowired private NotificationProfileExternalService notificationProfileService;
@@ -64,6 +62,7 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     @Autowired private ConnectorRepository connectorRepository;
     @Autowired private TriggerRepository triggerRepository;
     @Autowired private TriggerHistoryRepository triggerHistoryRepository;
+    @Autowired private PendingNotificationRepository pendingNotificationRepository;
 
     private WireMockServer mockServer;
     private CustomAttributeDefinitionDetailDto customAttr;
@@ -241,6 +240,84 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
 
         mockServer.verify(1, WireMock.postRequestedFor(
                 WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+    }
+
+    /**
+     * A NONE profile may persist its recipient UUIDs as an explicit empty list rather than null;
+     * both representations must deliver identically (empty recipients, request still sent).
+     */
+    @Test
+    void testNoneRecipient_withEmptyRecipientUuidList_connectorCalledWithoutRecipients() throws AlreadyExistException, NotFoundException {
+        NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
+        webhookInstance.setName("testWebhookInstance-noneEmptyList");
+        webhookInstance.setKind("WEBHOOK");
+        webhookInstance.setConnectorUuid(connectorUuid);
+        webhookInstance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(webhookInstance);
+
+        NotificationProfileRequestDto profileRequest = new NotificationProfileRequestDto();
+        profileRequest.setName("noneEmptyListProfile");
+        profileRequest.setRecipientType(RecipientType.NONE);
+        profileRequest.setRecipientUuids(List.of());
+        profileRequest.setInternalNotification(false);
+        profileRequest.setNotificationInstanceUuid(webhookInstance.getUuid());
+        NotificationProfileDetailDto noneProfile = notificationProfileService.createNotificationProfile(profileRequest);
+
+        NotificationMessage message = new NotificationMessage(
+                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
+                UUID.randomUUID(),
+                List.of(UUID.fromString(noneProfile.getUuid())),
+                List.of(), null);
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
+
+        mockServer.verify(1, WireMock.postRequestedFor(
+                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
+                .withRequestBody(WireMock.matchingJsonPath("$.recipients", WireMock.equalToJson("[]"))));
+    }
+
+    /**
+     * The repetition limit is enforced through the suppression-row upsert: sends below the limit
+     * each reach the connector and bump the counter, the send at the limit is suppressed.
+     */
+    @Test
+    void testMonitoringEvent_repetitionLimitEnforcedThroughUpsert() throws AlreadyExistException, NotFoundException {
+        NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
+        webhookInstance.setName("testWebhookInstance-repetitions");
+        webhookInstance.setKind("WEBHOOK");
+        webhookInstance.setConnectorUuid(connectorUuid);
+        webhookInstance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(webhookInstance);
+
+        NotificationProfileRequestDto profileRequest = new NotificationProfileRequestDto();
+        profileRequest.setName("repetitionLimitProfile");
+        profileRequest.setRecipientType(RecipientType.NONE);
+        profileRequest.setInternalNotification(false);
+        profileRequest.setNotificationInstanceUuid(webhookInstance.getUuid());
+        profileRequest.setRepetitions(2);
+        NotificationProfileDetailDto limitedProfile = notificationProfileService.createNotificationProfile(profileRequest);
+
+        UUID certificateUuid = UUID.randomUUID();
+        NotificationMessage message = new NotificationMessage(
+                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE,
+                certificateUuid,
+                List.of(UUID.fromString(limitedProfile.getUuid())),
+                List.of(), null);
+
+        for (int occurrence = 0; occurrence < 3; occurrence++) {
+            Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
+        }
+
+        // Two sends reach the connector, the third occurrence is suppressed by the counter.
+        mockServer.verify(2, WireMock.postRequestedFor(
+                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+
+        PendingNotification suppressionRow = pendingNotificationRepository
+                .findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(
+                        UUID.fromString(limitedProfile.getUuid()), Resource.CERTIFICATE, certificateUuid, ResourceEvent.CERTIFICATE_EXPIRING);
+        Assertions.assertNotNull(suppressionRow, "the suppression row must exist after the first send");
+        Assertions.assertEquals(2, suppressionRow.getRepetitions());
+        Assertions.assertEquals(1, suppressionRow.getVersion(), "the row pins the profile version current at the first send");
     }
 
     private NotificationProfileDetailDto webhookProfile(String name, RecipientType recipientType) throws AlreadyExistException, NotFoundException {

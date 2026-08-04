@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ContextSignatureTest {
 
@@ -233,6 +234,172 @@ class ContextSignatureTest {
         assertThat(ContextSignature.of("ShadowingITest", graph, byName))
                 .isEqualTo(ContextSignature.of("OnlyBITest", graph, byName))
                 .isNotEqualTo(ContextSignature.of("BothFiltersITest", graph, byName));
+    }
+
+    @Test
+    void ownDynamicPropertySourceMethodsForkEvenWhenTheyRegisterIdenticalProperties(@TempDir Path dir) throws IOException {
+        // DynamicPropertiesContextCustomizer keys on the Set<Method>, so what a method registers is irrelevant:
+        // two classes each declaring their own can never share a context, and one declaring none is distinct again.
+        write(dir, "BaseSpringBootTest.java", """
+                @SpringBootTest class BaseSpringBootTest {}
+                """);
+        write(dir, "OwnAITest.java", """
+                class OwnAITest extends BaseSpringBootTest {
+                    @DynamicPropertySource
+                    static void authServiceProperties(DynamicPropertyRegistry registry) {
+                        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+                    }
+                }
+                """);
+        write(dir, "OwnBITest.java", """
+                class OwnBITest extends BaseSpringBootTest {
+                    @DynamicPropertySource
+                    static void authServiceProperties(DynamicPropertyRegistry registry) {
+                        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+                    }
+                }
+                """);
+        write(dir, "NoneITest.java", """
+                class NoneITest extends BaseSpringBootTest {}
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("OwnAITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("OwnBITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("NoneITest", graph, byName));
+    }
+
+    @Test
+    void anInheritedDynamicPropertySourceMethodIsSharedBySubclasses(@TempDir Path dir) throws IOException {
+        // MethodIntrospector resolves an inherited static method to the base class's Method, so every subclass
+        // collects the same Set<Method> and they share one context — the reason a base class is the way to hoist one.
+        write(dir, "BaseContainerTest.java", """
+                @SpringBootTest
+                abstract class BaseContainerTest {
+                    @DynamicPropertySource
+                    static void brokerProperties(DynamicPropertyRegistry registry) {
+                        registry.add("spring.messaging.broker-url", container::getAmqpUrl);
+                    }
+                }
+                """);
+        write(dir, "FirstChildITest.java", """
+                class FirstChildITest extends BaseContainerTest {}
+                """);
+        write(dir, "SecondChildITest.java", """
+                class SecondChildITest extends BaseContainerTest {}
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("FirstChildITest", graph, byName))
+                .isEqualTo(ContextSignature.of("SecondChildITest", graph, byName));
+    }
+
+    @Test
+    void aSubclassDynamicPropertySourceMethodUnionsWithTheInheritedOne(@TempDir Path dir) throws IOException {
+        // Unlike @TypeExcludeFilters, findMethods() collects the enclosing/base methods AND the local one, so a
+        // subclass that adds its own does not shadow the base's — it forks away from its plain siblings.
+        write(dir, "BaseContainerTest.java", """
+                @SpringBootTest
+                abstract class BaseContainerTest {
+                    @DynamicPropertySource
+                    static void brokerProperties(DynamicPropertyRegistry registry) {
+                        registry.add("spring.messaging.broker-url", container::getAmqpUrl);
+                    }
+                }
+                """);
+        write(dir, "PlainChildITest.java", """
+                class PlainChildITest extends BaseContainerTest {}
+                """);
+        write(dir, "AddsOwnITest.java", """
+                class AddsOwnITest extends BaseContainerTest {
+                    @DynamicPropertySource
+                    static void extraProperties(DynamicPropertyRegistry registry) {
+                        registry.add("proxy.enabled", () -> "false");
+                    }
+                }
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("AddsOwnITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("PlainChildITest", graph, byName))
+                // Inequality alone would also hold under a nearest-declaration-wins model, so assert the union
+                // itself: both hops must appear, each keyed by the class that declares it.
+                .contains("BaseContainerTest#brokerProperties", "AddsOwnITest#extraProperties");
+        assertThat(TestClassTaxonomy.annotationTokens(byName.get("AddsOwnITest")).dynamicPropertySources())
+                .containsExactly("extraProperties");
+    }
+
+    @Test
+    void anInterposedAnnotationDoesNotHideADynamicPropertySourceDeclaration(@TempDir Path dir) throws IOException {
+        // A declaration the capture cannot parse would drop out of the axis silently and understate the fork count,
+        // so the shape must tolerate whatever sits between the annotation and `void`.
+        Path f = write(dir, "AnnotatedDpsITest.java", """
+                @SpringBootTest
+                class AnnotatedDpsITest {
+                    @DynamicPropertySource
+                    @SuppressWarnings({"unused"})
+                    static void extraProperties(DynamicPropertyRegistry registry) {
+                        registry.add("proxy.enabled", () -> "false");
+                    }
+                }
+                """);
+        assertThat(TestClassTaxonomy.annotationTokens(f).dynamicPropertySources())
+                .containsExactly("extraProperties");
+    }
+
+    @Test
+    void anUnparseableDynamicPropertySourceDeclarationFailsLoudly(@TempDir Path dir) throws IOException {
+        // The guard's distinct count only ever falls when a declaration is dropped, so silence is indistinguishable
+        // from correctness. Anything the capture cannot read must raise instead.
+        Path f = write(dir, "OddDpsITest.java", """
+                @SpringBootTest
+                class OddDpsITest {
+                    @DynamicPropertySource
+                    static <T> void extraProperties(DynamicPropertyRegistry registry) {
+                        registry.add("proxy.enabled", () -> "false");
+                    }
+                }
+                """);
+        assertThatThrownBy(() -> TestClassTaxonomy.annotationTokens(f))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("@DynamicPropertySource");
+    }
+
+    @Test
+    void aUrlInsideAnAnnotationValueIsNotMistakenForALineComment(@TempDir Path dir) throws IOException {
+        // The `//` of a URL scheme is string content. Stripping it as a comment would truncate the line before the
+        // annotation's closing parenthesis, so the arg capture would run on into the class body and no two classes
+        // would ever look alike. A real trailing comment on the same line must still be stripped.
+        Path f = write(dir, "UrlPropsITest.java", """
+                @SpringBootTest
+                @TestPropertySource(properties = "auth-service.base-url=http://localhost:10001") // pinned mock port
+                class UrlPropsITest {
+                    @MockitoBean OpaClient opaClient;
+                }
+                """);
+        TestClassTaxonomy.ContextTokens t = TestClassTaxonomy.annotationTokens(f);
+        assertThat(t.props()).containsExactly("properties = \"auth-service.base-url=http://localhost:10001\"");
+        assertThat(t.mocks()).containsExactly("OpaClient");
+
+        write(dir, "SameUrlPropsITest.java", """
+                @SpringBootTest
+                @TestPropertySource(properties = "auth-service.base-url=http://localhost:10001")
+                class SameUrlPropsITest {
+                    @MockitoBean OpaClient opaClient;
+                }
+                """);
+        write(dir, "OtherUrlPropsITest.java", """
+                @SpringBootTest
+                @TestPropertySource(properties = "auth-service.base-url=http://localhost:10002")
+                class OtherUrlPropsITest {
+                    @MockitoBean OpaClient opaClient;
+                }
+                """);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
+        Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
+        assertThat(ContextSignature.of("UrlPropsITest", graph, byName))
+                .isEqualTo(ContextSignature.of("SameUrlPropsITest", graph, byName))
+                .isNotEqualTo(ContextSignature.of("OtherUrlPropsITest", graph, byName));
     }
 
     @Test

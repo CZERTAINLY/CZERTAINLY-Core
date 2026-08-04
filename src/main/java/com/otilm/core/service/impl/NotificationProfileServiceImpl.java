@@ -6,6 +6,7 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.notification.*;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.notification.NotificationDataCategory;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
@@ -20,8 +21,11 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
+import com.otilm.core.service.notifications.NotificationDataCategoryGate;
 import com.otilm.core.util.RequestValidatorHelper;
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -36,8 +40,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,6 +54,8 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationProfileServiceImpl.class);
 
+    private EntityManager entityManager;
+
     private NotificationProfileServiceImpl self;
     private NotificationProfileRepository notificationProfileRepository;
     private NotificationProfileVersionRepository notificationProfileVersionRepository;
@@ -54,11 +63,17 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
 
     private ExecutionRepository executionRepository;
     private ResourceObjectAssociationService resourceObjectAssociationService;
+    private NotificationDataCategoryGate notificationDataCategoryGate;
 
     @Lazy
     @Autowired
     public void setSelf(NotificationProfileServiceImpl self) {
         this.self = self;
+    }
+
+    @PersistenceContext
+    public void setEntityManager(EntityManager entityManager) {
+        this.entityManager = entityManager;
     }
 
     @Autowired
@@ -84,6 +99,11 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
     @Autowired
     public void setResourceObjectAssociationService(ResourceObjectAssociationService resourceObjectAssociationService) {
         this.resourceObjectAssociationService = resourceObjectAssociationService;
+    }
+
+    @Autowired
+    public void setNotificationDataCategoryGate(NotificationDataCategoryGate notificationDataCategoryGate) {
+        this.notificationDataCategoryGate = notificationDataCategoryGate;
     }
 
     @Override
@@ -135,15 +155,35 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
 
     @Override
     @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.CREATE)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED, rollbackFor = Exception.class)
     public NotificationProfileDetailDto createNotificationProfile(NotificationProfileRequestDto requestDto) throws AlreadyExistException, NotFoundException {
+        validateNotificationInstanceExists(requestDto.getNotificationInstanceUuid());
+        // The gate calls the authorization service over HTTP and must not hold a DB connection,
+        // so it runs here while the writes happen in the self-proxied transactional method below.
+        if (requestDto.getEventDataCategories() != null) {
+            requestDto.setEventDataCategories(normalizeEventDataCategories(requestDto.getEventDataCategories()));
+        }
+        Set<NotificationDataCategory> gatedCategories = gatedCategoriesRequiringAuthorization(
+                List.of(), null, requestDto.getEventDataCategories(), requestDto.getNotificationInstanceUuid());
+        if (!gatedCategories.isEmpty()) {
+            notificationDataCategoryGate.assertCanEnable(gatedCategories);
+        }
+
+        return self.persistNewProfile(requestDto);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    NotificationProfileDetailDto persistNewProfile(NotificationProfileRequestDto requestDto) throws AlreadyExistException, NotFoundException {
         if (notificationProfileRepository.findByName(requestDto.getName()).isPresent()) {
             throw new AlreadyExistException("Notification profile with name " + requestDto.getName() + " already exists.");
         }
-        validateNotificationInstanceExists(requestDto.getNotificationInstanceUuid());
 
         NotificationProfile notificationProfile = new NotificationProfile();
         notificationProfile.setName(requestDto.getName());
         notificationProfile.setDescription(requestDto.getDescription());
+        if (requestDto.getEventDataCategories() != null) {
+            notificationProfile.setEventDataCategories(requestDto.getEventDataCategories());
+        }
         notificationProfile = notificationProfileRepository.save(notificationProfile);
 
         NotificationProfileVersion notificationProfileVersion = new NotificationProfileVersion();
@@ -164,24 +204,55 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
 
     @Override
     @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.UPDATE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED, rollbackFor = Exception.class)
     public NotificationProfileDetailDto editNotificationProfile(SecuredUUID uuid, NotificationProfileUpdateRequestDto updateRequestDto) throws NotFoundException {
         validateNotificationInstanceExists(updateRequestDto.getNotificationInstanceUuid());
         // Resolve recipient info from the request before opening the write transaction: recipient lookup
         // can call the auth service over HTTP and must not hold a DB connection or the profile row lock.
         List<NameAndUuidDto> recipients = resolveRecipients(updateRequestDto.getRecipientType(), updateRequestDto.getRecipientUuids());
 
+        // The category gate also calls the authorization service over HTTP, so it is evaluated here
+        // against an unlocked read while persistEditedVersion re-asserts the decision under the row lock.
+        if (updateRequestDto.getEventDataCategories() != null) {
+            updateRequestDto.setEventDataCategories(normalizeEventDataCategories(updateRequestDto.getEventDataCategories()));
+        }
+        NotificationProfile currentProfile = notificationProfileRepository.findById(uuid.getValue()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid));
+        NotificationProfileVersion currentVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(uuid.getValue()).orElseThrow(() -> new NotFoundException(NotificationProfileVersion.class, uuid));
+        Set<NotificationDataCategory> authorizedGatedCategories = gatedCategoriesRequiringAuthorization(
+                currentProfile.getEventDataCategories(), currentVersion.getNotificationInstanceRefUuid(),
+                updateRequestDto.getEventDataCategories(), updateRequestDto.getNotificationInstanceUuid());
+        if (!authorizedGatedCategories.isEmpty()) {
+            notificationDataCategoryGate.assertCanEnable(authorizedGatedCategories);
+        }
+
         // The transaction boundary comes from the self-proxied call; invoking persistEditedVersion directly
         // on `this` would skip the @Transactional advice and reintroduce the version race.
-        return self.persistEditedVersion(uuid, updateRequestDto, recipients);
+        return self.persistEditedVersion(uuid, updateRequestDto, recipients, authorizedGatedCategories);
     }
 
     @Transactional(rollbackFor = Exception.class)
-    NotificationProfileDetailDto persistEditedVersion(SecuredUUID uuid, NotificationProfileUpdateRequestDto updateRequestDto, List<NameAndUuidDto> recipients) throws NotFoundException {
+    NotificationProfileDetailDto persistEditedVersion(SecuredUUID uuid, NotificationProfileUpdateRequestDto updateRequestDto, List<NameAndUuidDto> recipients, Set<NotificationDataCategory> authorizedGatedCategories) throws NotFoundException {
         // The row lock serializes concurrent edits; without it, both could read the same latest version and
         // insert duplicate version numbers.
         NotificationProfile notificationProfile = notificationProfileRepository.findAndLockByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid));
+        // Under open-session-in-view the orchestrator's unlocked read is already in this persistence
+        // context, so the locking finder can return that stale managed instance; refresh re-reads the
+        // now-locked row so every check below sees post-lock state.
+        entityManager.refresh(notificationProfile);
         NotificationProfileVersion currentVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(uuid.getValue()).orElseThrow(() -> new NotFoundException(NotificationProfileVersion.class, uuid));
+        entityManager.refresh(currentVersion);
+
+        // The gate ran outside this transaction against an unlocked read. If a concurrent edit changed
+        // the gate-relevant state in between, the pre-lock authorization no longer covers this request:
+        // fail closed with a retry rather than calling the authorization service under the row lock.
+        Set<NotificationDataCategory> gatedCategoriesUnderLock = gatedCategoriesRequiringAuthorization(
+                notificationProfile.getEventDataCategories(), currentVersion.getNotificationInstanceRefUuid(),
+                updateRequestDto.getEventDataCategories(), updateRequestDto.getNotificationInstanceUuid());
+        if (!authorizedGatedCategories.containsAll(gatedCategoriesUnderLock)) {
+            throw new ValidationException("Notification profile %s was concurrently modified. Retry the edit.".formatted(notificationProfile.getName()));
+        }
+
+        applyEventDataCategories(notificationProfile, updateRequestDto);
 
         // Description lives on the profile, not on the version — persist it even when no new version is created
         if (!Objects.equals(notificationProfile.getDescription(), updateRequestDto.getDescription())) {
@@ -217,6 +288,55 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
         }
 
         return notificationProfileVersion.mapToDetailDto(recipients);
+    }
+
+    /**
+     * Normalizes a requested category list to its canonical form: rejects null elements with an
+     * actionable error, removes duplicates, and orders by enum declaration so stored values and
+     * equality checks are representation-independent. Callers keep an absent (null) field as-is --
+     * it means "keep the current value" on update and never reaches this method.
+     */
+    private static List<NotificationDataCategory> normalizeEventDataCategories(List<NotificationDataCategory> categories) {
+        // Immutable lists reject null probes, so the null scan must not use contains(null).
+        if (categories.stream().anyMatch(Objects::isNull)) {
+            throw new ValidationException("Event data categories must not contain null entries");
+        }
+        return categories.isEmpty() ? List.of() : List.copyOf(EnumSet.copyOf(categories));
+    }
+
+    /**
+     * The gated categories a request must be authorized for, or an empty set when no gate applies.
+     * The gate fires when the resulting state has a gated category enabled and the request either
+     * adds a gated category or moves the profile to another notification instance -- swapping the
+     * destination must not become an ungated route for data an operator was never allowed to
+     * export. Absent (null) requested categories keep the current value (presence-aware update).
+     */
+    private static Set<NotificationDataCategory> gatedCategoriesRequiringAuthorization(
+            List<NotificationDataCategory> currentCategories, UUID currentDestination,
+            List<NotificationDataCategory> requestedCategories, UUID requestedDestination) {
+        List<NotificationDataCategory> resultingCategories = requestedCategories != null ? requestedCategories : currentCategories;
+
+        Set<NotificationDataCategory> resultingGated = resultingCategories.stream()
+                .filter(NotificationDataCategoryGate::isGated)
+                .collect(Collectors.toSet());
+        boolean addsGatedCategory = !new HashSet<>(currentCategories).containsAll(resultingGated);
+        boolean destinationChanges = !Objects.equals(currentDestination, requestedDestination);
+        return !resultingGated.isEmpty() && (addsGatedCategory || destinationChanges) ? resultingGated : Set.of();
+    }
+
+    /**
+     * Applies the parent-level {@code eventDataCategories} update with presence-aware semantics:
+     * an absent (null) field keeps the current value so older API clients cannot silently clear
+     * it, an empty list disables enrichment. Category edits update the parent in place (through
+     * its optimistic lock) and never create a profile version. Authorization happened in the
+     * orchestrator, outside this transaction.
+     */
+    private void applyEventDataCategories(NotificationProfile notificationProfile, NotificationProfileUpdateRequestDto updateRequestDto) {
+        List<NotificationDataCategory> requestedCategories = updateRequestDto.getEventDataCategories();
+        if (requestedCategories != null && !Objects.equals(notificationProfile.getEventDataCategories(), requestedCategories)) {
+            notificationProfile.setEventDataCategories(requestedCategories);
+            notificationProfileRepository.save(notificationProfile);
+        }
     }
 
     /**

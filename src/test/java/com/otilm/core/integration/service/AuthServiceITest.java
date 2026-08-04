@@ -17,6 +17,7 @@ import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.service.AuthExternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -26,21 +27,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
 @SpringBootTest
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class AuthServiceITest extends BaseSpringBootTest {
 
-    private static final int AUTH_SERVICE_MOCK_PORT = 10001;
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:" + AUTH_SERVICE_MOCK_PORT);
-    }
 
     private WireMockServer mockServer;
 
@@ -52,7 +47,7 @@ class AuthServiceITest extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() {
-        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
