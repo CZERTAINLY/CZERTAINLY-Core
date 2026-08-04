@@ -345,7 +345,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
      * channel carries raw attribute content with neither the enrichment protection filters nor a
      * category gate, and approval targets are polymorphic -- a secret's attribute content must
      * not become exportable as a side effect of recipient resolution. Non-whitelisted subjects
-     * keep today's behavior and resolve against the event object.
+     * resolve against the event object.
      */
     private static UUID objectRecipientUuid(NotificationMessage message, NotificationSubjectResolver.SubjectRef subject) {
         return OBJECT_RECIPIENT_SUBJECT_RESOURCES.contains(subject.resource()) ? subject.objectUuid() : message.getObjectUuid();

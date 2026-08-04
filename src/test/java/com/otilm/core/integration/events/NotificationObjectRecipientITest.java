@@ -330,8 +330,8 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     /**
      * OWNER and OBJECT recipients resolve against the notification subject: for approval events
      * the approval's target object, for every other event the event object itself. OBJECT
-     * redirection is whitelisted to certificate subjects; other approval targets keep today's
-     * behavior (skipped with no attribute content resolved).
+     * redirection is whitelisted to certificate subjects; other approval targets are skipped
+     * because no attribute content is resolved for them.
      */
     @Test
     void testOwnerRecipient_approvalEvent_resolvesTargetOwnerExternally() throws AlreadyExistException, NotFoundException {
@@ -387,7 +387,7 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testObjectRecipient_approvalEvent_nonWhitelistedTargetKeepsTodaysBehavior() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testObjectRecipient_approvalEvent_nonWhitelistedTargetResolvesNoAttributeContent() throws AlreadyExistException, AttributeException, NotFoundException {
         // The secret target carries a mapped attribute value; a whitelist regression that starts
         // resolving mapped attributes from non-whitelisted subjects would put it on the wire.
         CustomAttributeCreateRequestDto secretAttrRequest = new CustomAttributeCreateRequestDto();
