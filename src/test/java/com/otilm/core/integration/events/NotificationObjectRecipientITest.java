@@ -10,6 +10,7 @@ import com.otilm.api.model.client.notification.NotificationProfileDetailDto;
 import com.otilm.api.model.client.notification.NotificationProfileRequestDto;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.events.data.ApprovalEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.notification.RecipientType;
@@ -17,14 +18,17 @@ import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.workflows.TriggerType;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.OwnerAssociation;
 import com.otilm.core.dao.entity.notifications.NotificationInstanceMappedAttributes;
 import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
 import com.otilm.core.dao.entity.notifications.PendingNotification;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.OwnerAssociationRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceMappedAttributeRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
+import com.otilm.core.dao.repository.notifications.NotificationRepository;
 import com.otilm.core.dao.repository.notifications.PendingNotificationRepository;
 import com.otilm.core.dao.repository.workflows.TriggerHistoryRepository;
 import com.otilm.core.dao.repository.workflows.TriggerRepository;
@@ -36,6 +40,7 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +68,8 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     @Autowired private TriggerRepository triggerRepository;
     @Autowired private TriggerHistoryRepository triggerHistoryRepository;
     @Autowired private PendingNotificationRepository pendingNotificationRepository;
+    @Autowired private OwnerAssociationRepository ownerAssociationRepository;
+    @Autowired private NotificationRepository notificationRepository;
 
     private WireMockServer mockServer;
     private CustomAttributeDefinitionDetailDto customAttr;
@@ -318,6 +325,166 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         Assertions.assertNotNull(suppressionRow, "the suppression row must exist after the first send");
         Assertions.assertEquals(2, suppressionRow.getRepetitions());
         Assertions.assertEquals(1, suppressionRow.getVersion(), "the row pins the profile version current at the first send");
+    }
+
+    /**
+     * OWNER and OBJECT recipients resolve against the notification subject: for approval events
+     * the approval's target object, for every other event the event object itself. OBJECT
+     * redirection is whitelisted to certificate subjects; other approval targets are skipped
+     * because no attribute content is resolved for them.
+     */
+    @Test
+    void testOwnerRecipient_approvalEvent_resolvesTargetOwnerExternally() throws AlreadyExistException, NotFoundException {
+        UUID certificateUuid = UUID.randomUUID();
+        UUID ownerUuid = ownerOf(certificateUuid);
+        WireMockServer authServer = authServerWithUserDetail(ownerUuid);
+        try {
+            NotificationProfileDetailDto ownerProfile = webhookProfile("approvalOwnerProfile", RecipientType.OWNER);
+
+            Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
+                    approvalMessage(ownerProfile, Resource.CERTIFICATE, certificateUuid)));
+
+            String body = onlyNotifyBody();
+            Assertions.assertTrue(body.contains("cert.owner@example.com"),
+                    "the approval target's owner is the recipient: " + body);
+        } finally {
+            authServer.stop();
+        }
+    }
+
+    @Test
+    void testOwnerRecipient_approvalEvent_deliversInternallyToTargetOwner() throws AlreadyExistException, NotFoundException {
+        UUID certificateUuid = UUID.randomUUID();
+        ownerOf(certificateUuid);
+
+        NotificationProfileRequestDto request = new NotificationProfileRequestDto();
+        request.setName("approvalOwnerInternalProfile");
+        request.setRecipientType(RecipientType.OWNER);
+        request.setInternalNotification(true);
+        NotificationProfileDetailDto internalProfile = notificationProfileService.createNotificationProfile(request);
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
+                approvalMessage(internalProfile, Resource.CERTIFICATE, certificateUuid)));
+
+        Assertions.assertEquals(1, notificationRepository.findAll().size(),
+                "the target's owner receives an in-app notification for the approval event");
+    }
+
+    @Test
+    void testObjectRecipient_approvalEvent_certificateTargetResolvesMappedAttributes() throws AttributeException, NotFoundException {
+        UUID certificateUuid = UUID.randomUUID();
+        attributeEngine.updateObjectCustomAttributeContent(
+                Resource.CERTIFICATE, certificateUuid,
+                UUID.fromString(customAttr.getUuid()), customAttr.getName(),
+                List.of(new StringAttributeContentV3(CONTACT_VALUE)));
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
+                approvalMessage(profile, Resource.CERTIFICATE, certificateUuid)));
+
+        String body = onlyNotifyBody();
+        Assertions.assertTrue(body.contains(CONTACT_VALUE),
+                "mapped attributes resolve from the approval's certificate target: " + body);
+    }
+
+    @Test
+    void testObjectRecipient_approvalEvent_nonWhitelistedTargetResolvesNoAttributeContent() throws AlreadyExistException, AttributeException, NotFoundException {
+        // The secret target carries a mapped attribute value; a whitelist regression that starts
+        // resolving mapped attributes from non-whitelisted subjects would put it on the wire.
+        CustomAttributeCreateRequestDto secretAttrRequest = new CustomAttributeCreateRequestDto();
+        secretAttrRequest.setName("secretContact");
+        secretAttrRequest.setLabel("Secret Contact");
+        secretAttrRequest.setResources(List.of(Resource.SECRET));
+        secretAttrRequest.setContentType(AttributeContentType.STRING);
+        CustomAttributeDefinitionDetailDto secretAttr = attributeService.createCustomAttribute(secretAttrRequest);
+
+        UUID secretTargetUuid = UUID.randomUUID();
+        String secretMarker = "secret-target-contact@example.com";
+        attributeEngine.updateObjectCustomAttributeContent(Resource.SECRET, secretTargetUuid,
+                UUID.fromString(secretAttr.getUuid()), secretAttr.getName(),
+                List.of(new StringAttributeContentV3(secretMarker)));
+
+        NotificationInstanceMappedAttributes secretMapping = new NotificationInstanceMappedAttributes();
+        secretMapping.setAttributeDefinitionUuid(UUID.fromString(secretAttr.getUuid()));
+        secretMapping.setMappingAttributeUuid(UUID.fromString(MAPPING_ATTRIBUTE_UUID));
+        secretMapping.setNotificationInstanceRefUuid(notificationInstanceReferenceRepository.findAll().getFirst().getUuid());
+        notificationInstanceMappedAttributeRepository.save(secretMapping);
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
+                approvalMessage(profile, Resource.SECRET, secretTargetUuid)));
+
+        String body = onlyNotifyBody();
+        Assertions.assertTrue(body.contains("\"recipients\":[]"),
+                "a non-whitelisted target resolves no attribute content and the recipient is skipped: " + body);
+        Assertions.assertFalse(body.contains(secretMarker),
+                "the secret target's attribute content must never reach the wire through recipient resolution: " + body);
+    }
+
+    @Test
+    void testOwnerRecipient_certificateEvent_behaviorUnchanged() throws AlreadyExistException, NotFoundException {
+        UUID certificateUuid = UUID.randomUUID();
+        UUID ownerUuid = ownerOf(certificateUuid);
+        WireMockServer authServer = authServerWithUserDetail(ownerUuid);
+        try {
+            NotificationProfileDetailDto ownerProfile = webhookProfile("certificateOwnerProfile", RecipientType.OWNER);
+
+            NotificationMessage message = new NotificationMessage(
+                    ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificateUuid,
+                    List.of(UUID.fromString(ownerProfile.getUuid())), List.of(), null);
+            Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
+
+            String body = onlyNotifyBody();
+            Assertions.assertTrue(body.contains("cert.owner@example.com"),
+                    "for ordinary events the subject is the event object, exactly as before: " + body);
+        } finally {
+            authServer.stop();
+        }
+    }
+
+    private UUID ownerOf(UUID certificateUuid) {
+        UUID ownerUuid = UUID.randomUUID();
+        OwnerAssociation association = new OwnerAssociation();
+        association.setResource(Resource.CERTIFICATE);
+        association.setObjectUuid(certificateUuid);
+        association.setOwnerUuid(ownerUuid);
+        association.setOwnerUsername("cert-owner");
+        ownerAssociationRepository.save(association);
+        return ownerUuid;
+    }
+
+    private WireMockServer authServerWithUserDetail(UUID userUuid) {
+        WireMockServer authServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
+        authServer.start();
+        authServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/" + userUuid))
+                .willReturn(WireMock.okJson("""
+                        {
+                            "uuid": "%s",
+                            "username": "cert-owner",
+                            "email": "cert.owner@example.com",
+                            "enabled": true,
+                            "systemUser": false,
+                            "groups": []
+                        }
+                        """.formatted(userUuid))));
+        return authServer;
+    }
+
+    private NotificationMessage approvalMessage(NotificationProfileDetailDto notificationProfile, Resource targetResource, UUID targetUuid) {
+        ApprovalEventData approval = new ApprovalEventData();
+        approval.setApprovalUuid(UUID.randomUUID());
+        approval.setApprovalProfileName("prod-approvals");
+        approval.setResource(targetResource);
+        approval.setResourceAction("issue");
+        approval.setObjectUuid(targetUuid);
+        approval.setCreatorUsername("jane.operator");
+        return new NotificationMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL,
+                UUID.randomUUID(), List.of(UUID.fromString(notificationProfile.getUuid())), List.of(), approval);
+    }
+
+    private String onlyNotifyBody() {
+        List<LoggedRequest> requests = mockServer.findAll(WireMock.postRequestedFor(
+                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+        Assertions.assertEquals(1, requests.size(), "exactly one notify call expected");
+        return requests.getFirst().getBodyAsString();
     }
 
     private NotificationProfileDetailDto webhookProfile(String name, RecipientType recipientType) throws AlreadyExistException, NotFoundException {

@@ -36,6 +36,7 @@ import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.service.notifications.NotificationObjectDataService;
+import com.otilm.core.service.notifications.NotificationSubjectResolver;
 import com.otilm.core.service.writer.PendingNotificationWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -56,6 +57,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
     private static final String EMAIL_NOTIFICATION_PROVIDER_KIND = "EMAIL";
+    private static final Set<Resource> OBJECT_RECIPIENT_SUBJECT_RESOURCES = Set.of(Resource.CERTIFICATE);
 
     private ObjectMapper mapper;
     private AttributeEngine attributeEngine;
@@ -133,10 +135,12 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             return;
         }
 
-        List<NotificationRecipient> recipients = getRecipients(notificationProfileVersion.getRecipientType(), notificationProfileVersion.getRecipientUuids(), message.getEvent(), message.getData(), message.getResource(), message.getObjectUuid());
+        EventData eventData = convertEventDataBestEffort(message);
+        NotificationSubjectResolver.SubjectRef subject = NotificationSubjectResolver.resolveSubject(message.getResource(), message.getObjectUuid(), eventData);
+        List<NotificationRecipient> recipients = getRecipients(notificationProfileVersion.getRecipientType(), notificationProfileVersion.getRecipientUuids(), message, subject);
 
         // send external notification
-        boolean notificationSent = sendExternalNotificationsForProfile(message, notificationProfileVersion, recipients);
+        boolean notificationSent = sendExternalNotificationsForProfile(message, notificationProfileVersion, recipients, subject, eventData);
 
         // send internal notification when not Default recipient type. Default internal notifications for events are sent in corresponding event handlers
         if (sendInternalNotifications) {
@@ -184,14 +188,15 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
     }
 
-    private boolean sendExternalNotificationsForProfile(NotificationMessage message, NotificationProfileVersion notificationProfileVersion, List<NotificationRecipient> recipients) {
+    private boolean sendExternalNotificationsForProfile(NotificationMessage message, NotificationProfileVersion notificationProfileVersion, List<NotificationRecipient> recipients,
+                                                        NotificationSubjectResolver.SubjectRef subject, EventData eventData) {
         boolean notificationSent = false;
         if (notificationProfileVersion.getNotificationInstanceRefUuid() != null) {
             UUID notificationInstanceUUID = notificationProfileVersion.getNotificationInstanceRefUuid();
             logger.debug("Sending notification message externally. Notification instance UUID: {}", notificationInstanceUUID);
-            NotificationEventObjectDataDto objectData = buildObjectData(message, notificationProfileVersion);
+            NotificationEventObjectDataDto objectData = buildObjectData(message, notificationProfileVersion, eventData);
             try {
-                if (!sendExternalNotifications(notificationInstanceUUID, recipients, message.getData(), message.getEvent(), message.getResource(), objectData)) {
+                if (!sendExternalNotifications(notificationInstanceUUID, recipients, message.getData(), message.getEvent(), message.getResource(), objectRecipientResource(message, subject), objectData)) {
                     // The connector still received the notification -- reported so a recipient that never resolves
                     // is visible, rather than the notification quietly reaching fewer people than configured.
                     handleNotificationErrorWithWarnLog("Notification profile %s in event %s could not prepare all of its recipients for delivery.".formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()), message);
@@ -216,14 +221,14 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
      * best-effort: any failure yields a data-less send, never a suppressed one. The result
      * exists only in the outbound connector request; internal notifications never carry it.
      */
-    private NotificationEventObjectDataDto buildObjectData(NotificationMessage message, NotificationProfileVersion notificationProfileVersion) {
+    private NotificationEventObjectDataDto buildObjectData(NotificationMessage message, NotificationProfileVersion notificationProfileVersion, EventData eventData) {
         try {
             List<NotificationDataCategory> categories = notificationProfileVersion.getNotificationProfile().getEventDataCategories();
             if (categories.isEmpty()) {
                 return null;
             }
             return notificationObjectDataService.getObjectData(message.getEvent(), message.getResource(),
-                    message.getObjectUuid(), convertEventDataBestEffort(message), EnumSet.copyOf(categories));
+                    message.getObjectUuid(), eventData, EnumSet.copyOf(categories));
         } catch (Exception e) {
             logger.warn("Notification object data could not be built for profile version {} in event {}; sending without it",
                     notificationProfileVersion.getUuid(), message.getEvent(), e);
@@ -314,9 +319,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 && (notificationProfileVersion.getRepetitions() == null || pendingNotification.getRepetitions() < notificationProfileVersion.getRepetitions());
     }
 
-    private List<NotificationRecipient> getRecipients(RecipientType recipientType, List<UUID> recipientUuids, ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
+    private List<NotificationRecipient> getRecipients(RecipientType recipientType, List<UUID> recipientUuids, NotificationMessage message, NotificationSubjectResolver.SubjectRef subject) {
         if (recipientType == RecipientType.OBJECT) {
-            return List.of(new NotificationRecipient(RecipientType.OBJECT, objectUuid));
+            return List.of(new NotificationRecipient(RecipientType.OBJECT, objectRecipientUuid(message, subject)));
         }
 
         if (recipientType != RecipientType.OWNER && recipientType != RecipientType.DEFAULT) {
@@ -324,12 +329,30 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         }
 
         if (recipientType == RecipientType.OWNER) {
-            NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
+            // The subject's owner, not the event object's: for approval events this is the owner
+            // of the object awaiting approval -- the approval record itself has no owner.
+            NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(subject.resource(), subject.objectUuid());
             if (ownerInfo == null) return List.of();
             return List.of(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
         }
 
-        return getDefaultRecipients(event, data, resource, objectUuid);
+        return getDefaultRecipients(message.getEvent(), message.getData(), message.getResource(), message.getObjectUuid());
+    }
+
+    /**
+     * The object an OBJECT recipient resolves its mapped attributes from. Subject redirection is
+     * whitelisted per resource, mirroring the content-exporter philosophy: the mapped-attribute
+     * channel carries raw attribute content with neither the enrichment protection filters nor a
+     * category gate, and approval targets are polymorphic -- a secret's attribute content must
+     * not become exportable as a side effect of recipient resolution. Non-whitelisted subjects
+     * resolve against the event object.
+     */
+    private static UUID objectRecipientUuid(NotificationMessage message, NotificationSubjectResolver.SubjectRef subject) {
+        return OBJECT_RECIPIENT_SUBJECT_RESOURCES.contains(subject.resource()) ? subject.objectUuid() : message.getObjectUuid();
+    }
+
+    private static Resource objectRecipientResource(NotificationMessage message, NotificationSubjectResolver.SubjectRef subject) {
+        return OBJECT_RECIPIENT_SUBJECT_RESOURCES.contains(subject.resource()) ? subject.resource() : message.getResource();
     }
 
     /**
@@ -406,7 +429,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
      * @return false when some named recipient could not be prepared, so the caller can report the gap.
      */
     private boolean sendExternalNotifications(UUID notificationInstanceUUID, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent
-            event, Resource resource, NotificationEventObjectDataDto objectData) throws ConnectorException, ValidationException, NotFoundException {
+            event, Resource resource, Resource objectRecipientResource, NotificationEventObjectDataDto objectData) throws ConnectorException, ValidationException, NotFoundException {
         // Fetch-join the mapped attributes: the listener runs without an ambient transaction, so the
         // entity is detached the moment the repository call returns and lazy loading would fail.
         NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findWithMappedAttributesByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
@@ -429,7 +452,8 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             logger.debug("Processing recipient {} of type {}.", recipient.getRecipientUuid(), recipient.getRecipientType());
             try {
                 // construct recipient DTO
-                NotificationRecipientDto recipientDto = constructNotificationRecipientDto(recipient, notificationInstanceReference.getKind(), resource);
+                // The OBJECT recipient's label must name the resource its mapped attributes resolve from.
+                NotificationRecipientDto recipientDto = constructNotificationRecipientDto(recipient, notificationInstanceReference.getKind(), objectRecipientResource);
                 if (recipientDto == null) {
                     // this should happen only in case of recipient type NONE
                     ++skippedByDesign;
@@ -437,7 +461,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 }
 
                 Resource customAttributeResource = recipient.getRecipientType() == RecipientType.OBJECT
-                        ? resource
+                        ? objectRecipientResource
                         : recipient.getRecipientType().getRecipientResource();
                 // Unauthenticated lookup is correct here, since the access to the custom attributes has been resolved when defining mapping attributes.
                 List<ResponseAttribute> recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContentForSystemContext(customAttributeResource, recipient.getRecipientUuid());
