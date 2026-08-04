@@ -49,6 +49,7 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -143,6 +144,14 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
     private ExecutionItem executionItem;
 
     private WireMockServer mockServer;
+
+    @AfterEach
+    void stopMockServer() {
+        if (mockServer != null) {
+            mockServer.stop();
+            mockServer = null;
+        }
+    }
 
     @BeforeEach
     void setUp() {
@@ -958,8 +967,6 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
         NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNotNull(owner);
         Assertions.assertEquals("ownerName", owner.getName());
-
-        mockServer.stop();
     }
 
     @Test
@@ -1005,7 +1012,6 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(certificate);
         Assertions.assertEquals(raProfile.getName(), certificateDetailDto.getRaProfile().getName());
-        mockServer.stop();
     }
 
     @Test
