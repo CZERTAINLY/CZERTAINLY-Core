@@ -875,7 +875,10 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     /**
      * Resolves the optional source certificate a successor pre-registration is tied to (registration with
-     * {@code sourceCertificateUuid}). Validated up front — alongside the sibling pre-placeholder validations — so
+     * {@code sourceCertificateUuid}). The proxied {@code evaluatePermissionChain} call (object-scoped
+     * CERTIFICATE UPDATE — the relation mutates the source's lineage) runs before the lookup, so a caller
+     * without it is denied without learning whether the UUID exists or what state it is in. Validated up
+     * front — alongside the sibling pre-placeholder validations — so
      * an unknown, archived or non-issued source rejects before any placeholder row exists. The same predecessor
      * rule {@code associateCertificates} enforces (ISSUED or REVOKED) is asserted here for the no-orphan
      * guarantee; the relation itself is written atomically with the placeholder in
@@ -886,6 +889,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         if (sourceUuid == null) {
             return null;
         }
+        certificateService.evaluatePermissionChain(SecuredUUID.fromUUID(sourceUuid));
         Certificate source = certificateRepository.findByUuid(sourceUuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, sourceUuid));
         if (source.isArchived()) {
@@ -1738,7 +1742,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         // Self-service gate: a certificate with a live registration authorization renews only against its
         // challenge; a wrong or missing secret is denied (and counted) before any successor exists. A verified
         // challenge lets the authorization follow the successor (copied below). A certificate with no
-        // authorization row, or a CLOSED one, renews ungated as before.
+        // authorization row, or a CLOSED one, renews without challenge verification.
         boolean challengeAuthorized = verifyRegistrationChallenge(oldCertificate.getUuid(),
                 request != null ? request.getAuthorizationSecret() : null, CertificateEvent.RENEW);
 
@@ -1939,7 +1943,6 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         }
 
         if (challengeAuthorized) {
-            // The verified authorization follows the successor, as on the renew path.
             registrationAuthorizationWriter.copyToSuccessor(oldCertificate.getUuid(), UUID.fromString(newCertificate.getUuid()));
         }
 

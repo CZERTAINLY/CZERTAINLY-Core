@@ -1620,7 +1620,7 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
 
     @Test
     void renewOfCertWithoutAuthorizationProceedsUngated() throws Exception {
-        // A certificate that was never challenge-protected renews exactly as before the gate existed.
+        // A certificate without registration authorization renews without challenge verification
         KeyPair keyPair = generateKeyPair();
         Certificate issued = seedIssuedCertWithContent(keyPair);
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
@@ -1948,6 +1948,26 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
                 authorityParent, securedRaProfile, request));
         Assertions.assertEquals(1, certificateRepository.count(),
                 "only the seeded source row remains — the rejection leaves no placeholder");
+    }
+
+    @Test
+    void registerWithSourceRequiresUpdatePermissionOnTheSource() {
+        // The successor relation mutates the source certificate's lineage, so registering a successor demands
+        // object-scoped CERTIFICATE UPDATE on the source — enforced by the proxied evaluatePermissionChain call
+        // BEFORE the source is even read, so a denied caller learns nothing about the UUID's existence or state.
+        Certificate source = seedIssuedCert();
+        registeringAdapter();
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setSourceCertificateUuid(source.getUuid());
+        denyResourceAccess(Resource.CERTIFICATE, ResourceAction.UPDATE);
+
+        Assertions.assertThrows(AccessDeniedException.class, () -> clientOperationService.registerCertificate(
+                authorityParent, securedRaProfile, request));
+
+        Assertions.assertEquals(1, certificateRepository.count(),
+                "only the seeded source row remains — the denial leaves no placeholder");
+        Assertions.assertEquals(0, certificateRelationRepository.count(),
+                "a denied successor registration must not create a relation");
     }
 
     @Test
