@@ -64,7 +64,7 @@ class CertificateRegistrationAuthorizationWriterITest extends BaseSpringBootTest
         assertThat(copied.getChallenge()).isEqualTo(CIPHERTEXT);
         assertThat(copied.getState()).isEqualTo(RegistrationState.ACTIVE);
         assertThat(copied.getFailedAttempts()).isZero();
-        assertThat(copied.getExpiresAt().toInstant()).isEqualTo(window.toInstant());
+        assertThat(copied.getExpiresAt()).isNull();
 
         CertificateRegistrationAuthorization predecessor =
                 authorizationRepository.findByCertificateUuid(predecessorUuid).orElseThrow();

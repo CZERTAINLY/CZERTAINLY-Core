@@ -72,7 +72,6 @@ public class CertificateRegistrationAuthorizationWriter {
                     successor.setChallenge(predecessor.getChallenge());
                     successor.setState(RegistrationState.ACTIVE);
                     successor.setFailedAttempts(0);
-                    successor.setExpiresAt(predecessor.getExpiresAt());
                     authorizationRepository.save(successor);
                 });
     }
