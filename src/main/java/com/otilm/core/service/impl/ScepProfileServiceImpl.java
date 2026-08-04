@@ -11,6 +11,9 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateDto;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.core.scep.ScepChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
@@ -126,6 +129,10 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
             throw new ValidationException(ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
         }
 
+        if (request.getChallengeSource() == ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+            validateRegistrationChallengeSource(request, intuneEnabled, certificate);
+        }
+
         if (intuneEnabled && (request.getIntuneTenant() == null || request.getIntuneTenant().isBlank()
                 || request.getIntuneApplicationId() == null || request.getIntuneApplicationId().isBlank()
                 || !isIntuneKeyProvided(request))) {
@@ -150,7 +157,13 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         scepProfile.setRenewalThreshold(request.getRenewalThreshold());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
-        applyChallengePassword(scepProfile, request);
+        // An absent challengeSource keeps the entity's PROFILE_CHALLENGE_PASSWORD initializer.
+        if (request.getChallengeSource() != null) {
+            scepProfile.setChallengeSource(request.getChallengeSource());
+        }
+        if (request.getChallengeSource() != ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+            applyChallengePassword(scepProfile, request);
+        }
         scepProfile.setRequireManualApproval(false);
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
         applyIntuneConfig(scepProfile, request, intuneEnabled);
@@ -191,6 +204,14 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
 
         ScepProfile scepProfile = getScepProfileEntity(uuid);
 
+        // An absent challengeSource keeps the stored value — collapsing it would silently flip
+        // registration-mode profiles back to the password regime for clients omitting the field.
+        ScepChallengeSource challengeSource = request.getChallengeSource() != null
+                ? request.getChallengeSource() : scepProfile.getChallengeSource();
+        if (challengeSource == ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+            validateRegistrationChallengeSource(request, intuneEnabled, certificate);
+        }
+
         // The Intune application key is write-only: when Intune stays enabled and the request omits the key,
         // keep the stored one (the form does not prefill it). Requiring re-entry otherwise would 422 or wipe it.
         if (intuneEnabled && (request.getIntuneTenant() == null || request.getIntuneTenant().isBlank()
@@ -211,7 +232,14 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
-        applyChallengePassword(scepProfile, request);
+        scepProfile.setChallengeSource(challengeSource);
+        if (challengeSource == ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+            // The registration challenge lives on each certificate registration; a leftover profile
+            // password must not survive the switch as a latent second credential.
+            scepProfile.setChallengePassword(null);
+        } else {
+            applyChallengePassword(scepProfile, request);
+        }
 
         // delete old connector data attributes content
         UUID oldConnectorUuid = scepProfile.getRaProfile() == null ? null : scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
@@ -312,6 +340,33 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
      *   <li>toggle {@code true} + blank value — keep the stored password, or reject when none is stored.</li>
      * </ul>
      */
+    /**
+     * Rules of the certificate-registration challenge source: each registration carries its own challenge,
+     * so a profile password is forbidden; Intune validates challenges in its own regime; and the CA
+     * certificate must hold an RSA decryption key, because without a shared password the platform can only
+     * decrypt requests enveloped via RSA key transport.
+     */
+    private static void validateRegistrationChallengeSource(BaseScepProfileRequestDto request, boolean intuneEnabled, Certificate caCertificate) {
+        if (Boolean.TRUE.equals(request.getEnableChallengePassword())
+                || (request.getChallengePassword() != null && !request.getChallengePassword().isBlank())) {
+            throw new ValidationException(ValidationError.create(
+                    "A challenge password cannot be configured when the challenge source is certificate registration"));
+        }
+        if (intuneEnabled) {
+            throw new ValidationException(ValidationError.create(
+                    "Intune requires the profile challenge password as the challenge source"));
+        }
+        if (!hasRsaDecryptionKey(caCertificate)) {
+            throw new ValidationException(ValidationError.create(
+                    "Certificate registration challenge source requires an RSA CA certificate; requests enveloped to a non-RSA CA key need a shared challenge password to decrypt"));
+        }
+    }
+
+    private static boolean hasRsaDecryptionKey(Certificate caCertificate) {
+        return caCertificate.getKey() != null && caCertificate.getKey().getItems().stream()
+                .anyMatch(item -> item.getType() == KeyType.PRIVATE_KEY && item.getKeyAlgorithm() == KeyAlgorithm.RSA);
+    }
+
     private void applyChallengePassword(ScepProfile scepProfile, BaseScepProfileRequestDto request) {
         Boolean enable = request.getEnableChallengePassword();
         boolean valueProvided = request.getChallengePassword() != null && !request.getChallengePassword().isBlank();
