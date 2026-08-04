@@ -96,11 +96,6 @@ provider:
           - PT5M
         max-attempts: 50
 
-hibernate:
-  types:
-    print:
-      banner: false
-
 info:
   app:
     name: ILM Core
