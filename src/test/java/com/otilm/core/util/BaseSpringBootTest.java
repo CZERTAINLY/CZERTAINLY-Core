@@ -27,6 +27,8 @@ import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestExecutionListeners.MergeMode;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import static org.mockito.Mockito.when;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -94,7 +96,7 @@ public class BaseSpringBootTest {
         accessAllowed.setAuthorized(true);
         accessAllowed.setAllow(List.of());
 
-        Mockito.when(
+        when(
                 opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
         ).thenReturn(accessAllowed);
     }
@@ -105,7 +107,7 @@ public class BaseSpringBootTest {
         objectAccessAllowed.setAllowedObjects(List.of());
         objectAccessAllowed.setForbiddenObjects(List.of());
 
-        Mockito.when(
+        when(
                 opaClient.checkObjectAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
         ).thenReturn(objectAccessAllowed);
     }
@@ -113,7 +115,7 @@ public class BaseSpringBootTest {
     protected void denyResourceAccess(Resource resource, ResourceAction action) {
         OpaResourceAccessResult denied = new OpaResourceAccessResult();
         denied.setAuthorized(false);
-        Mockito.when(opaClient.checkResourceAccess(
+        when(opaClient.checkResourceAccess(
                 Mockito.any(),
                 Mockito.argThat(req -> req != null
                         && req.getProperties() != null
@@ -123,11 +125,31 @@ public class BaseSpringBootTest {
         ).thenReturn(denied);
     }
 
+    /**
+     * Restricts object-level access for one (resource, action) pair to an allow-list, so
+     * {@code AuthHelper.loadObjectPermissions} reports the user as restricted. Everything else
+     * keeps the default allow-all stub.
+     */
+    protected void restrictObjectAccess(Resource resource, ResourceAction action) {
+        OpaObjectAccessResult restricted = new OpaObjectAccessResult();
+        restricted.setActionAllowedForGroupOfObjects(false);
+        restricted.setAllowedObjects(List.of(UUID.randomUUID().toString()));
+        restricted.setForbiddenObjects(List.of());
+        when(opaClient.checkObjectAccess(
+                Mockito.any(),
+                Mockito.argThat(req -> req != null
+                        && req.getProperties() != null
+                        && resource.getCode().equals(req.getProperties().get("name"))
+                        && action.getCode().equals(req.getProperties().get("action"))),
+                Mockito.any(), Mockito.any())
+        ).thenReturn(restricted);
+    }
+
     protected void allowResourceAccess(Resource resource, ResourceAction action) {
         OpaResourceAccessResult allowed = new OpaResourceAccessResult();
         allowed.setAuthorized(true);
         allowed.setAllow(List.of());
-        Mockito.when(opaClient.checkResourceAccess(
+        when(opaClient.checkResourceAccess(
                 Mockito.any(),
                 Mockito.argThat(req -> req != null
                         && req.getProperties() != null
