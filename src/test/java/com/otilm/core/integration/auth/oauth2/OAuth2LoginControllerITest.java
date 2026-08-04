@@ -10,8 +10,6 @@ import com.otilm.core.service.AuditLogExternalService;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.SessionTableHelper;
-import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,11 +39,8 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@TestPropertySource(properties = {"auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE_SECURITY_CHAIN,
-        "server.servlet.context-path="})
+@TestPropertySource(properties = "server.servlet.context-path=")
 class OAuth2LoginControllerITest {
-
-    private static WireMockServer mockServer;
 
     @LocalServerPort
     int port;
@@ -66,9 +61,6 @@ class OAuth2LoginControllerITest {
 
     @BeforeEach
     void setUp() {
-        mockServer = new WireMockServer(0);
-        mockServer.start();
-
         http = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
@@ -81,9 +73,6 @@ class OAuth2LoginControllerITest {
     @AfterEach
     void tearDown() {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, new AuthenticationSettingsDto());
-        if (mockServer != null) {
-            mockServer.stop();
-        }
         SessionTableHelper.dropSessionTables(jdbcTemplate);
     }
 

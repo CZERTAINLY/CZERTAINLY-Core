@@ -12,6 +12,7 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,14 @@ class NotificationServiceITest extends BaseSpringBootTest {
         mockUser1Uuid = authInfo.getUuid();
     }
 
+    @AfterEach
+    public void tearDown() {
+        if (mockServer != null) {
+            mockServer.stop();
+            mockServer = null;
+        }
+    }
+
     @Test
     void testNotificationsOperations() throws NotFoundException {
         setupAuthServiceMock();
@@ -81,8 +90,6 @@ class NotificationServiceITest extends BaseSpringBootTest {
 
         // all notifications that are present in DB are send to bulk delete, but deleted should be only those of logged user
         Assertions.assertEquals(3, notificationRecipientRepository.findAll().size());
-
-        mockServer.stop();
     }
 
     private void setupAuthServiceMock() {
