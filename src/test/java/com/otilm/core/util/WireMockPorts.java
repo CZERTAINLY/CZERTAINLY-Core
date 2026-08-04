@@ -6,7 +6,6 @@ package com.otilm.core.util;
  * <p>
  * Surefire runs test classes sequentially in one fork, so a fixed port is safe; a fixed port below the 49152 ephemeral
  * floor is also immune to the collisions {@code dynamicPort()} suffers when another process asks for an ephemeral port.
- * Enabling parallel test execution would break both properties — see the note on the surefire plugin in {@code pom.xml}.
  * <p>
  * Naming the ports globally rather than per class is what keeps them off the context signature: a per-class
  * {@code @TestPropertySource} would fork a context (see {@link com.otilm.core.architecture.ContextSignature}), whereas

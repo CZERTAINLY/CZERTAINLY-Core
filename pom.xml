@@ -326,14 +326,10 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>@{argLine} -Dspring.test.context.cache.maxSize=128</argLine>
-                    <!-- Test classes must keep running one at a time in one JVM: com.otilm.core.util.WireMockPorts
-                         binds fixed ports, which two concurrently running classes would fight over. Worse, a live
-                         stub on a shared port answers a foreign class's calls, so verify() can count the wrong
-                         requests and a test can pass for the wrong reason rather than failing loudly. Adding
-                         forkCount/reuseForks here, or parallelism below, needs those ports made per-class first. -->
-                    <configurationParameters>
-                        junit.jupiter.execution.parallel.enabled=false
-                    </configurationParameters>
+                    <!-- Test classes must keep running one at a time in one JVM: WireMockPorts binds fixed ports. -->
+                    <properties>
+                        <configurationParameters>junit.jupiter.execution.parallel.enabled=false</configurationParameters>
+                    </properties>
                 </configuration>
             </plugin>
             <plugin>
