@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -28,7 +29,9 @@ public class PendingNotificationWriter {
 
     @Transactional
     public void recordSent(UUID notificationProfileUuid, Resource resource, UUID objectUuid, ResourceEvent event, int pinnedVersion) {
+        // Application clock, matching the frequency-eligibility comparison in the listener --
+        // one clock source for both the write and the read keeps suppression windows skew-free.
         pendingNotificationRepository.upsertSent(UUID.randomUUID(), notificationProfileUuid,
-                resource.name(), objectUuid, event.name(), pinnedVersion);
+                resource.name(), objectUuid, event.name(), pinnedVersion, OffsetDateTime.now());
     }
 }
