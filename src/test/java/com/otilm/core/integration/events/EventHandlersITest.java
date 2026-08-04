@@ -88,7 +88,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.security.cert.X509Certificate;
@@ -103,7 +102,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.verify;
 
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class EventHandlersITest extends BaseSpringBootTest {
 
     public static final String CERTIFICATE_CUSTOM_ATTRIBUTE_UUID = UUID.randomUUID().toString();

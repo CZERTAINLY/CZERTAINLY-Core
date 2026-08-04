@@ -33,7 +33,6 @@ import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -41,13 +40,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class NotificationObjectRecipientITest extends BaseSpringBootTest {
 
     private static final String MAPPING_ATTRIBUTE_UUID = "1e5657af-423b-4b4b-a9f7-b1150c584a4a";

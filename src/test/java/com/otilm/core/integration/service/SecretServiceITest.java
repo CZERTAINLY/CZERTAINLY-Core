@@ -61,7 +61,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
@@ -79,7 +78,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 
 @RecordApplicationEvents
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE_STANDALONE)
 class SecretServiceITest extends BaseSpringBootTest {
 
     private static final String TEST_CUSTOM_ATTRIBUTE = "testCustomAttribute";
@@ -594,7 +592,7 @@ class SecretServiceITest extends BaseSpringBootTest {
 
     @Test
     void testSetSecretOwner() throws NotFoundException, ConnectorException, AttributeException {
-        WireMockServer mockServerUpdateUser = new WireMockServer(WireMockPorts.AUTH_SERVICE_STANDALONE);
+        WireMockServer mockServerUpdateUser = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServerUpdateUser.start();
         WireMock.configureFor("localhost", mockServerUpdateUser.port());
         mockServerUpdateUser.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
@@ -698,7 +696,7 @@ class SecretServiceITest extends BaseSpringBootTest {
     @Test
     void testGetSearchableFieldInformation() {
         // Arrange: start an auth-service mock to handle the getUsers() call
-        WireMockServer authServiceMock = new WireMockServer(WireMockPorts.AUTH_SERVICE_STANDALONE);
+        WireMockServer authServiceMock = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         authServiceMock.start();
         WireMock.configureFor("localhost", authServiceMock.port());
         authServiceMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/auth/users"))

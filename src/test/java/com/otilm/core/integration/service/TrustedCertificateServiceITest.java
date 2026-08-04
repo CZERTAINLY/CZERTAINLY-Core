@@ -14,7 +14,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -25,7 +24,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
-@TestPropertySource(properties = "provisioning.api.url=http://localhost:" + WireMockPorts.PROVISIONING_API)
 class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     private static final String TEST_UUID = "abfbc322-29e1-11ed-a261-0242ac120002";

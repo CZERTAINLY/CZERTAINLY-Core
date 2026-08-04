@@ -8,13 +8,11 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
-@TestPropertySource(properties = "provisioning.api.url=http://localhost:" + WireMockPorts.PROVISIONING_API)
 class ProxyProvisioningServiceITest extends BaseSpringBootTest {
 
     private static final String PROXY_CODE = "TEST_PROXY";
