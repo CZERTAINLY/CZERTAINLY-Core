@@ -28,6 +28,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -57,7 +60,7 @@ class NotificationProfileServiceImplPersistEditTest {
         service.setNotificationProfileRepository(notificationProfileRepository);
         service.setNotificationProfileVersionRepository(notificationProfileVersionRepository);
         // The under-lock refresh is a no-op here: the mocked repositories return detached fixtures.
-        service.setEntityManager(Mockito.mock(EntityManager.class));
+        service.setEntityManager(mock(EntityManager.class));
 
         profileUuid = SecuredUUID.fromUUID(UUID.randomUUID());
 
@@ -108,6 +111,36 @@ class NotificationProfileServiceImplPersistEditTest {
         DataIntegrityViolationException e = Assertions.assertThrows(DataIntegrityViolationException.class,
                 () -> service.persistEditedVersion(profileUuid, updateRequest, noRecipients, noGatedCategories));
         Assertions.assertSame(anonymousViolation, e);
+    }
+
+    /**
+     * The gate runs outside the write transaction against an unlocked read; when a concurrent
+     * edit changes gate-relevant state in between, the under-lock re-check must fail closed
+     * with the retry error before anything is persisted -- never call the authorization
+     * service under the row lock.
+     */
+    @Test
+    void lockedStateDemandingUnauthorizedGatingFailsClosedBeforePersisting() {
+        NotificationProfile lockedProfile = new NotificationProfile();
+        lockedProfile.uuid = profileUuid.getValue();
+        lockedProfile.setName("TestProfile");
+        // A concurrent edit enabled a gated category after the unlocked pre-check ran.
+        lockedProfile.setEventDataCategories(List.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
+        when(notificationProfileRepository.findAndLockByUuid(profileUuid.getValue())).thenReturn(Optional.of(lockedProfile));
+
+        // The request swaps the destination, so the locked state demands gating for
+        // CUSTOM_ATTRIBUTES -- which the pre-lock check (empty authorized set) never covered.
+        NotificationProfileUpdateRequestDto destinationSwap = new NotificationProfileUpdateRequestDto();
+        destinationSwap.setRecipientType(RecipientType.OWNER);
+        destinationSwap.setInternalNotification(true);
+        destinationSwap.setNotificationInstanceUuid(UUID.randomUUID());
+
+        ValidationException e = Assertions.assertThrows(ValidationException.class,
+                () -> service.persistEditedVersion(profileUuid, destinationSwap, noRecipients, noGatedCategories));
+        Assertions.assertTrue(e.getMessage().contains("concurrently modified"),
+                "Message should tell the client to retry, but was: " + e.getMessage());
+        verify(notificationProfileRepository, never()).save(any());
+        verify(notificationProfileVersionRepository, never()).saveAndFlush(any());
     }
 
     private static DataIntegrityViolationException integrityViolation(String constraintName) {

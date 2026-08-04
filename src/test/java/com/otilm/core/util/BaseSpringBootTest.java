@@ -27,6 +27,8 @@ import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestExecutionListeners.MergeMode;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import static org.mockito.Mockito.when;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -94,7 +96,7 @@ public class BaseSpringBootTest {
         accessAllowed.setAuthorized(true);
         accessAllowed.setAllow(List.of());
 
-        Mockito.when(
+        when(
                 opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
         ).thenReturn(accessAllowed);
     }
@@ -105,7 +107,7 @@ public class BaseSpringBootTest {
         objectAccessAllowed.setAllowedObjects(List.of());
         objectAccessAllowed.setForbiddenObjects(List.of());
 
-        Mockito.when(
+        when(
                 opaClient.checkObjectAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
         ).thenReturn(objectAccessAllowed);
     }
@@ -113,7 +115,7 @@ public class BaseSpringBootTest {
     protected void denyResourceAccess(Resource resource, ResourceAction action) {
         OpaResourceAccessResult denied = new OpaResourceAccessResult();
         denied.setAuthorized(false);
-        Mockito.when(opaClient.checkResourceAccess(
+        when(opaClient.checkResourceAccess(
                 Mockito.any(),
                 Mockito.argThat(req -> req != null
                         && req.getProperties() != null
@@ -133,7 +135,7 @@ public class BaseSpringBootTest {
         restricted.setActionAllowedForGroupOfObjects(false);
         restricted.setAllowedObjects(List.of(UUID.randomUUID().toString()));
         restricted.setForbiddenObjects(List.of());
-        Mockito.when(opaClient.checkObjectAccess(
+        when(opaClient.checkObjectAccess(
                 Mockito.any(),
                 Mockito.argThat(req -> req != null
                         && req.getProperties() != null
@@ -147,7 +149,7 @@ public class BaseSpringBootTest {
         OpaResourceAccessResult allowed = new OpaResourceAccessResult();
         allowed.setAuthorized(true);
         allowed.setAllow(List.of());
-        Mockito.when(opaClient.checkResourceAccess(
+        when(opaClient.checkResourceAccess(
                 Mockito.any(),
                 Mockito.argThat(req -> req != null
                         && req.getProperties() != null

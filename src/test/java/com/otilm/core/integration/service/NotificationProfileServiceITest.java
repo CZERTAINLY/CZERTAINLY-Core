@@ -35,6 +35,7 @@ import com.otilm.core.dao.repository.notifications.NotificationInstanceReference
 import com.otilm.core.dao.repository.notifications.NotificationProfileRepository;
 import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRepository;
 import com.otilm.core.messaging.jms.listeners.NotificationListener;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.AttributeExternalService;
@@ -274,7 +275,7 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEventDataCategories_gateRefusesRestrictedAttributeAccess() {
-        restrictObjectAccess(Resource.ATTRIBUTE, com.otilm.core.model.auth.ResourceAction.MEMBERS);
+        restrictObjectAccess(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
 
         NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
         requestDto.setName("GatedProfile");
@@ -299,17 +300,55 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
         requestDto.setInternalNotification(true);
         requestDto.setEventDataCategories(List.of(NotificationDataCategory.OBJECT_CONTENT));
 
-        restrictObjectAccess(Resource.CERTIFICATE, com.otilm.core.model.auth.ResourceAction.DETAIL);
+        restrictObjectAccess(Resource.CERTIFICATE, ResourceAction.DETAIL);
         ValidationException ex = Assertions.assertThrows(ValidationException.class,
                 () -> notificationProfileService.createNotificationProfile(requestDto));
         Assertions.assertTrue(ex.getMessage().contains("CERTIFICATE") && ex.getMessage().contains("DETAIL"), ex.getMessage());
 
         // Reset to allow-all, then restrict only the RA profile membership side.
         mockSuccessfulCheckObjectAccess();
-        restrictObjectAccess(Resource.RA_PROFILE, com.otilm.core.model.auth.ResourceAction.MEMBERS);
+        restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.MEMBERS);
         ex = Assertions.assertThrows(ValidationException.class,
                 () -> notificationProfileService.createNotificationProfile(requestDto));
         Assertions.assertTrue(ex.getMessage().contains("RA_PROFILE") && ex.getMessage().contains("MEMBERS"), ex.getMessage());
+    }
+
+    /**
+     * Pins the trust boundary: recipient edits do not re-fire the category gate. Recipients only
+     * choose who the provider addresses; NOTIFICATION_PROFILE UPDATE holders already direct all
+     * notification content to any recipients, so a recipient change on a profile with a gated
+     * category enabled stays available to a user who has since lost the gated permission.
+     */
+    @Test
+    void testEventDataCategories_recipientChangesDoNotRegate() throws NotFoundException, AlreadyExistException {
+        NotificationInstanceReference instance = new NotificationInstanceReference();
+        instance.setName("recipientEditInstance");
+        instance.setKind("WEBHOOK");
+        instance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(instance);
+
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("RecipientEditProfile");
+        requestDto.setRecipientType(RecipientType.NONE);
+        requestDto.setInternalNotification(false);
+        requestDto.setNotificationInstanceUuid(instance.getUuid());
+        requestDto.setEventDataCategories(List.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
+        NotificationProfileDetailDto created = notificationProfileService.createNotificationProfile(requestDto);
+
+        // The user loses unrestricted attribute access after enabling the gated category.
+        restrictObjectAccess(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
+
+        // Recipient routing changes; categories and destination stay untouched.
+        NotificationProfileUpdateRequestDto updateDto = new NotificationProfileUpdateRequestDto();
+        updateDto.setRecipientType(RecipientType.DEFAULT);
+        updateDto.setInternalNotification(false);
+        updateDto.setNotificationInstanceUuid(instance.getUuid());
+        NotificationProfileDetailDto updated = notificationProfileService.editNotificationProfile(
+                SecuredUUID.fromString(created.getUuid()), updateDto);
+
+        Assertions.assertEquals(RecipientType.DEFAULT, updated.getRecipientType());
+        Assertions.assertEquals(List.of(NotificationDataCategory.CUSTOM_ATTRIBUTES), updated.getEventDataCategories(),
+                "the gated category stays enabled; only its addition or a destination change re-fires the gate");
     }
 
     @Test
@@ -335,7 +374,7 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
         NotificationProfileDetailDto created = notificationProfileService.createNotificationProfile(requestDto);
 
         // The user then loses unrestricted attribute access.
-        restrictObjectAccess(Resource.ATTRIBUTE, com.otilm.core.model.auth.ResourceAction.MEMBERS);
+        restrictObjectAccess(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
 
         // Edits that touch neither the categories nor the destination stay available.
         NotificationProfileUpdateRequestDto updateDto = new NotificationProfileUpdateRequestDto();

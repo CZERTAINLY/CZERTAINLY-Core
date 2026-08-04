@@ -21,6 +21,17 @@ import java.util.Map;
  * any object-level restriction at configuration time. OBJECT_CONTENT lists the certificate
  * content exporter's requirements; registering another content exporter requires extending this
  * map as part of that exporter's own design, never silently.
+ *
+ * <p>Trust boundary: the gate fires on the two edges that change the export decision itself --
+ * enabling a gated category (what data leaves) and moving the profile to another notification
+ * instance while a gated category stays enabled (where it leaves to). Recipient edits and
+ * notification-instance configuration updates deliberately do not re-fire it: recipients only
+ * choose who the provider addresses (holders of NOTIFICATION_PROFILE UPDATE already direct all
+ * notification content, including the event payload, to any recipients), and administering an
+ * instance's connector configuration is governed by the instance's own update authority, which
+ * already controls where every notification through that instance -- enriched or not -- is
+ * delivered. The gate is point-in-time: permissions lost later do not retroactively disable
+ * existing profiles.
  */
 @Component
 @AllArgsConstructor

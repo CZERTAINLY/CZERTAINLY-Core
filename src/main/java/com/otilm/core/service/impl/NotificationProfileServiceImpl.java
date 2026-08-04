@@ -155,7 +155,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
 
     @Override
     @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.CREATE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED, rollbackFor = Exception.class)
     public NotificationProfileDetailDto createNotificationProfile(NotificationProfileRequestDto requestDto) throws AlreadyExistException, NotFoundException {
         validateNotificationInstanceExists(requestDto.getNotificationInstanceUuid());
         // The gate calls the authorization service over HTTP and must not hold a DB connection,
@@ -204,7 +204,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
 
     @Override
     @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.UPDATE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED, rollbackFor = Exception.class)
     public NotificationProfileDetailDto editNotificationProfile(SecuredUUID uuid, NotificationProfileUpdateRequestDto updateRequestDto) throws NotFoundException {
         validateNotificationInstanceExists(updateRequestDto.getNotificationInstanceUuid());
         // Resolve recipient info from the request before opening the write transaction: recipient lookup
