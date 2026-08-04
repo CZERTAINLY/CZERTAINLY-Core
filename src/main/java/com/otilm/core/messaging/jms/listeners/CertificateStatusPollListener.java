@@ -13,6 +13,7 @@ import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
+import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.events.handlers.CertificateRegisteredEventHandler;
 import com.otilm.core.events.transaction.TransactionHandler;
@@ -77,6 +78,7 @@ public class CertificateStatusPollListener implements MessageProcessor<Certifica
     private EventProducer eventProducer;
     private CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository;
     private CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter;
+    private CertificateRelationRepository certificateRelationRepository;
 
     @Override
     public void processMessage(CertificateStatusPollMessage msg) throws MessageHandlingException {
@@ -228,7 +230,7 @@ public class CertificateStatusPollListener implements MessageProcessor<Certifica
                 // reach ISSUED without persisting a certificate, so fail it rather than reach an empty ISSUED.
                 stateMachine.transition(locked, op.terminalFailureState(), null,
                         "Async " + op + " reported COMPLETED but connector returned no certificate data");
-                closeRegistrationAuthorizationIfPresent(locked);
+                retireFailedCertificateLinks(locked);
             }
             return CertificateRevocationFinalizer.KeyCleanup.NONE;
         }
@@ -250,7 +252,7 @@ public class CertificateStatusPollListener implements MessageProcessor<Certifica
         // Fate-coupling: only a terminal FAILED verdict retires a pre-registered cert's authorization. A failed
         // REVOKE returns to ISSUED (not FAILED) and must keep its registration for renew/rekey reuse.
         if (targetState == CertificateState.FAILED) {
-            closeRegistrationAuthorizationIfPresent(locked);
+            retireFailedCertificateLinks(locked);
         }
         return CertificateRevocationFinalizer.KeyCleanup.NONE;
     }
@@ -369,7 +371,7 @@ public class CertificateStatusPollListener implements MessageProcessor<Certifica
             CertificateState terminal = op.terminalFailureState();
             stateMachine.transition(locked, terminal, null, reason);
             if (terminal == CertificateState.FAILED) {
-                closeRegistrationAuthorizationIfPresent(locked);
+                retireFailedCertificateLinks(locked);
             }
         });
         // Resolved (failed, or already resolved by a racing actor) — stop polling it.
@@ -377,13 +379,18 @@ public class CertificateStatusPollListener implements MessageProcessor<Certifica
     }
 
     /**
-     * Retires a pre-registered certificate's authorization (state → CLOSED) in the caller's locked transaction
-     * when it reaches a terminal FAILED verdict. Guarded, so it is a no-op for non-self-service certs and for
-     * renew/rekey successors that carry no authorization.
+     * Retires the links of a certificate that reached a terminal FAILED verdict, in the caller's locked
+     * transaction: its registration authorization (state → CLOSED) when it carries one, and any predecessor
+     * relations — a FAILED certificate must not stay linked as a pending successor of its source, the same
+     * invariant the synchronous failure paths maintain in {@code handleFailedOrRejectedEvent}. Both parts are
+     * guarded no-ops for certificates without them.
      */
-    private void closeRegistrationAuthorizationIfPresent(Certificate locked) {
+    private void retireFailedCertificateLinks(Certificate locked) {
         if (registrationAuthorizationRepository.existsByCertificateUuid(locked.getUuid())) {
             registrationAuthorizationWriter.close(locked.getUuid());
+        }
+        if (!locked.getPredecessorRelations().isEmpty()) {
+            certificateRelationRepository.deleteAll(locked.getPredecessorRelations());
         }
     }
 
@@ -479,6 +486,11 @@ public class CertificateStatusPollListener implements MessageProcessor<Certifica
     @Autowired
     public void setRegistrationAuthorizationWriter(CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter) {
         this.registrationAuthorizationWriter = registrationAuthorizationWriter;
+    }
+
+    @Autowired
+    public void setCertificateRelationRepository(CertificateRelationRepository certificateRelationRepository) {
+        this.certificateRelationRepository = certificateRelationRepository;
     }
 
     // Fire the Certificate Registered event when an async pre-registration completes — only for challenge-protected

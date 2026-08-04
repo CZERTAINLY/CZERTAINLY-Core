@@ -67,8 +67,12 @@ public interface CertificateInternalService extends ResourceExtensionService {
      * @param registrationContent the projected registration identity content; its subject alternative
      *                            names are persisted on the placeholder alongside the subject DN, so the
      *                            platform record carries the full registered identity (may be null)
+     * @param sourceCertificate the existing certificate this registration succeeds, or null for a standalone
+     *                          placeholder. When set, a PENDING relation to the source is written in the same
+     *                          transaction as the placeholder, so completing the placeholder later resolves as
+     *                          the source's renewal or rekey
      */
-    Certificate createRegistrationPlaceholder(RaProfile raProfile, String effectiveSubjectDn, X509RequestContent registrationContent);
+    Certificate createRegistrationPlaceholder(RaProfile raProfile, String effectiveSubjectDn, X509RequestContent registrationContent, Certificate sourceCertificate) throws NotFoundException;
 
     /**
      * Attaches an operator-supplied CSR to an existing certificate (a REGISTERED placeholder), preparing it
