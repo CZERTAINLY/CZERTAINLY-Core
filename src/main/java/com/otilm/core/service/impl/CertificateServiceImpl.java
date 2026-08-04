@@ -1925,6 +1925,14 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         return dto;
     }
 
+    @Override
+    @Transactional
+    public void applyProtocolAssociations(UUID certificateUuid, CertificateProtocolInfo protocolInfo) throws NotFoundException, AttributeException {
+        Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        setProtocolAssociations(protocolInfo, certificate);
+    }
+
     private void setProtocolAssociations(CertificateProtocolInfo protocolInfo, Certificate certificate) throws NotFoundException, AttributeException {
         CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
         UUID protocolProfileUuid = protocolInfo.getProtocolProfileUuid();
