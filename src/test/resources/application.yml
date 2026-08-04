@@ -34,8 +34,7 @@ connector:
     max-connections: 20
     pending-acquire-timeout: 10s
 
-# Points at the port com.otilm.core.util.WireMockPorts.AUTH_SERVICE names. Tests that stub auth-service bind a
-# WireMock server there; the rest never call it, and get a connection refusal if they ever start to.
+# Points at the port com.otilm.core.util.WireMockPorts.AUTH_SERVICE names.
 auth-service:
   base-url: http://localhost:10001
 opa:
