@@ -45,6 +45,7 @@ import com.otilm.core.service.impl.CertificateServiceImpl;
 import com.otilm.core.service.CryptographicKeyExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.FilterPredicatesBuilder;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.persistence.EntityManager;
@@ -61,8 +62,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.io.Serializable;
 import java.text.ParseException;
@@ -85,6 +85,7 @@ import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aSearch
  * Tests for class {@link FilterPredicatesBuilder}
  */
 @SpringBootTest
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class FilterPredicatesBuilderITest extends BaseSpringBootTest {
 
     @Autowired
@@ -144,12 +145,6 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
 
     private final String testValue = "test";
     private final String testDateValue = "2022-01-01T20:28:33.213+00:00";
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10002");
-    }
-
 
     @BeforeEach
     public void prepare() throws AlreadyExistException, AttributeException, NotFoundException {
@@ -572,37 +567,40 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
 
     @Test
     void testFiltersOnOwners() throws NotFoundException {
-        WireMockServer mockServer = new WireMockServer(10002);
+        WireMockServer mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(WireMock.okJson("{ \"username\": \"owner1\"}")));
+        try {
+            mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(WireMock.okJson("{ \"username\": \"owner1\"}")));
 
-        certificateService.updateOwner(certificate1.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
+            certificateService.updateOwner(certificate1.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(WireMock.okJson("{ \"username\": \"owner2\"}")));
+            mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(WireMock.okJson("{ \"username\": \"owner2\"}")));
 
-        certificateService.updateOwner(certificate2.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
+            certificateService.updateOwner(certificate2.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
 
-        CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
-        searchRequestDto.setFilters(List.of(aPropertyEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1"))));
-        Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+            CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
+            searchRequestDto.setFilters(List.of(aPropertyEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1"))));
+            Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(aPropertyEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1", "owner2"))));
-        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+            searchRequestDto.setFilters(List.of(aPropertyEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1", "owner2"))));
+            Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(aPropertyNotEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1"))));
-        Assertions.assertEquals(Set.of(certificate3.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+            searchRequestDto.setFilters(List.of(aPropertyNotEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1"))));
+            Assertions.assertEquals(Set.of(certificate3.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(aPropertyNotEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1", "owner2"))));
-        Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+            searchRequestDto.setFilters(List.of(aPropertyNotEqualsFilter(FilterField.OWNER, (Serializable) List.of("owner1", "owner2"))));
+            Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(aPropertyEmptyFilter(FilterField.OWNER)));
-        Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+            searchRequestDto.setFilters(List.of(aPropertyEmptyFilter(FilterField.OWNER)));
+            Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(aPropertyNotEmptyFilter(FilterField.OWNER)));
-        Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
-        mockServer.stop();
+            searchRequestDto.setFilters(List.of(aPropertyNotEmptyFilter(FilterField.OWNER)));
+            Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+        } finally {
+            mockServer.stop();
+        }
     }
 
     @Test

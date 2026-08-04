@@ -11,8 +11,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ContextSignatureGuardTest {
 
-    /** Committed baseline: the exact current distinct count. Update in lock-step with any change. */
-    static final int BASELINE = 57;
+    /**
+     * Committed baseline: the exact current distinct count. Update in lock-step with any change.
+     */
+    static final int BASELINE = 61;
 
     private static final Path TEST_ROOT = Path.of("src/test/java");
 

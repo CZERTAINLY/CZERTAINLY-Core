@@ -42,6 +42,7 @@ import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.ResourceExternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.transaction.Transactional;
@@ -51,8 +52,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authorization.AuthorizationDeniedException;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.io.Serializable;
 import java.util.*;
@@ -64,16 +64,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class ResourceServiceITest extends BaseSpringBootTest {
 
-    private static final int AUTH_SERVICE_MOCK_PORT = 10001;
     private static final String CERTIFICATE_UUID = "c1cfe60f-2556-461f-9a64-9dd8e92158cf";
     private static final String ATTRIBUTE_UUID = "f1982dfe-2523-45cf-9bfe-034ff1659369";
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:" + AUTH_SERVICE_MOCK_PORT);
-    }
 
     @Autowired
     private ResourceExternalService resourceService;
@@ -114,7 +109,7 @@ class ResourceServiceITest extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() {
-        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 

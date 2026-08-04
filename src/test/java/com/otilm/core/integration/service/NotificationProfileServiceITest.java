@@ -42,17 +42,18 @@ import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.GroupExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.WireMockPorts;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.hibernate.exception.ConstraintViolationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -65,12 +66,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class NotificationProfileServiceITest extends BaseSpringBootTest {
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
-    }
 
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -101,6 +98,16 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
 
     private NotificationProfileDetailDto originalNotificationProfile;
 
+    private WireMockServer mockServer;
+
+    @AfterEach
+    void stopMockServer() {
+        if (mockServer != null) {
+            mockServer.stop();
+            mockServer = null;
+        }
+    }
+
     @BeforeEach
     public void setUp() throws NotFoundException, AlreadyExistException {
         NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
@@ -112,7 +119,7 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testCreateNotificationProfile() throws NotFoundException, AlreadyExistException, AttributeException {
-        WireMockServer mockServer = new WireMockServer(0);
+        mockServer = new WireMockServer(0);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson(
@@ -199,8 +206,6 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
         instance.setKind("OTHER_KIND");
         notificationInstanceReferenceRepository.save(instance);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
-
-        mockServer.stop();
     }
 
     @Test
@@ -398,7 +403,7 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testUpdateNotificationProfile() throws NotFoundException {
-        WireMockServer mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
@@ -433,8 +438,6 @@ class NotificationProfileServiceITest extends BaseSpringBootTest {
         NotificationProfileDetailDto olderVersion = notificationProfileService.getNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), originalNotificationProfile.getVersion());
         Assertions.assertEquals(originalNotificationProfile.getVersion(), olderVersion.getVersion());
         Assertions.assertEquals(originalNotificationProfile.getRecipientType(), olderVersion.getRecipientType());
-
-        mockServer.stop();
     }
 
     @Test

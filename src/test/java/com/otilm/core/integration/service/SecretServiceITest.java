@@ -50,6 +50,7 @@ import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
+import com.otilm.core.util.WireMockPorts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,8 +61,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
@@ -79,18 +79,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 
 @RecordApplicationEvents
+@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE_STANDALONE)
 class SecretServiceITest extends BaseSpringBootTest {
 
     private static final String TEST_CUSTOM_ATTRIBUTE = "testCustomAttribute";
 
-    private static final int AUTH_SERVICE_MOCK_PORT = 10000;
     @Autowired
     private Secret2SyncVaultProfileRepository secret2SyncVaultProfileRepository;
-
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:" + AUTH_SERVICE_MOCK_PORT);
-    }
 
     @Autowired
     private ApplicationEvents applicationEvents;
@@ -599,19 +594,22 @@ class SecretServiceITest extends BaseSpringBootTest {
 
     @Test
     void testSetSecretOwner() throws NotFoundException, ConnectorException, AttributeException {
-        WireMockServer mockServerUpdateUser = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
+        WireMockServer mockServerUpdateUser = new WireMockServer(WireMockPorts.AUTH_SERVICE_STANDALONE);
         mockServerUpdateUser.start();
         WireMock.configureFor("localhost", mockServerUpdateUser.port());
         mockServerUpdateUser.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
                 WireMock.okJson("{ \"username\": \"newOwner\"}")
         ));
 
-        SecretUpdateObjectsDto updateObjectsDto = new SecretUpdateObjectsDto();
-        updateObjectsDto.setOwnerUuid(String.valueOf(UUID.randomUUID()));
-        secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto);
-        Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
-        Assertions.assertEquals("newOwner", reloadedSecret.getOwner().getOwnerUsername());
-        mockServerUpdateUser.stop();
+        try {
+            SecretUpdateObjectsDto updateObjectsDto = new SecretUpdateObjectsDto();
+            updateObjectsDto.setOwnerUuid(String.valueOf(UUID.randomUUID()));
+            secretService.updateSecretObjects(secret.getUuid(), updateObjectsDto);
+            Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
+            Assertions.assertEquals("newOwner", reloadedSecret.getOwner().getOwnerUsername());
+        } finally {
+            mockServerUpdateUser.stop();
+        }
     }
 
     @Test
@@ -700,7 +698,7 @@ class SecretServiceITest extends BaseSpringBootTest {
     @Test
     void testGetSearchableFieldInformation() {
         // Arrange: start an auth-service mock to handle the getUsers() call
-        WireMockServer authServiceMock = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
+        WireMockServer authServiceMock = new WireMockServer(WireMockPorts.AUTH_SERVICE_STANDALONE);
         authServiceMock.start();
         WireMock.configureFor("localhost", authServiceMock.port());
         authServiceMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/auth/users"))
