@@ -43,6 +43,13 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
 
+    /**
+     * Loads the certificate with its RA profile fetched eagerly, for callers that run without
+     * an ambient transaction and would otherwise hit the lazy association detached.
+     */
+    @EntityGraph(attributePaths = "raProfile")
+    Optional<Certificate> findWithRaProfileByUuid(UUID uuid);
+
     @EntityGraph(attributePaths = {"certificateContent", "raProfile"})
     List<Certificate> findAllWithAssociationsByUuidIn(List<UUID> uuids);
 
