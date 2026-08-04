@@ -116,6 +116,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.otilm.api.exception.CertificateOperationException;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.security.KeyPair;
@@ -170,7 +171,8 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     private CertificateContentRepository certificateContentRepository;
     @Autowired
     private CertificateEventHistoryRepository eventHistoryRepository;
-    @Autowired
+    // Spied so most tests exercise the real copy while the compensation tests stub copyToSuccessor to fail.
+    @MockitoSpyBean
     private CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter;
     @Autowired
     private SettingsCache settingsCache;
@@ -1623,6 +1625,9 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
         // A certificate without registration authorization renews without challenge verification
         KeyPair keyPair = generateKeyPair();
         Certificate issued = seedIssuedCertWithContent(keyPair);
+        // The submit path validates issue attributes through the adapter since #1890, so the factory must
+        // return a (no-op) adapter even though renew itself never registers anything.
+        registeringAdapter();
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
         request.setRequest(csrBase64(keyPair, RENEWABLE_SUBJECT_DN));
 
@@ -1639,6 +1644,7 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     void renewWithCorrectChallengeCopiesAuthorizationToSuccessor() throws Exception {
         KeyPair keyPair = generateKeyPair();
         Certificate issued = seedIssuedCertWithContent(keyPair);
+        registeringAdapter();
         activeAuthorizationFor(issued.getUuid());
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
         request.setRequest(csrBase64(keyPair, RENEWABLE_SUBJECT_DN));
@@ -1663,6 +1669,7 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     void rekeyWithCorrectChallengeCopiesAuthorizationToSuccessor() throws Exception {
         KeyPair keyPair = generateKeyPair();
         Certificate issued = seedIssuedCertWithContent(keyPair);
+        registeringAdapter();
         activeAuthorizationFor(issued.getUuid());
         ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
         // Rekey demands a different key under the same subject DN.
@@ -1679,6 +1686,61 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
         Assertions.assertTrue(registrationChallengeStore.verify(copied, CHALLENGE),
                 "the successor's copied authorization must verify against the same challenge");
         verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.REKEY));
+    }
+
+    @Test
+    void renewCopyFailureFailsTheSuccessorInsteadOfOrphaningIt() throws Exception {
+        // The successor and its PENDING relation commit before the authorization copy; a copy failure must
+        // compensate (fail the successor, drop the relation, no enqueue) rather than orphan a REQUESTED
+        // successor — and must leave the predecessor's authorization untouched so the holder can retry.
+        KeyPair keyPair = generateKeyPair();
+        Certificate issued = seedIssuedCertWithContent(keyPair);
+        registeringAdapter();
+        activeAuthorizationFor(issued.getUuid());
+        doThrow(new IllegalStateException("db down")).when(registrationAuthorizationWriter)
+                .copyToSuccessor(Mockito.any(), Mockito.any());
+        ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
+        request.setRequest(csrBase64(keyPair, RENEWABLE_SUBJECT_DN));
+        request.setAuthorizationSecret(CHALLENGE);
+        String certUuid = issued.getUuid().toString();
+
+        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationService.renewCertificate(
+                authorityParent, securedRaProfile, certUuid, request));
+
+        Certificate successor = certificateRepository.findAll().stream()
+                .filter(c -> !c.getUuid().equals(issued.getUuid()))
+                .findFirst().orElseThrow();
+        Assertions.assertEquals(CertificateState.FAILED, successor.getState(),
+                "the successor must be failed, not left orphaned in REQUESTED");
+        Assertions.assertEquals(0, certificateRelationRepository.count(),
+                "the PENDING relation must be removed with the failed successor");
+        verify(actionProducer, never()).produceMessage(Mockito.any());
+        Assertions.assertEquals(RegistrationState.ACTIVE,
+                authorizationRepository.findByCertificateUuid(issued.getUuid()).orElseThrow().getState(),
+                "the predecessor's authorization is untouched so the holder can retry the renew");
+    }
+
+    @Test
+    void rekeyCopyFailureFailsTheSuccessorInsteadOfOrphaningIt() throws Exception {
+        KeyPair keyPair = generateKeyPair();
+        Certificate issued = seedIssuedCertWithContent(keyPair);
+        registeringAdapter();
+        activeAuthorizationFor(issued.getUuid());
+        doThrow(new IllegalStateException("db down")).when(registrationAuthorizationWriter)
+                .copyToSuccessor(Mockito.any(), Mockito.any());
+        ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
+        request.setRequest(csrBase64(generateKeyPair(), RENEWABLE_SUBJECT_DN));
+        request.setAuthorizationSecret(CHALLENGE);
+        String certUuid = issued.getUuid().toString();
+
+        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationService.rekeyCertificate(
+                authorityParent, securedRaProfile, certUuid, request));
+
+        Assertions.assertEquals(0, certificateRelationRepository.count(),
+                "the PENDING relation must be removed with the failed successor");
+        verify(actionProducer, never()).produceMessage(Mockito.any());
+        Assertions.assertEquals(1, authorizationRepository.count(),
+                "only the predecessor's authorization remains — no partial copy");
     }
 
     @Test

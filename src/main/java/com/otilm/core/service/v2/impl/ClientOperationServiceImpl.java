@@ -1638,6 +1638,31 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         }
     }
 
+    /**
+     * Compensation for a failed authorization copy on the challenge-verified renew/rekey path. The successor
+     * and its PENDING relation are already committed when the copy runs, so a copy failure would otherwise
+     * either orphan a REQUESTED successor (abort before enqueue) or complete a renewal whose successor silently
+     * fell out of the challenge regime (ignore and enqueue). Nothing external has been called yet — the
+     * connector runs later, from the action — so failing the successor locally is a clean abort:
+     * {@code handleFailedOrRejectedEvent} transitions it to FAILED, removes the relation and records the
+     * failure on the predecessor. The predecessor and its authorization are untouched, so the holder retries
+     * the operation. Submit+copy atomicity is deliberately not used instead: the compliance gate between the
+     * two writes can reach compliance connectors, and a transaction must not span an external call.
+     */
+    private void failSuccessorAfterCopyFailure(UUID successorUuid, UUID predecessorUuid, CertificateEvent event, RuntimeException cause)
+            throws CertificateOperationException {
+        logger.error("Failed to copy the registration authorization to successor {} of certificate {}", successorUuid, predecessorUuid, cause);
+        certificateRepository.findWithAssociationsByUuid(successorUuid).ifPresent(successor -> {
+            HashMap<String, Object> additionalInformation = new HashMap<>();
+            additionalInformation.put("New Certificate UUID", successorUuid);
+            handleFailedOrRejectedEvent(successor, predecessorUuid, CertificateState.FAILED, event, additionalInformation,
+                    "Failed to copy the registration authorization to the successor certificate");
+        });
+        // Generic message on the wire — the cause can carry driver/SQL detail that must not reach the caller.
+        throw new CertificateOperationException(
+                "Failed to transfer the registration authorization to the new certificate; the operation was aborted and can be retried.");
+    }
+
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
@@ -1781,7 +1806,11 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             // The verified authorization follows the successor, so the same challenge protects the renewed
             // certificate's own follow-up operations. A later terminal failure of the successor closes the copy
             // (fate-coupling in handleFailedOrRejectedEvent).
-            registrationAuthorizationWriter.copyToSuccessor(oldCertificate.getUuid(), UUID.fromString(newCertificate.getUuid()));
+            try {
+                registrationAuthorizationWriter.copyToSuccessor(oldCertificate.getUuid(), UUID.fromString(newCertificate.getUuid()));
+            } catch (RuntimeException e) {
+                failSuccessorAfterCopyFailure(UUID.fromString(newCertificate.getUuid()), oldCertificate.getUuid(), CertificateEvent.RENEW, e);
+            }
         }
 
         final ActionMessage actionMessage = new ActionMessage();
@@ -1943,7 +1972,11 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         }
 
         if (challengeAuthorized) {
-            registrationAuthorizationWriter.copyToSuccessor(oldCertificate.getUuid(), UUID.fromString(newCertificate.getUuid()));
+            try {
+                registrationAuthorizationWriter.copyToSuccessor(oldCertificate.getUuid(), UUID.fromString(newCertificate.getUuid()));
+            } catch (RuntimeException e) {
+                failSuccessorAfterCopyFailure(UUID.fromString(newCertificate.getUuid()), oldCertificate.getUuid(), CertificateEvent.REKEY, e);
+            }
         }
 
         final ActionMessage actionMessage = new ActionMessage();
