@@ -120,9 +120,8 @@ class PlatformHttpClientsTest {
         });
         server.start();
 
-        RestClient client = client();
-        Assertions.assertThrows(HttpServerErrorException.class,
-                () -> client.get().uri(url).retrieve().toBodilessEntity());
+        RestClient.ResponseSpec response = client().get().uri(url).retrieve();
+        Assertions.assertThrows(HttpServerErrorException.class, response::toBodilessEntity);
 
         Assertions.assertEquals(1, requestCount.get());
     }

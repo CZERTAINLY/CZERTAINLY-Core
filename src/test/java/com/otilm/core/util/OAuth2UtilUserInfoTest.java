@@ -86,6 +86,7 @@ class OAuth2UtilUserInfoTest {
     void testGetUserInfo_AuthenticatesAgainstConfiguredForwardProxy() {
         String previousHost = System.getProperty("http.proxyHost");
         String previousPort = System.getProperty("http.proxyPort");
+        Authenticator previousAuthenticator = Authenticator.getDefault();
         MultiServerAuthenticator proxyAuthenticator = new MultiServerAuthenticator();
         proxyAuthenticator.add("localhost:" + mockServer.port(), "proxy-user", "proxy-password");
         Authenticator.setDefault(proxyAuthenticator);
@@ -110,7 +111,7 @@ class OAuth2UtilUserInfoTest {
                     .withHeader("Proxy-Authorization", WireMock.equalTo("Basic " + expectedCredentials))
                     .withHeader("Authorization", WireMock.equalTo("Bearer the-token")));
         } finally {
-            Authenticator.setDefault(null);
+            Authenticator.setDefault(previousAuthenticator);
             restoreProperty("http.proxyHost", previousHost);
             restoreProperty("http.proxyPort", previousPort);
         }
