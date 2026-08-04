@@ -13,6 +13,7 @@ import com.otilm.api.model.connector.notification.NotificationObjectContentDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.notification.NotificationDataCategory;
 import com.otilm.api.model.core.other.ResourceEvent;
+import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.core.other.ResourceObjectDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -31,7 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -52,7 +53,7 @@ import java.util.stream.Stream;
  * expiry warning must never be suppressed because metadata failed to load. This service is
  * called once per profile send; the result exists only in the outbound connector request.
  */
-@Component
+@Service
 public class NotificationObjectDataService {
 
     /** Attributes whose largest stored content row exceeds this are excluded before the wire. */
@@ -116,17 +117,19 @@ public class NotificationObjectDataService {
 
         boolean loadsAttributeContent = categories.contains(NotificationDataCategory.CUSTOM_ATTRIBUTES)
                 || categories.contains(NotificationDataCategory.METADATA);
-        Set<UUID> oversizedAttributes = loadsAttributeContent ? guardExclusions(subject, event) : Set.of();
+        LoadGuard guard = loadsAttributeContent ? contentLoadGuard(subject, event) : LoadGuard.OPEN;
 
-        if (categories.contains(NotificationDataCategory.CUSTOM_ATTRIBUTES) && subject.resource().hasCustomAttributes()) {
+        if (categories.contains(NotificationDataCategory.CUSTOM_ATTRIBUTES) && subject.resource().hasCustomAttributes()
+                && allowsLoad(guard.skipCustomAttributes(), NotificationDataCategory.CUSTOM_ATTRIBUTES, subject)) {
             loadCategory(NotificationDataCategory.CUSTOM_ATTRIBUTES, subject, event, () -> {
-                Map<String, NotificationAttributeDto> customAttributes = loadCustomAttributes(subject, oversizedAttributes);
+                Map<String, NotificationAttributeDto> customAttributes = loadCustomAttributes(subject, guard.cappedAttributes());
                 objectData.setCustomAttributes(customAttributes.isEmpty() ? null : customAttributes);
             });
         }
-        if (categories.contains(NotificationDataCategory.METADATA)) {
+        if (categories.contains(NotificationDataCategory.METADATA)
+                && allowsLoad(guard.skipMetadata(), NotificationDataCategory.METADATA, subject)) {
             loadCategory(NotificationDataCategory.METADATA, subject, event, () -> {
-                List<NotificationMetadataGroupDto> metadata = loadMetadata(subject, oversizedAttributes);
+                List<NotificationMetadataGroupDto> metadata = loadMetadata(subject, guard.cappedAttributes());
                 objectData.setMetadata(metadata.isEmpty() ? null : metadata);
             });
         }
@@ -186,40 +189,65 @@ public class NotificationObjectDataService {
     }
 
     /**
-     * Attributes excluded by the load guard: any attribute whose largest stored content row
-     * exceeds the byte bound, and everything beyond the per-category attribute cap in
-     * attribute-UUID order. A failing guard excludes nothing -- the mapper's value truncation
-     * and total cap remain the backstop.
+     * Two-tier load guard over the subject's stored attribute content, evaluated with one cheap
+     * aggregate query before any engine load. An attribute row above the byte bound is a memory
+     * hazard -- the engine would deserialize and decrypt it whole -- so its category's engine
+     * load is skipped entirely rather than materializing the row and dropping it from the wire.
+     * Attribute counts beyond the per-category cap carry no per-row hazard: the load proceeds
+     * and the overflow (in attribute-UUID order) is excluded from the wire. A failing guard
+     * blocks nothing -- the mapper's value truncation and total cap remain the backstop.
      */
-    private Set<UUID> guardExclusions(SubjectRef subject, ResourceEvent event) {
-        Set<UUID> excluded = new HashSet<>();
+    private LoadGuard contentLoadGuard(SubjectRef subject, ResourceEvent event) {
+        Set<UUID> capped = new HashSet<>();
+        boolean skipCustom = false;
+        boolean skipMetadata = false;
         try {
             List<AttributeContentFootprint> footprints = attributeContent2ObjectRepository
                     .summarizeContentFootprint(subject.resource().name(), subject.objectUuid());
             Map<String, List<AttributeContentFootprint>> byType = footprints.stream()
                     .collect(Collectors.groupingBy(AttributeContentFootprint::getAttributeType));
-            for (Map.Entry<String, List<AttributeContentFootprint>> bucket : byType.entrySet()) {
-                int kept = 0;
-                List<AttributeContentFootprint> ordered = bucket.getValue().stream()
-                        .sorted(Comparator.comparing(AttributeContentFootprint::getAttributeUuid))
-                        .toList();
-                for (AttributeContentFootprint footprint : ordered) {
-                    if (footprint.getMaxBytes() > MAX_ROW_BYTES) {
-                        logger.warn("Attribute {} of {} {} carries a {}-byte content row; excluding it from notification data",
-                                footprint.getAttributeUuid(), subject.resource(), subject.objectUuid(), footprint.getMaxBytes());
-                        excluded.add(footprint.getAttributeUuid());
-                    } else if (++kept > MAX_ATTRIBUTES_PER_CATEGORY) {
-                        logger.warn("{} {} carries more than {} {} attributes; excluding attribute {} from notification data",
-                                subject.resource(), subject.objectUuid(), MAX_ATTRIBUTES_PER_CATEGORY, bucket.getKey(), footprint.getAttributeUuid());
-                        excluded.add(footprint.getAttributeUuid());
-                    }
-                }
-            }
+            skipCustom = guardBucket(byType.get(AttributeType.CUSTOM.name()), capped, subject);
+            skipMetadata = guardBucket(byType.get(AttributeType.META.name()), capped, subject);
         } catch (Exception e) {
             logger.warn("Content footprint guard failed for {} {} in event {}; relying on the mapper bounds only",
                     subject.resource(), subject.objectUuid(), event, e);
         }
-        return excluded;
+        return new LoadGuard(capped, skipCustom, skipMetadata);
+    }
+
+    private boolean guardBucket(List<AttributeContentFootprint> bucket, Set<UUID> capped, SubjectRef subject) {
+        if (bucket == null) {
+            return false;
+        }
+        boolean oversized = false;
+        int kept = 0;
+        for (AttributeContentFootprint footprint : bucket.stream()
+                .sorted(Comparator.comparing(AttributeContentFootprint::getAttributeUuid)).toList()) {
+            if (footprint.getMaxBytes() > MAX_ROW_BYTES) {
+                logger.warn("Attribute {} of {} {} carries a {}-byte content row",
+                        footprint.getAttributeUuid(), subject.resource(), subject.objectUuid(), footprint.getMaxBytes());
+                oversized = true;
+            } else if (++kept > MAX_ATTRIBUTES_PER_CATEGORY) {
+                logger.warn("{} {} carries more than {} attributes; excluding attribute {} from notification data",
+                        subject.resource(), subject.objectUuid(), MAX_ATTRIBUTES_PER_CATEGORY, footprint.getAttributeUuid());
+                capped.add(footprint.getAttributeUuid());
+            }
+        }
+        return oversized;
+    }
+
+    private boolean allowsLoad(boolean skip, NotificationDataCategory category, SubjectRef subject) {
+        if (skip) {
+            logger.warn("Notification data category {} skipped for {} {}: stored attribute content exceeds the per-row byte bound; sending without it",
+                    category, subject.resource(), subject.objectUuid());
+        }
+        return !skip;
+    }
+
+    /** Outcome of {@link #contentLoadGuard}: attributes excluded from the wire and categories whose engine load must not run. */
+    private record LoadGuard(Set<UUID> cappedAttributes, boolean skipCustomAttributes, boolean skipMetadata) {
+
+        static final LoadGuard OPEN = new LoadGuard(Set.of(), false, false);
     }
 
     private Map<String, NotificationAttributeDto> loadCustomAttributes(SubjectRef subject, Set<UUID> oversizedAttributes) {

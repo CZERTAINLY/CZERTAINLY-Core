@@ -51,7 +51,7 @@ import java.util.*;
 
 @Component
 @AllArgsConstructor
-@Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Transactional(propagation = Propagation.NOT_SUPPORTED, rollbackFor = Exception.class)
 public class NotificationListener implements MessageProcessor<NotificationMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);

@@ -1,5 +1,6 @@
 package com.otilm.core.service.notifications;
 
+import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.ResponseAttributeV3;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
@@ -138,7 +139,7 @@ class NotificationObjectDataServiceTest {
         approval.setResource(Resource.CERTIFICATE);
         approval.setObjectUuid(deletedTargetUuid);
         when(resourceInternalService.getResourceObjectInternal(any(), any()))
-                .thenThrow(new com.otilm.api.exception.NotFoundException("Certificate", deletedTargetUuid.toString()));
+                .thenThrow(new NotFoundException("Certificate", deletedTargetUuid.toString()));
 
         NotificationEventObjectDataDto objectData = assertDoesNotThrow(() -> service.getObjectData(
                 ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid, approval, ALL_CATEGORIES));
@@ -164,33 +165,77 @@ class NotificationObjectDataServiceTest {
     }
 
     @Test
-    void protectionAndGuardExclusionsReachTheMapper() {
+    void protectionExclusionsReachTheMapper() {
         UUID certificateUuid = UUID.randomUUID();
         UUID protectedUuid = UUID.fromString("00000000-0000-0000-0000-00000000000a");
-        UUID oversizedUuid = UUID.fromString("00000000-0000-0000-0000-00000000000b");
         UUID plainUuid = UUID.fromString("00000000-0000-0000-0000-00000000000c");
 
         when(attributeEngine.getObjectCustomAttributesContentForSystemContext(Resource.CERTIFICATE, certificateUuid))
                 .thenReturn(List.of(
                         attribute(protectedUuid, "protected", "hidden"),
-                        attribute(oversizedUuid, "oversized", "huge"),
                         attribute(plainUuid, "plain", "visible")));
         when(attributeProtectionExclusions.excludedFrom(anyCollection())).thenReturn(Set.of(protectedUuid));
-
-        AttributeContent2ObjectRepository.AttributeContentFootprint footprint =
-                mock(AttributeContent2ObjectRepository.AttributeContentFootprint.class);
-        when(footprint.getAttributeUuid()).thenReturn(oversizedUuid);
-        when(footprint.getAttributeType()).thenReturn("CUSTOM");
-        when(footprint.getMaxBytes()).thenReturn((long) NotificationObjectDataService.MAX_ROW_BYTES + 1);
-        when(attributeContent2ObjectRepository.summarizeContentFootprint(Resource.CERTIFICATE.name(), certificateUuid))
-                .thenReturn(List.of(footprint));
 
         NotificationEventObjectDataDto objectData = service.getObjectData(
                 ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
                 Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
 
         assertEquals(Set.of("plain"), objectData.getCustomAttributes().keySet(),
-                "protected and oversized attributes never reach the wire");
+                "protected attributes never reach the wire");
+    }
+
+    @Test
+    void oversizedStoredContentSkipsTheCategoryLoadEntirely() {
+        UUID certificateUuid = UUID.randomUUID();
+        AttributeContent2ObjectRepository.AttributeContentFootprint oversized = footprint(
+                UUID.fromString("00000000-0000-0000-0000-00000000000b"), "CUSTOM",
+                NotificationObjectDataService.MAX_ROW_BYTES + 1);
+        when(attributeContent2ObjectRepository.summarizeContentFootprint(Resource.CERTIFICATE.name(), certificateUuid))
+                .thenReturn(List.of(oversized));
+
+        NotificationEventObjectDataDto objectData = service.getObjectData(
+                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES, NotificationDataCategory.METADATA));
+
+        assertNull(objectData.getCustomAttributes(), "an oversized row skips the category load");
+        // The engine must never materialize (and decrypt) the oversized row.
+        verify(attributeEngine, never()).getObjectCustomAttributesContentForSystemContext(any(), any());
+        // The metadata bucket carried no oversized row; its load proceeds.
+        verify(attributeEngine).getMappedMetadataContent(any());
+    }
+
+    @Test
+    void attributesBeyondTheCategoryCapAreExcludedFromTheWire() {
+        UUID certificateUuid = UUID.randomUUID();
+        List<AttributeContent2ObjectRepository.AttributeContentFootprint> footprints = new java.util.ArrayList<>();
+        for (int i = 1; i <= NotificationObjectDataService.MAX_ATTRIBUTES_PER_CATEGORY + 1; i++) {
+            footprints.add(footprint(UUID.fromString("00000000-0000-0000-0000-%012d".formatted(i)), "CUSTOM", 10));
+        }
+        when(attributeContent2ObjectRepository.summarizeContentFootprint(Resource.CERTIFICATE.name(), certificateUuid))
+                .thenReturn(footprints);
+
+        UUID firstUuid = UUID.fromString("00000000-0000-0000-0000-%012d".formatted(1));
+        UUID overflowUuid = UUID.fromString("00000000-0000-0000-0000-%012d".formatted(NotificationObjectDataService.MAX_ATTRIBUTES_PER_CATEGORY + 1));
+        when(attributeEngine.getObjectCustomAttributesContentForSystemContext(Resource.CERTIFICATE, certificateUuid))
+                .thenReturn(List.of(
+                        attribute(firstUuid, "first", "kept"),
+                        attribute(overflowUuid, "overflow", "dropped")));
+
+        NotificationEventObjectDataDto objectData = service.getObjectData(
+                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
+
+        assertEquals(Set.of("first"), objectData.getCustomAttributes().keySet(),
+                "the attribute beyond the cap loads but never reaches the wire");
+    }
+
+    private static AttributeContent2ObjectRepository.AttributeContentFootprint footprint(UUID attributeUuid, String type, long maxBytes) {
+        AttributeContent2ObjectRepository.AttributeContentFootprint footprint =
+                mock(AttributeContent2ObjectRepository.AttributeContentFootprint.class);
+        when(footprint.getAttributeUuid()).thenReturn(attributeUuid);
+        when(footprint.getAttributeType()).thenReturn(type);
+        when(footprint.getMaxBytes()).thenReturn(maxBytes);
+        return footprint;
     }
 
     @Test

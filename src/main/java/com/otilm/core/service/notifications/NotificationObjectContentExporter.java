@@ -8,14 +8,16 @@ import java.util.UUID;
 /**
  * Exports a resource's canonical content representation for the notification OBJECT_CONTENT
  * category. The set of registered exporters is the fail-closed whitelist: no resource's content
- * is exportable unless an exporter is deliberately registered for it. A new exporter requires
- * its own design covering what is exported (public material only), which permissions join the
- * config-time gate in {@link NotificationDataCategoryGate}, and the activation policy for
- * profiles that already have the category enabled.
+ * is exportable unless an exporter is deliberately registered for it. An implementation must
+ * export public material only (never key material, secrets, or protected content), must have
+ * its permission requirements added to {@link NotificationDataCategoryGate} so enabling the
+ * category is gated on them at configuration time, and must never activate silently for
+ * profiles that already have the category enabled -- their operators were not gated against
+ * the new exporter's permissions.
  */
 public interface NotificationObjectContentExporter {
 
-    /** The resource type this exporter serves. */
+    /** Resource key used to register this exporter; each resource may have only one exporter. */
     Resource resource();
 
     /** Wire format identifier of the exported content, e.g. {@code X509_DER_BASE64}. */
