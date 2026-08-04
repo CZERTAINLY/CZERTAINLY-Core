@@ -46,11 +46,6 @@ cmp:
         timeout: 10
   verbose: true
 
-hibernate:
-  types:
-    print:
-      banner: false
-
 logging:
   level:
     org:
