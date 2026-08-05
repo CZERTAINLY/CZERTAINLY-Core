@@ -1637,8 +1637,17 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         // Self-service gate: verify the operator challenge before the CSR attach and the async enqueue, so a bad
         // challenge rejects the caller synchronously and the secret never rides the ActionMessage. No-op when the
         // certificate carries no registration authorization.
-        boolean challengeAuthorized = verifyRegistrationChallenge(certificate.getUuid(),
-                request != null ? request.getAuthorizationSecret() : null);
+        String presentedSecret = request != null ? request.getAuthorizationSecret() : null;
+        boolean challengeAuthorized = verifyRegistrationChallenge(certificate.getUuid(), presentedSecret);
+
+        // A presented secret must verify. Falling back to the caller's permission when no ACTIVE
+        // authorization exists (never created, closed, or raced away between a protocol match and this
+        // gate) would complete the registration without its challenge ever being checked — and would
+        // silently ignore a credential the caller clearly expected to be validated.
+        if (!challengeAuthorized && presentedSecret != null && !presentedSecret.isBlank()) {
+            throw new ValidationException(ValidationError.create(
+                    "An authorization secret was presented but the certificate has no active registration authorization to verify it against. Certificate: %s".formatted(certificate.toStringShort())));
+        }
 
         if (registered) {
             // The CSR attach and completion attributes commit before the async ISSUE probe can deny, so gate here.
