@@ -3,20 +3,30 @@ package com.otilm.core.service.cmp.message.handler;
 import com.otilm.api.exception.CertificateOperationException;
 import com.otilm.api.exception.CertificateRequestException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
 import com.otilm.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.otilm.api.model.core.certificate.CertificateEvent;
+import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.cmp.CmpTransactionState;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
 import com.otilm.core.certificate.request.RequestAttributePolicyViolationException;
+import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.model.auth.CertificateProtocolInfo;
+import com.otilm.core.model.request.CrmfCertificateRequest;
 import com.otilm.core.security.authz.SecuredParentUUID;
+import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
+import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
+import com.otilm.core.service.registration.RegistrationIdentityMatcher;
+import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
+import com.otilm.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.*;
@@ -50,10 +60,22 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             PKIBody.TYPE_CERT_REQ);         // cr       [2]  CertReqMessages,       --Certification Req
 
     private ClientOperationInternalService clientOperationService;
+    private ClientOperationExternalService clientOperationExternalService;
+    private CertificateEventHistoryInternalService certificateEventHistoryService;
 
     @Autowired
     public void setClientOperationService(ClientOperationInternalService clientOperationService) {
         this.clientOperationService = clientOperationService;
+    }
+
+    @Autowired
+    public void setClientOperationExternalService(ClientOperationExternalService clientOperationExternalService) {
+        this.clientOperationExternalService = clientOperationExternalService;
+    }
+
+    @Autowired
+    public void setCertificateEventHistoryService(CertificateEventHistoryInternalService certificateEventHistoryService) {
+        this.certificateEventHistoryService = certificateEventHistoryService;
     }
 
     /**
@@ -77,6 +99,9 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
 
         // -- process issue (asynchronous) operation
         CertReqMessages crmf = (CertReqMessages) request.getBody().getContent();
+        if (configuration.isRegistrationMode()) {
+            return completeRegistration(request, crmf, configuration, tid);
+        }
         try {
             ClientCertificateIssueRequestDto dto = new ClientCertificateIssueRequestDto();
             dto.setRequest(Base64.getEncoder().encodeToString(crmf.getEncoded()));
@@ -95,6 +120,60 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
                     "cannot issue certificate", e);
         }
         // CrmfMessageHandler get certificate in sync manner (via polling ...)
+    }
+
+    /**
+     * Completes the pre-registration the MAC resolved to (protection validation already verified the MAC and
+     * stashed the match on the context): the CRMF identity must exactly equal the registration, and issuance
+     * runs through the register→issue completion with the registration challenge as the authorization secret.
+     * Every rejection reuses the single generic wire message.
+     */
+    private ClientCertificateDataResponseDto completeRegistration(PKIMessage request, CertReqMessages crmf,
+                                                                  ConfigurationContext configuration, ASN1OctetString tid) throws CmpBaseException {
+        Certificate matched = configuration.getMatchedRegistration();
+        if (matched == null) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
+        }
+        verifyRegistrationIdentity(crmf, matched, tid);
+
+        try {
+            ClientCertificateIssueRequestDto dto = new ClientCertificateIssueRequestDto();
+            dto.setRequest(Base64.getEncoder().encodeToString(crmf.getEncoded()));
+            dto.setFormat(CertificateRequestFormat.CRMF);
+            dto.setAuthorizationSecret(configuration.getMatchedChallenge());
+            RaProfile raProfile = configuration.getRaProfile();
+            return clientOperationExternalService.issueExistingCertificate(
+                    SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                    raProfile.getSecuredUuid(),
+                    matched.getUuid().toString(),
+                    dto);
+        } catch (ValidationException e) {
+            // Challenge/gate or completion denial — detail stays server-side.
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
+        } catch (NotFoundException | IOException e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, "cannot complete certificate registration", e);
+        }
+    }
+
+    private void verifyRegistrationIdentity(CertReqMessages crmf, Certificate matched, ASN1OctetString tid) throws CmpBaseException {
+        try {
+            CrmfCertificateRequest parsed = new CrmfCertificateRequest(crmf.getEncoded());
+            RegistrationIdentityMatcher.MatchResult result = RegistrationIdentityMatcher.match(
+                    parsed.getSubject(),
+                    CertificateUtil.getSAN(parsed),
+                    List.of(new RegistrationIdentityMatcher.Candidate(
+                            matched.getUuid(), matched.getSubjectDn(), matched.getSubjectAlternativeNames())));
+            if (result.outcome() == RegistrationIdentityMatcher.Outcome.SAN_MISMATCH) {
+                certificateEventHistoryService.addEventHistory(matched.getUuid(), CertificateEvent.ISSUE,
+                        CertificateEventStatus.FAILED,
+                        "CMP enrolment subject alternative names do not match the registered ones", "");
+            }
+            if (result.outcome() != RegistrationIdentityMatcher.Outcome.MATCHED) {
+                throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
+            }
+        } catch (CertificateRequestException | IOException e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
+        }
     }
 
     public CmpTransactionState getTransactionState() {
