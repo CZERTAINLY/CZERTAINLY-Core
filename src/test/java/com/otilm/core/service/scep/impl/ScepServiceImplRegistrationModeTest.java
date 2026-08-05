@@ -79,7 +79,6 @@ class ScepServiceImplRegistrationModeTest {
 
     private ScepServiceImpl service;
     private ScepProfile profile;
-    private RaProfile raProfile;
     private CertificateRepository certificateRepository;
     private CertificateEventHistoryInternalService eventHistoryService;
     private ScepTransactionRepository scepTransactionRepository;
@@ -126,7 +125,7 @@ class ScepServiceImplRegistrationModeTest {
 
         AuthorityInstanceReference authority = new AuthorityInstanceReference();
         authority.setUuid(UUID.randomUUID());
-        raProfile = new RaProfile();
+        RaProfile raProfile = new RaProfile();
         raProfile.setUuid(RA_PROFILE_UUID);
         raProfile.setAuthorityInstanceReference(authority);
 
@@ -143,7 +142,7 @@ class ScepServiceImplRegistrationModeTest {
 
     @Test
     void missingChallengeRejectsWithGenericMessage() throws Exception {
-        ScepRequest request = scepRequest(csr("CN=device-1"), null);
+        ScepRequest request = scepRequest("CN=device-1", null);
 
         ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
@@ -154,7 +153,7 @@ class ScepServiceImplRegistrationModeTest {
     @Test
     void noMatchRejectsWithGenericMessage() throws Exception {
         stubCandidates(registeredCertificate("CN=other-device", null));
-        ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
+        ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
 
         ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
@@ -165,7 +164,7 @@ class ScepServiceImplRegistrationModeTest {
     @Test
     void ambiguousMatchRejectsWithGenericMessage() throws Exception {
         stubCandidates(registeredCertificate("CN=device-1", null), registeredCertificate("CN=device-1", null));
-        ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
+        ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
 
         ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
@@ -176,7 +175,7 @@ class ScepServiceImplRegistrationModeTest {
     void sanMismatchRejectsWithGenericMessageAndRecordsEventHistory() throws Exception {
         stubCandidates(registeredCertificate("CN=device-1",
                 CertificateUtil.serializeSans(Map.of("dNSName", List.of("a.example")))));
-        ScepRequest request = scepRequest(csr("CN=device-1", "b.example"), CHALLENGE);
+        ScepRequest request = scepRequest("CN=device-1", CHALLENGE, "b.example");
 
         ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
@@ -189,7 +188,7 @@ class ScepServiceImplRegistrationModeTest {
     void matchedEnrolmentReturnsTheRegisteredCertificate() throws Exception {
         stubCandidates(registeredCertificate("CN=device-1",
                 CertificateUtil.serializeSans(Map.of("dNSName", List.of("a.example")))));
-        ScepRequest request = scepRequest(csr("CN=device-1", "a.example"), CHALLENGE);
+        ScepRequest request = scepRequest("CN=device-1", CHALLENGE, "a.example");
 
         Certificate matched = ReflectionTestUtils.invokeMethod(service, "matchRegistration", request);
 
@@ -200,7 +199,7 @@ class ScepServiceImplRegistrationModeTest {
     void completionReturnsPendingAndStoresTransaction() throws Exception {
         Certificate matched = registeredCertificate("CN=device-1", null);
         ReflectionTestUtils.setField(service, "matchedRegistration", matched);
-        ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
+        ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
         when(request.getTransactionId()).thenReturn("tx-1");
 
         ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request);
@@ -216,7 +215,7 @@ class ScepServiceImplRegistrationModeTest {
     void completionDenialMapsToGenericMessage() throws Exception {
         Certificate matched = registeredCertificate("CN=device-1", null);
         ReflectionTestUtils.setField(service, "matchedRegistration", matched);
-        ScepRequest request = scepRequest(csr("CN=device-1"), "wrong-challenge");
+        ScepRequest request = scepRequest("CN=device-1", "wrong-challenge");
         when(clientOperationExternalService.issueExistingCertificate(any(), any(), anyString(), any()))
                 .thenThrow(new ValidationException("The certificate registration challenge is invalid."));
 
@@ -230,7 +229,7 @@ class ScepServiceImplRegistrationModeTest {
     void associationFailureDoesNotFailTheCompletedEnrolment() throws Exception {
         Certificate matched = registeredCertificate("CN=device-1", null);
         ReflectionTestUtils.setField(service, "matchedRegistration", matched);
-        ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
+        ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
         when(request.getTransactionId()).thenReturn("tx-2");
         doThrow(new RuntimeException("association failed"))
                 .when(certificateService).applyProtocolAssociations(any(), any());
@@ -251,7 +250,7 @@ class ScepServiceImplRegistrationModeTest {
 
     @Test
     void envelopePasswordIsThePresentedChallengeOnEnrolment() throws Exception {
-        ScepRequest request = scepRequest(csr("CN=device-1"), CHALLENGE);
+        ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
 
         Assertions.assertEquals(CHALLENGE, ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
     }
@@ -302,17 +301,18 @@ class ScepServiceImplRegistrationModeTest {
         return certificate;
     }
 
-    private static ScepRequest scepRequest(JcaPKCS10CertificationRequest csr, String challengePassword) {
-        ScepRequest request = mock(ScepRequest.class);
-        when(request.getPkcs10Request()).thenReturn(csr);
-        when(request.getChallengePassword()).thenReturn(challengePassword);
-        return request;
-    }
-
-    private static JcaPKCS10CertificationRequest csr(String subjectDn, String... dnsSans) throws Exception {
+    /**
+     * Builds the CSR and the {@link ScepRequest} stub from the same challenge argument, so the CSR
+     * content and the presented challenge cannot diverge: {@code null} yields a CSR without the
+     * challengePassword attribute AND a null presented challenge, a wrong value is embedded and
+     * presented as that wrong value.
+     */
+    private static ScepRequest scepRequest(String subjectDn, String challengePassword, String... dnsSans) throws Exception {
         JcaPKCS10CertificationRequestBuilder builder =
                 new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), keyPair.getPublic());
-        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_challengePassword, new DERPrintableString(CHALLENGE));
+        if (challengePassword != null) {
+            builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_challengePassword, new DERPrintableString(challengePassword));
+        }
         if (dnsSans.length > 0) {
             GeneralName[] names = Arrays.stream(dnsSans)
                     .map(dns -> new GeneralName(GeneralName.dNSName, dns))
@@ -322,6 +322,11 @@ class ScepServiceImplRegistrationModeTest {
             builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
         }
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
-        return new JcaPKCS10CertificationRequest(builder.build(signer));
+        JcaPKCS10CertificationRequest csr = new JcaPKCS10CertificationRequest(builder.build(signer));
+
+        ScepRequest request = mock(ScepRequest.class);
+        when(request.getPkcs10Request()).thenReturn(csr);
+        when(request.getChallengePassword()).thenReturn(challengePassword);
+        return request;
     }
 }
