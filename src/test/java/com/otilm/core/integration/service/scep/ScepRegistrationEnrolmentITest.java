@@ -68,6 +68,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.ResponseEntity;
 
@@ -99,6 +100,7 @@ import static org.mockito.Mockito.verify;
  * unstubbed — completion is asynchronous and the client sees PENDING.
  */
 @Import(ProducerMocks.class)
+@TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
 class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     private static final String SCEP_PROFILE_NAME = "registrationEnrolmentProfile";
