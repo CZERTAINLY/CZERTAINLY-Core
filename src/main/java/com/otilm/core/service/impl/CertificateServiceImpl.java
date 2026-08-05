@@ -1163,7 +1163,13 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
 
     @Override
     @Transactional
-    public Certificate createRegistrationPlaceholder(RaProfile raProfile, String effectiveSubjectDn, X509RequestContent registrationContent) {
+    public Certificate createRegistrationPlaceholder(RaProfile raProfile, String effectiveSubjectDn, X509RequestContent registrationContent, Certificate sourceCertificate) throws NotFoundException {
+        // Fresh in-transaction read of the source, before any write: a source deleted since the caller's
+        // validation aborts here with nothing to roll back, and the relation below is asserted against the
+        // current row rather than the caller's snapshot.
+        Certificate source = sourceCertificate != null
+                ? getCertificateEntity(SecuredUUID.fromUUID(sourceCertificate.getUuid()))
+                : null;
         // Identity-only placeholder: no key/CSR/content yet. The registered identity — subject DN plus any
         // subject alternative names from the projected registration content — is captured here; the
         // authoritative subject, SAN and key material are overwritten when the follow-up CSR issuance
@@ -1178,7 +1184,15 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
         certificate.setCertificateType(CertificateType.X509);
         certificate.setRaProfile(raProfile);
-        return certificateRepository.save(certificate);
+        certificate = certificateRepository.save(certificate);
+        if (source != null) {
+            // Same-transaction PENDING relation, direct call like the submitCertificateRequest path so the
+            // caller's register permission is not additionally burdened with CERTIFICATE UPDATE. The entity
+            // variant throws only runtime exceptions, so a relation failure rolls the placeholder back with
+            // it — no half-linked registration can exist.
+            associateCertificateEntities(certificate, source);
+        }
+        return certificate;
     }
 
     @Override
@@ -2167,10 +2181,20 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void associateCertificates(UUID uuid, UUID certificateUuid) throws NotFoundException {
-        if (uuid.equals(certificateUuid))
-            throw new ValidationException("Cannot associate certificate with itself as successor/predecessor.");
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         Certificate associatedCertificate = getCertificateEntity(SecuredUUID.fromUUID(certificateUuid));
+
+        associateCertificateEntities(certificate, associatedCertificate);
+    }
+
+    /**
+     * Entity variant of {@link #associateCertificates(UUID, UUID)} for callers that already hold both
+     * certificates in the current transaction. Throws only runtime exceptions, so it can run after other
+     * writes without a checked exception committing them under default rollback rules.
+     */
+    private void associateCertificateEntities(Certificate certificate, Certificate associatedCertificate) {
+        if (certificate.getUuid().equals(associatedCertificate.getUuid()))
+            throw new ValidationException("Cannot associate certificate with itself as successor/predecessor.");
 
         validateSubjectTypes(certificate, associatedCertificate);
 
