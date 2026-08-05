@@ -1,4 +1,4 @@
-package com.otilm.core.service.scep;
+package com.otilm.core.service.registration;
 
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.PlatformX500NameStyle;
@@ -11,7 +11,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 
 /**
- * Pure matching kernel binding a SCEP enrolment to a pre-registered certificate. Subjects compare by their
+ * Pure matching kernel binding a protocol enrolment to a pre-registered certificate. Subjects compare by their
  * {@link PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and
  * spacing but deliberately preserves attribute-value case — the enrolment must present the identity exactly
  * as registered. SAN sets compare as maps of sorted value lists with empty entries dropped, so an absent
@@ -20,7 +20,7 @@ import java.util.UUID;
  * <p>The kernel never checks the challenge — the caller verifies it against the single matched
  * registration, keeping failed-attempt accounting attributable to exactly one authorization.
  */
-public final class ScepRegistrationMatcher {
+public final class RegistrationIdentityMatcher {
 
     /** A pre-registered candidate: the certificate row's UUID, subject DN and serialized SAN column. */
     public record Candidate(UUID certificateUuid, String subjectDn, String serializedSans) {
@@ -60,7 +60,7 @@ public final class ScepRegistrationMatcher {
         }
     }
 
-    private ScepRegistrationMatcher() {
+    private RegistrationIdentityMatcher() {
     }
 
     /**

@@ -14,7 +14,7 @@ import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.enums.CertificateProtocol;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.PkiStatus;
-import com.otilm.api.model.core.scep.ScepChallengeSource;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
@@ -201,7 +201,7 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         scepProfile.setEnabled(true);
         scepProfile.setRequireManualApproval(false);
         scepProfile.setIncludeCaCertificate(true);
-        scepProfile.setChallengeSource(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        scepProfile.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
         scepProfile.setCaCertificate(caCertificate);
         scepProfile.setRaProfile(raProfile);
         scepProfile = scepProfileRepository.save(scepProfile);

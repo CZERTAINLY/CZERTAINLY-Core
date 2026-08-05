@@ -22,7 +22,7 @@ import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
-import com.otilm.api.model.core.scep.ScepChallengeSource;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -507,7 +507,7 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("RegistrationWithPassword");
         request.setCaCertificateUuid(certificate.getUuid().toString());
-        request.setChallengeSource(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
         request.setEnableChallengePassword(true);
         request.setChallengePassword("secret");
 
@@ -521,7 +521,7 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("RegistrationWithIntune");
         request.setCaCertificateUuid(certificate.getUuid().toString());
-        request.setChallengeSource(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
         request.setEnableIntune(true);
         request.setIntuneTenant("tenant");
         request.setIntuneApplicationId("appId");
@@ -539,7 +539,7 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("RegistrationWithEcCa");
         request.setCaCertificateUuid(ecCaCertificate.getUuid().toString());
-        request.setChallengeSource(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
 
         ValidationException ex = Assertions.assertThrows(ValidationException.class,
                 () -> scepProfileService.createScepProfile(request));
@@ -551,14 +551,14 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("RegistrationCreate");
         request.setCaCertificateUuid(certificate.getUuid().toString());
-        request.setChallengeSource(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
 
         ScepProfileDetailDto dto = scepProfileService.createScepProfile(request);
 
-        Assertions.assertEquals(ScepChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
         Assertions.assertFalse(dto.isEnableChallengePassword());
         ScepProfile created = scepProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElseThrow();
-        Assertions.assertEquals(ScepChallengeSource.CERTIFICATE_REGISTRATION, created.getChallengeSource());
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, created.getChallengeSource());
         Assertions.assertNull(created.getChallengePassword());
     }
 
@@ -569,11 +569,11 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
         ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
         request.setCaCertificateUuid(certificate.getUuid().toString());
-        request.setChallengeSource(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
 
         ScepProfileDetailDto dto = scepProfileService.editScepProfile(scepProfile.getSecuredUuid(), request);
 
-        Assertions.assertEquals(ScepChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
         Assertions.assertFalse(dto.isEnableChallengePassword());
         ScepProfile updated = scepProfileRepository.findByUuid(scepProfile.getUuid()).orElseThrow();
         Assertions.assertNull(updated.getChallengePassword());
@@ -581,7 +581,7 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditScepProfile_omittedChallengeSourceKeepsStoredSource() throws ConnectorException, AttributeException, NotFoundException {
-        scepProfile.setChallengeSource(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        scepProfile.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
         scepProfile.setChallengePassword(null);
         scepProfileRepository.save(scepProfile);
 
@@ -591,9 +591,9 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
         ScepProfileDetailDto dto = scepProfileService.editScepProfile(scepProfile.getSecuredUuid(), request);
 
-        Assertions.assertEquals(ScepChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
         ScepProfile updated = scepProfileRepository.findByUuid(scepProfile.getUuid()).orElseThrow();
-        Assertions.assertEquals(ScepChallengeSource.CERTIFICATE_REGISTRATION, updated.getChallengeSource());
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, updated.getChallengeSource());
     }
 
     private Certificate seedCaCertificateWithKeyAlgorithm(KeyAlgorithm keyAlgorithm) {
@@ -663,9 +663,9 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
         ScepProfileDetailDto dto = scepProfileService.createScepProfile(request);
 
-        Assertions.assertEquals(ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD, dto.getChallengeSource());
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, dto.getChallengeSource());
         ScepProfile created = scepProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElseThrow();
-        Assertions.assertEquals(ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD, created.getChallengeSource());
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, created.getChallengeSource());
     }
 
     @Test

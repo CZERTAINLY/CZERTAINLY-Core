@@ -13,7 +13,7 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateDto;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
-import com.otilm.api.model.core.scep.ScepChallengeSource;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
@@ -129,7 +129,7 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
             throw new ValidationException(ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
         }
 
-        if (request.getChallengeSource() == ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+        if (request.getChallengeSource() == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
             validateRegistrationChallengeSource(request, intuneEnabled, certificate);
         }
 
@@ -157,11 +157,11 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         scepProfile.setRenewalThreshold(request.getRenewalThreshold());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
-        // An absent challengeSource keeps the entity's PROFILE_CHALLENGE_PASSWORD initializer.
+        // An absent challengeSource keeps the entity's PROTOCOL_DEFAULT initializer.
         if (request.getChallengeSource() != null) {
             scepProfile.setChallengeSource(request.getChallengeSource());
         }
-        if (request.getChallengeSource() != ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+        if (request.getChallengeSource() != ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
             applyChallengePassword(scepProfile, request);
         }
         scepProfile.setRequireManualApproval(false);
@@ -206,9 +206,9 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
 
         // An absent challengeSource keeps the stored value — collapsing it would silently flip
         // registration-mode profiles back to the password regime for clients omitting the field.
-        ScepChallengeSource challengeSource = request.getChallengeSource() != null
+        ProtocolChallengeSource challengeSource = request.getChallengeSource() != null
                 ? request.getChallengeSource() : scepProfile.getChallengeSource();
-        if (challengeSource == ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+        if (challengeSource == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
             validateRegistrationChallengeSource(request, intuneEnabled, certificate);
         }
 
@@ -233,7 +233,7 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
         scepProfile.setChallengeSource(challengeSource);
-        if (challengeSource == ScepChallengeSource.CERTIFICATE_REGISTRATION) {
+        if (challengeSource == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
             // The registration challenge lives on each certificate registration; a leftover profile
             // password must not survive the switch as a latent second credential.
             scepProfile.setChallengePassword(null);

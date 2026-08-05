@@ -16,7 +16,7 @@ import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.MessageType;
 import com.otilm.api.model.core.scep.PkiStatus;
-import com.otilm.api.model.core.scep.ScepChallengeSource;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.otilm.api.model.core.v2.ClientCertificateRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
@@ -51,7 +51,7 @@ import com.otilm.core.service.handler.CertificateValidationStatusPoller;
 import com.otilm.core.security.authz.ProtocolEndpoint;
 import com.otilm.core.service.registration.RegistrationChallengeStore;
 import com.otilm.core.service.scep.ScepExternalService;
-import com.otilm.core.service.scep.ScepRegistrationMatcher;
+import com.otilm.core.service.registration.RegistrationIdentityMatcher;
 import com.otilm.core.service.scep.message.ScepRequest;
 import com.otilm.core.service.scep.message.ScepResponse;
 import com.otilm.core.service.v2.ClientOperationExternalService;
@@ -950,7 +950,7 @@ public class ScepServiceImpl implements ScepExternalService {
     private static final String REGISTRATION_REJECTION = "The request does not match an active certificate registration.";
 
     private boolean registrationMode() {
-        return scepProfile.getChallengeSource() == ScepChallengeSource.CERTIFICATE_REGISTRATION;
+        return scepProfile.getChallengeSource() == ProtocolChallengeSource.CERTIFICATE_REGISTRATION;
     }
 
     /**
@@ -976,11 +976,11 @@ public class ScepServiceImpl implements ScepExternalService {
         }
         List<Certificate> candidates =
                 certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(raProfile.getUuid());
-        ScepRegistrationMatcher.MatchResult result = ScepRegistrationMatcher.match(
+        RegistrationIdentityMatcher.MatchResult result = RegistrationIdentityMatcher.match(
                 scepRequest.getPkcs10Request().getSubject(),
                 csrSans,
                 candidates.stream()
-                        .map(c -> new ScepRegistrationMatcher.Candidate(c.getUuid(), c.getSubjectDn(), c.getSubjectAlternativeNames()))
+                        .map(c -> new RegistrationIdentityMatcher.Candidate(c.getUuid(), c.getSubjectDn(), c.getSubjectAlternativeNames()))
                         .toList());
         // The wire carries only the generic rejection, so these lines are the operator's whole diagnostic
         // surface: they must name the identity the matcher actually compared.

@@ -1,7 +1,7 @@
 package com.otilm.core.dao.entity.scep;
 
 import com.otilm.api.model.common.NameAndUuidDto;
-import com.otilm.api.model.core.scep.ScepChallengeSource;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.core.dao.entity.Certificate;
@@ -77,7 +77,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Enumerated(EnumType.STRING)
     @Column(name = "challenge_source", nullable = false)
-    private ScepChallengeSource challengeSource = ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD;
+    private ProtocolChallengeSource challengeSource = ProtocolChallengeSource.PROTOCOL_DEFAULT;
 
     @Column(name = "intune_enabled")
     private boolean intuneEnabled;

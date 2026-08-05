@@ -7,7 +7,7 @@ import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.PkiStatus;
-import com.otilm.api.model.core.scep.ScepChallengeSource;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
@@ -114,7 +114,7 @@ class ScepServiceImplRegistrationModeTest {
     void setUp() {
         service = new ScepServiceImpl();
         profile = mock(ScepProfile.class);
-        when(profile.getChallengeSource()).thenReturn(ScepChallengeSource.CERTIFICATE_REGISTRATION);
+        when(profile.getChallengeSource()).thenReturn(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
         certificateRepository = mock(CertificateRepository.class);
         eventHistoryService = mock(CertificateEventHistoryInternalService.class);
         scepTransactionRepository = mock(ScepTransactionRepository.class);
@@ -239,7 +239,7 @@ class ScepServiceImplRegistrationModeTest {
 
     @Test
     void envelopePasswordIsTheProfilePasswordOutsideRegistrationMode() {
-        when(profile.getChallengeSource()).thenReturn(ScepChallengeSource.PROFILE_CHALLENGE_PASSWORD);
+        when(profile.getChallengeSource()).thenReturn(ProtocolChallengeSource.PROTOCOL_DEFAULT);
         when(profile.getChallengePassword()).thenReturn("profile-password");
 
         Assertions.assertEquals("profile-password", ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", (Object) null));
