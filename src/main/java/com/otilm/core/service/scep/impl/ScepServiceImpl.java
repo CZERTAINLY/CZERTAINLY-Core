@@ -985,6 +985,9 @@ public class ScepServiceImpl implements ScepExternalService {
                 candidates.stream()
                         .map(c -> new ScepRegistrationMatcher.Candidate(c.getUuid(), c.getSubjectDn(), c.getSubjectAlternativeNames()))
                         .toList());
+        // The wire carries only the generic rejection, so these lines are the operator's whole diagnostic
+        // surface: they must name the identity the matcher actually compared.
+        String csrSubject = scepRequest.getPkcs10Request().getSubject().toString();
         switch (result.outcome()) {
             case MATCHED -> {
                 return candidates.stream()
@@ -995,10 +998,15 @@ public class ScepServiceImpl implements ScepExternalService {
                 certificateEventHistoryService.addEventHistory(result.certificateUuid(), CertificateEvent.ISSUE,
                         CertificateEventStatus.FAILED,
                         "SCEP enrolment subject alternative names do not match the registered ones", "");
-                logger.info("SCEP registration enrolment rejected: SAN mismatch with registration {}", result.certificateUuid());
+                logger.info("SCEP registration enrolment rejected: SAN mismatch with registration {} (CSR subject={}, CSR SANs={})",
+                        result.certificateUuid(), csrSubject, csrSans);
             }
-            case AMBIGUOUS -> logger.info("SCEP registration enrolment rejected: several registrations match the CSR identity");
-            case NO_MATCH -> logger.info("SCEP registration enrolment rejected: no registration matches the CSR identity");
+            case AMBIGUOUS -> logger.info(
+                    "SCEP registration enrolment rejected: several registrations match the CSR identity (CSR subject={}, CSR SANs={})",
+                    csrSubject, csrSans);
+            case NO_MATCH -> logger.info(
+                    "SCEP registration enrolment rejected: no registration matches the CSR identity (CSR subject={}, CSR SANs={}, {} REGISTERED candidate(s) with an active authorization under RA profile {})",
+                    csrSubject, csrSans, candidates.size(), raProfile.getName());
         }
         throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
     }
