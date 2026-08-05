@@ -39,7 +39,9 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
         ASN1OctetString tid = message.getHeader().getTransactionID();
-        if (configuration.isRegistrationMode()) {
+        // The registration gate runs on the incoming request only. A response (validateOut) is MAC-validated
+        // through the normal path below, keyed by the matched registration's challenge via getSharedSecret().
+        if (configuration.isRegistrationMode() && isRegistrationRequest(message)) {
             // The gate (via the context) does the senderKID resolution, MAC check through this predicate,
             // failed-attempt counting and lockout, and throws the single generic rejection on any failure.
             configuration.verifyRegistrationMacProtection(message, password -> {
@@ -63,6 +65,13 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
                     e.getLocalizedMessage());
         }
         return null;// validation is ok
+    }
+
+    private static boolean isRegistrationRequest(PKIMessage message) {
+        int bodyType = message.getBody().getType();
+        return bodyType == PKIBody.TYPE_INIT_REQ
+                || bodyType == PKIBody.TYPE_CERT_REQ
+                || bodyType == PKIBody.TYPE_KEY_UPDATE_REQ;
     }
 
     /**

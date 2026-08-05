@@ -15,6 +15,7 @@ import com.otilm.core.settings.SettingsCache;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
@@ -120,7 +121,14 @@ public class RegistrationChallengeGate {
 
     private RegistrationChallengeOutcome evaluateUnderLock(UUID certificateUuid, CertificateEvent operationEvent,
                                                            Predicate<CertificateRegistrationAuthorization> matches) {
-        TransactionStatus tx = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        // REQUIRES_NEW so the row lock, the failed-attempt increment and the lockout commit in their own
+        // short transaction and the lock is released on return — never held across an ambient transaction.
+        // A caller can hold a row lock the completion (issueExistingCertificate, NOT_SUPPORTED) would then
+        // re-acquire on a suspended transaction and self-deadlock; a fresh transaction here prevents that and
+        // also guarantees the counter survives a caller rollback.
+        DefaultTransactionDefinition definition = new DefaultTransactionDefinition();
+        definition.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        TransactionStatus tx = transactionManager.getTransaction(definition);
         try {
             RegistrationChallengeOutcome outcome = registrationAuthorizationRepository.findAndLockByCertificateUuid(certificateUuid)
                     .map(authorization -> evaluateLockedAuthorization(authorization, operationEvent, matches))

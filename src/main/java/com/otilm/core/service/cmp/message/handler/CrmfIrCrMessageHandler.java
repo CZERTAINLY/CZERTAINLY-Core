@@ -20,6 +20,7 @@ import com.otilm.core.model.auth.CertificateProtocolInfo;
 import com.otilm.core.model.request.CrmfCertificateRequest;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
+import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
 import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
@@ -59,13 +60,21 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             PKIBody.TYPE_INIT_REQ,          // ir       [0]  CertReqMessages,       --Initialization Req
             PKIBody.TYPE_CERT_REQ);         // cr       [2]  CertReqMessages,       --Certification Req
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CrmfIrCrMessageHandler.class);
+
     private ClientOperationInternalService clientOperationService;
     private ClientOperationExternalService clientOperationExternalService;
     private CertificateEventHistoryInternalService certificateEventHistoryService;
+    private CertificateInternalService certificateService;
 
     @Autowired
     public void setClientOperationService(ClientOperationInternalService clientOperationService) {
         this.clientOperationService = clientOperationService;
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateInternalService certificateService) {
+        this.certificateService = certificateService;
     }
 
     @Autowired
@@ -142,16 +151,32 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             dto.setFormat(CertificateRequestFormat.CRMF);
             dto.setAuthorizationSecret(configuration.getMatchedChallenge());
             RaProfile raProfile = configuration.getRaProfile();
-            return clientOperationExternalService.issueExistingCertificate(
+            ClientCertificateDataResponseDto response = clientOperationExternalService.issueExistingCertificate(
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
                     raProfile.getSecuredUuid(),
                     matched.getUuid().toString(),
                     dto);
+            applyProtocolAssociationBestEffort(matched, configuration);
+            return response;
         } catch (ValidationException e) {
             // Challenge/gate or completion denial — detail stays server-side.
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
         } catch (NotFoundException | IOException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, "cannot complete certificate registration", e);
+        }
+    }
+
+    /**
+     * The completion is committed and its ISSUE action enqueued, so an association failure must not fail the
+     * enrolment (the registration would no longer match a retry). Best-effort, logged.
+     */
+    private void applyProtocolAssociationBestEffort(Certificate matched, ConfigurationContext configuration) {
+        try {
+            certificateService.applyProtocolAssociations(matched.getUuid(),
+                    CertificateProtocolInfo.Cmp(configuration.getCmpProfile().getUuid()));
+        } catch (Exception e) {
+            logger.warn("Failed to apply CMP protocol associations to completed registration {}: {}",
+                    matched.getUuid(), e.getMessage());
         }
     }
 

@@ -142,6 +142,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     private CryptographicKeySeeder cryptographicKeySeeder;
     @Autowired
     private ActionProducer actionProducer;
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     private WireMockServer mockServer;
     private RaProfile raProfile;
@@ -222,12 +224,15 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
-        Certificate completed = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
-        assertEquals(CertificateState.REGISTERED, completed.getState(),
-                "the placeholder stays REGISTERED until the async ISSUE action completes");
-        assertNotNull(completed.getCertificateRequestUuid(), "the enrolment CSR is attached");
-        assertNotNull(completed.getProtocolAssociation(), "the completion is attributed to SCEP");
-        assertEquals(CertificateProtocol.SCEP, completed.getProtocolAssociation().getProtocol());
+        // A read transaction so the lazy protocolAssociation can load (the test is not transactional).
+        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            Certificate completed = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
+            assertEquals(CertificateState.REGISTERED, completed.getState(),
+                    "the placeholder stays REGISTERED until the async ISSUE action completes");
+            assertNotNull(completed.getCertificateRequestUuid(), "the enrolment CSR is attached");
+            assertNotNull(completed.getProtocolAssociation(), "the completion is attributed to SCEP");
+            assertEquals(CertificateProtocol.SCEP, completed.getProtocolAssociation().getProtocol());
+        });
         assertTrue(scepTransactionRepository
                         .findByTransactionId(ScepMessageTestData.TRANSACTION_ID).isPresent(),
                 "the poll transaction is stored");
