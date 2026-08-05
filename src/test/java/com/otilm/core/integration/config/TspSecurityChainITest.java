@@ -42,8 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * </ul>
  */
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {"auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE_SECURITY_CHAIN,
-        "server.servlet.context-path="})
+@TestPropertySource(properties = "server.servlet.context-path=")
 class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
 
     @Autowired
@@ -78,7 +77,7 @@ class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
             return null;
         }).when(springSessionRepositoryFilter).doFilter(Mockito.any(), Mockito.any(), Mockito.any());
 
-        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE_SECURITY_CHAIN);
+        mockServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
