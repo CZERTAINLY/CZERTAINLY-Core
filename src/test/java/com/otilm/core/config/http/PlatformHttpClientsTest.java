@@ -6,12 +6,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -27,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 class PlatformHttpClientsTest {
 
-    private static final int CONCURRENT_REQUESTS = 10;
+    private static final int CONCURRENT_REQUESTS = 40;
 
     private HttpServer server;
     private ExecutorService serverExecutor;
@@ -38,7 +41,7 @@ class PlatformHttpClientsTest {
     @BeforeEach
     void startServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress(0), 0);
-        serverExecutor = Executors.newFixedThreadPool(CONCURRENT_REQUESTS * 2);
+        serverExecutor = Executors.newVirtualThreadPerTaskExecutor();
         server.setExecutor(serverExecutor);
         url = "http://localhost:" + server.getAddress().getPort() + "/probe";
     }
@@ -51,7 +54,13 @@ class PlatformHttpClientsTest {
     }
 
     private RestClient client() {
-        return RestClient.builder().requestFactory(PlatformHttpClients.requestFactoryBuilder().build()).build();
+        return client(null);
+    }
+
+    private RestClient client(ClientHttpRequestFactorySettings settings) {
+        return RestClient.builder()
+                .requestFactory(PlatformHttpClients.requestFactoryBuilder().build(settings))
+                .build();
     }
 
     private void respond(HttpExchange exchange, int status, String cookie) throws IOException {
@@ -96,6 +105,71 @@ class PlatformHttpClientsTest {
             }
         } finally {
             executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void testFailsFastWhenPoolIsExhausted() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch occupied = new CountDownLatch(PlatformHttpClients.MAX_CONNECTIONS);
+        server.createContext("/probe", exchange -> {
+            occupied.countDown();
+            try {
+                release.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            respond(exchange, 200, null);
+        });
+        server.start();
+
+        RestClient client = client();
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        try {
+            for (int i = 0; i < PlatformHttpClients.MAX_CONNECTIONS; i++) {
+                executor.submit(() -> client.get().uri(url).retrieve().toBodilessEntity());
+            }
+            Assertions.assertTrue(occupied.await(20, TimeUnit.SECONDS), "pool never reached its configured ceiling");
+
+            long startedAt = System.nanoTime();
+            Assertions.assertThrows(ResourceAccessException.class,
+                    () -> client.get().uri(url).retrieve().toBodilessEntity());
+            Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
+
+            Assertions.assertTrue(waited.toSeconds() < 60,
+                    "caller waited " + waited + " for a connection, so no lease timeout is configured");
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void testKeepsConsumerSuppliedReadTimeout() {
+        CountDownLatch release = new CountDownLatch(1);
+        server.createContext("/probe", exchange -> {
+            try {
+                release.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            respond(exchange, 200, null);
+        });
+        server.start();
+
+        RestClient client = client(ClientHttpRequestFactorySettings.defaults()
+                .withConnectTimeout(Duration.ofSeconds(5))
+                .withReadTimeout(Duration.ofMillis(300)));
+        try {
+            long startedAt = System.nanoTime();
+            Assertions.assertThrows(ResourceAccessException.class,
+                    () -> client.get().uri(url).retrieve().toBodilessEntity());
+            Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
+
+            Assertions.assertTrue(waited.compareTo(Duration.ofSeconds(3)) < 0,
+                    "call failed only after " + waited + ", so the 300ms read timeout it was given was overwritten");
+        } finally {
+            release.countDown();
         }
     }
 

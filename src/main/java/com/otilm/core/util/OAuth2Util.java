@@ -10,6 +10,7 @@ import com.nimbusds.jwt.SignedJWT;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpResponse;
@@ -26,11 +27,15 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.IOException;
 import java.net.URI;
 import java.text.ParseException;
+import java.time.Duration;
 import java.util.*;
 
 public class OAuth2Util {
 
     private static final Logger logger = LoggerFactory.getLogger(OAuth2Util.class);
+
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
 
     /**
      * Shared client for the provider-side OAuth2 endpoints (end-session, userinfo). {@link RestClient}
@@ -43,8 +48,12 @@ public class OAuth2Util {
      * {@link PlatformHttpClients}; what is specific here is how the provider's responses are mapped.
      */
     private static RestClient buildRestClient() {
+        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
+                .withConnectTimeout(CONNECT_TIMEOUT)
+                .withReadTimeout(READ_TIMEOUT);
+
         return RestClient.builder()
-                .requestFactory(PlatformHttpClients.requestFactoryBuilder().build())
+                .requestFactory(PlatformHttpClients.requestFactoryBuilder().build(settings))
                 .defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
                 .defaultStatusHandler(HttpStatusCode::is3xxRedirection, OAuth2Util::rejectUnfollowedRedirect)
                 .build();

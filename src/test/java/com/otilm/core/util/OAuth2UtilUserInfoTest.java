@@ -11,11 +11,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 
 import java.net.Authenticator;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -49,7 +52,7 @@ class OAuth2UtilUserInfoTest {
         Map<String, Object> userInfo = OAuth2Util.getUserInfo(userInfoUrl, "the-token");
 
         Assertions.assertEquals("abc", userInfo.get("sub"));
-        Assertions.assertEquals(java.util.List.of("a", "b"), userInfo.get("groups"));
+        Assertions.assertEquals(List.of("a", "b"), userInfo.get("groups"));
         mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo"))
                 .withHeader("Authorization", WireMock.equalTo("Bearer the-token"))
                 .withHeader("Accept", WireMock.containing("application/json")));
@@ -132,6 +135,18 @@ class OAuth2UtilUserInfoTest {
 
         mockServer.verify(WireMock.exactly(2), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo"))
                 .withHeader("Cookie", WireMock.absent()));
+    }
+
+    @Test
+    void testGetUserInfo_StalledProviderFailsWithinTheReadTimeout() {
+        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
+                .willReturn(WireMock.okJson("{\"sub\":\"abc\"}").withFixedDelay(60_000)));
+
+        Assertions.assertTimeoutPreemptively(Duration.ofSeconds(30),
+                () -> Assertions.assertThrows(ResourceAccessException.class,
+                        () -> OAuth2Util.getUserInfo(userInfoUrl, "the-token")));
+
+        mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo")));
     }
 
     /**

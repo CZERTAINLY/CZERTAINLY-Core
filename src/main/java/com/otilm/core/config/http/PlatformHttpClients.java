@@ -4,6 +4,7 @@ import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
 import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.util.TimeValue;
+import org.apache.hc.core5.util.Timeout;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.HttpComponentsClientHttpRequestFactoryBuilder;
 
@@ -23,6 +24,13 @@ public final class PlatformHttpClients {
      */
     public static final int MAX_CONNECTIONS = 100;
 
+    /**
+     * How long a caller waits for a connection from the pool before giving up. Apache's default is
+     * three minutes, so a peer that stops responding would not merely block its own callers — it would
+     * park every later caller for three minutes behind an exhausted pool.
+     */
+    private static final Timeout CONNECTION_LEASE_TIMEOUT = Timeout.ofSeconds(5);
+
     private PlatformHttpClients() {
         throw new IllegalStateException("Utility class");
     }
@@ -39,12 +47,20 @@ public final class PlatformHttpClients {
      * Proxy support needs no wiring here: the builder already resolves routes through the JVM default
      * {@code ProxySelector} and answers proxy challenges from the default {@link java.net.Authenticator},
      * both of which {@code ProxyConfiguration} populates.
+     * <p>
+     * Connect and read timeouts are deliberately left to each consumer's
+     * {@link org.springframework.boot.http.client.ClientHttpRequestFactorySettings}: Boot applies the
+     * connection-config customizer <em>after</em> mapping those settings, so setting them here would
+     * silently overwrite what a consumer passed to {@code build(settings)}. Only the lease timeout,
+     * which no setting maps to, is fixed for everyone.
      */
     public static HttpComponentsClientHttpRequestFactoryBuilder requestFactoryBuilder() {
         return ClientHttpRequestFactoryBuilder.httpComponents()
                 .withConnectionManagerCustomizer(connectionManager -> connectionManager
                         .setMaxConnTotal(MAX_CONNECTIONS)
                         .setMaxConnPerRoute(MAX_CONNECTIONS))
+                .withDefaultRequestConfigCustomizer(requestConfig -> requestConfig
+                        .setConnectionRequestTimeout(CONNECTION_LEASE_TIMEOUT))
                 .withHttpClientCustomizer(httpClient -> httpClient
                         .disableCookieManagement()
                         .setRetryStrategy(new IdempotentIoErrorRetryStrategy()));
