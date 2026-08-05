@@ -131,9 +131,9 @@ class PlatformHttpClientsTest {
             }
             Assertions.assertTrue(occupied.await(20, TimeUnit.SECONDS), "pool never reached its configured ceiling");
 
+            RestClient.ResponseSpec shedCall = client.get().uri(url).retrieve();
             long startedAt = System.nanoTime();
-            Assertions.assertThrows(ResourceAccessException.class,
-                    () -> client.get().uri(url).retrieve().toBodilessEntity());
+            Assertions.assertThrows(ResourceAccessException.class, shedCall::toBodilessEntity);
             Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
 
             Assertions.assertTrue(waited.toSeconds() < 60,
@@ -161,9 +161,9 @@ class PlatformHttpClientsTest {
                 .withConnectTimeout(Duration.ofSeconds(5))
                 .withReadTimeout(Duration.ofMillis(300)));
         try {
+            RestClient.ResponseSpec timingOutCall = client.get().uri(url).retrieve();
             long startedAt = System.nanoTime();
-            Assertions.assertThrows(ResourceAccessException.class,
-                    () -> client.get().uri(url).retrieve().toBodilessEntity());
+            Assertions.assertThrows(ResourceAccessException.class, timingOutCall::toBodilessEntity);
             Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
 
             Assertions.assertTrue(waited.compareTo(Duration.ofSeconds(3)) < 0,

@@ -1,0 +1,1 @@
+Build repository properly with `-Dmaven.compiler.proc=full` option.
