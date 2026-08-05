@@ -20,6 +20,7 @@ import com.otilm.api.model.core.cmp.CmpProfileDto;
 import com.otilm.api.model.core.cmp.CmpProfileVariant;
 import com.otilm.api.model.core.cmp.ProtectionMethod;
 import com.otilm.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
@@ -147,6 +148,22 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
 
         certificateService.deleteCertificate(certificate.getSecuredUuid());
         Assertions.assertDoesNotThrow(() -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
+    }
+
+    @Test
+    void newProfileDefaultsToProtocolDefaultChallengeSource() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        CmpProfileRequestDto request = new CmpProfileRequestDto();
+        request.setName("DefaultChallengeSource");
+        request.setVariant(CmpProfileVariant.V2);
+        request.setRequestProtectionMethod(ProtectionMethod.SHARED_SECRET);
+        request.setResponseProtectionMethod(ProtectionMethod.SHARED_SECRET);
+        request.setSharedSecret("secret");
+
+        CmpProfileDto dto = cmpProfileService.createCmpProfile(request);
+
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, dto.getChallengeSource());
+        CmpProfile created = cmpProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElseThrow();
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, created.getChallengeSource());
     }
 
     @Test
