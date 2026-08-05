@@ -1,10 +1,10 @@
 package com.otilm.core.provisioning;
 
 import lombok.RequiredArgsConstructor;
+import com.otilm.core.config.http.PlatformHttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -57,7 +57,7 @@ public class ProvisioningApiConfig {
             .withConnectTimeout(provisioningApiProperties.connectTimeout())
             .withReadTimeout(provisioningApiProperties.readTimeout());
 
-        ClientHttpRequestFactory factory = ClientHttpRequestFactoryBuilder.detect().build(settings);
+        ClientHttpRequestFactory factory = PlatformHttpClients.requestFactoryBuilder().build(settings);
 
         return RestClient.builder()
             .baseUrl(provisioningApiProperties.url())
