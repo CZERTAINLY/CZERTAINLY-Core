@@ -38,40 +38,9 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
      */
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
-        PKIHeader header = message.getHeader();
-        ASN1OctetString tid = header.getTransactionID();
+        ASN1OctetString tid = message.getHeader().getTransactionID();
         try {
-            byte[] passwordAsBytes = configuration.getSharedSecret();
-            PBMParameter pbmParameter = PBMParameter.getInstance(
-                    header.getProtectionAlg().getParameters());      // -- PBMParameter
-            byte[] salt = pbmParameter.getSalt().getOctets();        // --    salt (octetstring)
-            AlgorithmIdentifier owf = pbmParameter.getOwf();         // --    owf  (algIdentifier)
-            // The output of the final iteration (called
-            //   "BASEKEY" for ease of reference, with a size of "H") is what is used
-            //   to form the symmetric key.
-            byte[] basekey = new byte[passwordAsBytes.length + salt.length];
-            // The OWF is then applied iterationCount times, where
-            //   the salted secret is the input to the first iteration and
-            System.arraycopy(passwordAsBytes, 0, basekey, 0, passwordAsBytes.length);
-            System.arraycopy(salt, 0, basekey, passwordAsBytes.length, salt.length);
-            // for each
-            //   successive iteration, the input is set to be the output of the
-            //   previous iteration.  The output of the final iteration (called
-            //   "BASEKEY" for ease of reference, with a size of "H")
-            MessageDigest dig = MessageDigest.getInstance(owf.getAlgorithm().getId(),
-                    BouncyCastleProvider.PROVIDER_NAME);
-            for (int i = 0; i < pbmParameter.getIterationCount().getValue().intValue(); i++) {
-                basekey = dig.digest(basekey);
-                dig.reset();
-            }
-            // create mac instance
-            String macId = pbmParameter.getMac().getAlgorithm().getId();
-            Mac mac = Mac.getInstance(macId, BouncyCastleProvider.PROVIDER_NAME);
-            mac.init(new SecretKeySpec(basekey, macId));
-            mac.update(new ProtectedPart(header,
-                    message.getBody()).getEncoded(ASN1Encoding.DER));
-            // -- check counted bytes (mac) vs. bytes from protection field
-            if (!Arrays.equals(mac.doFinal(), message.getProtection().getBytes())) {
+            if (!matchesMac(message, configuration.getSharedSecret())) {
                 throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                         "mac validation: check of PasswordBasedMac protection failed");
             }
@@ -82,5 +51,35 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
                     e.getLocalizedMessage());
         }
         return null;// validation is ok
+    }
+
+    /**
+     * Whether the message's Password-Based MAC verifies under {@code passwordAsBytes}, computed per
+     * RFC 4210 §5.1.3.1 from the message's own PBMParameter (salt, owf, iteration count, mac algorithm).
+     * The pure computation, reusable both with the profile shared secret and with a registration challenge.
+     */
+    static boolean matchesMac(PKIMessage message, byte[] passwordAsBytes) throws Exception {
+        PKIHeader header = message.getHeader();
+        PBMParameter pbmParameter = PBMParameter.getInstance(
+                header.getProtectionAlg().getParameters());      // -- PBMParameter
+        byte[] salt = pbmParameter.getSalt().getOctets();        // --    salt (octetstring)
+        AlgorithmIdentifier owf = pbmParameter.getOwf();         // --    owf  (algIdentifier)
+        // The salted secret is the input to the first iteration; the output of the final iteration
+        // (called "BASEKEY", size "H") forms the symmetric key.
+        byte[] basekey = new byte[passwordAsBytes.length + salt.length];
+        System.arraycopy(passwordAsBytes, 0, basekey, 0, passwordAsBytes.length);
+        System.arraycopy(salt, 0, basekey, passwordAsBytes.length, salt.length);
+        MessageDigest dig = MessageDigest.getInstance(owf.getAlgorithm().getId(),
+                BouncyCastleProvider.PROVIDER_NAME);
+        for (int i = 0; i < pbmParameter.getIterationCount().getValue().intValue(); i++) {
+            basekey = dig.digest(basekey);
+            dig.reset();
+        }
+        String macId = pbmParameter.getMac().getAlgorithm().getId();
+        Mac mac = Mac.getInstance(macId, BouncyCastleProvider.PROVIDER_NAME);
+        mac.init(new SecretKeySpec(basekey, macId));
+        mac.update(new ProtectedPart(header, message.getBody()).getEncoded(ASN1Encoding.DER));
+        // -- check counted bytes (mac) vs. bytes from protection field
+        return Arrays.equals(mac.doFinal(), message.getProtection().getBytes());
     }
 }
