@@ -130,13 +130,18 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
         CmpProfile cmpProfile = new CmpProfile();
 
-        // validate and set variant configuration
-        validateAndSetVariantConfiguration(cmpProfile, request);
-
         // An absent challengeSource keeps the entity's PROTOCOL_DEFAULT default on create.
         if (request.getChallengeSource() != null) {
             cmpProfile.setChallengeSource(request.getChallengeSource());
         }
+        // Validate the registration rules before variant validation so its actionable messages win over the
+        // variant's generic protection-method complaint.
+        if (cmpProfile.getChallengeSource() == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
+            validateRegistrationChallengeSource(request);
+        }
+
+        // validate and set variant configuration
+        validateAndSetVariantConfiguration(cmpProfile, request);
 
         // validate and set protection methods
         validateAndSetProtectionMethods(cmpProfile, request);
@@ -194,13 +199,18 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     public CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);
 
-        // validate and set variant configuration
-        validateAndSetVariantConfiguration(cmpProfile, request);
-
         // An absent challengeSource keeps the stored value on edit.
         if (request.getChallengeSource() != null) {
             cmpProfile.setChallengeSource(request.getChallengeSource());
         }
+        // Validate the registration rules before variant validation so its actionable messages win over the
+        // variant's generic protection-method complaint.
+        if (cmpProfile.getChallengeSource() == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
+            validateRegistrationChallengeSource(request);
+        }
+
+        // validate and set variant configuration
+        validateAndSetVariantConfiguration(cmpProfile, request);
 
         // validate and set protection methods
         validateAndSetProtectionMethods(cmpProfile, request);
@@ -430,10 +440,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
      * @throws NotFoundException When the certificate for signature response protection is not found
      */
     private void validateAndSetProtectionMethods(CmpProfile cmpProfile, CmpProfileRequestDto request) throws NotFoundException {
+        // Registration rules were validated ahead of variant validation; here only the secret is cleared.
         boolean registrationMode = cmpProfile.getChallengeSource() == ProtocolChallengeSource.CERTIFICATE_REGISTRATION;
-        if (registrationMode) {
-            validateRegistrationChallengeSource(request, cmpProfile);
-        }
 
         // validate and set request protection method
         switch (request.getRequestProtectionMethod()) {
@@ -480,8 +488,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
      * variant (V2_3GPP forces signature both ways, V3 is unsupported), so registration mode requires V2 and
      * shared-secret request protection.
      */
-    private static void validateRegistrationChallengeSource(CmpProfileRequestDto request, CmpProfile cmpProfile) {
-        if (cmpProfile.getVariant() != CmpProfileVariant.V2) {
+    private static void validateRegistrationChallengeSource(CmpProfileRequestDto request) {
+        if (request.getVariant() != CmpProfileVariant.V2) {
             throw new ValidationException(ValidationError.create(
                     "Certificate registration challenge source requires the CMP v2 variant"));
         }
