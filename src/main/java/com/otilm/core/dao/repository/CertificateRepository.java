@@ -202,6 +202,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             SELECT c FROM Certificate c
                 WHERE c.raProfileUuid = :raProfileUuid
                     AND c.state = ?#{T(com.otilm.api.model.core.certificate.CertificateState).REGISTERED}
+                    AND c.archived = false
                     AND EXISTS (SELECT 1 FROM CertificateRegistrationAuthorization a
                         WHERE a.certificateUuid = c.uuid
                             AND a.state = ?#{T(com.otilm.core.dao.entity.RegistrationState).ACTIVE})
