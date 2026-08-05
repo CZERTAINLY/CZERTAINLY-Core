@@ -70,9 +70,10 @@ public class CmpRegistrationResolver {
             return reject(tid, "senderKID is not a certificate registration reference");
         }
         Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElse(null);
-        if (certificate == null || certificate.getState() != CertificateState.REGISTERED
-                || certificate.getRaProfileUuid() == null || !certificate.getRaProfileUuid().equals(raProfile.getUuid())) {
-            return reject(tid, "senderKID does not reference a registered certificate of this RA profile");
+        if (certificate == null
+                || certificate.getRaProfileUuid() == null || !certificate.getRaProfileUuid().equals(raProfile.getUuid())
+                || !stateMatchesOperation(certificate.getState(), event)) {
+            return reject(tid, "senderKID does not reference an eligible certificate of this RA profile");
         }
 
         // The gate resolves the plaintext internally and hands it to the predicate; capture it on the
@@ -96,6 +97,16 @@ public class CmpRegistrationResolver {
             return reject(tid, "senderKID references a certificate with no active registration authorization");
         }
         return new RegistrationMacResolution(certificate, captured[0]);
+    }
+
+    /**
+     * ir/cr completes a REGISTERED placeholder; kur rekeys the already-issued certificate whose registration
+     * authorization survived issuance (a REGISTERED placeholder has no key to rekey).
+     */
+    private static boolean stateMatchesOperation(CertificateState state, CertificateEvent event) {
+        return event == CertificateEvent.REKEY
+                ? state != CertificateState.REGISTERED
+                : state == CertificateState.REGISTERED;
     }
 
     private static UUID parseSenderKid(ASN1OctetString senderKID) {

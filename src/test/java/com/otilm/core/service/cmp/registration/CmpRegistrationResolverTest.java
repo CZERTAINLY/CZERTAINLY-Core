@@ -143,7 +143,7 @@ class CmpRegistrationResolverTest {
     }
 
     @Test
-    void nonRegisteredStateRejectsBeforeAnyGateCall() {
+    void nonRegisteredStateRejectsIssueBeforeAnyGateCall() {
         Certificate issued = registeredCertificate();
         issued.setState(CertificateState.ISSUED);
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
@@ -151,6 +151,32 @@ class CmpRegistrationResolverTest {
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
         Assertions.assertThrows(CmpProcessingException.class, () ->
                 resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
+
+        verifyNoInteractions(gate);
+    }
+
+    @Test
+    void rekeyAcceptsIssuedCertificate() {
+        Certificate issued = registeredCertificate();
+        issued.setState(CertificateState.ISSUED);
+        when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.REKEY), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+
+        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions.assertDoesNotThrow(() ->
+                resolver.resolveAndVerify(raProfile, senderKid(CERT_UUID.toString()), CertificateEvent.REKEY,
+                        password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
+
+        Assertions.assertEquals(CERT_UUID, resolution.certificate().getUuid());
+    }
+
+    @Test
+    void rekeyRejectsRegisteredPlaceholderBeforeAnyGateCall() {
+        // A REGISTERED placeholder has no key to rekey.
+        when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(registeredCertificate()));
+
+        ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
+        Assertions.assertThrows(CmpProcessingException.class, () ->
+                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.REKEY, password -> true, TID));
 
         verifyNoInteractions(gate);
     }
