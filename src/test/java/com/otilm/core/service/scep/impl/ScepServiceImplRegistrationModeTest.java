@@ -198,11 +198,10 @@ class ScepServiceImplRegistrationModeTest {
     @Test
     void completionReturnsPendingAndStoresTransaction() throws Exception {
         Certificate matched = registeredCertificate("CN=device-1", null);
-        ReflectionTestUtils.setField(service, "matchedRegistration", matched);
         ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
         when(request.getTransactionId()).thenReturn("tx-1");
 
-        ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request);
+        ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched);
 
         Assertions.assertEquals(PkiStatus.PENDING, response.getPkiStatus());
         verify(clientOperationExternalService).issueExistingCertificate(any(), any(), eq(matched.getUuid().toString()),
@@ -214,12 +213,11 @@ class ScepServiceImplRegistrationModeTest {
     @Test
     void completionDenialMapsToGenericMessage() throws Exception {
         Certificate matched = registeredCertificate("CN=device-1", null);
-        ReflectionTestUtils.setField(service, "matchedRegistration", matched);
         ScepRequest request = scepRequest("CN=device-1", "wrong-challenge");
         when(clientOperationExternalService.issueExistingCertificate(any(), any(), anyString(), any()))
                 .thenThrow(new ValidationException("The certificate registration challenge is invalid."));
 
-        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "completeRegistration", request));
+        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched));
 
         Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
         Assertions.assertEquals(FailInfo.BAD_MESSAGE_CHECK, ex.getFailInfo());
@@ -228,13 +226,12 @@ class ScepServiceImplRegistrationModeTest {
     @Test
     void associationFailureDoesNotFailTheCompletedEnrolment() throws Exception {
         Certificate matched = registeredCertificate("CN=device-1", null);
-        ReflectionTestUtils.setField(service, "matchedRegistration", matched);
         ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
         when(request.getTransactionId()).thenReturn("tx-2");
         doThrow(new RuntimeException("association failed"))
                 .when(certificateService).applyProtocolAssociations(any(), any());
 
-        ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request);
+        ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched);
 
         Assertions.assertEquals(PkiStatus.PENDING, response.getPkiStatus());
         verify(scepTransactionRepository).save(any());

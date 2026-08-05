@@ -143,8 +143,6 @@ public class ScepServiceImpl implements ScepExternalService {
     private RaProfile raProfile;
     private List<RequestAttribute> issueAttributes;
     private ScepProfile scepProfile;
-    /** The pre-registered certificate a registration-mode enrolment was matched to; set per request. */
-    private Certificate matchedRegistration;
     private RaProfileRepository raProfileRepository;
     private ScepProfileRepository scepProfileRepository;
     private ScepTransactionRepository scepTransactionRepository;
@@ -284,9 +282,6 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     private void init(String profileName) throws ScepException {
-        // Per-request state: a match left over from a previous request must never leak into this one
-        // (an authenticated renewal skips matching and would otherwise complete a stale registration).
-        this.matchedRegistration = null;
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -470,6 +465,7 @@ public class ScepServiceImpl implements ScepExternalService {
                 ? buildIntuneClient(getIntuneConfiguration())
                 : null;
 
+        Certificate matchedRegistration = null;
         if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ) || scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
             try {
                 // Classify first: both challenge regimes need the renewal verdict.
@@ -477,7 +473,8 @@ public class ScepServiceImpl implements ScepExternalService {
                 if (registrationMode()) {
                     // An authenticated renewal proved possession of the replaced certificate's key — the
                     // RFC-blessed equivalent of a challenge — so only initial enrolments must match a
-                    // pre-registration.
+                    // pre-registration. The match travels as a parameter: it is per-request state and must
+                    // not live on this singleton.
                     if (!authenticatedRenewal) {
                         matchedRegistration = matchRegistration(scepRequest);
                     }
@@ -490,7 +487,7 @@ public class ScepServiceImpl implements ScepExternalService {
             }
         }
 
-        return buildResponse(scepRequest, resolveResponse(scepRequest, intuneClient));
+        return buildResponse(scepRequest, resolveResponse(scepRequest, intuneClient, matchedRegistration));
     }
 
     /** Decrypts the enveloped PKCS#10 request with the private key of the SCEP profile's CA certificate. */
@@ -513,13 +510,13 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     /** Produces the response body for a request that has been decrypted and, where applicable, authenticated. */
-    private ScepResponse resolveResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) {
+    private ScepResponse resolveResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient, Certificate matchedRegistration) {
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile)) {
             LoggingHelper.putAuditLogOperation(Operation.SCEP_TRANSACTION_CHECK);
             return existingTransactionResponse(scepRequest);
         }
         if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
-            return enrollmentResponse(scepRequest, intuneClient);
+            return enrollmentResponse(scepRequest, intuneClient, matchedRegistration);
         }
         if (scepRequest.getMessageType().equals(MessageType.CERT_POLL)) {
             LoggingHelper.putAuditLogOperation(Operation.SCEP_CERTIFICATE_POLL);
@@ -538,14 +535,14 @@ public class ScepServiceImpl implements ScepExternalService {
         }
     }
 
-    private ScepResponse enrollmentResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) {
+    private ScepResponse enrollmentResponse(ScepRequest scepRequest, IntuneScepServiceClient intuneClient, Certificate matchedRegistration) {
         try {
             // Reject before issuing when the response could never be delivered, so the platform
             // does not commit a certificate the client can never retrieve (RFC 8894 §3.2.2).
             verifyResponseEnvelopable(scepRequest);
-            if (registrationMode() && matchedRegistration != null) {
+            if (matchedRegistration != null) {
                 LoggingHelper.putAuditLogOperation(Operation.ISSUE);
-                return completeRegistration(scepRequest);
+                return completeRegistration(scepRequest, matchedRegistration);
             }
             // Manual approval for the SCEP clients are configured in the SCEP Profile.
             // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
@@ -1017,10 +1014,10 @@ public class ScepServiceImpl implements ScepExternalService {
      * the same as for an operator completion. Registration completion is always asynchronous: the client
      * receives PENDING and polls the transaction.
      */
-    private ScepResponse completeRegistration(ScepRequest scepRequest) throws ScepException {
+    private ScepResponse completeRegistration(ScepRequest scepRequest, Certificate matchedRegistration) throws ScepException {
         ClientCertificateIssueRequestDto requestDto = new ClientCertificateIssueRequestDto();
         try {
-            requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setRequest(new String(Base64.getEncoder().encodeToString(scepRequest.getPkcs10Request().getEncoded())));
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
         }
@@ -1040,7 +1037,7 @@ public class ScepServiceImpl implements ScepExternalService {
             logger.info("SCEP registration completion rejected: {}", e.getMessage());
             throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
         }
-        applyProtocolAssociationBestEffort();
+        applyProtocolAssociationBestEffort(matchedRegistration);
         addTransactionEntity(scepRequest.getTransactionId(), matchedRegistration.getUuid().toString());
         ScepResponse scepResponse = new ScepResponse();
         scepResponse.setPkiStatus(PkiStatus.PENDING);
@@ -1052,7 +1049,7 @@ public class ScepServiceImpl implements ScepExternalService {
      * not fail the enrolment: the certificate is REQUESTED now, a retry would no longer match, and the
      * client would be stranded. Best-effort with the failure logged.
      */
-    private void applyProtocolAssociationBestEffort() {
+    private void applyProtocolAssociationBestEffort(Certificate matchedRegistration) {
         try {
             certificateService.applyProtocolAssociations(matchedRegistration.getUuid(), CertificateProtocolInfo.Scep(scepProfile.getUuid()));
         } catch (Exception e) {
