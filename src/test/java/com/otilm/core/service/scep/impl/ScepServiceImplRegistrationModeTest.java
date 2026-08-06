@@ -86,6 +86,7 @@ class ScepServiceImplRegistrationModeTest {
     private RegistrationChallengeStore registrationChallengeStore;
     private ClientOperationExternalService clientOperationExternalService;
     private CertificateInternalService certificateService;
+    private ScepRegistrationTrackingWriter scepRegistrationTrackingWriter;
 
     @BeforeAll
     static void setUpClass() throws Exception {
@@ -120,6 +121,7 @@ class ScepServiceImplRegistrationModeTest {
         registrationChallengeStore = mock(RegistrationChallengeStore.class);
         clientOperationExternalService = mock(ClientOperationExternalService.class);
         certificateService = mock(CertificateInternalService.class);
+        scepRegistrationTrackingWriter = mock(ScepRegistrationTrackingWriter.class);
 
         AuthorityInstanceReference authority = new AuthorityInstanceReference();
         authority.setUuid(UUID.randomUUID());
@@ -136,6 +138,7 @@ class ScepServiceImplRegistrationModeTest {
         ReflectionTestUtils.setField(service, "registrationChallengeStore", registrationChallengeStore);
         ReflectionTestUtils.setField(service, "clientOperationExternalService", clientOperationExternalService);
         ReflectionTestUtils.setField(service, "certificateService", certificateService);
+        ReflectionTestUtils.setField(service, "scepRegistrationTrackingWriter", scepRegistrationTrackingWriter);
     }
 
     @Test
@@ -204,8 +207,8 @@ class ScepServiceImplRegistrationModeTest {
         Assertions.assertEquals(PkiStatus.PENDING, response.getPkiStatus());
         verify(clientOperationExternalService).issueExistingCertificate(any(), any(), eq(matched.getUuid().toString()),
                 Mockito.argThat(dto -> CHALLENGE.equals(dto.getAuthorizationSecret())));
-        verify(certificateService).applyProtocolAssociations(eq(matched.getUuid()), any());
-        verify(scepTransactionRepository).save(Mockito.argThat(tx -> tx.getCertificateUuid().equals(matched.getUuid())));
+        verify(scepRegistrationTrackingWriter).recordPollMapping(eq("tx-1"), eq(matched.getUuid()), any());
+        verify(scepRegistrationTrackingWriter).recordProtocolAttribution(eq(matched.getUuid()), any());
     }
 
     @Test
@@ -227,12 +230,12 @@ class ScepServiceImplRegistrationModeTest {
         ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
         when(request.getTransactionId()).thenReturn("tx-2");
         doThrow(new RuntimeException("association failed"))
-                .when(certificateService).applyProtocolAssociations(any(), any());
+                .when(scepRegistrationTrackingWriter).recordProtocolAttribution(any(), any());
 
         ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched);
 
         Assertions.assertEquals(PkiStatus.PENDING, response.getPkiStatus());
-        verify(scepTransactionRepository).save(any());
+        verify(scepRegistrationTrackingWriter).recordPollMapping(eq("tx-2"), eq(matched.getUuid()), any());
     }
 
     @Test
@@ -256,7 +259,7 @@ class ScepServiceImplRegistrationModeTest {
         when(request.getTransactionId()).thenReturn("tx-3");
         ScepTransaction transaction = new ScepTransaction();
         transaction.setCertificateUuid(CANDIDATE_UUID);
-        when(scepTransactionRepository.findByTransactionId("tx-3")).thenReturn(Optional.of(transaction));
+        when(scepTransactionRepository.findByTransactionIdAndScepProfile("tx-3", profile)).thenReturn(Optional.of(transaction));
         CertificateRegistrationAuthorization authorization = new CertificateRegistrationAuthorization();
         when(registrationAuthorizationRepository.findByCertificateUuid(CANDIDATE_UUID))
                 .thenReturn(Optional.of(authorization));
@@ -269,7 +272,7 @@ class ScepServiceImplRegistrationModeTest {
     void envelopePasswordIsNullForUnknownPollTransaction() {
         ScepRequest request = mock(ScepRequest.class);
         when(request.getTransactionId()).thenReturn("tx-unknown");
-        when(scepTransactionRepository.findByTransactionId("tx-unknown")).thenReturn(Optional.empty());
+        when(scepTransactionRepository.findByTransactionIdAndScepProfile("tx-unknown", profile)).thenReturn(Optional.empty());
 
         Assertions.assertNull(ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
     }
