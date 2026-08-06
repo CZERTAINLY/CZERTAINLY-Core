@@ -135,6 +135,64 @@ class RegistrationIdentityMatcherTest {
     }
 
     @Test
+    void ipSanMatchesAcrossHexCsrAndDecodedRegistration() {
+        // The CSR side renders an IP SAN as its octet hex (what getSAN produces); the registration stores the
+        // decoded text. Both must canonicalize to the same identity.
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("iPAddress", List.of("192.168.1.1"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("iPAddress", List.of("#c0a80101")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void equivalentIpv6FormsMatch() {
+        // Registration stores a compressed IPv6; the CSR presents the fully expanded octets. Same address.
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("iPAddress", List.of("2001:db8::1"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"),
+                Map.of("iPAddress", List.of("#20010db8000000000000000000000001")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void differentIpSansAreSanMismatch() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("iPAddress", List.of("192.168.1.1"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("iPAddress", List.of("#0a000001")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.SAN_MISMATCH, result.outcome());
+    }
+
+    @Test
+    void dnsNameCaseIsInsensitive() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("dNSName", List.of("Device.Example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("dNSName", List.of("device.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void duplicateSanValuesAreCollapsed() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("dNSName", List.of("a.example", "a.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
     void noSubjectMatchIsNoMatch() {
         Candidate candidate = new Candidate(CANDIDATE_A, "CN=other-device", null);
 

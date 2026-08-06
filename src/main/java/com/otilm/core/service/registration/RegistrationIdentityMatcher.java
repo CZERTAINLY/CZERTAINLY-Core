@@ -2,11 +2,16 @@ package com.otilm.core.service.registration;
 
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.PlatformX500NameStyle;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.util.encoders.Hex;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -14,8 +19,10 @@ import java.util.UUID;
  * Pure matching kernel binding a protocol enrolment to a pre-registered certificate. Subjects compare by their
  * {@link PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and
  * spacing but deliberately preserves attribute-value case — the enrolment must present the identity exactly
- * as registered. SAN sets compare as maps of sorted value lists with empty entries dropped, so an absent
- * SAN column, an empty map and all-empty buckets are the same identity.
+ * as registered. SAN sets compare as maps of value lists canonicalized per type — IP addresses reduced to
+ * their octets (so the CSR's hex rendering equals a registration's decoded text and equivalent forms agree),
+ * DNS names lowercased (they are case-insensitive), duplicates dropped, order removed, and empty buckets
+ * dropped — so representation differences that do not change the identity do not defeat the match.
  *
  * <p>The kernel never checks the challenge — the caller verifies it against the single matched
  * registration, keeping failed-attempt accounting attributable to exactly one authorization.
@@ -111,17 +118,57 @@ public final class RegistrationIdentityMatcher {
         return normalizedCsrSans.equals(normalizeSans(CertificateUtil.deserializeSans(candidate.serializedSans())));
     }
 
-    /** Drops empty buckets and sorts each value list, so bucket presence and value order carry no meaning. */
+    /** The serialized SAN type keys whose values carry a canonical form independent of their rendering. */
+    private static final String DNS_NAME = "dNSName";
+    private static final String IP_ADDRESS = "iPAddress";
+
+    /**
+     * Canonicalizes each value per type (see the class Javadoc), drops duplicates, sorts, and drops empty
+     * buckets, so bucket presence, value order, duplicates and per-type representation carry no meaning.
+     */
     private static Map<String, List<String>> normalizeSans(Map<String, List<String>> sans) {
         Map<String, List<String>> normalized = new TreeMap<>();
         if (sans == null) {
             return normalized;
         }
         sans.forEach((type, values) -> {
-            if (values != null && !values.isEmpty()) {
-                normalized.put(type, values.stream().sorted().toList());
+            if (values == null || values.isEmpty()) {
+                return;
+            }
+            List<String> canonical = values.stream()
+                    .filter(Objects::nonNull)
+                    .map(value -> canonicalizeSanValue(type, value))
+                    .distinct()
+                    .sorted()
+                    .toList();
+            if (!canonical.isEmpty()) {
+                normalized.put(type, canonical);
             }
         });
         return normalized;
+    }
+
+    private static String canonicalizeSanValue(String type, String value) {
+        return switch (type) {
+            case IP_ADDRESS -> canonicalizeIp(value);
+            case DNS_NAME -> value.toLowerCase(Locale.ROOT);
+            default -> value;
+        };
+    }
+
+    /**
+     * Reduces an IP SAN to its octet hex, the form {@link CertificateUtil#getSAN} renders from a CSR, so a
+     * registration's decoded text ({@code 192.168.1.1}) and equivalent forms collapse to the same value. An
+     * unparseable value is left untouched, so a genuine mismatch still mismatches rather than throwing.
+     */
+    private static String canonicalizeIp(String value) {
+        try {
+            byte[] octets = value.startsWith("#")
+                    ? Hex.decode(value.substring(1))
+                    : ASN1OctetString.getInstance(new GeneralName(GeneralName.iPAddress, value).getName()).getOctets();
+            return "#" + Hex.toHexString(octets);
+        } catch (RuntimeException e) {
+            return value;
+        }
     }
 }
