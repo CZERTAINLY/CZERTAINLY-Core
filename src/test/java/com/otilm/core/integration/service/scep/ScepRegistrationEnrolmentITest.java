@@ -71,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -408,7 +409,7 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     @Test
     void passwordRecipientRequestCannotBeDecrypted() throws Exception {
-        registeredPlaceholder(ScepMessageTestData.SUBJECT_DN, null, CHALLENGE);
+        Certificate placeholder = registeredPlaceholder(ScepMessageTestData.SUBJECT_DN, null, CHALLENGE);
 
         // No decrypt stub: the profile has no shared password, so a password-recipient request is
         // undecryptable by construction and must be answered as a SCEP failure.
@@ -418,6 +419,13 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.FAILURE.getValue()), attribute(response, ScepConstants.id_pkiStatus));
+        assertEquals(String.valueOf(FailInfo.BAD_REQUEST.getValue()), attribute(response, ScepConstants.id_failInfo));
+        // Rejected before any completion: the placeholder is untouched and no issuance is enqueued, so the test
+        // cannot pass on an unrelated setup, connector, or response-building failure that also ends in FAILURE.
+        Certificate untouched = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
+        assertEquals(CertificateState.REGISTERED, untouched.getState());
+        assertNull(untouched.getCertificateRequestUuid());
+        verify(actionProducer, never()).produceMessage(Mockito.any());
     }
 
     @Test
