@@ -257,6 +257,21 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
     }
 
     @Test
+    void macRevocationIsRejectedNotAuthenticatedByAnEmptySecret() throws Exception {
+        // Registration mode stores no shared secret; a MAC-protected revocation must not authenticate against
+        // an empty key. It is rejected at protection validation, never reaching the revocation handler.
+        seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
+        PKIBody revocation = CmpTestUtil.createRevocationBody(BigInteger.valueOf(0xC0FFEEL));
+        PKIMessage message = CmpTestUtil.createMacBasedMessageWithSenderKid(
+                "0102030405060708", "anything", revocation,
+                UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+
+        ResponseEntity<byte[]> response = post(message);
+
+        assertEquals(PKIFailureInfo.badMessageCheck, failInfo(response.getBody()));
+    }
+
+    @Test
     void wrongMacIsRejectedGenericallyAndCounted() throws Exception {
         Certificate registration = seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
 

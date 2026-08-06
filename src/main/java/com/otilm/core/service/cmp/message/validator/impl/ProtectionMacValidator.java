@@ -4,6 +4,7 @@ import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.validator.Validator;
+import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
@@ -41,17 +42,27 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
         ASN1OctetString tid = message.getHeader().getTransactionID();
         // The registration gate runs on the incoming request only. A response (validateOut) is MAC-validated
         // through the normal path below, keyed by the matched registration's challenge via getSharedSecret().
-        if (configuration.isRegistrationMode() && isRegistrationRequest(message)) {
-            // The gate (via the context) does the senderKID resolution, MAC check through this predicate,
-            // failed-attempt counting and lockout, and throws the single generic rejection on any failure.
-            configuration.verifyRegistrationMacProtection(message, password -> {
-                try {
-                    return matchesMac(message, password);
-                } catch (Exception e) {
-                    return false;
-                }
-            });
-            return null;
+        if (configuration.isRegistrationMode()) {
+            if (isRegistrationRequest(message)) {
+                // The gate (via the context) does the senderKID resolution, MAC check through this predicate,
+                // failed-attempt counting and lockout, and throws the single generic rejection on any failure.
+                configuration.verifyRegistrationMacProtection(message, password -> {
+                    try {
+                        return matchesMac(message, password);
+                    } catch (Exception e) {
+                        return false;
+                    }
+                });
+                return null;
+            }
+            // Registration mode stores no shared secret. The only other legitimate MAC is a response, keyed
+            // below by the matched registration's challenge (getSharedSecret returns it once a request has
+            // matched). An empty key means nothing matched — e.g. a MAC-protected revocation, which
+            // registration mode does not authenticate — so it must never be allowed to verify a forged MAC.
+            if (configuration.getSharedSecret().length == 0) {
+                throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                        CmpRegistrationResolver.REGISTRATION_REJECTION);
+            }
         }
         try {
             if (!matchesMac(message, configuration.getSharedSecret())) {
