@@ -43,7 +43,7 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
         // The registration gate runs on the incoming request only. A response (validateOut) is MAC-validated
         // through the normal path below, keyed by the matched registration's challenge via getSharedSecret().
         if (configuration.isRegistrationMode()) {
-            if (isRegistrationRequest(message)) {
+            if (isRegistrationMacBody(message)) {
                 // The gate (via the context) does the senderKID resolution, MAC check through this predicate,
                 // failed-attempt counting and lockout, and throws the single generic rejection on any failure.
                 configuration.verifyRegistrationMacProtection(message, password -> {
@@ -78,11 +78,18 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
         return null;// validation is ok
     }
 
-    private static boolean isRegistrationRequest(PKIMessage message) {
+    /**
+     * Bodies whose MAC registration mode authenticates against a pre-registration challenge: the enrolment and
+     * rekey requests (ir/cr/kur) and the async follow-ups of a registration exchange (pollReq/certConf). Every
+     * other MAC body (e.g. a revocation) has no registration challenge to key it and is rejected below.
+     */
+    private static boolean isRegistrationMacBody(PKIMessage message) {
         int bodyType = message.getBody().getType();
         return bodyType == PKIBody.TYPE_INIT_REQ
                 || bodyType == PKIBody.TYPE_CERT_REQ
-                || bodyType == PKIBody.TYPE_KEY_UPDATE_REQ;
+                || bodyType == PKIBody.TYPE_KEY_UPDATE_REQ
+                || bodyType == PKIBody.TYPE_POLL_REQ
+                || bodyType == PKIBody.TYPE_CERT_CONFIRM;
     }
 
     /**

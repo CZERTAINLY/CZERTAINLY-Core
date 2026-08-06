@@ -151,18 +151,26 @@ public class CmpConfigurationContext implements ConfigurationContext {
             throw new CmpConfigurationException(tid, PKIFailureInfo.systemFailure,
                     "registration challenge source is configured but the registration resolver is unavailable");
         }
-        CertificateEvent event = registrationEventForBody(message.getBody().getType(), tid);
-        CmpRegistrationResolver.RegistrationMacResolution resolution =
-                registrationResolver.resolveAndVerify(raProfile, getSenderKID(), event, macMatches, tid);
+        CmpRegistrationResolver.RegistrationMacResolution resolution = resolveRegistrationMac(message, macMatches, tid);
         this.matchedRegistration = resolution.certificate();
         this.matchedChallenge = resolution.challenge();
     }
 
-    private static CertificateEvent registrationEventForBody(int bodyType, ASN1OctetString tid) throws CmpProcessingException {
-        return switch (bodyType) {
-            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ -> CertificateEvent.ISSUE;
-            case PKIBody.TYPE_KEY_UPDATE_REQ -> CertificateEvent.REKEY;
-            // Registration mode authenticates only enrolment and rekey; any other MAC body is unsupported.
+    private CmpRegistrationResolver.RegistrationMacResolution resolveRegistrationMac(
+            PKIMessage message, Predicate<byte[]> macMatches, ASN1OctetString tid) throws CmpBaseException {
+        return switch (message.getBody().getType()) {
+            // Enrolment / rekey: strict certificate-state check (a REGISTERED placeholder for ir/cr, the
+            // already-issued certificate for kur).
+            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ ->
+                    registrationResolver.resolveAndVerify(raProfile, getSenderKID(), CertificateEvent.ISSUE, macMatches, tid);
+            case PKIBody.TYPE_KEY_UPDATE_REQ ->
+                    registrationResolver.resolveAndVerify(raProfile, getSenderKID(), CertificateEvent.REKEY, macMatches, tid);
+            // Async follow-ups of a registration exchange: the certificate has moved past REGISTERED by the time
+            // the client polls, so the state is not constrained — the MAC is still verified against the
+            // registration's surviving challenge and the response keyed by it.
+            case PKIBody.TYPE_POLL_REQ, PKIBody.TYPE_CERT_CONFIRM ->
+                    registrationResolver.resolveAndVerifyFollowup(raProfile, getSenderKID(), macMatches, tid);
+            // Any other MAC body (e.g. a revocation) is not authenticated by a registration challenge.
             default -> throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     CmpRegistrationResolver.REGISTRATION_REJECTION);
         };

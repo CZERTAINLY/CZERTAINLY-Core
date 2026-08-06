@@ -180,4 +180,49 @@ class CmpRegistrationResolverTest {
 
         verifyNoInteractions(gate);
     }
+
+    @Test
+    void followupAcceptsIssuedCertificateRegardlessOfState() {
+        // pollReq/certConf arrive after the placeholder has issued; the state is not constrained, only that the
+        // surviving authorization still verifies the MAC.
+        Certificate issued = registeredCertificate();
+        issued.setState(CertificateState.ISSUED);
+        when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+
+        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions.assertDoesNotThrow(() ->
+                resolver.resolveAndVerifyFollowup(raProfile, senderKid(CERT_UUID.toString()),
+                        password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
+
+        Assertions.assertEquals(CERT_UUID, resolution.certificate().getUuid());
+        Assertions.assertEquals(CHALLENGE, resolution.challenge());
+    }
+
+    @Test
+    void followupWrongMacRejectsGenerically() {
+        Certificate issued = registeredCertificate();
+        issued.setState(CertificateState.ISSUED);
+        when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+
+        ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
+        CmpProcessingException ex = Assertions.assertThrows(CmpProcessingException.class, () ->
+                resolver.resolveAndVerifyFollowup(raProfile, senderKid, password -> false, TID));
+
+        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+    }
+
+    @Test
+    void followupWrongRaProfileRejectsBeforeAnyGateCall() {
+        Certificate other = registeredCertificate();
+        other.setState(CertificateState.ISSUED);
+        other.setRaProfileUuid(UUID.randomUUID());
+        when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(other));
+
+        ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
+        Assertions.assertThrows(CmpProcessingException.class, () ->
+                resolver.resolveAndVerifyFollowup(raProfile, senderKid, password -> true, TID));
+
+        verifyNoInteractions(gate);
+    }
 }

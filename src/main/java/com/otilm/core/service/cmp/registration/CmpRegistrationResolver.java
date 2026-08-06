@@ -65,23 +65,52 @@ public class CmpRegistrationResolver {
     public RegistrationMacResolution resolveAndVerify(RaProfile raProfile, ASN1OctetString senderKID,
                                                       CertificateEvent event, Predicate<byte[]> macMatches,
                                                       ASN1OctetString tid) throws CmpBaseException {
+        Certificate certificate = resolveEligibleCertificate(raProfile, senderKID, event, tid);
+        return verifyChallenge(certificate, event, macMatches, tid);
+    }
+
+    /**
+     * As {@link #resolveAndVerify} but for a CMP follow-up (pollReq / certConf) of a registration exchange:
+     * by the time the client polls, the placeholder has moved past {@code REGISTERED}, so the certificate
+     * state is not constrained — only that the senderKID references a certificate of {@code raProfile} whose
+     * authorization still verifies the MAC through the gate (a forged follow-up is still counted and locks
+     * out). Issuance leaves the authorization ACTIVE, so the challenge remains available to key the response.
+     */
+    public RegistrationMacResolution resolveAndVerifyFollowup(RaProfile raProfile, ASN1OctetString senderKID,
+                                                              Predicate<byte[]> macMatches,
+                                                              ASN1OctetString tid) throws CmpBaseException {
+        Certificate certificate = resolveEligibleCertificate(raProfile, senderKID, null, tid);
+        return verifyChallenge(certificate, CertificateEvent.ISSUE, macMatches, tid);
+    }
+
+    /**
+     * Resolves the senderKID to a certificate of {@code raProfile}. A non-null {@code event} additionally
+     * requires the state to match the operation ({@link #stateMatchesOperation}); a null {@code event} skips
+     * the state check (the follow-up path, where the certificate has already left {@code REGISTERED}).
+     */
+    private Certificate resolveEligibleCertificate(RaProfile raProfile, ASN1OctetString senderKID,
+                                                   CertificateEvent event, ASN1OctetString tid) throws CmpBaseException {
         UUID certificateUuid = parseSenderKid(senderKID);
         if (certificateUuid == null) {
-            return reject(tid, "senderKID is not a certificate registration reference");
+            throw rejection(tid, "senderKID is not a certificate registration reference");
         }
         Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElse(null);
         if (certificate == null
                 || certificate.getRaProfileUuid() == null || !certificate.getRaProfileUuid().equals(raProfile.getUuid())
-                || !stateMatchesOperation(certificate.getState(), event)) {
-            return reject(tid, "senderKID does not reference an eligible certificate of this RA profile");
+                || (event != null && !stateMatchesOperation(certificate.getState(), event))) {
+            throw rejection(tid, "senderKID does not reference an eligible certificate of this RA profile");
         }
+        return certificate;
+    }
 
+    private RegistrationMacResolution verifyChallenge(Certificate certificate, CertificateEvent event,
+                                                      Predicate<byte[]> macMatches, ASN1OctetString tid) throws CmpBaseException {
         // The gate resolves the plaintext internally and hands it to the predicate; capture it on the
         // verifying key so the handler can present it as authorizationSecret and the response can be keyed.
         String[] captured = new String[1];
         boolean verified;
         try {
-            verified = registrationChallengeGate.verify(certificateUuid, event, plaintext -> {
+            verified = registrationChallengeGate.verify(certificate.getUuid(), event, plaintext -> {
                 boolean ok = macMatches.test(plaintext.getBytes(StandardCharsets.UTF_8));
                 if (ok) {
                     captured[0] = plaintext;
@@ -121,7 +150,11 @@ public class CmpRegistrationResolver {
     }
 
     private static RegistrationMacResolution reject(ASN1OctetString tid, String reason) throws CmpProcessingException {
+        throw rejection(tid, reason);
+    }
+
+    private static CmpProcessingException rejection(ASN1OctetString tid, String reason) {
         logger.info("CMP registration enrolment rejected: {}", reason);
-        throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, REGISTRATION_REJECTION);
+        return new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, REGISTRATION_REJECTION);
     }
 }
