@@ -387,7 +387,8 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     void issueExistingRejectsPresentedSecretOnClosedAuthorization() throws Exception {
         // The raced-away arc materialized: the authorization closed between a protocol match and the gate.
         // Even the previously-correct challenge must reject instead of completing via the permission fallback.
-        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        AuthorityProviderAdapter adapter = mock(AuthorityProviderAdapter.class);
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(adapter);
         ClientCertificateRegistrationDto request = registrationRequest();
         request.setAuthorizationSecret(CHALLENGE);
         UUID certUuid = UUID.fromString(clientOperationService
@@ -411,7 +412,8 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     void approvalRejectedRestoresPlatformLevelNoSecretPlaceholder() throws Exception {
         // A platform-level pre-registration with NO secret still carries a register->issue binding, so its issuance
         // approval rejection restores it to REGISTERED, symmetric with the connector-backed and secret cases.
-        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        AuthorityProviderAdapter adapter = mock(AuthorityProviderAdapter.class);
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(adapter);
         UUID certUuid = UUID.fromString(
                 clientOperationService.registerCertificate(authorityParent, securedRaProfile, registrationRequest()).getUuid());
 

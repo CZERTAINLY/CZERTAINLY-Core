@@ -71,6 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -225,9 +226,9 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     @Test
     void differentKeyReplayCannotReplaceTheAttachedCsr() throws Exception {
-        // A fresh-key second completion must not overwrite the first CSR. The row lock serializes concurrent
-        // completions into this same second attach, so a sequential replay covers the race deterministically;
-        // a fresh transaction id keeps the SCEP dedup from folding it into a poll.
+        // A fresh-key second completion must not overwrite the first CSR. The certificate row lock serializes
+        // concurrent completions into this same second attach, so a sequential replay deterministically covers
+        // the race, and a fresh transaction id stops the SCEP dedup from folding the replay into a poll.
         Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
 
         ResponseEntity<Object> first = postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
@@ -253,7 +254,7 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         // publish, standing in for a row-lock timeout or infrastructure error) must not leave the mapping behind,
         // or a retry with the same key-derived transaction id would be short-circuited to a poll that never completes.
         registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
-        Mockito.doThrow(new IllegalStateException("action broker unavailable"))
+        doThrow(new IllegalStateException("action broker unavailable"))
                 .when(actionProducer).produceMessage(Mockito.any());
 
         postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));

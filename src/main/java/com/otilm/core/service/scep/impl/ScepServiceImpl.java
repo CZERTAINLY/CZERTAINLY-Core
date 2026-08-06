@@ -1026,7 +1026,7 @@ public class ScepServiceImpl implements ScepExternalService {
     private ScepResponse completeRegistration(ScepRequest scepRequest, Certificate matchedRegistration) throws ScepException {
         ClientCertificateIssueRequestDto requestDto = new ClientCertificateIssueRequestDto();
         try {
-            requestDto.setRequest(new String(Base64.getEncoder().encodeToString(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setRequest(Base64.getEncoder().encodeToString(scepRequest.getPkcs10Request().getEncoded()));
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
         }
