@@ -949,7 +949,10 @@ public class ScepServiceImpl implements ScepExternalService {
     }
 
     private ScepTransaction getTransaction(String transactionId) {
-        return scepTransactionRepository.findByTransactionId(transactionId).orElse(null);
+        // Transaction ids are client-chosen and can collide across SCEP profiles, so the fetch is scoped to the
+        // current profile — matching the exists-check in resolveResponse, so a poll never resolves another
+        // profile's transaction (and, in registration mode, never recovers another registration's challenge).
+        return scepTransactionRepository.findByTransactionIdAndScepProfile(transactionId, scepProfile).orElse(null);
     }
 
     /** The single wire message for every registration-mode rejection, so a prober cannot enumerate registrations. */

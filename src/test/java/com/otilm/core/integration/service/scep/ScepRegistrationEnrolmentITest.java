@@ -17,6 +17,7 @@ import com.otilm.api.model.core.scep.PkiStatus;
 import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.scep.ScepProfile;
+import com.otilm.core.dao.entity.scep.ScepTransaction;
 import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepTransactionRepository;
@@ -271,6 +272,51 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         Certificate completed = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
         assertEquals(CertificateState.REGISTERED, completed.getState());
         assertNotNull(completed.getCertificateRequestUuid(), "the subjectless enrolment CSR is attached");
+    }
+
+    @Test
+    void transactionLookupIsScopedByScepProfile() {
+        // Transaction ids are client-chosen and can collide across profiles, so a poll's fetch must resolve only
+        // the polling profile's transaction — never another profile's registration behind the same id (which in
+        // registration mode would recover the wrong challenge for the response envelope).
+        ScepProfile otherProfile = new ScepProfile();
+        otherProfile.setName("otherRegistrationProfile");
+        otherProfile.setEnabled(true);
+        otherProfile.setRequireManualApproval(false);
+        otherProfile.setIncludeCaCertificate(true);
+        otherProfile.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+        otherProfile.setCaCertificate(scepProfile.getCaCertificate());
+        otherProfile.setRaProfile(scepProfile.getRaProfile());
+        otherProfile = scepProfileRepository.save(otherProfile);
+
+        UUID certUnderThisProfile = savedCertificate();
+        UUID certUnderOtherProfile = savedCertificate();
+        String sharedTransactionId = "shared-across-profiles";
+        storeTransaction(sharedTransactionId, certUnderThisProfile, scepProfile);
+        storeTransaction(sharedTransactionId, certUnderOtherProfile, otherProfile);
+
+        assertEquals(certUnderThisProfile,
+                scepTransactionRepository.findByTransactionIdAndScepProfile(sharedTransactionId, scepProfile)
+                        .orElseThrow().getCertificateUuid(),
+                "the fetch must return this profile's transaction, not the colliding one");
+        assertEquals(certUnderOtherProfile,
+                scepTransactionRepository.findByTransactionIdAndScepProfile(sharedTransactionId, otherProfile)
+                        .orElseThrow().getCertificateUuid());
+    }
+
+    private UUID savedCertificate() {
+        Certificate certificate = new Certificate();
+        certificate.setState(CertificateState.REGISTERED);
+        certificate.setRaProfile(raProfile);
+        return certificateRepository.save(certificate).getUuid();
+    }
+
+    private void storeTransaction(String transactionId, UUID certificateUuid, ScepProfile profile) {
+        ScepTransaction transaction = new ScepTransaction();
+        transaction.setTransactionId(transactionId);
+        transaction.setCertificateUuid(certificateUuid);
+        transaction.setScepProfile(profile);
+        scepTransactionRepository.save(transaction);
     }
 
     @Test
