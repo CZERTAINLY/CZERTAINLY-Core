@@ -4,30 +4,80 @@ import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
+import com.otilm.core.config.http.PlatformHttpClients;
 import com.otilm.core.settings.SettingsCache;
 import com.nimbusds.jwt.SignedJWT;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorHandler;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.IOException;
 import java.net.URI;
 import java.text.ParseException;
+import java.time.Duration;
 import java.util.*;
 
 public class OAuth2Util {
 
     private static final Logger logger = LoggerFactory.getLogger(OAuth2Util.class);
 
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+
+    /**
+     * Shared client for the provider-side OAuth2 endpoints (end-session, userinfo). {@link RestClient}
+     * is immutable and thread-safe, so a single instance serves all calls.
+     */
+    private static final RestClient restClient = buildRestClient();
+
+    /**
+     * Pool sizing, cookie handling, proxy wiring and retry policy come from
+     * {@link PlatformHttpClients}; what is specific here is how the provider's responses are mapped.
+     */
+    private static RestClient buildRestClient() {
+        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
+                .withConnectTimeout(CONNECT_TIMEOUT)
+                .withReadTimeout(READ_TIMEOUT);
+
+        return RestClient.builder()
+                .requestFactory(PlatformHttpClients.requestFactoryBuilder().build(settings))
+                .defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
+                .defaultStatusHandler(HttpStatusCode::is3xxRedirection, OAuth2Util::rejectUnfollowedRedirect)
+                .build();
+    }
+
+    /**
+     * A redirect reaching the caller means Apache declined to follow it — it refuses cross-authority
+     * redirects on requests carrying an {@code Authorization} header. Left alone, {@code retrieve()}
+     * would hand back a {@code null} body and the userinfo claims would vanish without a trace.
+     */
+    private static void rejectUnfollowedRedirect(HttpRequest request, ClientHttpResponse response) throws IOException {
+        throw new RestClientException("OAuth2 provider endpoint %s answered with redirect %s, which was not followed."
+                .formatted(withoutQuery(request.getURI()), response.getStatusCode()));
+    }
+
+    /**
+     * The logout URI carries the ID token in {@code id_token_hint} and the message of anything thrown
+     * here is logged, so the query string must not travel with it.
+     */
+    private static String withoutQuery(URI uri) {
+        String text = uri.toString();
+        int queryStart = text.indexOf('?');
+        return queryStart < 0 ? text : text.substring(0, queryStart);
+    }
 
     private OAuth2Util() {
         throw new IllegalStateException("Utility class");
@@ -66,8 +116,6 @@ public class OAuth2Util {
             }
             DefaultOidcUser oidcUser = (DefaultOidcUser) authenticationToken.getPrincipal();
             String idToken = oidcUser.getIdToken().getTokenValue();
-            RestTemplate restTemplate = new RestTemplate();
-            restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
             String endSessionEndpoint = provider.getLogoutUrl();
             URI uri = UriComponentsBuilder
                     .fromUriString(endSessionEndpoint)
@@ -75,29 +123,25 @@ public class OAuth2Util {
                     .build()
                     .toUri();
             try {
-                restTemplate.getForEntity(uri, Void.class);
+                restClient.get().uri(uri).retrieve().toBodilessEntity();
             } catch (Exception e) {
                 logger.error("Failed to log out user {} from OAuth2 provider {} at endpoint {}: {}", authenticationToken.getName(), provider.getName(), endSessionEndpoint, e.getMessage(), e);
             }
         }
     }
 
-    private static Map<String, Object> getUserInfo(String userInfoUrl, String accessToken) {
-        RestTemplate restTemplate = new RestTemplate();
-        restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
-        HttpMethod httpMethod = HttpMethod.GET;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+    static Map<String, Object> getUserInfo(String userInfoUrl, String accessToken) {
         URI uri = UriComponentsBuilder
                 .fromUriString(userInfoUrl)
                 .build()
                 .toUri();
 
-        RequestEntity<?> request;
-        headers.setBearerAuth(accessToken);
-        request = new RequestEntity<>(headers, httpMethod, uri);
-        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(request, new ParameterizedTypeReference<>() {});
-        return response.getBody();
+        return restClient.get()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .headers(headers -> headers.setBearerAuth(accessToken))
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
     }
 
     private static Map<String, Object> mergeClaims(Map<String, Object> accessTokenClaims, Map<String,Object> idTokenClaims, Map<String, Object> userInfoClaims) {

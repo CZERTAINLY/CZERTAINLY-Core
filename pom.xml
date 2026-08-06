@@ -326,6 +326,10 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>@{argLine} -Dspring.test.context.cache.maxSize=128</argLine>
+                    <!-- Test classes must keep running one at a time in one JVM: WireMockPorts binds fixed ports. -->
+                    <properties>
+                        <configurationParameters>junit.jupiter.execution.parallel.enabled=false</configurationParameters>
+                    </properties>
                 </configuration>
             </plugin>
             <plugin>
