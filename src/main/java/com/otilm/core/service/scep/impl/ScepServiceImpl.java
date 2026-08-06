@@ -146,6 +146,7 @@ public class ScepServiceImpl implements ScepExternalService {
     private RaProfileRepository raProfileRepository;
     private ScepProfileRepository scepProfileRepository;
     private ScepTransactionRepository scepTransactionRepository;
+    private ScepRegistrationTrackingWriter scepRegistrationTrackingWriter;
     private CertificateRepository certificateRepository;
     private CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository;
     private RegistrationChallengeStore registrationChallengeStore;
@@ -181,6 +182,11 @@ public class ScepServiceImpl implements ScepExternalService {
     @Autowired
     public void setScepTransactionRepository(ScepTransactionRepository scepTransactionRepository) {
         this.scepTransactionRepository = scepTransactionRepository;
+    }
+
+    @Autowired
+    public void setScepRegistrationTrackingWriter(ScepRegistrationTrackingWriter scepRegistrationTrackingWriter) {
+        this.scepRegistrationTrackingWriter = scepRegistrationTrackingWriter;
     }
 
     @Autowired
@@ -1024,6 +1030,13 @@ public class ScepServiceImpl implements ScepExternalService {
         requestDto.setFormat(CertificateRequestFormat.PKCS10);
         requestDto.setAttributes(issueAttributes);
         requestDto.setAuthorizationSecret(scepRequest.getChallengePassword());
+
+        // Record the poll mapping in its own committed transaction before issueExistingCertificate publishes the
+        // ISSUE message: the publish is a non-transactional JMS send, so a mapping durable only with this request's
+        // outer transaction could be rolled back after the message is on the broker — the certificate would issue
+        // while the client's transactionId resolves to nothing. Nothing throws after the enqueue, so any failure
+        // below means no ISSUE was published; discard the staged mapping on every failure path.
+        scepRegistrationTrackingWriter.recordPollMapping(scepRequest.getTransactionId(), matchedRegistration.getUuid(), scepProfile.getUuid());
         try {
             clientOperationExternalService.issueExistingCertificate(
                     raProfile.getAuthorityInstanceReference().getSecuredParentUuid(),
@@ -1034,24 +1047,30 @@ public class ScepServiceImpl implements ScepExternalService {
             // Denial detail (locked authorization, expired window, wrong challenge) stays in the log and
             // the certificate event history; the wire carries the anti-enumeration text so challenge
             // failures are indistinguishable from lookup misses.
+            scepRegistrationTrackingWriter.discardPollMapping(scepRequest.getTransactionId(), scepProfile.getUuid());
             logger.info("SCEP registration completion rejected: {}", e.getMessage());
             throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
+        } catch (RuntimeException e) {
+            // A row-lock timeout, a data-integrity error, an authorization error, or a failed publish also
+            // means no ISSUE reached the broker. Drop the staged mapping so a retry is not short-circuited to
+            // a poll that never completes, then let the unexpected failure surface generically upstream.
+            scepRegistrationTrackingWriter.discardPollMapping(scepRequest.getTransactionId(), scepProfile.getUuid());
+            throw e;
         }
         applyProtocolAssociationBestEffort(matchedRegistration);
-        addTransactionEntity(scepRequest.getTransactionId(), matchedRegistration.getUuid().toString());
         ScepResponse scepResponse = new ScepResponse();
         scepResponse.setPkiStatus(PkiStatus.PENDING);
         return scepResponse;
     }
 
     /**
-     * The completion is already committed and the ISSUE action enqueued, so an association failure must
-     * not fail the enrolment: the certificate is REQUESTED now, a retry would no longer match, and the
-     * client would be stranded. Best-effort with the failure logged.
+     * Protocol attribution is cosmetic and the completion is already committed and published, so an attribution
+     * failure must not fail the enrolment — a retry would no longer match and the client would be stranded. Applied
+     * in its own transaction so the tag survives an outer rollback; best-effort with the failure logged.
      */
     private void applyProtocolAssociationBestEffort(Certificate matchedRegistration) {
         try {
-            certificateService.applyProtocolAssociations(matchedRegistration.getUuid(), CertificateProtocolInfo.Scep(scepProfile.getUuid()));
+            scepRegistrationTrackingWriter.recordProtocolAttribution(matchedRegistration.getUuid(), scepProfile.getUuid());
         } catch (Exception e) {
             logger.warn("Failed to apply SCEP protocol associations to completed registration {}: {}",
                     matchedRegistration.getUuid(), e.getMessage());

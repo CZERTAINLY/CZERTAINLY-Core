@@ -232,14 +232,31 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         UUID boundRequest = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid();
         assertNotNull(boundRequest, "the first enrolment binds its CSR");
 
+        String replayTransactionId = "aa1ba25258bfc72fe6cf8aa70f75e21facd8fc3d";
         ResponseEntity<Object> second = postPkiOperation(ScepMessageTestData.keyTransportEnvelopedPkcsReq(
-                caCertificateX509(), SUBJECT_DN, List.of("device-1.example"), CHALLENGE,
-                "aa1ba25258bfc72fe6cf8aa70f75e21facd8fc3d"));
+                caCertificateX509(), SUBJECT_DN, List.of("device-1.example"), CHALLENGE, replayTransactionId));
 
         assertRegistrationRejection(second);
         assertEquals(boundRequest,
                 certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid(),
                 "the first enrolment's CSR must not be replaced by the different-key replay");
+        assertTrue(scepTransactionRepository.findByTransactionIdAndScepProfile(replayTransactionId, scepProfile).isEmpty(),
+                "the rejected replay's staged poll mapping is discarded");
+    }
+
+    @Test
+    void aCompletionThatFailsBeforeTheIssueIsEnqueuedDiscardsTheStagedPollMapping() throws Exception {
+        // The poll mapping is staged before the ISSUE is published. A failure before the enqueue (here a failed
+        // publish, standing in for a row-lock timeout or infrastructure error) must not leave the mapping behind,
+        // or a retry with the same key-derived transaction id would be short-circuited to a poll that never completes.
+        registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+        Mockito.doThrow(new IllegalStateException("action broker unavailable"))
+                .when(actionProducer).produceMessage(Mockito.any());
+
+        postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
+
+        assertTrue(scepTransactionRepository.findByTransactionId(ScepMessageTestData.TRANSACTION_ID).isEmpty(),
+                "a completion that fails before the ISSUE is enqueued leaves no poll mapping");
     }
 
     @Test
