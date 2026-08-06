@@ -7,6 +7,7 @@ import com.otilm.core.service.registration.RegistrationIdentityMatcher.Candidate
 import com.otilm.core.service.registration.RegistrationIdentityMatcher.MatchResult;
 import com.otilm.core.service.registration.RegistrationIdentityMatcher.Outcome;
 import com.otilm.core.util.CertificateUtil;
+import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -189,6 +190,40 @@ class RegistrationIdentityMatcherTest {
                 new X500Name("CN=device-1"), Map.of("dNSName", List.of("a.example", "a.example")), List.of(candidate));
 
         Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void subjectlessRegistrationMatchesBySans() {
+        // A SAN-only registration carries no subject; it must still match a SAN-only enrolment (empty subject).
+        Candidate candidate = new Candidate(CANDIDATE_A, null, sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name(new RDN[0]), Map.of("dNSName", List.of("a.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void blankSubjectRegistrationIsTreatedAsSubjectless() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "   ", sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name(new RDN[0]), Map.of("dNSName", List.of("a.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void subjectlessRegistrationWithDifferentSansIsSanMismatch() {
+        Candidate candidate = new Candidate(CANDIDATE_A, null, sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name(new RDN[0]), Map.of("dNSName", List.of("b.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.SAN_MISMATCH, result.outcome());
         Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
     }
 

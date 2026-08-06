@@ -260,6 +260,20 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     }
 
     @Test
+    void subjectlessRegistrationCompletesBySanOnly() throws Exception {
+        // A SAN-only pre-registration carries no subject; a subjectless enrolment must still match it on SANs.
+        Certificate placeholder = registeredPlaceholder(null, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+
+        ResponseEntity<Object> response = postPkiOperation(enrolment("", List.of("device-1.example"), CHALLENGE));
+
+        assertScepFormatted(response);
+        assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
+        Certificate completed = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
+        assertEquals(CertificateState.REGISTERED, completed.getState());
+        assertNotNull(completed.getCertificateRequestUuid(), "the subjectless enrolment CSR is attached");
+    }
+
+    @Test
     void wrongChallengeIsRejectedGenericallyAndCounted() throws Exception {
         Certificate placeholder = registeredPlaceholder(SUBJECT_DN, null, CHALLENGE);
 

@@ -3,6 +3,7 @@ package com.otilm.core.service.registration;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.PlatformX500NameStyle;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.util.encoders.Hex;
@@ -67,24 +68,28 @@ public final class RegistrationIdentityMatcher {
         }
     }
 
+    /** The empty distinguished name, the normalized subject of a SAN-only enrolment or registration. */
+    private static final X500Name EMPTY_SUBJECT = new X500Name(new RDN[0]);
+
     private RegistrationIdentityMatcher() {
     }
 
     /**
      * Matches the CSR identity against the candidates: candidates are filtered by normalized subject; a
      * unique subject match must then carry SANs equal to the CSR's; several subject matches narrow to the
-     * single candidate with SAN equality. A candidate whose stored DN does not parse is skipped — one
-     * malformed row must not block matching for the others.
+     * single candidate with SAN equality. An absent (null or blank) subject on either side normalizes to the
+     * empty name, so a SAN-only registration matches a SAN-only enrolment through SAN equality. A candidate
+     * whose stored DN is present but does not parse is skipped — one malformed row must not block the others.
      */
     public static MatchResult match(X500Name csrSubject, Map<String, List<String>> csrSans, List<Candidate> candidates) {
-        String normalizedCsrSubject = normalize(csrSubject);
+        String normalizedCsrSubject = normalize(csrSubject == null ? EMPTY_SUBJECT : csrSubject);
         Map<String, List<String>> normalizedCsrSans = normalizeSans(csrSans);
 
         List<Candidate> subjectMatches = new ArrayList<>();
         for (Candidate candidate : candidates) {
             String normalizedCandidateSubject;
             try {
-                normalizedCandidateSubject = normalize(new X500Name(PlatformX500NameStyle.NORMALIZED, candidate.subjectDn()));
+                normalizedCandidateSubject = normalizeCandidateSubject(candidate.subjectDn());
             } catch (RuntimeException e) {
                 continue;
             }
@@ -112,6 +117,14 @@ public final class RegistrationIdentityMatcher {
 
     private static String normalize(X500Name subject) {
         return X500Name.getInstance(PlatformX500NameStyle.NORMALIZED, subject).toString();
+    }
+
+    /** A blank or absent stored subject is the empty name; a present one is parsed (and may throw, skipping the row). */
+    private static String normalizeCandidateSubject(String subjectDn) {
+        if (subjectDn == null || subjectDn.isBlank()) {
+            return normalize(EMPTY_SUBJECT);
+        }
+        return normalize(new X500Name(PlatformX500NameStyle.NORMALIZED, subjectDn));
     }
 
     private static boolean sansEqual(Map<String, List<String>> normalizedCsrSans, Candidate candidate) {
