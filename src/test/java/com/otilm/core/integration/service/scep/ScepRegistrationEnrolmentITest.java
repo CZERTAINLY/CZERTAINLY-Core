@@ -62,6 +62,7 @@ import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Security;
+import java.security.Signature;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -512,7 +513,6 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         assertNotNull(new CMSSignedData((byte[]) response.getBody()).getSignerInfos().getSigners());
     }
 
-    /** Reads a SCEP attribute out of the signed response. */
     private String attribute(ResponseEntity<Object> response, String oid) throws Exception {
         CMSSignedData signedData = new CMSSignedData((byte[]) response.getBody());
         SignerInformation signer = signedData.getSignerInfos().getSigners().iterator().next();
@@ -581,7 +581,7 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
      */
     private void stubTokenSigning() throws Exception {
         KeyPair throwaway = KeyPairGenerator.getInstance("EC").generateKeyPair();
-        java.security.Signature signature = java.security.Signature.getInstance("SHA256withECDSA");
+        Signature signature = Signature.getInstance("SHA256withECDSA");
         signature.initSign(throwaway.getPrivate());
         signature.update("scep".getBytes());
         String signed = Base64.getEncoder().encodeToString(signature.sign());

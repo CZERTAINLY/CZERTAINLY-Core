@@ -94,11 +94,9 @@ class ScepServiceImplRegistrationModeTest {
         }
         keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
 
-        // Snapshot the original global cache BEFORE seeding.
         Map<String, OidRecord> existing = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE);
         savedRdnCache = existing == null ? null : new HashMap<>(existing);
 
-        // Seed the OidHandler with standard RDN attribute types for PlatformX500NameStyle
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
         OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
                 OidRecord.builder().displayName("Common Name").code("CN").build());
