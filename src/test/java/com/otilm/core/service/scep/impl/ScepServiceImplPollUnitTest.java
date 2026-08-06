@@ -117,7 +117,7 @@ class ScepServiceImplPollUnitTest {
     void pollCertificate_returnsPending_whenNoTrackedTransaction() {
         // The originating request may still be in the queue; the client should keep polling.
         ScepRequest scepRequest = mockScepRequest("tx-5");
-        Mockito.when(transactionRepository.findByTransactionId("tx-5"))
+        Mockito.when(transactionRepository.findByTransactionIdAndScepProfile("tx-5", profile))
                 .thenReturn(Optional.empty());
 
         ScepResponse response = (ScepResponse) ReflectionTestUtils.invokeMethod(
@@ -134,7 +134,7 @@ class ScepServiceImplPollUnitTest {
         ScepRequest scepRequest = mockScepRequest("tx-6");
         Certificate cert = certificateInState(CertificateState.PENDING_ISSUE);
         ScepTransaction trx = transactionWithCert(cert);
-        Mockito.when(transactionRepository.findByTransactionId("tx-6"))
+        Mockito.when(transactionRepository.findByTransactionIdAndScepProfile("tx-6", profile))
                 .thenReturn(Optional.of(trx));
 
         ScepResponse response = (ScepResponse) ReflectionTestUtils.invokeMethod(
@@ -149,7 +149,7 @@ class ScepServiceImplPollUnitTest {
         ScepRequest scepRequest = mockScepRequest("tx-7");
         Certificate cert = certificateInState(CertificateState.REJECTED);
         ScepTransaction trx = transactionWithCert(cert);
-        Mockito.when(transactionRepository.findByTransactionId("tx-7"))
+        Mockito.when(transactionRepository.findByTransactionIdAndScepProfile("tx-7", profile))
                 .thenReturn(Optional.of(trx));
 
         ScepResponse response = (ScepResponse) ReflectionTestUtils.invokeMethod(
@@ -164,7 +164,7 @@ class ScepServiceImplPollUnitTest {
         ScepRequest scepRequest = mockScepRequest("tx-8");
         Certificate cert = certificateInState(CertificateState.FAILED);
         ScepTransaction trx = transactionWithCert(cert);
-        Mockito.when(transactionRepository.findByTransactionId("tx-8"))
+        Mockito.when(transactionRepository.findByTransactionIdAndScepProfile("tx-8", profile))
                 .thenReturn(Optional.of(trx));
 
         ScepResponse response = (ScepResponse) ReflectionTestUtils.invokeMethod(
@@ -182,7 +182,7 @@ class ScepServiceImplPollUnitTest {
     @Test
     void pollCertificate_swallowsExceptions_returningPendingToKeepClientPolling() {
         ScepRequest scepRequest = mockScepRequest("tx-9");
-        Mockito.when(transactionRepository.findByTransactionId("tx-9"))
+        Mockito.when(transactionRepository.findByTransactionIdAndScepProfile("tx-9", profile))
                 .thenThrow(new RuntimeException("simulated repository failure"));
 
         ScepResponse response = (ScepResponse) ReflectionTestUtils.invokeMethod(
