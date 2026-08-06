@@ -15,25 +15,9 @@ import com.otilm.api.model.core.enums.CertificateProtocol;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.PkiStatus;
 import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
-import com.otilm.core.dao.entity.AuthorityInstanceReference;
-import com.otilm.core.dao.entity.Certificate;
-import com.otilm.core.dao.entity.CertificateContent;
-import com.otilm.core.dao.entity.CertificateEventHistory;
-import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
-import com.otilm.core.dao.entity.Connector;
-import com.otilm.core.dao.entity.CryptographicKey;
-import com.otilm.core.dao.entity.RaProfile;
-import com.otilm.core.dao.entity.RegistrationState;
-import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.scep.ScepProfile;
-import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.otilm.core.dao.repository.CertificateContentRepository;
-import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
-import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
-import com.otilm.core.dao.repository.CertificateRepository;
-import com.otilm.core.dao.repository.ConnectorRepository;
-import com.otilm.core.dao.repository.RaProfileRepository;
-import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepTransactionRepository;
 import com.otilm.core.messaging.jms.producers.ActionProducer;
@@ -79,10 +63,7 @@ import java.security.KeyPairGenerator;
 import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -136,6 +117,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     private CertificateRegistrationAuthorizationRepository authorizationRepository;
     @Autowired
     private CertificateEventHistoryRepository eventHistoryRepository;
+    @Autowired
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     @Autowired
     private RegistrationChallengeStore registrationChallengeStore;
     @Autowired
@@ -222,16 +205,41 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
-        Certificate completed = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
+        Certificate completed = certificateRepository.findWithAssociationsByUuid(placeholder.getUuid()).orElseThrow();
         assertEquals(CertificateState.REGISTERED, completed.getState(),
                 "the placeholder stays REGISTERED until the async ISSUE action completes");
         assertNotNull(completed.getCertificateRequestUuid(), "the enrolment CSR is attached");
-        assertNotNull(completed.getProtocolAssociation(), "the completion is attributed to SCEP");
-        assertEquals(CertificateProtocol.SCEP, completed.getProtocolAssociation().getProtocol());
+        List<CertificateProtocolAssociation> certificateProtocolAssociation = certificateProtocolAssociationRepository.findAll();
+        Optional<CertificateProtocolAssociation> association = certificateProtocolAssociation.stream()
+                .filter(pa -> pa.getCertificateUuid().equals(completed.getUuid()) && pa.getProtocol() == CertificateProtocol.SCEP)
+                .findFirst();
+        assertTrue(association.isPresent(), "the completion is attributed to SCEP");
         assertTrue(scepTransactionRepository
                         .findByTransactionId(ScepMessageTestData.TRANSACTION_ID).isPresent(),
                 "the poll transaction is stored");
         verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.ISSUE));
+    }
+
+    @Test
+    void differentKeyReplayCannotReplaceTheAttachedCsr() throws Exception {
+        // A fresh-key second completion must not overwrite the first CSR. The row lock serializes concurrent
+        // completions into this same second attach, so a sequential replay covers the race deterministically;
+        // a fresh transaction id keeps the SCEP dedup from folding it into a poll.
+        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+
+        ResponseEntity<Object> first = postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
+        assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(first, ScepConstants.id_pkiStatus));
+        UUID boundRequest = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid();
+        assertNotNull(boundRequest, "the first enrolment binds its CSR");
+
+        ResponseEntity<Object> second = postPkiOperation(ScepMessageTestData.keyTransportEnvelopedPkcsReq(
+                caCertificateX509(), SUBJECT_DN, List.of("device-1.example"), CHALLENGE,
+                "aa1ba25258bfc72fe6cf8aa70f75e21facd8fc3d"));
+
+        assertRegistrationRejection(second);
+        assertEquals(boundRequest,
+                certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid(),
+                "the first enrolment's CSR must not be replaced by the different-key replay");
     }
 
     @Test
