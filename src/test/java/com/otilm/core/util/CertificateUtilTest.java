@@ -424,4 +424,20 @@ class CertificateUtilTest {
         assertThrows(IllegalArgumentException.class, () -> CertificateUtil.normalizeStoredSubjectDn("not a dn"));
     }
 
+    @Test
+    void applyRegistrationSubjectPopulatesTheNormalizedSubject() {
+        Certificate certificate = new Certificate();
+        CertificateUtil.applyRegistrationSubject(certificate, "CN=device-7, O=Acme");
+        assertEquals(CertificateUtil.normalizeStoredSubjectDn(certificate.getSubjectDn()),
+                certificate.getSubjectDnNormalized());
+    }
+
+    @Test
+    void applyRegistrationSubjectOfABlankDnStoresTheEmptyNormalizedSubject() {
+        Certificate certificate = new Certificate();
+        CertificateUtil.applyRegistrationSubject(certificate, " ");
+        assertNull(certificate.getSubjectDn());
+        assertEquals("", certificate.getSubjectDnNormalized());
+    }
+
 }

@@ -605,18 +605,27 @@ public class CertificateUtil {
 
     /**
      * Records the subject identity of a no-CSR registration placeholder from the operator-supplied
-     * subject DN. Sets the subject DN and common name only; key, SAN and fingerprint fields stay
-     * empty until issuance fills them. A blank DN is a no-op (subject carried entirely in the SAN,
-     * permitted by RFC 5280 §4.1.2.6).
+     * subject DN. Sets the subject DN, common name and normalized subject; key, SAN and fingerprint
+     * fields stay empty until issuance fills them. A blank DN stores only the normalized empty subject
+     * (subject carried entirely in the SAN, permitted by RFC 5280 §4.1.2.6).
      */
     public static void applyRegistrationSubject(Certificate modal, String subjectDn) {
         if (subjectDn == null || subjectDn.isBlank()) {
+            // SAN-only registration: the normalized empty subject keeps the row reachable by the
+            // registration lookup's normalized-subject equality.
+            modal.setSubjectDnNormalized(normalizeSubjectDn(EMPTY_X500_NAME));
             return;
         }
         try {
             setSubjectDNParams(modal, new X500Name(new PlatformX500NameStyle(false), subjectDn));
         } catch (IllegalArgumentException e) {
             throw new ValidationException(ValidationError.create("Invalid subject DN '%s': %s".formatted(subjectDn, e.getMessage())));
+        }
+        try {
+            modal.setSubjectDnNormalized(normalizeStoredSubjectDn(modal.getSubjectDn()));
+        } catch (RuntimeException e) {
+            // The rendered DN does not re-parse (the style does not escape values); the identity match skips
+            // such rows, and a NULL normalized subject keeps the SQL prefilter equally unable to return them.
         }
     }
 
