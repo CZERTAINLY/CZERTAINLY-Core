@@ -17,4 +17,6 @@ public interface ScepTransactionRepository extends SecurityFilterRepository<Scep
     Optional<ScepTransaction> findByTransactionId(String transactionId);
 
     Optional<ScepTransaction> findByTransactionIdAndScepProfile(String transactionId, ScepProfile scepProfile);
+
+    void deleteByTransactionIdAndScepProfileUuid(String transactionId, UUID scepProfileUuid);
 }

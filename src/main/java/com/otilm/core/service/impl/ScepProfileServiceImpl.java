@@ -326,6 +326,33 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
     }
 
     /**
+     * Rules of the certificate-registration challenge source: each registration carries its own challenge,
+     * so a profile password is forbidden; Intune validates challenges in its own regime; and the CA
+     * certificate must hold an RSA decryption key, because without a shared password the platform can only
+     * decrypt requests enveloped via RSA key transport.
+     */
+    private static void validateRegistrationChallengeSource(BaseScepProfileRequestDto request, boolean intuneEnabled, Certificate caCertificate) {
+        if (Boolean.TRUE.equals(request.getEnableChallengePassword())
+                || (request.getChallengePassword() != null && !request.getChallengePassword().isBlank())) {
+            throw new ValidationException(ValidationError.create(
+                    "A challenge password cannot be configured when the challenge source is certificate registration"));
+        }
+        if (intuneEnabled) {
+            throw new ValidationException(ValidationError.create(
+                    "Intune requires the profile challenge password as the challenge source"));
+        }
+        if (!hasRsaDecryptionKey(caCertificate)) {
+            throw new ValidationException(ValidationError.create(
+                    "Certificate registration challenge source requires an RSA CA certificate; requests enveloped to a non-RSA CA key need a shared challenge password to decrypt"));
+        }
+    }
+
+    private static boolean hasRsaDecryptionKey(Certificate caCertificate) {
+        return caCertificate.getKey() != null && caCertificate.getKey().getItems().stream()
+                .anyMatch(item -> item.getType() == KeyType.PRIVATE_KEY && item.getKeyAlgorithm() == KeyAlgorithm.RSA);
+    }
+
+    /**
      * Applies the write-only challenge password according to the tri-state {@code enableChallengePassword} toggle.
      * The toggle MUST be treated as keep-when-null: an absent toggle (legacy clients, or clients that do not send
      * the field) must never wipe a stored password. Do NOT collapse it with {@code Boolean.TRUE.equals(...)} the way

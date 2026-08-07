@@ -54,7 +54,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 
 import java.io.IOException;
 import java.security.cert.CertificateException;
@@ -64,7 +63,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class TriggerEvaluatorITest extends BaseSpringBootTest {
 
     @Autowired

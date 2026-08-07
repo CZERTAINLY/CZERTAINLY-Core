@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,7 +28,6 @@ import java.util.UUID;
  * {@link BaseSpringBootTest}, which is deliberately not {@code @Transactional} -- a test-managed rollback would hide
  * exactly the behaviour being asserted.
  */
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class NotificationInternalNotificationITest extends BaseSpringBootTest {
 
     private static final UUID EMPTY_GROUP_UUID = UUID.randomUUID();

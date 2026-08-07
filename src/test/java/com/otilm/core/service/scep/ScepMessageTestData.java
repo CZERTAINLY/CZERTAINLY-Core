@@ -99,8 +99,14 @@ public final class ScepMessageTestData {
      */
     public static byte[] keyTransportEnvelopedPkcsReq(X509Certificate recipientCaCertificate, String subjectDn,
                                                       List<String> dnsSans, String csrChallengePassword) throws Exception {
+        return keyTransportEnvelopedPkcsReq(recipientCaCertificate, subjectDn, dnsSans, csrChallengePassword, TRANSACTION_ID);
+    }
+
+    /** As above but with an explicit transaction id, so a second enrolment is not folded into a poll by the dedup. */
+    public static byte[] keyTransportEnvelopedPkcsReq(X509Certificate recipientCaCertificate, String subjectDn,
+                                                      List<String> dnsSans, String csrChallengePassword, String transactionId) throws Exception {
         byte[] csrBytes = generatedCsr(subjectDn, dnsSans, csrChallengePassword);
-        return signedMessage(keyTransportEnvelopedRequest(csrBytes, recipientCaCertificate), MessageType.PKCS_REQ).getEncoded();
+        return signedMessage(keyTransportEnvelopedRequest(csrBytes, recipientCaCertificate), MessageType.PKCS_REQ, transactionId).getEncoded();
     }
 
     private static CMSProcessableByteArray keyTransportEnvelopedRequest(byte[] csrBytes, X509Certificate recipientCaCertificate) throws Exception {
@@ -184,6 +190,10 @@ public final class ScepMessageTestData {
     }
 
     private static org.bouncycastle.cms.CMSSignedData signedMessage(CMSProcessableByteArray content, MessageType messageType) throws Exception {
+        return signedMessage(content, messageType, TRANSACTION_ID);
+    }
+
+    private static org.bouncycastle.cms.CMSSignedData signedMessage(CMSProcessableByteArray content, MessageType messageType, String transactionId) throws Exception {
         Security.addProvider(new BouncyCastleProvider());
 
         X509Certificate signerCertificate = signerCertificate();
@@ -195,7 +205,7 @@ public final class ScepMessageTestData {
         JcaDigestCalculatorProviderBuilder digestProviderBuilder = new JcaDigestCalculatorProviderBuilder()
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME);
         JcaSignerInfoGeneratorBuilder signerInfoBuilder = new JcaSignerInfoGeneratorBuilder(digestProviderBuilder.build());
-        signerInfoBuilder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(scepAttributes(messageType))));
+        signerInfoBuilder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(scepAttributes(messageType, transactionId))));
 
         CMSSignedDataGenerator signedDataGenerator = new CMSSignedDataGenerator();
         signedDataGenerator.addSignerInfoGenerator(signerInfoBuilder.build(contentSigner, signerCertificate));
@@ -204,11 +214,11 @@ public final class ScepMessageTestData {
         return signedDataGenerator.generate(content, true);
     }
 
-    private static Hashtable<ASN1ObjectIdentifier, Attribute> scepAttributes(MessageType messageType) {
+    private static Hashtable<ASN1ObjectIdentifier, Attribute> scepAttributes(MessageType messageType, String transactionId) {
         Hashtable<ASN1ObjectIdentifier, Attribute> attributes = new Hashtable<>();
         addAttribute(attributes, ScepConstants.id_messageType,
                 new DERSet(new DERPrintableString(Integer.toString(messageType.getValue()))));
-        addAttribute(attributes, ScepConstants.id_transactionId, new DERSet(new DERPrintableString(TRANSACTION_ID)));
+        addAttribute(attributes, ScepConstants.id_transactionId, new DERSet(new DERPrintableString(transactionId)));
         addAttribute(attributes, ScepConstants.id_senderNonce,
                 new DERSet(new DEROctetString(Base64.getDecoder().decode(SENDER_NONCE_B64))));
         return attributes;

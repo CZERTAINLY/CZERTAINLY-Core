@@ -7,6 +7,7 @@ import com.otilm.core.service.registration.RegistrationIdentityMatcher.Candidate
 import com.otilm.core.service.registration.RegistrationIdentityMatcher.MatchResult;
 import com.otilm.core.service.registration.RegistrationIdentityMatcher.Outcome;
 import com.otilm.core.util.CertificateUtil;
+import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -132,6 +133,98 @@ class RegistrationIdentityMatcherTest {
                 new X500Name("CN=fleet"), Map.of("dNSName", List.of("a.example")), List.of(first, second));
 
         Assertions.assertEquals(Outcome.AMBIGUOUS, result.outcome());
+    }
+
+    @Test
+    void ipSanMatchesAcrossHexCsrAndDecodedRegistration() {
+        // The CSR side renders an IP SAN as its octet hex (what getSAN produces); the registration stores the
+        // decoded text. Both must canonicalize to the same identity.
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("iPAddress", List.of("192.168.1.1"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("iPAddress", List.of("#c0a80101")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void equivalentIpv6FormsMatch() {
+        // Registration stores a compressed IPv6; the CSR presents the fully expanded octets. Same address.
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("iPAddress", List.of("2001:db8::1"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"),
+                Map.of("iPAddress", List.of("#20010db8000000000000000000000001")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void differentIpSansAreSanMismatch() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("iPAddress", List.of("192.168.1.1"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("iPAddress", List.of("#0a000001")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.SAN_MISMATCH, result.outcome());
+    }
+
+    @Test
+    void dnsNameCaseIsInsensitive() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("dNSName", List.of("Device.Example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("dNSName", List.of("device.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void duplicateSanValuesAreCollapsed() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "CN=device-1", sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name("CN=device-1"), Map.of("dNSName", List.of("a.example", "a.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void subjectlessRegistrationMatchesBySans() {
+        // A SAN-only registration carries no subject; it must still match a SAN-only enrolment (empty subject).
+        Candidate candidate = new Candidate(CANDIDATE_A, null, sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name(new RDN[0]), Map.of("dNSName", List.of("a.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void blankSubjectRegistrationIsTreatedAsSubjectless() {
+        Candidate candidate = new Candidate(CANDIDATE_A, "   ", sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name(new RDN[0]), Map.of("dNSName", List.of("a.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.MATCHED, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
+    }
+
+    @Test
+    void subjectlessRegistrationWithDifferentSansIsSanMismatch() {
+        Candidate candidate = new Candidate(CANDIDATE_A, null, sans(Map.of("dNSName", List.of("a.example"))));
+
+        MatchResult result = RegistrationIdentityMatcher.match(
+                new X500Name(new RDN[0]), Map.of("dNSName", List.of("b.example")), List.of(candidate));
+
+        Assertions.assertEquals(Outcome.SAN_MISMATCH, result.outcome());
+        Assertions.assertEquals(CANDIDATE_A, result.certificateUuid());
     }
 
     @Test

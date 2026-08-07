@@ -1662,6 +1662,12 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         // Non-registered certs (no binding) keep the terminal REJECTED behaviour.
         if (certificate.getState() == CertificateState.PENDING_APPROVAL
                 && certificateRegistrationRepository.findByCertificateUuid(certificateUuid).isPresent()) {
+            // Clear any attached CSR/key so the holder's retry re-attaches cleanly, and so "REGISTERED with a
+            // request attached" stays reserved for a completion in flight — the invariant addCertificateRequestToExisting
+            // relies on. A never-completed placeholder carries no request, so this is a no-op for it.
+            certificate.setCertificateRequest(null);
+            certificate.setCertificateRequestUuid(null);
+            certificate.setKeyUuid(null);
             stateMachine.transition(certificate, CertificateState.REGISTERED, CertificateEvent.APPROVAL_CLOSE,
                     "Issuance approval was rejected; certificate restored to " + CertificateState.REGISTERED.getLabel() + ".");
             return;

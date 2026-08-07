@@ -1230,6 +1230,12 @@ public class CertificateServiceImpl implements CertificateExternalService, Certi
         if (certificate.getState() != CertificateState.REGISTERED) {
             throw new ValidationException("A certificate signing request can only be attached to a REGISTERED certificate. Certificate: %s".formatted(certificate.toStringShort()));
         }
+        // The placeholder stays REGISTERED after a completion attaches its CSR, so two concurrent or replayed
+        // completions both pass the assertion above; the row lock serializes them here and only the first binds a
+        // request. A rejected issuance approval clears the request when it restores REGISTERED, so a retry passes.
+        if (certificate.getCertificateRequestUuid() != null) {
+            throw new ValidationException("This certificate already has a signing request and cannot accept another. Certificate: %s".formatted(certificate.toStringShort()));
+        }
 
         CertificateRequest request;
         try {

@@ -347,6 +347,29 @@ class CertificateUtilTest {
                 () -> CertificateUtil.prepareCertificateRequestEntityFromCsr(entity, requestWithoutKey));
     }
 
+    @Test
+    void getSanRendersCsrIpAddressAsOctetHex() throws Exception {
+        // Grounds the matcher's IP canonicalization: a CSR IP SAN reads back as its octet hex, not the decoded
+        // text a registration stores, so the two representations must be reconciled before comparison.
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+        ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
+        extensionsGenerator.addExtension(Extension.subjectAlternativeName, false,
+                new GeneralNames(new GeneralName(GeneralName.iPAddress, "192.168.1.1")));
+        JcaPKCS10CertificationRequestBuilder builder =
+                new JcaPKCS10CertificationRequestBuilder(new X500Name("CN=device-1"), keyPair.getPublic());
+        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
+        CertificateRequest request = new Pkcs10CertificateRequest(
+                builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate())).getEncoded());
+
+        List<String> ipSans = CertificateUtil.getSAN(request).get("iPAddress");
+
+        Assertions.assertEquals(1, ipSans.size());
+        Assertions.assertTrue(ipSans.get(0).equalsIgnoreCase("#c0a80101"),
+                "an IP SAN reads back from a CSR as its octet hex, was: " + ipSans.get(0));
+    }
+
     private static CertificateRequest generatePkcs10(String subjectDn, String sanDnsName) throws Exception {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
         keyPairGenerator.initialize(2048);

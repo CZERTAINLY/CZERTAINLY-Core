@@ -25,6 +25,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestExecutionListeners.MergeMode;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.mockito.Mockito.when;
@@ -36,6 +37,11 @@ import java.util.List;
 import java.util.UUID;
 
 @SpringBootTest
+@TestPropertySource(properties = {
+        WireMockPorts.AUTH_SERVICE_URL_PROPERTY,
+        WireMockPorts.SCHEDULER_URL_PROPERTY,
+        WireMockPorts.PROVISIONING_API_URL_PROPERTY
+})
 @TestExecutionListeners(value = MockBeanResetListener.class, mergeMode = MergeMode.MERGE_WITH_DEFAULTS)
 public class BaseSpringBootTest {
 

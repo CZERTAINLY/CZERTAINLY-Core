@@ -27,13 +27,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.TestPropertySource;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
 @SpringBootTest
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class AuthServiceITest extends BaseSpringBootTest {
 
 

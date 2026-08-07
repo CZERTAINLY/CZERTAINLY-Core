@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -27,7 +26,6 @@ import java.util.UUID;
 @SpringBootTest
 @Transactional
 @Rollback
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class NotificationServiceITest extends BaseSpringBootTest {
 
     private static final String MOCK_ROLE_UUID = UUID.randomUUID().toString();

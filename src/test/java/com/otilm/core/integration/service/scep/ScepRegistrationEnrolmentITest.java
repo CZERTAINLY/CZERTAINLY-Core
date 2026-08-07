@@ -15,25 +15,10 @@ import com.otilm.api.model.core.enums.CertificateProtocol;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.PkiStatus;
 import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
-import com.otilm.core.dao.entity.AuthorityInstanceReference;
-import com.otilm.core.dao.entity.Certificate;
-import com.otilm.core.dao.entity.CertificateContent;
-import com.otilm.core.dao.entity.CertificateEventHistory;
-import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
-import com.otilm.core.dao.entity.Connector;
-import com.otilm.core.dao.entity.CryptographicKey;
-import com.otilm.core.dao.entity.RaProfile;
-import com.otilm.core.dao.entity.RegistrationState;
-import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.scep.ScepProfile;
-import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.otilm.core.dao.repository.CertificateContentRepository;
-import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
-import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
-import com.otilm.core.dao.repository.CertificateRepository;
-import com.otilm.core.dao.repository.ConnectorRepository;
-import com.otilm.core.dao.repository.RaProfileRepository;
-import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.entity.scep.ScepTransaction;
+import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepTransactionRepository;
 import com.otilm.core.messaging.jms.producers.ActionProducer;
@@ -77,17 +62,17 @@ import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Security;
+import java.security.Signature;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -136,6 +121,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     private CertificateRegistrationAuthorizationRepository authorizationRepository;
     @Autowired
     private CertificateEventHistoryRepository eventHistoryRepository;
+    @Autowired
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     @Autowired
     private RegistrationChallengeStore registrationChallengeStore;
     @Autowired
@@ -224,19 +211,117 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
-        // A read transaction so the lazy protocolAssociation can load (the test is not transactional).
-        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            Certificate completed = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
-            assertEquals(CertificateState.REGISTERED, completed.getState(),
-                    "the placeholder stays REGISTERED until the async ISSUE action completes");
-            assertNotNull(completed.getCertificateRequestUuid(), "the enrolment CSR is attached");
-            assertNotNull(completed.getProtocolAssociation(), "the completion is attributed to SCEP");
-            assertEquals(CertificateProtocol.SCEP, completed.getProtocolAssociation().getProtocol());
-        });
+        Certificate completed = certificateRepository.findWithAssociationsByUuid(placeholder.getUuid()).orElseThrow();
+        assertEquals(CertificateState.REGISTERED, completed.getState(),
+                "the placeholder stays REGISTERED until the async ISSUE action completes");
+        assertNotNull(completed.getCertificateRequestUuid(), "the enrolment CSR is attached");
+        List<CertificateProtocolAssociation> certificateProtocolAssociation = certificateProtocolAssociationRepository.findAll();
+        Optional<CertificateProtocolAssociation> association = certificateProtocolAssociation.stream()
+                .filter(pa -> pa.getCertificateUuid().equals(completed.getUuid()) && pa.getProtocol() == CertificateProtocol.SCEP)
+                .findFirst();
+        assertTrue(association.isPresent(), "the completion is attributed to SCEP");
         assertTrue(scepTransactionRepository
                         .findByTransactionId(ScepMessageTestData.TRANSACTION_ID).isPresent(),
                 "the poll transaction is stored");
         verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.ISSUE));
+    }
+
+    @Test
+    void differentKeyReplayCannotReplaceTheAttachedCsr() throws Exception {
+        // A fresh-key second completion must not overwrite the first CSR. The certificate row lock serializes
+        // concurrent completions into this same second attach, so a sequential replay deterministically covers
+        // the race, and a fresh transaction id stops the SCEP dedup from folding the replay into a poll.
+        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+
+        ResponseEntity<Object> first = postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
+        assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(first, ScepConstants.id_pkiStatus));
+        UUID boundRequest = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid();
+        assertNotNull(boundRequest, "the first enrolment binds its CSR");
+
+        String replayTransactionId = "aa1ba25258bfc72fe6cf8aa70f75e21facd8fc3d";
+        ResponseEntity<Object> second = postPkiOperation(ScepMessageTestData.keyTransportEnvelopedPkcsReq(
+                caCertificateX509(), SUBJECT_DN, List.of("device-1.example"), CHALLENGE, replayTransactionId));
+
+        assertRegistrationRejection(second);
+        assertEquals(boundRequest,
+                certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid(),
+                "the first enrolment's CSR must not be replaced by the different-key replay");
+        assertTrue(scepTransactionRepository.findByTransactionIdAndScepProfile(replayTransactionId, scepProfile).isEmpty(),
+                "the rejected replay's staged poll mapping is discarded");
+    }
+
+    @Test
+    void aCompletionThatFailsBeforeTheIssueIsEnqueuedDiscardsTheStagedPollMapping() throws Exception {
+        // The poll mapping is staged before the ISSUE is published. A failure before the enqueue (here a failed
+        // publish, standing in for a row-lock timeout or infrastructure error) must not leave the mapping behind,
+        // or a retry with the same key-derived transaction id would be short-circuited to a poll that never completes.
+        registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+        doThrow(new IllegalStateException("action broker unavailable"))
+                .when(actionProducer).produceMessage(Mockito.any());
+
+        postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
+
+        assertTrue(scepTransactionRepository.findByTransactionId(ScepMessageTestData.TRANSACTION_ID).isEmpty(),
+                "a completion that fails before the ISSUE is enqueued leaves no poll mapping");
+    }
+
+    @Test
+    void subjectlessRegistrationCompletesBySanOnly() throws Exception {
+        // A SAN-only pre-registration carries no subject; a subjectless enrolment must still match it on SANs.
+        Certificate placeholder = registeredPlaceholder(null, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+
+        ResponseEntity<Object> response = postPkiOperation(enrolment("", List.of("device-1.example"), CHALLENGE));
+
+        assertScepFormatted(response);
+        assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
+        Certificate completed = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
+        assertEquals(CertificateState.REGISTERED, completed.getState());
+        assertNotNull(completed.getCertificateRequestUuid(), "the subjectless enrolment CSR is attached");
+    }
+
+    @Test
+    void transactionLookupIsScopedByScepProfile() {
+        // Transaction ids are client-chosen and can collide across profiles, so a poll's fetch must resolve only
+        // the polling profile's transaction — never another profile's registration behind the same id (which in
+        // registration mode would recover the wrong challenge for the response envelope).
+        ScepProfile otherProfile = new ScepProfile();
+        otherProfile.setName("otherRegistrationProfile");
+        otherProfile.setEnabled(true);
+        otherProfile.setRequireManualApproval(false);
+        otherProfile.setIncludeCaCertificate(true);
+        otherProfile.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+        otherProfile.setCaCertificate(scepProfile.getCaCertificate());
+        otherProfile.setRaProfile(scepProfile.getRaProfile());
+        otherProfile = scepProfileRepository.save(otherProfile);
+
+        UUID certUnderThisProfile = savedCertificate();
+        UUID certUnderOtherProfile = savedCertificate();
+        String sharedTransactionId = "shared-across-profiles";
+        storeTransaction(sharedTransactionId, certUnderThisProfile, scepProfile);
+        storeTransaction(sharedTransactionId, certUnderOtherProfile, otherProfile);
+
+        assertEquals(certUnderThisProfile,
+                scepTransactionRepository.findByTransactionIdAndScepProfile(sharedTransactionId, scepProfile)
+                        .orElseThrow().getCertificateUuid(),
+                "the fetch must return this profile's transaction, not the colliding one");
+        assertEquals(certUnderOtherProfile,
+                scepTransactionRepository.findByTransactionIdAndScepProfile(sharedTransactionId, otherProfile)
+                        .orElseThrow().getCertificateUuid());
+    }
+
+    private UUID savedCertificate() {
+        Certificate certificate = new Certificate();
+        certificate.setState(CertificateState.REGISTERED);
+        certificate.setRaProfile(raProfile);
+        return certificateRepository.save(certificate).getUuid();
+    }
+
+    private void storeTransaction(String transactionId, UUID certificateUuid, ScepProfile profile) {
+        ScepTransaction transaction = new ScepTransaction();
+        transaction.setTransactionId(transactionId);
+        transaction.setCertificateUuid(certificateUuid);
+        transaction.setScepProfile(profile);
+        scepTransactionRepository.save(transaction);
     }
 
     @Test
@@ -327,7 +412,7 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     @Test
     void passwordRecipientRequestCannotBeDecrypted() throws Exception {
-        registeredPlaceholder(ScepMessageTestData.SUBJECT_DN, null, CHALLENGE);
+        Certificate placeholder = registeredPlaceholder(ScepMessageTestData.SUBJECT_DN, null, CHALLENGE);
 
         // No decrypt stub: the profile has no shared password, so a password-recipient request is
         // undecryptable by construction and must be answered as a SCEP failure.
@@ -337,6 +422,13 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.FAILURE.getValue()), attribute(response, ScepConstants.id_pkiStatus));
+        assertEquals(String.valueOf(FailInfo.BAD_REQUEST.getValue()), attribute(response, ScepConstants.id_failInfo));
+        // Rejected before any completion: the placeholder is untouched and no issuance is enqueued, so the test
+        // cannot pass on an unrelated setup, connector, or response-building failure that also ends in FAILURE.
+        Certificate untouched = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
+        assertEquals(CertificateState.REGISTERED, untouched.getState());
+        assertNull(untouched.getCertificateRequestUuid());
+        verify(actionProducer, never()).produceMessage(Mockito.any());
     }
 
     @Test
@@ -501,7 +593,7 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
      */
     private void stubTokenSigning() throws Exception {
         KeyPair throwaway = KeyPairGenerator.getInstance("EC").generateKeyPair();
-        java.security.Signature signature = java.security.Signature.getInstance("SHA256withECDSA");
+        Signature signature = Signature.getInstance("SHA256withECDSA");
         signature.initSign(throwaway.getPrivate());
         signature.update("scep".getBytes());
         String signed = Base64.getEncoder().encodeToString(signature.sign());

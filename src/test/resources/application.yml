@@ -34,8 +34,9 @@ connector:
     max-connections: 20
     pending-acquire-timeout: 10s
 
+# Points at the port com.otilm.core.util.WireMockPorts.AUTH_SERVICE names.
 auth-service:
-  base-url: http://authservice.dev
+  base-url: http://localhost:10001
 opa:
   base-url: http://opa.dev
 
@@ -58,8 +59,9 @@ logging:
 scheduled-tasks:
   enabled: false
 
+# Points at the port com.otilm.core.util.WireMockPorts.SCHEDULER names.
 scheduler:
-  base-url: http://localhost:8080
+  base-url: http://localhost:10011
 
 signing-record:
   outbox:
@@ -216,7 +218,8 @@ proxy:
 
 provisioning:
   api:
-    url: http://localhost:8080
+    # Points at the port com.otilm.core.util.WireMockPorts.PROVISIONING_API names.
+    url: http://localhost:10010
     api-key: test-api-key
     connect-timeout: 500
     read-timeout: 1s

@@ -62,7 +62,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
 
 import java.io.Serializable;
 import java.text.ParseException;
@@ -85,7 +84,6 @@ import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aSearch
  * Tests for class {@link FilterPredicatesBuilder}
  */
 @SpringBootTest
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class FilterPredicatesBuilderITest extends BaseSpringBootTest {
 
     @Autowired

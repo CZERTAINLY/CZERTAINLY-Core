@@ -6,6 +6,7 @@ import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDt
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.settings.SettingsCache;
+import com.otilm.core.util.OAuth2Constants;
 import com.otilm.core.util.OAuth2Util;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -125,6 +126,72 @@ class OAuth2UtilTest {
         mockServer.stop();
     }
 
+    @Test
+    void testGetAllClaimsAvailable_UserInfoClaimsOverrideAccessTokenClaims() throws NoSuchAlgorithmException, JOSEException {
+        String accessToken = createAccessToken("from-token");
+        WireMockServer mockServer = new WireMockServer(0);
+        mockServer.start();
+        try {
+            WireMock.configureFor("localhost", mockServer.port());
+            mockServer.stubFor(
+                    WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
+                            .willReturn(WireMock.okJson("{\"%s\":\"from-userinfo\",\"email\":\"user@example.com\"}"
+                                    .formatted(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME)))
+            );
 
+            Map<String, Object> claims = OAuth2Util.getAllClaimsAvailable(
+                    providerWithUserInfoUrl("http://localhost:" + mockServer.port() + "/userinfo"), accessToken, null);
+
+            Assertions.assertEquals("from-userinfo", claims.get(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME));
+            Assertions.assertEquals("user@example.com", claims.get("email"));
+            mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo"))
+                    .withHeader("Authorization", WireMock.equalTo("Bearer " + accessToken))
+                    .withHeader("Accept", WireMock.containing("application/json")));
+        } finally {
+            mockServer.stop();
+        }
+    }
+
+    @Test
+    void testGetAllClaimsAvailable_UserInfoFailureFallsBackToAccessTokenClaims() throws NoSuchAlgorithmException, JOSEException {
+        String accessToken = createAccessToken("from-token");
+        WireMockServer mockServer = new WireMockServer(0);
+        mockServer.start();
+        try {
+            WireMock.configureFor("localhost", mockServer.port());
+            OAuth2ProviderSettingsDto provider = providerWithUserInfoUrl("http://localhost:" + mockServer.port() + "/userinfo");
+
+            mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
+                    .willReturn(WireMock.aResponse().withStatus(500)));
+            Map<String, Object> claims = OAuth2Util.getAllClaimsAvailable(provider, accessToken, null);
+            Assertions.assertEquals("from-token", claims.get(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME));
+            mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo")));
+
+            mockServer.resetRequests();
+            mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
+                    .willReturn(WireMock.aResponse().withStatus(400)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody("{\"error\":\"invalid_token\"}")));
+            claims = OAuth2Util.getAllClaimsAvailable(provider, accessToken, null);
+            Assertions.assertEquals("from-token", claims.get(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME));
+            mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo")));
+        } finally {
+            mockServer.stop();
+        }
+    }
+
+    private static String createAccessToken(String username) throws NoSuchAlgorithmException, JOSEException {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        return OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 60000, "http://issuer", "audience", username);
+    }
+
+    private static OAuth2ProviderSettingsDto providerWithUserInfoUrl(String userInfoUrl) {
+        OAuth2ProviderSettingsDto provider = new OAuth2ProviderSettingsDto();
+        provider.setName("test");
+        provider.setUserInfoUrl(userInfoUrl);
+        return provider;
+    }
 
 }

@@ -52,7 +52,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authorization.AuthorizationDeniedException;
-import org.springframework.test.context.TestPropertySource;
 
 import java.io.Serializable;
 import java.util.*;
@@ -64,7 +63,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
-@TestPropertySource(properties = "auth-service.base-url=http://localhost:" + WireMockPorts.AUTH_SERVICE)
 class ResourceServiceITest extends BaseSpringBootTest {
 
     private static final String CERTIFICATE_UUID = "c1cfe60f-2556-461f-9a64-9dd8e92158cf";
