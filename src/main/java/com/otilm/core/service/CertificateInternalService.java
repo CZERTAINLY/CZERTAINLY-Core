@@ -75,6 +75,14 @@ public interface CertificateInternalService extends ResourceExtensionService {
     Certificate createRegistrationPlaceholder(RaProfile raProfile, String effectiveSubjectDn, X509RequestContent registrationContent, Certificate sourceCertificate) throws NotFoundException;
 
     /**
+     * Associates the certificate with the protocol that obtained it, exactly as for a protocol-submitted
+     * request: the protocol-association row is recorded and the protocol profile's certificate associations
+     * (owner, groups, custom attributes) are applied — a profile-configured owner or group replaces one set
+     * earlier, including at registration time.
+     */
+    void applyProtocolAssociations(UUID certificateUuid, CertificateProtocolInfo protocolInfo) throws NotFoundException, AttributeException;
+
+    /**
      * Attaches an operator-supplied CSR to an existing certificate (a REGISTERED placeholder), preparing it
      * for issuance. The registration identity already on the row (subject DN / SAN) is preserved; the issued
      * certificate's identity is written from the CA response at issuance.

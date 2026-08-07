@@ -1,9 +1,13 @@
 package com.otilm.core.integration.dao.repository;
 
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
+import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.RegistrationState;
 import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +31,8 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
     @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
+    private RaProfileRepository raProfileRepository;
+    @Autowired
     private PlatformTransactionManager transactionManager;
 
     private UUID certificateUuid;
@@ -43,6 +49,53 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
         authorization.setExpiresAt(OffsetDateTime.now().plusDays(1));
         authorization.setState(RegistrationState.ACTIVE);
         return authorizationRepository.save(authorization);
+    }
+
+    @Test
+    void findsOnlyRegisteredCertificatesWithActiveAuthorizationUnderRaProfile() {
+        UUID raProfileUuid = persistRaProfile();
+        UUID otherRaProfileUuid = persistRaProfile();
+
+        Certificate match = persistCertificate(CertificateState.REGISTERED, raProfileUuid);
+        persistAuthorizationFor(match.getUuid(), RegistrationState.ACTIVE);
+
+        Certificate lockedAuthorization = persistCertificate(CertificateState.REGISTERED, raProfileUuid);
+        persistAuthorizationFor(lockedAuthorization.getUuid(), RegistrationState.LOCKED);
+
+        // REGISTERED without any authorization row: not challenge-protected, must not match.
+        persistCertificate(CertificateState.REGISTERED, raProfileUuid);
+
+        Certificate issued = persistCertificate(CertificateState.ISSUED, raProfileUuid);
+        persistAuthorizationFor(issued.getUuid(), RegistrationState.ACTIVE);
+
+        Certificate underOtherProfile = persistCertificate(CertificateState.REGISTERED, otherRaProfileUuid);
+        persistAuthorizationFor(underOtherProfile.getUuid(), RegistrationState.ACTIVE);
+
+        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(raProfileUuid))
+                .extracting(Certificate::getUuid)
+                .containsExactly(match.getUuid());
+    }
+
+    private UUID persistRaProfile() {
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("rp-" + UUID.randomUUID());
+        raProfile.setEnabled(true);
+        return raProfileRepository.save(raProfile).getUuid();
+    }
+
+    private Certificate persistCertificate(CertificateState state, UUID raProfileUuid) {
+        Certificate certificate = aCertificate().withState(state).build();
+        certificate.setRaProfileUuid(raProfileUuid);
+        return certificateRepository.save(certificate);
+    }
+
+    private void persistAuthorizationFor(UUID forCertificateUuid, RegistrationState state) {
+        CertificateRegistrationAuthorization authorization = new CertificateRegistrationAuthorization();
+        authorization.setCertificateUuid(forCertificateUuid);
+        authorization.setChallenge("v1|ciphertext|salt|1000");
+        authorization.setExpiresAt(OffsetDateTime.now().plusDays(1));
+        authorization.setState(state);
+        authorizationRepository.save(authorization);
     }
 
     @Test

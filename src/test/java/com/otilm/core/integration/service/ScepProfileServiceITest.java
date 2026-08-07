@@ -22,6 +22,7 @@ import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -102,6 +103,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     private ScepProfile scepProfile;
     private Certificate certificate;
     private RequestAttributeV3 domainAttrRequestAttribute;
+    private TokenInstanceReference tokenInstanceReference;
+    private TokenProfile tokenProfile;
 
     @BeforeEach
     void setUp() throws AttributeException {
@@ -127,12 +130,12 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
-        TokenInstanceReference tokenInstanceReference = new TokenInstanceReference();
+        tokenInstanceReference = new TokenInstanceReference();
         tokenInstanceReference.setTokenInstanceUuid("1l");
         tokenInstanceReference.setConnector(connector);
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
-        TokenProfile tokenProfile = new TokenProfile();
+        tokenProfile = new TokenProfile();
         tokenProfile.setName("profile1");
         tokenProfile.setTokenInstanceReference(tokenInstanceReference);
         tokenProfile.setDescription("sample description");
@@ -497,6 +500,172 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         ValidationException ex = Assertions.assertThrows(ValidationException.class,
                 () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Challenge password is required"), ex.getMessage());
+    }
+
+    @Test
+    void testCreateScepProfile_registrationSourceRejectsChallengePassword() {
+        ScepProfileRequestDto request = new ScepProfileRequestDto();
+        request.setName("RegistrationWithPassword");
+        request.setCaCertificateUuid(certificate.getUuid().toString());
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+        request.setEnableChallengePassword(true);
+        request.setChallengePassword("secret");
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class,
+                () -> scepProfileService.createScepProfile(request));
+        Assertions.assertTrue(ex.getMessage().contains("challenge password cannot be configured"), ex.getMessage());
+    }
+
+    @Test
+    void testCreateScepProfile_registrationSourceRejectsIntune() {
+        ScepProfileRequestDto request = new ScepProfileRequestDto();
+        request.setName("RegistrationWithIntune");
+        request.setCaCertificateUuid(certificate.getUuid().toString());
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+        request.setEnableIntune(true);
+        request.setIntuneTenant("tenant");
+        request.setIntuneApplicationId("appId");
+        request.setIntuneApplicationKey("appKey");
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class,
+                () -> scepProfileService.createScepProfile(request));
+        Assertions.assertTrue(ex.getMessage().contains("Intune"), ex.getMessage());
+    }
+
+    @Test
+    void testCreateScepProfile_registrationSourceRejectsNonRsaCaCertificate() {
+        Certificate ecCaCertificate = seedCaCertificateWithKeyAlgorithm(KeyAlgorithm.ECDSA);
+
+        ScepProfileRequestDto request = new ScepProfileRequestDto();
+        request.setName("RegistrationWithEcCa");
+        request.setCaCertificateUuid(ecCaCertificate.getUuid().toString());
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class,
+                () -> scepProfileService.createScepProfile(request));
+        Assertions.assertTrue(ex.getMessage().contains("RSA CA certificate"), ex.getMessage());
+    }
+
+    @Test
+    void testCreateScepProfile_registrationSourcePersistsWithoutPassword() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        ScepProfileRequestDto request = new ScepProfileRequestDto();
+        request.setName("RegistrationCreate");
+        request.setCaCertificateUuid(certificate.getUuid().toString());
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+
+        ScepProfileDetailDto dto = scepProfileService.createScepProfile(request);
+
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
+        Assertions.assertFalse(dto.isEnableChallengePassword());
+        ScepProfile created = scepProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElseThrow();
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, created.getChallengeSource());
+        Assertions.assertNull(created.getChallengePassword());
+    }
+
+    @Test
+    void testEditScepProfile_switchingToRegistrationSourceClearsStoredPassword() throws ConnectorException, AttributeException, NotFoundException {
+        scepProfile.setChallengePassword("originalChallenge");
+        scepProfileRepository.save(scepProfile);
+
+        ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
+        request.setCaCertificateUuid(certificate.getUuid().toString());
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+
+        ScepProfileDetailDto dto = scepProfileService.editScepProfile(scepProfile.getSecuredUuid(), request);
+
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
+        Assertions.assertFalse(dto.isEnableChallengePassword());
+        ScepProfile updated = scepProfileRepository.findByUuid(scepProfile.getUuid()).orElseThrow();
+        Assertions.assertNull(updated.getChallengePassword());
+    }
+
+    @Test
+    void testEditScepProfile_omittedChallengeSourceKeepsStoredSource() throws ConnectorException, AttributeException, NotFoundException {
+        scepProfile.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+        scepProfile.setChallengePassword(null);
+        scepProfileRepository.save(scepProfile);
+
+        ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
+        request.setCaCertificateUuid(certificate.getUuid().toString());
+        // challengeSource omitted (legacy client) -> keep the stored registration source
+
+        ScepProfileDetailDto dto = scepProfileService.editScepProfile(scepProfile.getSecuredUuid(), request);
+
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
+        ScepProfile updated = scepProfileRepository.findByUuid(scepProfile.getUuid()).orElseThrow();
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, updated.getChallengeSource());
+    }
+
+    private Certificate seedCaCertificateWithKeyAlgorithm(KeyAlgorithm keyAlgorithm) {
+        CryptographicKey caKey = new CryptographicKey();
+        caKey.setName("caKey-" + keyAlgorithm);
+        caKey.setTokenProfile(tokenProfile);
+        caKey.setTokenInstanceReference(tokenInstanceReference);
+        cryptographicKeyRepository.save(caKey);
+
+        CryptographicKeyItem privateItem = new CryptographicKeyItem();
+        privateItem.setLength(1024);
+        privateItem.setKey(caKey);
+        privateItem.setKeyUuid(caKey.getUuid());
+        privateItem.setType(KeyType.PRIVATE_KEY);
+        privateItem.setKeyData("some/encrypted/data");
+        privateItem.setFormat(KeyFormat.PRKI);
+        privateItem.setState(KeyState.ACTIVE);
+        privateItem.setEnabled(true);
+        privateItem.setKeyAlgorithm(keyAlgorithm);
+        privateItem.setUsage(keyAlgorithm == KeyAlgorithm.RSA
+                ? List.of(KeyUsage.DECRYPT, KeyUsage.SIGN) : List.of(KeyUsage.SIGN));
+        cryptographicKeyItemRepository.save(privateItem);
+
+        CryptographicKeyItem publicItem = new CryptographicKeyItem();
+        publicItem.setLength(1024);
+        publicItem.setKey(caKey);
+        publicItem.setKeyUuid(caKey.getUuid());
+        publicItem.setType(KeyType.PUBLIC_KEY);
+        publicItem.setKeyData("some/encrypted/data");
+        publicItem.setFormat(KeyFormat.SPKI);
+        publicItem.setState(KeyState.ACTIVE);
+        publicItem.setEnabled(true);
+        publicItem.setKeyAlgorithm(keyAlgorithm);
+        publicItem.setUsage(keyAlgorithm == KeyAlgorithm.RSA
+                ? List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY) : List.of(KeyUsage.VERIFY));
+        cryptographicKeyItemRepository.save(publicItem);
+
+        privateItem.setKeyReferenceUuid(privateItem.getUuid());
+        publicItem.setKeyReferenceUuid(publicItem.getUuid());
+        cryptographicKeyItemRepository.save(privateItem);
+        cryptographicKeyItemRepository.save(publicItem);
+
+        caKey.setItems(Set.of(privateItem, publicItem));
+        cryptographicKeyRepository.save(caKey);
+
+        CertificateContent caContent = new CertificateContent();
+        caContent.setContent("ca-content-" + keyAlgorithm);
+        certificateContentRepository.save(caContent);
+
+        Certificate caCertificate = new Certificate();
+        caCertificate.setSubjectDn("caCertificate-" + keyAlgorithm);
+        caCertificate.setIssuerDn("caCertificate-" + keyAlgorithm);
+        caCertificate.setSerialNumber("98765-" + keyAlgorithm);
+        caCertificate.setCertificateContent(caContent);
+        caCertificate.setCertificateContentId(caContent.getId());
+        caCertificate.setState(CertificateState.ISSUED);
+        caCertificate.setValidationStatus(CertificateValidationStatus.VALID);
+        caCertificate.setKey(caKey);
+        return certificateRepository.save(caCertificate);
+    }
+
+    @Test
+    void testCreateScepProfile_defaultsChallengeSourceToProfilePassword() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        ScepProfileRequestDto request = new ScepProfileRequestDto();
+        request.setName("DefaultChallengeSource");
+        request.setCaCertificateUuid(certificate.getUuid().toString());
+
+        ScepProfileDetailDto dto = scepProfileService.createScepProfile(request);
+
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, dto.getChallengeSource());
+        ScepProfile created = scepProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElseThrow();
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, created.getChallengeSource());
     }
 
     @Test

@@ -364,10 +364,56 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     }
 
     @Test
+    void issueExistingRejectsPresentedSecretWithoutAuthorization() throws Exception {
+        // Registration WITHOUT a challenge: no authorization row exists, so a presented secret can never
+        // verify — the completion must reject rather than fall back to the caller's permission.
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        String certUuid = clientOperationService
+                .registerCertificate(authorityParent, securedRaProfile, registrationRequest()).getUuid();
+        ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+        issueRequest.setRequest(generateCsrBase64());
+        issueRequest.setAuthorizationSecret("presented-but-unverifiable");
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class, () -> clientOperationService
+                .issueExistingCertificate(authorityParent, securedRaProfile, certUuid, issueRequest));
+
+        Assertions.assertTrue(ex.getMessage().contains("no active registration authorization"), ex.getMessage());
+        Certificate cert = certificateRepository.findByUuid(UUID.fromString(certUuid)).orElseThrow();
+        Assertions.assertNull(cert.getCertificateRequestUuid(), "no CSR is attached");
+        verify(actionProducer, never()).produceMessage(Mockito.any());
+    }
+
+    @Test
+    void issueExistingRejectsPresentedSecretOnClosedAuthorization() throws Exception {
+        // The raced-away arc materialized: the authorization closed between a protocol match and the gate.
+        // Even the previously-correct challenge must reject instead of completing via the permission fallback.
+        AuthorityProviderAdapter adapter = mock(AuthorityProviderAdapter.class);
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(adapter);
+        ClientCertificateRegistrationDto request = registrationRequest();
+        request.setAuthorizationSecret(CHALLENGE);
+        UUID certUuid = UUID.fromString(clientOperationService
+                .registerCertificate(authorityParent, securedRaProfile, request).getUuid());
+        CertificateRegistrationAuthorization authorization = authorizationRepository.findByCertificateUuid(certUuid).orElseThrow();
+        authorization.setState(RegistrationState.CLOSED);
+        authorizationRepository.save(authorization);
+        ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+        issueRequest.setRequest(generateCsrBase64());
+        issueRequest.setAuthorizationSecret(CHALLENGE);
+        String certUuidText = certUuid.toString();
+
+        ValidationException ex = Assertions.assertThrows(ValidationException.class, () -> clientOperationService
+                .issueExistingCertificate(authorityParent, securedRaProfile, certUuidText, issueRequest));
+
+        Assertions.assertTrue(ex.getMessage().contains("no active registration authorization"), ex.getMessage());
+        Assertions.assertNull(certificateRepository.findByUuid(certUuid).orElseThrow().getCertificateRequestUuid());
+    }
+
+    @Test
     void approvalRejectedRestoresPlatformLevelNoSecretPlaceholder() throws Exception {
         // A platform-level pre-registration with NO secret still carries a register->issue binding, so its issuance
         // approval rejection restores it to REGISTERED, symmetric with the connector-backed and secret cases.
-        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        AuthorityProviderAdapter adapter = mock(AuthorityProviderAdapter.class);
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(adapter);
         UUID certUuid = UUID.fromString(
                 clientOperationService.registerCertificate(authorityParent, securedRaProfile, registrationRequest()).getUuid());
 
