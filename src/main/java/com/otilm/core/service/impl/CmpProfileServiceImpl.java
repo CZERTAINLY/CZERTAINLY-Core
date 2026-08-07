@@ -478,11 +478,6 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     }
 
     /**
-     * Applies the write-only shared secret when the request protection method is shared secret. The edit form does
-     * not prefill the stored secret, so a blank or omitted value keeps the stored one; a non-blank value replaces it.
-     * Rejected only when there is nothing to keep — on create, or on edit of a profile without a stored secret.
-     */
-    /**
      * Rules of the certificate-registration challenge source: the per-registration challenge is the MAC key,
      * so the profile stores no shared secret; MAC/shared-secret request protection exists only on the V2
      * variant (V2_3GPP forces signature both ways, V3 is unsupported), so registration mode requires V2 and
@@ -503,6 +498,11 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
         }
     }
 
+    /**
+     * Applies the write-only shared secret when the request protection method is shared secret. The edit form does
+     * not prefill the stored secret, so a blank or omitted value keeps the stored one; a non-blank value replaces it.
+     * Rejected only when there is nothing to keep — on create, or on edit of a profile without a stored secret.
+     */
     private static void applySharedSecret(CmpProfile cmpProfile, CmpProfileRequestDto request) {
         boolean valueProvided = request.getSharedSecret() != null && !request.getSharedSecret().isBlank();
         if (valueProvided) {

@@ -13,7 +13,11 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.util.Arrays;
 
 /**
@@ -97,7 +101,7 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
      * RFC 4210 §5.1.3.1 from the message's own PBMParameter (salt, owf, iteration count, mac algorithm).
      * The pure computation, reusable both with the profile shared secret and with a registration challenge.
      */
-    static boolean matchesMac(PKIMessage message, byte[] passwordAsBytes) throws Exception {
+    static boolean matchesMac(PKIMessage message, byte[] passwordAsBytes) throws NoSuchAlgorithmException, NoSuchProviderException, IOException, InvalidKeyException {
         PKIHeader header = message.getHeader();
         PBMParameter pbmParameter = PBMParameter.getInstance(
                 header.getProtectionAlg().getParameters());      // -- PBMParameter

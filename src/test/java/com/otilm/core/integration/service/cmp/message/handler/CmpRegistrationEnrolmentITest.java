@@ -198,13 +198,13 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
                 senderKid.toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
     }
 
-    private String failText(byte[] responseBytes) throws Exception {
+    private String failText(byte[] responseBytes) {
         PKIMessage response = PKIMessage.getInstance(responseBytes);
         return ((org.bouncycastle.asn1.cmp.ErrorMsgContent) response.getBody().getContent())
                 .getPKIStatusInfo().getStatusString().getStringAtUTF8(0).getString();
     }
 
-    private int failInfo(byte[] responseBytes) throws Exception {
+    private int failInfo(byte[] responseBytes) {
         PKIMessage response = PKIMessage.getInstance(responseBytes);
         return ((org.bouncycastle.asn1.cmp.ErrorMsgContent) response.getBody().getContent())
                 .getPKIStatusInfo().getFailInfo().intValue();
@@ -308,5 +308,19 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
         assertTrue(history.stream().anyMatch(e -> e.getStatus() == CertificateEventStatus.FAILED
                         && e.getMessage().contains("subject alternative names")),
                 "the SAN mismatch is recorded on the matched registration");
+    }
+
+    @Test
+    void subjectMismatchIsRejectedAndRecordedOnTheRegistration() throws Exception {
+        Certificate registration = seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
+
+        ResponseEntity<byte[]> response = post(irMessage("CN=someone-else", null, CHALLENGE, registration.getUuid()));
+
+        assertEquals(CmpRegistrationResolver.REGISTRATION_REJECTION, failText(response.getBody()));
+        List<CertificateEventHistory> history = eventHistoryRepository.findByCertificateOrderByCreatedDesc(
+                certificateRepository.findByUuid(registration.getUuid()).orElseThrow());
+        assertTrue(history.stream().anyMatch(e -> e.getStatus() == CertificateEventStatus.FAILED
+                        && e.getMessage().contains("subject does not match")),
+                "the subject mismatch is recorded on the matched registration");
     }
 }

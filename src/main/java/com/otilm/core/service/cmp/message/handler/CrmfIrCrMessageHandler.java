@@ -109,7 +109,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
         // -- process issue (asynchronous) operation
         CertReqMessages crmf = (CertReqMessages) request.getBody().getContent();
         if (configuration.isRegistrationMode()) {
-            return completeRegistration(request, crmf, configuration, tid);
+            return completeRegistration(crmf, configuration, tid);
         }
         try {
             ClientCertificateIssueRequestDto dto = new ClientCertificateIssueRequestDto();
@@ -137,7 +137,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
      * runs through the register→issue completion with the registration challenge as the authorization secret.
      * Every rejection reuses the single generic wire message.
      */
-    private ClientCertificateDataResponseDto completeRegistration(PKIMessage request, CertReqMessages crmf,
+    private ClientCertificateDataResponseDto completeRegistration(CertReqMessages crmf,
                                                                   ConfigurationContext configuration, ASN1OctetString tid) throws CmpBaseException {
         Certificate matched = configuration.getMatchedRegistration();
         if (matched == null) {
@@ -189,12 +189,16 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
                     CertificateUtil.getSAN(parsed),
                     List.of(new RegistrationIdentityMatcher.Candidate(
                             matched.getUuid(), matched.getSubjectDn(), matched.getSubjectAlternativeNames())));
-            if (result.outcome() == RegistrationIdentityMatcher.Outcome.SAN_MISMATCH) {
-                certificateEventHistoryService.addEventHistory(matched.getUuid(), CertificateEvent.ISSUE,
-                        CertificateEventStatus.FAILED,
-                        "CMP enrolment subject alternative names do not match the registered ones", "");
-            }
             if (result.outcome() != RegistrationIdentityMatcher.Outcome.MATCHED) {
+                // The candidate is already resolved from the senderKID, so any identity mismatch is attributable —
+                // record it against that certificate (server-side only; the wire still carries the single generic
+                // rejection). A single candidate can only yield SAN_MISMATCH (subject matched, SANs differ) or
+                // NO_MATCH (subject differs); AMBIGUOUS cannot occur.
+                String reason = result.outcome() == RegistrationIdentityMatcher.Outcome.SAN_MISMATCH
+                        ? "CMP enrolment subject alternative names do not match the registered ones"
+                        : "CMP enrolment subject does not match the registered identity";
+                certificateEventHistoryService.addEventHistory(matched.getUuid(), CertificateEvent.ISSUE,
+                        CertificateEventStatus.FAILED, reason, "");
                 throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
             }
         } catch (CertificateRequestException | IOException e) {
