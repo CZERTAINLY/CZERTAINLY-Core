@@ -984,7 +984,8 @@ public class ScepServiceImpl implements ScepExternalService {
             throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
         }
         List<Certificate> candidates =
-                certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(raProfile.getUuid());
+                certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
+                        raProfile.getUuid(), CertificateUtil.normalizeSubjectDn(scepRequest.getPkcs10Request().getSubject()));
         RegistrationIdentityMatcher.MatchResult result = RegistrationIdentityMatcher.match(
                 scepRequest.getPkcs10Request().getSubject(),
                 csrSans,
@@ -1011,7 +1012,7 @@ public class ScepServiceImpl implements ScepExternalService {
                     "SCEP registration enrolment rejected: several registrations match the CSR identity (CSR subject={}, CSR SANs={})",
                     csrSubject, csrSans);
             case NO_MATCH -> logger.info(
-                    "SCEP registration enrolment rejected: no registration matches the CSR identity (CSR subject={}, CSR SANs={}, {} REGISTERED candidate(s) with an active authorization under RA profile {})",
+                    "SCEP registration enrolment rejected: no registration matches the CSR identity (CSR subject={}, CSR SANs={}, {} subject-matching REGISTERED candidate(s) with an active authorization under RA profile {})",
                     csrSubject, csrSans, candidates.size(), raProfile.getName());
         }
         throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);

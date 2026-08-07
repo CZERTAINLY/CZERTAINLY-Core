@@ -225,6 +225,19 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     }
 
     @Test
+    void enrolmentSubjectDifferingOnlyInRdnOrderStillMatches() throws Exception {
+        // The SQL prefilter compares the stored normalized subject, so a CSR presenting the same identity
+        // with reordered RDNs must still reach the identity match and complete.
+        registeredPlaceholder("O=Acme, CN=device-rdn", Map.of("dNSName", List.of("device-rdn.example")), CHALLENGE);
+
+        ResponseEntity<Object> response = postPkiOperation(
+                enrolment("CN=device-rdn, O=Acme", List.of("device-rdn.example"), CHALLENGE));
+
+        assertScepFormatted(response);
+        assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
+    }
+
+    @Test
     void differentKeyReplayCannotReplaceTheAttachedCsr() throws Exception {
         // A fresh-key second completion must not overwrite the first CSR. The certificate row lock serializes
         // concurrent completions into this same second attach, so a sequential replay deterministically covers
@@ -491,6 +504,7 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     private Certificate registeredPlaceholder(String subjectDn, Map<String, List<String>> sans, String challenge) {
         Certificate placeholder = new Certificate();
         placeholder.setSubjectDn(subjectDn);
+        placeholder.setSubjectDnNormalized(CertificateUtil.normalizeStoredSubjectDn(subjectDn));
         if (sans != null) {
             placeholder.setSubjectAlternativeNames(CertificateUtil.serializeSans(sans));
         }

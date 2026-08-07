@@ -194,13 +194,15 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<UUID> findStalePendingIssueWithoutPollRow(@Param("threshold") OffsetDateTime threshold, Pageable pageable);
 
     /**
-     * The pre-registrations a protocol enrolment can complete under the RA profile: REGISTERED placeholders
-     * whose registration authorization is ACTIVE. Registrations without a challenge have no authorization
-     * row and are excluded — they cannot authenticate an enrolment.
+     * The pre-registrations a protocol enrolment presenting the given normalized subject can complete under
+     * the RA profile: REGISTERED placeholders whose registration authorization is ACTIVE, prefiltered by the
+     * stored normalized subject so the identity match receives only same-subject candidates. Registrations
+     * without a challenge have no authorization row and are excluded — they cannot authenticate an enrolment.
      */
     @Query("""
             SELECT c FROM Certificate c
                 WHERE c.raProfileUuid = :raProfileUuid
+                    AND c.subjectDnNormalized = :subjectDnNormalized
                     AND c.state = ?#{T(com.otilm.api.model.core.certificate.CertificateState).REGISTERED}
                     AND c.archived = false
                     AND EXISTS (SELECT 1 FROM CertificateRegistrationAuthorization a
@@ -208,7 +210,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
                             AND a.state = ?#{T(com.otilm.core.dao.entity.RegistrationState).ACTIVE})
             """
     )
-    List<Certificate> findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(@Param("raProfileUuid") UUID raProfileUuid);
+    List<Certificate> findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
+            @Param("raProfileUuid") UUID raProfileUuid, @Param("subjectDnNormalized") String subjectDnNormalized);
 
     List<Certificate> findByRaProfileAndComplianceStatusIsNotNullAndArchivedIsFalse(RaProfile raProfile);
 

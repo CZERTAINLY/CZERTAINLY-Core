@@ -9,6 +9,7 @@ import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationReposit
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.CertificateUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,9 +72,36 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
         Certificate underOtherProfile = persistCertificate(CertificateState.REGISTERED, otherRaProfileUuid);
         persistAuthorizationFor(underOtherProfile.getUuid(), RegistrationState.ACTIVE);
 
-        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(raProfileUuid))
+        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
+                raProfileUuid, CertificateUtil.normalizeStoredSubjectDn("CN=lookup-subject")))
                 .extracting(Certificate::getUuid)
                 .containsExactly(match.getUuid());
+    }
+
+    @Test
+    void registrationLookupExcludesOtherSubjects() {
+        UUID raProfileUuid = persistRaProfile();
+        Certificate match = persistCertificate(CertificateState.REGISTERED, raProfileUuid, "CN=lookup-subject");
+        persistAuthorizationFor(match.getUuid(), RegistrationState.ACTIVE);
+        Certificate otherSubject = persistCertificate(CertificateState.REGISTERED, raProfileUuid, "CN=other-subject");
+        persistAuthorizationFor(otherSubject.getUuid(), RegistrationState.ACTIVE);
+
+        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
+                raProfileUuid, CertificateUtil.normalizeStoredSubjectDn("CN=lookup-subject")))
+                .extracting(Certificate::getUuid)
+                .containsExactly(match.getUuid());
+    }
+
+    @Test
+    void registrationLookupFindsSanOnlyRegistrationsByTheEmptyNormalizedSubject() {
+        UUID raProfileUuid = persistRaProfile();
+        Certificate sanOnly = persistCertificate(CertificateState.REGISTERED, raProfileUuid, null);
+        persistAuthorizationFor(sanOnly.getUuid(), RegistrationState.ACTIVE);
+
+        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
+                raProfileUuid, ""))
+                .extracting(Certificate::getUuid)
+                .containsExactly(sanOnly.getUuid());
     }
 
     private UUID persistRaProfile() {
@@ -84,8 +112,14 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
     }
 
     private Certificate persistCertificate(CertificateState state, UUID raProfileUuid) {
+        return persistCertificate(state, raProfileUuid, "CN=lookup-subject");
+    }
+
+    private Certificate persistCertificate(CertificateState state, UUID raProfileUuid, String subjectDn) {
         Certificate certificate = aCertificate().withState(state).build();
         certificate.setRaProfileUuid(raProfileUuid);
+        certificate.setSubjectDn(subjectDn);
+        certificate.setSubjectDnNormalized(CertificateUtil.normalizeStoredSubjectDn(subjectDn));
         return certificateRepository.save(certificate);
     }
 

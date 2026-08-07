@@ -287,7 +287,8 @@ class ScepServiceImplRegistrationModeTest {
     }
 
     private void stubCandidates(Certificate... candidates) {
-        when(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(RA_PROFILE_UUID))
+        when(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
+                eq(RA_PROFILE_UUID), anyString()))
                 .thenReturn(Arrays.asList(candidates));
     }
 
