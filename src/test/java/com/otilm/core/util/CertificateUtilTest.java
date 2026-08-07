@@ -16,6 +16,7 @@ import com.otilm.core.oid.OidHandler;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.SubsequentMessage;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
@@ -396,6 +397,32 @@ class CertificateUtilTest {
                 .setProofOfPossessionSubsequentMessage(SubsequentMessage.encrCert);
         CertReqMessages messages = new CertReqMessages(builder.build().toASN1Structure());
         return new CrmfCertificateRequest(messages.getEncoded());
+    }
+
+    @Test
+    void normalizeStoredSubjectDnNeutralizesRdnOrderAndAttributeNameCase() {
+        assertEquals(
+                CertificateUtil.normalizeStoredSubjectDn("CN=device-7, O=Acme"),
+                CertificateUtil.normalizeStoredSubjectDn("o=Acme, cn=device-7"));
+    }
+
+    @Test
+    void normalizeStoredSubjectDnPreservesAttributeValueCase() {
+        assertNotEquals(
+                CertificateUtil.normalizeStoredSubjectDn("CN=Device-7"),
+                CertificateUtil.normalizeStoredSubjectDn("CN=device-7"));
+    }
+
+    @Test
+    void absentSubjectNormalizesToTheEmptyString() {
+        assertEquals("", CertificateUtil.normalizeSubjectDn(null));
+        assertEquals("", CertificateUtil.normalizeStoredSubjectDn(null));
+        assertEquals("", CertificateUtil.normalizeStoredSubjectDn("   "));
+    }
+
+    @Test
+    void normalizeStoredSubjectDnRejectsAnUnparseableValue() {
+        assertThrows(IllegalArgumentException.class, () -> CertificateUtil.normalizeStoredSubjectDn("not a dn"));
     }
 
 }
