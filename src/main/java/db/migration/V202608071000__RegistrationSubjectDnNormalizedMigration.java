@@ -14,6 +14,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -49,7 +50,9 @@ public class V202608071000__RegistrationSubjectDnNormalizedMigration extends Bas
                 OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, rows.getString("oid"), OidRecord.builder()
                         .displayName(rows.getString("display_name"))
                         .code(rows.getString("code"))
-                        .altCodes(altCodes == null ? List.of() : Arrays.asList((String[]) altCodes.getArray()))
+                        .altCodes(altCodes == null ? List.of() : Arrays.stream((String[]) altCodes.getArray())
+                                .filter(Objects::nonNull)
+                                .toList())
                         .build());
             }
         }
