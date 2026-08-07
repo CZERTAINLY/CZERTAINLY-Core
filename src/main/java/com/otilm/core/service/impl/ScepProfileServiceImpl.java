@@ -367,33 +367,6 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
      *   <li>toggle {@code true} + blank value — keep the stored password, or reject when none is stored.</li>
      * </ul>
      */
-    /**
-     * Rules of the certificate-registration challenge source: each registration carries its own challenge,
-     * so a profile password is forbidden; Intune validates challenges in its own regime; and the CA
-     * certificate must hold an RSA decryption key, because without a shared password the platform can only
-     * decrypt requests enveloped via RSA key transport.
-     */
-    private static void validateRegistrationChallengeSource(BaseScepProfileRequestDto request, boolean intuneEnabled, Certificate caCertificate) {
-        if (Boolean.TRUE.equals(request.getEnableChallengePassword())
-                || (request.getChallengePassword() != null && !request.getChallengePassword().isBlank())) {
-            throw new ValidationException(ValidationError.create(
-                    "A challenge password cannot be configured when the challenge source is certificate registration"));
-        }
-        if (intuneEnabled) {
-            throw new ValidationException(ValidationError.create(
-                    "Intune requires the profile challenge password as the challenge source"));
-        }
-        if (!hasRsaDecryptionKey(caCertificate)) {
-            throw new ValidationException(ValidationError.create(
-                    "Certificate registration challenge source requires an RSA CA certificate; requests enveloped to a non-RSA CA key need a shared challenge password to decrypt"));
-        }
-    }
-
-    private static boolean hasRsaDecryptionKey(Certificate caCertificate) {
-        return caCertificate.getKey() != null && caCertificate.getKey().getItems().stream()
-                .anyMatch(item -> item.getType() == KeyType.PRIVATE_KEY && item.getKeyAlgorithm() == KeyAlgorithm.RSA);
-    }
-
     private void applyChallengePassword(ScepProfile scepProfile, BaseScepProfileRequestDto request) {
         Boolean enable = request.getEnableChallengePassword();
         boolean valueProvided = request.getChallengePassword() != null && !request.getChallengePassword().isBlank();

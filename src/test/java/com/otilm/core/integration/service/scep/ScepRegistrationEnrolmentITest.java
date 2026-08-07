@@ -129,8 +129,6 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     private CryptographicKeySeeder cryptographicKeySeeder;
     @Autowired
     private ActionProducer actionProducer;
-    @Autowired
-    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     private WireMockServer mockServer;
     private RaProfile raProfile;
@@ -524,7 +522,6 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         assertNotNull(new CMSSignedData((byte[]) response.getBody()).getSignerInfos().getSigners());
     }
 
-    /** Reads a SCEP attribute out of the signed response. */
     private String attribute(ResponseEntity<Object> response, String oid) throws Exception {
         CMSSignedData signedData = new CMSSignedData((byte[]) response.getBody());
         SignerInformation signer = signedData.getSignerInfos().getSigners().iterator().next();
