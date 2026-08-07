@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /**
  * Pure matching kernel binding a protocol enrolment to a pre-registered certificate. Subjects compare by their
- * {@link PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and
+ * {@link com.otilm.core.util.PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and
  * spacing but deliberately preserves attribute-value case — the enrolment must present the identity exactly
  * as registered. SAN sets compare as maps of value lists canonicalized per type — IP addresses reduced to
  * their octets (so the CSR's hex rendering equals a registration's decoded text and equivalent forms agree),
