@@ -63,11 +63,15 @@ public class BaseSpringBootTest {
         mockSuccessfulCheckObjectAccess();
         injectAuthentication();
 
-        // clean DB tables data before each test
+        long databaseResetStarted = System.nanoTime();
         truncateTables();
-        // re-seed the settings cache from the (now empty) DB so settings cannot leak into the next context
+        long databaseResetNanos = System.nanoTime() - databaseResetStarted;
+
+        long settingsRefreshStarted = System.nanoTime();
         settingService.refreshCache();
-        // clean context
+        long settingsRefreshNanos = System.nanoTime() - settingsRefreshStarted;
+        TestCostRecorder.recordBaseSetup(databaseResetNanos, settingsRefreshNanos);
+
         MDC.clear();
     }
 

@@ -28,10 +28,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * CI time). {@link #everyRunnableTestIsRunByExactlyOneCiProfile} proves the partition by replaying
  * surefire's include/exclude matching over the real test tree, so it catches drift in any pattern.
  * <p>
- * The heavy {@code integration.service} package is split by leading class letter (A-C vs D-Z) via a
- * shared {@code %regex} boundary — excluded from {@code test-integration-service-1}, included by
- * {@code test-integration-service-2}. {@link #flatServiceSplitBoundaryMustBeConsistent} keeps the two
- * sides identical so the flat classes cannot silently gap or double-run.
+ * The heavy {@code integration.service} package is split by leading class letter (A-C vs D-Z), with
+ * measured heavy classes transferred from the first shard to the second. The same patterns must be
+ * excluded from {@code test-integration-service-1} and included by {@code test-integration-service-2}
+ * so classes cannot silently gap or double-run.
  * <p>
  * Additionally, every concrete test class in the service package must follow the naming convention
  * surefire matches (*Test, *Tests, *ITest); classes that don't are never picked up at all.
@@ -44,6 +44,15 @@ class CiTestSplitTest {
             "test-integration-core",
             "test-integration-service-1",
             "test-integration-service-2");
+
+    private static final String SERVICE_SPLIT_BOUNDARY =
+            "%regex[.*/integration/service/[D-Z][^/]*ITest.*]";
+
+    private static final List<String> SERVICE_SHARD_TRANSFERS = List.of(
+            "com/otilm/core/integration/service/AcmeProfileServiceITest.java",
+            "com/otilm/core/integration/service/AcmeServiceITest.java",
+            "com/otilm/core/integration/service/CertificateServiceITest.java",
+            "com/otilm/core/integration/service/CryptographicKeyServiceITest.java");
 
     /**
      * Surefire's built-in default {@code <includes>}, applied to any profile that declares no
@@ -99,19 +108,30 @@ class CiTestSplitTest {
     }
 
     @Test
-    void flatServiceSplitBoundaryMustBeConsistent() throws Exception {
+    void serviceSplitPatternsMustBeConsistent() throws Exception {
         List<String> shard1Excludes = profilePatterns("test-integration-service-1", "exclude");
         List<String> shard2Includes = profilePatterns("test-integration-service-2", "include");
+        List<String> expected = new ArrayList<>();
+        expected.add(SERVICE_SPLIT_BOUNDARY);
+        expected.addAll(SERVICE_SHARD_TRANSFERS);
 
         assertThat(shard2Includes)
-                .describedAs("test-integration-service-2 must include exactly the flat-class %regex boundary")
-                .hasSize(1);
+                .describedAs("test-integration-service-2 must include the boundary and measured transfers")
+                .containsExactlyElementsOf(expected);
         assertThat(shard1Excludes)
                 .describedAs("""
-                        test-integration-service-1 must exclude exactly the same flat-class boundary that
-                        test-integration-service-2 includes. If the two drift apart, the integration.service
-                        flat classes on the boundary either run twice or run in neither shard.""")
+                        test-integration-service-1 must exclude exactly what test-integration-service-2
+                        includes. If the two drift apart, affected integration.service classes run twice
+                        or in neither shard.""")
                 .containsExactlyElementsOf(shard2Includes);
+    }
+
+    @Test
+    void nonIntegrationProfileExcludesNestedIntegrationTests() throws Exception {
+        List<String> excludes = profilePatterns("test-non-integration", "exclude");
+
+        assertThat(matchesAny(excludes, "com/otilm/core/integration/service/SampleITest.java")).isTrue();
+        assertThat(matchesAny(excludes, "com/otilm/core/integration/service/SampleITest$Nested.java")).isTrue();
     }
 
     @Test
