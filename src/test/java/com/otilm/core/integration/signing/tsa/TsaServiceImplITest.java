@@ -1,5 +1,6 @@
 package com.otilm.core.integration.signing.tsa;
 
+import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
@@ -352,17 +353,19 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         }
 
         @Test
-        void rejectsWithSystemFailure_whenFormattingConnectorFails() throws Exception {
+        void throwsSystemFailure_whenFormattingConnectorFails() throws Exception {
             // given — the signature formatting is unavailable during token assembly
             SigningProfileDto profile = createTimestampingSigningProfile("sp-formatting-down");
             timestampingFormattingMock.stubTokenAssemblyFailure();
 
-            // when
-            TspResponse response = tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
-
-            // then
-            assertThat(response).isInstanceOf(TspResponse.Rejected.class);
-            assertThat(((TspResponse.Rejected) response).failureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+            // when / then — the controller renders this service exception as a TSP rejection
+            assertThatThrownBy(() -> tsaService.processTspRequestForSigningProfile(
+                    profile.getName(), aTspRequest().build()))
+                    .isInstanceOf(TspException.class)
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE))
+                    .hasMessageContaining("Signature formatting connector communication failed during DTBS phase")
+                    .hasCauseInstanceOf(ConnectorServerException.class);
         }
     }
 }
