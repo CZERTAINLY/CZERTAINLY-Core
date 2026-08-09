@@ -176,24 +176,23 @@ class SecretContainmentGoldenTest {
     }
 
     /**
-     * Drives the containment guard against payloads that came back from JSON, rather than ones built in the test,
-     * and records an important asymmetry between its two checks.
-     * <p>
-     * Every other test here hands the guard a directly-constructed object, which quietly assumes the thing most
-     * likely to break: that a connector's JSON deserializes into the secret-bearing <i>types</i> the structural
-     * check tests with {@code instanceof}. It does not, and that is not a regression introduced here — it is
-     * current behaviour. {@code SecretAttributeContentV2} exposes no {@code contentType} property, and
-     * {@code AttributeContentDeserializer} selects the v3 content model only when {@code contentType} is present,
-     * so a serialized secret content reads back as a plain {@code BaseAttributeContentV2} whose {@code data} is an
-     * untyped map. Every {@code instanceof} in the structural check misses it.
-     * <p>
-     * What still catches it is the value-echo scan, which compares string leaves of the serialized response and so
-     * does not depend on types at all. The guard is therefore load-bearing on its <i>value</i> check for anything
-     * arriving over the wire, and on its <i>structural</i> check only for objects the platform constructs itself.
-     * <p>
-     * Pinning this matters because the two halves fail differently under the migration. If Jackson 3 changed how a
-     * secret leaf is rendered, the value-echo comparison would stop matching — and for a deserialized payload there
-     * is no structural backstop behind it.
+     * A secret that arrives as JSON is caught only by the value-echo check, never by the structural one.
+     *
+     * <p><b>Why deserialization loses the type.</b> {@code SecretAttributeContentV2} exposes no {@code contentType}
+     * property, and {@code AttributeContentDeserializer} selects the v3 content model only when that property is
+     * present. A serialized secret content therefore reads back as a plain {@code BaseAttributeContentV2} holding an
+     * untyped map, so every {@code instanceof} in the structural check misses it. This is current behaviour, not a
+     * regression introduced here.
+     *
+     * <p><b>Security invariant.</b> For anything arriving over the wire, the value-echo scan is the <i>only</i>
+     * containment net — it compares serialized string leaves and so does not depend on types. The structural check
+     * protects only objects the platform constructs itself.
+     *
+     * <p><b>Migration risk.</b> If Jackson 3 changes how a secret leaf is rendered, the value-echo comparison stops
+     * matching, and for a deserialized payload there is no structural backstop behind it.
+     *
+     * <p><b>Why this test exists.</b> Every other test here hands the guard a directly-constructed object, which
+     * assumes the very thing most likely to break.
      */
     @Test
     void aSecretArrivingAsJsonIsCaughtByValueEchoBecauseTheStructuralCheckCannotSeeIt() throws Exception {

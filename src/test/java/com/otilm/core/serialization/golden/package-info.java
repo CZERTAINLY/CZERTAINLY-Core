@@ -58,10 +58,23 @@
  * unreviewed regeneration is indistinguishable from having no baseline at all.
  *
  * <h2>Mapper parity</h2>
- * Goldens are produced with the mappers production actually uses, via
- * {@code GoldenMappers}: the Spring wire mapper for REST DTOs and JSON columns, and the bare mapper for ACME
- * payloads. Producing them with a fresh {@code new ObjectMapper()} would baseline a mapper nothing uses and would
- * miss precisely the customizations most likely to move.
+ * Goldens are produced with the serializer that actually writes each surface, via {@code GoldenMappers}. The
+ * platform has <b>three</b> distinct JSON writers and they do not agree, so picking the wrong one silently
+ * baselines a shape production never emits:
+ * <ul>
+ *   <li><b>Wire mapper</b> ({@code WebAppConfig#jsonObjectMapper}) — every {@code @RestController} response body,
+ *       REST DTOs and ACME protocol documents alike, plus {@code ObjectToJsonConverter} and
+ *       {@code OutboundSecretContainment}. ISO-8601 dates, {@code NON_NULL} inclusion.</li>
+ *   <li><b>Hibernate's {@code FormatMapper}</b> — every {@code @JdbcTypeCode(SqlTypes.JSON)} column. Production
+ *       registers no {@code HibernatePropertiesCustomizer}, so Hibernate builds its own mapper with Jackson's
+ *       defaults: numeric timestamps, nulls included. The opposite of the wire mapper on both counts.</li>
+ *   <li><b>The bare {@code AcmeJsonProcessor} mapper</b> — one call only, the inbound JWS envelope. It does
+ *       <i>not</i> serialize the ACME protocol documents, which go out through the wire mapper.</li>
+ * </ul>
+ * Note the consequence of the second point: the only {@code HibernatePropertiesCustomizer} in the repository is
+ * {@code JsonFormatMapperTestConfig}, annotated {@code @Profile("test")}, so integration tests write {@code jsonb}
+ * through the wire mapper while production writes it through Hibernate's. That gap is OmniTrustILM/core#2000; the
+ * column goldens here deliberately baseline <i>production</i>.
  *
  * <h2>Test-context budget</h2>
  * These are plain JUnit 5 tests with no Spring annotations and no application context, so they add nothing to the

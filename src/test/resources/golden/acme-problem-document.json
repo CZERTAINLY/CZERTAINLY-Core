@@ -7,11 +7,7 @@
     {
       "type" : "urn:ietf:params:acme:error:rejectedIdentifier",
       "title" : "Rejected Identifier",
-      "detail" : "The identifier is not accepted by this ACME profile",
-      "instance" : null,
-      "subproblems" : null,
-      "algorithms" : null
+      "detail" : "The identifier is not accepted by this ACME profile"
     }
-  ],
-  "algorithms" : null
+  ]
 }

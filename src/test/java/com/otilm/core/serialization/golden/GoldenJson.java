@@ -2,6 +2,7 @@ package com.otilm.core.serialization.golden;
 
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 
@@ -90,6 +91,41 @@ final class GoldenJson {
                         + "sides of this type disagree, so a stored value would mutate on every load-and-save cycle.",
                         goldenName, readAs.getSimpleName())
                 .isEqualTo(serialized);
+    }
+
+    /**
+     * Assert that a JSON document produced by something other than an {@link ObjectMapper} matches its golden.
+     * <p>
+     * Hibernate's {@code FormatMapper} returns a compact string rather than writing through an {@code ObjectWriter},
+     * so its output is re-indented here with the same pinned printer the mapper path uses. Only whitespace is
+     * normalized: floats are read as {@code BigDecimal} so a literal like {@code 1.5} survives the reformat exactly,
+     * and key order, key presence and scalar rendering — the things a migration would change — pass through
+     * untouched.
+     */
+    static void assertRawJsonMatchesGolden(String goldenName, String rawJson) {
+        String actual = reindent(rawJson);
+
+        if (regenerating()) {
+            write(goldenName, actual);
+            return;
+        }
+
+        assertThat(actual)
+                .describedAs("Serialized JSON drifted from golden '%s.json'. During the Jackson 3 migration this is a "
+                        + "finding to explain, not a test to update — trace the diff to a documented behaviour change "
+                        + "first. Regenerate deliberately with -D%s=true once the diff is understood.",
+                        goldenName, REGENERATE_PROPERTY)
+                .isEqualTo(read(goldenName));
+    }
+
+    private static String reindent(String rawJson) {
+        ObjectMapper reader = new ObjectMapper()
+                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+        try {
+            return serialize(reader, reader.readTree(rawJson));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not re-indent JSON for golden comparison", e);
+        }
     }
 
     /**

@@ -15,31 +15,35 @@ import com.otilm.api.model.core.acme.OrderStatus;
 import com.otilm.api.model.core.acme.Problem;
 import com.otilm.api.model.core.acme.ProblemDocument;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * Pins the ACME (RFC 8555) JSON wire contract.
  * <p>
  * ACME is the only JSON-based protocol core speaks — SCEP, CMP and TSP are ASN.1 / PKCS#7 binary formats that never
- * pass through Jackson, so they are deliberately out of scope for golden files. What makes ACME worth pinning is that
- * its counterparties are third-party clients (certbot, acme.sh, cert-manager and friends) that will not be upgraded
- * in lockstep with us and that parse these documents strictly against the RFC. A field that changes name, or starts
- * appearing as an explicit {@code null} where it used to be absent, is an interoperability break we would otherwise
- * discover from the field rather than from CI.
+ * pass through Jackson, so they are deliberately out of scope for golden files. What makes ACME worth pinning is
+ * that its counterparties are third-party clients (certbot, acme.sh, cert-manager and friends) that will not be
+ * upgraded in lockstep with us and that parse these documents strictly against the RFC. A field that changes name,
+ * or starts appearing as an explicit {@code null} where it used to be absent, is an interoperability break we would
+ * otherwise discover from the field rather than from CI.
  * <p>
- * These goldens use the bare mapper from {@code AcmeJsonProcessor} rather than the Spring wire mapper, because that
- * is what actually processes ACME payloads today. The difference is material and is itself part of the baseline: the
- * bare mapper has no {@code NON_NULL} inclusion, so ACME documents render nulls explicitly where a REST DTO would
- * omit the key. Whatever consolidates the bespoke mapper sites next must keep that, or knowingly change it.
+ * These documents are serialized by the <b>wire mapper</b>, not by the bare mapper inside {@code AcmeJsonProcessor}.
+ * {@code AcmeControllerImpl} returns every one of them as a {@code ResponseEntity} body, so they go out through the
+ * {@code MappingJackson2HttpMessageConverter} that {@code WebAppConfig} configures — which means ACME responses do
+ * inherit {@code NON_NULL} inclusion and the {@code JavaTimeModule}. The bare {@code AcmeJsonProcessor} mapper
+ * serves exactly one call in the codebase (the inbound JWS envelope) and is covered separately below; baselining
+ * these documents against it would have pinned a shape production never emits.
  */
 class AcmeProtocolGoldenTest {
 
-    private final ObjectMapper mapper = GoldenMappers.acme();
+    private final ObjectMapper mapper = GoldenMappers.web();
 
     @Test
     void directoryKeepsItsWireShape() {
@@ -127,24 +131,38 @@ class AcmeProtocolGoldenTest {
     }
 
     /**
-     * Records the concrete null-handling difference between the ACME mapper and the wire mapper. If the bespoke ACME
-     * mapper is ever folded into the shared one without carrying its configuration, this is the test that says so,
-     * rather than an ACME client failing to parse an unexpected null months later.
+     * The one place the bare {@code AcmeJsonProcessor} mapper is genuinely used: parsing the outer JWS envelope of
+     * an inbound ACME request, through {@code generalBodyJsonParser(request, JwsBody.class)} in
+     * {@code AcmeJwsRequest}. Nothing else in the codebase touches that mapper.
+     * <p>
+     * Pinning it separately keeps the two ACME paths honest, and records two behaviours that differ from the wire
+     * mapper. It applies no {@code NON_NULL} inclusion, so an all-null object still renders its keys. And it leaves
+     * {@code FAIL_ON_UNKNOWN_PROPERTIES} at Jackson's default, so an inbound document carrying a member the DTO does
+     * not declare is <b>rejected</b> rather than ignored.
+     * <p>
+     * That strictness is worth having written down before the upgrade. It is a live interoperability constraint —
+     * an ACME client that adds a member to a payload gets a parse failure — and {@code FAIL_ON_UNKNOWN_PROPERTIES}
+     * is precisely the kind of default a major version revisits. Whichever way it moves, that is a behavioural
+     * change on an externally-facing parser, and this test is what would surface it.
      */
     @Test
-    void acmeMapperRendersAbsentFieldsAsExplicitNullsUnlikeTheWireMapper() {
-        Identifier sparse = identifier();
+    void inboundJwsEnvelopeMapperKeepsItsDefaultsAndRejectsUnknownMembers() {
+        ObjectMapper envelopeMapper = GoldenMappers.acmeJwsEnvelope();
 
-        JsonNode acmeTree = GoldenMappers.acme().valueToTree(sparse);
-        JsonNode webTree = GoldenMappers.web().valueToTree(new DirectoryMeta());
+        assertThat(envelopeMapper.valueToTree(new DirectoryMeta()).isEmpty())
+                .describedAs("the envelope mapper applies no NON_NULL inclusion, so an all-null object still renders "
+                        + "its keys — the opposite of the wire mapper below")
+                .isFalse();
+        assertThat(GoldenMappers.web().valueToTree(new DirectoryMeta()).isEmpty())
+                .describedAs("the wire mapper omits null fields entirely; the two genuinely differ, which is why the "
+                        + "protocol documents above are baselined against the wire mapper and this one is not")
+                .isTrue();
 
-        assertThat(acmeTree.has("type"))
-                .describedAs("the ACME mapper has no NON_NULL inclusion, so populated and absent fields alike are keys")
-                .isTrue();
-        assertThat(webTree.isEmpty())
-                .describedAs("the wire mapper omits null fields entirely — the two mappers genuinely differ, and the "
-                        + "ACME goldens are baselined against the ACME mapper for that reason")
-                .isTrue();
+        assertThatExceptionOfType(UnrecognizedPropertyException.class)
+                .describedAs("the inbound envelope parser is strict: an undeclared member is rejected, not ignored")
+                .isThrownBy(() -> envelopeMapper.readValue(
+                        "{\"type\":\"dns\",\"value\":\"host.example.com\",\"unknownMember\":\"x\"}",
+                        Identifier.class));
     }
 
     private static Identifier identifier() {
