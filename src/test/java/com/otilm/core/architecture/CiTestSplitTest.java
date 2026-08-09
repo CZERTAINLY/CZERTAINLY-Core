@@ -48,11 +48,18 @@ class CiTestSplitTest {
     private static final String SERVICE_SPLIT_BOUNDARY =
             "%regex[.*/integration/service/[D-Z][^/]*ITest.*]";
 
+    private static final String SERVICE_PACKAGE =
+            "com/otilm/core/integration/service/**/*ITest.java";
+
     private static final List<String> SERVICE_SHARD_TRANSFERS = List.of(
             "com/otilm/core/integration/service/AcmeProfileServiceITest.java",
             "com/otilm/core/integration/service/AcmeServiceITest.java",
             "com/otilm/core/integration/service/CertificateServiceITest.java",
             "com/otilm/core/integration/service/CryptographicKeyServiceITest.java");
+
+    private static final List<String> CORE_SHARD_TRANSFERS = List.of(
+            "com/otilm/core/integration/cryptography/PQCITest.java",
+            "com/otilm/core/integration/search/TimeQualityConfigurationSearchITest.java");
 
     /**
      * Surefire's built-in default {@code <includes>}, applied to any profile that declares no
@@ -111,19 +118,33 @@ class CiTestSplitTest {
     void serviceSplitPatternsMustBeConsistent() throws Exception {
         List<String> shard1Excludes = profilePatterns("test-integration-service-1", "exclude");
         List<String> shard2Includes = profilePatterns("test-integration-service-2", "include");
-        List<String> expected = new ArrayList<>();
-        expected.add(SERVICE_SPLIT_BOUNDARY);
-        expected.addAll(SERVICE_SHARD_TRANSFERS);
+        List<String> expectedServicePatterns = new ArrayList<>();
+        expectedServicePatterns.add(SERVICE_SPLIT_BOUNDARY);
+        expectedServicePatterns.addAll(SERVICE_SHARD_TRANSFERS);
+
+        List<String> expectedShard2Includes = new ArrayList<>(expectedServicePatterns);
+        expectedShard2Includes.addAll(CORE_SHARD_TRANSFERS);
 
         assertThat(shard2Includes)
-                .describedAs("test-integration-service-2 must include the boundary and measured transfers")
-                .containsExactlyElementsOf(expected);
+                .describedAs("test-integration-service-2 must include the boundary and all measured transfers")
+                .containsExactlyElementsOf(expectedShard2Includes);
         assertThat(shard1Excludes)
                 .describedAs("""
-                        test-integration-service-1 must exclude exactly what test-integration-service-2
-                        includes. If the two drift apart, affected integration.service classes run twice
-                        or in neither shard.""")
-                .containsExactlyElementsOf(shard2Includes);
+                        test-integration-service-1 must exclude the service boundary and service transfers.
+                        If these patterns drift, affected integration.service classes run twice or in neither shard.""")
+                .containsExactlyElementsOf(expectedServicePatterns);
+    }
+
+    @Test
+    void coreTransfersMustBeExcludedFromCoreAndIncludedByServiceShard2() throws Exception {
+        List<String> coreExcludes = profilePatterns("test-integration-core", "exclude");
+        List<String> shard2Includes = profilePatterns("test-integration-service-2", "include");
+        List<String> expectedCoreExcludes = new ArrayList<>();
+        expectedCoreExcludes.add(SERVICE_PACKAGE);
+        expectedCoreExcludes.addAll(CORE_SHARD_TRANSFERS);
+
+        assertThat(coreExcludes).containsExactlyElementsOf(expectedCoreExcludes);
+        assertThat(shard2Includes).containsAll(CORE_SHARD_TRANSFERS);
     }
 
     @Test

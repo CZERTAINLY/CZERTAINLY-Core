@@ -447,7 +447,7 @@
             </build>
         </profile>
 
-        <!-- Worker 2: integration ITests outside the service package. -->
+        <!-- Worker 2: integration ITests outside the service package, except measured transfers to worker 4. -->
         <profile>
             <id>test-integration-core</id>
             <build>
@@ -461,6 +461,8 @@
                             </includes>
                             <excludes>
                                 <exclude>com/otilm/core/integration/service/**/*ITest.java</exclude>
+                                <exclude>com/otilm/core/integration/cryptography/PQCITest.java</exclude>
+                                <exclude>com/otilm/core/integration/search/TimeQualityConfigurationSearchITest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -496,7 +498,7 @@
             </build>
         </profile>
 
-        <!-- Worker 4: integration.service flat classes D-Z plus the measured transfers from worker 3. -->
+        <!-- Worker 4: integration.service flat classes D-Z plus measured transfers from workers 2 and 3. -->
         <profile>
             <id>test-integration-service-2</id>
             <build>
@@ -511,6 +513,8 @@
                                 <include>com/otilm/core/integration/service/AcmeServiceITest.java</include>
                                 <include>com/otilm/core/integration/service/CertificateServiceITest.java</include>
                                 <include>com/otilm/core/integration/service/CryptographicKeyServiceITest.java</include>
+                                <include>com/otilm/core/integration/cryptography/PQCITest.java</include>
+                                <include>com/otilm/core/integration/search/TimeQualityConfigurationSearchITest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
