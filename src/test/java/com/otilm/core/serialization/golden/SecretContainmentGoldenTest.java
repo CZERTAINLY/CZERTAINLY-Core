@@ -3,10 +3,12 @@ package com.otilm.core.serialization.golden;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
+import com.otilm.api.model.common.attribute.common.AttributeContent;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.CredentialAttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.otilm.api.model.common.attribute.common.content.data.SecretAttributeContentData;
+import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
@@ -171,6 +173,76 @@ class SecretContainmentGoldenTest {
                 "vaultSecret",
                 AttributeContentType.RESOURCE,
                 List.of(new ResourceObjectContent("ref-secret-resource", populatedResourceSecret())));
+    }
+
+    /**
+     * Drives the containment guard against payloads that came back from JSON, rather than ones built in the test,
+     * and records an important asymmetry between its two checks.
+     * <p>
+     * Every other test here hands the guard a directly-constructed object, which quietly assumes the thing most
+     * likely to break: that a connector's JSON deserializes into the secret-bearing <i>types</i> the structural
+     * check tests with {@code instanceof}. It does not, and that is not a regression introduced here — it is
+     * current behaviour. {@code SecretAttributeContentV2} exposes no {@code contentType} property, and
+     * {@code AttributeContentDeserializer} selects the v3 content model only when {@code contentType} is present,
+     * so a serialized secret content reads back as a plain {@code BaseAttributeContentV2} whose {@code data} is an
+     * untyped map. Every {@code instanceof} in the structural check misses it.
+     * <p>
+     * What still catches it is the value-echo scan, which compares string leaves of the serialized response and so
+     * does not depend on types at all. The guard is therefore load-bearing on its <i>value</i> check for anything
+     * arriving over the wire, and on its <i>structural</i> check only for objects the platform constructs itself.
+     * <p>
+     * Pinning this matters because the two halves fail differently under the migration. If Jackson 3 changed how a
+     * secret leaf is rendered, the value-echo comparison would stop matching — and for a deserialized payload there
+     * is no structural backstop behind it.
+     */
+    @Test
+    void aSecretArrivingAsJsonIsCaughtByValueEchoBecauseTheStructuralCheckCannotSeeIt() throws Exception {
+        String fromConnector = mapper.writeValueAsString(
+                new SecretAttributeContentV2("ref-secret",
+                        new SecretAttributeContentData(SECRET_VALUE, ProtectionLevel.ENCRYPTED)));
+
+        Object deserialized = mapper.readValue(fromConnector, AttributeContent.class);
+
+        assertThat(deserialized)
+                .describedAs("a serialized secret content carries no contentType, so it reads back as the plain v2 "
+                        + "content type and the structural check's instanceof tests cannot recognize it")
+                .isInstanceOf(BaseAttributeContentV2.class)
+                .isNotInstanceOf(SecretAttributeContentV2.class);
+
+        assertThatCode(() -> containment.assertNoExpandedSecretOutbound(deserialized, Set.of()))
+                .describedAs("with no recorded secret values nothing is left to catch it — this is precisely the gap "
+                        + "the value-echo check exists to cover")
+                .doesNotThrowAnyException();
+
+        assertThatExceptionOfType(OutboundSecretLeakException.class)
+                .describedAs("once the value is recorded, the echo scan catches it despite the lost type")
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(deserialized, Set.of(SECRET_VALUE)));
+    }
+
+    /**
+     * The same closed loop for the value-echo check, through the real callback DTO. {@code
+     * AttributeCallbackResponseDto.attributes} is declared as {@code List<BaseAttribute>}, so reading it exercises
+     * the hand-written {@code BaseAttributeDeserializer} — live Jackson 2 code that the upgrade must rewrite — on
+     * the exact field the guard walks.
+     */
+    @Test
+    void valueEchoCheckStillFiresOnAResponseThatWasDeserializedFromJson() throws Exception {
+        String fromConnector = mapper.writeValueAsString(echoingCallbackResponse());
+
+        AttributeCallbackResponseDto deserialized =
+                mapper.readValue(fromConnector, AttributeCallbackResponseDto.class);
+
+        assertThatExceptionOfType(OutboundSecretLeakException.class)
+                .describedAs("the echoed secret must still be found after a full serialize/deserialize cycle")
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(deserialized, Set.of(SECRET_VALUE)));
+
+        assertThatCode(() -> containment.assertNoExpandedSecretOutbound(
+                mapper.readValue(mapper.writeValueAsString(benignCallbackResponse()),
+                        AttributeCallbackResponseDto.class),
+                Set.of(SECRET_VALUE)))
+                .describedAs("and the matching benign response must still pass, so the check above is not firing "
+                        + "indiscriminately on anything that survived a round trip")
+                .doesNotThrowAnyException();
     }
 
     private static ResourceSecretContentData populatedResourceSecret() {

@@ -5,6 +5,7 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.CodeBlockAttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.ProgrammingLanguageEnum;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.v2.CustomAttributeV2;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
@@ -164,6 +165,41 @@ class AttributeTypeInfoGoldenTest {
         GoldenJson.assertMatchesGolden(golden, mapper, attribute);
 
         assertDiscriminator(attribute, "type", attributeTypeCode);
+        assertResolvesBackToItsOwnSubtype(attribute);
+    }
+
+    /**
+     * Read the serialized attribute back through {@code BaseAttribute} and require the original class.
+     * <p>
+     * Without this, the surrounding test would only prove the discriminator was <i>written</i> — and weakly, since
+     * the expected value comes from the same {@code getCode()} the serializer calls. The failure mode described
+     * above is a <i>read</i>-side one, and only deserializing can detect it.
+     * <p>
+     * The base type here is {@code BaseAttribute}, not {@code BaseAttributeV2}, and that distinction is itself a
+     * finding worth recording. {@code BaseAttributeV2} carries a {@code @JsonSubTypes} list naming
+     * {@code DataAttributeV2} and friends, but none of them actually extend it — they extend
+     * {@code DataAttribute extends BaseAttribute}. Those registrations are therefore vestigial, and deserializing
+     * through {@code BaseAttributeV2} fails outright with an unresolvable type id. The live read path is
+     * {@code BaseAttribute}, handled by the hand-written {@code BaseAttributeDeserializer}, which ignores
+     * {@code @JsonSubTypes} entirely and switches on the {@code version} and {@code type} fields by hand.
+     * <p>
+     * So this assertion covers the deserializer that actually runs in production — one written against Jackson 2
+     * APIs the upgrade must rewrite — rather than an annotation arrangement that never resolves anything.
+     */
+    private void assertResolvesBackToItsOwnSubtype(Object attribute) {
+        try {
+            String serialized = mapper.writeValueAsString(attribute);
+            Object reread = mapper.readValue(serialized, BaseAttribute.class);
+
+            assertThat(reread)
+                    .describedAs("%s did not resolve back to its own subtype; BaseAttributeDeserializer switches on "
+                            + "the 'version' and 'type' fields by hand, so either field changing shape silently "
+                            + "produces the wrong attribute class rather than an error",
+                            attribute.getClass().getSimpleName())
+                    .isInstanceOf(attribute.getClass());
+        } catch (Exception e) {
+            throw new IllegalStateException("Attribute did not survive a polymorphic round trip", e);
+        }
     }
 
     private static Stream<Arguments> attributeV2Subtypes() {
