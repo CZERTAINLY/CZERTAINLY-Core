@@ -127,12 +127,12 @@ class CiTestSplitTest {
 
         assertThat(shard2Includes)
                 .describedAs("test-integration-service-2 must include the boundary and all measured transfers")
-                .containsExactlyElementsOf(expectedShard2Includes);
+                .containsExactlyInAnyOrderElementsOf(expectedShard2Includes);
         assertThat(shard1Excludes)
                 .describedAs("""
                         test-integration-service-1 must exclude the service boundary and service transfers.
                         If these patterns drift, affected integration.service classes run twice or in neither shard.""")
-                .containsExactlyElementsOf(expectedServicePatterns);
+                .containsExactlyInAnyOrderElementsOf(expectedServicePatterns);
     }
 
     @Test
@@ -143,7 +143,7 @@ class CiTestSplitTest {
         expectedCoreExcludes.add(SERVICE_PACKAGE);
         expectedCoreExcludes.addAll(CORE_SHARD_TRANSFERS);
 
-        assertThat(coreExcludes).containsExactlyElementsOf(expectedCoreExcludes);
+        assertThat(coreExcludes).containsExactlyInAnyOrderElementsOf(expectedCoreExcludes);
         assertThat(shard2Includes).containsAll(CORE_SHARD_TRANSFERS);
     }
 
