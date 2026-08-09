@@ -114,7 +114,8 @@ public class TimestampingFormattingConnectorMock extends BaseConnectorMock {
     }
 
     /**
-     * Stubs the {@code formatDtbs} phase to fail, so the engine surfaces a {@code SYSTEM_FAILURE} rejection.
+     * Stubs the {@code formatDtbs} phase to fail, so the formatting client surfaces a
+     * {@code SYSTEM_FAILURE} TSP exception.
      */
     public TimestampingFormattingConnectorMock stubTokenAssemblyFailure() {
         server.stubFor(WireMock.post(WireMock.urlPathMatching(".*/v1/signatureProvider/formatting/formatDtbs"))
