@@ -12,8 +12,7 @@ public interface SettingInternalService {
     /**
      * Internal platform-settings read for engine/issuance code paths.
      *
-     * @return platform settings
-     * {@link com.otilm.api.model.core.settings.PlatformSettingsDto}
+     * @return platform settings {@link com.otilm.api.model.core.settings.PlatformSettingsDto}
      */
     PlatformSettingsDto getPlatformSettingsInternal();
 

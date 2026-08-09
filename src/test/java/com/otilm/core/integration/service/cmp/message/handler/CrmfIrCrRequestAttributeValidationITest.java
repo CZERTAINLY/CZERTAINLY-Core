@@ -11,16 +11,15 @@ import com.otilm.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.otilm.core.service.cmp.message.handler.CrmfIrCrMessageHandler;
 import com.otilm.core.service.v2.impl.ClientOperationServiceImpl;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.security.KeyPair;
+import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.security.KeyPair;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,18 +47,23 @@ class CrmfIrCrRequestAttributeValidationITest extends BaseSpringBootTest {
         var policyMessage = "Certificate request does not satisfy the request-attribute policy "
                 + "of RA profile 'X': missing required RDN: CN";
         given(clientOperationServiceImpl.issueCertificate(any(), any(), any(), any()))
-                .willThrow(new RequestAttributePolicyViolationException(policyMessage, List.of("missing required RDN: CN")));
+                .willThrow(new RequestAttributePolicyViolationException(policyMessage,
+                        List.of("missing required RDN: CN")));
         KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
         PKIBody body = CmpTestUtil.createCrmfBody(keyPair, 555L);
-        PKIMessage request = CmpTestUtil.createSignatureBasedMessage("888", keyPair.getPrivate(), body).toASN1Structure();
+        PKIMessage request = CmpTestUtil
+                .createSignatureBasedMessage("888", keyPair.getPrivate(), body)
+                .toASN1Structure();
         RaProfile raProfile = CmpEntityUtil.createRaProfile();
         raProfile.setAuthorityInstanceReferenceUuid(UUID.randomUUID());
         CmpProfile cmpProfile = CmpEntityUtil.createCmpProfile(raProfile, "sharedSecret");
 
         // when / then — the handler shapes the policy violation into a CmpCrmfValidationException carrying
         // the safe, platform-authored message and no internal identifiers
-        assertThatThrownBy(() -> crmfIrCrMessageHandler.handle(request,
-                new Mobile3gppProfileContext(cmpProfile, raProfile, request, certificateKeyService, null, null)))
+        assertThatThrownBy(() -> crmfIrCrMessageHandler
+                .handle(request,
+                        new Mobile3gppProfileContext(cmpProfile, raProfile, request, certificateKeyService, null,
+                                null)))
                 .isInstanceOf(CmpCrmfValidationException.class)
                 .hasMessageContaining(policyMessage)
                 .satisfies(ex -> assertThat(ex.getMessage())

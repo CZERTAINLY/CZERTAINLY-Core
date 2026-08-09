@@ -7,9 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * Unit test for the request-scoped {@link AuditResultOverride} bean itself — its set/consume mechanics.
- * The controller behaviour that drives it (each TSP rejection path calls {@code setFailure()}, the
- * granted path does not) is verified in {@code TspControllerImplTest}.
+ * Unit test for the request-scoped {@link AuditResultOverride} bean itself — its set/consume mechanics. The controller
+ * behaviour that drives it (each TSP rejection path calls {@code setFailure()}, the granted path does not) is verified
+ * in {@code TspControllerImplTest}.
  */
 class AuditResultOverrideTest {
 

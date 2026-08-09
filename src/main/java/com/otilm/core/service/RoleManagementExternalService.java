@@ -3,8 +3,14 @@ package com.otilm.core.service;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.auth.RoleRequestDto;
-import com.otilm.api.model.core.auth.*;
-
+import com.otilm.api.model.core.auth.ObjectPermissionsDto;
+import com.otilm.api.model.core.auth.ObjectPermissionsRequestDto;
+import com.otilm.api.model.core.auth.ResourcePermissionsDto;
+import com.otilm.api.model.core.auth.RoleDetailDto;
+import com.otilm.api.model.core.auth.RoleDto;
+import com.otilm.api.model.core.auth.RolePermissionsRequestDto;
+import com.otilm.api.model.core.auth.SubjectPermissionsDto;
+import com.otilm.api.model.core.auth.UserDto;
 import java.util.List;
 
 public interface RoleManagementExternalService {
@@ -29,7 +35,8 @@ public interface RoleManagementExternalService {
 
     void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> request);
 
-    void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request);
+    void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid,
+            ObjectPermissionsRequestDto request);
 
     void removeResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid);
 

@@ -18,9 +18,13 @@ public interface TspProfileBasicCredentialExternalService {
 
     TspBasicCredentialDto get(SecuredParentUUID tspProfileUuid, SecuredUUID uuid) throws NotFoundException;
 
-    TspBasicCredentialDto create(SecuredParentUUID tspProfileUuid, TspBasicCredentialCreateRequestDto request) throws AlreadyExistException, AttributeException, ConnectorCommunicationException, NotFoundException;
+    TspBasicCredentialDto create(SecuredParentUUID tspProfileUuid, TspBasicCredentialCreateRequestDto request)
+            throws AlreadyExistException, AttributeException, ConnectorCommunicationException, NotFoundException;
 
-    TspBasicCredentialDto update(SecuredParentUUID tspProfileUuid, SecuredUUID uuid, TspBasicCredentialUpdateRequestDto request) throws AlreadyExistException, AttributeException, ConnectorCommunicationException, NotFoundException;
+    TspBasicCredentialDto update(SecuredParentUUID tspProfileUuid, SecuredUUID uuid,
+            TspBasicCredentialUpdateRequestDto request)
+            throws AlreadyExistException, AttributeException, ConnectorCommunicationException, NotFoundException;
 
-    void delete(SecuredParentUUID tspProfileUuid, SecuredUUID uuid) throws AttributeException, ConnectorCommunicationException, NotFoundException;
+    void delete(SecuredParentUUID tspProfileUuid, SecuredUUID uuid)
+            throws AttributeException, ConnectorCommunicationException, NotFoundException;
 }

@@ -16,10 +16,10 @@ final class ReferenceTraversal {
 
     /**
      * Cycle guard. Returns {@code true} the first time a (kind, uuid) pair is seen on a call and records it;
-     * {@code false} on any subsequent sighting so the caller stops descending. The key is {@code kind:uuid}
-     * (never uuid-only — an authority and a credential could legitimately share a UUID; Q6). The visited set is
-     * shared across the whole top-level call and across multi-select siblings, so a self-referential multi-select
-     * cannot blow the budget across siblings.
+     * {@code false} on any subsequent sighting so the caller stops descending. The key is {@code kind:uuid} (never
+     * uuid-only — an authority and a credential could legitimately share a UUID; Q6). The visited set is shared across
+     * the whole top-level call and across multi-select siblings, so a self-referential multi-select cannot blow the
+     * budget across siblings.
      */
     static boolean shouldDescend(AttributeResource kind, UUID uuid, Set<String> visited) {
         return visited.add(key(kind, uuid));

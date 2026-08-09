@@ -22,19 +22,10 @@ public class SigningCertificateMapper {
         List<UUID> keyItemUuids = key != null
                 ? key.getItems().stream().map(CryptographicKeyItem::getUuid).sorted().toList()
                 : List.of();
-        return new SigningCertificate(
-                cert.getUuid(),
-                cert.getCommonName(),
-                cert.isArchived(),
-                cert.getState(),
+        return new SigningCertificate(cert.getUuid(), cert.getCommonName(), cert.isArchived(), cert.getState(),
                 cert.getValidationStatus(),
                 List.copyOf(MetaDefinitions.deserializeArrayString(cert.getExtendedKeyUsage())),
-                cert.getExtendedKeyUsageCritical(),
-                cert.getQcCompliance(),
-                keyUuid,
-                tokenInstanceReferenceUuid,
-                tokenProfileUuid,
-                keyItemUuids
-        );
+                cert.getExtendedKeyUsageCritical(), cert.getQcCompliance(), keyUuid, tokenInstanceReferenceUuid,
+                tokenProfileUuid, keyItemUuids);
     }
 }

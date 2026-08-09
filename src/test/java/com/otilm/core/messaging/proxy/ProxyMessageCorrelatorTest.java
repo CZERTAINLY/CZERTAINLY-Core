@@ -2,23 +2,29 @@ package com.otilm.core.messaging.proxy;
 
 import com.otilm.api.clients.mq.model.ConnectorResponse;
 import com.otilm.api.clients.mq.model.ProxyMessage;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.concurrent.*;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Unit tests for {@link ProxyMessageCorrelator}.
- * Tests request registration, completion, timeout handling, cancellation, and shutdown.
+ * Unit tests for {@link ProxyMessageCorrelator}. Tests request registration, completion, timeout handling,
+ * cancellation, and shutdown.
  */
 class ProxyMessageCorrelatorTest {
 
@@ -27,14 +33,9 @@ class ProxyMessageCorrelatorTest {
 
     @BeforeEach
     void setUp() {
-        proxyProperties = new ProxyProperties(
-                "test-exchange",
-                "test-queue",
-                "test-instance",
-                Duration.ofSeconds(30),
+        proxyProperties = new ProxyProperties("test-exchange", "test-queue", "test-instance", Duration.ofSeconds(30),
                 100, // low max pending for testing capacity
-                null
-        );
+                null);
         correlator = new ProxyMessageCorrelator(proxyProperties);
     }
 
@@ -220,8 +221,7 @@ class ProxyMessageCorrelatorTest {
         assertThat(correlator.getPendingCount()).isEqualTo(1);
 
         // Wait for timeout to fire using Awaitility
-        await().atMost(Duration.ofSeconds(2))
-               .untilAsserted(() -> assertThat(correlator.getPendingCount()).isZero());
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(correlator.getPendingCount()).isZero());
     }
 
     @Test
@@ -236,8 +236,10 @@ class ProxyMessageCorrelatorTest {
         correlator.completeRequest(successMessage);
 
         // Wait past the original timeout using Awaitility
-        await().during(Duration.ofMillis(500)).atMost(Duration.ofMillis(800))
-               .untilAsserted(() -> assertThat(future.isDone()).isTrue());
+        await()
+                .during(Duration.ofMillis(500))
+                .atMost(Duration.ofMillis(800))
+                .untilAsserted(() -> assertThat(future.isDone()).isTrue());
 
         // Should still have the success response, not timeout
         ProxyMessage result = future.get();
@@ -346,7 +348,8 @@ class ProxyMessageCorrelatorTest {
                     startLatch.await();
                     for (int i = 0; i < requestsPerThread; i++) {
                         String correlationId = "thread-" + threadId + "-req-" + i;
-                        CompletableFuture<ProxyMessage> future = correlator.registerRequest(correlationId, Duration.ofSeconds(30));
+                        CompletableFuture<ProxyMessage> future = correlator
+                                .registerRequest(correlationId, Duration.ofSeconds(30));
                         allFutures.add(future);
 
                         // Complete half of them immediately
@@ -415,13 +418,12 @@ class ProxyMessageCorrelatorTest {
     // ==================== Helper Methods ====================
 
     private ProxyMessage createSuccessMessage(String correlationId) {
-        return ProxyMessage.builder()
+        return ProxyMessage
+                .builder()
                 .correlationId(correlationId)
                 .proxyId("test-proxy")
                 .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .build())
+                .connectorResponse(ConnectorResponse.builder().statusCode(200).build())
                 .build();
     }
 }

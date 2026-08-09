@@ -6,16 +6,15 @@ import com.otilm.core.model.signing.timequality.ExplicitTimeQualityConfiguration
 import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
 import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.otilm.core.util.clocksource.ClockSource;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 public class TimeQualityRegisterImpl implements TimeQualityRegister {
@@ -38,7 +37,8 @@ public class TimeQualityRegisterImpl implements TimeQualityRegister {
         this(clockSource, new LeapSecondGuard(clockSource), new MonotonicDriftDetector(clockSource));
     }
 
-    TimeQualityRegisterImpl(ClockSource clockSource, LeapSecondGuard leapSecondGuard, MonotonicDriftDetector driftDetector) {
+    TimeQualityRegisterImpl(ClockSource clockSource, LeapSecondGuard leapSecondGuard,
+            MonotonicDriftDetector driftDetector) {
         this.clockSource = clockSource;
         this.leapSecondGuard = leapSecondGuard;
         this.driftDetector = driftDetector;
@@ -60,14 +60,16 @@ public class TimeQualityRegisterImpl implements TimeQualityRegister {
         });
 
         if (result.status() == TimeQualityStatus.DEGRADED) {
-            logger.atWarn()
+            logger
+                    .atWarn()
                     .addKeyValue(KEY_CONFIGURATION_ID, result.configurationId())
                     .addKeyValue(KEY_NAME, result.name())
                     .addKeyValue(KEY_REASON, result.reason())
                     .log("Received degraded time quality result from Monitor");
         }
 
-        logger.atTrace()
+        logger
+                .atTrace()
                 .addKeyValue(KEY_CONFIGURATION_ID, result.configurationId())
                 .addKeyValue(KEY_NAME, result.name())
                 .addKeyValue(KEY_STATUS, result.status())
@@ -105,8 +107,8 @@ public class TimeQualityRegisterImpl implements TimeQualityRegister {
 
         var expiresAt = result.timestamp().plus(config.accuracy());
         if (clockSource.wallTimeInstant().isAfter(expiresAt)) {
-            return degraded(config.uuid(), "result is stale (received at %s, max age %s)"
-                    .formatted(result.timestamp(), config.accuracy()));
+            return degraded(config.uuid(),
+                    "result is stale (received at %s, max age %s)".formatted(result.timestamp(), config.accuracy()));
         }
 
         if (result.status() == TimeQualityStatus.DEGRADED) {
@@ -127,7 +129,8 @@ public class TimeQualityRegisterImpl implements TimeQualityRegister {
     private TimeQualityStatus degraded(UUID id, String reason) {
         var previousStatus = lastLoggedStatus.put(id, TimeQualityStatus.DEGRADED);
         if (previousStatus != TimeQualityStatus.DEGRADED) {
-            logger.atWarn()
+            logger
+                    .atWarn()
                     .addKeyValue(KEY_CONFIGURATION_ID, id)
                     .addKeyValue(KEY_STATUS, "DEGRADED")
                     .addKeyValue(KEY_REASON, reason)
@@ -139,7 +142,8 @@ public class TimeQualityRegisterImpl implements TimeQualityRegister {
     private TimeQualityStatus ok(UUID id) {
         var previousStatus = lastLoggedStatus.put(id, TimeQualityStatus.OK);
         if (previousStatus != TimeQualityStatus.OK) {
-            logger.atDebug()
+            logger
+                    .atDebug()
                     .addKeyValue(KEY_CONFIGURATION_ID, id)
                     .addKeyValue(KEY_STATUS, "OK")
                     .log("Time quality recovered");

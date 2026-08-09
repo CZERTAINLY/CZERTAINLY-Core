@@ -8,11 +8,10 @@ import com.otilm.core.dao.repository.notifications.NotificationRecipientReposito
 import com.otilm.core.dao.repository.notifications.NotificationRepository;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -23,9 +22,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * A group or role that resolves to no users is ordinary configuration, so it is reported by returning null. The
- * caller counts what was created and reports an event that reached no one; see
- * {@code NotificationInternalNotificationITest} for that half of the contract.
+ * A group or role that resolves to no users is ordinary configuration, so it is reported by returning null. The caller
+ * counts what was created and reports an event that reached no one; see {@code NotificationInternalNotificationITest}
+ * for that half of the contract.
  */
 class NotificationServiceImplEmptyRecipientsTest {
 
@@ -50,8 +49,9 @@ class NotificationServiceImplEmptyRecipientsTest {
         noUsers.setData(List.of());
         when(userManagementApiClient.getUsers()).thenReturn(noUsers);
 
-        assertNull(service.createNotificationForGroup("Certificate status changed", null,
-                UUID.randomUUID().toString(), Resource.CERTIFICATE, UUID.randomUUID().toString()));
+        assertNull(service
+                .createNotificationForGroup("Certificate status changed", null, UUID.randomUUID().toString(),
+                        Resource.CERTIFICATE, UUID.randomUUID().toString()));
 
         verify(notificationRepository, never()).save(any());
     }
@@ -60,8 +60,9 @@ class NotificationServiceImplEmptyRecipientsTest {
     void roleWithNoMembersCreatesNoNotificationAndDoesNotThrow() {
         when(roleManagementApiClient.getRoleUsers(any())).thenReturn(List.of());
 
-        assertNull(service.createNotificationForRole("Certificate status changed", null,
-                UUID.randomUUID().toString(), Resource.CERTIFICATE, UUID.randomUUID().toString()));
+        assertNull(service
+                .createNotificationForRole("Certificate status changed", null, UUID.randomUUID().toString(),
+                        Resource.CERTIFICATE, UUID.randomUUID().toString()));
 
         verify(notificationRepository, never()).save(any());
     }
@@ -74,8 +75,9 @@ class NotificationServiceImplEmptyRecipientsTest {
         users.setData(List.of(member));
         when(userManagementApiClient.getUsers()).thenReturn(users);
 
-        assertNotNull(service.createNotificationForUsers("Certificate status changed", null,
-                List.of(member.getUuid()), Resource.CERTIFICATE, UUID.randomUUID().toString()));
+        assertNotNull(service
+                .createNotificationForUsers("Certificate status changed", null, List.of(member.getUuid()),
+                        Resource.CERTIFICATE, UUID.randomUUID().toString()));
 
         verify(notificationRepository).save(any(Notification.class));
     }

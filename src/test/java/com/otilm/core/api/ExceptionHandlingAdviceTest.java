@@ -3,6 +3,7 @@ package com.otilm.core.api;
 import com.otilm.api.exception.CbomRepositoryException;
 import com.otilm.api.exception.CertificateRequestException;
 import com.otilm.api.model.common.ErrorMessageDto;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
@@ -11,8 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -23,7 +22,8 @@ class ExceptionHandlingAdviceTest {
 
     @Test
     void handleCbomRepositoryException_ShouldUseProblemDetailDetailWhenPresent() {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "version must be an integer");
+        ProblemDetail problemDetail = ProblemDetail
+                .forStatusAndDetail(HttpStatus.BAD_REQUEST, "version must be an integer");
         CbomRepositoryException ex = new CbomRepositoryException(problemDetail);
 
         ResponseEntity<ErrorMessageDto> response = advice.handleCbomRepositoryException(ex);
@@ -82,8 +82,8 @@ class ExceptionHandlingAdviceTest {
 
     @Test
     void handleCertificateRequestException_ShouldNotExposeCauseInResponse() {
-        CertificateRequestException ex =
-                new CertificateRequestException("Invalid CSR", new IllegalArgumentException("bad encoding"));
+        CertificateRequestException ex = new CertificateRequestException("Invalid CSR",
+                new IllegalArgumentException("bad encoding"));
 
         ErrorMessageDto response = advice.handleCertificateRequestException(ex);
 
@@ -94,8 +94,8 @@ class ExceptionHandlingAdviceTest {
     void handleMethodArgumentNotValidException_ShouldReturnStringArray() throws NoSuchMethodException {
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(new Object(), "request");
         binding.addError(new FieldError("request", "name", "must not be blank"));
-        MethodParameter parameter =
-                new MethodParameter(ExceptionHandlingAdviceTest.class.getDeclaredMethod("dummy", String.class), 0);
+        MethodParameter parameter = new MethodParameter(
+                ExceptionHandlingAdviceTest.class.getDeclaredMethod("dummy", String.class), 0);
         MethodArgumentNotValidException ex = new MethodArgumentNotValidException(parameter, binding);
 
         List<String> response = advice.handleMethodArgumentNotValidException(ex);

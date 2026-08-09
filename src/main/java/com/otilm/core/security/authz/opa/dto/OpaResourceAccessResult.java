@@ -16,7 +16,6 @@ public class OpaResourceAccessResult {
     @JsonProperty("authorized")
     private boolean authorized;
 
-
     public OpaResourceAccessResult(Boolean authorized, List<String> allow) {
         this.allow = allow;
         this.authorized = authorized;

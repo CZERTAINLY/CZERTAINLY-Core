@@ -2,7 +2,10 @@ package com.otilm.core.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.v3.mapping.SourceParam;
 import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
@@ -27,13 +30,12 @@ import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfileCertificateRequestAttributeService {
@@ -46,12 +48,11 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public RaProfileCertificateRequestAttributeServiceImpl(RaProfileCertificateRequestAttributeRepository requestAttributeRepository,
-                                                           RaProfileValueSourceBindingRepository valueSourceBindingRepository,
-                                                           RaProfileCertificateRequestAttributeWriter writer,
-                                                           ExtendedAttributeService extendedAttributeService,
-                                                           SettingRepository settingRepository,
-                                                           ObjectMapper objectMapper) {
+    public RaProfileCertificateRequestAttributeServiceImpl(
+            RaProfileCertificateRequestAttributeRepository requestAttributeRepository,
+            RaProfileValueSourceBindingRepository valueSourceBindingRepository,
+            RaProfileCertificateRequestAttributeWriter writer, ExtendedAttributeService extendedAttributeService,
+            SettingRepository settingRepository, ObjectMapper objectMapper) {
         this.requestAttributeRepository = requestAttributeRepository;
         this.valueSourceBindingRepository = valueSourceBindingRepository;
         this.writer = writer;
@@ -69,16 +70,19 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public List<BaseAttribute> resolveIssueAttributeSet(RaProfile raProfile) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> resolveIssueAttributeSet(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
         RaProfileCertificateRequestAttribute stored = loadStoredSet(raProfile);
         return resolve(raProfile, stored, stored == null ? null : stored.getMergeMode());
     }
 
-    private List<BaseAttribute> resolve(RaProfile raProfile, RaProfileCertificateRequestAttribute stored, AttributeSetMergeMode mode)
-            throws ConnectorException, NotFoundException {
-        List<BaseAttribute> staticSet = stored == null ? new ArrayList<>() : deserializeOrEmpty(stored.getRequestAttributes());
-        List<BaseAttribute> connectorSet =
-                RequestAttributeSetResolver.effectiveMode(mode) == AttributeSetMergeMode.STATIC_ONLY
+    private List<BaseAttribute> resolve(RaProfile raProfile, RaProfileCertificateRequestAttribute stored,
+            AttributeSetMergeMode mode) throws ConnectorException, NotFoundException {
+        List<BaseAttribute> staticSet = stored == null
+                ? new ArrayList<>()
+                : deserializeOrEmpty(stored.getRequestAttributes());
+        List<BaseAttribute> connectorSet = RequestAttributeSetResolver
+                .effectiveMode(mode) == AttributeSetMergeMode.STATIC_ONLY
                         ? List.of()
                         : listConnectorIssueAttributes(raProfile);
 
@@ -95,8 +99,10 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         return requestAttributeRepository.findByRaProfileUuid(raProfile.getUuid()).orElse(null);
     }
 
-    private List<BaseAttribute> listConnectorIssueAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
-        if (raProfile.getAuthorityInstanceReference() == null || raProfile.getAuthorityInstanceReference().getConnector() == null) {
+    private List<BaseAttribute> listConnectorIssueAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
+        if (raProfile.getAuthorityInstanceReference() == null
+                || raProfile.getAuthorityInstanceReference().getConnector() == null) {
             return List.of(); // offline/external authority: no dynamic set
         }
         return extendedAttributeService.listIssueCertificateAttributes(raProfile);
@@ -104,7 +110,8 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
 
     @Override
     public List<BaseAttribute> getStaticSet(RaProfile raProfile) {
-        return requestAttributeRepository.findByRaProfileUuid(raProfile.getUuid())
+        return requestAttributeRepository
+                .findByRaProfileUuid(raProfile.getUuid())
                 .map(set -> deserializeOrEmpty(set.getRequestAttributes()))
                 .orElseGet(ArrayList::new);
     }
@@ -112,7 +119,8 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
     @Override
     public RaProfileCertificateRequestAttributesDto getConfiguration(RaProfile raProfile) {
         RaProfileCertificateRequestAttributesDto dto = new RaProfileCertificateRequestAttributesDto();
-        RaProfileCertificateRequestAttribute set = requestAttributeRepository.findByRaProfileUuid(raProfile.getUuid())
+        RaProfileCertificateRequestAttribute set = requestAttributeRepository
+                .findByRaProfileUuid(raProfile.getUuid())
                 .orElse(null);
         dto.setRequestAttributes(set == null ? new ArrayList<>() : deserializeOrEmpty(set.getRequestAttributes()));
         if (set != null) {
@@ -121,7 +129,9 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         // Read view always exposes the effective merge mode (resolved even when no set is stored), so clients never
         // see null; the null -> MERGE default lives once in RequestAttributeSetResolver.
         dto.setMergeMode(RequestAttributeSetResolver.effectiveMode(set == null ? null : set.getMergeMode()));
-        dto.setValueSourceBindings(toBindingDtos(valueSourceBindingRepository.findByRaProfileUuid(raProfile.getUuid())));
+        dto
+                .setValueSourceBindings(
+                        toBindingDtos(valueSourceBindingRepository.findByRaProfileUuid(raProfile.getUuid())));
         return dto;
     }
 
@@ -129,33 +139,35 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
     public void updateConfiguration(RaProfile raProfile, RaProfileCertificateRequestAttributesUpdateDto request) {
         AttributeSetMergeMode effectiveMode = RequestAttributeSetResolver.effectiveMode(request.getMergeMode());
         if (effectiveMode != AttributeSetMergeMode.STATIC_ONLY) {
-            throw new ValidationException(String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
+            throw new ValidationException(
+                    String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
         }
         if (request.getValueSourceBindings() != null && !request.getValueSourceBindings().isEmpty()) {
-            throw new ValidationException("Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
+            throw new ValidationException(
+                    "Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
         }
         AttributeEngine.validateRequestAttributeDefinitions(request.getRequestAttributes());
-        writer.saveStaticSet(
-                raProfile,
-                AttributeDefinitionUtils.serialize(request.getRequestAttributes()),
-                request.getMergeMode(),
-                request.getExternalCsrValidationStrict());
-        writer.replaceValueSourceBindings(raProfile.getUuid(), toBindingEntities(raProfile, request.getValueSourceBindings()));
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(request.getRequestAttributes()),
+                        request.getMergeMode(), request.getExternalCsrValidationStrict());
+        writer
+                .replaceValueSourceBindings(raProfile.getUuid(),
+                        toBindingEntities(raProfile, request.getValueSourceBindings()));
     }
 
     @Override
     public List<BaseAttribute> getDefaultSet() {
-        Setting setting = settingRepository.findBySectionAndCategoryAndName(
-                SettingsSection.PLATFORM,
-                SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode(),
-                DefaultRequestAttributeSet.SETTING_NAME);
+        Setting setting = settingRepository
+                .findBySectionAndCategoryAndName(SettingsSection.PLATFORM,
+                        SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode(),
+                        DefaultRequestAttributeSet.SETTING_NAME);
         return DefaultRequestAttributeSet.resolve(setting == null ? null : setting.getValue());
     }
 
     @Override
     public List<BaseAttribute> getDefaultSet(RaProfile raProfile) {
-        return RequestAttributeSetResolver.applyValueSourceBindings(
-                new ArrayList<>(getDefaultSet()), loadValueSourceBindings(raProfile));
+        return RequestAttributeSetResolver
+                .applyValueSourceBindings(new ArrayList<>(getDefaultSet()), loadValueSourceBindings(raProfile));
     }
 
     @Override
@@ -164,10 +176,10 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         if (perProfile != null) {
             return perProfile;
         }
-        Setting strict = settingRepository.findBySectionAndCategoryAndName(
-                SettingsSection.PLATFORM,
-                SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode(),
-                DefaultRequestAttributeSet.STRICT_SETTING_NAME);
+        Setting strict = settingRepository
+                .findBySectionAndCategoryAndName(SettingsSection.PLATFORM,
+                        SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode(),
+                        DefaultRequestAttributeSet.STRICT_SETTING_NAME);
         return strict != null && strict.getValue() != null && Boolean.parseBoolean(strict.getValue().trim());
     }
 
@@ -183,7 +195,8 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         try {
             return ValueSourceType.valueOf(stored);
         } catch (IllegalArgumentException e) {
-            throw new ValidationException(ValidationError.create("Stored value-source binding kind is not recognised."));
+            throw new ValidationException(
+                    ValidationError.create("Stored value-source binding kind is not recognised."));
         }
     }
 
@@ -191,12 +204,10 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         List<RaProfileValueSourceBinding> rows = valueSourceBindingRepository.findByRaProfileUuid(raProfile.getUuid());
         List<ValueSourceBindingSpec> specs = new ArrayList<>();
         for (RaProfileValueSourceBinding row : rows) {
-            specs.add(new ValueSourceBindingSpec(
-                    row.getAttributeUuid(),
-                    row.getAttributeName(),
-                    parseValueSourceType(row.getValueSourceType()),
-                    row.getCollectionRef(),
-                    deserializeParams(row.getParams())));
+            specs
+                    .add(new ValueSourceBindingSpec(row.getAttributeUuid(), row.getAttributeName(),
+                            parseValueSourceType(row.getValueSourceType()), row.getCollectionRef(),
+                            deserializeParams(row.getParams())));
         }
         return specs;
     }
@@ -215,7 +226,8 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         return dtos;
     }
 
-    private List<RaProfileValueSourceBinding> toBindingEntities(RaProfile raProfile, List<ValueSourceBindingDto> bindings) {
+    private List<RaProfileValueSourceBinding> toBindingEntities(RaProfile raProfile,
+            List<ValueSourceBindingDto> bindings) {
         List<RaProfileValueSourceBinding> entities = new ArrayList<>();
         if (bindings == null) {
             return entities;
@@ -238,10 +250,13 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             return List.of();
         }
         try {
-            return objectMapper.readValue(json, objectMapper.getTypeFactory().constructCollectionType(List.class, SourceParam.class));
+            return objectMapper
+                    .readValue(json,
+                            objectMapper.getTypeFactory().constructCollectionType(List.class, SourceParam.class));
         } catch (JsonProcessingException e) {
             // Do not surface the raw parser message (may echo stored JSON fragments).
-            throw new ValidationException(ValidationError.create("Stored value-source binding parameters are not readable."));
+            throw new ValidationException(
+                    ValidationError.create("Stored value-source binding parameters are not readable."));
         }
     }
 
@@ -252,7 +267,8 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         try {
             return objectMapper.writeValueAsString(params);
         } catch (JsonProcessingException e) {
-            throw new ValidationException(ValidationError.create("Value-source binding parameters could not be stored."));
+            throw new ValidationException(
+                    ValidationError.create("Value-source binding parameters could not be stored."));
         }
     }
 }

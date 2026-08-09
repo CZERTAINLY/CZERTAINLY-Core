@@ -1,5 +1,7 @@
 package com.otilm.core.integration.service.scep;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
@@ -8,14 +10,26 @@ import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.provider.PlatformCipherService;
 import com.otilm.core.provider.PlatformProvider;
 import com.otilm.core.provider.key.PlatformPrivateKey;
 import com.otilm.core.service.CryptographicKeyExternalService;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.cms.CMSEnvelopedData;
 import org.bouncycastle.cms.RecipientInformation;
@@ -30,8 +44,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.shaded.org.bouncycastle.jce.provider.BouncyCastleProvider;
-
-import java.util.*;
 
 @SpringBootTest
 @Transactional
@@ -69,7 +81,7 @@ class CryptographicProviderITest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
@@ -141,7 +153,8 @@ class CryptographicProviderITest {
 
         byte[] cmsDataStream = Base64.getDecoder().decode(encapsulatedString);
 
-        PlatformPrivateKey privateKey = new PlatformPrivateKey(tokenInstanceReference.getTokenInstanceUuid(), key.getUuid().toString(), connector.mapToDto(), "RSA");
+        PlatformPrivateKey privateKey = new PlatformPrivateKey(tokenInstanceReference.getTokenInstanceUuid(),
+                key.getUuid().toString(), connector.mapToDto(), "RSA");
         PlatformProvider provider = PlatformProvider.getInstance("Test", true, cryptographicOperationsApiClient);
 
         CMSEnvelopedData envelopedData = new CMSEnvelopedData(cmsDataStream);
@@ -151,18 +164,21 @@ class CryptographicProviderITest {
 
         if (recipientInformationIterator.hasNext()) {
             recipientInformationIterator.next();
-            Assertions.assertDoesNotThrow(() -> new JceKeyTransEnvelopedRecipient(privateKey)
-                    .setProvider(provider)
-                    .setContentProvider(BouncyCastleProvider.PROVIDER_NAME)
-                    .setMustProduceEncodableUnwrappedKey(true)
-                    .setAlgorithmMapping(new ASN1ObjectIdentifier("1.2.840.113549.1.1.1"), "RSA"));
+            Assertions
+                    .assertDoesNotThrow(() -> new JceKeyTransEnvelopedRecipient(privateKey)
+                            .setProvider(provider)
+                            .setContentProvider(BouncyCastleProvider.PROVIDER_NAME)
+                            .setMustProduceEncodableUnwrappedKey(true)
+                            .setAlgorithmMapping(new ASN1ObjectIdentifier("1.2.840.113549.1.1.1"), "RSA"));
         }
     }
 
     @Test
     void testMapCipherAttributesFromCipherAlgorithm() {
-        PlatformCipherService cipherService = new PlatformCipherService(cryptographicOperationsApiClient, "RSA/NONE/OAEPWithSHA1AndMGF1Padding");
-        List<RequestAttribute> attributes = cipherService.mapCipherAttributesFromCipherAlgorithm(cipherService.getAlgorithm());
+        PlatformCipherService cipherService = new PlatformCipherService(cryptographicOperationsApiClient,
+                "RSA/NONE/OAEPWithSHA1AndMGF1Padding");
+        List<RequestAttribute> attributes = cipherService
+                .mapCipherAttributesFromCipherAlgorithm(cipherService.getAlgorithm());
         Assertions.assertFalse(attributes.isEmpty());
     }
 }

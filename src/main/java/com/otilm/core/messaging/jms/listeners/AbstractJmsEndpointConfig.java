@@ -1,11 +1,12 @@
 package com.otilm.core.messaging.jms.listeners;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.messaging.jms.configuration.JmsRetryListener;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.jms.JMSException;
 import jakarta.jms.TextMessage;
+import java.io.IOException;
 import org.slf4j.Logger;
 import org.springframework.jms.JmsException;
 import org.springframework.jms.config.SimpleJmsListenerEndpoint;
@@ -15,8 +16,6 @@ import org.springframework.lang.NonNull;
 import org.springframework.messaging.MessagingException;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.io.IOException;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -29,7 +28,8 @@ public abstract class AbstractJmsEndpointConfig<T> {
     protected final MessagingProperties messagingProperties;
     private final ObjectMapper objectMapper;
 
-    public AbstractJmsEndpointConfig(ObjectMapper objectMapper, MessageProcessor<T> listenerMessageProcessor, RetryTemplate jmsRetryTemplate, MessagingProperties messagingProperties) {
+    public AbstractJmsEndpointConfig(ObjectMapper objectMapper, MessageProcessor<T> listenerMessageProcessor,
+            RetryTemplate jmsRetryTemplate, MessagingProperties messagingProperties) {
         this.objectMapper = objectMapper;
         this.listenerMessageProcessor = listenerMessageProcessor;
         this.jmsRetryTemplate = jmsRetryTemplate;
@@ -40,22 +40,21 @@ public abstract class AbstractJmsEndpointConfig<T> {
 
     /**
      *
-     * @param endpointId   unique id for the endpoint
-     * @param destination  queue path for RabbitMQ (/queues/name), or Topic name for Azure ServiceBus
+     * @param endpointId unique id for the endpoint
+     * @param destination queue path for RabbitMQ (/queues/name), or Topic name for Azure ServiceBus
      * @param subscription subscription name (Azure ServiceBus only; ignored for RabbitMQ)
-     * @param routingKey   routing key used as JMS message selector (Azure ServiceBus only; for RabbitMQ filtering is done by broker binding)
-     * @param concurrency  number of threads
+     * @param routingKey routing key used as JMS message selector (Azure ServiceBus only; for RabbitMQ filtering is done
+     * by broker binding)
+     * @param concurrency number of threads
      * @param messageClass type of message to be processed
      * @return endpoint to register in Spring context
      */
-    public SimpleJmsListenerEndpoint listenerEndpointInternal(String endpointId,
-                                                              String destination,
-                                                              String subscription,
-                                                              String routingKey,
-                                                              String concurrency,
-                                                              Class<T> messageClass) {
-        logger.debug("Configuring JMS listener endpoint: id={}, destination={}, routingKey={}, broker={}, vhost={}",
-            endpointId, destination, routingKey, messagingProperties.brokerType(), messagingProperties.virtualHost());
+    public SimpleJmsListenerEndpoint listenerEndpointInternal(String endpointId, String destination,
+            String subscription, String routingKey, String concurrency, Class<T> messageClass) {
+        logger
+                .debug("Configuring JMS listener endpoint: id={}, destination={}, routingKey={}, broker={}, vhost={}",
+                        endpointId, destination, routingKey, messagingProperties.brokerType(),
+                        messagingProperties.virtualHost());
 
         SimpleJmsListenerEndpoint endpoint;
         if (messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {
@@ -95,7 +94,9 @@ public abstract class AbstractJmsEndpointConfig<T> {
                     String json = extractMessageText(jmsMessage, endpointId);
                     // Log only metadata, never the body: message payloads can carry secrets (e.g. a
                     // registration credential) that would otherwise leak into DEBUG logs in cleartext.
-                    logger.debug("Message received in endpoint {}: type={} size={}", endpointId, messageClass.getSimpleName(), json.length());
+                    logger
+                            .debug("Message received in endpoint {}: type={} size={}", endpointId,
+                                    messageClass.getSimpleName(), json.length());
                     T message = objectMapper.readValue(json, messageClass);
                     listenerMessageProcessor.processMessage(message);
                 } catch (JmsException | JMSException | IOException e) {
@@ -123,8 +124,8 @@ public abstract class AbstractJmsEndpointConfig<T> {
 
     private String extractMessageText(jakarta.jms.Message jmsMessage, String endpointId) throws JMSException {
         if (!(jmsMessage instanceof TextMessage textMessage)) {
-            throw new IllegalArgumentException("Expected TextMessage in endpoint '" + endpointId +
-                "' but got: " + (jmsMessage != null ? jmsMessage.getClass().getName() : "null"));
+            throw new IllegalArgumentException("Expected TextMessage in endpoint '" + endpointId + "' but got: "
+                    + (jmsMessage != null ? jmsMessage.getClass().getName() : "null"));
         }
         String text = textMessage.getText();
         if (text == null || text.isBlank()) {

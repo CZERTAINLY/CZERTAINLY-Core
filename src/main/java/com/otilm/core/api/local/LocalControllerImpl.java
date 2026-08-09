@@ -11,26 +11,25 @@ import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.service.LocalAdminExternalService;
+import java.net.URI;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.URI;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-
 @RestController
 public class LocalControllerImpl implements LocalController {
-
 
     @Autowired
     private LocalAdminExternalService localAdminService;
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.CREATE)
-    public ResponseEntity<UserDetailDto> addAdmin(@RequestBody AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, AttributeException {
+    public ResponseEntity<UserDetailDto> addAdmin(@RequestBody AddUserRequestDto request) throws NotFoundException,
+            CertificateException, NoSuchAlgorithmException, AlreadyExistException, AttributeException {
         UserDetailDto userDto = localAdminService.createUser(request);
 
         URI location = ServletUriComponentsBuilder

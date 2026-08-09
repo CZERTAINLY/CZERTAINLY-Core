@@ -26,9 +26,7 @@ public abstract class DelimitedStringAttributeConverter<T> implements AttributeC
         if (elements.isEmpty()) {
             return "";
         }
-        return elements.stream()
-                .map(this::convertToDatabaseColumnElement)
-                .collect(Collectors.joining(delimiter));
+        return elements.stream().map(this::convertToDatabaseColumnElement).collect(Collectors.joining(delimiter));
     }
 
     @Override
@@ -40,8 +38,6 @@ public abstract class DelimitedStringAttributeConverter<T> implements AttributeC
             return List.of();
         }
 
-        return Arrays.stream(delimitedString.split(delimiter))
-                .map(this::convertToEntityAttributeElement)
-                .toList();
+        return Arrays.stream(delimitedString.split(delimiter)).map(this::convertToEntityAttributeElement).toList();
     }
 }

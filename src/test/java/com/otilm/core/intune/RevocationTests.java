@@ -30,30 +30,31 @@ The important modification are marked with the comment "MODIFICATION"
 */
 package com.otilm.core.intune;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.*;
-
-import java.io.ByteArrayInputStream;
-import java.net.URISyntaxException;
-import java.util.UUID;
-import java.util.List;
-import java.util.ArrayList;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.otilm.core.intune.carequest.CARequestErrorCodes;
+import com.otilm.core.intune.carequest.CARevocationRequest;
+import com.otilm.core.intune.carequest.CARevocationResult;
 import com.otilm.core.intune.scepvalidation.IntuneRevocationClient;
+import java.io.ByteArrayInputStream;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
-import com.otilm.core.intune.carequest.CARequestErrorCodes;
-import com.otilm.core.intune.carequest.CARevocationRequest;
-import com.otilm.core.intune.carequest.CARevocationResult;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class RevocationTests {
     @Test
@@ -65,20 +66,23 @@ public class RevocationTests {
         list.add(new CARevocationRequest("requestContext1", "serialNumber1", "issuerName1", "caConfig1"));
         list.add(new CARevocationRequest("requestContext2", "serialNumber2", "issuerName2", "caConfig2"));
         JsonArray jsonArray = new Gson().toJsonTree(list).getAsJsonArray();
-        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
+        // MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of
+        // org.json.JSONObject
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode jsonResponse = objectMapper.createObjectNode();
-        jsonResponse.put("@odata.context", "https://manage.microsoft.com/RACerts/StatelessPkiConnectorService/$metadata#Collection(microsoft.management.services.api.caRevocationRequest)")
+        jsonResponse
+                .put("@odata.context",
+                        "https://manage.microsoft.com/RACerts/StatelessPkiConnectorService/$metadata#Collection(microsoft.management.services.api.caRevocationRequest)")
                 .put("value", objectMapper.readTree(jsonArray.toString()));
         String validJsonResponse = jsonResponse.toString();
 
         // Mock-out Intune Return Value
         when(helper.intuneResponseEntity.getContent())
                 .thenReturn(new ByteArrayInputStream(validJsonResponse.getBytes()));
-        when(helper.intuneResponseEntity.getContentLength())
-                .thenReturn((long) validJsonResponse.length());
+        when(helper.intuneResponseEntity.getContentLength()).thenReturn((long) validJsonResponse.length());
 
-        IntuneRevocationClient client = new IntuneRevocationClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
+        IntuneRevocationClient client = new IntuneRevocationClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
 
         UUID transactionId = UUID.randomUUID();
 
@@ -87,29 +91,27 @@ public class RevocationTests {
         verify(helper.msal, times(2)).getAccessToken(ArgumentMatchers.anySet());
         verify(helper.adal, times(0)).getAccessTokenFromCredential(anyString());
 
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }
-                }));
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
 
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }
-                }));
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
 
         assertNotNull(results);
         assertEquals(2, results.size());
@@ -132,16 +134,17 @@ public class RevocationTests {
         // Create a list of CARevocationRequests to upload
         List<CARevocationResult> list = new ArrayList<CARevocationResult>();
         list.add(new CARevocationResult("requestContext1", true, CARequestErrorCodes.None, null));
-        list.add(new CARevocationResult("requestContext1", false, CARequestErrorCodes.AuthenticationException, "Error Test"));
+        list
+                .add(new CARevocationResult("requestContext1", false, CARequestErrorCodes.AuthenticationException,
+                        "Error Test"));
 
         // Mock-out Intune Return Value
         String response = "{\"value\":true}";
-        when(helper.intuneResponseEntity.getContent())
-                .thenReturn(new ByteArrayInputStream(response.getBytes()));
-        when(helper.intuneResponseEntity.getContentLength())
-                .thenReturn((long) response.length());
+        when(helper.intuneResponseEntity.getContent()).thenReturn(new ByteArrayInputStream(response.getBytes()));
+        when(helper.intuneResponseEntity.getContentLength()).thenReturn((long) response.length());
 
-        IntuneRevocationClient client = new IntuneRevocationClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
+        IntuneRevocationClient client = new IntuneRevocationClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
 
         UUID transactionId = UUID.randomUUID();
 
@@ -150,28 +153,26 @@ public class RevocationTests {
         verify(helper.msal, times(2)).getAccessToken(ArgumentMatchers.anySet());
         verify(helper.adal, times(0)).getAccessTokenFromCredential(anyString());
 
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }
-                }));
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
 
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }
-                }));
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
     }
 }

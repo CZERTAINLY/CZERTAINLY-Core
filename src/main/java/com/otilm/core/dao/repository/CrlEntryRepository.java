@@ -2,14 +2,13 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.CrlEntry;
 import com.otilm.core.dao.entity.CrlEntryId;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface CrlEntryRepository extends SecurityFilterRepository<CrlEntry, Long> {

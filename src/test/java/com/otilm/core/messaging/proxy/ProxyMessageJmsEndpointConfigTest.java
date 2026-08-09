@@ -1,9 +1,10 @@
 package com.otilm.core.messaging.proxy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.clients.mq.model.ProxyMessage;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.jms.listeners.MessageProcessor;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jms.config.SimpleJmsListenerEndpoint;
 import org.springframework.retry.support.RetryTemplate;
-
-import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -37,14 +36,8 @@ class ProxyMessageJmsEndpointConfigTest {
 
     @BeforeEach
     void setUp() {
-        proxyProperties = new ProxyProperties(
-                "test-proxy-exchange",
-                "test-core-queue",
-                "test-instance-0",
-                Duration.ofSeconds(30),
-                1000,
-                null
-        );
+        proxyProperties = new ProxyProperties("test-proxy-exchange", "test-core-queue", "test-instance-0",
+                Duration.ofSeconds(30), 1000, null);
     }
 
     @Nested
@@ -54,8 +47,8 @@ class ProxyMessageJmsEndpointConfigTest {
         void listenerEndpoint_withServiceBus_usesInstanceIdAsSubscription() {
             when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.SERVICEBUS);
 
-            InstanceProxyMessageJmsEndpointConfig config = new InstanceProxyMessageJmsEndpointConfig(
-                    new ObjectMapper(), instanceProcessor, retryTemplate, messagingProperties, proxyProperties);
+            InstanceProxyMessageJmsEndpointConfig config = new InstanceProxyMessageJmsEndpointConfig(new ObjectMapper(),
+                    instanceProcessor, retryTemplate, messagingProperties, proxyProperties);
             SimpleJmsListenerEndpoint endpoint = config.listenerEndpoint();
 
             assertThat(endpoint.getDestination()).isEqualTo("test-proxy-exchange");
@@ -66,8 +59,8 @@ class ProxyMessageJmsEndpointConfigTest {
         void listenerEndpoint_withRabbitMQ_usesInstanceQueuePath() {
             when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.RABBITMQ);
 
-            InstanceProxyMessageJmsEndpointConfig config = new InstanceProxyMessageJmsEndpointConfig(
-                    new ObjectMapper(), instanceProcessor, retryTemplate, messagingProperties, proxyProperties);
+            InstanceProxyMessageJmsEndpointConfig config = new InstanceProxyMessageJmsEndpointConfig(new ObjectMapper(),
+                    instanceProcessor, retryTemplate, messagingProperties, proxyProperties);
             SimpleJmsListenerEndpoint endpoint = config.listenerEndpoint();
 
             assertThat(endpoint.getDestination()).isEqualTo("/queues/test-instance-0");
@@ -82,8 +75,8 @@ class ProxyMessageJmsEndpointConfigTest {
         void listenerEndpoint_withServiceBus_usesResponseQueueAsSubscription() {
             when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.SERVICEBUS);
 
-            SharedProxyMessageJmsEndpointConfig config = new SharedProxyMessageJmsEndpointConfig(
-                    new ObjectMapper(), sharedProcessor, retryTemplate, messagingProperties, proxyProperties);
+            SharedProxyMessageJmsEndpointConfig config = new SharedProxyMessageJmsEndpointConfig(new ObjectMapper(),
+                    sharedProcessor, retryTemplate, messagingProperties, proxyProperties);
             SimpleJmsListenerEndpoint endpoint = config.listenerEndpoint();
 
             assertThat(endpoint.getDestination()).isEqualTo("test-proxy-exchange");
@@ -94,8 +87,8 @@ class ProxyMessageJmsEndpointConfigTest {
         void listenerEndpoint_withRabbitMQ_usesResponseQueuePath() {
             when(messagingProperties.brokerType()).thenReturn(MessagingProperties.BrokerType.RABBITMQ);
 
-            SharedProxyMessageJmsEndpointConfig config = new SharedProxyMessageJmsEndpointConfig(
-                    new ObjectMapper(), sharedProcessor, retryTemplate, messagingProperties, proxyProperties);
+            SharedProxyMessageJmsEndpointConfig config = new SharedProxyMessageJmsEndpointConfig(new ObjectMapper(),
+                    sharedProcessor, retryTemplate, messagingProperties, proxyProperties);
             SimpleJmsListenerEndpoint endpoint = config.listenerEndpoint();
 
             assertThat(endpoint.getDestination()).isEqualTo("/queues/test-core-queue");

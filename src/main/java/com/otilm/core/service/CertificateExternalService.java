@@ -1,15 +1,33 @@
 package com.otilm.core.service;
 
-import com.otilm.api.exception.*;
-import com.otilm.api.model.client.certificate.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.CertificateOperationException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
+import com.otilm.api.model.client.certificate.CertificateResponseDto;
+import com.otilm.api.model.client.certificate.CertificateSearchRequestDto;
+import com.otilm.api.model.client.certificate.CertificateUpdateObjectsDto;
+import com.otilm.api.model.client.certificate.MultipleCertificateObjectUpdateDto;
+import com.otilm.api.model.client.certificate.RemoveCertificateDto;
+import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
 import com.otilm.api.model.common.UuidDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.core.certificate.*;
+import com.otilm.api.model.core.certificate.CertificateChainDownloadResponseDto;
+import com.otilm.api.model.core.certificate.CertificateChainResponseDto;
+import com.otilm.api.model.core.certificate.CertificateContentDto;
+import com.otilm.api.model.core.certificate.CertificateDetailDto;
+import com.otilm.api.model.core.certificate.CertificateDownloadResponseDto;
+import com.otilm.api.model.core.certificate.CertificateFormat;
+import com.otilm.api.model.core.certificate.CertificateFormatEncoding;
+import com.otilm.api.model.core.certificate.CertificateRelationsDto;
+import com.otilm.api.model.core.certificate.CertificateValidationResultDto;
+import com.otilm.api.model.core.certificate.FingerprintDto;
 import com.otilm.api.model.core.location.LocationDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -23,11 +41,15 @@ public interface CertificateExternalService {
 
     void deleteCertificate(SecuredUUID uuid) throws NotFoundException;
 
-    CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException;
+    CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate)
+            throws NotFoundException;
 
-    CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException;
+    CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat,
+            boolean withEndCertificate, CertificateFormatEncoding encoding)
+            throws NotFoundException, CertificateException;
 
-    CertificateDownloadResponseDto downloadCertificate(UUID uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException;
+    CertificateDownloadResponseDto downloadCertificate(UUID uuid, CertificateFormat certificateFormat,
+            CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException;
 
     /**
      * Function to get the validation result of the certificate
@@ -36,7 +58,8 @@ public interface CertificateExternalService {
      * @return Certificate Validation result
      * @throws NotFoundException
      */
-    CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException;
+    CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid)
+            throws NotFoundException, CertificateException;
 
     FingerprintDto uploadAsync(UploadCertificateRequestDto request) throws CertificateException, AlreadyExistException;
 
@@ -44,7 +67,8 @@ public interface CertificateExternalService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
-    void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException, NotSupportedException;
+    void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request)
+            throws NotFoundException, NotSupportedException;
 
     /**
      * List all locations associated with the certificate
@@ -65,17 +89,19 @@ public interface CertificateExternalService {
     /**
      * Update the Certificate Objects contents
      *
-     * @param uuid    UUID of the certificate
+     * @param uuid UUID of the certificate
      * @param request Request for the certificate objects update
      */
-    void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException;
+    void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request)
+            throws NotFoundException, CertificateOperationException, AttributeException;
 
     /**
      * Method to update the Objects of multiple certificates
      *
      * @param request Request to update multiple objects
      */
-    void bulkUpdateCertificatesObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException;
+    void bulkUpdateCertificatesObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request)
+            throws NotFoundException, NotSupportedException;
 
     /**
      * Get the list of attributes to generate the CSR
@@ -87,25 +113,30 @@ public interface CertificateExternalService {
     /**
      * Get the resolved request-attribute set for an RA profile.
      *
-     * <p><b>Composition:</b> combines the RA-profile static set with the authority-connector set
-     * according to the profile's merge mode, then applies the profile's value-source bindings.
+     * <p>
+     * <b>Composition:</b> combines the RA-profile static set with the authority-connector set according to the
+     * profile's merge mode, then applies the profile's value-source bindings.
      *
-     * <p><b>Fallback:</b> when the profile configures no static set, the platform default
-     * request-attribute set is used instead.
+     * <p>
+     * <b>Fallback:</b> when the profile configures no static set, the platform default request-attribute set is used
+     * instead.
      *
-     * <p><b>Projection:</b> the result is narrowed to the projectable v3 definitions — the exact set
-     * the platform projects into the certificate request content on issue and register.
+     * <p>
+     * <b>Projection:</b> the result is narrowed to the projectable v3 definitions — the exact set the platform projects
+     * into the certificate request content on issue and register.
      *
-     * <p><b>Empty result:</b> when nothing is projectable anywhere (profile, connector, and default set
-     * all yield no definitions), the call fails with {@link com.otilm.api.exception.ValidationException}
-     * (surfaced as HTTP 422) rather than returning an empty list.
+     * <p>
+     * <b>Empty result:</b> when nothing is projectable anywhere (profile, connector, and default set all yield no
+     * definitions), the call fails with {@link com.otilm.api.exception.ValidationException} (surfaced as HTTP 422)
+     * rather than returning an empty list.
      *
      * @param raProfileUuid UUID of the enabled RA profile
      * @return the resolved request-attribute definitions
-     * @throws NotFoundException  when the RA profile does not exist or is disabled
+     * @throws NotFoundException when the RA profile does not exist or is disabled
      * @throws ConnectorException when the authority connector fails while listing its issue attributes
      */
-    List<BaseAttribute> getCsrGenerationAttributes(SecuredUUID raProfileUuid) throws NotFoundException, ConnectorException;
+    List<BaseAttribute> getCsrGenerationAttributes(SecuredUUID raProfileUuid)
+            throws NotFoundException, ConnectorException;
 
     /**
      * Get the list of the certificate contents for the provided certificate UUIDs
@@ -154,7 +185,7 @@ public interface CertificateExternalService {
     /**
      * Associates the given certificate with the subject certificate.
      *
-     * @param uuid            UUID of the subject certificate.
+     * @param uuid UUID of the subject certificate.
      * @param certificateUuid UUID of the certificate to associate.
      */
     void associateCertificates(UUID uuid, UUID certificateUuid) throws NotFoundException;
@@ -162,7 +193,7 @@ public interface CertificateExternalService {
     /**
      * Removes the association between the given certificates
      *
-     * @param uuid            UUID of the subject certificate.
+     * @param uuid UUID of the subject certificate.
      * @param certificateUuid UUID of the certificate
      */
     void removeCertificateAssociation(UUID uuid, UUID certificateUuid) throws NotFoundException;

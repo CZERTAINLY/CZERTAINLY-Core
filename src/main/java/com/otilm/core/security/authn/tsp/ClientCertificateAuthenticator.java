@@ -6,13 +6,12 @@ import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import com.otilm.core.util.CertificateUtil;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Authenticates a TSP request presenting a client certificate forwarded by the TLS-terminating proxy. */
 public class ClientCertificateAuthenticator implements TspAuthenticator {
@@ -24,7 +23,7 @@ public class ClientCertificateAuthenticator implements TspAuthenticator {
     private final TspSecurityContextWriter contextWriter;
 
     public ClientCertificateAuthenticator(PlatformAuthenticationClient authClient, String certificateHeaderName,
-                                          TspSecurityContextWriter contextWriter) {
+            TspSecurityContextWriter contextWriter) {
         this.authClient = authClient;
         this.certificateHeaderName = certificateHeaderName;
         this.contextWriter = contextWriter;

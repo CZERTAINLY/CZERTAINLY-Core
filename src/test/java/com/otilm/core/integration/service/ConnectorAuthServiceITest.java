@@ -2,7 +2,8 @@ package com.otilm.core.integration.service;
 
 import com.otilm.api.clients.BaseApiClient;
 import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.client.attribute.*;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
@@ -13,16 +14,19 @@ import com.otilm.api.model.core.connector.AuthType;
 import com.otilm.core.service.ConnectorAuthExternalService;
 import com.otilm.core.service.ConnectorAuthInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
 
 import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE;
 import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE_PASSWORD;
@@ -53,9 +57,10 @@ class ConnectorAuthServiceITest extends BaseSpringBootTest {
         Assertions.assertDoesNotThrow(() -> connectorAuthInternalService.getAuthAttributes(AuthType.BASIC));
         Assertions.assertDoesNotThrow(() -> connectorAuthInternalService.getAuthAttributes(AuthType.CERTIFICATE));
         Assertions.assertDoesNotThrow(() -> connectorAuthInternalService.getAuthAttributes(AuthType.API_KEY));
-        Assertions.assertThrows(ValidationException.class, () -> connectorAuthInternalService.getAuthAttributes(AuthType.JWT));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> connectorAuthInternalService.getAuthAttributes(AuthType.JWT));
     }
-
 
     @Test
     void testGetBasicAuthAttributes() {
@@ -89,7 +94,8 @@ class ConnectorAuthServiceITest extends BaseSpringBootTest {
         InputStream keyStoreStream = CertificateServiceITest.class.getClassLoader().getResourceAsStream("client1.p12");
         byte[] keyStoreData = keyStoreStream.readAllBytes();
 
-        List<RequestAttribute> attrs = new ArrayList<>(createAttributes(ATTRIBUTE_KEYSTORE_TYPE, List.of(new StringAttributeContentV2("PKCS12"))));
+        List<RequestAttribute> attrs = new ArrayList<>(
+                createAttributes(ATTRIBUTE_KEYSTORE_TYPE, List.of(new StringAttributeContentV2("PKCS12"))));
         FileAttributeContentData data = new FileAttributeContentData();
         data.setContent(Base64.getEncoder().encodeToString(keyStoreData));
         attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE, List.of(new FileAttributeContentV2("", data))));
@@ -136,15 +142,20 @@ class ConnectorAuthServiceITest extends BaseSpringBootTest {
     @Test
     void testValidateJWTAuthAttributes() {
         List<RequestAttribute> attributes = List.of();
-        Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.validateBasicAuthAttributes(attributes));
-        Assertions.assertThrows(ValidationException.class, () -> connectorAuthInternalService.validateAuthAttributes(AuthType.JWT, attributes));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> connectorAuthService.validateBasicAuthAttributes(attributes));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> connectorAuthInternalService.validateAuthAttributes(AuthType.JWT, attributes));
     }
 
     private static List<RequestAttributeV2> createAttributes(String name, List<BaseAttributeContentV2<?>> content) {
         return createAttributes(UUID.randomUUID(), name, content);
     }
 
-    private static List<RequestAttributeV2> createAttributes(UUID uuid, String name, List<BaseAttributeContentV2<?>> content) {
+    private static List<RequestAttributeV2> createAttributes(UUID uuid, String name,
+            List<BaseAttributeContentV2<?>> content) {
         RequestAttributeV2 attribute = new RequestAttributeV2(uuid, name, AttributeContentType.STRING, content);
         return List.of(attribute);
     }

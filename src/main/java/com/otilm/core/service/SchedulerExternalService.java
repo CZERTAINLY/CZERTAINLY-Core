@@ -18,13 +18,16 @@ public interface SchedulerExternalService {
 
     void deleteScheduledJob(String uuid);
 
-    ScheduledJobHistoryResponseDto getScheduledJobHistory(SecurityFilter filter, PaginationRequestDto pagination, String uuid);
+    ScheduledJobHistoryResponseDto getScheduledJobHistory(SecurityFilter filter, PaginationRequestDto pagination,
+            String uuid);
 
     void enableScheduledJob(String uuid) throws SchedulerException, NotFoundException;
 
     void disableScheduledJob(String uuid) throws SchedulerException, NotFoundException;
 
-    ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException;
+    ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request)
+            throws NotFoundException, SchedulerException;
 
-    ScheduledJobDetailDto registerScheduledJob(Class<? extends ScheduledJobTask> scheduledJobTaskClass, String jobName, String cronExpression, boolean oneTime, Object taskData) throws SchedulerException;
+    ScheduledJobDetailDto registerScheduledJob(Class<? extends ScheduledJobTask> scheduledJobTaskClass, String jobName,
+            String cronExpression, boolean oneTime, Object taskData) throws SchedulerException;
 }

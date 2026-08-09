@@ -5,8 +5,19 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Certificate_;
+import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.Group_;
+import com.otilm.core.dao.entity.OwnerAssociation;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.dao.repository.OwnerAssociationRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.security.authz.SecurityResourceFilter;
@@ -17,15 +28,14 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import java.util.List;
+import java.util.UUID;
 import org.apache.commons.lang3.function.TriFunction;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.util.List;
-import java.util.UUID;
 
 @SpringBootTest
 class SecurityFilterRepositoryITest extends BaseSpringBootTest {
@@ -151,12 +161,16 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         // test permissions for all RA profiles with additional where clause
         parentResourceFilter.getForbiddenObjects().clear();
         parentResourceFilter.setAreOnlySpecificObjectsAllowed(true);
-        parentResourceFilter.addAllowedObjects(List.of(raProfile.getUuid().toString(), raProfile2.getUuid().toString()));
+        parentResourceFilter
+                .addAllowedObjects(List.of(raProfile.getUuid().toString(), raProfile2.getUuid().toString()));
 
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Certificate_.serialNumber), TEST_SERIAL_NUMBER);
-        certificates = certificateRepository.findUsingSecurityFilter(filter, List.of(Certificate_.raProfile.getName()), additionalWhereClause);
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
+                root, cb, cr) -> cb.equal(root.get(Certificate_.serialNumber), TEST_SERIAL_NUMBER);
+        certificates = certificateRepository
+                .findUsingSecurityFilter(filter, List.of(Certificate_.raProfile.getName()), additionalWhereClause);
         Assertions.assertEquals(1, certificates.size());
-        Assertions.assertEquals(certificateRaProfile1.getUuid().toString(), certificates.getFirst().getUuid().toString());
+        Assertions
+                .assertEquals(certificateRaProfile1.getUuid().toString(), certificates.getFirst().getUuid().toString());
 
         // test permissions for single RA Profile and group membership
         parentResourceFilter.getAllowedObjects().clear();
@@ -187,7 +201,8 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         List<Group> groups = groupRepository.findUsingSecurityFilter(filter);
         Assertions.assertEquals(1, groups.size());
 
-        final TriFunction<Root<Group>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Group_.name), "ABCD");
+        final TriFunction<Root<Group>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb,
+                cr) -> cb.equal(root.get(Group_.name), "ABCD");
         groups = groupRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause);
         Assertions.assertEquals(0, groups.size());
     }

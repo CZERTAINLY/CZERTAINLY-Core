@@ -9,6 +9,14 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.auth.ResourceSyncRequestDto;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.ExternalAuthorizationProgrammatic;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +29,6 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.*;
 
 @Component
 public class ContextRefreshListener {
@@ -41,28 +45,31 @@ public class ContextRefreshListener {
         this.attributeEngine = attributeEngine;
     }
 
-
     @EventListener
     public void handleContextRefresh(ContextRefreshedEvent event) {
         ApplicationContext applicationContext = event.getApplicationContext();
         Map<Resource, String> listingEndpoints = new EnumMap<>(Resource.class);
         Map<Resource, Set<String>> resourceToAction = new EnumMap<>(Resource.class);
-        //Get all the routes annotated with the listing end point
-        applicationContext.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)
+        // Get all the routes annotated with the listing end point
+        applicationContext
+                .getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)
                 .getHandlerMethods()
-                .entrySet().stream()
+                .entrySet()
+                .stream()
                 .filter(e -> !e.getKey().getMethodsCondition().getMethods().isEmpty())
                 .filter(e -> e.getValue().getMethod().getAnnotation(AuthEndpoint.class) != null)
                 .forEach(e -> {
                     AuthEndpoint annotatedValues = e.getValue().getMethod().getAnnotation(AuthEndpoint.class);
                     if (listingEndpoints.get(annotatedValues.resourceName()) != null) {
-                        throw new RuntimeException("Duplicate listing end point on " + annotatedValues.resourceName().getCode());
+                        throw new RuntimeException(
+                                "Duplicate listing end point on " + annotatedValues.resourceName().getCode());
                     }
-                    listingEndpoints.put(annotatedValues.resourceName(), e.getKey().getPatternValues().iterator().next());
+                    listingEndpoints
+                            .put(annotatedValues.resourceName(), e.getKey().getPatternValues().iterator().next());
                 });
-        //Iterate and get all the methods that are annotated with ExternalAuthentication
-        ConfigurableListableBeanFactory beanFactory =
-                ((ConfigurableApplicationContext) applicationContext).getBeanFactory();
+        // Iterate and get all the methods that are annotated with ExternalAuthentication
+        ConfigurableListableBeanFactory beanFactory = ((ConfigurableApplicationContext) applicationContext)
+                .getBeanFactory();
         for (String beanName : applicationContext.getBeanDefinitionNames()) {
             // Skip non-singleton beans (e.g. the request/session-scoped scopedTarget.* targets):
             // instantiating them here, during context refresh, runs outside any web request and
@@ -80,7 +87,8 @@ public class ContextRefreshListener {
                             annotatedValue.parentResource(), annotatedValue.parentAction());
                 }
                 if (m.isAnnotationPresent(ExternalAuthorizationProgrammatic.class)) {
-                    ExternalAuthorizationProgrammatic annotatedValue = m.getAnnotation(ExternalAuthorizationProgrammatic.class);
+                    ExternalAuthorizationProgrammatic annotatedValue = m
+                            .getAnnotation(ExternalAuthorizationProgrammatic.class);
                     registerResourceActions(resourceToAction, annotatedValue.resource(), annotatedValue.action(),
                             annotatedValue.parentResource(), annotatedValue.parentAction());
                 }
@@ -88,7 +96,7 @@ public class ContextRefreshListener {
                 saveCoreAttributes(beanName, m, applicationContext);
             }
         }
-        //Merge listing end point and external annotation end point to get the resource request sync operation
+        // Merge listing end point and external annotation end point to get the resource request sync operation
         for (Map.Entry<Resource, Set<String>> entry : resourceToAction.entrySet()) {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
             requestDto.setActions(new ArrayList<>(entry.getValue()));
@@ -99,7 +107,7 @@ public class ContextRefreshListener {
     }
 
     private static void registerResourceActions(Map<Resource, Set<String>> resourceToAction, Resource resource,
-                                                ResourceAction action, Resource parentResource, ResourceAction parentAction) {
+            ResourceAction action, Resource parentResource, ResourceAction parentAction) {
         resourceToAction.computeIfAbsent(resource, k -> new HashSet<>()).add(action.getCode());
         if (parentResource != null && parentResource != Resource.NONE) {
             resourceToAction.computeIfAbsent(parentResource, k -> new HashSet<>()).add(parentAction.getCode());
@@ -113,9 +121,13 @@ public class ContextRefreshListener {
                 List<BaseAttribute> attributes = (List<BaseAttribute>) m.invoke(applicationContext.getBean(beanName));
                 attributeEngine.updateDataAttributeDefinitions(null, attributeDefinitions.operation(), attributes);
             } catch (IllegalAccessException | ClassCastException | InvocationTargetException e) {
-                LOGGER.error("Cannot retrieve list of attributes from bean {} and method {}: {}", beanName, m.getName(), e.getMessage());
+                LOGGER
+                        .error("Cannot retrieve list of attributes from bean {} and method {}: {}", beanName,
+                                m.getName(), e.getMessage());
             } catch (AttributeException e) {
-                LOGGER.error("Did not manage to save attribute definitions returned by method {} in bean {}: {}", beanName, m.getName(), e.getMessage());
+                LOGGER
+                        .error("Did not manage to save attribute definitions returned by method {} in bean {}: {}",
+                                beanName, m.getName(), e.getMessage());
             }
         }
     }

@@ -5,7 +5,13 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v2.ComplianceSyncApiClient;
 import com.otilm.api.model.common.enums.IPlatformEnum;
 import com.otilm.api.model.connector.compliance.ComplianceRequestRulesDto;
-import com.otilm.api.model.connector.compliance.v2.*;
+import com.otilm.api.model.connector.compliance.v2.ComplianceGroupBatchResponseDto;
+import com.otilm.api.model.connector.compliance.v2.ComplianceRequestDto;
+import com.otilm.api.model.connector.compliance.v2.ComplianceResponseDto;
+import com.otilm.api.model.connector.compliance.v2.ComplianceResponseRuleDto;
+import com.otilm.api.model.connector.compliance.v2.ComplianceRuleRequestDto;
+import com.otilm.api.model.connector.compliance.v2.ComplianceRuleResponseDto;
+import com.otilm.api.model.connector.compliance.v2.ComplianceRulesBatchRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.otilm.api.model.core.compliance.ComplianceRuleStatus;
@@ -17,12 +23,11 @@ import com.otilm.core.dao.entity.ComplianceProfileRule;
 import com.otilm.core.dao.entity.ComplianceSubject;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.service.handler.ComplianceProfileRuleHandler;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Setter
@@ -42,7 +47,8 @@ public class ComplianceCheckProviderContext {
     private ComplianceRequestDto complianceRequestDto;
     private com.otilm.api.model.connector.compliance.ComplianceRequestDto complianceRequestDtoV1;
 
-    public ComplianceCheckProviderContext(Connector connector, String kind, ComplianceProfileRuleHandler ruleHandler, ConnectorApiFactory connectorApiFactory) {
+    public ComplianceCheckProviderContext(Connector connector, String kind, ComplianceProfileRuleHandler ruleHandler,
+            ConnectorApiFactory connectorApiFactory) {
         this.connectorUuid = connector.getUuid();
         this.connectorDto = connector.mapToDto();
         this.kind = kind;
@@ -55,18 +61,21 @@ public class ComplianceCheckProviderContext {
     /**
      * Prepares the compliance check request for the given subject and resource/type.
      *
-     * @param subject  Compliance subject for which the check is being prepared
+     * @param subject Compliance subject for which the check is being prepared
      * @param resource Resource of the compliance subject (null if not applicable)
-     * @param type     Type of the compliance subject (null if not applicable)
+     * @param type Type of the compliance subject (null if not applicable)
      * @throws ConnectorException If there is an error communicating with the connector
      */
-    public void prepareComplianceCheckRequestForSubject(ComplianceSubject subject, Resource resource, IPlatformEnum type) throws ConnectorException {
+    public void prepareComplianceCheckRequestForSubject(ComplianceSubject subject, Resource resource,
+            IPlatformEnum type) throws ConnectorException {
         if (rulesGroupsBatchDto == null) {
             if (failedStatusException != null) {
                 throw failedStatusException;
             }
             try {
-                rulesGroupsBatchDto = ruleHandler.getComplianceProviderRulesBatch(connectorUuid, kind, rulesBatchRequestDto.getRuleUuids(), rulesBatchRequestDto.getGroupUuids(), rulesBatchRequestDto.isWithGroupRules());
+                rulesGroupsBatchDto = ruleHandler
+                        .getComplianceProviderRulesBatch(connectorUuid, kind, rulesBatchRequestDto.getRuleUuids(),
+                                rulesBatchRequestDto.getGroupUuids(), rulesBatchRequestDto.isWithGroupRules());
             } catch (Exception e) {
                 failedStatusException = new ConnectorException(e.getMessage(), e);
                 throw failedStatusException;
@@ -86,21 +95,23 @@ public class ComplianceCheckProviderContext {
         }
     }
 
-
     /**
      * Adds a provider compliance profile rule to the compliance check request.
      *
      * @param profileRule Compliance profile rule to be added to check request
-     * @return null if the rule/group was added successfully
-     * ComplianceRuleStatus.NA if the rule is not applicable (e.g. resource/type do not match)
-     * ComplianceRuleStatus.NOT_AVAILABLE if the rule/group is not available in the provider
+     * @return null if the rule/group was added successfully ComplianceRuleStatus.NA if the rule is not applicable (e.g.
+     * resource/type do not match) ComplianceRuleStatus.NOT_AVAILABLE if the rule/group is not available in the provider
      */
     public ComplianceRuleStatus addProviderRuleToCheck(ComplianceProfileRule profileRule) {
         if (profileRule.getComplianceRuleUuid() != null) {
-            ComplianceRuleResponseDto providerRule = rulesGroupsBatchDto.getRules().get(profileRule.getComplianceRuleUuid());
+            ComplianceRuleResponseDto providerRule = rulesGroupsBatchDto
+                    .getRules()
+                    .get(profileRule.getComplianceRuleUuid());
             ComplianceRuleAvailabilityStatus availabilityStatus = getRuleAvailabilityStatus(profileRule, providerRule);
             if (availabilityStatus != ComplianceRuleAvailabilityStatus.AVAILABLE) {
-                return availabilityStatus == ComplianceRuleAvailabilityStatus.NOT_AVAILABLE ? ComplianceRuleStatus.NOT_AVAILABLE : ComplianceRuleStatus.NA;
+                return availabilityStatus == ComplianceRuleAvailabilityStatus.NOT_AVAILABLE
+                        ? ComplianceRuleStatus.NOT_AVAILABLE
+                        : ComplianceRuleStatus.NA;
             }
 
             if (functionGroup == FunctionGroupCode.COMPLIANCE_PROVIDER) {
@@ -117,10 +128,14 @@ public class ComplianceCheckProviderContext {
             return null;
         }
 
-        ComplianceGroupBatchResponseDto providerGroup = rulesGroupsBatchDto.getGroups().get(profileRule.getComplianceGroupUuid());
+        ComplianceGroupBatchResponseDto providerGroup = rulesGroupsBatchDto
+                .getGroups()
+                .get(profileRule.getComplianceGroupUuid());
         ComplianceRuleAvailabilityStatus availabilityStatus = getGroupAvailabilityStatus(profileRule, providerGroup);
         if (availabilityStatus != ComplianceRuleAvailabilityStatus.AVAILABLE) {
-            return availabilityStatus == ComplianceRuleAvailabilityStatus.NOT_AVAILABLE ? ComplianceRuleStatus.NOT_AVAILABLE : ComplianceRuleStatus.NA;
+            return availabilityStatus == ComplianceRuleAvailabilityStatus.NOT_AVAILABLE
+                    ? ComplianceRuleStatus.NOT_AVAILABLE
+                    : ComplianceRuleStatus.NA;
         }
 
         if (functionGroup == FunctionGroupCode.COMPLIANCE_PROVIDER) {
@@ -147,8 +162,10 @@ public class ComplianceCheckProviderContext {
         ComplianceResponseDto complianceResponse = new ComplianceResponseDto();
         if (functionGroup == FunctionGroupCode.COMPLIANCE_PROVIDER) {
             if (!complianceRequestDtoV1.getRules().isEmpty()) {
-                com.otilm.api.interfaces.client.v1.ComplianceSyncApiClient complianceApiClientV1 = connectorApiFactory.getComplianceApiClient(connectorDto);
-                var complianceResponseV1 = complianceApiClientV1.checkCompliance(connectorDto, kind, complianceRequestDtoV1);
+                com.otilm.api.interfaces.client.v1.ComplianceSyncApiClient complianceApiClientV1 = connectorApiFactory
+                        .getComplianceApiClient(connectorDto);
+                var complianceResponseV1 = complianceApiClientV1
+                        .checkCompliance(connectorDto, kind, complianceRequestDtoV1);
                 complianceResponse.setStatus(complianceResponseV1.getStatus());
                 complianceResponse.setRules(complianceResponseV1.getRules().stream().map(r -> {
                     ComplianceResponseRuleDto ruleDto = new ComplianceResponseRuleDto();
@@ -160,14 +177,16 @@ public class ComplianceCheckProviderContext {
             }
         } else {
             if (!complianceRequestDto.getRules().isEmpty() || !complianceRequestDto.getGroups().isEmpty()) {
-                ComplianceSyncApiClient complianceApiClientV2 = connectorApiFactory.getComplianceApiClientV2(connectorDto);
+                ComplianceSyncApiClient complianceApiClientV2 = connectorApiFactory
+                        .getComplianceApiClientV2(connectorDto);
                 complianceResponse = complianceApiClientV2.checkCompliance(connectorDto, kind, complianceRequestDto);
             }
         }
         return complianceResponse;
     }
 
-    private ComplianceRuleAvailabilityStatus getRuleAvailabilityStatus(ComplianceProfileRule profileRule, ComplianceRuleResponseDto providerRule) {
+    private ComplianceRuleAvailabilityStatus getRuleAvailabilityStatus(ComplianceProfileRule profileRule,
+            ComplianceRuleResponseDto providerRule) {
         if (providerRule == null) {
             return ComplianceRuleAvailabilityStatus.NOT_AVAILABLE;
         }
@@ -178,7 +197,8 @@ public class ComplianceCheckProviderContext {
 
         IPlatformEnum typeEnum = null;
         try {
-            typeEnum = ComplianceProfileRuleHandler.getComplianceRuleTypeFromName(profileRule.getResource(), profileRule.getType());
+            typeEnum = ComplianceProfileRuleHandler
+                    .getComplianceRuleTypeFromName(profileRule.getResource(), profileRule.getType());
         } catch (ValidationException e) {
             // Ignored, handled by default value
         }
@@ -187,14 +207,16 @@ public class ComplianceCheckProviderContext {
         }
 
         try {
-            AttributeEngine.validateRequestDataAttributes(providerRule.getAttributes(), profileRule.getAttributes(), true);
+            AttributeEngine
+                    .validateRequestDataAttributes(providerRule.getAttributes(), profileRule.getAttributes(), true);
         } catch (ValidationException e) {
             return ComplianceRuleAvailabilityStatus.UPDATED;
         }
         return ComplianceRuleAvailabilityStatus.AVAILABLE;
     }
 
-    private ComplianceRuleAvailabilityStatus getGroupAvailabilityStatus(ComplianceProfileRule profileRule, ComplianceGroupBatchResponseDto providerGroup) {
+    private ComplianceRuleAvailabilityStatus getGroupAvailabilityStatus(ComplianceProfileRule profileRule,
+            ComplianceGroupBatchResponseDto providerGroup) {
         if (providerGroup == null) {
             return ComplianceRuleAvailabilityStatus.NOT_AVAILABLE;
         }

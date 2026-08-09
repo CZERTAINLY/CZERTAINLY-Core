@@ -1,8 +1,7 @@
 package com.otilm.core.integration.service;
 
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.model.client.certificate.RemoveCertificateDto;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.core.config.cache.CacheConfig;
@@ -15,8 +14,11 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.impl.CertificateServiceImpl;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.security.KeyPair;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,15 +29,13 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.security.KeyPair;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
- * Verifies that {@code getCertificateChainForSigning} is properly cached and that every mutation site
- * evicts the cache before the next lookup.
+ * Verifies that {@code getCertificateChainForSigning} is properly cached and that every mutation site evicts the cache
+ * before the next lookup.
  * <p>
  * Must NOT be {@code @Transactional} — afterCommit callbacks need an actual commit to fire.
  */
@@ -143,7 +143,8 @@ class CertificateChainCacheITest extends BaseSpringBootTest {
         certificateService.getCertificateChainForSigning(uuid, true);
         Assertions.assertNotNull(cache.get(key), "cache should be warm before bulk delete");
         // confirm cert exists in DB before delete
-        Assertions.assertTrue(certificateRepository.findByUuid(uuid).isPresent(), "cert should exist before bulk delete");
+        Assertions
+                .assertTrue(certificateRepository.findByUuid(uuid).isPresent(), "cert should exist before bulk delete");
 
         RemoveCertificateDto request = new RemoveCertificateDto();
         request.setUuids(List.of(uuid.toString()));
@@ -165,8 +166,8 @@ class CertificateChainCacheITest extends BaseSpringBootTest {
         certificateRepository.saveAndFlush(root);
 
         KeyPair leafKp = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
-        X509Certificate leafX509 = CertificateGeneratorHelper.generateEndEntityCertificate(
-                rootKp, rootX509, leafKp, "CN=CacheTest-Leaf-5", null);
+        X509Certificate leafX509 = CertificateGeneratorHelper
+                .generateEndEntityCertificate(rootKp, rootX509, leafKp, "CN=CacheTest-Leaf-5", null);
         Certificate leaf = certificateService.createCertificateEntity(leafX509);
         certificateRepository.saveAndFlush(leaf);
 
@@ -180,8 +181,9 @@ class CertificateChainCacheITest extends BaseSpringBootTest {
         // Calling getCertificateChain for the leaf triggers completeCertificateChain → updateCertificateChain.
         certificateService.getCertificateChain(leaf.getSecuredUuid(), true);
 
-        Assertions.assertNull(cache.get(rootKey),
-                "establishing the issuer link via getCertificateChain must evict the cert-chain cache");
+        Assertions
+                .assertNull(cache.get(rootKey),
+                        "establishing the issuer link via getCertificateChain must evict the cert-chain cache");
     }
 
     @Test
@@ -195,15 +197,18 @@ class CertificateChainCacheITest extends BaseSpringBootTest {
             String aiaPath = "/issuer.der";
             String aiaUrl = "http://localhost:" + wireMock.port() + aiaPath;
             WireMock.configureFor("localhost", wireMock.port());
-            wireMock.stubFor(WireMock.get(aiaPath)
-                    .willReturn(WireMock.aResponse()
-                            .withStatus(200)
-                            .withHeader("Content-Type", "application/pkix-cert")
-                            .withBody(rootX509.getEncoded())));
+            wireMock
+                    .stubFor(WireMock
+                            .get(aiaPath)
+                            .willReturn(WireMock
+                                    .aResponse()
+                                    .withStatus(200)
+                                    .withHeader("Content-Type", "application/pkix-cert")
+                                    .withBody(rootX509.getEncoded())));
 
             KeyPair leafKp = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
-            X509Certificate leafX509 = CertificateGeneratorHelper.generateEndEntityCertificateWithCaIssuers(
-                    rootKp, rootX509, leafKp, "CN=CacheAIA-Leaf", aiaUrl);
+            X509Certificate leafX509 = CertificateGeneratorHelper
+                    .generateEndEntityCertificateWithCaIssuers(rootKp, rootX509, leafKp, "CN=CacheAIA-Leaf", aiaUrl);
 
             // Upload leaf only — root is NOT in inventory so the AIA path must fire
             Certificate leaf = uploadCertificate(leafX509);
@@ -219,12 +224,13 @@ class CertificateChainCacheITest extends BaseSpringBootTest {
 
             // Precondition: AIA download must have linked the issuer; otherwise the test proves nothing
             Certificate refreshedLeaf = certificateRepository.findByUuid(leafUuid).orElseThrow();
-            Assertions.assertNotNull(refreshedLeaf.getIssuerCertificateUuid(),
-                    "AIA download must establish the issuer link for this test to be meaningful");
+            Assertions
+                    .assertNotNull(refreshedLeaf.getIssuerCertificateUuid(),
+                            "AIA download must establish the issuer link for this test to be meaningful");
 
             // After the issuer link is established via AIA, the cache must be evicted
-            Assertions.assertNull(cache.get(key),
-                    "AIA-based issuer link establishment must evict the cert-chain cache");
+            Assertions
+                    .assertNull(cache.get(key), "AIA-based issuer link establishment must evict the cert-chain cache");
         } finally {
             wireMock.stop();
         }
@@ -235,17 +241,17 @@ class CertificateChainCacheITest extends BaseSpringBootTest {
     // -------------------------------------------------------------------------
 
     /**
-     * Uploads an X509Certificate via the event handler (the standard upload path)
-     * and returns the persisted {@link Certificate} entity.
+     * Uploads an X509Certificate via the event handler (the standard upload path) and returns the persisted
+     * {@link Certificate} entity.
      */
     private Certificate uploadCertificate(X509Certificate x509) throws Exception {
         String base64 = Base64.getEncoder().encodeToString(x509.getEncoded());
         String fingerprint = CertificateUtil.getThumbprint(x509);
-        CertificateUploadEventMessageData eventData = CertificateUploadEventMessageData.builder()
+        CertificateUploadEventMessageData eventData = CertificateUploadEventMessageData
+                .builder()
                 .certificateContent(base64)
                 .build();
-        certificateUploadedEventHandler.handleEvent(
-                CertificateUploadedEventHandler.constructEventMessage(eventData));
+        certificateUploadedEventHandler.handleEvent(CertificateUploadedEventHandler.constructEventMessage(eventData));
         return certificateRepository.findByFingerprint(fingerprint).orElseThrow();
     }
 

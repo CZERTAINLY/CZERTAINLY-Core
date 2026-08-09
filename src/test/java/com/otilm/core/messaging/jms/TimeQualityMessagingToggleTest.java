@@ -18,10 +18,10 @@ import static org.mockito.Mockito.mock;
 /**
  * Verifies that the time-quality messaging beans are gated by {@code messaging.time-quality.enabled}.
  *
- * <p>Mock dependencies are registered via {@code withBean(...)} rather than a nested {@code @Configuration}
- * class: a scannable configuration on the test classpath would be picked up by other {@code @SpringBootTest}
- * contexts and its mock {@code timeQualityConfigurationRepository} bean would collide with the real Spring
- * Data JPA repository.
+ * <p>
+ * Mock dependencies are registered via {@code withBean(...)} rather than a nested {@code @Configuration} class: a
+ * scannable configuration on the test classpath would be picked up by other {@code @SpringBootTest} contexts and its
+ * mock {@code timeQualityConfigurationRepository} bean would collide with the real Spring Data JPA repository.
  */
 class TimeQualityMessagingToggleTest {
 
@@ -31,11 +31,8 @@ class TimeQualityMessagingToggleTest {
             .withBean(RetryTemplate.class, () -> mock(RetryTemplate.class))
             .withBean(TimeQualityConfigurationRepository.class, () -> mock(TimeQualityConfigurationRepository.class))
             .withBean(TimeQualityRegister.class, () -> mock(TimeQualityRegister.class))
-            .withUserConfiguration(
-                    TimeQualityConfigurationProducer.class,
-                    TimeQualityMonitorInitializer.class,
-                    TimeQualityConfigRequestListener.class,
-                    TimeQualityResultListener.class);
+            .withUserConfiguration(TimeQualityConfigurationProducer.class, TimeQualityMonitorInitializer.class,
+                    TimeQualityConfigRequestListener.class, TimeQualityResultListener.class);
 
     @Test
     void beansAbsentWhenFlagUnset() {

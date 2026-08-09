@@ -14,24 +14,22 @@ import com.otilm.core.dao.repository.CertificateStatusPollRepository;
 import com.otilm.core.messaging.jms.listeners.poll.PendingIssueReaper;
 import com.otilm.core.service.handler.authority.CertificateOperation;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static com.otilm.core.util.builders.CertificateBuilder.aCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration coverage for {@link PendingIssueReaper}: a certificate stuck in PENDING_ISSUE with no
- * status-poll row (a crashed synchronous issue) is failed once it is stale, while fresh certificates,
- * ones with an in-flight poll row (the 202 async path), and non-PENDING_ISSUE certificates are left
- * alone. Staleness is driven by the {@code i_upd} column, which is back-dated directly since
- * {@code @UpdateTimestamp} would otherwise stamp it to now on every save.
+ * Integration coverage for {@link PendingIssueReaper}: a certificate stuck in PENDING_ISSUE with no status-poll row (a
+ * crashed synchronous issue) is failed once it is stale, while fresh certificates, ones with an in-flight poll row (the
+ * 202 async path), and non-PENDING_ISSUE certificates are left alone. Staleness is driven by the {@code i_upd} column,
+ * which is back-dated directly since {@code @UpdateTimestamp} would otherwise stamp it to now on every save.
  */
 class PendingIssueReaperITest extends BaseSpringBootTest {
 
@@ -62,8 +60,8 @@ class PendingIssueReaperITest extends BaseSpringBootTest {
         assertThat(reaped.getState()).isEqualTo(CertificateState.FAILED);
         assertThat(eventHistoryRepository.findByCertificateOrderByCreatedDesc(reaped))
                 .as("reaping must write an ISSUE/FAILED audit-history row")
-                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
-                        && h.getStatus() == CertificateEventStatus.FAILED);
+                .anyMatch(
+                        h -> h.getEvent() == CertificateEvent.ISSUE && h.getStatus() == CertificateEventStatus.FAILED);
     }
 
     @Test
@@ -107,7 +105,8 @@ class PendingIssueReaperITest extends BaseSpringBootTest {
         // successor by a PENDING relation (created in an earlier committed step). Reaping the successor
         // must drop that relation so the predecessor is not left linked to a now-FAILED certificate.
         Certificate predecessor = certificateRepository.save(aCertificate().withState(CertificateState.ISSUED).build());
-        Certificate successor = certificateRepository.save(aCertificate().withState(CertificateState.PENDING_ISSUE).build());
+        Certificate successor = certificateRepository
+                .save(aCertificate().withState(CertificateState.PENDING_ISSUE).build());
         backdateUpdated(successor.getUuid(), STALE);
         savePendingRelation(predecessor, successor);
 
@@ -117,8 +116,8 @@ class PendingIssueReaperITest extends BaseSpringBootTest {
                 .as("the orphaned successor is failed")
                 .isEqualTo(CertificateState.FAILED);
         assertThat(certificateRelationRepository
-                .findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(
-                        successor.getUuid(), CertificateRelationType.PENDING))
+                .findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(successor.getUuid(),
+                        CertificateRelationType.PENDING))
                 .as("the dangling PENDING predecessor relation is deleted")
                 .isEmpty();
         assertThat(certificateRepository.findByUuid(predecessor.getUuid()).orElseThrow().getState())
@@ -144,7 +143,8 @@ class PendingIssueReaperITest extends BaseSpringBootTest {
     }
 
     private void backdateUpdated(UUID uuid, Duration age) {
-        jdbcTemplate.update("UPDATE certificate SET i_upd = ? WHERE uuid = ?",
-                OffsetDateTime.now(ZoneOffset.UTC).minus(age), uuid);
+        jdbcTemplate
+                .update("UPDATE certificate SET i_upd = ? WHERE uuid = ?",
+                        OffsetDateTime.now(ZoneOffset.UTC).minus(age), uuid);
     }
 }

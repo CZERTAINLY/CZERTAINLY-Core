@@ -11,16 +11,18 @@ import java.util.function.Supplier;
  * evaluate the {@code recordingEnabled} gate and emit intake metrics — while deferring the (potentially expensive)
  * assembly of the full input to the supplied callback, which runs only when {@link #build()} is called.
  *
- * <p>Any per-protocol record factory (TSP, CSC, …) can return one of these: it captures the profile up front and
- * wraps that protocol's own input-assembly as the deferred {@code inputSupplier}.
+ * <p>
+ * Any per-protocol record factory (TSP, CSC, …) can return one of these: it captures the profile up front and wraps
+ * that protocol's own input-assembly as the deferred {@code inputSupplier}.
  */
 public final class DeferredSigningRecordInputSource implements SigningRecordInputSource {
 
     private final SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> signingProfile;
     private final Supplier<SigningRecordInput> inputSupplier;
 
-    public DeferredSigningRecordInputSource(SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> signingProfile,
-                                            Supplier<SigningRecordInput> inputSupplier) {
+    public DeferredSigningRecordInputSource(
+            SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> signingProfile,
+            Supplier<SigningRecordInput> inputSupplier) {
         this.signingProfile = signingProfile;
         this.inputSupplier = inputSupplier;
     }

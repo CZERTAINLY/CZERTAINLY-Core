@@ -1,6 +1,26 @@
 package com.otilm.core.api;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AcmeProblemDocumentException;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.CbomRepositoryException;
+import com.otilm.api.exception.CertificateOperationException;
+import com.otilm.api.exception.CertificateRequestException;
+import com.otilm.api.exception.ConnectorClientException;
+import com.otilm.api.exception.ConnectorCommunicationException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
+import com.otilm.api.exception.ConnectorProblemException;
+import com.otilm.api.exception.ConnectorServerException;
+import com.otilm.api.exception.EventException;
+import com.otilm.api.exception.LocationException;
+import com.otilm.api.exception.NotDeletableException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
+import com.otilm.api.exception.RuleException;
+import com.otilm.api.exception.ScepException;
+import com.otilm.api.exception.SecretOperationException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.AuthenticationServiceExceptionDto;
 import com.otilm.api.model.common.ErrorMessageDto;
 import com.otilm.api.model.core.acme.ProblemDocument;
@@ -11,6 +31,9 @@ import com.otilm.core.security.exception.AuthenticationServiceException;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BeautificationUtil;
 import jakarta.validation.ConstraintViolationException;
+import java.net.ConnectException;
+import java.security.cert.CertificateException;
+import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,10 +51,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.servlet.NoHandlerFoundException;
-
-import java.net.ConnectException;
-import java.security.cert.CertificateException;
-import java.util.List;
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
@@ -70,8 +89,11 @@ public class ExceptionHandlingAdvice {
             messageBuilder
                     .append(" ")
                     .append("Error is related to connector ")
-                    .append("name=").append(ex.getConnector().getName()).append(", ")
-                    .append("uuid=").append(ex.getConnector().getUuid())
+                    .append("name=")
+                    .append(ex.getConnector().getName())
+                    .append(", ")
+                    .append("uuid=")
+                    .append(ex.getConnector().getUuid())
                     .append(". ");
         }
 
@@ -149,7 +171,10 @@ public class ExceptionHandlingAdvice {
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     public List<String> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
         // Return a string array, matching the ValidationException 422 body, so every 422 has one shape.
-        List<String> errors = ex.getBindingResult().getFieldErrors().stream()
+        List<String> errors = ex
+                .getBindingResult()
+                .getFieldErrors()
+                .stream()
                 .map(err -> err.getField() + " " + err.getDefaultMessage())
                 .toList();
         LOG.info("HTTP 422: {}", errors);
@@ -208,9 +233,7 @@ public class ExceptionHandlingAdvice {
     public List<String> handleValidationException(ValidationException ex) {
         LOG.info("HTTP 422: {}", ex.getMessage());
 
-        return ex.getErrors().stream()
-                .map(ValidationError::getErrorDescription)
-                .toList();
+        return ex.getErrors().stream().map(ValidationError::getErrorDescription).toList();
     }
 
     /**
@@ -228,17 +251,16 @@ public class ExceptionHandlingAdvice {
             messageBuilder
                     .append(" ")
                     .append("Error is related to connector ")
-                    .append("name=").append(ex.getConnector().getName()).append(", ")
-                    .append("uuid=").append(ex.getConnector().getUuid())
+                    .append("name=")
+                    .append(ex.getConnector().getName())
+                    .append(", ")
+                    .append("uuid=")
+                    .append(ex.getConnector().getUuid())
                     .append(". ");
         }
 
         if (ex.getHttpStatus() != null) {
-            messageBuilder
-                    .append(" ")
-                    .append("Original response code ")
-                    .append(ex.getHttpStatus())
-                    .append(". ");
+            messageBuilder.append(" ").append("Original response code ").append(ex.getHttpStatus()).append(". ");
         }
 
         LOG.info("HTTP 400: {}", messageBuilder);
@@ -260,17 +282,16 @@ public class ExceptionHandlingAdvice {
             messageBuilder
                     .append(" ")
                     .append("Error is related to connector ")
-                    .append("name=").append(ex.getConnector().getName()).append(", ")
-                    .append("uuid=").append(ex.getConnector().getUuid())
+                    .append("name=")
+                    .append(ex.getConnector().getName())
+                    .append(", ")
+                    .append("uuid=")
+                    .append(ex.getConnector().getUuid())
                     .append(". ");
         }
 
         if (ex.getHttpStatus() != null) {
-            messageBuilder
-                    .append(" ")
-                    .append("Original response code ")
-                    .append(ex.getHttpStatus())
-                    .append(". ");
+            messageBuilder.append(" ").append("Original response code ").append(ex.getHttpStatus()).append(". ");
         }
 
         LOG.info("HTTP 502: {}", messageBuilder);
@@ -292,8 +313,11 @@ public class ExceptionHandlingAdvice {
             messageBuilder
                     .append(" ")
                     .append("Error is related to connector ")
-                    .append("name=").append(ex.getConnector().getName()).append(", ")
-                    .append("uuid=").append(ex.getConnector().getUuid())
+                    .append("name=")
+                    .append(ex.getConnector().getName())
+                    .append(", ")
+                    .append("uuid=")
+                    .append(ex.getConnector().getUuid())
                     .append(". ");
         }
 
@@ -310,7 +334,9 @@ public class ExceptionHandlingAdvice {
     public ResponseEntity<ErrorMessageDto> handleConnectorProblemException(ConnectorProblemException ex) {
         String errorMessage = ex.getFullMessage(false);
         if (LOG.isErrorEnabled()) {
-            LOG.error("HTTP %d: %s %s".formatted(ex.getHttpStatus().value(), errorMessage, ex.getProblemDetail().toString()));
+            LOG
+                    .error("HTTP %d: %s %s"
+                            .formatted(ex.getHttpStatus().value(), errorMessage, ex.getProblemDetail().toString()));
         }
 
         ErrorMessageDto errorMessageDto = ErrorMessageDto.getInstance(errorMessage);
@@ -361,19 +387,20 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<AuthenticationServiceExceptionDto> handleAccessDeniedException(AccessDeniedException ex) {
         LOG.warn("Access denied: {}", ex.getMessage());
-        ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.FORBIDDEN).contentType(MediaType.valueOf("application/problem+json"));
+        ResponseEntity.BodyBuilder response = ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.valueOf("application/problem+json"));
         AuthenticationServiceExceptionDto responseDto = new AuthenticationServiceExceptionDto();
         responseDto.setCode("ACCESS_DENIED");
         responseDto.setStatusCode(HttpStatus.FORBIDDEN.value());
 
         String resourceName = AuthHelper.getDeniedPermissionResource();
         String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
-        if (resourceName != null && !resourceName.isEmpty() && resourceActionName != null && !resourceActionName.isEmpty()) {
-            responseDto.setMessage("Access Denied. Required '"
-                    + BeautificationUtil.camelToHumanForm(resourceActionName)
-                    + "' permission for '"
-                    + Resource.findByCode(resourceName).getLabel()
-                    + "'");
+        if (resourceName != null && !resourceName.isEmpty() && resourceActionName != null
+                && !resourceActionName.isEmpty()) {
+            responseDto
+                    .setMessage("Access Denied. Required '" + BeautificationUtil.camelToHumanForm(resourceActionName)
+                            + "' permission for '" + Resource.findByCode(resourceName).getLabel() + "'");
         } else {
             responseDto.setMessage("Access denied for the specified operation: " + ex.getMessage());
         }
@@ -388,7 +415,9 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(AcmeProblemDocumentException.class)
     public ResponseEntity<ProblemDocument> handleAcmeProblemDocumentException(AcmeProblemDocumentException ex) {
         LOG.warn("ACME Error: {}", ex.getProblemDocument());
-        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
+        ResponseEntity.BodyBuilder response = ResponseEntity
+                .status(ex.getHttpStatusCode())
+                .contentType(MediaType.valueOf("application/problem+json"));
         if (ex.getAdditionalHeaders() != null) {
             for (String entry : ex.getAdditionalHeaders().keySet()) {
                 response.header(entry, ex.getAdditionalHeaders().get(entry));
@@ -424,9 +453,10 @@ public class ExceptionHandlingAdvice {
     /**
      * Handler for {@link UnsupportedAuthorityVersionException}.
      *
-     * <p>400 rather than 500: an unrecognised connector interface version is caller-fixable configuration. The body
-     * is fixed rather than the exception's message, which names the authority and a version string the connector
-     * reported into an unvalidated column. Logged at warn -- a connector is registered that cannot be dispatched to.
+     * <p>
+     * 400 rather than 500: an unrecognised connector interface version is caller-fixable configuration. The body is
+     * fixed rather than the exception's message, which names the authority and a version string the connector reported
+     * into an unvalidated column. Logged at warn -- a connector is registered that cannot be dispatched to.
      *
      * @return a fixed message that names neither the authority nor the version
      */
@@ -449,7 +479,6 @@ public class ExceptionHandlingAdvice {
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
-
     /**
      * Handler for {@link AuthenticationServiceException}.
      *
@@ -457,12 +486,15 @@ public class ExceptionHandlingAdvice {
      */
     @ExceptionHandler(AuthenticationServiceException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<AuthenticationServiceExceptionDto> handleCertificateOperationException(AuthenticationServiceException ex) {
+    public ResponseEntity<AuthenticationServiceExceptionDto> handleCertificateOperationException(
+            AuthenticationServiceException ex) {
         Integer statusCode = HttpStatus.BAD_REQUEST.value();
         if (ex.getException() != null) {
             statusCode = ex.getException().getStatusCode();
         }
-        ResponseEntity.BodyBuilder response = ResponseEntity.status(statusCode).contentType(MediaType.valueOf("application/problem+json"));
+        ResponseEntity.BodyBuilder response = ResponseEntity
+                .status(statusCode)
+                .contentType(MediaType.valueOf("application/problem+json"));
         return response.body(ex.getException());
     }
 
@@ -487,16 +519,15 @@ public class ExceptionHandlingAdvice {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleScepException(ScepException ex) {
         StringBuilder messageBuilder = new StringBuilder();
-        messageBuilder.append("SCEP error occurred: ")
+        messageBuilder
+                .append("SCEP error occurred: ")
                 .append(ex.getMessage())
                 .append(", ")
-                .append("failInfo=").append(ex.getFailInfo().getName());
+                .append("failInfo=")
+                .append(ex.getFailInfo().getName());
 
         if (ex.getCause() != null) {
-            messageBuilder
-                    .append(", ")
-                    .append("cause=").append(ex.getCause().getMessage())
-                    .append(". ");
+            messageBuilder.append(", ").append("cause=").append(ex.getCause().getMessage()).append(". ");
         }
 
         LOG.info("HTTP 400: {}", messageBuilder);
@@ -507,13 +538,9 @@ public class ExceptionHandlingAdvice {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorMessageDto handleCertificateException(CertificateException ex) {
         StringBuilder messageBuilder = new StringBuilder();
-        messageBuilder.append("Certificate error occurred: ")
-                .append(ex.getMessage());
+        messageBuilder.append("Certificate error occurred: ").append(ex.getMessage());
         if (ex.getCause() != null) {
-            messageBuilder
-                    .append(", ")
-                    .append("cause=").append(ex.getCause().getMessage())
-                    .append(". ");
+            messageBuilder.append(", ").append("cause=").append(ex.getCause().getMessage()).append(". ");
         }
         LOG.error("HTTP 500: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(messageBuilder.toString());

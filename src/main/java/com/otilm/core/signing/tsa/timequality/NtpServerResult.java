@@ -1,10 +1,5 @@
 package com.otilm.core.signing.tsa.timequality;
 
-public record NtpServerResult(
-        String host,
-        boolean reachable,
-        Double offsetMs,
-        Double rttMs,
-        Integer stratum,
+public record NtpServerResult(String host, boolean reachable, Double offsetMs, Double rttMs, Integer stratum,
         Double precisionMs) {
 }

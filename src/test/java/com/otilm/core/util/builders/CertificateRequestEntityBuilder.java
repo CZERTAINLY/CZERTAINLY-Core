@@ -7,9 +7,9 @@ import com.otilm.core.dao.entity.CertificateRequestEntity;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * Builds an in-memory {@link CertificateRequestEntity}; tests override only the fields whose values drive
- * the assertion under test. The request format defaults to {@code PKCS10} and the request certificate type defaults to {@code X509}. Persistence goes through
- * {@code CertificateRequestRepository}, not this builder.
+ * Builds an in-memory {@link CertificateRequestEntity}; tests override only the fields whose values drive the assertion
+ * under test. The request format defaults to {@code PKCS10} and the request certificate type defaults to {@code X509}.
+ * Persistence goes through {@code CertificateRequestRepository}, not this builder.
  */
 public class CertificateRequestEntityBuilder {
 
@@ -47,9 +47,15 @@ public class CertificateRequestEntityBuilder {
     public CertificateRequestEntity build() {
         CertificateRequestEntity entity = new CertificateRequestEntity();
         entity.setCertificateRequestFormat(format);
-        if (subjectDn != null) entity.setSubjectDn(subjectDn);
-        if (publicKeyAlgorithm != null) entity.setPublicKeyAlgorithm(publicKeyAlgorithm);
-        if (signatureAlgorithm != null) entity.setSignatureAlgorithm(signatureAlgorithm);
+        if (subjectDn != null) {
+            entity.setSubjectDn(subjectDn);
+        }
+        if (publicKeyAlgorithm != null) {
+            entity.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        }
+        if (signatureAlgorithm != null) {
+            entity.setSignatureAlgorithm(signatureAlgorithm);
+        }
         if (content != null) {
             // setContent fingerprints the content and so declares NoSuchAlgorithmException; wrap it unchecked
             try {

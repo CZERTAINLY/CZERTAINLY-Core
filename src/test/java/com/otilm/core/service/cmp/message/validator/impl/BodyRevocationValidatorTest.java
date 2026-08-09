@@ -1,6 +1,8 @@
 package com.otilm.core.service.cmp.message.validator.impl;
 
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
+import java.io.IOException;
+import java.math.BigInteger;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1Integer;
@@ -8,9 +10,9 @@ import org.bouncycastle.asn1.DERGeneralizedTime;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIHeader;
 import org.bouncycastle.asn1.cmp.PKIHeaderBuilder;
-import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.cmp.RevDetails;
 import org.bouncycastle.asn1.cmp.RevReqContent;
@@ -25,9 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.io.IOException;
-import java.math.BigInteger;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,10 +34,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for {@link BodyRevocationValidator#validateIn}.
  *
- * <p>RFC 4210 &sect;5.3.9 marks {@code crlEntryDetails} OPTIONAL, so a reason-less {@code rr}
- * is valid and only reason codes the platform cannot represent are rejected: out of range,
- * 7 (unused per RFC 5280) and 8 (removeFromCRL). {@link
- * com.otilm.api.model.core.authority.CertificateRevocationReason} defines the mappable set.</p>
+ * <p>
+ * RFC 4210 &sect;5.3.9 marks {@code crlEntryDetails} OPTIONAL, so a reason-less {@code rr} is valid and only reason
+ * codes the platform cannot represent are rejected: out of range, 7 (unused per RFC 5280) and 8 (removeFromCRL).
+ * {@link com.otilm.api.model.core.authority.CertificateRevocationReason} defines the mappable set.
+ * </p>
  */
 class BodyRevocationValidatorTest {
 
@@ -47,8 +47,7 @@ class BodyRevocationValidatorTest {
         PKIMessage msg = rrMessage(fullCertTemplate(), null);
 
         // RFC 4210 §5.3.9: crlEntryDetails is OPTIONAL — a reason-less rr is valid.
-        assertThatCode(() -> new BodyRevocationValidator().validateIn(msg, null))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> new BodyRevocationValidator().validateIn(msg, null)).doesNotThrowAnyException();
     }
 
     @Test
@@ -57,8 +56,7 @@ class BodyRevocationValidatorTest {
 
         // crlEntryDetails may carry other crlEntryExtensions (e.g. invalidityDate) without a
         // reasonCode — that is still a valid, reason-less revocation request.
-        assertThatCode(() -> new BodyRevocationValidator().validateIn(msg, null))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> new BodyRevocationValidator().validateIn(msg, null)).doesNotThrowAnyException();
     }
 
     @Test
@@ -66,8 +64,7 @@ class BodyRevocationValidatorTest {
         PKIMessage msg = rrMessage(fullCertTemplate(), reasonCodeExtensions(4));
 
         // superseded (4) is a mappable reason — preserved accept behaviour.
-        assertThatCode(() -> new BodyRevocationValidator().validateIn(msg, null))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> new BodyRevocationValidator().validateIn(msg, null)).doesNotThrowAnyException();
     }
 
     // 7 (unused per RFC 5280), 8 (removeFromCRL — an un-revoke this path cannot perform) and
@@ -87,8 +84,7 @@ class BodyRevocationValidatorTest {
         // An ASN.1 ENUMERATED whose value is 2^64 + 4 truncates to 4 (superseded) through
         // BigInteger.longValue(); the validator must reject on the raw value, not the
         // truncated one, so a crafted oversized code cannot masquerade as an in-range reason.
-        PKIMessage msg = rrMessage(fullCertTemplate(),
-                reasonCodeExtensions(new BigInteger("18446744073709551620")));
+        PKIMessage msg = rrMessage(fullCertTemplate(), reasonCodeExtensions(new BigInteger("18446744073709551620")));
 
         assertThatThrownBy(() -> new BodyRevocationValidator().validateIn(msg, null))
                 .isInstanceOf(CmpProcessingException.class)
@@ -185,9 +181,7 @@ class BodyRevocationValidatorTest {
     }
 
     private static PKIMessage pkiMessage(PKIBody body) {
-        PKIHeader header = new PKIHeaderBuilder(
-                PKIHeader.CMP_2000,
-                new GeneralName(new X500Name("CN=test-sender")),
+        PKIHeader header = new PKIHeaderBuilder(PKIHeader.CMP_2000, new GeneralName(new X500Name("CN=test-sender")),
                 new GeneralName(new X500Name("CN=test-recipient")))
                 .setTransactionID(new DEROctetString(new byte[]{1, 2, 3, 4}))
                 .build();

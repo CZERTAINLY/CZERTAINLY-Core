@@ -7,8 +7,8 @@ public class NullUtil {
     /**
      * compute a default value if value is <code>null</code>
      *
-     * @param <T>             value type
-     * @param value           value to check for <code>null</code>
+     * @param <T> value type
+     * @param value value to check for <code>null</code>
      * @param defaultSupplier function to call if value is <code>null</code>
      * @return value or result of defaultSupplier
      */
@@ -19,8 +19,8 @@ public class NullUtil {
     /**
      * provide a default value if value is <code>null</code>
      *
-     * @param <T>          value type
-     * @param value        value to check for <code>null</code>
+     * @param <T> value type
+     * @param value value to check for <code>null</code>
      * @param defaultValue value to use if provided value is <code>null</code>
      * @return value or defaultValue
      */

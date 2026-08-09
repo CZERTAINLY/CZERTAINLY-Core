@@ -1,15 +1,14 @@
 package com.otilm.core.model.auth;
 
-import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import java.util.Map;
 
 @Setter
 @Getter
@@ -49,6 +48,11 @@ public class AuthenticationRequestDto {
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("certificateContent", certificateContent).append("authenticationTokenUserClaims", StringUtils.join(authenticationTokenUserClaims)).append("systemUsername", systemUsername).append("userUuid", userUuid).toString();
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                .append("certificateContent", certificateContent)
+                .append("authenticationTokenUserClaims", StringUtils.join(authenticationTokenUserClaims))
+                .append("systemUsername", systemUsername)
+                .append("userUuid", userUuid)
+                .toString();
     }
 }

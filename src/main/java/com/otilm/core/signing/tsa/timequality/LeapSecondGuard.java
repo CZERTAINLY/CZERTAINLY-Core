@@ -2,12 +2,11 @@ package com.otilm.core.signing.tsa.timequality;
 
 import com.otilm.api.model.messaging.timequality.LeapSecondWarning;
 import com.otilm.core.util.clocksource.ClockSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LeapSecondGuard {
 

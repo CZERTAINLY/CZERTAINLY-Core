@@ -14,6 +14,13 @@ import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.util.PlatformX500NameStyle;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1IA5String;
@@ -32,18 +39,10 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.OtherName;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-
 /**
- * Parses a {@link CertificateRequest} (PKCS#10 or CRMF) into typed {@link X509RequestContent}, decoding directly
- * from BouncyCastle ASN.1 so RFC 4514 special characters survive verbatim. SAN kinds {@link GeneralNameType}
- * cannot model are reported in {@link ParsedRequestContent#unsupportedSans()}.
+ * Parses a {@link CertificateRequest} (PKCS#10 or CRMF) into typed {@link X509RequestContent}, decoding directly from
+ * BouncyCastle ASN.1 so RFC 4514 special characters survive verbatim. SAN kinds {@link GeneralNameType} cannot model
+ * are reported in {@link ParsedRequestContent#unsupportedSans()}.
  */
 @Slf4j
 public final class X509RequestContentParser {
@@ -62,8 +61,8 @@ public final class X509RequestContentParser {
     }
 
     /**
-     * Parses an RFC 4514 subject DN string into ordered {@link RdnEntry} entries, using the same BouncyCastle
-     * decoding as {@link #parse(CertificateRequest)}. Blank input yields an empty list.
+     * Parses an RFC 4514 subject DN string into ordered {@link RdnEntry} entries, using the same BouncyCastle decoding
+     * as {@link #parse(CertificateRequest)}. Blank input yields an empty list.
      *
      * @throws IllegalArgumentException when the DN string is not parseable
      */
@@ -108,8 +107,8 @@ public final class X509RequestContentParser {
     }
 
     /**
-     * Resolves an RDN type OID to the platform's short code (OID registry, then BC symbols, then the dotted OID)
-     * so validator matching and violation messages share one vocabulary.
+     * Resolves an RDN type OID to the platform's short code (OID registry, then BC symbols, then the dotted OID) so
+     * validator matching and violation messages share one vocabulary.
      */
     private static String rdnTypeCode(ASN1ObjectIdentifier oid) {
         Map<String, OidRecord> rdnCache = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE);
@@ -159,13 +158,13 @@ public final class X509RequestContentParser {
             case GeneralName.otherName -> toOtherNameEntry(name);
             case GeneralName.rfc822Name -> entry(GeneralNameType.EMAIL, ia5(name));
             case GeneralName.dNSName -> entry(GeneralNameType.DNS, ia5(name));
-            case GeneralName.directoryName -> entry(GeneralNameType.DIRECTORY_NAME,
-                    X500Name.getInstance(name.getName()).toString());
+            case GeneralName.directoryName ->
+                entry(GeneralNameType.DIRECTORY_NAME, X500Name.getInstance(name.getName()).toString());
             case GeneralName.uniformResourceIdentifier -> entry(GeneralNameType.URI, ia5(name));
-            case GeneralName.iPAddress -> entry(GeneralNameType.IP,
-                    decodeIpAddress(ASN1OctetString.getInstance(name.getName()).getOctets()));
-            case GeneralName.registeredID -> entry(GeneralNameType.REGISTERED_ID,
-                    ASN1ObjectIdentifier.getInstance(name.getName()).getId());
+            case GeneralName.iPAddress ->
+                entry(GeneralNameType.IP, decodeIpAddress(ASN1OctetString.getInstance(name.getName()).getOctets()));
+            case GeneralName.registeredID ->
+                entry(GeneralNameType.REGISTERED_ID, ASN1ObjectIdentifier.getInstance(name.getName()).getId());
             default -> null; // x400Address, ediPartyName — no GeneralNameType counterpart
         };
     }
@@ -182,8 +181,8 @@ public final class X509RequestContentParser {
     }
 
     /**
-     * Recovers an {@code otherName} SAN with its type-id OID so the validator can match on the (type, OID) pair.
-     * String values keep their scalar form ({@link ExtensionValueEncoding#UTF8_STRING}); others are Base64(DER).
+     * Recovers an {@code otherName} SAN with its type-id OID so the validator can match on the (type, OID) pair. String
+     * values keep their scalar form ({@link ExtensionValueEncoding#UTF8_STRING}); others are Base64(DER).
      */
     private static GeneralNameEntry toOtherNameEntry(GeneralName name) throws IOException {
         OtherName otherName = OtherName.getInstance(name.getName());

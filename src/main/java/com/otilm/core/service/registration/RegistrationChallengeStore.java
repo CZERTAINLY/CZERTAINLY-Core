@@ -4,22 +4,21 @@ import com.otilm.api.model.core.logging.Sensitive;
 import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
-import org.springframework.stereotype.Service;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import org.springframework.stereotype.Service;
 
 /**
- * Encrypts, verifies, and reveals the registration challenge of a {@link CertificateRegistrationAuthorization}.
- * It is the only collaborator that touches the plaintext challenge: the entity stores ciphertext, and the
- * plaintext is confined to this service so it cannot leak through entity accessors or {@code toString}.
+ * Encrypts, verifies, and reveals the registration challenge of a {@link CertificateRegistrationAuthorization}. It is
+ * the only collaborator that touches the plaintext challenge: the entity stores ciphertext, and the plaintext is
+ * confined to this service so it cannot leak through entity accessors or {@code toString}.
  */
 @Service
 public class RegistrationChallengeStore {
 
     /**
-     * Encrypts {@code plaintext} and writes the ciphertext onto {@code row}. Does not persist — the caller saves
-     * the row within its own transaction.
+     * Encrypts {@code plaintext} and writes the ciphertext onto {@code row}. Does not persist — the caller saves the
+     * row within its own transaction.
      */
     public void store(CertificateRegistrationAuthorization row, @Sensitive String plaintext) {
         // Fail fast: a null/blank challenge would encode to null and only surface as an opaque NOT NULL
@@ -39,14 +38,13 @@ public class RegistrationChallengeStore {
         }
         String stored = SecretsUtil.decodeAndDecryptSecretString(row.getChallenge(), SecretEncodingVersion.V1);
         // Constant-time comparison so a timing side channel cannot leak how much of the challenge matched.
-        return MessageDigest.isEqual(
-                presented.getBytes(StandardCharsets.UTF_8),
-                stored.getBytes(StandardCharsets.UTF_8));
+        return MessageDigest
+                .isEqual(presented.getBytes(StandardCharsets.UTF_8), stored.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * Decrypts and returns the plaintext challenge. Internal-only — for building the future registration event
-     * payload (SCEP / CMP); never exposed by any API.
+     * Decrypts and returns the plaintext challenge. Internal-only — for building the future registration event payload
+     * (SCEP / CMP); never exposed by any API.
      */
     public String resolvePlaintext(CertificateRegistrationAuthorization row) {
         // Consistent with verify()'s guard: a clear domain error beats an NPE inside SecretsUtil if this is ever

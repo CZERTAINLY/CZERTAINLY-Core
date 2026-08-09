@@ -1,27 +1,30 @@
 package com.otilm.core.messaging.jms.test;
 
-import org.springframework.retry.RetryCallback;
-import org.springframework.retry.RetryContext;
-import org.springframework.retry.RetryListener;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.retry.RetryCallback;
+import org.springframework.retry.RetryContext;
+import org.springframework.retry.RetryListener;
 
 /**
  * Test-specific RetryListener that provides deterministic observation of retry behavior.
  *
- * <p>This listener is designed for testing and does NOT extend JmsRetryListener to avoid
- * unnecessary logging noise in test output.</p>
+ * <p>
+ * This listener is designed for testing and does NOT extend JmsRetryListener to avoid unnecessary logging noise in test
+ * output.
+ * </p>
  *
- * <p>Design principles:</p>
+ * <p>
+ * Design principles:
+ * </p>
  * <ul>
- *   <li>Uses AtomicInteger for thread-safe retry counting</li>
- *   <li>Uses CountDownLatch for synchronization with test code</li>
- *   <li>Captures last exception for assertion purposes</li>
- *   <li>Supports reset between test methods</li>
+ * <li>Uses AtomicInteger for thread-safe retry counting</li>
+ * <li>Uses CountDownLatch for synchronization with test code</li>
+ * <li>Captures last exception for assertion purposes</li>
+ * <li>Supports reset between test methods</li>
  * </ul>
  */
 public class CountingRetryListener implements RetryListener {
@@ -34,8 +37,8 @@ public class CountingRetryListener implements RetryListener {
     private volatile CountDownLatch completionLatch;
 
     /**
-     * Configure latch to wait for specific number of retry errors.
-     * Call this BEFORE the operation that triggers retries.
+     * Configure latch to wait for specific number of retry errors. Call this BEFORE the operation that triggers
+     * retries.
      */
     public void expectRetryErrors(int expectedErrors) {
         this.retryLatch = new CountDownLatch(expectedErrors);
@@ -55,7 +58,8 @@ public class CountingRetryListener implements RetryListener {
     }
 
     @Override
-    public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
+    public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback,
+            Throwable throwable) {
         errorCount.incrementAndGet();
         lastException.set(throwable);
 
@@ -65,7 +69,8 @@ public class CountingRetryListener implements RetryListener {
     }
 
     @Override
-    public <T, E extends Throwable> void close(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
+    public <T, E extends Throwable> void close(RetryContext context, RetryCallback<T, E> callback,
+            Throwable throwable) {
         // Track whether the operation completed successfully (no exception on final attempt)
         completedSuccessfully.set(throwable == null);
 
@@ -77,8 +82,8 @@ public class CountingRetryListener implements RetryListener {
     // ========== Synchronization Methods ==========
 
     /**
-     * Block until the expected number of retry errors have occurred.
-     * Use this to synchronize proxy restoration with retry attempts.
+     * Block until the expected number of retry errors have occurred. Use this to synchronize proxy restoration with
+     * retry attempts.
      */
     public boolean awaitRetryErrors(long timeout, TimeUnit unit) throws InterruptedException {
         if (retryLatch == null) {

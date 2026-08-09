@@ -1,13 +1,12 @@
 package com.otilm.core.tasks;
 
+import com.otilm.api.exception.SchedulerException;
+import com.otilm.core.service.SchedulerInternalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
-
-import com.otilm.api.exception.SchedulerException;
-import com.otilm.core.service.SchedulerInternalService;
 
 @Configuration
 @EnableScheduling

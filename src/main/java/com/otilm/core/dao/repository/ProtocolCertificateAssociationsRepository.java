@@ -1,13 +1,14 @@
 package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.ProtocolCertificateAssociations;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.UUID;
-
 @Repository
-public interface ProtocolCertificateAssociationsRepository extends SecurityFilterRepository<ProtocolCertificateAssociations, UUID> {
+public interface ProtocolCertificateAssociationsRepository
+        extends
+            SecurityFilterRepository<ProtocolCertificateAssociations, UUID> {
 
     @Query("""
                 SELECT pca

@@ -1,25 +1,31 @@
 package com.otilm.core.service.cmp.message.protection.impl;
 
 import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
-import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.interfaces.core.cmp.error.CmpConfigurationException;
+import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.protection.ProtectionStrategy;
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.util.List;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DERBitString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.CMPCertificate;
+import org.bouncycastle.asn1.cmp.CMPObjectIdentifiers;
+import org.bouncycastle.asn1.cmp.PBMParameter;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIHeader;
+import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.cmp.ProtectedPart;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DefaultMacAlgorithmIdentifierFinder;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
-import java.security.MessageDigest;
-import java.util.List;
 
 /**
  * Implementation of password-based protection of {@link PKIMessage}.
@@ -28,20 +34,15 @@ import java.util.List;
  */
 public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy implements ProtectionStrategy {
 
-    private final DefaultDigestAlgorithmIdentifierFinder DIGEST_ALGORITHM_IDENTIFIER_FINDER =
-            new DefaultDigestAlgorithmIdentifierFinder();
-    private final DefaultMacAlgorithmIdentifierFinder MAC_ALGORITHM_IDENTIFIER_FINDER =
-            new DefaultMacAlgorithmIdentifierFinder();
+    private final DefaultDigestAlgorithmIdentifierFinder DIGEST_ALGORITHM_IDENTIFIER_FINDER = new DefaultDigestAlgorithmIdentifierFinder();
+    private final DefaultMacAlgorithmIdentifierFinder MAC_ALGORITHM_IDENTIFIER_FINDER = new DefaultMacAlgorithmIdentifierFinder();
 
     private final Mac mac;
     private final AlgorithmIdentifier protectionAlgorithm;
 
     public PasswordBasedMacProtectionStrategy(ConfigurationContext configuration,
-                                              AlgorithmIdentifier headerProtectionAlgorithm,
-                                              byte[] sharedSecret,
-                                              byte[] protectionSalt,
-                                              int iterationCount)
-            throws CmpBaseException {
+            AlgorithmIdentifier headerProtectionAlgorithm, byte[] sharedSecret, byte[] protectionSalt,
+            int iterationCount) throws CmpBaseException {
         super(configuration, headerProtectionAlgorithm);
         byte[] calculatingBaseKey = new byte[sharedSecret.length + protectionSalt.length];
         System.arraycopy(sharedSecret, 0, calculatingBaseKey, 0, sharedSecret.length);
@@ -50,24 +51,18 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
         try {
             PBMParameter requestPbmParameter = resolveRequestPbmParameter();
             AlgorithmIdentifier digestAlgorithm = getDigestAlgorithm(requestPbmParameter);
-            MessageDigest digest = MessageDigest.getInstance(digestAlgorithm.getAlgorithm().getId(),
-                    BouncyCastleProvider.PROVIDER_NAME);
+            MessageDigest digest = MessageDigest
+                    .getInstance(digestAlgorithm.getAlgorithm().getId(), BouncyCastleProvider.PROVIDER_NAME);
             for (int i = 0; i < iterationCount; i++) {
                 calculatingBaseKey = digest.digest(calculatingBaseKey);
                 digest.reset();
             }
 
             AlgorithmIdentifier macAlgorithm = getMacAlgorithm(requestPbmParameter);
-            this.mac = Mac.getInstance(macAlgorithm.getAlgorithm().getId(),
-                    BouncyCastleProvider.PROVIDER_NAME);
+            this.mac = Mac.getInstance(macAlgorithm.getAlgorithm().getId(), BouncyCastleProvider.PROVIDER_NAME);
             this.mac.init(new SecretKeySpec(calculatingBaseKey, mac.getAlgorithm()));
-            this.protectionAlgorithm = new AlgorithmIdentifier(
-                    CMPObjectIdentifiers.passwordBasedMac,
-                    new PBMParameter(
-                            protectionSalt,
-                            digestAlgorithm,
-                            iterationCount,
-                            macAlgorithm));
+            this.protectionAlgorithm = new AlgorithmIdentifier(CMPObjectIdentifiers.passwordBasedMac,
+                    new PBMParameter(protectionSalt, digestAlgorithm, iterationCount, macAlgorithm));
         } catch (Exception e) {
             throw new CmpProcessingException(null, PKIFailureInfo.systemFailure,
                     "cannot initialize of password based mac strategy", e);
@@ -105,7 +100,8 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     private AlgorithmIdentifier getDigestAlgorithm(PBMParameter pbmParameter) throws CmpConfigurationException {
         AlgorithmIdentifier algorithmIdentifier = pbmParameter == null ? null : pbmParameter.getOwf();
         if (algorithmIdentifier == null) {
-            algorithmIdentifier = DIGEST_ALGORITHM_IDENTIFIER_FINDER.find("SHA256");//db query/cmp profile.getSignatureName
+            algorithmIdentifier = DIGEST_ALGORITHM_IDENTIFIER_FINDER.find("SHA256");// db query/cmp
+                                                                                    // profile.getSignatureName
             if (algorithmIdentifier == null) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of DIGEST algorithm");
             }
@@ -114,7 +110,7 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     }
 
     /**
-     * scope: PasswordBased-MAC  Protection
+     * scope: PasswordBased-MAC Protection
      *
      * @return algorithm for mac (for PKI Protection field)
      * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong mac name).
@@ -122,7 +118,8 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     private AlgorithmIdentifier getMacAlgorithm(PBMParameter pbmParameter) throws CmpConfigurationException {
         AlgorithmIdentifier algorithmIdentifier = pbmParameter == null ? null : pbmParameter.getMac();
         if (algorithmIdentifier == null) {
-            algorithmIdentifier = MAC_ALGORITHM_IDENTIFIER_FINDER.find("HMACSHA256");//db query/cmp profile.getSignatureName
+            algorithmIdentifier = MAC_ALGORITHM_IDENTIFIER_FINDER.find("HMACSHA256");// db query/cmp
+                                                                                     // profile.getSignatureName
             if (algorithmIdentifier == null) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of MAC algorithm");
             }
@@ -131,12 +128,12 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     }
 
     /**
-     * Extracts the {@link PBMParameter} carried by the request's protection algorithm, or {@code null} when the
-     * request was not PBM-protected (e.g. signature- or DH-based). A non-PBM request carries no OWF/MAC template
-     * to echo into the shared-secret response, so callers fall back to the platform defaults (SHA-256 /
-     * HMAC-SHA256). Never dereference a non-PBM algorithm here: for a signature-protected request (e.g. a KUR)
-     * against a sharedSecret profile {@code PBMParameter.getInstance(...)} returns {@code null}, so a direct
-     * {@code getOwf()} would throw a NullPointerException.
+     * Extracts the {@link PBMParameter} carried by the request's protection algorithm, or {@code null} when the request
+     * was not PBM-protected (e.g. signature- or DH-based). A non-PBM request carries no OWF/MAC template to echo into
+     * the shared-secret response, so callers fall back to the platform defaults (SHA-256 / HMAC-SHA256). Never
+     * dereference a non-PBM algorithm here: for a signature-protected request (e.g. a KUR) against a sharedSecret
+     * profile {@code PBMParameter.getInstance(...)} returns {@code null}, so a direct {@code getOwf()} would throw a
+     * NullPointerException.
      */
     private PBMParameter resolveRequestPbmParameter() {
         if (headerProtectionAlgorithm == null

@@ -1,24 +1,27 @@
 package com.otilm.core.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.NameAndIdDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
 import com.otilm.api.model.common.attribute.common.content.data.CredentialAttributeContentData;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.otilm.core.util.AttributeDefinitionUtils;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 class JsonSerializationTest {
 
@@ -41,9 +44,7 @@ class JsonSerializationTest {
 
     @Test
     void testSerializeArray() throws JsonProcessingException {
-        Object[][] data = new Object[][]{
-                new Object[]{"testKey", "testValue"}
-        };
+        Object[][] data = new Object[][]{new Object[]{"testKey", "testValue"}};
 
         String json = MAPPER.writeValueAsString(data);
         Assertions.assertEquals("[[\"testKey\",\"testValue\"]]", json);
@@ -72,7 +73,8 @@ class JsonSerializationTest {
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals(7, attrs.size());
 
-        NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdData("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attrs));
+        NameAndIdDto endEntityProfile = AttributeDefinitionUtils
+                .getNameAndIdData("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attrs));
         Assertions.assertNotNull(endEntityProfile);
         Assertions.assertEquals(0, endEntityProfile.getId());
         Assertions.assertEquals("DemoTLSServerEndEntityProfile", endEntityProfile.getName());
@@ -84,14 +86,17 @@ class JsonSerializationTest {
         credential.setName("test");
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "credential", AttributeContentType.CREDENTIAL, List.of(new CredentialAttributeContentV2("test", credential))));
+        requestAttributes
+                .add(new RequestAttributeV2(UUID.randomUUID(), "credential", AttributeContentType.CREDENTIAL,
+                        List.of(new CredentialAttributeContentV2("test", credential))));
         List<BaseAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(requestAttributes);
 
         String serialized = AttributeDefinitionUtils.serialize(attrs);
 
         List<DataAttributeV2> deserialized = AttributeDefinitionUtils.deserialize(serialized, DataAttributeV2.class);
 
-        CredentialAttributeContentData value = AttributeDefinitionUtils.getCredentialContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
+        CredentialAttributeContentData value = AttributeDefinitionUtils
+                .getCredentialContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
         Assertions.assertNotNull(value);
     }
 

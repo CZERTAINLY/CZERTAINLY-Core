@@ -4,11 +4,11 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
-import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.attribute.ResponseAttributeV3;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
+import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
 import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationRequestDto;
@@ -33,8 +33,12 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TimeQualityConfigurationExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,11 +49,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
 
@@ -166,8 +165,8 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     @Test
     void testListTimeQualityConfigurations_returnsExistingEntry() {
         SearchRequestDto request = new SearchRequestDto();
-        PaginationResponseDto<TimeQualityConfigurationListDto> response =
-                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+        PaginationResponseDto<TimeQualityConfigurationListDto> response = timeQualityConfigurationService
+                .listTimeQualityConfigurations(request, SecurityFilter.create());
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(1, response.getTotalItems());
@@ -182,8 +181,8 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         timeQualityConfigurationRepository.delete(savedConfiguration);
 
         SearchRequestDto request = new SearchRequestDto();
-        PaginationResponseDto<TimeQualityConfigurationListDto> response =
-                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+        PaginationResponseDto<TimeQualityConfigurationListDto> response = timeQualityConfigurationService
+                .listTimeQualityConfigurations(request, SecurityFilter.create());
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(0, response.getTotalItems());
@@ -191,13 +190,14 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListTimeQualityConfigurations_multipleEntries() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testListTimeQualityConfigurations_multipleEntries()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-alpha"));
         timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-beta"));
 
         SearchRequestDto request = new SearchRequestDto();
-        PaginationResponseDto<TimeQualityConfigurationListDto> response =
-                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+        PaginationResponseDto<TimeQualityConfigurationListDto> response = timeQualityConfigurationService
+                .listTimeQualityConfigurations(request, SecurityFilter.create());
 
         Assertions.assertEquals(3, response.getTotalItems());
         List<String> names = response.getItems().stream().map(TimeQualityConfigurationListDto::getName).toList();
@@ -207,15 +207,16 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListTimeQualityConfigurations_paginationMetadataIsCorrect() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testListTimeQualityConfigurations_paginationMetadataIsCorrect()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-page-1"));
         timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-page-2"));
 
         SearchRequestDto request = new SearchRequestDto();
         request.setPageNumber(1);
         request.setItemsPerPage(2);
-        PaginationResponseDto<TimeQualityConfigurationListDto> response =
-                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+        PaginationResponseDto<TimeQualityConfigurationListDto> response = timeQualityConfigurationService
+                .listTimeQualityConfigurations(request, SecurityFilter.create());
 
         Assertions.assertEquals(1, response.getPageNumber());
         Assertions.assertEquals(2, response.getItemsPerPage());
@@ -230,7 +231,8 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
 
     @Test
     void testGetTimeQualityConfiguration_returnsCorrectDto() throws NotFoundException {
-        TimeQualityConfigurationDto dto = timeQualityConfigurationService.getTimeQualityConfiguration(savedConfiguration.getSecuredUuid());
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService
+                .getTimeQualityConfiguration(savedConfiguration.getSecuredUuid());
 
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(savedConfiguration.getUuid().toString(), dto.getUuid());
@@ -248,8 +250,9 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     @Test
     void testGetTimeQualityConfiguration_notFound_throwsNotFoundException() {
         SecuredUUID nonExistentUuid = SecuredUUID.fromString("00000000-0000-0000-0000-000000000001");
-        Assertions.assertThrows(NotFoundException.class,
-                () -> timeQualityConfigurationService.getTimeQualityConfiguration(nonExistentUuid));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> timeQualityConfigurationService.getTimeQualityConfiguration(nonExistentUuid));
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -257,7 +260,8 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testCreateTimeQualityConfiguration_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateTimeQualityConfiguration_assertDtoAndDbEntity()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationRequestDto request = buildCreateRequest("new-tq-config");
 
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
@@ -276,8 +280,8 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         Assertions.assertTrue(dto.isLeapSecondGuard());
 
         // Assert entity reloaded from the database
-        Optional<TimeQualityConfiguration> fromDb =
-                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository
+                .findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         TimeQualityConfiguration entity = fromDb.get();
         Assertions.assertEquals("new-tq-config", entity.getName());
@@ -301,14 +305,15 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
 
         Assertions.assertFalse(dto.isLeapSecondGuard());
 
-        Optional<TimeQualityConfiguration> fromDb =
-                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository
+                .findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertFalse(fromDb.get().isLeapSecondGuard());
     }
 
     @Test
-    void testCreateTimeQualityConfiguration_multipleNtpServers_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateTimeQualityConfiguration_multipleNtpServers_assertDtoAndDbEntity()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationRequestDto request = buildCreateRequest("multi-ntp");
         request.setNtpServers(List.of("ntp1.example.com", "ntp2.example.com", "ntp3.example.com"));
 
@@ -319,14 +324,15 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         Assertions.assertTrue(dto.getNtpServers().contains("ntp2.example.com"));
         Assertions.assertTrue(dto.getNtpServers().contains("ntp3.example.com"));
 
-        Optional<TimeQualityConfiguration> fromDb =
-                timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository
+                .findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(3, fromDb.get().getNtpServers().size());
     }
 
     @Test
-    void testCreateTimeQualityConfiguration_customAccuracyAndDrift_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateTimeQualityConfiguration_customAccuracyAndDrift_assertDtoAndDbEntity()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationRequestDto request = buildCreateRequest("custom-accuracy");
         request.setAccuracy(Duration.ofMillis(100));
         request.setMaxClockDrift(Duration.ofMillis(200));
@@ -336,29 +342,34 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         Assertions.assertEquals(Duration.ofMillis(100), dto.getAccuracy());
         Assertions.assertEquals(Duration.ofMillis(200), dto.getMaxClockDrift());
 
-        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository.findById(UUID.fromString(dto.getUuid()));
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository
+                .findById(UUID.fromString(dto.getUuid()));
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(Duration.ofMillis(100), fromDb.get().getAccuracy());
         Assertions.assertEquals(Duration.ofMillis(200), fromDb.get().getMaxClockDrift());
     }
 
     @Test
-    void testCreateTimeQualityConfiguration_duplicateName_throwsAlreadyExistException() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateTimeQualityConfiguration_duplicateName_throwsAlreadyExistException()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("duplicate-name"));
         TimeQualityConfigurationRequestDto duplicateRequest = buildCreateRequest("duplicate-name");
-        Assertions.assertThrows(AlreadyExistException.class,
-                () -> timeQualityConfigurationService.createTimeQualityConfiguration(duplicateRequest));
+        Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> timeQualityConfigurationService.createTimeQualityConfiguration(duplicateRequest));
     }
 
     @Test
     void create_translatesDbUniqueViolationToAlreadyExist() {
         doReturn(Optional.empty()).when(timeQualityConfigurationRepository).findByName("race-name");
         doThrow(new DataIntegrityViolationException("unique constraint violation"))
-               .when(timeQualityConfigurationRepository).saveAndFlush(any(TimeQualityConfiguration.class));
+                .when(timeQualityConfigurationRepository)
+                .saveAndFlush(any(TimeQualityConfiguration.class));
 
         TimeQualityConfigurationRequestDto createRequest = buildCreateRequest("race-name");
-        AlreadyExistException ex = Assertions.assertThrows(AlreadyExistException.class,
-                () -> timeQualityConfigurationService.createTimeQualityConfiguration(createRequest));
+        AlreadyExistException ex = Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> timeQualityConfigurationService.createTimeQualityConfiguration(createRequest));
         Assertions.assertTrue(ex.getMessage().contains("race-name"));
     }
 
@@ -366,12 +377,14 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     void update_translatesDbUniqueViolationToAlreadyExist() {
         doReturn(Optional.empty()).when(timeQualityConfigurationRepository).findByName("race-name");
         doThrow(new DataIntegrityViolationException("unique constraint violation"))
-               .when(timeQualityConfigurationRepository).saveAndFlush(any(TimeQualityConfiguration.class));
+                .when(timeQualityConfigurationRepository)
+                .saveAndFlush(any(TimeQualityConfiguration.class));
 
         SecuredUUID uuid = savedConfiguration.getSecuredUuid();
         TimeQualityConfigurationRequestDto updateRequest = buildUpdateRequest("race-name");
-        AlreadyExistException ex = Assertions.assertThrows(AlreadyExistException.class,
-                () -> timeQualityConfigurationService.updateTimeQualityConfiguration(uuid, updateRequest));
+        AlreadyExistException ex = Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> timeQualityConfigurationService.updateTimeQualityConfiguration(uuid, updateRequest));
         Assertions.assertTrue(ex.getMessage().contains("race-name"));
     }
 
@@ -380,11 +393,12 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testUpdateTimeQualityConfiguration_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testUpdateTimeQualityConfiguration_assertDtoAndDbEntity()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationRequestDto request = buildUpdateRequest("updated-tq-config");
 
-        TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
-                savedConfiguration.getSecuredUuid(), request);
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService
+                .updateTimeQualityConfiguration(savedConfiguration.getSecuredUuid(), request);
 
         // Assert returned DTO
         Assertions.assertNotNull(dto);
@@ -400,8 +414,8 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         Assertions.assertFalse(dto.isLeapSecondGuard());
 
         // Assert entity reloaded from the database
-        Optional<TimeQualityConfiguration> fromDb =
-                timeQualityConfigurationRepository.findById(savedConfiguration.getUuid());
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository
+                .findById(savedConfiguration.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
         TimeQualityConfiguration entity = fromDb.get();
         Assertions.assertEquals("updated-tq-config", entity.getName());
@@ -420,16 +434,19 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         SecuredUUID nonExistentUuid = SecuredUUID.fromString("00000000-0000-0000-0000-000000000001");
         TimeQualityConfigurationRequestDto request = buildUpdateRequest("does-not-matter");
 
-        Assertions.assertThrows(NotFoundException.class,
-                () -> timeQualityConfigurationService.updateTimeQualityConfiguration(nonExistentUuid, request));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> timeQualityConfigurationService.updateTimeQualityConfiguration(nonExistentUuid, request));
     }
 
     @Test
-    void testUpdateTimeQualityConfiguration_preservesUuid() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testUpdateTimeQualityConfiguration_preservesUuid()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         UUID originalUuid = savedConfiguration.getUuid();
 
-        TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
-                savedConfiguration.getSecuredUuid(), buildUpdateRequest("renamed-config"));
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService
+                .updateTimeQualityConfiguration(savedConfiguration.getSecuredUuid(),
+                        buildUpdateRequest("renamed-config"));
 
         Assertions.assertEquals(originalUuid.toString(), dto.getUuid());
         Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository.findById(originalUuid);
@@ -437,39 +454,45 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateTimeQualityConfiguration_ntpServersReplaced_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testUpdateTimeQualityConfiguration_ntpServersReplaced_assertDtoAndDbEntity()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TimeQualityConfigurationRequestDto request = buildUpdateRequest("servers-replaced");
         request.setNtpServers(List.of("ntp-a.example.com", "ntp-b.example.com"));
 
-        TimeQualityConfigurationDto dto = timeQualityConfigurationService.updateTimeQualityConfiguration(
-                savedConfiguration.getSecuredUuid(), request);
+        TimeQualityConfigurationDto dto = timeQualityConfigurationService
+                .updateTimeQualityConfiguration(savedConfiguration.getSecuredUuid(), request);
 
         Assertions.assertEquals(2, dto.getNtpServers().size());
         Assertions.assertTrue(dto.getNtpServers().contains("ntp-a.example.com"));
-        Assertions.assertFalse(dto.getNtpServers().contains("pool.ntp.org"),
-                "Original NTP server should be replaced after update");
+        Assertions
+                .assertFalse(dto.getNtpServers().contains("pool.ntp.org"),
+                        "Original NTP server should be replaced after update");
 
-        Optional<TimeQualityConfiguration> fromDb =
-                timeQualityConfigurationRepository.findById(savedConfiguration.getUuid());
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository
+                .findById(savedConfiguration.getUuid());
         Assertions.assertTrue(fromDb.isPresent());
         Assertions.assertEquals(List.of("ntp-a.example.com", "ntp-b.example.com"), fromDb.get().getNtpServers());
     }
 
     @Test
-    void testUpdateTimeQualityConfiguration_toExistingNameOfAnotherConfig_throwsAlreadyExistException() throws AlreadyExistException, AttributeException, NotFoundException {
-        TimeQualityConfigurationDto second = timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("config-beta"));
+    void testUpdateTimeQualityConfiguration_toExistingNameOfAnotherConfig_throwsAlreadyExistException()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto second = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildCreateRequest("config-beta"));
         SecuredUUID secondUuid = SecuredUUID.fromString(second.getUuid());
         TimeQualityConfigurationRequestDto updateRequest = buildUpdateRequest("existing-tq-config");
-        Assertions.assertThrows(AlreadyExistException.class,
-                () -> timeQualityConfigurationService.updateTimeQualityConfiguration(secondUuid, updateRequest));
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> timeQualityConfigurationService
+                        .updateTimeQualityConfiguration(secondUuid, updateRequest));
     }
 
     @Test
-    void testUpdateTimeQualityConfiguration_keepingSameName_succeeds() throws AlreadyExistException, NotFoundException, AttributeException {
+    void testUpdateTimeQualityConfiguration_keepingSameName_succeeds()
+            throws AlreadyExistException, NotFoundException, AttributeException {
         TimeQualityConfigurationRequestDto updateRequest = buildUpdateRequest("existing-tq-config");
         updateRequest.setNtpSamplesPerServer(8);
-        TimeQualityConfigurationDto updated = timeQualityConfigurationService.updateTimeQualityConfiguration(
-                savedConfiguration.getSecuredUuid(), updateRequest);
+        TimeQualityConfigurationDto updated = timeQualityConfigurationService
+                .updateTimeQualityConfiguration(savedConfiguration.getSecuredUuid(), updateRequest);
         Assertions.assertEquals("existing-tq-config", updated.getName());
         Assertions.assertEquals(8, updated.getNtpSamplesPerServer());
     }
@@ -482,16 +505,17 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     void testDeleteTimeQualityConfiguration_removesEntity() throws NotFoundException {
         timeQualityConfigurationService.deleteTimeQualityConfiguration(savedConfiguration.getSecuredUuid());
 
-        Optional<TimeQualityConfiguration> fromDb =
-                timeQualityConfigurationRepository.findById(savedConfiguration.getUuid());
+        Optional<TimeQualityConfiguration> fromDb = timeQualityConfigurationRepository
+                .findById(savedConfiguration.getUuid());
         Assertions.assertTrue(fromDb.isEmpty(), "Entity should be removed from the database after deletion");
     }
 
     @Test
     void testDeleteTimeQualityConfiguration_notFound_throwsNotFoundException() {
         SecuredUUID nonExistentUuid = SecuredUUID.fromString("00000000-0000-0000-0000-000000000001");
-        Assertions.assertThrows(NotFoundException.class,
-                () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(nonExistentUuid));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(nonExistentUuid));
     }
 
     @Test
@@ -505,8 +529,9 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         signingProfileRepository.save(profile);
 
         SecuredUUID uuid = savedConfiguration.getSecuredUuid();
-        Assertions.assertThrows(ValidationException.class,
-                () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid));
     }
 
     @Test
@@ -520,10 +545,12 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         signingProfileRepository.save(profile);
 
         SecuredUUID uuid = savedConfiguration.getSecuredUuid();
-        Assertions.assertThrows(ValidationException.class,
-                () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid));
-        Assertions.assertTrue(timeQualityConfigurationRepository.findById(uuid.getValue()).isPresent(),
-                "Configuration must remain in the database when referenced by a signing profile");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid));
+        Assertions
+                .assertTrue(timeQualityConfigurationRepository.findById(uuid.getValue()).isPresent(),
+                        "Configuration must remain in the database when referenced by a signing profile");
     }
 
     @Test
@@ -537,10 +564,12 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         signingProfileRepository.save(profile);
 
         SecuredUUID uuid = savedConfiguration.getSecuredUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid));
-        Assertions.assertTrue(ex.getMessage().contains("referencing-profile"),
-                "Error message should contain the name of the referencing signing profile");
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid));
+        Assertions
+                .assertTrue(ex.getMessage().contains("referencing-profile"),
+                        "Error message should contain the name of the referencing signing profile");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -548,11 +577,14 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testBulkDeleteTimeQualityConfigurations_deletesAll() throws AlreadyExistException, AttributeException, NotFoundException {
-        TimeQualityConfigurationDto second = timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("bulk-delete-second"));
+    void testBulkDeleteTimeQualityConfigurations_deletesAll()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto second = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildCreateRequest("bulk-delete-second"));
 
-        List<BulkActionMessageDto> messages = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
-                List.of(savedConfiguration.getSecuredUuid(), SecuredUUID.fromString(second.getUuid())));
+        List<BulkActionMessageDto> messages = timeQualityConfigurationService
+                .bulkDeleteTimeQualityConfigurations(
+                        List.of(savedConfiguration.getSecuredUuid(), SecuredUUID.fromString(second.getUuid())));
 
         Assertions.assertTrue(messages.isEmpty(), "No error messages expected when all deletions succeed");
         Assertions.assertEquals(0, timeQualityConfigurationRepository.count());
@@ -562,8 +594,8 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     void testBulkDeleteTimeQualityConfigurations_nonExistentUuid_returnsErrorMessage() {
         SecuredUUID nonExistent = SecuredUUID.fromString("00000000-0000-0000-0000-000000000099");
 
-        List<BulkActionMessageDto> messages = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
-                List.of(nonExistent));
+        List<BulkActionMessageDto> messages = timeQualityConfigurationService
+                .bulkDeleteTimeQualityConfigurations(List.of(nonExistent));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals("00000000-0000-0000-0000-000000000099", messages.getFirst().getUuid());
@@ -580,35 +612,42 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         profile.setTimeQualityConfigurationUuid(savedConfiguration.getUuid());
         signingProfileRepository.save(profile);
 
-        List<BulkActionMessageDto> messages = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
-                List.of(savedConfiguration.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = timeQualityConfigurationService
+                .bulkDeleteTimeQualityConfigurations(List.of(savedConfiguration.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(savedConfiguration.getUuid().toString(), messages.getFirst().getUuid());
-        Assertions.assertTrue(timeQualityConfigurationRepository.findById(savedConfiguration.getUuid()).isPresent(),
-                "Configuration must remain in the database after a failed bulk delete");
+        Assertions
+                .assertTrue(timeQualityConfigurationRepository.findById(savedConfiguration.getUuid()).isPresent(),
+                        "Configuration must remain in the database after a failed bulk delete");
     }
 
     @Test
-    void testBulkDelete_partialFailure_survivingItemsAreCommitted() throws AlreadyExistException, AttributeException, NotFoundException {
-        TimeQualityConfigurationDto second = timeQualityConfigurationService.createTimeQualityConfiguration(buildCreateRequest("bulk-partial-second"));
+    void testBulkDelete_partialFailure_survivingItemsAreCommitted()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfigurationDto second = timeQualityConfigurationService
+                .createTimeQualityConfiguration(buildCreateRequest("bulk-partial-second"));
         UUID secondUuid = UUID.fromString(second.getUuid());
 
         // Throw a RuntimeException for the first item only, keyed by its UUID.
         // AttributeEngine is a concrete class so doCallRealMethod() works for the second item.
         doThrow(new DataIntegrityViolationException("simulated FK violation"))
-               .when(attributeEngine).deleteObjectAttributeContent(Resource.TIME_QUALITY_CONFIGURATION, savedConfiguration.getUuid());
+                .when(attributeEngine)
+                .deleteObjectAttributeContent(Resource.TIME_QUALITY_CONFIGURATION, savedConfiguration.getUuid());
 
-        List<BulkActionMessageDto> messages = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
-                List.of(savedConfiguration.getSecuredUuid(), SecuredUUID.fromString(second.getUuid())));
+        List<BulkActionMessageDto> messages = timeQualityConfigurationService
+                .bulkDeleteTimeQualityConfigurations(
+                        List.of(savedConfiguration.getSecuredUuid(), SecuredUUID.fromString(second.getUuid())));
 
         Assertions.assertEquals(1, messages.size(), "Only the failing item should produce an error message");
         Assertions.assertEquals(savedConfiguration.getUuid().toString(), messages.getFirst().getUuid());
 
-        Assertions.assertTrue(timeQualityConfigurationRepository.findById(savedConfiguration.getUuid()).isPresent(),
-                "Failed item's REQUIRES_NEW transaction should have been rolled back, leaving the entity in the DB");
-        Assertions.assertTrue(timeQualityConfigurationRepository.findById(secondUuid).isEmpty(),
-                "Successful item's REQUIRES_NEW transaction should have committed independently");
+        Assertions
+                .assertTrue(timeQualityConfigurationRepository.findById(savedConfiguration.getUuid()).isPresent(),
+                        "Failed item's REQUIRES_NEW transaction should have been rolled back, leaving the entity in the DB");
+        Assertions
+                .assertTrue(timeQualityConfigurationRepository.findById(secondUuid).isEmpty(),
+                        "Successful item's REQUIRES_NEW transaction should have committed independently");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -616,10 +655,10 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testCreateTimeQualityConfiguration_withCustomAttributes_returnedInDto() throws AlreadyExistException, AttributeException, NotFoundException {
-        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("tq-value-on-create")));
+    void testCreateTimeQualityConfiguration_withCustomAttributes_returnedInDto()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("tq-value-on-create")));
 
         TimeQualityConfigurationRequestDto request = buildCreateRequest("tq-with-custom-attr");
         request.setCustomAttributes(List.of(customAttr));
@@ -627,70 +666,83 @@ class TimeQualityConfigurationServiceImplITest extends BaseSpringBootTest {
         TimeQualityConfigurationDto dto = timeQualityConfigurationService.createTimeQualityConfiguration(request);
 
         Assertions.assertNotNull(dto.getCustomAttributes());
-        Assertions.assertFalse(dto.getCustomAttributes().isEmpty(),
-                "Custom attributes should be returned in the create DTO");
-        Assertions.assertEquals("tq-value-on-create",
-                ((ResponseAttributeV3) dto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+        Assertions
+                .assertFalse(dto.getCustomAttributes().isEmpty(),
+                        "Custom attributes should be returned in the create DTO");
+        Assertions
+                .assertEquals("tq-value-on-create",
+                        ((ResponseAttributeV3) dto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
     }
 
     @Test
     void testUpdateTimeQualityConfiguration_withCustomAttributes_returnedInDto()
             throws AlreadyExistException, AttributeException, NotFoundException {
-        RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("initial-value")));
+        RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("initial-value")));
         TimeQualityConfigurationRequestDto createRequest = buildCreateRequest("tq-update-custom-attr");
         createRequest.setCustomAttributes(List.of(createAttr));
-        TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
+        TimeQualityConfigurationDto created = timeQualityConfigurationService
+                .createTimeQualityConfiguration(createRequest);
 
-        RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("updated-value")));
+        RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("updated-value")));
         TimeQualityConfigurationRequestDto updateRequest = buildUpdateRequest("tq-update-custom-attr");
         updateRequest.setCustomAttributes(List.of(updateAttr));
-        TimeQualityConfigurationDto updated = timeQualityConfigurationService.updateTimeQualityConfiguration(
-                SecuredUUID.fromString(created.getUuid()), updateRequest);
+        TimeQualityConfigurationDto updated = timeQualityConfigurationService
+                .updateTimeQualityConfiguration(SecuredUUID.fromString(created.getUuid()), updateRequest);
 
         Assertions.assertNotNull(updated.getCustomAttributes());
         Assertions.assertFalse(updated.getCustomAttributes().isEmpty());
-        Assertions.assertEquals("updated-value",
-                ((ResponseAttributeV3) updated.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+        Assertions
+                .assertEquals("updated-value",
+                        ((ResponseAttributeV3) updated.getCustomAttributes().getFirst())
+                                .getContent()
+                                .getFirst()
+                                .getData());
     }
 
     @Test
-    void testGetTimeQualityConfiguration_withCustomAttributes_returnedInDto() throws AlreadyExistException, AttributeException, NotFoundException {
-        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("get-test-value")));
+    void testGetTimeQualityConfiguration_withCustomAttributes_returnedInDto()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("get-test-value")));
 
         TimeQualityConfigurationRequestDto createRequest = buildCreateRequest("tq-get-custom-attr");
         createRequest.setCustomAttributes(List.of(customAttr));
-        TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
+        TimeQualityConfigurationDto created = timeQualityConfigurationService
+                .createTimeQualityConfiguration(createRequest);
 
-        TimeQualityConfigurationDto fetched = timeQualityConfigurationService.getTimeQualityConfiguration(
-                SecuredUUID.fromString(created.getUuid()));
+        TimeQualityConfigurationDto fetched = timeQualityConfigurationService
+                .getTimeQualityConfiguration(SecuredUUID.fromString(created.getUuid()));
 
         Assertions.assertNotNull(fetched.getCustomAttributes());
-        Assertions.assertFalse(fetched.getCustomAttributes().isEmpty(),
-                "Custom attributes should be returned in the get DTO");
-        Assertions.assertEquals("get-test-value",
-                ((ResponseAttributeV3) fetched.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+        Assertions
+                .assertFalse(fetched.getCustomAttributes().isEmpty(),
+                        "Custom attributes should be returned in the get DTO");
+        Assertions
+                .assertEquals("get-test-value",
+                        ((ResponseAttributeV3) fetched.getCustomAttributes().getFirst())
+                                .getContent()
+                                .getFirst()
+                                .getData());
     }
 
     @Test
-    void testDeleteTimeQualityConfiguration_customAttributesAreRemoved() throws AlreadyExistException, AttributeException, NotFoundException {
-        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("to-be-deleted-value")));
+    void testDeleteTimeQualityConfiguration_customAttributesAreRemoved()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("to-be-deleted-value")));
 
         TimeQualityConfigurationRequestDto createRequest = buildCreateRequest("tq-delete-custom-attr");
         createRequest.setCustomAttributes(List.of(customAttr));
-        TimeQualityConfigurationDto created = timeQualityConfigurationService.createTimeQualityConfiguration(createRequest);
+        TimeQualityConfigurationDto created = timeQualityConfigurationService
+                .createTimeQualityConfiguration(createRequest);
 
         SecuredUUID uuid = SecuredUUID.fromString(created.getUuid());
         timeQualityConfigurationService.deleteTimeQualityConfiguration(uuid);
 
-        Assertions.assertTrue(timeQualityConfigurationRepository.findById(UUID.fromString(created.getUuid())).isEmpty(),
-                "Configuration should be deleted from the repository");
+        Assertions
+                .assertTrue(timeQualityConfigurationRepository.findById(UUID.fromString(created.getUuid())).isEmpty(),
+                        "Configuration should be deleted from the repository");
     }
 }

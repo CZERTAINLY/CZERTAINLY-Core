@@ -9,9 +9,11 @@ import org.springframework.retry.RetryListener;
 /**
  * Retry listener for JMS operations that provides logging on retry errors and exhaustion.
  *
- * <p>With {@code JmsPoolConnectionFactory}, connection recovery is handled automatically
- * by the pool — dead connections are evicted and fresh ones provided on the next borrow.
- * This listener only needs to log retry progress; no manual connection reset is required.</p>
+ * <p>
+ * With {@code JmsPoolConnectionFactory}, connection recovery is handled automatically by the pool — dead connections
+ * are evicted and fresh ones provided on the next borrow. This listener only needs to log retry progress; no manual
+ * connection reset is required.
+ * </p>
  *
  * @see RetryConfig#jmsRetryTemplate(MessagingProperties)
  */
@@ -29,42 +31,38 @@ public class JmsRetryListener implements RetryListener {
     }
 
     @Override
-    public <T, E extends Throwable> void close(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
+    public <T, E extends Throwable> void close(RetryContext context, RetryCallback<T, E> callback,
+            Throwable throwable) {
         if (throwable != null) {
             String endpointId = getEndpointId(context);
             if (endpointId != null) {
-                logger.error("Failed to process message in endpoint '{}' (messageId={}, type={}) after {} attempts",
-                        endpointId,
-                        context.getAttribute("messageId"),
-                        context.getAttribute("messageClass"),
-                        context.getRetryCount(),
-                        throwable);
+                logger
+                        .error("Failed to process message in endpoint '{}' (messageId={}, type={}) after {} attempts",
+                                endpointId, context.getAttribute("messageId"), context.getAttribute("messageClass"),
+                                context.getRetryCount(), throwable);
             } else {
-                logger.error("Failed to process message for (messageId={}, type={}) after {} attempts",
-                        context.getAttribute("messageId"),
-                        context.getAttribute("messageClass"),
-                        context.getRetryCount(),
-                        throwable);
+                logger
+                        .error("Failed to process message for (messageId={}, type={}) after {} attempts",
+                                context.getAttribute("messageId"), context.getAttribute("messageClass"),
+                                context.getRetryCount(), throwable);
             }
         }
     }
 
     @Override
-    public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
+    public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback,
+            Throwable throwable) {
         // JmsPoolConnectionFactory auto-evicts dead connections. The next retry will
         // borrow a fresh connection from the pool. No manual reset needed.
         String endpointId = getEndpointId(context);
         if (endpointId != null) {
-            logger.warn("Retry attempt {} failed in endpoint '{}': {}",
-                    context.getRetryCount(),
-                    endpointId,
-                    throwable.getMessage(),
-                    throwable);
+            logger
+                    .warn("Retry attempt {} failed in endpoint '{}': {}", context.getRetryCount(), endpointId,
+                            throwable.getMessage(), throwable);
         } else {
-            logger.warn("Retry attempt {} failed for JMS message: {}",
-                    context.getRetryCount(),
-                    throwable.getMessage(),
-                    throwable);
+            logger
+                    .warn("Retry attempt {} failed for JMS message: {}", context.getRetryCount(),
+                            throwable.getMessage(), throwable);
         }
     }
 

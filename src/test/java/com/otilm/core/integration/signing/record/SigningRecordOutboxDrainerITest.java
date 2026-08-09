@@ -16,13 +16,12 @@ import com.otilm.core.signing.record.SigningRecordOutboxBuilder;
 import com.otilm.core.signing.record.SigningRecordOutboxDrainScheduler;
 import com.otilm.core.signing.record.SigningRecordOutboxDrainer;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
-
-import java.time.Instant;
-import java.util.UUID;
 
 import static com.otilm.core.signing.record.SigningRecordOutboxBuilder.aSigningRecordOutboxRow;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -30,20 +29,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Real-database behaviour of {@link SigningRecordOutboxDrainer}: the native {@code SKIP LOCKED} claim
- * query, batch-size limiting against a real {@code LIMIT}, real duplicate-key idempotency on crash
- * recovery, poison handling, and field fidelity of the outbox -> signing_record copy. The branch logic
- * (metrics, failure isolation, mixed batches) is covered over mocks in
- * {@link SigningRecordOutboxDrainerUnitTest}.
+ * Real-database behaviour of {@link SigningRecordOutboxDrainer}: the native {@code SKIP LOCKED} claim query, batch-size
+ * limiting against a real {@code LIMIT}, real duplicate-key idempotency on crash recovery, poison handling, and field
+ * fidelity of the outbox -> signing_record copy. The branch logic (metrics, failure isolation, mixed batches) is
+ * covered over mocks in {@link SigningRecordOutboxDrainerUnitTest}.
  *
- * <p>The periodic trigger ({@link SigningRecordOutboxDrainScheduler}) is left disabled here — the default
- * test profile keeps {@code scheduled-tasks.enabled=false} — so every test drives {@code drainOnce()}
- * explicitly and the intermediate row counts stay deterministic.
+ * <p>
+ * The periodic trigger ({@link SigningRecordOutboxDrainScheduler}) is left disabled here — the default test profile
+ * keeps {@code scheduled-tasks.enabled=false} — so every test drives {@code drainOnce()} explicitly and the
+ * intermediate row counts stay deterministic.
  */
-@TestPropertySource(properties = {
-        "signing-record.outbox.max-batch-size=2",
-        "signing-record.outbox.poison-threshold=3"
-})
+@TestPropertySource(properties = {"signing-record.outbox.max-batch-size=2", "signing-record.outbox.poison-threshold=3"})
 class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
 
     private static final int MAX_BATCH_SIZE = 2;
@@ -124,12 +120,11 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
     }
 
     /**
-     * Per-row isolation: an unpersistable row (here a {@code signing_profile_uuid} with no matching
-     * signing_profile, so its copy into {@code signing_record} violates the FK) has its attempt recorded in
-     * its own transaction on every run and eventually crosses the poison threshold, instead of livelocking
-     * the drainer. The fix is {@link SigningRecordWriter}: each row is copied with an immediate
-     * {@code saveAndFlush} in its own transaction, so the failure surfaces synchronously and
-     * {@code recordFailure} commits independently of the rolled-back copy.
+     * Per-row isolation: an unpersistable row (here a {@code signing_profile_uuid} with no matching signing_profile, so
+     * its copy into {@code signing_record} violates the FK) has its attempt recorded in its own transaction on every
+     * run and eventually crosses the poison threshold, instead of livelocking the drainer. The fix is
+     * {@link SigningRecordWriter}: each row is copied with an immediate {@code saveAndFlush} in its own transaction, so
+     * the failure surfaces synchronously and {@code recordFailure} commits independently of the rolled-back copy.
      */
     @Test
     void drainOnce_escalatesAnUnpersistableRowToPoison_insteadOfRetryingItForever() {
@@ -150,14 +145,15 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
     }
 
     /**
-     * The other face of per-row isolation: a healthy row sharing a claimed batch with an unpersistable one
-     * is drained and committed on its own, because each row is copied in its own transaction rather than the
-     * whole batch sharing one.
+     * The other face of per-row isolation: a healthy row sharing a claimed batch with an unpersistable one is drained
+     * and committed on its own, because each row is copied in its own transaction rather than the whole batch sharing
+     * one.
      */
     @Test
     void drainOnce_drainsAHealthyRow_whenItSharesABatchWithAnUnpersistableRow() {
         // given a healthy row batched with an unpersistable one; MAX_BATCH_SIZE == 2, so both are claimed
-        var healthy = persistOutboxRow(aSigningRecordOutboxRow().withSigningTime(Instant.parse("2026-01-01T00:00:00Z")));
+        var healthy = persistOutboxRow(
+                aSigningRecordOutboxRow().withSigningTime(Instant.parse("2026-01-01T00:00:00Z")));
         var unpersistable = persistOutboxRowReferencingMissingProfile(Instant.parse("2026-01-02T00:00:00Z"));
 
         // when
@@ -213,8 +209,7 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
         assertArrayEquals(new byte[]{4, 5, 6}, persisted.getSignedDocument());
         assertArrayEquals(dtbs, persisted.getDtbs());
         // jsonb may re-render whitespace, so compare the payload ignoring it
-        assertEquals(requestMetadata.replaceAll("\\s", ""),
-                persisted.getRequestMetadataJson().replaceAll("\\s", ""));
+        assertEquals(requestMetadata.replaceAll("\\s", ""), persisted.getRequestMetadataJson().replaceAll("\\s", ""));
     }
 
     private SigningProfile persistSigningProfile() {
@@ -253,17 +248,17 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
     }
 
     /**
-     * Persists an outbox row pointing at a signing_profile that does not exist. The outbox table has no FK,
-     * so this persists fine; it only fails when the drainer copies it into signing_record, which does carry
-     * the FK to signing_profile.
+     * Persists an outbox row pointing at a signing_profile that does not exist. The outbox table has no FK, so this
+     * persists fine; it only fails when the drainer copies it into signing_record, which does carry the FK to
+     * signing_profile.
      */
     private SigningRecordOutbox persistOutboxRowReferencingMissingProfile(Instant signingTime) {
-        return outboxRepo.saveAndFlush(aSigningRecordOutboxRow()
-                .withSigningProfileUuid(UUID.randomUUID())
-                .withSigningTime(signingTime)
-                .build());
+        return outboxRepo
+                .saveAndFlush(aSigningRecordOutboxRow()
+                        .withSigningProfileUuid(UUID.randomUUID())
+                        .withSigningTime(signingTime)
+                        .build());
     }
-
 
     private void persistMatchingSigningRecord(SigningRecordOutbox row) {
         SigningRecord signingRecord = new SigningRecord();

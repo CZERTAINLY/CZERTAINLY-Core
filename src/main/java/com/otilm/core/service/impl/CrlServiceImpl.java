@@ -2,7 +2,6 @@ package com.otilm.core.service.impl;
 
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.authority.CertificateRevocationReason;
-import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.Crl;
 import com.otilm.core.dao.entity.CrlEntry;
@@ -15,6 +14,19 @@ import com.otilm.core.service.writer.CrlEntryData;
 import com.otilm.core.service.writer.CrlWriter;
 import com.otilm.core.util.CrlUtil;
 import com.otilm.core.util.PlatformX500NameStyle;
+import java.io.IOException;
+import java.security.cert.CRLReason;
+import java.security.cert.X509CRL;
+import java.security.cert.X509CRLEntry;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
@@ -25,10 +37,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.io.IOException;
-import java.security.cert.*;
-import java.util.*;
 
 @Service
 public class CrlServiceImpl implements CrlService {
@@ -70,13 +78,17 @@ public class CrlServiceImpl implements CrlService {
         String issuerDn = X500Name.getInstance(new PlatformX500NameStyle(true), issuerDnPrincipalEncoded).toString();
         String issuerSerialNumber = issuerCertificate.getSerialNumber().toString(16);
         Crl crl = crlRepository.findByIssuerDnAndSerialNumber(issuerDn, issuerSerialNumber).orElse(null);
-        Certificate caCertificate = certificateRepository.findBySubjectDnNormalizedAndSerialNumber(issuerDn, issuerSerialNumber).orElse(null);
+        Certificate caCertificate = certificateRepository
+                .findBySubjectDnNormalizedAndSerialNumber(issuerDn, issuerSerialNumber)
+                .orElse(null);
         byte[] crlDistributionPoints = certificate.getExtensionValue(Extension.cRLDistributionPoints.getId());
 
         UUID caCertificateUuid = caCertificate != null ? caCertificate.getUuid() : null;
-        // If CRL is not present or current UTC time is past its next_update timestamp, download the CRL and save the CRL and its entries in database
+        // If CRL is not present or current UTC time is past its next_update timestamp, download the CRL and save the
+        // CRL and its entries in database
         if (crl == null) {
-            Crl newCrl = downloadAndPersistNewCrl(crlDistributionPoints, issuerDn, issuerSerialNumber, caCertificateUuid);
+            Crl newCrl = downloadAndPersistNewCrl(crlDistributionPoints, issuerDn, issuerSerialNumber,
+                    caCertificateUuid);
             if (newCrl != null) {
                 crl = newCrl;
             }
@@ -85,7 +97,8 @@ public class CrlServiceImpl implements CrlService {
         }
 
         // Check if certificate has freshestCrl extension set
-        if (certificate.getExtensionValue(Extension.freshestCRL.getId()) != null && (crl != null && (crl.getNextUpdateDelta() == null || !crl.getNextUpdateDelta().before(new Date())))) {
+        if (certificate.getExtensionValue(Extension.freshestCRL.getId()) != null && (crl != null
+                && (crl.getNextUpdateDelta() == null || !crl.getNextUpdateDelta().before(new Date())))) {
             // If no delta CRL is set or delta CRL is not up-to-date, download delta CRL
             updateCrlAndCrlEntriesFromDeltaCrl(certificate, crl, issuerDn, issuerSerialNumber, caCertificateUuid);
         }
@@ -108,21 +121,26 @@ public class CrlServiceImpl implements CrlService {
      *
      * @return the freshly persisted entity, or {@code null} if no configured URL returned a usable CRL.
      */
-    private Crl downloadAndPersistNewCrl(byte[] crlDistributionPointsEncoded, String issuerDn, String issuerSerialNumber, UUID caCertificateUuid) throws IOException {
+    private Crl downloadAndPersistNewCrl(byte[] crlDistributionPointsEncoded, String issuerDn,
+            String issuerSerialNumber, UUID caCertificateUuid) throws IOException {
         return downloadCrl(crlDistributionPointsEncoded, issuerDn, issuerSerialNumber, caCertificateUuid, null);
     }
 
     /**
-     * Refreshes an existing {@link Crl} in place from the configured distribution points.
-     * The caller's {@code existing} reference is mutated when a newer CRL is found.
+     * Refreshes an existing {@link Crl} in place from the configured distribution points. The caller's {@code existing}
+     * reference is mutated when a newer CRL is found.
      *
-     * @return {@code true} when a newer CRL was downloaded and applied; {@code false} when every reachable URL returned the same CRL number that is already stored.
+     * @return {@code true} when a newer CRL was downloaded and applied; {@code false} when every reachable URL returned
+     * the same CRL number that is already stored.
      */
-    private boolean refreshExistingCrl(Crl existing, byte[] crlDistributionPointsEncoded, String issuerDn, String issuerSerialNumber, UUID caCertificateUuid) throws IOException {
-        return downloadCrl(crlDistributionPointsEncoded, issuerDn, issuerSerialNumber, caCertificateUuid, existing) != null;
+    private boolean refreshExistingCrl(Crl existing, byte[] crlDistributionPointsEncoded, String issuerDn,
+            String issuerSerialNumber, UUID caCertificateUuid) throws IOException {
+        return downloadCrl(crlDistributionPointsEncoded, issuerDn, issuerSerialNumber, caCertificateUuid,
+                existing) != null;
     }
 
-    private Crl downloadCrl(byte[] crlDistributionPointsEncoded, String issuerDn, String issuerSerialNumber, UUID caCertificateUuid, Crl oldCrl) throws IOException {
+    private Crl downloadCrl(byte[] crlDistributionPointsEncoded, String issuerDn, String issuerSerialNumber,
+            UUID caCertificateUuid, Crl oldCrl) throws IOException {
         List<String> crlUrls = CrlUtil.getCDPFromCertificate(crlDistributionPointsEncoded);
 
         boolean failedToRead = false;
@@ -136,7 +154,9 @@ public class CrlServiceImpl implements CrlService {
                 continue;
             }
 
-            String crlNumber = JcaX509ExtensionUtils.parseExtensionValue(x509CRL.getExtensionValue(Extension.cRLNumber.getId())).toString();
+            String crlNumber = JcaX509ExtensionUtils
+                    .parseExtensionValue(x509CRL.getExtensionValue(Extension.cRLNumber.getId()))
+                    .toString();
 
             boolean isNewCrl = oldCrl == null;
             if (!isNewCrl && Objects.equals(crlNumber, oldCrl.getCrlNumber())) {
@@ -148,7 +168,10 @@ public class CrlServiceImpl implements CrlService {
                 crl = new Crl();
                 crl.setUuid(UUID.randomUUID());
                 byte[] issuerDnPrincipalEncoded = x509CRL.getIssuerX500Principal().getEncoded();
-                crl.setCrlIssuerDn(X500Name.getInstance(new PlatformX500NameStyle(true), issuerDnPrincipalEncoded).toString());
+                crl
+                        .setCrlIssuerDn(X500Name
+                                .getInstance(new PlatformX500NameStyle(true), issuerDnPrincipalEncoded)
+                                .toString());
                 crl.setSerialNumber(issuerSerialNumber);
                 crl.setIssuerDn(issuerDn);
                 crl.setCaCertificateUuid(caCertificateUuid);
@@ -176,7 +199,9 @@ public class CrlServiceImpl implements CrlService {
 
     private Date collectEntries(X509CRL x509CRL, List<CrlEntryData> sink) {
         Set<? extends X509CRLEntry> crlCertificates = x509CRL.getRevokedCertificates();
-        if (crlCertificates == null) return null;
+        if (crlCertificates == null) {
+            return null;
+        }
         Date lastRevocationDate = new Date(0);
         for (X509CRLEntry x509CRLEntry : crlCertificates) {
             sink.add(toEntryData(x509CRLEntry));
@@ -187,8 +212,10 @@ public class CrlServiceImpl implements CrlService {
         return lastRevocationDate;
     }
 
-    private void updateCrlAndCrlEntriesFromDeltaCrl(X509Certificate certificate, Crl crl, String issuerDn, String issuerSerialNumber, UUID caCertificateUuid) throws IOException {
-        List<String> deltaCrlUrls = CrlUtil.getCDPFromCertificate(certificate.getExtensionValue(Extension.freshestCRL.getId()));
+    private void updateCrlAndCrlEntriesFromDeltaCrl(X509Certificate certificate, Crl crl, String issuerDn,
+            String issuerSerialNumber, UUID caCertificateUuid) throws IOException {
+        List<String> deltaCrlUrls = CrlUtil
+                .getCDPFromCertificate(certificate.getExtensionValue(Extension.freshestCRL.getId()));
         for (String deltaCrlUrl : deltaCrlUrls) {
             X509CRL deltaCrl;
             try {
@@ -197,16 +224,22 @@ public class CrlServiceImpl implements CrlService {
                 // Failed to read content from URL, continue to next URL
                 continue;
             }
-            String deltaCrlIssuer = X500Name.getInstance(new PlatformX500NameStyle(true), deltaCrl.getIssuerX500Principal().getEncoded()).toString();
+            String deltaCrlIssuer = X500Name
+                    .getInstance(new PlatformX500NameStyle(true), deltaCrl.getIssuerX500Principal().getEncoded())
+                    .toString();
             // Compare CRL issuer with issuer stored in CRL entity, delta CRL is invalid if they are not the same
-            if (!Objects.equals(deltaCrlIssuer, crl.getCrlIssuerDn()))
+            if (!Objects.equals(deltaCrlIssuer, crl.getCrlIssuerDn())) {
                 throw new ValidationException("Delta CRL issuer not same as issuer stored in CRL entity");
+            }
 
             // Compare DeltaCRLIndicator with base CRL number, if they are not equal, try to get newer CRL
-            String deltaCrlIndicator = JcaX509ExtensionUtils.parseExtensionValue(deltaCrl.getExtensionValue(Extension.deltaCRLIndicator.getId())).toString();
+            String deltaCrlIndicator = JcaX509ExtensionUtils
+                    .parseExtensionValue(deltaCrl.getExtensionValue(Extension.deltaCRLIndicator.getId()))
+                    .toString();
             // Delta CRL points at a newer base CRL than what we have on file; refresh the base CRL in place.
             if (!Objects.equals(deltaCrlIndicator, crl.getCrlNumber())
-                    && !refreshExistingCrl(crl, certificate.getExtensionValue(Extension.cRLDistributionPoints.getId()), issuerDn, issuerSerialNumber, caCertificateUuid)) {
+                    && !refreshExistingCrl(crl, certificate.getExtensionValue(Extension.cRLDistributionPoints.getId()),
+                            issuerDn, issuerSerialNumber, caCertificateUuid)) {
                 throw new ValidationException("Unable to get CRL with base CRL number equal to DeltaCRLIndicator");
             }
             updateDeltaCrl(crl, deltaCrl);
@@ -215,10 +248,11 @@ public class CrlServiceImpl implements CrlService {
         }
     }
 
-
     private void updateDeltaCrl(Crl crl, X509CRL deltaCrl) throws IOException {
-        ASN1Primitive encodedCrlNumber = JcaX509ExtensionUtils.parseExtensionValue(deltaCrl.getExtensionValue(Extension.cRLNumber.getId()));
-        // If delta CRL number has been set, check if delta CRL number is greater than one in DB entity, if it is, process delta CRL entries
+        ASN1Primitive encodedCrlNumber = JcaX509ExtensionUtils
+                .parseExtensionValue(deltaCrl.getExtensionValue(Extension.cRLNumber.getId()));
+        // If delta CRL number has been set, check if delta CRL number is greater than one in DB entity, if it is,
+        // process delta CRL entries
         if (crl.getCrlNumberDelta() != null) {
             int deltaCrlNumber;
             int storedDeltaCrlNumber;
@@ -241,27 +275,26 @@ public class CrlServiceImpl implements CrlService {
 
         List<CrlEntryData> upserts = new ArrayList<>();
         List<String> removals = new ArrayList<>();
-        Date lastRevocationDateNew = classifyDeltaEntries(deltaCrl, existing, crl.getLastRevocationDate(), upserts, removals);
+        Date lastRevocationDateNew = classifyDeltaEntries(deltaCrl, existing, crl.getLastRevocationDate(), upserts,
+                removals);
 
-        crlWriter.applyDeltaCrl(
-                crl.getUuid(), upserts, removals,
-                encodedCrlNumber.toString(), deltaCrl.getNextUpdate(), lastRevocationDateNew);
+        crlWriter
+                .applyDeltaCrl(crl.getUuid(), upserts, removals, encodedCrlNumber.toString(), deltaCrl.getNextUpdate(),
+                        lastRevocationDateNew);
     }
 
-    private Date classifyDeltaEntries(X509CRL deltaCrl,
-                                      Map<String, CrlEntry> existing,
-                                      Date lastRevocationDate,
-                                      List<CrlEntryData> upserts,
-                                      List<String> removals) {
+    private Date classifyDeltaEntries(X509CRL deltaCrl, Map<String, CrlEntry> existing, Date lastRevocationDate,
+            List<CrlEntryData> upserts, List<String> removals) {
         Set<? extends X509CRLEntry> deltaCrlEntries = deltaCrl.getRevokedCertificates();
-        if (deltaCrlEntries == null) return lastRevocationDate;
+        if (deltaCrlEntries == null) {
+            return lastRevocationDate;
+        }
 
         Date lastRevocationDateNew = lastRevocationDate;
         for (X509CRLEntry deltaCrlEntry : deltaCrlEntries) {
             Date entryRevocationDate = deltaCrlEntry.getRevocationDate();
             // Process only entries which revocation date is >= last_revocation_date, others are already in DB
-            if (lastRevocationDate != null
-                    && entryRevocationDate.before(lastRevocationDate)) {
+            if (lastRevocationDate != null && entryRevocationDate.before(lastRevocationDate)) {
                 continue;
             }
             String serialNumber = deltaCrlEntry.getSerialNumber().toString(16);

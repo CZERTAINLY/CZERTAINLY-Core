@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity.acme;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.acme.AcmeProfileDto;
 import com.otilm.api.model.core.acme.AcmeProfileListDto;
@@ -9,15 +10,21 @@ import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.service.acme.AcmeConstants;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Getter
 @Setter
@@ -25,7 +32,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "acme_profile")
-public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AcmeProfileDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class AcmeProfile extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<AcmeProfileDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "name")
     private String name;
@@ -105,7 +116,9 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
         if (raProfile != null) {
-            acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
+            acmeProfileDto
+                    .setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                            + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
         }
         return acmeProfileDto;
     }
@@ -120,8 +133,9 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         acmeProfileDto.setName(name);
         acmeProfileDto.setUuid(uuid.toString());
         if (raProfile != null) {
-            acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
+            acmeProfileDto
+                    .setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                            + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
         }
         return acmeProfileDto;
     }
@@ -141,8 +155,11 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
-        else this.raProfileUuid = null;
+        if (raProfile != null) {
+            this.raProfileUuid = raProfile.getUuid();
+        } else {
+            this.raProfileUuid = null;
+        }
     }
 
     public Boolean isDisableNewOrders() {
@@ -159,17 +176,29 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         AcmeProfile that = (AcmeProfile) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

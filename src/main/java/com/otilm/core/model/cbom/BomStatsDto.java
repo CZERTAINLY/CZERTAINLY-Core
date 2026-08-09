@@ -1,11 +1,11 @@
 package com.otilm.core.model.cbom;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import jakarta.validation.constraints.NotNull;
 
 @Setter
 @Getter
@@ -13,10 +13,7 @@ import jakarta.validation.constraints.NotNull;
 public class BomStatsDto {
 
     @NotNull
-    @Schema(
-            description = "Crypto statistics",
-            requiredMode = Schema.RequiredMode.REQUIRED
-    )
+    @Schema(description = "Crypto statistics", requiredMode = Schema.RequiredMode.REQUIRED)
     private CryptoStatsDto cryptoStats;
 
     @Override
@@ -26,4 +23,3 @@ public class BomStatsDto {
                 .toString();
     }
 }
-

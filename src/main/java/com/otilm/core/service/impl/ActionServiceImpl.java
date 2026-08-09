@@ -7,15 +7,20 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.FilterFieldSource;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.ActionDetailDto;
+import com.otilm.api.model.core.workflows.ActionDto;
+import com.otilm.api.model.core.workflows.ActionRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionDto;
+import com.otilm.api.model.core.workflows.ExecutionItemRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateActionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateExecutionRequestDto;
 import com.otilm.core.dao.entity.notifications.NotificationProfile;
-import com.otilm.core.dao.entity.workflows.*;
 import com.otilm.core.dao.entity.workflows.Action;
 import com.otilm.core.dao.entity.workflows.Execution;
 import com.otilm.core.dao.entity.workflows.ExecutionItem;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.repository.notifications.NotificationProfileRepository;
-import com.otilm.core.dao.repository.workflows.*;
 import com.otilm.core.dao.repository.workflows.ActionRepository;
 import com.otilm.core.dao.repository.workflows.ExecutionItemRepository;
 import com.otilm.core.dao.repository.workflows.ExecutionRepository;
@@ -24,13 +29,16 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -41,7 +49,6 @@ public class ActionServiceImpl implements ActionExternalService {
     private ActionRepository actionRepository;
 
     private NotificationProfileRepository notificationProfileRepository;
-
 
     @Autowired
     public void setExecutionRepository(ExecutionRepository executionRepository) {
@@ -63,21 +70,24 @@ public class ActionServiceImpl implements ActionExternalService {
         this.notificationProfileRepository = notificationProfileRepository;
     }
 
-
-    //region Executions
+    // region Executions
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.LIST)
     public List<ExecutionDto> listExecutions(Resource resource) {
-        if (resource == null || resource == Resource.ANY)
+        if (resource == null || resource == Resource.ANY) {
             return executionRepository.findAllWithItemsBy().stream().map(Execution::mapToDto).toList();
+        }
         return executionRepository.findAllByResource(resource).stream().map(Execution::mapToDto).toList();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DETAIL)
     public ExecutionDto getExecution(String executionUuid) throws NotFoundException {
-        return executionRepository.findWithItemsByUuid(UUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid)).mapToDto();
+        return executionRepository
+                .findWithItemsByUuid(UUID.fromString(executionUuid))
+                .orElseThrow(() -> new NotFoundException(Execution.class, executionUuid))
+                .mapToDto();
     }
 
     @Override
@@ -110,12 +120,15 @@ public class ActionServiceImpl implements ActionExternalService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.UPDATE)
-    public ExecutionDto updateExecution(String executionUuid, UpdateExecutionRequestDto request) throws NotFoundException, AlreadyExistException {
+    public ExecutionDto updateExecution(String executionUuid, UpdateExecutionRequestDto request)
+            throws NotFoundException, AlreadyExistException {
         if (request.getItems().isEmpty()) {
             throw new ValidationException("Cannot update an execution without any execution items.");
         }
 
-        Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
+        Execution execution = executionRepository
+                .findByUuid(SecuredUUID.fromString(executionUuid))
+                .orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
         if (request.getName() != null) {
             if (executionRepository.existsByNameAndUuidNot(request.getName(), UUID.fromString(executionUuid))) {
                 throw new AlreadyExistException("Execution with same name already exists.");
@@ -136,17 +149,23 @@ public class ActionServiceImpl implements ActionExternalService {
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DELETE)
     public void deleteExecution(String executionUuid) throws NotFoundException {
-        Execution execution = executionRepository.findWithActionsByUuid(UUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
+        Execution execution = executionRepository
+                .findWithActionsByUuid(UUID.fromString(executionUuid))
+                .orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
 
         // check if not associated to actions
         if (!execution.getActions().isEmpty()) {
-            throw new ValidationException(String.format("Cannot delete execution %s. It is associated to following actions: %s.", execution.getName(), String.join(", ", execution.getActions().stream().map(Action::getName).toList())));
+            throw new ValidationException(String
+                    .format("Cannot delete execution %s. It is associated to following actions: %s.",
+                            execution.getName(),
+                            String.join(", ", execution.getActions().stream().map(Action::getName).toList())));
         }
 
         executionRepository.delete(execution);
     }
 
-    private Set<ExecutionItem> createExecutionItems(List<ExecutionItemRequestDto> executionItemRequestDtos, Execution execution) throws NotFoundException {
+    private Set<ExecutionItem> createExecutionItems(List<ExecutionItemRequestDto> executionItemRequestDtos,
+            Execution execution) throws NotFoundException {
         Set<ExecutionItem> executionItems = new HashSet<>();
         for (ExecutionItemRequestDto executionItemRequestDto : executionItemRequestDtos) {
             ExecutionItem executionItem = switch (execution.getType()) {
@@ -159,22 +178,26 @@ public class ActionServiceImpl implements ActionExternalService {
         return executionItems;
     }
 
-    private ExecutionItem createSetFieldExecutionItem(Execution execution, ExecutionItemRequestDto executionItemRequestDto) {
+    private ExecutionItem createSetFieldExecutionItem(Execution execution,
+            ExecutionItemRequestDto executionItemRequestDto) {
         if (executionItemRequestDto.getFieldSource() == null || executionItemRequestDto.getFieldIdentifier() == null) {
             throw new ValidationException("Missing field source or field identifier in an execution.");
         }
-        if (executionItemRequestDto.getFieldSource() != FilterFieldSource.PROPERTY && executionItemRequestDto.getFieldSource() != FilterFieldSource.CUSTOM) {
+        if (executionItemRequestDto.getFieldSource() != FilterFieldSource.PROPERTY
+                && executionItemRequestDto.getFieldSource() != FilterFieldSource.CUSTOM) {
             throw new ValidationException("Field source must be PROPERTY or CUSTOM for set field execution.");
         }
         if (execution.getResource() == Resource.ANY || execution.getResource() == Resource.NONE) {
-            throw new ValidationException("Resource %s is not allowed for execution type %s".formatted(execution.getResource().getLabel(), execution.getType().getLabel()));
+            throw new ValidationException("Resource %s is not allowed for execution type %s"
+                    .formatted(execution.getResource().getLabel(), execution.getType().getLabel()));
         }
 
         ExecutionItem executionItem = new ExecutionItem();
         executionItem.setExecution(execution);
         executionItem.setFieldSource(executionItemRequestDto.getFieldSource());
         executionItem.setFieldIdentifier(executionItemRequestDto.getFieldIdentifier());
-        if (executionItemRequestDto.getSourceFieldSource() != null || executionItemRequestDto.getSourceFieldIdentifier() != null) {
+        if (executionItemRequestDto.getSourceFieldSource() != null
+                || executionItemRequestDto.getSourceFieldIdentifier() != null) {
             validateAndSetSourceReference(executionItem, executionItemRequestDto);
         } else if (executionItem.getFieldSource() != FilterFieldSource.CUSTOM) {
             executionItem.setData(executionItemRequestDto.getData());
@@ -183,12 +206,20 @@ public class ActionServiceImpl implements ActionExternalService {
                 if (executionItemRequestDto.getData() == null) {
                     executionItem.setData(new ArrayList<BaseAttributeContentV3<?>>());
                 } else {
-                    AttributeContentType attributeContentType = AttributeContentType.valueOf(executionItemRequestDto.getFieldIdentifier().substring(executionItemRequestDto.getFieldIdentifier().indexOf("|") + 1));
-                    List<BaseAttributeContentV3<?>> contentItems = AttributeDefinitionUtils.createAttributeContentFromString(attributeContentType, executionItemRequestDto.getData() instanceof ArrayList<?> ? (List<String>) executionItemRequestDto.getData() : List.of(executionItemRequestDto.getData().toString()));
+                    AttributeContentType attributeContentType = AttributeContentType
+                            .valueOf(executionItemRequestDto
+                                    .getFieldIdentifier()
+                                    .substring(executionItemRequestDto.getFieldIdentifier().indexOf("|") + 1));
+                    List<BaseAttributeContentV3<?>> contentItems = AttributeDefinitionUtils
+                            .createAttributeContentFromString(attributeContentType,
+                                    executionItemRequestDto.getData() instanceof ArrayList<?>
+                                            ? (List<String>) executionItemRequestDto.getData()
+                                            : List.of(executionItemRequestDto.getData().toString()));
                     executionItem.setData(contentItems);
                 }
             } catch (IllegalArgumentException e) {
-                throw new ValidationException("Unknown content type for custom attribute with field identifier: " + executionItemRequestDto.getFieldIdentifier());
+                throw new ValidationException("Unknown content type for custom attribute with field identifier: "
+                        + executionItemRequestDto.getFieldIdentifier());
             }
         }
 
@@ -197,28 +228,32 @@ public class ActionServiceImpl implements ActionExternalService {
 
     private void validateAndSetSourceReference(ExecutionItem executionItem, ExecutionItemRequestDto dto) {
         if (dto.getSourceFieldSource() == null || dto.getSourceFieldIdentifier() == null) {
-            throw new ValidationException("Both sourceFieldSource and sourceFieldIdentifier must be provided together.");
+            throw new ValidationException(
+                    "Both sourceFieldSource and sourceFieldIdentifier must be provided together.");
         }
         if (dto.getFieldSource() != FilterFieldSource.CUSTOM) {
-            throw new ValidationException("Source field reference is only supported when target fieldSource is CUSTOM.");
+            throw new ValidationException(
+                    "Source field reference is only supported when target fieldSource is CUSTOM.");
         }
-        if (dto.getSourceFieldSource() != FilterFieldSource.META
-                && dto.getSourceFieldSource() != FilterFieldSource.DATA
+        if (dto.getSourceFieldSource() != FilterFieldSource.META && dto.getSourceFieldSource() != FilterFieldSource.DATA
                 && dto.getSourceFieldSource() != FilterFieldSource.CUSTOM) {
             throw new ValidationException("sourceFieldSource must be META, DATA, or CUSTOM.");
         }
         if (dto.getData() != null) {
-            throw new ValidationException("data must be null when sourceFieldSource is set — use source reference or static data, not both.");
+            throw new ValidationException(
+                    "data must be null when sourceFieldSource is set — use source reference or static data, not both.");
         }
 
         // Validate source identifier format: name|ContentType
-        AttributeContentType sourceContentType = getAttributeContentType(dto.getSourceFieldIdentifier(), "sourceFieldIdentifier");
+        AttributeContentType sourceContentType = getAttributeContentType(dto.getSourceFieldIdentifier(),
+                "sourceFieldIdentifier");
 
         // Validate a target identifier format and extract a target content type
         AttributeContentType targetContentType = getAttributeContentType(dto.getFieldIdentifier(), "fieldIdentifier");
 
         if (sourceContentType != targetContentType) {
-            throw new ValidationException("Source content type " + sourceContentType + " does not match target content type " + targetContentType + ".");
+            throw new ValidationException("Source content type " + sourceContentType
+                    + " does not match target content type " + targetContentType + ".");
         }
 
         executionItem.setSourceFieldSource(dto.getSourceFieldSource());
@@ -228,7 +263,8 @@ public class ActionServiceImpl implements ActionExternalService {
     private static @NonNull AttributeContentType getAttributeContentType(String sourceId, String propertyName) {
         String[] sourceParts = sourceId.split("\\|", -1);
         if (sourceParts.length != 2 || sourceParts[0].isEmpty() || sourceParts[1].isEmpty()) {
-            throw new ValidationException(propertyName + " must be in format 'name|ContentType' with non-empty name and content type, got: " + sourceId);
+            throw new ValidationException(propertyName
+                    + " must be in format 'name|ContentType' with non-empty name and content type, got: " + sourceId);
         }
         AttributeContentType sourceContentType;
         try {
@@ -239,13 +275,17 @@ public class ActionServiceImpl implements ActionExternalService {
         return sourceContentType;
     }
 
-    private ExecutionItem createSendNotificationExecutionItem(Execution execution, ExecutionItemRequestDto executionItemRequestDto) throws NotFoundException {
+    private ExecutionItem createSendNotificationExecutionItem(Execution execution,
+            ExecutionItemRequestDto executionItemRequestDto) throws NotFoundException {
         if (executionItemRequestDto.getNotificationProfileUuid() == null) {
             throw new ValidationException("Notification profile UUID is required for execution type send notification");
         }
 
-        SecuredUUID notificationProfileUuid = SecuredUUID.fromString(executionItemRequestDto.getNotificationProfileUuid());
-        NotificationProfile notificationProfile = notificationProfileRepository.findByUuid(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
+        SecuredUUID notificationProfileUuid = SecuredUUID
+                .fromString(executionItemRequestDto.getNotificationProfileUuid());
+        NotificationProfile notificationProfile = notificationProfileRepository
+                .findByUuid(notificationProfileUuid)
+                .orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
 
         ExecutionItem executionItem = new ExecutionItem();
         executionItem.setExecution(execution);
@@ -255,22 +295,26 @@ public class ActionServiceImpl implements ActionExternalService {
         return executionItem;
     }
 
-    //endregion
+    // endregion
 
-    //region Actions
+    // region Actions
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.LIST)
     public List<ActionDto> listActions(Resource resource) {
-        if (resource == null || resource == Resource.ANY)
+        if (resource == null || resource == Resource.ANY) {
             return actionRepository.findAll().stream().map(Action::mapToDto).toList();
+        }
         return actionRepository.findAllByResource(resource).stream().map(Action::mapToDto).toList();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DETAIL)
     public ActionDetailDto getAction(String actionUuid) throws NotFoundException {
-        return actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid)).mapToDetailDto();
+        return actionRepository
+                .findByUuid(SecuredUUID.fromString(actionUuid))
+                .orElseThrow(() -> new NotFoundException(Action.class, actionUuid))
+                .mapToDetailDto();
     }
 
     @Override
@@ -295,9 +339,13 @@ public class ActionServiceImpl implements ActionExternalService {
         Set<Execution> executions = new HashSet<>();
 
         for (String executionUuid : request.getExecutionsUuids()) {
-            Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-            if (request.getResource() != Resource.ANY && execution.getResource() != Resource.ANY && execution.getResource() != request.getResource()) {
-                throw new ValidationException("Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
+            Execution execution = executionRepository
+                    .findByUuid(SecuredUUID.fromString(executionUuid))
+                    .orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
+            if (request.getResource() != Resource.ANY && execution.getResource() != Resource.ANY
+                    && execution.getResource() != request.getResource()) {
+                throw new ValidationException(
+                        "Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
             }
             executions.add(execution);
         }
@@ -313,28 +361,43 @@ public class ActionServiceImpl implements ActionExternalService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.UPDATE)
-    public ActionDetailDto updateAction(String actionUuid, UpdateActionRequestDto request) throws NotFoundException, AlreadyExistException {
+    public ActionDetailDto updateAction(String actionUuid, UpdateActionRequestDto request)
+            throws NotFoundException, AlreadyExistException {
         if (request.getExecutionsUuids().isEmpty()) {
             throw new ValidationException("Action has to contain at least one execution.");
         }
 
         Set<Execution> executions = new HashSet<>();
-        Action action = actionRepository.findWithTriggersByUuid(UUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
+        Action action = actionRepository
+                .findWithTriggersByUuid(UUID.fromString(actionUuid))
+                .orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
         if (request.getName() != null) {
             if (actionRepository.existsByNameAndUuidNot(request.getName(), UUID.fromString(actionUuid))) {
                 throw new AlreadyExistException("Action with same name already exists.");
             }
             action.setName(request.getName());
         }
-        Set<Resource> associatedTriggersResources = action.getTriggers().stream().map(Trigger::getResource).collect(Collectors.toSet());
+        Set<Resource> associatedTriggersResources = action
+                .getTriggers()
+                .stream()
+                .map(Trigger::getResource)
+                .collect(Collectors.toSet());
 
         for (String executionUuid : request.getExecutionsUuids()) {
-            Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-            if (action.getResource() != Resource.ANY && execution.getResource() != Resource.ANY && execution.getResource() != action.getResource()) {
-                throw new ValidationException("Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
+            Execution execution = executionRepository
+                    .findByUuid(SecuredUUID.fromString(executionUuid))
+                    .orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
+            if (action.getResource() != Resource.ANY && execution.getResource() != Resource.ANY
+                    && execution.getResource() != action.getResource()) {
+                throw new ValidationException(
+                        "Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
             }
-            if (execution.getResource() != Resource.ANY && (associatedTriggersResources.size() > 1 || (associatedTriggersResources.size() == 1 && !associatedTriggersResources.contains(execution.getResource())))) {
-                throw new ValidationException("Resource of execution '%s' does not match resource of triggers associated with action.".formatted(execution.getName()));
+            if (execution.getResource() != Resource.ANY
+                    && (associatedTriggersResources.size() > 1 || (associatedTriggersResources.size() == 1
+                            && !associatedTriggersResources.contains(execution.getResource())))) {
+                throw new ValidationException(
+                        "Resource of execution '%s' does not match resource of triggers associated with action."
+                                .formatted(execution.getName()));
             }
             executions.add(execution);
         }
@@ -349,15 +412,19 @@ public class ActionServiceImpl implements ActionExternalService {
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DELETE)
     public void deleteAction(String actionUuid) throws NotFoundException {
-        Action action = actionRepository.findWithTriggersByUuid(UUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
+        Action action = actionRepository
+                .findWithTriggersByUuid(UUID.fromString(actionUuid))
+                .orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
 
         // check if not associated to triggers
         if (!action.getTriggers().isEmpty()) {
-            throw new ValidationException(String.format("Cannot delete action %s. It is associated to following triggers: %s.", action.getName(), String.join(", ", action.getTriggers().stream().map(Trigger::getName).toList())));
+            throw new ValidationException(String
+                    .format("Cannot delete action %s. It is associated to following triggers: %s.", action.getName(),
+                            String.join(", ", action.getTriggers().stream().map(Trigger::getName).toList())));
         }
 
         actionRepository.delete(action);
     }
 
-    //endregion
+    // endregion
 }

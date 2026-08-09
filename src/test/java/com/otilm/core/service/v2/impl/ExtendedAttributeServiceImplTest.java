@@ -18,6 +18,8 @@ import com.otilm.core.service.handler.ConnectorCapabilityService;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapter;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.RegisterCapability;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,9 +28,6 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -65,7 +64,8 @@ class ExtendedAttributeServiceImplTest {
     ExtendedAttributeServiceImpl service;
 
     /** A v3-style adapter that is both an authority provider and register-capable. */
-    private interface RegisterAdapter extends AuthorityProviderAdapter, RegisterCapability { }
+    private interface RegisterAdapter extends AuthorityProviderAdapter, RegisterCapability {
+    }
 
     private Connector connector;
     private AuthorityInstanceReference authority;
@@ -152,8 +152,10 @@ class ExtendedAttributeServiceImplTest {
         InOrder order = inOrder(adapter, attributeEngine);
         order.verify(adapter).validateIssueAttributes(authority, attrs);
         order.verify(adapter).listIssueAttributes(authority, raProfile);
-        order.verify(attributeEngine).validateUpdateDataAttributes(
-                connector.getUuid(), AttributeOperation.CERTIFICATE_ISSUE, definitions, attrs);
+        order
+                .verify(attributeEngine)
+                .validateUpdateDataAttributes(connector.getUuid(), AttributeOperation.CERTIFICATE_ISSUE, definitions,
+                        attrs);
     }
 
     @Test
@@ -167,8 +169,9 @@ class ExtendedAttributeServiceImplTest {
         verify(adapter).validateIssueAttributes(eq(authority), captor.capture());
         assertNotNull(captor.getValue());
         assertTrue(captor.getValue().isEmpty());
-        verify(attributeEngine).validateUpdateDataAttributes(
-                connector.getUuid(), AttributeOperation.CERTIFICATE_ISSUE, List.of(), captor.getValue());
+        verify(attributeEngine)
+                .validateUpdateDataAttributes(connector.getUuid(), AttributeOperation.CERTIFICATE_ISSUE, List.of(),
+                        captor.getValue());
     }
 
     @Test
@@ -220,8 +223,10 @@ class ExtendedAttributeServiceImplTest {
         InOrder order = inOrder(adapter, attributeEngine);
         order.verify(adapter).validateRevokeAttributes(authority, attrs);
         order.verify(adapter).listRevokeAttributes(authority, raProfile);
-        order.verify(attributeEngine).validateUpdateDataAttributes(
-                connector.getUuid(), AttributeOperation.CERTIFICATE_REVOKE, definitions, attrs);
+        order
+                .verify(attributeEngine)
+                .validateUpdateDataAttributes(connector.getUuid(), AttributeOperation.CERTIFICATE_REVOKE, definitions,
+                        attrs);
     }
 
     // --- listRegisterCertificateAttributes ---
@@ -272,8 +277,9 @@ class ExtendedAttributeServiceImplTest {
 
         service.mergeAndValidateRegisterAttributes(raProfile, attrs);
 
-        verify(attributeEngine).validateUpdateDataAttributes(
-                connector.getUuid(), AttributeOperation.CERTIFICATE_REGISTER, definitions, attrs);
+        verify(attributeEngine)
+                .validateUpdateDataAttributes(connector.getUuid(), AttributeOperation.CERTIFICATE_REGISTER, definitions,
+                        attrs);
     }
 
     @Test

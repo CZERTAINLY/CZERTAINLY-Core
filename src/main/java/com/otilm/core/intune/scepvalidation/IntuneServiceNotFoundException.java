@@ -30,12 +30,10 @@ The important modification are marked with the comment "MODIFICATION"
 */
 package com.otilm.core.intune.scepvalidation;
 
-public class IntuneServiceNotFoundException extends IntuneClientException
-{    
+public class IntuneServiceNotFoundException extends IntuneClientException {
     private static final long serialVersionUID = -8078207104310213630L;
 
-    public IntuneServiceNotFoundException(String serviceName)
-    {
+    public IntuneServiceNotFoundException(String serviceName) {
         super("Did not find service named '" + serviceName + "' listed in Microsoft.Graph discovery service list.");
     }
 }

@@ -1,16 +1,15 @@
 package com.otilm.core.config.proxy;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * This is an {@link Authenticator} implementation able to manage several servers
- * Inspired by <a href="https://github.com/Orange-OpenSource/spring-boot-autoconfigure-proxy">spring-boot-autoconfigure-proxy</a>
+ * This is an {@link Authenticator} implementation able to manage several servers Inspired by
+ * <a href="https://github.com/Orange-OpenSource/spring-boot-autoconfigure-proxy">spring-boot-autoconfigure-proxy</a>
  */
 public class MultiServerAuthenticator extends Authenticator {
     private static final Logger logger = LoggerFactory.getLogger(MultiServerAuthenticator.class);
@@ -25,7 +24,9 @@ public class MultiServerAuthenticator extends Authenticator {
     protected PasswordAuthentication getPasswordAuthentication() {
         String host = "" + getRequestingHost() + ":" + getRequestingPort();
         PasswordAuthentication passwordAuthentication = host2Authent.get(host);
-        logger.trace("using proxy authentication for <{}>: {}", host, passwordAuthentication == null ? "none" : passwordAuthentication.getUserName() + "/***");
+        logger
+                .trace("using proxy authentication for <{}>: {}", host,
+                        passwordAuthentication == null ? "none" : passwordAuthentication.getUserName() + "/***");
         return passwordAuthentication;
     }
 

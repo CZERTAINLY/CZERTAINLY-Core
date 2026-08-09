@@ -3,9 +3,10 @@ package com.otilm.core.messaging.jms.listeners;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.MessageHandlingException;
+import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatus;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateState;
-import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatus;
+import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
@@ -16,8 +17,8 @@ import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationReposit
 import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
-import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.jms.configuration.StatusPollProperties;
+import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.model.CertificateStatusPollMessage;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.handler.authority.AsyncOperationCapability;
@@ -30,6 +31,11 @@ import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachin
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
 import com.otilm.core.service.writer.registration.CertificateRegistrationWriter;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,14 +43,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.TransientDataAccessResourceException;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.Supplier;
-
-import com.otilm.api.model.core.other.ResourceEvent;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -62,24 +60,38 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CertificateStatusPollListenerTest {
 
-    @Mock private CertificateRepository certificateRepository;
-    @Mock private AuthorityProviderAdapterFactory adapterFactory;
-    @Mock private CertificateStateMachine stateMachine;
-    @Mock private CertificateStatusPollWriter pollWriter;
-    @Mock private StatusPollProperties statusPollProperties;
-    @Mock private AttributeEngine attributeEngine;
-    @Mock private TransactionHandler transactionHandler;
-    @Mock private CertificateInternalService certificateService;
-    @Mock private CertificateRevocationFinalizer revocationFinalizer;
-    @Mock private CertificateRegistrationWriter registrationWriter;
-    @Mock private EventProducer eventProducer;
-    @Mock private CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository;
-    @Mock private CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter;
-    @Mock private CertificateRelationRepository certificateRelationRepository;
+    @Mock
+    private CertificateRepository certificateRepository;
+    @Mock
+    private AuthorityProviderAdapterFactory adapterFactory;
+    @Mock
+    private CertificateStateMachine stateMachine;
+    @Mock
+    private CertificateStatusPollWriter pollWriter;
+    @Mock
+    private StatusPollProperties statusPollProperties;
+    @Mock
+    private AttributeEngine attributeEngine;
+    @Mock
+    private TransactionHandler transactionHandler;
+    @Mock
+    private CertificateInternalService certificateService;
+    @Mock
+    private CertificateRevocationFinalizer revocationFinalizer;
+    @Mock
+    private CertificateRegistrationWriter registrationWriter;
+    @Mock
+    private EventProducer eventProducer;
+    @Mock
+    private CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository;
+    @Mock
+    private CertificateRegistrationAuthorizationWriter registrationAuthorizationWriter;
+    @Mock
+    private CertificateRelationRepository certificateRelationRepository;
 
     /**
-     * Combined mock implementing both AuthorityProviderAdapter and AsyncOperationCapability.
-     * The listener casts the adapter to AsyncOperationCapability after retrieving it from the factory.
+     * Combined mock implementing both AuthorityProviderAdapter and AsyncOperationCapability. The listener casts the
+     * adapter to AsyncOperationCapability after retrieving it from the factory.
      */
     private AuthorityProviderAdapter adapter;
     private AsyncOperationCapability asyncAdapter;
@@ -118,10 +130,14 @@ class CertificateStatusPollListenerTest {
 
         // Execute the transaction body synchronously so the locked-transaction logic runs in-test —
         // both the Runnable form (applyFailure) and the Supplier form (applyTerminalTransition).
-        lenient().doAnswer(inv -> { ((Runnable) inv.getArgument(0)).run(); return null; })
-                .when(transactionHandler).runInNewTransaction(any(Runnable.class));
-        lenient().doAnswer(inv -> ((Supplier<?>) inv.getArgument(0)).get())
-                .when(transactionHandler).runInNewTransaction(any(Supplier.class));
+        lenient().doAnswer(inv -> {
+            ((Runnable) inv.getArgument(0)).run();
+            return null;
+        }).when(transactionHandler).runInNewTransaction(any(Runnable.class));
+        lenient()
+                .doAnswer(inv -> ((Supplier<?>) inv.getArgument(0)).get())
+                .when(transactionHandler)
+                .runInNewTransaction(any(Supplier.class));
         lenient().when(adapterFactory.forAuthority(any())).thenReturn(adapter);
         // Default: no registration authorization, so the register-completion event does not fire in the
         // binding/transition tests. The dedicated fire tests below re-stub this to true.
@@ -206,8 +222,7 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, "PEMDATA", null, "OK"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 0));
 
@@ -228,11 +243,11 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, "PEMDATA", null, "OK"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         // Deterministic persist failure (e.g. parse error / already-exists on redelivery).
         doThrow(new AttributeException("cannot parse"))
-                .when(certificateService).issueRequestedCertificate(CERT_UUID, "PEMDATA", List.of());
+                .when(certificateService)
+                .issueRequestedCertificate(CERT_UUID, "PEMDATA", List.of());
 
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 0));
 
@@ -251,12 +266,12 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, "PEMDATA", null, "OK"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         // Transient persist failure must NOT become a terminal FAILED. It propagates — rolling back the locked
         // transition and leaving the poll row in place — so the sweep re-enqueues and retries on its next tick.
         doThrow(new TransientDataAccessResourceException("db blip"))
-                .when(certificateService).issueRequestedCertificate(CERT_UUID, "PEMDATA", List.of());
+                .when(certificateService)
+                .issueRequestedCertificate(CERT_UUID, "PEMDATA", List.of());
 
         CertificateStatusPollMessage msg = pollMsg(CertificateOperation.ISSUE, 0);
         assertThrows(RuntimeException.class, () -> listener.processMessage(msg));
@@ -275,10 +290,10 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, "PEMDATA", null, "OK"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         doThrow(new TransientDataAccessResourceException("db blip"))
-                .when(certificateService).issueRequestedCertificate(CERT_UUID, "PEMDATA", List.of());
+                .when(certificateService)
+                .issueRequestedCertificate(CERT_UUID, "PEMDATA", List.of());
 
         // attempt+1 >= maxAttempts(3): retries are exhausted
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 2));
@@ -297,13 +312,13 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REVOKE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.FAILED, null, null, "revoke failed"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         // A should-not-happen invalid transition (anything other than the deterministic-persist case) must not
         // silently delete the poll row: it propagates so the sweep retries, and is logged with cert/op context
         // rather than only surfacing in the listener adapter's generic endpoint-level log.
         doThrow(new IllegalStateException("unexpected invalid transition"))
-                .when(stateMachine).transition(eq(cert), eq(CertificateState.ISSUED), isNull(), anyString());
+                .when(stateMachine)
+                .transition(eq(cert), eq(CertificateState.ISSUED), isNull(), anyString());
 
         CertificateStatusPollMessage msg = pollMsg(CertificateOperation.REVOKE, 0);
         assertThrows(RuntimeException.class, () -> listener.processMessage(msg));
@@ -322,8 +337,7 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, null, null, "OK"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 0));
 
@@ -343,13 +357,13 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REGISTER))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, null, null, null));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         listener.processMessage(pollMsg(CertificateOperation.REGISTER, 0));
 
         verify(stateMachine).transition(eq(cert), eq(CertificateState.REGISTERED), isNull(), anyString());
-        verify(pollWriter).delete(CERT_UUID);    }
+        verify(pollWriter).delete(CERT_UUID);
+    }
 
     // -----------------------------------------------------------------------
     // completedRegisterRefreshesBindingWithFinalMeta
@@ -362,8 +376,7 @@ class CertificateStatusPollListenerTest {
         var finalMeta = List.of(mock(com.otilm.api.model.common.attribute.common.MetadataAttribute.class));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REGISTER))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, null, finalMeta, null));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         listener.processMessage(pollMsg(CertificateOperation.REGISTER, 0));
 
@@ -374,7 +387,8 @@ class CertificateStatusPollListenerTest {
     }
 
     @Test
-    void completedRegisterFiresRegistrationEventWhenAuthorizationPresent() throws MessageHandlingException, ConnectorException {
+    void completedRegisterFiresRegistrationEventWhenAuthorizationPresent()
+            throws MessageHandlingException, ConnectorException {
         Certificate cert = certInState(CertificateState.PENDING_REGISTRATION);
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REGISTER))
@@ -384,7 +398,8 @@ class CertificateStatusPollListenerTest {
 
         listener.processMessage(pollMsg(CertificateOperation.REGISTER, 0));
 
-        verify(eventProducer).produceMessage(Mockito.argThat(m -> m.getEvent() == ResourceEvent.CERTIFICATE_REGISTERED));
+        verify(eventProducer)
+                .produceMessage(Mockito.argThat(m -> m.getEvent() == ResourceEvent.CERTIFICATE_REGISTERED));
     }
 
     @Test
@@ -442,8 +457,7 @@ class CertificateStatusPollListenerTest {
         var finalMeta = List.of(mock(com.otilm.api.model.common.attribute.common.MetadataAttribute.class));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REGISTER))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, null, finalMeta, null));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         doThrow(new IllegalStateException("db down")).when(registrationWriter).upsert(CERT_UUID, finalMeta);
 
         // Best-effort refresh: the transition already committed, so a failed binding refresh must not throw.
@@ -465,8 +479,7 @@ class CertificateStatusPollListenerTest {
         var finalMeta = List.of(mock(com.otilm.api.model.common.attribute.common.MetadataAttribute.class));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REGISTER))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.FAILED, null, finalMeta, "CA rejected"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         listener.processMessage(pollMsg(CertificateOperation.REGISTER, 0));
 
@@ -486,8 +499,7 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.FAILED, null, null, "CA error"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 0));
 
@@ -529,7 +541,8 @@ class CertificateStatusPollListenerTest {
     }
 
     @Test
-    void terminalIssueFailureClosesRegistrationAuthorizationWhenPresent() throws MessageHandlingException, ConnectorException {
+    void terminalIssueFailureClosesRegistrationAuthorizationWhenPresent()
+            throws MessageHandlingException, ConnectorException {
         Certificate cert = certInState(CertificateState.PENDING_ISSUE);
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
@@ -559,7 +572,8 @@ class CertificateStatusPollListenerTest {
     }
 
     @Test
-    void terminalIssueFailureDoesNotCloseWhenNoRegistrationAuthorization() throws MessageHandlingException, ConnectorException {
+    void terminalIssueFailureDoesNotCloseWhenNoRegistrationAuthorization()
+            throws MessageHandlingException, ConnectorException {
         Certificate cert = certInState(CertificateState.PENDING_ISSUE);
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
@@ -598,8 +612,7 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REVOKE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.FAILED, null, null, "revoke failed"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         listener.processMessage(pollMsg(CertificateOperation.REVOKE, 0));
 
@@ -607,7 +620,8 @@ class CertificateStatusPollListenerTest {
         // A failed revoke must clear the pending-revoke params so the cert (back in ISSUED) does
         // not look like a revoke is still in flight.
         verify(revocationFinalizer).clearPendingRevokeFields(cert);
-        verify(pollWriter).delete(CERT_UUID);    }
+        verify(pollWriter).delete(CERT_UUID);
+    }
 
     // -----------------------------------------------------------------------
     // completedRevokeTransitionsToRevokedAndDestroysKey
@@ -619,8 +633,7 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REVOKE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, null, null, null));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         var cleanup = new com.otilm.core.service.handler.authority.lifecycle.CertificateRevocationFinalizer.KeyCleanup(
                 true, UUID.randomUUID());
         when(revocationFinalizer.prepareRevokeFinalization(cert)).thenReturn(cleanup);
@@ -639,16 +652,17 @@ class CertificateStatusPollListenerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void completedRevokeApplyFailureLastAttemptNeverReturnsToIssued() throws MessageHandlingException, ConnectorException {
+    void completedRevokeApplyFailureLastAttemptNeverReturnsToIssued()
+            throws MessageHandlingException, ConnectorException {
         Certificate cert = certInState(CertificateState.PENDING_REVOKE);
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REVOKE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, null, null, null));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         // The REVOKED transition keeps failing locally, right up to the last poll attempt.
         doThrow(new IllegalStateException("cannot apply revoked"))
-                .when(stateMachine).transition(eq(cert), eq(CertificateState.REVOKED), isNull(), anyString());
+                .when(stateMachine)
+                .transition(eq(cert), eq(CertificateState.REVOKED), isNull(), anyString());
 
         listener.processMessage(pollMsg(CertificateOperation.REVOKE, 2));
 
@@ -671,8 +685,7 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.REVOKE))
                 .thenThrow(new ConnectorException("network error"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         // No CA answer and no attempts left → time out; the revoke returns to ISSUED with pending fields cleared.
         listener.processMessage(pollMsg(CertificateOperation.REVOKE, 2));
@@ -694,10 +707,10 @@ class CertificateStatusPollListenerTest {
         var meta = List.of(mock(com.otilm.api.model.common.attribute.common.MetadataAttribute.class));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenReturn(new StatusPollResult(CertificateOperationStatus.COMPLETED, "PEMDATA", meta, null));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         doThrow(new AttributeException("meta fail"))
-                .when(attributeEngine).updateMetadataAttributes(any(), any(ObjectAttributeContentInfo.class));
+                .when(attributeEngine)
+                .updateMetadataAttributes(any(), any(ObjectAttributeContentInfo.class));
 
         // Should NOT throw — cert persisted/committed before the meta update, meta failure swallowed.
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 0));
@@ -720,14 +733,14 @@ class CertificateStatusPollListenerTest {
 
         // Locked re-read shows cert already transitioned away from pending (race lost).
         Certificate raced = certInState(CertificateState.ISSUED);
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(raced));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(raced));
 
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 0));
 
         verify(stateMachine, never()).transition(any(), any(), any(), any());
         // Resolved by the racing actor — still stop polling.
-        verify(pollWriter).delete(CERT_UUID);    }
+        verify(pollWriter).delete(CERT_UUID);
+    }
 
     // -----------------------------------------------------------------------
     // connectorExceptionTransientLeavesPollRow
@@ -757,8 +770,7 @@ class CertificateStatusPollListenerTest {
         when(certificateRepository.findForPollingByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
         when(asyncAdapter.pollStatus(cert, CertificateOperation.ISSUE))
                 .thenThrow(new ConnectorException("network error"));
-        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID))
-                .thenReturn(Optional.of(cert));
+        when(certificateRepository.findAndLockWithAssociationsByUuid(CERT_UUID)).thenReturn(Optional.of(cert));
 
         // Transient error but no attempts left → time out and stop polling.
         listener.processMessage(pollMsg(CertificateOperation.ISSUE, 2));

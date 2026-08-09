@@ -3,13 +3,12 @@ package com.otilm.core.service.scep.impl;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.service.scep.ScepMessageTestData;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -17,12 +16,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Covers the PKIOperation failure guard: an unexpected runtime failure must not escape as an
- * {@code application/json} error body, since a SCEP client cannot parse one.
+ * Covers the PKIOperation failure guard: an unexpected runtime failure must not escape as an {@code application/json}
+ * error body, since a SCEP client cannot parse one.
  *
- * <p>The profile here has no CA certificate, so processing fails immediately <em>and</em> the SCEP failure
- * response cannot be signed — the CA key is reached through the token connector. That is the degraded corner
- * of the contract: a bare status, never a JSON body, and nothing propagating out of the method.</p>
+ * <p>
+ * The profile here has no CA certificate, so processing fails immediately <em>and</em> the SCEP failure response cannot
+ * be signed — the CA key is reached through the token connector. That is the degraded corner of the contract: a bare
+ * status, never a JSON body, and nothing propagating out of the method.
+ * </p>
  */
 class ScepServiceImplPkiOperationFailureTest {
 

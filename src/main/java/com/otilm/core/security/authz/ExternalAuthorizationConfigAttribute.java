@@ -3,7 +3,7 @@ package com.otilm.core.security.authz;
 import org.springframework.security.access.ConfigAttribute;
 
 public record ExternalAuthorizationConfigAttribute(String attributeName,
-                                                   Object attributeValue) implements ConfigAttribute {
+        Object attributeValue) implements ConfigAttribute {
 
     @Override
     public String getAttribute() {

@@ -2,13 +2,12 @@ package com.otilm.core.messaging.jms.producers;
 
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.model.ValidationMessage;
+import java.util.Objects;
 import lombok.AllArgsConstructor;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.lang.NonNull;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
-
-import java.util.Objects;
 
 @Component
 @AllArgsConstructor
@@ -20,10 +19,8 @@ public class ValidationProducer {
     public void produceMessage(@NonNull final ValidationMessage validationMessage) {
         Objects.requireNonNull(validationMessage, "Validation message cannot be null");
         producerRetryTemplate.execute(context -> {
-            jmsTemplate.convertAndSend(
-                    messagingProperties.produceDestinationValidation(),
-                    validationMessage,
-                    message -> {
+            jmsTemplate
+                    .convertAndSend(messagingProperties.produceDestinationValidation(), validationMessage, message -> {
                         message.setJMSType(messagingProperties.routingKey().validation());
                         return message;
                     });

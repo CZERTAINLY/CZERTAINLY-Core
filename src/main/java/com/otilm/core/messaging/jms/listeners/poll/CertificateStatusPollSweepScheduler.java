@@ -5,10 +5,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Owns the periodic trigger that drives {@link CertificateStatusPollSweeper}. The sweeper holds all
- * advisory-lock/batch orchestration; this class holds only the schedule and the {@code scheduled-tasks.enabled}
- * gate. Keeping them apart mirrors the signing-record sweepers and lets the sweeper be unit-tested without
- * standing up the scheduling machinery.
+ * Owns the periodic trigger that drives {@link CertificateStatusPollSweeper}. The sweeper holds all advisory-lock/batch
+ * orchestration; this class holds only the schedule and the {@code scheduled-tasks.enabled} gate. Keeping them apart
+ * mirrors the signing-record sweepers and lets the sweeper be unit-tested without standing up the scheduling machinery.
  */
 @Component
 @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")

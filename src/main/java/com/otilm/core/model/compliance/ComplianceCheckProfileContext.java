@@ -3,9 +3,12 @@ package com.otilm.core.model.compliance;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.ComplianceProfileRule;
 import com.otilm.core.dao.entity.ComplianceSubject;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
-
-import java.util.*;
 
 @Getter
 public class ComplianceCheckProfileContext {
@@ -24,7 +27,7 @@ public class ComplianceCheckProfileContext {
      * Adds a compliance profile rule to the appropriate mapping based on its type.
      *
      * @param providerKey The key identifying the provider of the rule.
-     * @param rule        The compliance profile rule to be added.
+     * @param rule The compliance profile rule to be added.
      */
     public void addProfileRule(String providerKey, ComplianceProfileRule rule) {
         if (rule.getInternalRuleUuid() != null) {

@@ -5,10 +5,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.MappedSuperclass;
-import lombok.*;
-
 import java.io.Serializable;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
@@ -34,4 +36,3 @@ public class ResourceObjectAssociation extends UniquelyIdentified implements Ser
         return super.hashCode();
     }
 }
-

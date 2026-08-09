@@ -1,16 +1,52 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.enums.BitMaskEnum;
 import com.otilm.api.model.common.enums.IPlatformEnum;
-import com.otilm.api.model.core.certificate.*;
+import com.otilm.api.model.core.certificate.CertificateDetailDto;
+import com.otilm.api.model.core.certificate.CertificateDto;
+import com.otilm.api.model.core.certificate.CertificateFormat;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
+import com.otilm.api.model.core.certificate.CertificateRelationType;
+import com.otilm.api.model.core.certificate.CertificateSimpleDto;
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateSubjectType;
+import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
-import com.otilm.core.model.compliance.ComplianceResultDto;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.core.mapper.certificate.CertificateDetailDtoMapper;
+import com.otilm.core.model.compliance.ComplianceResultDto;
 import com.otilm.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.ConstraintMode;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.NamedAttributeNode;
+import jakarta.persistence.NamedEntityGraph;
+import jakarta.persistence.NamedSubgraph;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import java.io.Serial;
+import java.time.OffsetDateTime;
+import java.util.Date;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -20,50 +56,30 @@ import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
 
-import java.io.Serial;
-import java.time.OffsetDateTime;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-
 @Getter
 @Setter
 @ToString
 @RequiredArgsConstructor
 // Entity graph that eagerly loads associations needed by mapToChainDto().
-@NamedEntityGraph(
-        name = "Certificate.chainAssociations",
-        attributeNodes = {
-                @NamedAttributeNode("certificateContent"),
-                @NamedAttributeNode(value = "key",      subgraph = "key-items"),
-                @NamedAttributeNode(value = "altKey",   subgraph = "alt-key-items"),
-                @NamedAttributeNode("groups"),
-                @NamedAttributeNode("owner"),
-                @NamedAttributeNode(value = "raProfile", subgraph = "ra-profile-authority"),
-                @NamedAttributeNode("certificateRequestEntity"),
-                @NamedAttributeNode("predecessorRelations"),
-                @NamedAttributeNode("protocolAssociation")
-        },
-        subgraphs = {
-                @NamedSubgraph(name = "key-items", attributeNodes = {
-                        @NamedAttributeNode("items"),
-                        @NamedAttributeNode("groups"),
-                        @NamedAttributeNode("owner"),
-                        @NamedAttributeNode("tokenProfile"),
-                        @NamedAttributeNode("tokenInstanceReference")
-                }),
-                @NamedSubgraph(name = "alt-key-items", attributeNodes = {
-                        @NamedAttributeNode("items"),
-                        @NamedAttributeNode("groups"),
-                        @NamedAttributeNode("owner"),
-                        @NamedAttributeNode("tokenProfile"),
-                        @NamedAttributeNode("tokenInstanceReference")
-                }),
-                @NamedSubgraph(name = "ra-profile-authority", attributeNodes = @NamedAttributeNode("authorityInstanceReference"))
-        }
-)
+@NamedEntityGraph(name = "Certificate.chainAssociations", attributeNodes = {@NamedAttributeNode("certificateContent"),
+        @NamedAttributeNode(value = "key", subgraph = "key-items"),
+        @NamedAttributeNode(value = "altKey", subgraph = "alt-key-items"), @NamedAttributeNode("groups"),
+        @NamedAttributeNode("owner"), @NamedAttributeNode(value = "raProfile", subgraph = "ra-profile-authority"),
+        @NamedAttributeNode("certificateRequestEntity"), @NamedAttributeNode("predecessorRelations"),
+        @NamedAttributeNode("protocolAssociation")}, subgraphs = {
+                @NamedSubgraph(name = "key-items", attributeNodes = {@NamedAttributeNode("items"),
+                        @NamedAttributeNode("groups"), @NamedAttributeNode("owner"),
+                        @NamedAttributeNode("tokenProfile"), @NamedAttributeNode("tokenInstanceReference")}),
+                @NamedSubgraph(name = "alt-key-items", attributeNodes = {@NamedAttributeNode("items"),
+                        @NamedAttributeNode("groups"), @NamedAttributeNode("owner"),
+                        @NamedAttributeNode("tokenProfile"), @NamedAttributeNode("tokenInstanceReference")}),
+                @NamedSubgraph(name = "ra-profile-authority", attributeNodes = @NamedAttributeNode("authorityInstanceReference"))})
 @Entity
 @Table(name = "certificate")
-public class Certificate extends UniquelyIdentifiedAndAudited implements ComplianceSubject, DtoMapper<CertificateDetailDto> {
+public class Certificate extends UniquelyIdentifiedAndAudited
+        implements
+            ComplianceSubject,
+            DtoMapper<CertificateDetailDto> {
 
     @Serial
     private static final long serialVersionUID = -3048734620156664554L;
@@ -160,11 +176,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     private UUID raProfileUuid;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "group_association",
-            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)),
-            inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
-    )
+    @JoinTable(name = "group_association", joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)), inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false))
     @SQLJoinTableRestriction("resource = 'CERTIFICATE'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
@@ -177,7 +189,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     private OffsetDateTime statusValidationTimestamp;
 
     @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY
-            //orphanRemoval = true
+    // orphanRemoval = true
     )
     @JsonBackReference
     @ToString.Exclude
@@ -261,17 +273,17 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     private boolean archived = false;
 
     /**
-     * Preserves the {@code destroyKey} flag from a revocation request whose connector response
-     * was asynchronous. Read at manual revoke confirmation time, cleared on confirm or cancel.
-     * Always {@code null} outside the {@code PENDING_REVOKE} state.
+     * Preserves the {@code destroyKey} flag from a revocation request whose connector response was asynchronous. Read
+     * at manual revoke confirmation time, cleared on confirm or cancel. Always {@code null} outside the
+     * {@code PENDING_REVOKE} state.
      */
     @Column(name = "pending_revoke_destroy_key")
     private Boolean pendingRevokeDestroyKey;
 
     /**
-     * Preserves the revoke attributes from a revocation request whose connector response was
-     * asynchronous. Applied at manual revoke confirmation time, cleared on confirm or cancel.
-     * Always {@code null} outside the {@code PENDING_REVOKE} state.
+     * Preserves the revoke attributes from a revocation request whose connector response was asynchronous. Applied at
+     * manual revoke confirmation time, cleared on confirm or cancel. Always {@code null} outside the
+     * {@code PENDING_REVOKE} state.
      */
     @Column(name = "pending_revoke_attributes", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -311,7 +323,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
         return CertificateDetailDtoMapper.toSimpleDto(this, relationType);
     }
 
-
     public CertificateRequestEntity prepareCertificateRequest(final CertificateRequestFormat certificateRequestFormat) {
         final CertificateRequestEntity newCertificateRequestEntity = new CertificateRequestEntity();
         newCertificateRequestEntity.setCertificateType(this.certificateType);
@@ -327,19 +338,27 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
 
     public void setCertificateContent(CertificateContent certificateContent) {
         this.certificateContent = certificateContent;
-        if (certificateContent != null) this.certificateContentId = certificateContent.getId();
-        else this.certificateContentId = null;
+        if (certificateContent != null) {
+            this.certificateContentId = certificateContent.getId();
+        } else {
+            this.certificateContentId = null;
+        }
     }
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
-        else this.raProfileUuid = null;
+        if (raProfile != null) {
+            this.raProfileUuid = raProfile.getUuid();
+        } else {
+            this.raProfileUuid = null;
+        }
     }
 
     public void setKey(CryptographicKey key) {
         this.key = key;
-        if (key != null) this.keyUuid = key.getUuid();
+        if (key != null) {
+            this.keyUuid = key.getUuid();
+        }
     }
 
     public Long getValidity() {
@@ -358,7 +377,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
         this.certificateRequestEntity = certificateRequestEntity;
     }
 
-
     public void setTrustedCa(boolean trustedCa) {
         this.trustedCa = trustedCa;
     }
@@ -372,7 +390,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     }
 
     public void setUsage(List<CertificateKeyUsage> usage) {
-        this.keyUsage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(CertificateKeyUsage.class) : EnumSet.copyOf(usage));
+        this.keyUsage = BitMaskEnum
+                .convertSetToBitMask(
+                        usage.isEmpty() ? EnumSet.noneOf(CertificateKeyUsage.class) : EnumSet.copyOf(usage));
     }
 
     @Override
@@ -392,21 +412,35 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         Certificate that = (Certificate) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 
     public String toStringShort() {
-        return String.format("Certificate(UUID=%s, subjectDn=%s, issuerDn=%s, serialNumber=%s, fingerprint=%s)", uuid, subjectDn, issuerDn, serialNumber, fingerprint);
+        return String
+                .format("Certificate(UUID=%s, subjectDn=%s, issuerDn=%s, serialNumber=%s, fingerprint=%s)", uuid,
+                        subjectDn, issuerDn, serialNumber, fingerprint);
     }
 }

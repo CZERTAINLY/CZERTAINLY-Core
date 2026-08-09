@@ -2,13 +2,12 @@ package com.otilm.core.messaging.model;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
+import java.util.List;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
-
-import java.util.List;
-import java.util.UUID;
 
 @Getter
 @ToString
@@ -31,7 +30,8 @@ public class NotificationMessage {
 
     private Object data;
 
-    public NotificationMessage(ResourceEvent event, Resource resource, UUID objectUuid, List<UUID> notificationProfileUuids, List<NotificationRecipient> recipients, Object data) {
+    public NotificationMessage(ResourceEvent event, Resource resource, UUID objectUuid,
+            List<UUID> notificationProfileUuids, List<NotificationRecipient> recipients, Object data) {
         this.event = event;
         this.resource = resource;
         this.objectUuid = objectUuid;
@@ -40,7 +40,9 @@ public class NotificationMessage {
         this.data = data;
     }
 
-    public NotificationMessage(ResourceEvent event, Resource resource, UUID objectUuid, List<UUID> notificationProfileUuids, List<NotificationRecipient> recipients, Object data,  UUID triggerHistoryUuid, UUID executionUuid) {
+    public NotificationMessage(ResourceEvent event, Resource resource, UUID objectUuid,
+            List<UUID> notificationProfileUuids, List<NotificationRecipient> recipients, Object data,
+            UUID triggerHistoryUuid, UUID executionUuid) {
         this(event, resource, objectUuid, notificationProfileUuids, recipients, data);
         this.triggerHistoryUuid = triggerHistoryUuid;
         this.executionUuid = executionUuid;

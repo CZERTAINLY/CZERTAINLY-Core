@@ -3,27 +3,37 @@ package com.otilm.core.service.handler.authority.lifecycle;
 import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.certificate.CertificateState;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
-import static com.otilm.api.model.core.certificate.CertificateState.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static com.otilm.api.model.core.certificate.CertificateState.FAILED;
+import static com.otilm.api.model.core.certificate.CertificateState.ISSUED;
+import static com.otilm.api.model.core.certificate.CertificateState.PENDING_APPROVAL;
+import static com.otilm.api.model.core.certificate.CertificateState.PENDING_ISSUE;
+import static com.otilm.api.model.core.certificate.CertificateState.PENDING_REGISTRATION;
+import static com.otilm.api.model.core.certificate.CertificateState.PENDING_REVOKE;
+import static com.otilm.api.model.core.certificate.CertificateState.REGISTERED;
+import static com.otilm.api.model.core.certificate.CertificateState.REJECTED;
+import static com.otilm.api.model.core.certificate.CertificateState.REQUESTED;
+import static com.otilm.api.model.core.certificate.CertificateState.REVOKED;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CertificateStateTransitionTest {
 
     @Test
     void lookupReturnsRowForKnownTransition() {
-        Optional<CertificateStateTransition> row =
-            CertificateStateTransition.lookup(CertificateState.REQUESTED, CertificateState.PENDING_ISSUE);
+        Optional<CertificateStateTransition> row = CertificateStateTransition
+                .lookup(CertificateState.REQUESTED, CertificateState.PENDING_ISSUE);
         assertTrue(row.isPresent());
         assertEquals(CertificateEvent.ISSUE, row.get().defaultAuditEvent);
     }
 
     @Test
     void lookupReturnsEmptyForUnknownTransition() {
-        Optional<CertificateStateTransition> row =
-            CertificateStateTransition.lookup(CertificateState.REVOKED, CertificateState.ISSUED);
+        Optional<CertificateStateTransition> row = CertificateStateTransition
+                .lookup(CertificateState.REVOKED, CertificateState.ISSUED);
         assertFalse(row.isPresent());
     }
 
@@ -52,13 +62,13 @@ class CertificateStateTransitionTest {
         // Revoke (sync + async)
         assertRow(ISSUED, PENDING_REVOKE, revoke, success);
         assertRow(PENDING_REVOKE, REVOKED, revoke, success);
-        assertRow(PENDING_REVOKE, ISSUED, revoke, failed);   // revoke failed/cancelled — restore
+        assertRow(PENDING_REVOKE, ISSUED, revoke, failed); // revoke failed/cancelled — restore
         assertRow(ISSUED, REVOKED, revoke, success);
 
         // Revoke approval flow
         assertRow(ISSUED, PENDING_APPROVAL, approvalRequest, success);
         assertRow(PENDING_APPROVAL, PENDING_REVOKE, approvalClose, success);
-        assertRow(PENDING_APPROVAL, ISSUED, approvalClose, failed);   // revoke rejected — restore
+        assertRow(PENDING_APPROVAL, ISSUED, approvalClose, failed); // revoke rejected — restore
 
         // v3 register lifecycle
         assertRow(REQUESTED, PENDING_REGISTRATION, updateState, success);
@@ -73,13 +83,12 @@ class CertificateStateTransitionTest {
         assertRow(ISSUED, REJECTED, updateState, failed);
     }
 
-    private static void assertRow(CertificateState from, CertificateState to,
-                                  CertificateEvent expectedEvent, CertificateEventStatus expectedStatus) {
+    private static void assertRow(CertificateState from, CertificateState to, CertificateEvent expectedEvent,
+            CertificateEventStatus expectedStatus) {
         Optional<CertificateStateTransition> row = CertificateStateTransition.lookup(from, to);
         assertTrue(row.isPresent(), () -> "missing transition " + from + " -> " + to);
         assertEquals(expectedEvent, row.get().defaultAuditEvent,
-            () -> "wrong default audit event for " + from + " -> " + to);
-        assertEquals(expectedStatus, row.get().defaultStatus,
-            () -> "wrong default status for " + from + " -> " + to);
+                () -> "wrong default audit event for " + from + " -> " + to);
+        assertEquals(expectedStatus, row.get().defaultStatus, () -> "wrong default status for " + from + " -> " + to);
     }
 }

@@ -3,18 +3,19 @@ package com.otilm.core.model.request;
 import com.otilm.api.exception.CertificateRequestException;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.core.util.CertificateUtil;
-import lombok.Getter;
-import org.bouncycastle.asn1.crmf.CertReqMessages;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.*;
-import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessage;
-import org.bouncycastle.openssl.PEMException;
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
-
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
+import org.bouncycastle.asn1.crmf.CertReqMessages;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessage;
+import org.bouncycastle.openssl.PEMException;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
 public class CrmfCertificateRequest implements CertificateRequest {
 

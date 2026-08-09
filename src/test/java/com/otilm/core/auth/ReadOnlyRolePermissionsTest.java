@@ -7,10 +7,9 @@ import com.otilm.api.model.core.auth.SubjectPermissionsDto;
 import com.otilm.core.model.auth.Resource;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.auth.ResourceSyncRequestDto;
-import org.junit.jupiter.api.Test;
-
 import java.util.Arrays;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,13 +17,13 @@ class ReadOnlyRolePermissionsTest {
 
     /**
      * The auth service reads an empty action list together with {@code allowAllActions} as "every action on this
-     * resource", so a resource that contributes no read action has to disappear from the payload rather than be
-     * emitted empty - emitting it would grant the read-only role every write on that resource.
+     * resource", so a resource that contributes no read action has to disappear from the payload rather than be emitted
+     * empty - emitting it would grant the read-only role every write on that resource.
      */
     @Test
     void omitsResourceWhoseActionsAreAllNonGrantable() {
-        List<ResourceSyncRequestDto> catalogue = List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.CREATE, ResourceAction.DELETE));
+        List<ResourceSyncRequestDto> catalogue = List
+                .of(resource(Resource.CERTIFICATE, ResourceAction.CREATE, ResourceAction.DELETE));
 
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
@@ -37,9 +36,9 @@ class ReadOnlyRolePermissionsTest {
      */
     @Test
     void excludesSensitiveReadActions() {
-        List<ResourceSyncRequestDto> catalogue = List.of(
-                resource(Resource.SECRET, ResourceAction.DETAIL, ResourceAction.GET_SECRET_CONTENT),
-                resource(Resource.PROXY, ResourceAction.DETAIL, ResourceAction.GET_PROXY_INSTALLATION));
+        List<ResourceSyncRequestDto> catalogue = List
+                .of(resource(Resource.SECRET, ResourceAction.DETAIL, ResourceAction.GET_SECRET_CONTENT),
+                        resource(Resource.PROXY, ResourceAction.DETAIL, ResourceAction.GET_PROXY_INSTALLATION));
 
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
@@ -48,14 +47,14 @@ class ReadOnlyRolePermissionsTest {
     }
 
     /**
-     * The startup scan records {@code ANY} verbatim from the annotations, but the auth service never syncs it into
-     * its action catalogue, so emitting it makes it reject the whole permission save with "Unknown action" - the
-     * role would then keep whatever it had before, silently.
+     * The startup scan records {@code ANY} verbatim from the annotations, but the auth service never syncs it into its
+     * action catalogue, so emitting it makes it reject the whole permission save with "Unknown action" - the role would
+     * then keep whatever it had before, silently.
      */
     @Test
     void excludesTheAnySentinelTheScanRecordsFromAnnotations() {
-        List<ResourceSyncRequestDto> catalogue = List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.ANY, ResourceAction.LIST, ResourceAction.DETAIL));
+        List<ResourceSyncRequestDto> catalogue = List
+                .of(resource(Resource.CERTIFICATE, ResourceAction.ANY, ResourceAction.LIST, ResourceAction.DETAIL));
 
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
@@ -65,8 +64,8 @@ class ReadOnlyRolePermissionsTest {
 
     @Test
     void grantsNothingBeyondTheActionsItLists() {
-        List<ResourceSyncRequestDto> catalogue = List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.CREATE));
+        List<ResourceSyncRequestDto> catalogue = List
+                .of(resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.CREATE));
 
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
@@ -99,9 +98,9 @@ class ReadOnlyRolePermissionsTest {
     }
 
     /**
-     * The whole point of deriving rather than listing: a newly added action is classified once, on the enum, and
-     * lands on the right side here without anyone editing this role. Runs the entire action catalogue through the
-     * derivation, so an action added without a matching access type shows up as a failure.
+     * The whole point of deriving rather than listing: a newly added action is classified once, on the enum, and lands
+     * on the right side here without anyone editing this role. Runs the entire action catalogue through the derivation,
+     * so an action added without a matching access type shows up as a failure.
      */
     @Test
     void grantsExactlyTheReadActionsOfTheWholeActionCatalogue() {
@@ -109,7 +108,8 @@ class ReadOnlyRolePermissionsTest {
 
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
-        List<String> expected = Arrays.stream(ResourceAction.values())
+        List<String> expected = Arrays
+                .stream(ResourceAction.values())
                 .filter(ResourceAction::isGrantableToReadOnlyRole)
                 .map(ResourceAction::getCode)
                 .toList();
@@ -119,20 +119,21 @@ class ReadOnlyRolePermissionsTest {
     /** The scan collects actions into a set, so only a canonical order makes the emitted payload reproducible. */
     @Test
     void ordersActionsCanonically() {
-        List<ResourceSyncRequestDto> catalogue = List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.EXPORT));
+        List<ResourceSyncRequestDto> catalogue = List
+                .of(resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.EXPORT));
 
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
-        assertThat(actionsOf(derived, Resource.CERTIFICATE)).containsExactly(
-                ResourceAction.DETAIL.getCode(), ResourceAction.EXPORT.getCode(), ResourceAction.LIST.getCode());
+        assertThat(actionsOf(derived, Resource.CERTIFICATE))
+                .containsExactly(ResourceAction.DETAIL.getCode(), ResourceAction.EXPORT.getCode(),
+                        ResourceAction.LIST.getCode());
     }
 
     /** A duplicated grant is a duplicated permission row in the auth service, and a spurious "changed" verdict. */
     @Test
     void doesNotRepeatAnActionTheCatalogueListsTwice() {
-        List<ResourceSyncRequestDto> catalogue = List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.LIST));
+        List<ResourceSyncRequestDto> catalogue = List
+                .of(resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.LIST));
 
         RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
 
@@ -144,8 +145,10 @@ class ReadOnlyRolePermissionsTest {
 
     @Test
     void matchesStoredPermissionsThatAlreadyHoldTheDerivedGrants() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.CREATE)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List
+                        .of(resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL,
+                                ResourceAction.CREATE)));
 
         SubjectPermissionsDto stored = stored(false, storedResource(Resource.CERTIFICATE, false,
                 List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode())));
@@ -156,8 +159,8 @@ class ReadOnlyRolePermissionsTest {
     /** The auth service returns actions in its own order; a difference in order is not a difference in grants. */
     @Test
     void matchesStoredPermissionsListedInADifferentOrder() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL)));
 
         SubjectPermissionsDto stored = stored(false, storedResource(Resource.CERTIFICATE, false,
                 List.of(ResourceAction.LIST.getCode(), ResourceAction.DETAIL.getCode())));
@@ -167,8 +170,8 @@ class ReadOnlyRolePermissionsTest {
 
     @Test
     void differsWhenStoredHoldsAnActionTheCatalogueNoLongerGrants() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST)));
 
         SubjectPermissionsDto stored = stored(false, storedResource(Resource.CERTIFICATE, false,
                 List.of(ResourceAction.LIST.getCode(), ResourceAction.REVOKE.getCode())));
@@ -178,20 +181,21 @@ class ReadOnlyRolePermissionsTest {
 
     @Test
     void differsWhenStoredIsMissingAResourceTheCatalogueNowGrants() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST),
-                resource(Resource.SECRET, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List
+                        .of(resource(Resource.CERTIFICATE, ResourceAction.LIST),
+                                resource(Resource.SECRET, ResourceAction.LIST)));
 
-        SubjectPermissionsDto stored = stored(false, storedResource(Resource.CERTIFICATE, false,
-                List.of(ResourceAction.LIST.getCode())));
+        SubjectPermissionsDto stored = stored(false,
+                storedResource(Resource.CERTIFICATE, false, List.of(ResourceAction.LIST.getCode())));
 
         assertThat(ReadOnlyRolePermissions.matches(derived, stored)).isFalse();
     }
 
     @Test
     void differsWhenStoredHoldsAResourceTheCatalogueNoLongerGrants() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST)));
 
         SubjectPermissionsDto stored = stored(false,
                 storedResource(Resource.CERTIFICATE, false, List.of(ResourceAction.LIST.getCode())),
@@ -203,8 +207,8 @@ class ReadOnlyRolePermissionsTest {
     /** The auth service can report a role with no grants as an absent list rather than an empty one. */
     @Test
     void differsWhenStoredHasNoResourceListAtAll() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST)));
 
         SubjectPermissionsDto stored = new SubjectPermissionsDto();
         stored.setAllowAllResources(false);
@@ -214,8 +218,8 @@ class ReadOnlyRolePermissionsTest {
 
     @Test
     void differsWhenStoredAllowsAllActionsOnAResource() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST)));
 
         SubjectPermissionsDto stored = stored(false, storedResource(Resource.CERTIFICATE, true, List.of()));
 
@@ -224,23 +228,23 @@ class ReadOnlyRolePermissionsTest {
 
     @Test
     void differsWhenStoredAllowsAllResources() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST)));
 
-        SubjectPermissionsDto stored = stored(true, storedResource(Resource.CERTIFICATE, false,
-                List.of(ResourceAction.LIST.getCode())));
+        SubjectPermissionsDto stored = stored(true,
+                storedResource(Resource.CERTIFICATE, false, List.of(ResourceAction.LIST.getCode())));
 
         assertThat(ReadOnlyRolePermissions.matches(derived, stored)).isFalse();
     }
 
     /**
-     * Object-level entries are grants too, and the derivation emits none - so a role carrying one is out of step
-     * and must be rewritten, otherwise a hand-added object grant would survive every reconciliation untouched.
+     * Object-level entries are grants too, and the derivation emits none - so a role carrying one is out of step and
+     * must be rewritten, otherwise a hand-added object grant would survive every reconciliation untouched.
      */
     @Test
     void differsWhenStoredCarriesObjectLevelGrants() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST)));
 
         ResourcePermissionsDto withObject = storedResource(Resource.CERTIFICATE, false,
                 List.of(ResourceAction.LIST.getCode()));
@@ -255,17 +259,18 @@ class ReadOnlyRolePermissionsTest {
     /** No answer from the auth service is not evidence the role is already in step. */
     @Test
     void differsWhenStoredPermissionsAreAbsent() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List.of(resource(Resource.CERTIFICATE, ResourceAction.LIST)));
 
         assertThat(ReadOnlyRolePermissions.matches(derived, null)).isFalse();
     }
 
     @Test
     void countsTheGrantedActionsAcrossAllResources() {
-        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.CREATE),
-                resource(Resource.SECRET, ResourceAction.LIST)));
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions
+                .deriveFrom(List
+                        .of(resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL,
+                                ResourceAction.CREATE), resource(Resource.SECRET, ResourceAction.LIST)));
 
         assertThat(ReadOnlyRolePermissions.countActions(derived)).isEqualTo(3);
     }
@@ -277,7 +282,8 @@ class ReadOnlyRolePermissionsTest {
         return dto;
     }
 
-    private static ResourcePermissionsDto storedResource(Resource resource, boolean allowAllActions, List<String> actions) {
+    private static ResourcePermissionsDto storedResource(Resource resource, boolean allowAllActions,
+            List<String> actions) {
         ResourcePermissionsDto dto = new ResourcePermissionsDto();
         dto.setName(resource.getCode());
         dto.setAllowAllActions(allowAllActions);
@@ -287,7 +293,9 @@ class ReadOnlyRolePermissionsTest {
     }
 
     private static List<String> actionsOf(RolePermissionsRequestDto derived, Resource resource) {
-        return derived.getResources().stream()
+        return derived
+                .getResources()
+                .stream()
                 .filter(r -> resource.getCode().equals(r.getName()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(resource.getCode() + " missing from derived payload"))

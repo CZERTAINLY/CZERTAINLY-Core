@@ -10,11 +10,14 @@ import com.otilm.api.model.client.connector.v2.ConnectorInfo;
 import com.otilm.api.model.client.connector.v2.HealthInfo;
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.PaginationResponseDto;
-import com.otilm.api.model.core.connector.v2.*;
+import com.otilm.api.model.core.connector.v2.ConnectInfo;
+import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
+import com.otilm.api.model.core.connector.v2.ConnectorDto;
+import com.otilm.api.model.core.connector.v2.ConnectorRequestDto;
+import com.otilm.api.model.core.connector.v2.ConnectorUpdateRequestDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-
 import java.util.List;
 
 public interface ConnectorExternalService {
@@ -23,9 +26,11 @@ public interface ConnectorExternalService {
 
     ConnectorDetailDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    ConnectorDetailDto createConnector(ConnectorRequestDto request) throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException;
+    ConnectorDetailDto createConnector(ConnectorRequestDto request)
+            throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException;
 
-    ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException;
+    ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request)
+            throws NotFoundException, ConnectorException, AttributeException;
 
     void deleteConnector(SecuredUUID uuid) throws NotFoundException;
 

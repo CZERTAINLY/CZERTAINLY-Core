@@ -8,15 +8,12 @@ import jakarta.validation.constraints.NotNull;
  *
  * @param command the command specification containing the rendered shell command
  */
-public record InstallationInstructionsDTO(
-        @NotNull @Valid Command command
-) {
+public record InstallationInstructionsDTO(@NotNull @Valid Command command) {
     /**
      * Command specification with the shell command string.
      *
      * @param shell the fully rendered shell command ready for execution
      */
-    public record Command(
-            @NotNull String shell
-    ) {}
+    public record Command(@NotNull String shell) {
+    }
 }

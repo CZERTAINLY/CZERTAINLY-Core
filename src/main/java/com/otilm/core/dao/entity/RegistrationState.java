@@ -6,8 +6,5 @@ package com.otilm.core.dao.entity;
  * attempts, and {@code CLOSED} once it has been retired.
  */
 public enum RegistrationState {
-    ACTIVE,
-    EXPIRED,
-    LOCKED,
-    CLOSED
+    ACTIVE, EXPIRED, LOCKED, CLOSED
 }

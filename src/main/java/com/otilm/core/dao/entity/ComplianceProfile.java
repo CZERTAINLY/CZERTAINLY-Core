@@ -3,19 +3,31 @@ package com.otilm.core.dao.entity;
 import com.otilm.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.compliance.ComplianceProviderSummaryDto;
-import com.otilm.api.model.core.compliance.v2.*;
+import com.otilm.api.model.core.compliance.v2.ComplianceProfileDto;
+import com.otilm.api.model.core.compliance.v2.ComplianceProfileListDto;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.proxy.HibernateProxy;
 
-import java.io.Serializable;
-import java.util.*;
-
 /**
- * Compliance Profile entity storing the details of rules and groups associated with the compliance profile.
- * It also holds the manyToMany relation with the RA Profile as they can have more than 1 RA Profile and vice versa
+ * Compliance Profile entity storing the details of rules and groups associated with the compliance profile. It also
+ * holds the manyToMany relation with the RA Profile as they can have more than 1 RA Profile and vice versa
  */
 @Getter
 @Setter
@@ -23,7 +35,11 @@ import java.util.*;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "compliance_profile")
-public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class ComplianceProfile extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<ComplianceProfileDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "name", nullable = false)
     private String name;
@@ -90,12 +106,14 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         for (ComplianceProfileRule complianceRule : complianceRules) {
             if (complianceRule.getComplianceRuleUuid() != null) {
                 String connectorName = complianceRule.getConnector().getName();
-                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
+                var providerSummary = providersMapping
+                        .computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
                 providerSummary.setNumberOfRules(providerSummary.getNumberOfRules() + 1);
             } else if (complianceRule.getComplianceGroupUuid() != null) {
                 // ??? should we count also rules from groups ???
                 String connectorName = complianceRule.getConnector().getName();
-                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
+                var providerSummary = providersMapping
+                        .computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
                 providerSummary.setNumberOfGroups(providerSummary.getNumberOfGroups() + 1);
             }
         }
@@ -109,7 +127,6 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         return new NameAndUuidDto(uuid.toString(), name);
     }
 
-
     public SimplifiedComplianceProfileDto raProfileMapToDto() {
         SimplifiedComplianceProfileDto complianceProfileDto = new SimplifiedComplianceProfileDto();
         complianceProfileDto.setName(name);
@@ -120,17 +137,31 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof ComplianceProfile that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof ComplianceProfile that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

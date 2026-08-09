@@ -24,6 +24,10 @@ import com.otilm.core.service.impl.SchedulerServiceImpl;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.tasks.ScheduledJobTask;
 import com.otilm.core.util.AuthHelper;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,14 +39,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Pageable;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerServiceMockedTest {
@@ -99,10 +116,12 @@ class SchedulerServiceMockedTest {
         pagination.setPageNumber(1);
         pagination.setItemsPerPage(10);
 
-        when(scheduledJobsRepository.findUsingSecurityFilter(any(), eq(List.of()), isNull(), any(Pageable.class), isNull()))
+        when(scheduledJobsRepository
+                .findUsingSecurityFilter(any(), eq(List.of()), isNull(), any(Pageable.class), isNull()))
                 .thenReturn(List.of(scheduledJob));
         when(scheduledJobsRepository.countUsingSecurityFilter(any(), isNull())).thenReturn(1L);
-        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID)).thenReturn(scheduledJobHistory);
+        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID))
+                .thenReturn(scheduledJobHistory);
 
         ScheduledJobsResponseDto response = schedulerService.listScheduledJobs(SecurityFilter.create(), pagination);
 
@@ -116,7 +135,8 @@ class SchedulerServiceMockedTest {
     @Test
     void testGetScheduledJobDetail_ReturnsDetail() throws Exception {
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID)).thenReturn(scheduledJobHistory);
+        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID))
+                .thenReturn(scheduledJobHistory);
 
         ScheduledJobDetailDto response = schedulerService.getScheduledJobDetail(JOB_UUID.toString());
 
@@ -156,7 +176,10 @@ class SchedulerServiceMockedTest {
     @Test
     void testDeleteScheduledJob_WhenExecutionInFlight_ThrowsValidationException() throws SchedulerException {
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(JOB_UUID, SchedulerJobExecutionStatus.STARTED)).thenReturn(true);
+        when(scheduledJobHistoryRepository
+                .existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(JOB_UUID,
+                        SchedulerJobExecutionStatus.STARTED))
+                .thenReturn(true);
 
         assertThrows(ValidationException.class, () -> schedulerService.deleteScheduledJob(JOB_UUID.toString()));
 
@@ -167,7 +190,10 @@ class SchedulerServiceMockedTest {
     @Test
     void testDeleteScheduledJob_WhenSchedulerDeleteSucceeds_DeletesRepositoryRecord() throws Exception {
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(JOB_UUID, SchedulerJobExecutionStatus.STARTED)).thenReturn(false);
+        when(scheduledJobHistoryRepository
+                .existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(JOB_UUID,
+                        SchedulerJobExecutionStatus.STARTED))
+                .thenReturn(false);
 
         schedulerService.deleteScheduledJob(JOB_UUID.toString());
 
@@ -178,7 +204,10 @@ class SchedulerServiceMockedTest {
     @Test
     void testDeleteScheduledJob_WhenSchedulerDeleteFails_SwallowsException() throws Exception {
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(JOB_UUID, SchedulerJobExecutionStatus.STARTED)).thenReturn(false);
+        when(scheduledJobHistoryRepository
+                .existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(JOB_UUID,
+                        SchedulerJobExecutionStatus.STARTED))
+                .thenReturn(false);
         doThrow(new SchedulerException("boom")).when(schedulerApiClient).deleteScheduledJob(JOB_NAME);
 
         assertDoesNotThrow(() -> schedulerService.deleteScheduledJob(JOB_UUID.toString()));
@@ -192,11 +221,13 @@ class SchedulerServiceMockedTest {
         pagination.setPageNumber(1);
         pagination.setItemsPerPage(10);
 
-        when(scheduledJobHistoryRepository.findUsingSecurityFilter(any(), eq(List.of()), any(), any(Pageable.class), any()))
+        when(scheduledJobHistoryRepository
+                .findUsingSecurityFilter(any(), eq(List.of()), any(), any(Pageable.class), any()))
                 .thenReturn(List.of(scheduledJobHistory));
         when(scheduledJobHistoryRepository.countUsingSecurityFilter(any(), any())).thenReturn(1L);
 
-        ScheduledJobHistoryResponseDto response = schedulerService.getScheduledJobHistory(SecurityFilter.create(), pagination, JOB_UUID.toString());
+        ScheduledJobHistoryResponseDto response = schedulerService
+                .getScheduledJobHistory(SecurityFilter.create(), pagination, JOB_UUID.toString());
 
         assertEquals(1, response.getScheduledJobHistory().size());
         assertEquals(1L, response.getTotalItems());
@@ -252,14 +283,16 @@ class SchedulerServiceMockedTest {
         UpdateScheduledJob request = new UpdateScheduledJob();
         request.setCronExpression("0 15 * * * ?");
 
-        assertThrows(ValidationException.class, () -> schedulerService.updateScheduledJob(JOB_UUID.toString(), request));
+        assertThrows(ValidationException.class,
+                () -> schedulerService.updateScheduledJob(JOB_UUID.toString(), request));
     }
 
     @Test
     void testUpdateScheduledJob_WhenEnabled_UpdatesCronAndDoesNotDisableAgain() throws Exception {
         scheduledJob.setEnabled(true);
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID)).thenReturn(scheduledJobHistory);
+        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID))
+                .thenReturn(scheduledJobHistory);
 
         UpdateScheduledJob request = new UpdateScheduledJob();
         request.setCronExpression("0 15 * * * ?");
@@ -277,7 +310,8 @@ class SchedulerServiceMockedTest {
     void testUpdateScheduledJob_WhenDisabled_UpdatesCronAndReDisablesJob() throws Exception {
         scheduledJob.setEnabled(false);
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID)).thenReturn(scheduledJobHistory);
+        when(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(JOB_UUID))
+                .thenReturn(scheduledJobHistory);
 
         UpdateScheduledJob request = new UpdateScheduledJob();
         request.setCronExpression("0 30 * * * ?");
@@ -312,13 +346,8 @@ class SchedulerServiceMockedTest {
         try (MockedStatic<AuthHelper> authHelperMock = mockStatic(AuthHelper.class)) {
             authHelperMock.when(AuthHelper::getUserIdentification).thenThrow(new ValidationException("no auth"));
 
-            ScheduledJobDetailDto response = schedulerService.registerScheduledJob(
-                    TestTask.class,
-                    "CustomJob",
-                    "0 10 * * * ?",
-                    true,
-                    "payload"
-            );
+            ScheduledJobDetailDto response = schedulerService
+                    .registerScheduledJob(TestTask.class, "CustomJob", "0 10 * * * ?", true, "payload");
 
             assertNotNull(response);
 
@@ -358,6 +387,7 @@ class SchedulerServiceMockedTest {
         assertEquals(SchedulerJobExecutionStatus.FAILED, savedHistory.getSchedulerExecutionStatus());
         assertTrue(savedHistory.getResultMessage().contains("Unknown scheduled task"));
     }
+
     @Test
     void testRunScheduledJob_WhenTaskIsNotScheduledJobTask_RegistersFailedHistory() throws Exception {
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
@@ -379,8 +409,7 @@ class SchedulerServiceMockedTest {
     @Test
     void testRunScheduledJob_WhenJobSucceeds_UpdatesHistoryAndProducesEvent() throws Exception {
         TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")
-        ));
+                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -403,9 +432,8 @@ class SchedulerServiceMockedTest {
 
     @Test
     void testRunScheduledJob_WhenJobFails_UpdatesHistoryWithFailedStatus() throws Exception {
-        TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, "Job failed with error")
-        ));
+        TestTask testTask = spy(
+                new TestTask(new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, "Job failed with error")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -444,8 +472,7 @@ class SchedulerServiceMockedTest {
         scheduledJob.setUserUuid(userUuid);
 
         TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")
-        ));
+                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -462,8 +489,7 @@ class SchedulerServiceMockedTest {
         scheduledJob.setObjectData(taskData);
 
         TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")
-        ));
+                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -479,8 +505,7 @@ class SchedulerServiceMockedTest {
     @Test
     void testRunScheduledJob_CreatesHistoryWithCorrectScheduledJobInfo() throws Exception {
         TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")
-        ));
+                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Job completed successfully")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -501,9 +526,7 @@ class SchedulerServiceMockedTest {
     void testRunScheduledJob_WhenOneTimeSuccessful_DeletesScheduledJob() throws Exception {
         scheduledJob.setOneTime(true);
 
-        TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")
-        ));
+        TestTask testTask = spy(new TestTask(new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -518,9 +541,7 @@ class SchedulerServiceMockedTest {
     void testRunScheduledJob_WhenOneTimeSuccessfulAndDeleteFails_SwallowsException() throws Exception {
         scheduledJob.setOneTime(true);
 
-        TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")
-        ));
+        TestTask testTask = spy(new TestTask(new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -536,9 +557,7 @@ class SchedulerServiceMockedTest {
     void testRunScheduledJob_WhenSystemJobSuccessful_DoesNotProduceEvent() throws Exception {
         scheduledJob.setSystem(true);
 
-        TestTask testTask = spy(new TestTask(
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")
-        ));
+        TestTask testTask = spy(new TestTask(new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")));
 
         when(scheduledJobsRepository.findByJobName(JOB_NAME)).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.save(any(ScheduledJobHistory.class))).thenReturn(scheduledJobHistory);
@@ -551,17 +570,13 @@ class SchedulerServiceMockedTest {
 
     @Test
     void testHandleScheduledJobFinishedEvent_FinalizesExistingHistory() throws Exception {
-        ScheduledTaskResult result = new ScheduledTaskResult(
-                SchedulerJobExecutionStatus.SUCCESS,
-                "event-finished"
-        );
+        ScheduledTaskResult result = new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "event-finished");
         ScheduledJobFinishedEvent event = new ScheduledJobFinishedEvent(
-                new ScheduledJobInfo(JOB_NAME, JOB_UUID, HISTORY_UUID),
-                result
-        );
+                new ScheduledJobInfo(JOB_NAME, JOB_UUID, HISTORY_UUID), result);
 
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
-        when(scheduledJobHistoryRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJobHistory));
+        when(scheduledJobHistoryRepository.findByUuid(any(SecuredUUID.class)))
+                .thenReturn(Optional.of(scheduledJobHistory));
 
         schedulerService.handleScheduledJobFinishedEvent(event);
 
@@ -575,8 +590,7 @@ class SchedulerServiceMockedTest {
     void testHandleScheduledJobFinishedEvent_WhenJobNotFound_ThrowsNotFoundException() {
         ScheduledJobFinishedEvent event = new ScheduledJobFinishedEvent(
                 new ScheduledJobInfo(JOB_NAME, JOB_UUID, HISTORY_UUID),
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")
-        );
+                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done"));
 
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.empty());
 
@@ -587,8 +601,7 @@ class SchedulerServiceMockedTest {
     void testHandleScheduledJobFinishedEvent_WhenHistoryNotFound_ThrowsNotFoundException() {
         ScheduledJobFinishedEvent event = new ScheduledJobFinishedEvent(
                 new ScheduledJobInfo(JOB_NAME, JOB_UUID, HISTORY_UUID),
-                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done")
-        );
+                new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "done"));
 
         when(scheduledJobsRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.of(scheduledJob));
         when(scheduledJobHistoryRepository.findByUuid(any(SecuredUUID.class))).thenReturn(Optional.empty());

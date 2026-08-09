@@ -36,7 +36,8 @@ public class TspSigningProfileControllerImpl implements TspSigningProfileControl
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD, affiliatedResource = Resource.SIGNING_PROFILE, operation = Operation.SIGN)
-    public ResponseEntity<byte[]> timestamp(@LogResource(name = true, affiliated = true) String signingProfileName, byte[] request) {
+    public ResponseEntity<byte[]> timestamp(@LogResource(name = true, affiliated = true) String signingProfileName,
+            byte[] request) {
         byte[] responseBytes;
         try {
             TspRequest parsedRequest = TspRequestParser.parse(request);
@@ -52,20 +53,25 @@ public class TspSigningProfileControllerImpl implements TspSigningProfileControl
             log.warn("TSP request failed with {}: {}", e.getFailureInfo(), e.getMessage());
         } catch (NotFoundException e) {
             auditResultOverride.setFailure();
-            responseBytes = TspResponseBuilder.buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
-            log.warn("Resource not found while processing TSP request for signing profile '{}': {}", signingProfileName,
-                    e.getMessage());
+            responseBytes = TspResponseBuilder
+                    .buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
+            log
+                    .warn("Resource not found while processing TSP request for signing profile '{}': {}",
+                            signingProfileName, e.getMessage());
         } catch (AccessDeniedException e) {
             // An authorization denial is rendered as the same generic not-found rejection as a non-existent profile so
             // a caller cannot probe which profiles exist by observing differing outcomes (enumeration defense). The
             // real cause is logged for operators but never put on the wire.
             auditResultOverride.setFailure();
-            responseBytes = TspResponseBuilder.buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
-            log.warn("Access denied while processing TSP request for signing profile '{}': {}", signingProfileName,
-                    e.getMessage());
+            responseBytes = TspResponseBuilder
+                    .buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
+            log
+                    .warn("Access denied while processing TSP request for signing profile '{}': {}", signingProfileName,
+                            e.getMessage());
         } catch (Exception e) {
             auditResultOverride.setFailure();
-            responseBytes = TspResponseBuilder.buildRejection(TspFailureInfo.SYSTEM_FAILURE, "An unexpected error occurred during timestamping.");
+            responseBytes = TspResponseBuilder
+                    .buildRejection(TspFailureInfo.SYSTEM_FAILURE, "An unexpected error occurred during timestamping.");
             log.error("Unexpected TSP processing failure", e);
         }
 

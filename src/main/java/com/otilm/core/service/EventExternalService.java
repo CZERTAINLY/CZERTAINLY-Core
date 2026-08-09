@@ -13,7 +13,9 @@ import java.util.UUID;
 
 public interface EventExternalService {
 
-    PaginationResponseDto<ObjectEventHistoryDto> getEventHistory(Resource resource, UUID uuid, PaginationRequestDto pagination) throws NotFoundException;
+    PaginationResponseDto<ObjectEventHistoryDto> getEventHistory(Resource resource, UUID uuid,
+            PaginationRequestDto pagination) throws NotFoundException;
 
-    PaginationResponseDto<EventHistoryDto> getEventHistory(ResourceEvent event, Resource resource, UUID uuid, EventHistoryRequestDto request) throws NotFoundException;
+    PaginationResponseDto<EventHistoryDto> getEventHistory(ResourceEvent event, Resource resource, UUID uuid,
+            EventHistoryRequestDto request) throws NotFoundException;
 }

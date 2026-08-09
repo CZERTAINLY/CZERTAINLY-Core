@@ -5,10 +5,10 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Unit test for {@link TspProtocolUrlFactory} — the pure composer of externally-reachable TSP protocol URLs.
- * The methods hold no request dependency and perform plain string concatenation, so every case is driven
- * directly with literal inputs. These assertions pin the exact wire path surfaced to operators in profile DTOs;
- * a change here is a change to the client-facing contract.
+ * Unit test for {@link TspProtocolUrlFactory} — the pure composer of externally-reachable TSP protocol URLs. The
+ * methods hold no request dependency and perform plain string concatenation, so every case is driven directly with
+ * literal inputs. These assertions pin the exact wire path surfaced to operators in profile DTOs; a change here is a
+ * change to the client-facing contract.
  */
 class TspProtocolUrlFactoryTest {
 

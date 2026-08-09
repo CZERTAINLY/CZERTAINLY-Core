@@ -2,13 +2,6 @@ package com.otilm.core.security.authn.client;
 
 import com.otilm.core.config.cache.CacheConfig;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -18,18 +11,27 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.stereotype.Component;
 
 /**
  * Positive-only peppered credential verification cache backed by Caffeine.
  *
- * <p>Cache key: {@code HMAC-SHA-256(pepper, secretUuid + ":" + password)} rendered as hex.
- * The pepper is generated from {@link SecureRandom} at application startup and never persisted,
- * so cache state is opaque and cannot be reversed to recover raw passwords.</p>
+ * <p>
+ * Cache key: {@code HMAC-SHA-256(pepper, secretUuid + ":" + password)} rendered as hex. The pepper is generated from
+ * {@link SecureRandom} at application startup and never persisted, so cache state is opaque and cannot be reversed to
+ * recover raw passwords.
+ * </p>
  *
- * <p>Cache value: {@link SecretRefEntry} (secretUuid + mappedUserUuid). The secretUuid in the
- * value lets {@link SecretRefIndex} — a Caffeine removal listener — maintain a secondary index
- * ({@code secretUuid → Set<hmacKey>}) enabling {@link #evictBySecretUuid} to clear all
- * password-keyed entries for a rotated or deleted secret in one call.</p>
+ * <p>
+ * Cache value: {@link SecretRefEntry} (secretUuid + mappedUserUuid). The secretUuid in the value lets
+ * {@link SecretRefIndex} — a Caffeine removal listener — maintain a secondary index ({@code secretUuid → Set<hmacKey>})
+ * enabling {@link #evictBySecretUuid} to clear all password-keyed entries for a rotated or deleted secret in one call.
+ * </p>
  */
 @Component
 class PepperedCredentialVerificationCache implements CredentialVerificationCache {
@@ -51,9 +53,9 @@ class PepperedCredentialVerificationCache implements CredentialVerificationCache
 
     @PostConstruct
     void init() {
-        this.cache = Objects.requireNonNull(
-                cacheManager.getCache(CacheConfig.CREDENTIAL_VERIFICATION_CACHE),
-                "CREDENTIAL_VERIFICATION_CACHE must be registered in CacheConfig");
+        this.cache = Objects
+                .requireNonNull(cacheManager.getCache(CacheConfig.CREDENTIAL_VERIFICATION_CACHE),
+                        "CREDENTIAL_VERIFICATION_CACHE must be registered in CacheConfig");
         byte[] randomPepper = new byte[32];
         SECURE_RANDOM.nextBytes(randomPepper);
         this.pepper = randomPepper;
@@ -80,16 +82,19 @@ class PepperedCredentialVerificationCache implements CredentialVerificationCache
     public void evictBySecretUuid(UUID secretUuid) {
         Objects.requireNonNull(secretUuid, "secretUuid must not be null");
         // Known, accepted trade-off (same as TokenJtiIndex): a putSuccess that interleaves between removeSecret and the
-        // evict loop can leave a fresh positive entry that this call misses. The window is tiny and the entry is bounded
+        // evict loop can leave a fresh positive entry that this call misses. The window is tiny and the entry is
+        // bounded
         // by the cache TTL.
         Set<String> hmacKeys = secretRefIndex.removeSecret(secretUuid);
-        if (hmacKeys == null) return;
+        if (hmacKeys == null) {
+            return;
+        }
         hmacKeys.forEach(cache::evict);
     }
 
     /**
-     * Derives a deterministic, non-reversible cache key for the given (secretUuid, password) pair.
-     * Uses HMAC-SHA-256 with the per-process pepper so the raw password is never stored.
+     * Derives a deterministic, non-reversible cache key for the given (secretUuid, password) pair. Uses HMAC-SHA-256
+     * with the per-process pepper so the raw password is never stored.
      */
     private String hmac(UUID secretUuid, String password) {
         Objects.requireNonNull(secretUuid, "secretUuid must not be null");
@@ -102,7 +107,7 @@ class PepperedCredentialVerificationCache implements CredentialVerificationCache
             mac.update((byte) ':');
             mac.update(password.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(mac.doFinal());
-        } catch (InvalidKeyException | NoSuchAlgorithmException  e) {
+        } catch (InvalidKeyException | NoSuchAlgorithmException e) {
             throw new IllegalStateException("HMAC-SHA-256 unavailable", e);
         }
     }

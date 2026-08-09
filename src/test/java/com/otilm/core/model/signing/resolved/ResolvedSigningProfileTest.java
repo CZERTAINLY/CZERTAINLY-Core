@@ -6,10 +6,9 @@ import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.signing.tsa.CertificateChain;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -25,25 +24,13 @@ class ResolvedSigningProfileTest {
 
     @Test
     void resolvedManagedTimestampingProfile_carriesAllFields_andReportsTimestampingWorkflowType() {
-        ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(
-                SigningCertificateBuilder.valid(), List.of(), null, List.of());
+        ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(),
+                List.of(), null, List.of());
 
-        ResolvedManagedTimestampingProfile profile = new ResolvedManagedTimestampingProfile(
-                PROFILE_UUID,
-                "profile-x",
-                "desc",
-                3,
-                true,
-                List.of(SigningProtocol.TSP),
-                Boolean.TRUE,
-                "1.2.3.4.5",
-                List.of("1.2.3.4.5", "1.2.3.4.6"),
-                List.of(DigestAlgorithm.SHA_256),
-                Boolean.FALSE,
-                List.of(),
-                null,
-                null,
-                scheme);
+        ResolvedManagedTimestampingProfile profile = new ResolvedManagedTimestampingProfile(PROFILE_UUID, "profile-x",
+                "desc", 3, true, List.of(SigningProtocol.TSP), Boolean.TRUE, "1.2.3.4.5",
+                List.of("1.2.3.4.5", "1.2.3.4.6"), List.of(DigestAlgorithm.SHA_256), Boolean.FALSE, List.of(), null,
+                null, scheme);
 
         assertEquals(PROFILE_UUID, profile.uuid());
         assertEquals("profile-x", profile.name());
@@ -66,10 +53,8 @@ class ResolvedSigningProfileTest {
 
     @Test
     void resolvedManagedTimestampingProfile_isResolvedSigningProfile() {
-        ResolvedSigningProfile profile = new ResolvedManagedTimestampingProfile(
-                PROFILE_UUID, "n", null, 1, false, List.of(),
-                false, null, List.of(), List.of(), null,
-                List.of(), null, null,
+        ResolvedSigningProfile profile = new ResolvedManagedTimestampingProfile(PROFILE_UUID, "n", null, 1, false,
+                List.of(), false, null, List.of(), List.of(), null, List.of(), null, null,
                 new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(), null, List.of()));
 
         assertInstanceOf(ResolvedManagedTimestampingProfile.class, profile);
@@ -80,8 +65,7 @@ class ResolvedSigningProfileTest {
     void resolvedStaticKeyManagedSigning_carriesCertificateAndChain() {
         SigningCertificate cert = SigningCertificateBuilder.valid();
         CertificateChain chain = mock(CertificateChain.class);
-        ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(
-                cert, List.of(), chain, List.of());
+        ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(cert, List.of(), chain, List.of());
 
         assertSame(cert, scheme.certificate());
         assertNotNull(scheme.keyItems());
@@ -91,8 +75,8 @@ class ResolvedSigningProfileTest {
 
     @Test
     void resolvedStaticKeyManagedSigning_isResolvedManagedScheme() {
-        ResolvedManagedScheme scheme = new ResolvedStaticKeyManagedSigning(
-                SigningCertificateBuilder.valid(), List.of(), null, List.of());
+        ResolvedManagedScheme scheme = new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(),
+                null, List.of());
 
         assertInstanceOf(ResolvedStaticKeyManagedSigning.class, scheme);
     }

@@ -1,7 +1,8 @@
 package com.otilm.core.provisioning;
 
-import lombok.RequiredArgsConstructor;
 import com.otilm.core.config.http.PlatformHttpClients;
+import java.nio.charset.StandardCharsets;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -15,8 +16,6 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
-
-import java.nio.charset.StandardCharsets;
 
 /**
  * Configuration for the provisioning API clients.
@@ -53,31 +52,36 @@ public class ProvisioningApiConfig {
 
     @Bean
     public RestClient provisioningRestClient(ClientHttpRequestInterceptor provisioningHttpLoggingInterceptor) {
-        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
-            .withConnectTimeout(provisioningApiProperties.connectTimeout())
-            .withReadTimeout(provisioningApiProperties.readTimeout());
+        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings
+                .defaults()
+                .withConnectTimeout(provisioningApiProperties.connectTimeout())
+                .withReadTimeout(provisioningApiProperties.readTimeout());
 
         ClientHttpRequestFactory factory = PlatformHttpClients.requestFactoryBuilder().build(settings);
 
-        return RestClient.builder()
-            .baseUrl(provisioningApiProperties.url())
-            .requestFactory(new BufferingClientHttpRequestFactory(factory))
-            .defaultHeader("X-API-Key", provisioningApiProperties.apiKey())
-            .requestInterceptor(provisioningHttpLoggingInterceptor)
-            .build();
+        return RestClient
+                .builder()
+                .baseUrl(provisioningApiProperties.url())
+                .requestFactory(new BufferingClientHttpRequestFactory(factory))
+                .defaultHeader("X-API-Key", provisioningApiProperties.apiKey())
+                .requestInterceptor(provisioningHttpLoggingInterceptor)
+                .build();
     }
 
     @Bean
     public ProxyProvisioningApiClient proxyProvisioningApiClient(RestClient provisioningRestClient) {
-        HttpServiceProxyFactory httpServiceProxyFactory = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(provisioningRestClient))
-            .build();
+        HttpServiceProxyFactory httpServiceProxyFactory = HttpServiceProxyFactory
+                .builderFor(RestClientAdapter.create(provisioningRestClient))
+                .build();
         return httpServiceProxyFactory.createClient(ProxyProvisioningApiClient.class);
     }
 
     @Bean
-    public TrustedCertificateProvisioningApiClient trustedCertificateProvisioningApiClient(RestClient provisioningRestClient) {
-        HttpServiceProxyFactory httpServiceProxyFactory = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(provisioningRestClient))
-            .build();
+    public TrustedCertificateProvisioningApiClient trustedCertificateProvisioningApiClient(
+            RestClient provisioningRestClient) {
+        HttpServiceProxyFactory httpServiceProxyFactory = HttpServiceProxyFactory
+                .builderFor(RestClientAdapter.create(provisioningRestClient))
+                .build();
         return httpServiceProxyFactory.createClient(TrustedCertificateProvisioningApiClient.class);
     }
 }

@@ -1,22 +1,43 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.attribute.AttributeDefinitionDto;
 import com.otilm.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.otilm.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.otilm.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.otilm.api.model.common.NameAndUuidDto;
-import com.otilm.api.model.common.attribute.common.*;
-import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
-import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.otilm.api.model.common.attribute.common.AttributeContent;
+import com.otilm.api.model.common.attribute.common.AttributeType;
+import com.otilm.api.model.common.attribute.common.AttributeVersion;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.CustomAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
 import com.otilm.core.attribute.engine.AttributeVersionHelper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.Mutability;
 import org.hibernate.proxy.HibernateProxy;
@@ -25,12 +46,6 @@ import org.hibernate.type.descriptor.java.Immutability;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -76,8 +91,8 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     private int version;
 
     /**
-     * Attribute definition is always changed by replacement only, never mutated in place.
-     * Make it immutable so it is never dirty. Overcomes the missing value-based {@code equals} for attribute nested types.
+     * Attribute definition is always changed by replacement only, never mutated in place. Make it immutable so it is
+     * never dirty. Overcomes the missing value-based {@code equals} for attribute nested types.
      */
     @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -120,7 +135,9 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-        if (connector != null) this.connectorUuid = connector.getUuid();
+        if (connector != null) {
+            this.connectorUuid = connector.getUuid();
+        }
     }
 
     public Boolean isEnabled() {
@@ -135,12 +152,10 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         return readOnly;
     }
 
-
     @Override
     public NameAndUuidDto mapToAccessControlObjects() {
         return new NameAndUuidDto(uuid.toString(), name);
     }
-
 
     public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
         CustomAttributeDefinitionDto dto = new CustomAttributeDefinitionDto();
@@ -179,8 +194,10 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
             List<AttributeContent> content = attribute.getContent();
             List<AttributeContent> decryptedData = new ArrayList<>();
             for (int i = 0; i < content.size(); i++) {
-                AttributeContent decryptedItem = i < encryptedData.size() ? AttributeVersionHelper.decryptContent(
-                        content.get(i), 3, attribute.getContentType(), encryptedData.get(i)) : content.get(i);
+                AttributeContent decryptedItem = i < encryptedData.size()
+                        ? AttributeVersionHelper
+                                .decryptContent(content.get(i), 3, attribute.getContentType(), encryptedData.get(i))
+                        : content.get(i);
                 decryptedData.add(decryptedItem);
             }
             dto.setContent(decryptedData);
@@ -228,17 +245,29 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         AttributeDefinition that = (AttributeDefinition) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

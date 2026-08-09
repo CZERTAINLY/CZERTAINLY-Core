@@ -2,17 +2,18 @@ package com.otilm.core.messaging.proxy;
 
 import com.otilm.api.clients.mq.model.ProxyMessage;
 import com.otilm.core.messaging.proxy.handler.MessageTypeHandlerRegistry;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
-
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SharedProxyMessageListenerTest {
@@ -71,10 +72,6 @@ class SharedProxyMessageListenerTest {
     }
 
     private ProxyMessage createMessage(String messageType) {
-        return ProxyMessage.builder()
-                .proxyId("test-proxy")
-                .messageType(messageType)
-                .timestamp(Instant.now())
-                .build();
+        return ProxyMessage.builder().proxyId("test-proxy").messageType(messageType).timestamp(Instant.now()).build();
     }
 }

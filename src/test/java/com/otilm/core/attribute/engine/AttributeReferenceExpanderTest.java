@@ -10,17 +10,15 @@ import com.otilm.api.model.common.attribute.v3.content.data.ResourceObjectConten
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
 import com.otilm.api.model.core.auth.AttributeResource;
-import com.otilm.core.security.authz.SecuredUUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
-import org.springframework.security.access.AccessDeniedException;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.springframework.security.access.AccessDeniedException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -33,10 +31,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Security-heavy unit tests for the callback-mode reference expander. The DETAIL gate itself is exercised
- * through the registry's loader (mocked to throw {@link AccessDeniedException} for "denied" objects), so these
- * tests assert the expander's fail-closed, cycle, depth, multi-select and pass-through behaviour without a Spring
- * context. The real per-object aspect is covered by the ArchUnit fence + the guarded loaders' own annotations.
+ * Security-heavy unit tests for the callback-mode reference expander. The DETAIL gate itself is exercised through the
+ * registry's loader (mocked to throw {@link AccessDeniedException} for "denied" objects), so these tests assert the
+ * expander's fail-closed, cycle, depth, multi-select and pass-through behaviour without a Spring context. The real
+ * per-object aspect is covered by the ArchUnit fence + the guarded loaders' own annotations.
  */
 class AttributeReferenceExpanderTest {
 
@@ -86,7 +84,8 @@ class AttributeReferenceExpanderTest {
         ref.setUuid("not-a-uuid");
         List<BaseAttributeContentV3<?>> elements = new ArrayList<>();
         elements.add(new ResourceObjectContent(null, ref));
-        RequestAttribute attr = new RequestAttributeV3(UUID.randomUUID(), "ref", AttributeContentType.RESOURCE, elements);
+        RequestAttribute attr = new RequestAttributeV3(UUID.randomUUID(), "ref", AttributeContentType.RESOURCE,
+                elements);
 
         assertThrows(AttributeException.class, () -> expander.expandForCaller(List.of(attr), expandedSecrets));
     }
@@ -109,7 +108,8 @@ class AttributeReferenceExpanderTest {
 
     @Test
     void expandsAuthorityEntityLocationReferences() throws Exception {
-        for (AttributeResource kind : List.of(AttributeResource.AUTHORITY, AttributeResource.ENTITY, AttributeResource.LOCATION)) {
+        for (AttributeResource kind : List
+                .of(AttributeResource.AUTHORITY, AttributeResource.ENTITY, AttributeResource.LOCATION)) {
             CallerAuthorizedReferenceLoaderRegistry localRegistry = mock(CallerAuthorizedReferenceLoaderRegistry.class);
             AttributeReferenceExpander localExpander = new AttributeReferenceExpander(localRegistry, containment);
             UUID uuid = UUID.randomUUID();
@@ -154,8 +154,7 @@ class AttributeReferenceExpanderTest {
         });
 
         RequestAttribute attr = resourceRef(AttributeResource.CREDENTIAL, uuid);
-        assertThrows(AccessDeniedException.class,
-                () -> expander.expandForCaller(List.of(attr), expandedSecrets),
+        assertThrows(AccessDeniedException.class, () -> expander.expandForCaller(List.of(attr), expandedSecrets),
                 "a DETAIL denial must propagate — no swallow, no partial expansion");
 
         ResourceObjectContent element = (ResourceObjectContent) ((List<?>) attr.getContent()).getFirst();
@@ -177,8 +176,7 @@ class AttributeReferenceExpanderTest {
 
         // order the denied element first so the failure aborts before the allowed one would expand
         RequestAttribute attr = resourceRef(AttributeResource.CREDENTIAL, denied, allowed);
-        assertThrows(AccessDeniedException.class,
-                () -> expander.expandForCaller(List.of(attr), expandedSecrets),
+        assertThrows(AccessDeniedException.class, () -> expander.expandForCaller(List.of(attr), expandedSecrets),
                 "multi-select must fail the whole call if the caller lacks DETAIL on any element");
     }
 

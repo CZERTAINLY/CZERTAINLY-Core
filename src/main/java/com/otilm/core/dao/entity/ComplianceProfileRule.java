@@ -1,25 +1,35 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.proxy.HibernateProxy;
-import org.hibernate.type.SqlTypes;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Entity containing the relation between the Compliance Profile and the Rule. This has to be maintained separately
- * considering that each rule can have its own attributes and values. And the values may be different for each compliance
- * profile. This entity frames the relation with the Compliance Profile and the Compliance Rules discovered from the
- * connector. In addition to that, it also stores the attributes needed for the rule
+ * considering that each rule can have its own attributes and values. And the values may be different for each
+ * compliance profile. This entity frames the relation with the Compliance Profile and the Compliance Rules discovered
+ * from the connector. In addition to that, it also stores the attributes needed for the rule
  */
 @Getter
 @Setter
@@ -79,17 +89,31 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof ComplianceProfileRule that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof ComplianceProfileRule that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

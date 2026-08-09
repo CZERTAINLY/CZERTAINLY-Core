@@ -18,23 +18,23 @@ class SigningRecordStatisticsControllerITest extends BaseSpringBootTest {
 
     @Test
     void getSigningRecordStatistics_bindsPeriodCodeAndReturnsDto() throws Exception {
-        mockMvc.perform(get("/v1/statistics/signingRecords").param("period", "7d"))
-            .andExpectAll(status().isOk(),
-                jsonPath("$.totalRetained").value(0),
-                jsonPath("$.volumeOverTime").exists(),
-                jsonPath("$.statByProfile").exists());
+        mockMvc
+                .perform(get("/v1/statistics/signingRecords").param("period", "7d"))
+                .andExpectAll(status().isOk(), jsonPath("$.totalRetained").value(0),
+                        jsonPath("$.volumeOverTime").exists(), jsonPath("$.statByProfile").exists());
     }
 
     @Test
     void getSigningRecordStatistics_defaultsPeriodWhenOmitted() throws Exception {
-        mockMvc.perform(get("/v1/statistics/signingRecords"))
-            .andExpectAll(status().isOk(),
-                jsonPath("$.volumeOverTime").exists());
+        mockMvc
+                .perform(get("/v1/statistics/signingRecords"))
+                .andExpectAll(status().isOk(), jsonPath("$.volumeOverTime").exists());
     }
 
     @Test
     void getSigningRecordStatistics_rejectsUnknownPeriodCode() throws Exception {
-        mockMvc.perform(get("/v1/statistics/signingRecords").param("period", "12h"))
-            .andExpect(status().is4xxClientError());
+        mockMvc
+                .perform(get("/v1/statistics/signingRecords").param("period", "12h"))
+                .andExpect(status().is4xxClientError());
     }
 }

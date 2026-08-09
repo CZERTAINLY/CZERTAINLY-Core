@@ -16,12 +16,11 @@ import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.EventExternalService;
 import com.otilm.core.util.converter.ResourceCodeConverter;
 import com.otilm.core.util.converter.ResourceEventCodeConverter;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
 
 @RestController
 public class EventControllerImpl implements EventController {
@@ -41,19 +40,24 @@ public class EventControllerImpl implements EventController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RESOURCE_EVENT, operation = Operation.HISTORY)
-    public PaginationResponseDto<ObjectEventHistoryDto> getObjectEventHistory(@LogResource(affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID uuid, PaginationRequestDto pagination) throws NotFoundException {
+    public PaginationResponseDto<ObjectEventHistoryDto> getObjectEventHistory(
+            @LogResource(affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID uuid,
+            PaginationRequestDto pagination) throws NotFoundException {
         return eventService.getEventHistory(resource, uuid, pagination);
     }
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RESOURCE_EVENT, operation = Operation.HISTORY)
-    public PaginationResponseDto<EventHistoryDto> getPlatformSettingsEventHistory(ResourceEvent event, EventHistoryRequestDto request) throws NotFoundException {
+    public PaginationResponseDto<EventHistoryDto> getPlatformSettingsEventHistory(ResourceEvent event,
+            EventHistoryRequestDto request) throws NotFoundException {
         return eventService.getEventHistory(event, null, null, request);
     }
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RESOURCE_EVENT, operation = Operation.HISTORY)
-    public PaginationResponseDto<EventHistoryDto> getObjectDefinedEventHistory(ResourceEvent event, @LogResource(affiliated = true) Resource resource, @LogResource(affiliated = true, uuid = true) UUID uuid, EventHistoryRequestDto request) throws NotFoundException {
+    public PaginationResponseDto<EventHistoryDto> getObjectDefinedEventHistory(ResourceEvent event,
+            @LogResource(affiliated = true) Resource resource, @LogResource(affiliated = true, uuid = true) UUID uuid,
+            EventHistoryRequestDto request) throws NotFoundException {
         return eventService.getEventHistory(event, resource, uuid, request);
     }
 }

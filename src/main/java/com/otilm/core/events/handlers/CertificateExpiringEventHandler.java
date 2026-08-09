@@ -7,15 +7,15 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.evaluator.CertificateTriggerEvaluator;
 import com.otilm.core.events.data.EventDataBuilder;
 import com.otilm.core.messaging.model.EventMessage;
-import org.springframework.stereotype.Component;
-
 import java.util.UUID;
+import org.springframework.stereotype.Component;
 
 @SuppressWarnings("java:S6830")
 @Component(ResourceEvent.Codes.CERTIFICATE_EXPIRING)
 public class CertificateExpiringEventHandler extends CertificateEventsHandler {
 
-    protected CertificateExpiringEventHandler(CertificateRepository repository, CertificateTriggerEvaluator ruleEvaluator) {
+    protected CertificateExpiringEventHandler(CertificateRepository repository,
+            CertificateTriggerEvaluator ruleEvaluator) {
         super(repository, ruleEvaluator);
     }
 
@@ -25,6 +25,7 @@ public class CertificateExpiringEventHandler extends CertificateEventsHandler {
     }
 
     public static EventMessage constructEventMessages(UUID expiringCertificateUuid) {
-        return new EventMessage(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, expiringCertificateUuid, null);
+        return new EventMessage(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, expiringCertificateUuid,
+                null);
     }
 }

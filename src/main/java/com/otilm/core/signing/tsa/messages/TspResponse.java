@@ -5,8 +5,8 @@ import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import java.util.Arrays;
 
 /**
- * Result of processing a timestamp request — either {@link Granted} with
- * the DER-encoded timestamp token (CMS {@code ContentInfo}), or {@link Rejected} with failure info and status string.
+ * Result of processing a timestamp request — either {@link Granted} with the DER-encoded timestamp token (CMS
+ * {@code ContentInfo}), or {@link Rejected} with failure info and status string.
  */
 public sealed interface TspResponse {
 
@@ -14,8 +14,12 @@ public sealed interface TspResponse {
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof Granted(byte[] otherTimestampBytes))) return false;
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Granted(byte[] otherTimestampBytes))) {
+                return false;
+            }
             return Arrays.equals(timestampBytes, otherTimestampBytes);
         }
 
@@ -30,8 +34,8 @@ public sealed interface TspResponse {
         }
     }
 
-    record Rejected(TspFailureInfo failureInfo, String statusString) implements TspResponse {}
-
+    record Rejected(TspFailureInfo failureInfo, String statusString) implements TspResponse {
+    }
 
     static TspResponse granted(byte[] responseBytes) {
         return new Granted(responseBytes);

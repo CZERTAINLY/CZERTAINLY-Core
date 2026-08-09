@@ -1,11 +1,10 @@
 package com.otilm.core.service.writer;
 
 import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRepository;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 public class NotificationProfileVersionWriter {
@@ -19,7 +18,8 @@ public class NotificationProfileVersionWriter {
 
     @Transactional
     public void detachHistoricalInstanceReferencesByNotificationInstanceRefUuid(UUID notificationInstanceRefUuid) {
-        notificationProfileVersionRepository.detachHistoricalInstanceReferencesByNotificationInstanceRefUuid(notificationInstanceRefUuid);
+        notificationProfileVersionRepository
+                .detachHistoricalInstanceReferencesByNotificationInstanceRefUuid(notificationInstanceRefUuid);
     }
 
     @Transactional

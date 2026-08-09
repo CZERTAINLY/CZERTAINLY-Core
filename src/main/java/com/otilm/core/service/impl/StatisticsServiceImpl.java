@@ -11,13 +11,12 @@ import com.otilm.core.service.SecretInternalService;
 import com.otilm.core.service.StatisticsExternalService;
 import com.otilm.core.service.VaultInstanceInternalService;
 import com.otilm.core.service.VaultProfileInternalService;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-
-import jakarta.transaction.Transactional;
 
 @Service
 @Transactional
@@ -33,14 +32,15 @@ public class StatisticsServiceImpl implements StatisticsExternalService {
     private VaultInstanceInternalService vaultInstanceService;
     private VaultProfileInternalService vaultProfileService;
 
-
     @Override
     @AnyPrincipalEndpoint
     public StatisticsDto getStatistics(boolean includeArchived) {
         logger.info("Gathering the statistics information from database");
         StatisticsDto dto = new StatisticsDto();
 
-        dto.setTotalCertificates(certificateService.statisticsCertificateCount(SecurityFilter.create(), includeArchived));
+        dto
+                .setTotalCertificates(
+                        certificateService.statisticsCertificateCount(SecurityFilter.create(), includeArchived));
         try {
             dto.setTotalDiscoveries(discoveryService.statisticsDiscoveryCount(SecurityFilter.create()));
         } catch (AccessDeniedException e) {
@@ -53,7 +53,7 @@ public class StatisticsServiceImpl implements StatisticsExternalService {
         }
         try {
             dto.setTotalRaProfiles(raProfileService.statisticsRaProfilesCount(SecurityFilter.create()));
-        } catch (AccessDeniedException e){
+        } catch (AccessDeniedException e) {
             dto.setTotalRaProfiles(0L);
         }
         try {

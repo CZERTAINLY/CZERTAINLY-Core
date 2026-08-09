@@ -20,48 +20,59 @@ import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.bouncycastle.asn1.x509.Extension;
 
-import java.util.*;
-
 /**
- * Pure-kernel projector: maps attribute values into a {@link X509RequestContent} by following
- * the {@link FieldMapping} declared on each {@link DataAttributeV3} definition.
+ * Pure-kernel projector: maps attribute values into a {@link X509RequestContent} by following the {@link FieldMapping}
+ * declared on each {@link DataAttributeV3} definition.
  *
- * <p>No Spring context required; all methods are static.
+ * <p>
+ * No Spring context required; all methods are static.
  */
 public class CertificateRequestAttributeProjector {
 
-    private CertificateRequestAttributeProjector() {}
+    private CertificateRequestAttributeProjector() {
+    }
 
     /**
-     * Projects the supplied attribute values into an {@link X509RequestContent} driven by the
-     * {@code fieldMapping} on each definition.
+     * Projects the supplied attribute values into an {@link X509RequestContent} driven by the {@code fieldMapping} on
+     * each definition.
      *
-     * <p>Definitions without a {@code fieldMapping}, and values without a matching definition UUID,
-     * are silently ignored.
+     * <p>
+     * Definitions without a {@code fieldMapping}, and values without a matching definition UUID, are silently ignored.
      *
-     * <p>String content values are projected, including multi-valued attributes mapped to RDN or SAN.
-     * Within each definition, entries are ordered by {@code MappedField.order}, then by content-list
-     * order within a field; across definitions they follow the order the definitions are supplied in.
-     * ValidationException is thrown when an extension OID would be mapped more than once (RFC 5280).
+     * <p>
+     * String content values are projected, including multi-valued attributes mapped to RDN or SAN. Within each
+     * definition, entries are ordered by {@code MappedField.order}, then by content-list order within a field; across
+     * definitions they follow the order the definitions are supplied in. ValidationException is thrown when an
+     * extension OID would be mapped more than once (RFC 5280).
      *
      * @param definitions v3 attribute definitions carrying {@link FieldMapping}
-     * @param values      request-time attribute values
-     * @throws ValidationException when a non-list attribute supplies multiple values,
-     *                             when a multi-valued  attribute maps to an EXTENSION field,
-     *                             when the same extension OID is mapped by more than one field,
-     *                             or when SAN entries collide with an explicit mapping to the subjectAltName extension OID
+     * @param values request-time attribute values
+     * @throws ValidationException when a non-list attribute supplies multiple values, when a multi-valued attribute
+     * maps to an EXTENSION field, when the same extension OID is mapped by more than one field, or when SAN entries
+     * collide with an explicit mapping to the subjectAltName extension OID
      * @return populated {@link X509RequestContent}; never null
      */
-    public static X509RequestContent project(List<DataAttributeV3> definitions, List<? extends RequestAttribute> values) {
+    public static X509RequestContent project(List<DataAttributeV3> definitions,
+            List<? extends RequestAttribute> values) {
         Map<UUID, List<String>> valuesByUuid = extractStringValues(values);
         ProjectionSink sink = new ProjectionSink();
 
         for (DataAttributeV3 def : definitions) {
             FieldMapping fm = def.getFieldMapping();
             List<String> attributeValues = getValuesFromMapping(def, fm, valuesByUuid);
-            if (attributeValues.isEmpty()) continue;
+            if (attributeValues.isEmpty()) {
+                continue;
+            }
             rejectMultiValuedNonListAttribute(def, attributeValues);
 
             for (MappedField field : sortFields(fm)) {
@@ -86,7 +97,9 @@ public class CertificateRequestAttributeProjector {
      * Rejects a non-list attribute that carries more than one value.
      */
     private static void rejectMultiValuedNonListAttribute(DataAttributeV3 def, List<String> attributeValues) {
-        if (attributeValues.size() <= 1) return;
+        if (attributeValues.size() <= 1) {
+            return;
+        }
         DataAttributeProperties props = def.getProperties();
         if (props != null && !props.isList()) {
             throw new ValidationException(
@@ -96,8 +109,8 @@ public class CertificateRequestAttributeProjector {
     }
 
     /**
-     * Rejects mapping SAN entries alongside an explicit extension mapping to the subjectAltName OID.
-     * Both would render into the same {@code subjectAltName} extension, which may appear only once (RFC 5280).
+     * Rejects mapping SAN entries alongside an explicit extension mapping to the subjectAltName OID. Both would render
+     * into the same {@code subjectAltName} extension, which may appear only once (RFC 5280).
      */
     private static void rejectSanAndExplicitExtensionCollision(ProjectionSink sink) {
         if (!sink.subjectAltNames.isEmpty() && sink.seenExtensionOids.contains(SUBJECT_ALT_NAME_OID)) {
@@ -108,12 +121,15 @@ public class CertificateRequestAttributeProjector {
     }
 
     private static List<MappedField> sortFields(FieldMapping fm) {
-        return fm.getFields().stream()
+        return fm
+                .getFields()
+                .stream()
                 .sorted(Comparator.comparingInt(f -> f.getOrder() != null ? f.getOrder() : 0))
                 .toList();
     }
 
-    private static void applyMappedField(MappedField field, List<String> attributeValues, DataAttributeV3 def, ProjectionSink sink) {
+    private static void applyMappedField(MappedField field, List<String> attributeValues, DataAttributeV3 def,
+            ProjectionSink sink) {
         switch (field) {
             case RdnMappedField rdn -> {
                 for (String value : attributeValues) {
@@ -127,7 +143,7 @@ public class CertificateRequestAttributeProjector {
             }
             case ExtensionMappedField ext -> projectExtension(ext, attributeValues, def, sink);
             default ->
-                    throw new IllegalStateException("Unexpected MappedField subtype: " + field.getClass().getSimpleName());
+                throw new IllegalStateException("Unexpected MappedField subtype: " + field.getClass().getSimpleName());
         }
     }
 
@@ -136,7 +152,8 @@ public class CertificateRequestAttributeProjector {
         return new GeneralNameEntry(san.getGeneralNameType(), value, otherNameOid, san.getOtherNameValueEncoding());
     }
 
-    private static void projectExtension(ExtensionMappedField ext, List<String> attributeValues, DataAttributeV3 def, ProjectionSink sink) {
+    private static void projectExtension(ExtensionMappedField ext, List<String> attributeValues, DataAttributeV3 def,
+            ProjectionSink sink) {
         // An extension may appear only once in a request (RFC 5280).
         if (attributeValues.size() != 1) {
             throw new ValidationException(
@@ -151,7 +168,9 @@ public class CertificateRequestAttributeProjector {
         sink.extensions.add(toRequestedExtension(ext.getExtensionOid(), attributeValues.getFirst()));
     }
 
-    /** Mutable accumulator for the entries projected across all definitions, plus the extension OIDs already emitted. */
+    /**
+     * Mutable accumulator for the entries projected across all definitions, plus the extension OIDs already emitted.
+     */
     private static final class ProjectionSink {
         final List<RdnEntry> subject = new ArrayList<>();
         final List<GeneralNameEntry> subjectAltNames = new ArrayList<>();
@@ -160,10 +179,10 @@ public class CertificateRequestAttributeProjector {
     }
 
     /**
-     * Builds a {@link RequestedExtension} for a mapped extension value, honouring the
-     * {@code CERTIFICATE_EXTENSION} OID registry's {@code defaultCritical} and {@code valueEncoding}
-     * metadata when the OID is registered. Unregistered OIDs fall back to non-critical with no declared
-     * encoding (the value is then treated as base64-encoded DER by the renderer).
+     * Builds a {@link RequestedExtension} for a mapped extension value, honouring the {@code CERTIFICATE_EXTENSION} OID
+     * registry's {@code defaultCritical} and {@code valueEncoding} metadata when the OID is registered. Unregistered
+     * OIDs fall back to non-critical with no declared encoding (the value is then treated as base64-encoded DER by the
+     * renderer).
      */
     private static RequestedExtension toRequestedExtension(String extensionOid, String value) {
         boolean critical = false;
@@ -177,7 +196,8 @@ public class CertificateRequestAttributeProjector {
         return new RequestedExtension(extensionOid, critical, encoding, value);
     }
 
-    private static List<String> getValuesFromMapping(DataAttributeV3 def, FieldMapping fm, Map<UUID, List<String>> valuesByUuid) {
+    private static List<String> getValuesFromMapping(DataAttributeV3 def, FieldMapping fm,
+            Map<UUID, List<String>> valuesByUuid) {
         if (fm == null || fm.getFields() == null) {
             return List.of();
         }
@@ -187,13 +207,16 @@ public class CertificateRequestAttributeProjector {
     /**
      * Extracts the string values of each attribute, keyed by attribute UUID, preserving content order.
      *
-     * <p>Non-string content items are not projected.
+     * <p>
+     * Non-string content items are not projected.
      */
     private static Map<UUID, List<String>> extractStringValues(List<? extends RequestAttribute> attributes) {
         Map<UUID, List<String>> map = new HashMap<>();
         for (RequestAttribute attr : attributes) {
             List<?> content = attr.getContent();
-            if (content == null || content.isEmpty()) continue;
+            if (content == null || content.isEmpty()) {
+                continue;
+            }
             List<String> values = new ArrayList<>();
             for (Object item : content) {
                 if (item instanceof BaseAttributeContentV3<?> v3 && v3.getData() instanceof String s) {

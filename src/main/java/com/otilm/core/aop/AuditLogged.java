@@ -13,8 +13,12 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AuditLogged {
     Module module();
+
     Resource resource();
+
     Resource affiliatedResource() default Resource.NONE;
+
     Operation operation();
+
     String name() default "";
 }

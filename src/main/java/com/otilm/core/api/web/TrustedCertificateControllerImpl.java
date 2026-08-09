@@ -2,8 +2,8 @@ package com.otilm.core.api.web;
 
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.core.web.TrustedCertificateController;
-import com.otilm.api.model.client.trustedcertificate.TrustedCertificateRequestDto;
 import com.otilm.api.model.client.trustedcertificate.TrustedCertificateDto;
+import com.otilm.api.model.client.trustedcertificate.TrustedCertificateRequestDto;
 import com.otilm.api.model.common.UuidDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
@@ -12,13 +12,12 @@ import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TrustedCertificateExternalService;
+import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
 
 /**
  * REST controller implementation for trusted certificate management operations.
@@ -46,8 +45,11 @@ public class TrustedCertificateControllerImpl implements TrustedCertificateContr
     public ResponseEntity<?> createTrustedCertificate(TrustedCertificateRequestDto request) {
         TrustedCertificateDto trustedCertificateDto = trustedCertificateService.createTrustedCertificate(request);
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
-            .buildAndExpand(trustedCertificateDto.getUuid()).toUri();
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{uuid}")
+                .buildAndExpand(trustedCertificateDto.getUuid())
+                .toUri();
         UuidDto dto = new UuidDto();
         dto.setUuid(trustedCertificateDto.getUuid());
         return ResponseEntity.created(location).body(dto);

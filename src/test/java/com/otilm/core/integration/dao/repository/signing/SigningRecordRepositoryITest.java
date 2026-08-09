@@ -10,16 +10,15 @@ import com.otilm.core.dao.repository.signing.SigningProfileRepository;
 import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.function.IntSupplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Objects;
-import java.util.function.IntSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -42,8 +41,8 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
     private PlatformTransactionManager transactionManager;
 
     /**
-     * Wraps the {@code @Modifying} native delete queries, which require an active transaction. Fixtures are
-     * committed outside it, mirroring the retention sweeper running the delete over already-persisted data.
+     * Wraps the {@code @Modifying} native delete queries, which require an active transaction. Fixtures are committed
+     * outside it, mirroring the retention sweeper running the delete over already-persisted data.
      */
     private TransactionTemplate transactionTemplate;
 
@@ -53,8 +52,8 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
     }
 
     /**
-     * Runs a {@code @Modifying} delete (which requires an active transaction) in its own short transaction over
-     * the already-committed fixtures, returning the affected row count as a primitive.
+     * Runs a {@code @Modifying} delete (which requires an active transaction) in its own short transaction over the
+     * already-committed fixtures, returning the affected row count as a primitive.
      */
     private int doInTransaction(IntSupplier delete) {
         return Objects.requireNonNull(transactionTemplate.execute(status -> delete.getAsInt()));
@@ -85,7 +84,8 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
         insertRecord(profile, recordedVersion);
 
         // when
-        boolean exists = repository.existsBySigningProfileUuidAndSigningProfileVersion(profile.getUuid(), queriedVersion);
+        boolean exists = repository
+                .existsBySigningProfileUuidAndSigningProfileVersion(profile.getUuid(), queriedVersion);
 
         // then
         assertFalse(exists);
@@ -227,7 +227,7 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
     }
 
     private SigningRecord insertRecord(SigningProfile profile, int version, Instant signedDocumentRetrievedAt,
-                                       Instant signingTime) {
+            Instant signingTime) {
         SigningRecord signingRecord = new SigningRecord();
         signingRecord.setSigningProfileUuid(profile.getUuid());
         signingRecord.setSigningProfileVersion(version);
@@ -255,7 +255,8 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
      * policy the sweep queries now join on, so the fixtures stay valid should the
      * {@code (signing_profile_uuid, signing_profile_version)} reference ever become a hard FK.
      */
-    private void insertProfileVersion(SigningProfile profile, int version, Integer retentionDays, boolean deleteAfterRetrieval) {
+    private void insertProfileVersion(SigningProfile profile, int version, Integer retentionDays,
+            boolean deleteAfterRetrieval) {
         SigningProfileVersion profileVersion = new SigningProfileVersion();
         profileVersion.setSigningProfile(profile);
         profileVersion.setVersion(version);

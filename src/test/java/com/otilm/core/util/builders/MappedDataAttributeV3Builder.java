@@ -16,9 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Builds a {@link DataAttributeV3} carrying an X.509 {@link FieldMapping}.
- * Defaults produce a minimal valid optional STRING attribute named "attr" with no mapped fields.
- * Call {@code mappingRdn/mappingSan} to add targets.
+ * Builds a {@link DataAttributeV3} carrying an X.509 {@link FieldMapping}. Defaults produce a minimal valid optional
+ * STRING attribute named "attr" with no mapped fields. Call {@code mappingRdn/mappingSan} to add targets.
  */
 public final class MappedDataAttributeV3Builder {
 

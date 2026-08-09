@@ -7,14 +7,13 @@ import com.otilm.core.service.cmp.message.PkiMessageDumper;
 import com.otilm.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
-import org.bouncycastle.asn1.cmp.*;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Validator dispatches concrete instance of validator, dispatch per
- * field {@link PKIBody#getType()}.
+ * Validator dispatches concrete instance of validator, dispatch per field {@link PKIBody#getType()}.
  */
 @Component
 @Transactional
@@ -60,11 +59,11 @@ public class BodyValidator extends BaseValidator implements Validator<PKIMessage
                 case PKIBody.TYPE_GEN_MSG:
                 case PKIBody.TYPE_GEN_REP:
                 case PKIBody.TYPE_NESTED:
-                    throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                            "body validator: " + PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not implemented");
+                    throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat, "body validator: "
+                            + PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not implemented");
                 default:
-                    throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                            "body validator: " + PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not supported");
+                    throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat, "body validator: "
+                            + PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not supported");
             }
         } catch (CmpProcessingException ex) {
             throw remapException(tid, message.getBody().getType(), ex);

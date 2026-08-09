@@ -9,20 +9,19 @@ import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.util.AuthHelper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
- * Decides which roles may be attached to which users. Membership is editable from both directions, so both enforce
- * the same rules — otherwise the weaker endpoint is the way around the stronger one. A role paired with a system
- * user is refused, as is a role granting all resources unless the caller already holds all resources itself;
- * without the latter, {@code USER:UPDATE} alone would grant full platform administration. Everything else,
- * {@code auditor} included, stays assignable.
+ * Decides which roles may be attached to which users. Membership is editable from both directions, so both enforce the
+ * same rules — otherwise the weaker endpoint is the way around the stronger one. A role paired with a system user is
+ * refused, as is a role granting all resources unless the caller already holds all resources itself; without the
+ * latter, {@code USER:UPDATE} alone would grant full platform administration. Everything else, {@code auditor}
+ * included, stays assignable.
  */
 @Component
 public class RoleAssignmentGuard {
@@ -74,11 +73,12 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * Only an added member is being granted the role. Keeping the members a role already has, or dropping some of
-     * them, grants nobody anything — and refusing a removal would be stricter than the rule it enforces.
+     * Only an added member is being granted the role. Keeping the members a role already has, or dropping some of them,
+     * grants nobody anything — and refusing a removal would be stricter than the rule it enforces.
      */
     private static boolean addsAMember(RoleDetailDto role, List<String> members) {
-        Set<String> current = role.getUsers() == null ? Set.of()
+        Set<String> current = role.getUsers() == null
+                ? Set.of()
                 : role.getUsers().stream().map(UserDto::getUuid).collect(Collectors.toSet());
         return members.stream().anyMatch(member -> !current.contains(member));
     }
@@ -92,8 +92,8 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * Guards a replacement of a user's roles: a system user must keep the role it holds. Assigning nothing is
-     * still a detachment, so an empty list has to be refused rather than skipped.
+     * Guards a replacement of a user's roles: a system user must keep the role it holds. Assigning nothing is still a
+     * detachment, so an empty list has to be refused rather than skipped.
      */
     public void checkRolesRetainedForUser(String userUuid, List<String> retainedRoleUuids) {
         List<String> retained = retainedRoleUuids == null ? List.of() : retainedRoleUuids;
@@ -106,8 +106,8 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * The pairing between a system user and its role is that identity's permission boundary. Stranding it leaves
-     * the identity unable to do the job it exists for, and unpairs the role so the rules above stop recognising it.
+     * The pairing between a system user and its role is that identity's permission boundary. Stranding it leaves the
+     * identity unable to do the job it exists for, and unpairs the role so the rules above stop recognising it.
      */
     private void rejectStrandingSystemUser(String userUuid, Predicate<RoleDto> losesRole) {
         UserDetailDto user = userManagementApiClient.getUserDetail(userUuid);
@@ -116,9 +116,8 @@ public class RoleAssignmentGuard {
         }
         for (RoleDto held : user.getRoles()) {
             if (losesRole.test(held)) {
-                throw new ValidationException(
-                        "Role '%s' belongs to system user '%s' and cannot be removed from it."
-                                .formatted(held.getName(), user.getUsername()));
+                throw new ValidationException("Role '%s' belongs to system user '%s' and cannot be removed from it."
+                        .formatted(held.getName(), user.getUsername()));
             }
         }
     }
@@ -141,9 +140,8 @@ public class RoleAssignmentGuard {
                                 .formatted(user.getUsername(), role.getName()));
             }
             if (!systemMembers.isEmpty()) {
-                throw new ValidationException(
-                        "Role '%s' belongs to a system user and cannot be assigned to user '%s'."
-                                .formatted(role.getName(), user.getUsername()));
+                throw new ValidationException("Role '%s' belongs to a system user and cannot be assigned to user '%s'."
+                        .formatted(role.getName(), user.getUsername()));
             }
         }
     }
@@ -152,7 +150,9 @@ public class RoleAssignmentGuard {
         if (role.getUsers() == null) {
             return Set.of();
         }
-        return role.getUsers().stream()
+        return role
+                .getUsers()
+                .stream()
                 .filter(RoleAssignmentGuard::isSystemUser)
                 .map(UserDto::getUuid)
                 .collect(Collectors.toSet());
@@ -165,9 +165,8 @@ public class RoleAssignmentGuard {
     private static void requireSystemMembersRetained(RoleDetailDto role, List<String> userUuids) {
         for (UserDto member : role.getUsers()) {
             if (isSystemUser(member) && !userUuids.contains(member.getUuid())) {
-                throw new ValidationException(
-                        "Role '%s' belongs to system user '%s', which cannot be removed from it."
-                                .formatted(role.getName(), member.getUsername()));
+                throw new ValidationException("Role '%s' belongs to system user '%s', which cannot be removed from it."
+                        .formatted(role.getName(), member.getUsername()));
             }
         }
     }
@@ -186,9 +185,9 @@ public class RoleAssignmentGuard {
     }
 
     /**
-     * A caller who already holds every resource gains nothing by granting one, so superadmin is not confined to
-     * handing out superadmin. Holding the role itself needs no separate check: the auth service merges every role's
-     * permissions into the profile, so holding an all-resources role already sets the flag this reads.
+     * A caller who already holds every resource gains nothing by granting one, so superadmin is not confined to handing
+     * out superadmin. Holding the role itself needs no separate check: the auth service merges every role's permissions
+     * into the profile, so holding an all-resources role already sets the flag this reads.
      */
     private static void requireCallerHoldsAllResources(RoleDetailDto role) {
         if (!callerHoldsAllResources()) {

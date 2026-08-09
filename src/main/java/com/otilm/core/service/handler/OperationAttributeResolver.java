@@ -8,16 +8,15 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.core.attribute.engine.ConnectorRequestAttributesBuilder;
 import com.otilm.core.util.AuthHelper;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.UUID;
-
 /**
- * Resolves an entity's own <strong>infrastructure</strong> references (CREDENTIAL + RESOURCE incl. SECRET) into
- * inline content for an operation-path connector request — the single home for "system-mode operation-path
- * attribute resolution" that every Attributes-v2 operation adapter can delegate to.
+ * Resolves an entity's own <strong>infrastructure</strong> references (CREDENTIAL + RESOURCE incl. SECRET) into inline
+ * content for an operation-path connector request — the single home for "system-mode operation-path attribute
+ * resolution" that every Attributes-v2 operation adapter can delegate to.
  * <p>
  * <b>Authorization:</b> the dereference runs under the {@code attribute-content-resolver} system identity (via
  * {@link AuthHelper#runAsSystem}), authorized at the operation level rather than per acting caller — so it works for
@@ -38,7 +37,7 @@ public class OperationAttributeResolver {
 
     @Autowired
     public OperationAttributeResolver(AuthHelper authHelper,
-                                      ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder) {
+            ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder) {
         this.authHelper = authHelper;
         this.connectorRequestAttributesBuilder = connectorRequestAttributesBuilder;
     }
@@ -61,7 +60,10 @@ public class OperationAttributeResolver {
                 // A stored reference may be unresolvable, or point at a disabled/invalid-state secret or vault profile
                 // (unchecked ValidationException). Surface all through the declared ConnectorException contract so the
                 // operation fails cleanly instead of escaping as a raw RuntimeException.
-                throw new ConnectorException("Unable to resolve stored attribute references for connector request (connector " + connectorUuid + ")", e);
+                throw new ConnectorException(
+                        "Unable to resolve stored attribute references for connector request (connector "
+                                + connectorUuid + ")",
+                        e);
             }
         });
     }

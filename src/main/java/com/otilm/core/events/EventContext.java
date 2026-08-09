@@ -6,9 +6,12 @@ import com.otilm.core.dao.entity.UniquelyIdentifiedObject;
 import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.tasks.ScheduledJobInfo;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import lombok.Getter;
-
-import java.util.*;
 
 @Getter
 public class EventContext<T extends UniquelyIdentifiedObject> {
@@ -32,7 +35,8 @@ public class EventContext<T extends UniquelyIdentifiedObject> {
         this.currentUserUuid = currentUserUuid;
     }
 
-    public EventContext(EventMessage eventMessage, TriggerEvaluator<T> triggerEvaluator, T resourceObject, Object resourceObjectEventData) {
+    public EventContext(EventMessage eventMessage, TriggerEvaluator<T> triggerEvaluator, T resourceObject,
+            Object resourceObjectEventData) {
         this.resource = eventMessage.getResource();
         this.event = eventMessage.getEvent();
         this.userUuid = eventMessage.getUserUuid();

@@ -7,14 +7,13 @@ import com.otilm.core.model.crypto.CryptographicKeyItemModelFixtures;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.service.CryptographicOperationInternalService;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -71,8 +70,7 @@ class StaticManagedKeySignerCreatorTest {
             // given — the key only holds a public key item (no private key to sign with)
             ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(
                     SigningCertificateBuilder.valid(),
-                    List.of(CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA)),
-                    null, List.of());
+                    List.of(CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA)), null, List.of());
 
             // when / then
             assertThatThrownBy(() -> creator.create(scheme))
@@ -87,8 +85,8 @@ class StaticManagedKeySignerCreatorTest {
             // even for classical algorithms, so this must fail (regression guard for the record-based path)
             ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(
                     SigningCertificateBuilder.valid(),
-                    List.of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA)),
-                    null, List.of());
+                    List.of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA)), null,
+                    List.of());
 
             // when / then
             assertThatThrownBy(() -> creator.create(scheme))

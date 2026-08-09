@@ -4,16 +4,15 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.events.transaction.CertificateValidationEvent;
 import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.ValidationMessage;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -77,8 +76,8 @@ class CertificateHandlerValidationBatchingTest {
     void discoveryAndLocationFieldsPropagatedToEveryBatch() {
         UUID discoveryUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
-        CertificateValidationEvent event = new CertificateValidationEvent(
-                uuids(BATCH_SIZE + 1), discoveryUuid, "disc", locationUuid, "loc");
+        CertificateValidationEvent event = new CertificateValidationEvent(uuids(BATCH_SIZE + 1), discoveryUuid, "disc",
+                locationUuid, "loc");
         handler.handleCertificateValidationEvent(event);
 
         ArgumentCaptor<ValidationMessage> captor = ArgumentCaptor.forClass(ValidationMessage.class);
@@ -94,15 +93,15 @@ class CertificateHandlerValidationBatchingTest {
 
     @Test
     void setBatchSize_throwsOnZeroOrNegative() {
-        assertThatThrownBy(() -> handler.setValidationBatchSize(0))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> handler.setValidationBatchSize(-1))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> handler.setValidationBatchSize(0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> handler.setValidationBatchSize(-1)).isInstanceOf(IllegalArgumentException.class);
     }
 
     private static List<UUID> uuids(int count) {
         List<UUID> list = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) list.add(UUID.randomUUID());
+        for (int i = 0; i < count; i++) {
+            list.add(UUID.randomUUID());
+        }
         return list;
     }
 }

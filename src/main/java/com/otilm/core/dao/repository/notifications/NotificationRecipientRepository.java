@@ -2,13 +2,12 @@ package com.otilm.core.dao.repository.notifications;
 
 import com.otilm.api.model.client.notification.NotificationDto;
 import com.otilm.core.dao.entity.notifications.NotificationRecipient;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-
-import java.util.UUID;
 
 @Repository
 public interface NotificationRecipientRepository extends JpaRepository<NotificationRecipient, UUID> {

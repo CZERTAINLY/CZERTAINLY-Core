@@ -6,28 +6,26 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.time.OffsetDateTime;
-import java.util.UUID;
-
 /**
- * Durable authorization for a pre-registered certificate: the challenge, issuance window, failed-attempt lockout,
- * and lifecycle state used to authorize a later renew or rekey.
+ * Durable authorization for a pre-registered certificate: the challenge, issuance window, failed-attempt lockout, and
+ * lifecycle state used to authorize a later renew or rekey.
  *
- * <p>Unlike the transient {@link CertificateRegistration} register-to-issue binding, which is cleared once the
- * certificate is first issued, this record survives issuance so it can authorize follow-up operations.
+ * <p>
+ * Unlike the transient {@link CertificateRegistration} register-to-issue binding, which is cleared once the certificate
+ * is first issued, this record survives issuance so it can authorize follow-up operations.
  */
 @Getter
 @Setter
 @ToString
 @Entity
 // A certificate has at most one durable authorization record.
-@Table(name = "certificate_registration_authorization",
-        uniqueConstraints = @UniqueConstraint(name = "uq_certificate_registration_authorization_certificate",
-                columnNames = "certificate_uuid"))
+@Table(name = "certificate_registration_authorization", uniqueConstraints = @UniqueConstraint(name = "uq_certificate_registration_authorization_certificate", columnNames = "certificate_uuid"))
 public class CertificateRegistrationAuthorization extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "certificate_uuid", nullable = false)

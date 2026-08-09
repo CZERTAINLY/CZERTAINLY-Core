@@ -39,11 +39,17 @@ public class SearchHelper {
         List<FilterConditionOperator> conditionOperators = new ArrayList<>(getInitialCapacity(filterField));
 
         if (filterField.getFieldAttribute() == null) {
-            conditionOperators = new ArrayList<>(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY));
+            conditionOperators = new ArrayList<>(
+                    List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY));
         }
 
-        if (filterField.getType() == SearchFieldTypeEnum.LIST && filterField.getJoinAttributes() != null && filterField.getJoinAttributes().stream().anyMatch(Attribute::isCollection)) {
-            conditionOperators.addAll(List.of(FilterConditionOperator.COUNT_EQUAL, FilterConditionOperator.COUNT_NOT_EQUAL, FilterConditionOperator.COUNT_GREATER_THAN, FilterConditionOperator.COUNT_LESS_THAN));
+        if (filterField.getType() == SearchFieldTypeEnum.LIST && filterField.getJoinAttributes() != null
+                && filterField.getJoinAttributes().stream().anyMatch(Attribute::isCollection)) {
+            conditionOperators
+                    .addAll(List
+                            .of(FilterConditionOperator.COUNT_EQUAL, FilterConditionOperator.COUNT_NOT_EQUAL,
+                                    FilterConditionOperator.COUNT_GREATER_THAN,
+                                    FilterConditionOperator.COUNT_LESS_THAN));
         }
 
         fieldDataDto.setConditions(conditionOperators);
@@ -58,7 +64,12 @@ public class SearchHelper {
         if (filterField.getEnumClass() != null) {
             fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(filterField.getEnumClass()));
             if (values == null) {
-                fieldDataDto.setValue(Arrays.stream(fieldDataDto.getPlatformEnum().getEnumClass().getEnumConstants()).map(IPlatformEnum::getCode).sorted().toList());
+                fieldDataDto
+                        .setValue(Arrays
+                                .stream(fieldDataDto.getPlatformEnum().getEnumClass().getEnumConstants())
+                                .map(IPlatformEnum::getCode)
+                                .sorted()
+                                .toList());
             }
         }
 
@@ -66,19 +77,33 @@ public class SearchHelper {
     }
 
     private static List<FilterConditionOperator> getInitialCapacity(FilterField filterField) {
-        if (filterField.getJsonPath() != null && FilterPredicatesBuilder.isJsonArray(filterField)) return List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY);
-        return filterField.getType().getFieldType() == FilterFieldType.BOOLEAN && filterField.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : filterField.getType().getConditions();
+        if (filterField.getJsonPath() != null && FilterPredicatesBuilder.isJsonArray(filterField)) {
+            return List
+                    .of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS,
+                            FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY);
+        }
+        return filterField.getType().getFieldType() == FilterFieldType.BOOLEAN && filterField.getExpectedValue() != null
+                ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS)
+                : filterField.getType().getConditions();
     }
 
-    public static SearchFieldDataDto prepareSearchForJSON(final SearchFieldObject attributeSearchInfo, final boolean hasDuplicateInList) {
-        final SearchFieldTypeEnum searchFieldTypeEnum = retrieveSearchFieldTypeEnumByContentType(attributeSearchInfo.getAttributeContentType(), attributeSearchInfo.isList());
+    public static SearchFieldDataDto prepareSearchForJSON(final SearchFieldObject attributeSearchInfo,
+            final boolean hasDuplicateInList) {
+        final SearchFieldTypeEnum searchFieldTypeEnum = retrieveSearchFieldTypeEnumByContentType(
+                attributeSearchInfo.getAttributeContentType(), attributeSearchInfo.isList());
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
         fieldDataDto.setFieldIdentifier(buildFieldIdentifier(attributeSearchInfo));
-        fieldDataDto.setFieldLabel(hasDuplicateInList ? String.format(SEARCH_LABEL_TEMPLATE, attributeSearchInfo.getLabel(), attributeSearchInfo.getAttributeContentType().getCode()) : attributeSearchInfo.getLabel());
+        fieldDataDto
+                .setFieldLabel(hasDuplicateInList
+                        ? String
+                                .format(SEARCH_LABEL_TEMPLATE, attributeSearchInfo.getLabel(),
+                                        attributeSearchInfo.getAttributeContentType().getCode())
+                        : attributeSearchInfo.getLabel());
         fieldDataDto.setMultiValue(attributeSearchInfo.isMultiSelect());
         List<FilterConditionOperator> conditionOperators = new ArrayList<>(searchFieldTypeEnum.getConditions());
-        if (attributeSearchInfo.getAttributeContentType() == AttributeContentType.TIME)
+        if (attributeSearchInfo.getAttributeContentType() == AttributeContentType.TIME) {
             conditionOperators.removeAll(List.of(FilterConditionOperator.IN_NEXT, FilterConditionOperator.IN_PAST));
+        }
         if (attributeSearchInfo.getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
             conditionOperators = List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY);
         }
@@ -89,7 +114,8 @@ public class SearchHelper {
         return fieldDataDto;
     }
 
-    private static SearchFieldTypeEnum retrieveSearchFieldTypeEnumByContentType(AttributeContentType attributeContentType, boolean isList) {
+    private static SearchFieldTypeEnum retrieveSearchFieldTypeEnumByContentType(
+            AttributeContentType attributeContentType, boolean isList) {
         if (isList) {
             return SearchFieldTypeEnum.LIST;
         }
@@ -107,7 +133,12 @@ public class SearchHelper {
     public static List<SearchFieldDataDto> prepareSearchForJSON(final List<SearchFieldObject> searchFieldObjectList) {
         final List<SearchFieldObject> mergedFields = mergeFieldsWithSameIdentifier(searchFieldObjectList);
         final Set<String> duplicatesOfNames = filterDuplicity(mergedFields);
-        return mergedFields.stream().map(attribute -> prepareSearchForJSON(attribute, duplicatesOfNames.contains(attribute.getAttributeName()))).sorted(new SearchFieldDataComparator()).toList();
+        return mergedFields
+                .stream()
+                .map(attribute -> prepareSearchForJSON(attribute,
+                        duplicatesOfNames.contains(attribute.getAttributeName())))
+                .sorted(new SearchFieldDataComparator())
+                .toList();
     }
 
     private static String buildFieldIdentifier(final SearchFieldObject attributeSearchInfo) {
@@ -127,13 +158,17 @@ public class SearchHelper {
                     Comparator.nullsLast(Comparator.naturalOrder()));
 
     /**
-     * Collapses attribute search fields that map to the same field identifier (attribute name and content type).
-     * The same attribute may be registered by multiple connectors, or by one connector repeatedly under new
-     * attribute UUIDs, yielding one definition row each. Filtering matches the content of all such definitions by
-     * name and content type, so they must be exposed as a single field with the union of their capabilities.
+     * Collapses attribute search fields that map to the same field identifier (attribute name and content type). The
+     * same attribute may be registered by multiple connectors, or by one connector repeatedly under new attribute
+     * UUIDs, yielding one definition row each. Filtering matches the content of all such definitions by name and
+     * content type, so they must be exposed as a single field with the union of their capabilities.
      */
-    private static List<SearchFieldObject> mergeFieldsWithSameIdentifier(final List<SearchFieldObject> searchFieldObjectList) {
-        final List<SearchFieldObject> orderedFields = searchFieldObjectList.stream().sorted(DUPLICATE_MERGE_ORDER).toList();
+    private static List<SearchFieldObject> mergeFieldsWithSameIdentifier(
+            final List<SearchFieldObject> searchFieldObjectList) {
+        final List<SearchFieldObject> orderedFields = searchFieldObjectList
+                .stream()
+                .sorted(DUPLICATE_MERGE_ORDER)
+                .toList();
         final Map<String, SearchFieldObject> mergedFields = new LinkedHashMap<>();
         for (final SearchFieldObject field : orderedFields) {
             mergedFields.merge(buildFieldIdentifier(field), field, SearchHelper::mergeDuplicateField);
@@ -141,8 +176,10 @@ public class SearchHelper {
         return new ArrayList<>(mergedFields.values());
     }
 
-    private static SearchFieldObject mergeDuplicateField(final SearchFieldObject merged, final SearchFieldObject other) {
-        // Value-based operators stay available if at least one definition is not encrypted; only its plain content is matchable.
+    private static SearchFieldObject mergeDuplicateField(final SearchFieldObject merged,
+            final SearchFieldObject other) {
+        // Value-based operators stay available if at least one definition is not encrypted; only its plain content is
+        // matchable.
         if (other.getProtectionLevel() != ProtectionLevel.ENCRYPTED) {
             merged.setProtectionLevel(other.getProtectionLevel());
         }
@@ -157,9 +194,13 @@ public class SearchHelper {
                 merged.setMultiSelect(true);
             }
             if (other.getContentItems() != null) {
-                merged.setContentItems(merged.getContentItems() == null
-                        ? other.getContentItems()
-                        : Stream.concat(merged.getContentItems().stream(), other.getContentItems().stream()).distinct().toList());
+                merged
+                        .setContentItems(merged.getContentItems() == null
+                                ? other.getContentItems()
+                                : Stream
+                                        .concat(merged.getContentItems().stream(), other.getContentItems().stream())
+                                        .distinct()
+                                        .toList());
             }
         }
         return merged;
@@ -175,6 +216,5 @@ public class SearchHelper {
         }
         return duplicatesOfNames;
     }
-
 
 }

@@ -31,7 +31,8 @@ public class ProxyProvisioningServiceImpl implements ProxyProvisioningService {
     public String getProxyInstallationInstructions(String proxyCode) throws ProvisioningException {
         logger.info("Fetching installation instructions for proxy: {}", proxyCode);
         try {
-            InstallationInstructionsDTO instructions = proxyProvisioningApiClient.getInstallationInstructions(proxyCode, properties.installationFormat());
+            InstallationInstructionsDTO instructions = proxyProvisioningApiClient
+                    .getInstallationInstructions(proxyCode, properties.installationFormat());
             return instructions.command().shell();
         } catch (Exception e) {
             throw new ProvisioningException("Failed to get proxy installation instructions " + proxyCode, e);

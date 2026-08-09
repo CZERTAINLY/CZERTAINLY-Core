@@ -1,6 +1,12 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.EntityInstanceResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
@@ -9,8 +15,6 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.entity.EntityInstanceDto;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
 import com.otilm.core.dao.entity.EntityInstanceReference;
@@ -25,15 +29,12 @@ import com.otilm.core.service.EntityInstanceExternalService;
 import com.otilm.core.service.EntityInstanceInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
 
 class EntityInstanceServiceITest extends BaseSpringBootTest {
 
@@ -66,7 +67,7 @@ class EntityInstanceServiceITest extends BaseSpringBootTest {
 
         connector = new Connector();
         connector.setName("entityInstanceConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
@@ -100,7 +101,8 @@ class EntityInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListEntityInstances() {
-        final EntityInstanceResponseDto entityInstanceResponseDto = entityInstanceService.listEntityInstances(SecurityFilter.create(), new SearchRequestDto());
+        final EntityInstanceResponseDto entityInstanceResponseDto = entityInstanceService
+                .listEntityInstances(SecurityFilter.create(), new SearchRequestDto());
         final List<EntityInstanceDto> entityInstances = entityInstanceResponseDto.getEntities();
         Assertions.assertNotNull(entityInstances);
         Assertions.assertFalse(entityInstances.isEmpty());
@@ -110,9 +112,10 @@ class EntityInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetEntityInstance() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
-                .willReturn(WireMock.okJson("{}")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
+                        .willReturn(WireMock.okJson("{}")));
 
         EntityInstanceDto dto = entityInstanceService.getEntityInstance(entityInstance.getSecuredUuid());
         Assertions.assertNotNull(dto);
@@ -123,21 +126,27 @@ class EntityInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> entityInstanceService
+                        .getEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    void testAddEntityInstance() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/entityProvider/[^/]+/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/entityProvider/[^/]+/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+    void testAddEntityInstance()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/entityProvider/[^/]+/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/entityProvider/[^/]+/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/entityProvider/entities"))
-                .willReturn(WireMock.okJson("{ \"id\": 2 }")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/entityProvider/entities"))
+                        .willReturn(WireMock.okJson("{ \"id\": 2 }")));
 
         EntityInstanceRequestDto request = new EntityInstanceRequestDto();
         request.setName("testEntityInstance2");
@@ -170,24 +179,30 @@ class EntityInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.editEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> entityInstanceService
+                        .editEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
     void testRemoveEntityInstance() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
+                        .willReturn(WireMock.ok()));
 
         entityInstanceService.deleteEntityInstance(entityInstance.getSecuredUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(entityInstance.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> entityInstanceService.getEntityInstance(entityInstance.getSecuredUuid()));
     }
 
     @Test
     void testGetLocationAttributes() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
+                        .willReturn(WireMock.ok()));
 
         var attributes = entityInstanceService.listLocationAttributes(entityInstance.getSecuredUuid());
         Assertions.assertTrue(attributes.isEmpty());
@@ -195,37 +210,49 @@ class EntityInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetLocationAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.listLocationAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> entityInstanceService
+                        .listLocationAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testValidateLocationAttributes() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         entityInstanceService.validateLocationAttributes(entityInstance.getSecuredUuid(), List.of());
     }
 
     @Test
     void testValidateLocationAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.validateLocationAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> entityInstanceService
+                                .validateLocationAttributes(
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
     void testRemoveEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.deleteEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> entityInstanceService
+                        .deleteEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = entityInstanceInternalService.listResourceObjects(SecurityFilter.create(), null, null);
+        List<NameAndUuidDto> dtos = entityInstanceInternalService
+                .listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 
     @Test
     void testGetResourceObject() throws NotFoundException {
-        NameAndUuidDto nameAndUuidDto = entityInstanceInternalService.getResourceObjectInternal(entityInstance.getUuid());
+        NameAndUuidDto nameAndUuidDto = entityInstanceInternalService
+                .getResourceObjectInternal(entityInstance.getUuid());
         Assertions.assertEquals(entityInstance.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(entityInstance.getName(), nameAndUuidDto.getName());
 

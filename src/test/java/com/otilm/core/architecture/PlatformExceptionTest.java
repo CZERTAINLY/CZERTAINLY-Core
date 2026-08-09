@@ -19,14 +19,14 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 /**
  * Structural safety rules for exception message handling.
  * <p>
- * Rule 1: All concrete Throwable subclasses in com.otilm.core must implement PlatformException so safeMessage()
- * can gate message exposure at wire boundaries. PlatformException is the "controlled domain-exception type" gate:
- * its getMessage() is shaped by us and therefore safe to expose, whereas raw Exception.getMessage() can carry SQL
- * fragments, stack-frame class names, or upstream vendor payloads that must never reach the wire.
- * com.otilm.core.intune is excluded: these are vendor-forked Microsoft exception classes whose getMessage()
- * embeds uncontrolled upstream payloads — raw HTTP response bodies, SCEP activity/transaction IDs, and Microsoft
- * Graph service names — not shaped by us and therefore never safe to expose at the wire. Code outside this package
- * must not propagate them in method signatures; Rule 3 enforces that boundary.
+ * Rule 1: All concrete Throwable subclasses in com.otilm.core must implement PlatformException so safeMessage() can
+ * gate message exposure at wire boundaries. PlatformException is the "controlled domain-exception type" gate: its
+ * getMessage() is shaped by us and therefore safe to expose, whereas raw Exception.getMessage() can carry SQL
+ * fragments, stack-frame class names, or upstream vendor payloads that must never reach the wire. com.otilm.core.intune
+ * is excluded: these are vendor-forked Microsoft exception classes whose getMessage() embeds uncontrolled upstream
+ * payloads — raw HTTP response bodies, SCEP activity/transaction IDs, and Microsoft Graph service names — not shaped by
+ * us and therefore never safe to expose at the wire. Code outside this package must not propagate them in method
+ * signatures; Rule 3 enforces that boundary.
  * <p>
  * Rule 2: BulkActionMessageDto must be created via BulkActionMessageDto.failure() factory methods so message content
  * can be controlled.
@@ -38,37 +38,45 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 class PlatformExceptionTest {
 
     @ArchTest
-    static final ArchRule coreExceptionsMustImplementPlatformException =
-            classes()
-                    .that().resideInAPackage("com.otilm.core..")
-                    .and().resideOutsideOfPackage("com.otilm.core.intune..")
-                    .and().areAssignableTo(Throwable.class)
-                    .and().areNotInterfaces()
-                    .and().doNotHaveModifier(JavaModifier.ABSTRACT)
-                    .should().implement(PlatformException.class)
-                    .because("all platform exceptions must implement PlatformException " +
-                            "so safeMessage() can gate message exposure at wire boundaries");
+    static final ArchRule coreExceptionsMustImplementPlatformException = classes()
+            .that()
+            .resideInAPackage("com.otilm.core..")
+            .and()
+            .resideOutsideOfPackage("com.otilm.core.intune..")
+            .and()
+            .areAssignableTo(Throwable.class)
+            .and()
+            .areNotInterfaces()
+            .and()
+            .doNotHaveModifier(JavaModifier.ABSTRACT)
+            .should()
+            .implement(PlatformException.class)
+            .because("all platform exceptions must implement PlatformException "
+                    + "so safeMessage() can gate message exposure at wire boundaries");
 
     @ArchTest
-    static final ArchRule bulkActionMessageDtoMustUseFactory =
-            noClasses()
-                    .that().resideInAPackage("com.otilm.core..")
-                    .should(callCodeUnitWhere(DescribedPredicate.describe(
-                            "call a constructor of BulkActionMessageDto",
-                            (JavaCall<?> call) -> BulkActionMessageDto.class.getName().equals(
-                                    call.getTarget().getOwner().getName())
+    static final ArchRule bulkActionMessageDtoMustUseFactory = noClasses()
+            .that()
+            .resideInAPackage("com.otilm.core..")
+            .should(callCodeUnitWhere(DescribedPredicate
+                    .describe("call a constructor of BulkActionMessageDto",
+                            (JavaCall<?> call) -> BulkActionMessageDto.class
+                                    .getName()
+                                    .equals(call.getTarget().getOwner().getName())
                                     && "<init>".equals(call.getTarget().getName()))))
-                    .because("BulkActionMessageDto must be created via BulkActionMessageDto.failure() " +
-                            "so message content is controlled at the factory level; " +
-                            "direct constructor calls bypass that gate");
+            .because("BulkActionMessageDto must be created via BulkActionMessageDto.failure() "
+                    + "so message content is controlled at the factory level; "
+                    + "direct constructor calls bypass that gate");
 
     @ArchTest
-    static final ArchRule intuneExceptionsMustNotEscapePackageSignatures =
-            noMethods()
-                    .that().areDeclaredInClassesThat().resideOutsideOfPackage("com.otilm.core.intune..")
-                    .should().declareThrowableOfType(IntuneClientException.class)
-                    .because("IntuneClientException and its subclasses carry uncontrolled upstream payloads " +
-                            "(raw HTTP response bodies, SCEP activity/transaction IDs, Microsoft Graph service names) " +
-                            "not shaped by us; they must be caught and wrapped in a PlatformException with a " +
-                            "controlled message before any wire-boundary exposure");
+    static final ArchRule intuneExceptionsMustNotEscapePackageSignatures = noMethods()
+            .that()
+            .areDeclaredInClassesThat()
+            .resideOutsideOfPackage("com.otilm.core.intune..")
+            .should()
+            .declareThrowableOfType(IntuneClientException.class)
+            .because("IntuneClientException and its subclasses carry uncontrolled upstream payloads "
+                    + "(raw HTTP response bodies, SCEP activity/transaction IDs, Microsoft Graph service names) "
+                    + "not shaped by us; they must be caught and wrapped in a PlatformException with a "
+                    + "controlled message before any wire-boundary exposure");
 }

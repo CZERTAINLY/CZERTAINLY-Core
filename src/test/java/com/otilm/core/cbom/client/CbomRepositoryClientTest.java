@@ -1,36 +1,47 @@
 package com.otilm.core.cbom.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.otilm.api.exception.CbomRepositoryException;
 import com.otilm.api.model.core.cbom.CbomUploadRequestDto;
 import com.otilm.api.model.core.settings.PlatformSettingsDto;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.UtilsSettingsDto;
-import com.otilm.core.model.cbom.*;
+import com.otilm.core.model.cbom.BomCreateResponseDto;
+import com.otilm.core.model.cbom.BomEntryDto;
+import com.otilm.core.model.cbom.BomResponseDto;
+import com.otilm.core.model.cbom.BomSearchRequestDto;
+import com.otilm.core.model.cbom.BomVersionDto;
 import com.otilm.core.settings.SettingsCache;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-
+import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.time.OffsetDateTime;
-import java.util.LinkedHashMap;
-import java.util.List;
-
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CbomRepositoryClientTest {
 
     @RegisterExtension
-    static WireMockExtension wireMock = WireMockExtension.newInstance()
-            .options(wireMockConfig().dynamicPort())
-            .build();
+    static WireMockExtension wireMock = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
 
     private CbomRepositoryClient client;
     private ObjectMapper objectMapper;
@@ -57,7 +68,9 @@ class CbomRepositoryClientTest {
 
     @AfterEach
     void tearDown() {
-        PlatformSettingsDto toRestore = originalPlatformSettings != null ? originalPlatformSettings : new PlatformSettingsDto();
+        PlatformSettingsDto toRestore = originalPlatformSettings != null
+                ? originalPlatformSettings
+                : new PlatformSettingsDto();
         new SettingsCache().cacheSettings(SettingsSection.PLATFORM, toRestore);
     }
 
@@ -74,18 +87,20 @@ class CbomRepositoryClientTest {
         response.setSerialNumber("urn:uuid:test-serial");
         response.setVersion(1);
 
-        wireMock.stubFor(post(urlEqualTo("/api/v1/bom"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(response))));
+        wireMock
+                .stubFor(post(urlEqualTo("/api/v1/bom"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(response))));
 
         // Act
         client.create(request);
 
         // Assert
-        wireMock.verify(postRequestedFor(urlEqualTo("/api/v1/bom"))
-                .withHeader("Content-Type", equalTo("application/vnd.cyclonedx+json")));
+        wireMock
+                .verify(postRequestedFor(urlEqualTo("/api/v1/bom"))
+                        .withHeader("Content-Type", equalTo("application/vnd.cyclonedx+json")));
     }
 
     @Test
@@ -96,11 +111,12 @@ class CbomRepositoryClientTest {
         content.put("serialNumber", "urn:uuid:test-serial");
         request.setContent(content);
 
-        wireMock.stubFor(post(urlEqualTo("/api/v1/bom"))
-                .willReturn(aResponse()
-                        .withStatus(500)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("{\"message\":\"Internal Server Error\"}")));
+        wireMock
+                .stubFor(post(urlEqualTo("/api/v1/bom"))
+                        .willReturn(aResponse()
+                                .withStatus(500)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("{\"message\":\"Internal Server Error\"}")));
 
         // Act & Assert
         assertThrows(CbomRepositoryException.class, () -> client.create(request));
@@ -123,12 +139,13 @@ class CbomRepositoryClientTest {
 
         List<BomEntryDto> responseList = List.of(entry1, entry2);
 
-        wireMock.stubFor(get(urlPathEqualTo("/api/v1/bom"))
-                .withQueryParam("after", equalTo(String.valueOf(after)))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(responseList))));
+        wireMock
+                .stubFor(get(urlPathEqualTo("/api/v1/bom"))
+                        .withQueryParam("after", equalTo(String.valueOf(after)))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(responseList))));
 
         // Act
         List<BomEntryDto> result = client.search(searchRequest);
@@ -139,8 +156,9 @@ class CbomRepositoryClientTest {
         assertEquals("urn:uuid:test-1", result.get(0).getSerialNumber());
         assertEquals("urn:uuid:test-2", result.get(1).getSerialNumber());
 
-        wireMock.verify(getRequestedFor(urlPathEqualTo("/api/v1/bom"))
-                .withQueryParam("after", equalTo(String.valueOf(after))));
+        wireMock
+                .verify(getRequestedFor(urlPathEqualTo("/api/v1/bom"))
+                        .withQueryParam("after", equalTo(String.valueOf(after))));
     }
 
     @Test
@@ -151,11 +169,12 @@ class CbomRepositoryClientTest {
 
         List<BomEntryDto> responseList = List.of();
 
-        wireMock.stubFor(get(urlPathEqualTo("/api/v1/bom"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(responseList))));
+        wireMock
+                .stubFor(get(urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(responseList))));
 
         // Act
         List<BomEntryDto> result = client.search(searchRequest);
@@ -169,17 +188,18 @@ class CbomRepositoryClientTest {
     void testRead_WithoutVersion() throws Exception {
         // Arrange
         String urn = "urn:uuid:test-serial";
-        
+
         BomResponseDto response = new BomResponseDto();
         response.put("specVersion", "1.0");
         response.put("serialNumber", urn);
         response.put("version", "1");
 
-        wireMock.stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(response))));
+        wireMock
+                .stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(response))));
 
         // Act
         BomResponseDto result = client.read(urn, null);
@@ -190,8 +210,7 @@ class CbomRepositoryClientTest {
         assertEquals("1", result.get("version"));
         assertEquals("1.0", result.get("specVersion"));
 
-        wireMock.verify(getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*"))
-                .withoutQueryParam("version"));
+        wireMock.verify(getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*")).withoutQueryParam("version"));
     }
 
     @Test
@@ -204,12 +223,13 @@ class CbomRepositoryClientTest {
         response.put("serialNumber", urn);
         response.put("version", "2");
 
-        wireMock.stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
-                .withQueryParam("version", equalTo("2"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(response))));
+        wireMock
+                .stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
+                        .withQueryParam("version", equalTo("2"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(response))));
 
         // Act
         BomResponseDto result = client.read(urn, 2);
@@ -220,15 +240,16 @@ class CbomRepositoryClientTest {
         assertEquals("2", result.get("version"));
         assertEquals("1.0", result.get("specVersion"));
 
-        wireMock.verify(getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*"))
-                .withQueryParam("version", equalTo("2")));
+        wireMock
+                .verify(getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*"))
+                        .withQueryParam("version", equalTo("2")));
     }
 
     @Test
     void testVersions_Success() throws Exception {
         // Arrange
         String urn = "urn:uuid:test-serial";
-        String encodedUrn = "urn%3Auuid%3Atest-serial";  // Manually encode
+        String encodedUrn = "urn%3Auuid%3Atest-serial"; // Manually encode
 
         BomVersionDto version1 = new BomVersionDto();
         version1.setVersion("1");
@@ -240,11 +261,12 @@ class CbomRepositoryClientTest {
 
         List<BomVersionDto> responseList = List.of(version1, version2);
 
-        wireMock.stubFor(get(urlPathEqualTo("/api/v1/bom/" + encodedUrn + "/versions"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(responseList))));
+        wireMock
+                .stubFor(get(urlPathEqualTo("/api/v1/bom/" + encodedUrn + "/versions"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(responseList))));
 
         // Act
         List<BomVersionDto> result = client.versions(urn);
@@ -264,11 +286,12 @@ class CbomRepositoryClientTest {
         String urn = "urn:uuid:test-serial-with-special-chars";
         List<BomVersionDto> responseList = List.of();
 
-        wireMock.stubFor(get(urlPathMatching("/api/v1/bom/.*/versions"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(responseList))));
+        wireMock
+                .stubFor(get(urlPathMatching("/api/v1/bom/.*/versions"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(responseList))));
 
         // Act
         List<BomVersionDto> result = client.versions(urn);
@@ -293,11 +316,12 @@ class CbomRepositoryClientTest {
         response.put("serialNumber", urn);
         response.put("largeData", largeContent.toString());
 
-        wireMock.stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(objectMapper.writeValueAsString(response))));
+        wireMock
+                .stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(response))));
 
         // Act & Assert
         assertThrows(CbomRepositoryException.class, () -> client.read(urn, null));
@@ -308,29 +332,26 @@ class CbomRepositoryClientTest {
         // Arrange
         String urn = "urn:uuid:test-serial";
 
-        wireMock.stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
-            .willReturn(aResponse()
-                .withStatus(400)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                    "type": "about:blank",
-                    "title": "Bad Request",
-                    "status": 400,
-                    "detail": "Invalid request parameters"
-                    }
-                    """)));
+        wireMock
+                .stubFor(get(WireMock.urlMatching("/api/v1/bom/.*"))
+                        .willReturn(aResponse()
+                                .withStatus(400)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {
+                                        "type": "about:blank",
+                                        "title": "Bad Request",
+                                        "status": 400,
+                                        "detail": "Invalid request parameters"
+                                        }
+                                        """)));
 
         // Act & Assert
-        CbomRepositoryException exception = assertThrows(
-            CbomRepositoryException.class,
-        () -> client.read(urn, null)
-        );
+        CbomRepositoryException exception = assertThrows(CbomRepositoryException.class, () -> client.read(urn, null));
 
         assertNotNull(exception.getProblemDetail());
         assertEquals(400, exception.getProblemDetail().getStatus());
 
-        wireMock.verify(getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*"))
-            .withoutQueryParam("version"));
+        wireMock.verify(getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*")).withoutQueryParam("version"));
     }
 }

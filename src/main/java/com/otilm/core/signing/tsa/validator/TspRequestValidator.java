@@ -8,22 +8,24 @@ import org.springframework.stereotype.Component;
 @Component
 public class TspRequestValidator {
 
-    public void validate(TimestampingWorkflow timestampingWorkflow, TspRequest request) throws TspRequestValidationException {
+    public void validate(TimestampingWorkflow timestampingWorkflow, TspRequest request)
+            throws TspRequestValidationException {
         validateHashAlgorithmAllowed(timestampingWorkflow, request);
         validatePolicy(timestampingWorkflow, request);
     }
 
-    private void validateHashAlgorithmAllowed(TimestampingWorkflow timestampingWorkflow, TspRequest request) throws TspRequestValidationException {
+    private void validateHashAlgorithmAllowed(TimestampingWorkflow timestampingWorkflow, TspRequest request)
+            throws TspRequestValidationException {
         var allowed = timestampingWorkflow.allowedDigestAlgorithms();
         if (!allowed.isEmpty() && !allowed.contains(request.hashAlgorithm())) {
-            throw new TspRequestValidationException(
-                    TspFailureInfo.BAD_ALG,
+            throw new TspRequestValidationException(TspFailureInfo.BAD_ALG,
                     "Hash algorithm '%s' is not accepted by the profile".formatted(request.hashAlgorithm().getCode()),
                     "Hash algorithm is not accepted by the chosen profile");
         }
     }
 
-    private void validatePolicy(TimestampingWorkflow timestampingWorkflow, TspRequest request) throws TspRequestValidationException {
+    private void validatePolicy(TimestampingWorkflow timestampingWorkflow, TspRequest request)
+            throws TspRequestValidationException {
         if (timestampingWorkflow.allowedPolicyIds().isEmpty()) {
             return;
         }
@@ -33,8 +35,7 @@ public class TspRequestValidator {
         }
         var requestedPolicy = request.policy().get();
         if (!timestampingWorkflow.allowedPolicyIds().contains(requestedPolicy)) {
-            throw new TspRequestValidationException(
-                    TspFailureInfo.UNACCEPTED_POLICY,
+            throw new TspRequestValidationException(TspFailureInfo.UNACCEPTED_POLICY,
                     "Policy '%s' is not accepted by the profile".formatted(requestedPolicy),
                     "Policy ID is not accepted by the chosen profile");
         }

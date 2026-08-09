@@ -6,21 +6,19 @@ import com.otilm.core.dao.entity.Endpoint;
 import com.otilm.core.dao.entity.FunctionGroup;
 import com.otilm.core.dao.repository.EndpointRepository;
 import com.otilm.core.dao.repository.FunctionGroupRepository;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
  * Seeds connector function groups and their endpoints into the test database.
  * <p>
- * Function groups and their required endpoints are platform reference data normally provided by Flyway
- * migrations. In the test profile Flyway is disabled and {@code BaseSpringBootTest} truncates every
- * {@code core} table before each test, so any test that registers a V1 connector through
- * {@code ConnectorExternalService} must re-create the matching function group first — registration validation
- * rejects an unknown function group, and {@code ConnectorV1Adapter#validateFunctionGroups} checks the
- * connector's advertised endpoints against the seeded required ones. There is no service for this
- * metadata, so seeding goes through repositories.
+ * Function groups and their required endpoints are platform reference data normally provided by Flyway migrations. In
+ * the test profile Flyway is disabled and {@code BaseSpringBootTest} truncates every {@code core} table before each
+ * test, so any test that registers a V1 connector through {@code ConnectorExternalService} must re-create the matching
+ * function group first — registration validation rejects an unknown function group, and
+ * {@code ConnectorV1Adapter#validateFunctionGroups} checks the connector's advertised endpoints against the seeded
+ * required ones. There is no service for this metadata, so seeding goes through repositories.
  */
 @Component
 public class FunctionGroupSeeder {
@@ -32,8 +30,8 @@ public class FunctionGroupSeeder {
     private EndpointRepository endpointRepository;
 
     /**
-     * Idempotently seeds the function group with the given required endpoints. Per-test truncation
-     * guarantees an existing group already carries its endpoints, so finding one skips seeding entirely.
+     * Idempotently seeds the function group with the given required endpoints. Per-test truncation guarantees an
+     * existing group already carries its endpoints, so finding one skips seeding entirely.
      */
     public FunctionGroup seed(FunctionGroupCode code, List<EndpointDto> requiredEndpoints) {
         return functionGroupRepository.findByCode(code).orElseGet(() -> {
@@ -42,9 +40,7 @@ public class FunctionGroupSeeder {
             functionGroup.setName(code.getCode());
             functionGroupRepository.save(functionGroup);
 
-            List<Endpoint> endpoints = requiredEndpoints.stream()
-                    .map(dto -> toEndpoint(dto, functionGroup))
-                    .toList();
+            List<Endpoint> endpoints = requiredEndpoints.stream().map(dto -> toEndpoint(dto, functionGroup)).toList();
             endpointRepository.saveAll(endpoints);
 
             return functionGroup;

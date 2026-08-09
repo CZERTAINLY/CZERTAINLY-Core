@@ -1,15 +1,14 @@
 package com.otilm.core.api;
 
-import org.springframework.boot.actuate.info.Info;
-import org.springframework.boot.actuate.info.InfoContributor;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.util.HashMap;
 import java.util.Map;
+import javax.sql.DataSource;
+import org.springframework.boot.actuate.info.Info;
+import org.springframework.boot.actuate.info.InfoContributor;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
 @Component
 @Profile("!test")

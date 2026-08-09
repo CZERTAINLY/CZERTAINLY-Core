@@ -9,6 +9,12 @@ import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.security.auth.x500.X500Principal;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -27,13 +33,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import javax.security.auth.x500.X500Principal;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,17 +58,20 @@ class X509RequestContentRendererTest {
 
         @AfterAll
         static void restoreRdnCache() {
-            OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                    savedRdnCache != null ? savedRdnCache : new HashMap<>());
+            OidHandler
+                    .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                            savedRdnCache != null ? savedRdnCache : new HashMap<>());
         }
 
         @BeforeEach
         void seedRdnCacheWithCnAndCustomCode() {
             OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-            OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                    OidRecord.builder().displayName("Common Name").code("CN").build());
-            OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "1.2.3.4.5.6",
-                    OidRecord.builder().displayName("Custom").code(CUSTOM_CODE).build());
+            OidHandler
+                    .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                            OidRecord.builder().displayName("Common Name").code("CN").build());
+            OidHandler
+                    .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "1.2.3.4.5.6",
+                            OidRecord.builder().displayName("Custom").code(CUSTOM_CODE).build());
         }
 
         @Test
@@ -202,8 +204,7 @@ class X509RequestContentRendererTest {
         @Test
         void includesAllEntries_whenMultipleSansPresent() throws Exception {
             // given
-            var x509 = sansOf(san(GeneralNameType.DNS, "a.example.com"),
-                    san(GeneralNameType.EMAIL, "a@example.com"));
+            var x509 = sansOf(san(GeneralNameType.DNS, "a.example.com"), san(GeneralNameType.EMAIL, "a@example.com"));
 
             // when
             Extensions ext = X509RequestContentRenderer.toExtensions(x509);
@@ -309,7 +310,8 @@ class X509RequestContentRendererTest {
             var x509 = new X509RequestContent();
             x509.setExtensions(List.of(derExtension(oid), derExtension(oid)));
 
-            // when / then — the renderer rejects the second occurrence before it reaches BouncyCastle, as a controlled IOException naming the OID
+            // when / then — the renderer rejects the second occurrence before it reaches BouncyCastle, as a controlled
+            // IOException naming the OID
             assertThatThrownBy(() -> X509RequestContentRenderer.toExtensions(x509))
                     .isInstanceOf(IOException.class)
                     .hasMessageContaining(oid);
@@ -317,7 +319,8 @@ class X509RequestContentRendererTest {
 
         @Test
         void throwsIoException_whenExplicitExtensionDuplicatesSubjectAltName() {
-            // given — a SAN entry plus an explicit extension mapped to the subjectAltName OID; both render into 2.5.29.17
+            // given — a SAN entry plus an explicit extension mapped to the subjectAltName OID; both render into
+            // 2.5.29.17
             var sanOid = Extension.subjectAlternativeName.getId();
             var x509 = sansOf(san(GeneralNameType.DNS, "host.example.com"));
             x509.setExtensions(List.of(derExtension(sanOid)));
@@ -330,7 +333,8 @@ class X509RequestContentRendererTest {
 
         @Test
         void rendersSanExtension_whenExplicitSubjectAltNameOidHasNoCompetingSanList() throws Exception {
-            // given — no SAN list, but an explicit extension mapped to the subjectAltName OID (legal: the OID appears only once)
+            // given — no SAN list, but an explicit extension mapped to the subjectAltName OID (legal: the OID appears
+            // only once)
             var sanOid = Extension.subjectAlternativeName.getId();
             var x509 = new X509RequestContent();
             x509.setExtensions(List.of(derExtension(sanOid)));
@@ -396,8 +400,7 @@ class X509RequestContentRendererTest {
 
             // then
             assertThat(value).isInstanceOf(ASN1OctetString.class);
-            assertThat(((ASN1OctetString) value).getOctets())
-                    .isEqualTo(rawValue.getBytes(StandardCharsets.UTF_8));
+            assertThat(((ASN1OctetString) value).getOctets()).isEqualTo(rawValue.getBytes(StandardCharsets.UTF_8));
         }
 
         @Test
@@ -593,8 +596,9 @@ class X509RequestContentRendererTest {
             byte[] extnValue = extnValueOf(extension(EXT_OID, ExtensionValueEncoding.OCTET_STRING, rawValue));
 
             // then
-            assertThat(extnValue).isEqualTo(
-                    new DEROctetString(rawValue.getBytes(StandardCharsets.UTF_8)).getEncoded(ASN1Encoding.DER));
+            assertThat(extnValue)
+                    .isEqualTo(
+                            new DEROctetString(rawValue.getBytes(StandardCharsets.UTF_8)).getEncoded(ASN1Encoding.DER));
         }
 
         @Test
@@ -668,7 +672,6 @@ class X509RequestContentRendererTest {
 
     private static GeneralName[] sanNamesOf(Extensions ext) {
         assertThat(ext.getExtension(Extension.subjectAlternativeName)).isNotNull();
-        return GeneralNames.getInstance(
-                ext.getExtension(Extension.subjectAlternativeName).getParsedValue()).getNames();
+        return GeneralNames.getInstance(ext.getExtension(Extension.subjectAlternativeName).getParsedValue()).getNames();
     }
 }

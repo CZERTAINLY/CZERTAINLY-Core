@@ -18,26 +18,25 @@ import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.core.attribute.CsrAttributes;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
- * Plain unit test (no Spring context) for the authoring-time request-attribute definition validation.
- * RDN-code mapping validation resolves against the OidHandler registry, seeded from SystemOid here.
+ * Plain unit test (no Spring context) for the authoring-time request-attribute definition validation. RDN-code mapping
+ * validation resolves against the OidHandler registry, seeded from SystemOid here.
  *
- * <p>The OID registry is process-wide static state shared across the surefire JVM, so this class
- * snapshots the RDN category in {@code @BeforeAll} and restores it in {@code @AfterAll}. When no
- * cache existed beforehand, the restore leaves an empty map rather than the absent ({@code null})
- * state — equivalent for every reader of the RDN category ({@code getCodeToOidMap} treats absent
- * as empty). Assumes the default serial per-JVM test execution — seeding a shared static is not
- * parallel-safe.
+ * <p>
+ * The OID registry is process-wide static state shared across the surefire JVM, so this class snapshots the RDN
+ * category in {@code @BeforeAll} and restores it in {@code @AfterAll}. When no cache existed beforehand, the restore
+ * leaves an empty map rather than the absent ({@code null}) state — equivalent for every reader of the RDN category
+ * ({@code getCodeToOidMap} treats absent as empty). Assumes the default serial per-JVM test execution — seeding a
+ * shared static is not parallel-safe.
  */
 class RequestAttributeDefinitionValidationTest {
 
@@ -50,10 +49,9 @@ class RequestAttributeDefinitionValidationTest {
         Map<String, OidRecord> rdn = new HashMap<>();
         for (SystemOid systemOid : SystemOid.values()) {
             if (systemOid.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE) {
-                rdn.put(systemOid.getOid(), OidRecord.builder()
-                        .displayName(systemOid.name())
-                        .code(systemOid.getCode())
-                        .build());
+                rdn
+                        .put(systemOid.getOid(),
+                                OidRecord.builder().displayName(systemOid.name()).code(systemOid.getCode()).build());
             }
         }
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
@@ -61,8 +59,9 @@ class RequestAttributeDefinitionValidationTest {
 
     @AfterAll
     static void restoreRdnRegistry() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnRegistry == null ? new HashMap<>() : savedRdnRegistry);
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnRegistry == null ? new HashMap<>() : savedRdnRegistry);
     }
 
     private static DataAttributeV3 validDefinition() {
@@ -90,16 +89,19 @@ class RequestAttributeDefinitionValidationTest {
 
     private static void assertRejected(BaseAttribute definition, String expectedMessagePart) {
         List<BaseAttribute> definitions = List.of(definition);
-        ValidationException e = Assertions.assertThrows(ValidationException.class,
-                () -> AttributeEngine.validateRequestAttributeDefinitions(definitions));
-        Assertions.assertTrue(e.getMessage().contains(expectedMessagePart),
-                "expected message containing '" + expectedMessagePart + "' but was: " + e.getMessage());
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> AttributeEngine.validateRequestAttributeDefinitions(definitions));
+        Assertions
+                .assertTrue(e.getMessage().contains(expectedMessagePart),
+                        "expected message containing '" + expectedMessagePart + "' but was: " + e.getMessage());
     }
 
     @Test
     void validDefinitionPasses() {
-        Assertions.assertDoesNotThrow(
-                () -> AttributeEngine.validateRequestAttributeDefinitions(List.of(validDefinition())));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> AttributeEngine.validateRequestAttributeDefinitions(List.of(validDefinition())));
     }
 
     @Test
@@ -109,8 +111,10 @@ class RequestAttributeDefinitionValidationTest {
 
     @Test
     void seededDefaultSetPasses() {
-        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(
-                new ArrayList<>(CsrAttributes.csrAttributesAsDataAttributesV3())));
+        Assertions
+                .assertDoesNotThrow(() -> AttributeEngine
+                        .validateRequestAttributeDefinitions(
+                                new ArrayList<>(CsrAttributes.csrAttributesAsDataAttributesV3())));
     }
 
     @Test
@@ -126,8 +130,7 @@ class RequestAttributeDefinitionValidationTest {
         definition.getProperties().setReadOnly(true);
         definition.getProperties().setRequired(true);
         definition.setContent(List.of(new StringAttributeContentV3("fixed-value")));
-        Assertions.assertDoesNotThrow(
-                () -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
     }
 
     @Test
@@ -212,8 +215,7 @@ class RequestAttributeDefinitionValidationTest {
     void dottedOidRdnPasses() {
         DataAttributeV3 definition = validDefinition();
         ((RdnMappedField) definition.getFieldMapping().getFields().get(0)).setRdn("2.5.4.3");
-        Assertions.assertDoesNotThrow(
-                () -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
     }
 
     @Test

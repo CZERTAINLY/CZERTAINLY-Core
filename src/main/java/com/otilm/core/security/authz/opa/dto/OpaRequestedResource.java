@@ -55,14 +55,9 @@ public class OpaRequestedResource {
         return url;
     }
 
-
     @Override
     public String toString() {
-        return "OpaRequestedResource{" +
-                "properties=" + properties +
-                ", objectUUIDs=" + objectUUIDs +
-                ", parentObjectUUIDs=" + parentObjectUUIDs +
-                ", url=" + url +
-                '}';
+        return "OpaRequestedResource{" + "properties=" + properties + ", objectUUIDs=" + objectUUIDs
+                + ", parentObjectUUIDs=" + parentObjectUUIDs + ", url=" + url + '}';
     }
 }

@@ -1,6 +1,10 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.ResponseAttribute;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
@@ -35,7 +39,6 @@ import com.otilm.core.security.authz.ObjectFilterAspect;
 import com.otilm.core.security.authz.SecuredResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-import com.otilm.core.service.*;
 import com.otilm.core.service.AttributeResourceService;
 import com.otilm.core.service.ResourceExtensionService;
 import com.otilm.core.service.ResourceExternalService;
@@ -46,15 +49,19 @@ import com.otilm.core.util.SearchHelper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-
-import java.io.Serializable;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -130,28 +137,34 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
         return getResourceObjectDto(resource, objectUuid, true);
     }
 
-    private ResourceObjectDto getResourceObjectDto(Resource resource, UUID objectUuid, boolean internal) throws NotFoundException {
+    private ResourceObjectDto getResourceObjectDto(Resource resource, UUID objectUuid, boolean internal)
+            throws NotFoundException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (resourceExtensionService == null) {
             throw new NotSupportedException("Cannot retrieve object for requested resource: " + resource.getLabel());
         }
 
-        NameAndUuidDto nameAndUuidDto = internal ? resourceExtensionService.getResourceObjectInternal(objectUuid) : resourceExtensionService.getResourceObjectExternal(SecuredUUID.fromUUID(objectUuid));
+        NameAndUuidDto nameAndUuidDto = internal
+                ? resourceExtensionService.getResourceObjectInternal(objectUuid)
+                : resourceExtensionService.getResourceObjectExternal(SecuredUUID.fromUUID(objectUuid));
         return new ResourceObjectDto(resource, objectUuid, nameAndUuidDto.getName());
     }
 
     @Override
     @ExternalAuthorizationDynamic(action = ResourceAction.LIST)
-    public List<NameAndUuidDto> getResourceObjects(SecuredResource resource, SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotSupportedException {
+    public List<NameAndUuidDto> getResourceObjects(SecuredResource resource, SecurityFilter filter,
+            List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotSupportedException {
         return doListResourceObjects(resource.getResource(), filter, filters, pagination);
     }
 
     @Override
-    public List<NameAndUuidDto> getResourceObjectsInternal(Resource resource, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotSupportedException {
+    public List<NameAndUuidDto> getResourceObjectsInternal(Resource resource, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) throws NotSupportedException {
         return doListResourceObjects(resource, SecurityFilter.create(), filters, pagination);
     }
 
-    private List<NameAndUuidDto> doListResourceObjects(Resource resource, SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotSupportedException {
+    private List<NameAndUuidDto> doListResourceObjects(Resource resource, SecurityFilter filter,
+            List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotSupportedException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (resourceExtensionService == null) {
             throw new NotSupportedException("Cannot list objects for requested resource: " + resource.getLabel());
@@ -161,26 +174,37 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
 
     @Override
     @ExternalAuthorizationDynamic(action = ResourceAction.UPDATE)
-    public List<ResponseAttribute> updateAttributeContentForObject(SecuredResource securedResource, SecuredUUID objectUuid, UUID attributeUuid, List<? extends AttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
+    public List<ResponseAttribute> updateAttributeContentForObject(SecuredResource securedResource,
+            SecuredUUID objectUuid, UUID attributeUuid, List<? extends AttributeContent> attributeContentItems)
+            throws NotFoundException, AttributeException {
         Resource resource = securedResource.getResource();
-        logger.info("Updating the attribute {} for resource {} with {} content item(s)", attributeUuid, resource,
-                attributeContentItems == null ? 0 : attributeContentItems.size());
+        logger
+                .info("Updating the attribute {} for resource {} with {} content item(s)", attributeUuid, resource,
+                        attributeContentItems == null ? 0 : attributeContentItems.size());
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
-        if (!resource.hasCustomAttributes() || resourceExtensionService == null)
-            throw new NotSupportedException("Cannot update custom attribute for requested resource: " + resource.getCode());
+        if (!resource.hasCustomAttributes() || resourceExtensionService == null) {
+            throw new NotSupportedException(
+                    "Cannot update custom attribute for requested resource: " + resource.getCode());
+        }
         resourceExtensionService.evaluatePermissionChain(objectUuid);
 
-        attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
+        attributeEngine
+                .updateObjectCustomAttributeContent(resource, objectUuid.getValue(), attributeUuid, null,
+                        attributeContentItems);
         return attributeEngine.getObjectCustomAttributesContent(resource, objectUuid.getValue());
     }
 
     @Override
     @AnyPrincipalEndpoint
-    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException {
+    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable)
+            throws NotFoundException {
 
-        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource, settable);
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine
+                .getResourceSearchableFields(resource, settable);
         List<FilterField> filterFields = FilterField.getEnumsForResource(resource);
-        if (filterFields.isEmpty() && searchFieldDataByGroupDtos.isEmpty()) return List.of();
+        if (filterFields.isEmpty() && searchFieldDataByGroupDtos.isEmpty()) {
+            return List.of();
+        }
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
         for (FilterField filterField : filterFields) {
             // skip filter fields with JSON paths since it is not supported by rule evaluator
@@ -189,24 +213,38 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
                 continue;
             }
             // Filter field has a single value, don't need to provide list
-            if (filterField.getType() != SearchFieldTypeEnum.LIST)
+            if (filterField.getType() != SearchFieldTypeEnum.LIST) {
                 fieldDataDtos.add(SearchHelper.prepareSearch(filterField));
-            else {
+            } else {
                 // Filter field has values of an Enum
-                if (filterField.getEnumClass() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, filterField.getEnumClass().getEnumConstants()));
+                if (filterField.getEnumClass() != null) {
+                    fieldDataDtos
+                            .add(SearchHelper
+                                    .prepareSearch(filterField, filterField.getEnumClass().getEnumConstants()));
                     // Filter field has values of all objects of another entity
-                else if (filterField.getFieldResource() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, listScopedFieldResourceObjects(filterField.getFieldResource())));
+                } else if (filterField.getFieldResource() != null) {
+                    fieldDataDtos
+                            .add(SearchHelper
+                                    .prepareSearch(filterField,
+                                            listScopedFieldResourceObjects(filterField.getFieldResource())));
                     // Filter field has values of all possible values of a property
-                else {
-                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(filterField.getJoinAttributes(), filterField.getFieldAttribute()), resource, entityManager).getResultList()));
+                } else {
+                    fieldDataDtos
+                            .add(SearchHelper
+                                    .prepareSearch(filterField, FilterPredicatesBuilder
+                                            .getAllValuesOfProperty(
+                                                    FilterPredicatesBuilder
+                                                            .buildPathToProperty(filterField.getJoinAttributes(),
+                                                                    filterField.getFieldAttribute()),
+                                                    resource, entityManager)
+                                            .getResultList()));
                 }
             }
         }
 
-        if (!fieldDataDtos.isEmpty())
+        if (!fieldDataDtos.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
+        }
 
         return searchFieldDataByGroupDtos;
     }
@@ -226,11 +264,10 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
     @Override
     @AnyPrincipalEndpoint
     public Map<ResourceEvent, List<ResourceEventDto>> listAllResourceEvents() {
-        return Arrays.stream(ResourceEvent.values())
-                .collect(Collectors.groupingBy(
-                        event -> event,
-                        Collectors.mapping(ResourceEventDto::new, Collectors.toList())
-                ));
+        return Arrays
+                .stream(ResourceEvent.values())
+                .collect(Collectors
+                        .groupingBy(event -> event, Collectors.mapping(ResourceEventDto::new, Collectors.toList())));
     }
 
     @Override
@@ -239,7 +276,9 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
     }
 
     @Override
-    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException, ConnectorException {
+    public void loadResourceObjectContentData(AttributeCallback callback,
+            RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources)
+            throws NotFoundException, AttributeException, ConnectorException {
         if (callback == null) {
             logger.warn("Missing attribute callback for request attribute callback {}", requestAttributeCallback);
             return;
@@ -256,26 +295,32 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
         }
     }
 
-    private void processMapping(RequestAttributeCallback requestAttributeCallback, AttributeResource resource, AttributeCallbackMapping mapping, AttributeValueTarget target) throws NotFoundException, AttributeException, ConnectorException {
+    private void processMapping(RequestAttributeCallback requestAttributeCallback, AttributeResource resource,
+            AttributeCallbackMapping mapping, AttributeValueTarget target)
+            throws NotFoundException, AttributeException, ConnectorException {
         if (target != AttributeValueTarget.BODY) {
             return;
         }
         Serializable bodyKeyValue = requestAttributeCallback.getBody().get(mapping.getTo());
         NameAndUuidDto resourceId = getResourceId(bodyKeyValue);
         String resourceUuid = resourceId.getUuid();
-        ResourceObjectContentData data = getResourceObjectContentData(resource, UUID.fromString(resourceUuid), resourceId.getName());
+        ResourceObjectContentData data = getResourceObjectContentData(resource, UUID.fromString(resourceUuid),
+                resourceId.getName());
         requestAttributeCallback.getBody().put(mapping.getTo(), data);
     }
 
-
     private static NameAndUuidDto getResourceId(Serializable bodyKeyValue) {
         if (bodyKeyValue instanceof List<?> list && list.getFirst() instanceof Map<?, ?> map) {
-            if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            if (map.get("uuid") == null) {
+                throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            }
             return new NameAndUuidDto(map.get("uuid").toString(), Objects.toString(map.get("name"), null));
         }
 
         if (bodyKeyValue instanceof Map<?, ?> map) {
-            if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            if (map.get("uuid") == null) {
+                throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            }
             return new NameAndUuidDto(map.get("uuid").toString(), Objects.toString(map.get("name"), null));
         }
 
@@ -283,43 +328,56 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
             try {
                 return new NameAndUuidDto(UUID.fromString(uuid).toString(), null);
             } catch (Exception e) {
-                throw new ValidationException("Cannot convert body value %s to UUID: %s".formatted(uuid, e.getMessage()));
+                throw new ValidationException(
+                        "Cannot convert body value %s to UUID: %s".formatted(uuid, e.getMessage()));
             }
         }
 
-        throw new ValidationException("Invalid data in body %s of request callback. Cannot extract UUID.".formatted(bodyKeyValue));
+        throw new ValidationException(
+                "Invalid data in body %s of request callback. Cannot extract UUID.".formatted(bodyKeyValue));
     }
 
     @Override
-    public void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException, ConnectorException {
+    public void loadResourceObjectContentData(List<DataAttribute> attributes)
+            throws NotFoundException, AttributeException, ConnectorException {
         if (attributes == null || attributes.isEmpty()) {
             return;
         }
 
         for (DataAttribute attribute : attributes) {
-            if (!AttributeContentType.RESOURCE.equals(attribute.getContentType()) || attribute.getContent() == null || ((List<?>) attribute.getContent()).isEmpty()) {
+            if (!AttributeContentType.RESOURCE.equals(attribute.getContentType()) || attribute.getContent() == null
+                    || ((List<?>) attribute.getContent()).isEmpty()) {
                 continue;
             }
-            List<NameAndUuidDto> resourceIds = AttributeDefinitionUtils.getNameAndUuidDataList(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
+            List<NameAndUuidDto> resourceIds = AttributeDefinitionUtils
+                    .getNameAndUuidDataList(attribute.getName(),
+                            AttributeDefinitionUtils.getClientAttributes(attributes));
             if (resourceIds.isEmpty()) {
-                throw new AttributeException("No Resource Object UUIDs found for attribute: " + attribute.getName(), attribute.getUuid(), attribute.getName(), AttributeType.DATA, "");
+                throw new AttributeException("No Resource Object UUIDs found for attribute: " + attribute.getName(),
+                        attribute.getUuid(), attribute.getName(), AttributeType.DATA, "");
             }
             List<ResourceObjectContent> contents = new ArrayList<>();
             for (NameAndUuidDto resourceId : resourceIds) {
-                if (resourceId == null || resourceId.getUuid() == null)
-                    throw new AttributeException("UUID of Resource Object is missing.", attribute.getUuid(), attribute.getName(), AttributeType.DATA, "");
-                ResourceObjectContentData data = getResourceObjectContentData(attribute.getProperties().getResource(), UUID.fromString(resourceId.getUuid()), resourceId.getName());
+                if (resourceId == null || resourceId.getUuid() == null) {
+                    throw new AttributeException("UUID of Resource Object is missing.", attribute.getUuid(),
+                            attribute.getName(), AttributeType.DATA, "");
+                }
+                ResourceObjectContentData data = getResourceObjectContentData(attribute.getProperties().getResource(),
+                        UUID.fromString(resourceId.getUuid()), resourceId.getName());
                 contents.add(new ResourceObjectContent(resourceId.getName(), data));
             }
             attribute.setContent(contents);
         }
     }
 
-    private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException, ConnectorException {
+    private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name)
+            throws NotFoundException, AttributeException, ConnectorException {
         ResourceObjectContentData data;
         if (resource.getContentClass() == ResourceSimpleContentData.class) {
             data = new ResourceSimpleContentData(resource);
-            ((ResourceSimpleContentData) data).setAttributes(attributeEngine.getObjectDataAttributesContentUnversioned(Resource.findByCode(resource.getCode()), uuid));
+            ((ResourceSimpleContentData) data)
+                    .setAttributes(attributeEngine
+                            .getObjectDataAttributesContentUnversioned(Resource.findByCode(resource.getCode()), uuid));
         } else {
             data = attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid);
         }
@@ -327,6 +385,5 @@ public class ResourceServiceImpl implements ResourceExternalService, ResourceInt
         data.setName(name);
         return data;
     }
-
 
 }

@@ -10,16 +10,15 @@ import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CryptographicOperationInternalService;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,14 +35,9 @@ class CryptographicOperationServiceSignerTest {
 
     @BeforeEach
     void createSigner() {
-        signer = new CryptographicOperationServiceSigner(
-                cryptographicOperationService,
-                SecuredParentUUID.fromUUID(UUID.randomUUID()),
-                SecuredUUID.fromUUID(UUID.randomUUID()),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                List.of(),
-                SignatureAlgorithm.SHA256_WITH_RSA);
+        signer = new CryptographicOperationServiceSigner(cryptographicOperationService,
+                SecuredParentUUID.fromUUID(UUID.randomUUID()), SecuredUUID.fromUUID(UUID.randomUUID()),
+                UUID.randomUUID(), UUID.randomUUID(), List.of(), SignatureAlgorithm.SHA256_WITH_RSA);
     }
 
     // ── Sign ──────────────────────────────────────────────────────────────────
@@ -56,8 +50,7 @@ class CryptographicOperationServiceSignerTest {
             // given — no DTBS to sign
 
             // when / then
-            assertThatThrownBy(() -> signer.sign(null))
-                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> signer.sign(null)).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
@@ -65,8 +58,7 @@ class CryptographicOperationServiceSignerTest {
             // given — zero-length DTBS
 
             // when / then
-            assertThatThrownBy(() -> signer.sign(new byte[0]))
-                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> signer.sign(new byte[0])).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test

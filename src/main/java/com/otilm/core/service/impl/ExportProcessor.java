@@ -1,14 +1,11 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.model.core.audit.ExportResultDto;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.csv.CsvGenerator;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
+import com.otilm.api.model.core.audit.ExportResultDto;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -17,12 +14,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ExportProcessor {
 
-    private static final DateTimeFormatter EXPORT_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss");
+    private static final DateTimeFormatter EXPORT_DATE_TIME_FORMAT = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd'T'HH-mm-ss");
     private static final CsvMapper CSV_MAPPER = new CsvMapper();
 
     static {
@@ -58,23 +57,23 @@ public class ExportProcessor {
         }
 
         try (ByteArrayOutputStream os = new ByteArrayOutputStream();
-             OutputStreamWriter osWriter = new OutputStreamWriter(os, encoding)) {
+                OutputStreamWriter osWriter = new OutputStreamWriter(os, encoding)) {
 
-            CsvSchema schema = CSV_MAPPER.schemaFor(data.get(0).getClass())
+            CsvSchema schema = CSV_MAPPER
+                    .schemaFor(data.get(0).getClass())
                     .withColumnSeparator(separator)
                     .withLineSeparator(lineEnding)
                     .withUseHeader(isHeaderIncluded)
                     .withQuoteChar('"')
                     .withEscapeChar('\\');
 
-            ObjectWriter writer = CSV_MAPPER.writer()
-                    .with(schema);
+            ObjectWriter writer = CSV_MAPPER.writer().with(schema);
 
             writer.writeValue(osWriter, data);
 
             if (isZipped) {
                 try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                     ZipOutputStream zos = new ZipOutputStream(bos)) {
+                        ZipOutputStream zos = new ZipOutputStream(bos)) {
                     zos.putNextEntry(new ZipEntry(fileName));
                     zos.write(os.toByteArray());
                     zos.closeEntry();

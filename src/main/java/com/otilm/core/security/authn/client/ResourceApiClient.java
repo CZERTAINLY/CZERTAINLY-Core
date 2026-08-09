@@ -4,12 +4,11 @@ import com.otilm.api.model.core.auth.AuthResourceDto;
 import com.otilm.core.model.auth.ResourceSyncRequestDto;
 import com.otilm.core.model.auth.SyncRequestDto;
 import com.otilm.core.model.auth.SyncResponseDto;
+import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-
-import java.util.List;
 
 public class ResourceApiClient extends PlatformBaseAuthenticationClient {
 
@@ -30,34 +29,30 @@ public class ResourceApiClient extends PlatformBaseAuthenticationClient {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
 
         processRequest(r -> r
-                        .uri(RESOURCE_CONTEXT)
-                        .body(Mono.just(requestDto), ENDPOINT_LIST_TYPE_REF)
-                        .retrieve()
-                        .toEntity(Void.class)
-                        .block().getBody(),
-                request);
+                .uri(RESOURCE_CONTEXT)
+                .body(Mono.just(requestDto), ENDPOINT_LIST_TYPE_REF)
+                .retrieve()
+                .toEntity(Void.class)
+                .block()
+                .getBody(), request);
     }
 
     public SyncResponseDto syncResources(List<ResourceSyncRequestDto> requestDto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
 
         return processRequest(r -> r
-                        .uri(RESOURCE_SYNC_CONTEXT)
-                        .body(Mono.just(requestDto), ENDPOINT_LIST_TYPE_REF)
-                        .retrieve()
-                        .toEntity(SyncResponseDto.class)
-                        .block().getBody(),
-                request);
+                .uri(RESOURCE_SYNC_CONTEXT)
+                .body(Mono.just(requestDto), ENDPOINT_LIST_TYPE_REF)
+                .retrieve()
+                .toEntity(SyncResponseDto.class)
+                .block()
+                .getBody(), request);
     }
 
     public List<AuthResourceDto> getAuthResources() {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
 
-        return processRequest(r -> r
-                        .uri(RESOURCE_CONTEXT)
-                        .retrieve()
-                        .toEntityList(AuthResourceDto.class)
-                        .block().getBody(),
-                request);
+        return processRequest(
+                r -> r.uri(RESOURCE_CONTEXT).retrieve().toEntityList(AuthResourceDto.class).block().getBody(), request);
     }
 }

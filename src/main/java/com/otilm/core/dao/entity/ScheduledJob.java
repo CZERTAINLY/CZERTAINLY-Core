@@ -7,13 +7,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import lombok.*;
+import java.util.Objects;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
-
-import java.util.Objects;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -50,7 +52,9 @@ public class ScheduledJob extends UniquelyIdentified {
     private String jobClassName;
 
     public ScheduledJobDetailDto mapToDetailDto(ScheduledJobHistory latestHistory) {
-        String jobType = this.jobClassName.lastIndexOf(".") == -1 ? this.jobClassName : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
+        String jobType = this.jobClassName.lastIndexOf(".") == -1
+                ? this.jobClassName
+                : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
 
         final ScheduledJobDetailDto dto = new ScheduledJobDetailDto();
         dto.setUuid(this.uuid);
@@ -61,7 +65,9 @@ public class ScheduledJob extends UniquelyIdentified {
         dto.setEnabled(this.enabled);
         dto.setSystem(this.system);
         dto.setOneTime(this.oneTime);
-        if (latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+        if (latestHistory != null) {
+            dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+        }
 
         return dto;
     }
@@ -75,28 +81,44 @@ public class ScheduledJob extends UniquelyIdentified {
         dto.setEnabled(this.enabled);
         dto.setOneTime(this.oneTime);
         dto.setSystem(this.system);
-        if (latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+        if (latestHistory != null) {
+            dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+        }
 
         return dto;
     }
 
     public String getJobType() {
-        return this.jobClassName.lastIndexOf(".") == -1 ? this.jobClassName : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
+        return this.jobClassName.lastIndexOf(".") == -1
+                ? this.jobClassName
+                : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
     }
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         ScheduledJob that = (ScheduledJob) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

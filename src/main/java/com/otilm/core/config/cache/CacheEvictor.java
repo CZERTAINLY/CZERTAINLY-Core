@@ -10,10 +10,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * Spring-managed helper for transaction-safe cache invalidation.
  *
- * <p>When a transaction is active, invalidation is deferred to {@code afterCommit} so a rollback leaves the
- * cache intact. Full clears ({@link #clear}) are deduped per cache name per transaction — bulk operations
- * that trigger multiple mutations result in at most one {@code cache.clear()} call per cache. Key-level
- * evictions ({@link #evict}) are not deduped because they target distinct entries.
+ * <p>
+ * When a transaction is active, invalidation is deferred to {@code afterCommit} so a rollback leaves the cache intact.
+ * Full clears ({@link #clear}) are deduped per cache name per transaction — bulk operations that trigger multiple
+ * mutations result in at most one {@code cache.clear()} call per cache. Key-level evictions ({@link #evict}) are not
+ * deduped because they target distinct entries.
  */
 @Component
 public class CacheEvictor {
@@ -30,7 +31,9 @@ public class CacheEvictor {
      */
     public void evict(String cacheName, Object key) {
         Cache cache = cacheManager.getCache(cacheName);
-        if (cache == null) return;
+        if (cache == null) {
+            return;
+        }
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -48,9 +51,12 @@ public class CacheEvictor {
      */
     public void clear(String cacheName) {
         Cache cache = cacheManager.getCache(cacheName);
-        if (cache == null) return;
+        if (cache == null) {
+            return;
+        }
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
-            boolean alreadyPending = TransactionSynchronizationManager.getSynchronizations()
+            boolean alreadyPending = TransactionSynchronizationManager
+                    .getSynchronizations()
                     .stream()
                     .filter(CacheEvictionSync.class::isInstance)
                     .map(CacheEvictionSync.class::cast)

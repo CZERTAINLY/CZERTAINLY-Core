@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository.cmp;
 
 import com.otilm.core.dao.entity.cmp.CmpTransaction;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface CmpTransactionRepository extends SecurityFilterRepository<CmpTransaction, UUID> {

@@ -1,6 +1,10 @@
 package com.otilm.core.api.web;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.CmpProfileController;
 import com.otilm.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.otilm.api.model.client.cmp.CmpProfileRequestDto;
@@ -17,13 +21,12 @@ import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CmpProfileExternalService;
+import java.net.URI;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
 
 @RestController
 public class CmpProfileControllerImpl implements CmpProfileController {
@@ -54,22 +57,29 @@ public class CmpProfileControllerImpl implements CmpProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CMP_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<CmpProfileDetailDto> createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public ResponseEntity<CmpProfileDetailDto> createCmpProfile(CmpProfileRequestDto request)
+            throws AlreadyExistException, ValidationException, ConnectorException, AttributeException,
+            NotFoundException {
         CmpProfileDetailDto cmpProfile = cmpProfileService.createCmpProfile(request);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
-                .buildAndExpand(cmpProfile.getUuid()).toUri();
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{uuid}")
+                .buildAndExpand(cmpProfile.getUuid())
+                .toUri();
         return ResponseEntity.created(location).body(cmpProfile);
     }
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CMP_PROFILE, operation = Operation.UPDATE)
-    public CmpProfileDetailDto editCmpProfile(@LogResource(uuid = true) String cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public CmpProfileDetailDto editCmpProfile(@LogResource(uuid = true) String cmpProfileUuid,
+            CmpProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return cmpProfileService.editCmpProfile(SecuredUUID.fromString(cmpProfileUuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CMP_PROFILE, operation = Operation.DELETE)
-    public void deleteCmpProfile(@LogResource(uuid = true) String cmpProfileUuid) throws NotFoundException, ValidationException {
+    public void deleteCmpProfile(@LogResource(uuid = true) String cmpProfileUuid)
+            throws NotFoundException, ValidationException {
         cmpProfileService.deleteCmpProfile(SecuredUUID.fromString(cmpProfileUuid));
     }
 
@@ -81,7 +91,8 @@ public class CmpProfileControllerImpl implements CmpProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CMP_PROFILE, operation = Operation.FORCE_DELETE)
-    public List<BulkActionMessageDto> forceDeleteCmpProfiles(@LogResource(uuid = true) List<String> cmpProfileUuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> forceDeleteCmpProfiles(@LogResource(uuid = true) List<String> cmpProfileUuids)
+            throws NotFoundException, ValidationException {
         return cmpProfileService.bulkForceRemoveCmpProfiles(SecuredUUID.fromList(cmpProfileUuids));
     }
 
@@ -111,7 +122,8 @@ public class CmpProfileControllerImpl implements CmpProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CMP_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
-    public void updateRaProfile(@LogResource(uuid = true) String cmpProfileUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
+    public void updateRaProfile(@LogResource(uuid = true) String cmpProfileUuid,
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
         cmpProfileService.updateRaProfile(SecuredUUID.fromString(cmpProfileUuid), raProfileUuid);
     }
 

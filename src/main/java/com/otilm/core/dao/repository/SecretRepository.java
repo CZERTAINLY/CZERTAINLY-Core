@@ -1,12 +1,11 @@
 package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.Secret;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.Query;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
 
 public interface SecretRepository extends SecurityFilterRepository<Secret, UUID> {
 

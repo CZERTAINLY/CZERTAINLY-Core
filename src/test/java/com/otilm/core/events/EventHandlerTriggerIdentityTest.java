@@ -4,19 +4,22 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.ActorType;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
 import com.otilm.core.evaluator.TriggerEvaluator;
+import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.util.AuthHelper;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,10 +30,6 @@ import org.mockito.quality.Strictness;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,8 +42,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * Trigger processing runs as the association's creator, so the automation carries its owner's permissions. That
- * impersonation must end with the loop: the audited writes afterwards (Certificate, CertificateEventHistory) belong
- * to the acting user, and JPA auditing reads whoever is left in the context.
+ * impersonation must end with the loop: the audited writes afterwards (Certificate, CertificateEventHistory) belong to
+ * the acting user, and JPA auditing reads whoever is left in the context.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -154,8 +153,8 @@ class EventHandlerTriggerIdentityTest {
     }
 
     /**
-     * The memo can name a different user than the thread actually holds, so it must not decide whether impersonation
-     * is needed — only the installed principal can.
+     * The memo can name a different user than the thread actually holds, so it must not decide whether impersonation is
+     * needed — only the installed principal can.
      */
     @Test
     void impersonatesWhenTheMemoDisagreesWithTheInstalledPrincipal() {
@@ -188,8 +187,7 @@ class EventHandlerTriggerIdentityTest {
 
         handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null);
 
-        verify(authHelper)
-                .authenticateAsUser(triggerCreatorUuid);
+        verify(authHelper).authenticateAsUser(triggerCreatorUuid);
     }
 
     @Test
@@ -219,7 +217,8 @@ class EventHandlerTriggerIdentityTest {
         authenticateAs(UUID.randomUUID(), UPLOADER);
         doAnswer(invocation -> {
             AuthenticationInfo anonymous = AuthenticationInfo.getAnonymousAuthenticationInfo();
-            SecurityContextHolder.getContext()
+            SecurityContextHolder
+                    .getContext()
                     .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(anonymous)));
             return null;
         }).when(authHelper).authenticateAsUser(deletedOwnerUuid);
@@ -228,8 +227,8 @@ class EventHandlerTriggerIdentityTest {
         EventContext<Certificate> context = contextFor(null);
         context.getPlatformTriggers().getTriggers().add(associationCreatedBy(deletedOwnerUuid));
 
-        assertThatThrownBy(() ->
-                handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null))
+        assertThatThrownBy(
+                () -> handler.evaluateTriggers(context, context.getPlatformTriggers(), new Certificate(), null, null))
                 .as("the event must fail rather than evaluate the trigger under an anonymous principal")
                 .isInstanceOf(PlatformAuthenticationException.class);
 
@@ -248,8 +247,10 @@ class EventHandlerTriggerIdentityTest {
         impersonateOnAuthenticateAsUser(secondOwner);
         List<String> actorUuidsSeen = new ArrayList<>();
         doAnswer(invocation -> {
-            actorUuidsSeen.add(LoggingHelper.hasActorInfo() && LoggingHelper.getActorInfo().uuid() != null
-                    ? LoggingHelper.getActorInfo().uuid().toString() : null);
+            actorUuidsSeen
+                    .add(LoggingHelper.hasActorInfo() && LoggingHelper.getActorInfo().uuid() != null
+                            ? LoggingHelper.getActorInfo().uuid().toString()
+                            : null);
             return null;
         }).when(triggerEvaluator).evaluateTrigger(any(), any(), any(), any(), any(), any(), any());
 
@@ -300,8 +301,10 @@ class EventHandlerTriggerIdentityTest {
     private List<String> recordActorUuidsInsideLoop() throws Exception {
         List<String> seen = new ArrayList<>();
         doAnswer(invocation -> {
-            seen.add(LoggingHelper.hasActorInfo() && LoggingHelper.getActorInfo().uuid() != null
-                    ? LoggingHelper.getActorInfo().uuid().toString() : null);
+            seen
+                    .add(LoggingHelper.hasActorInfo() && LoggingHelper.getActorInfo().uuid() != null
+                            ? LoggingHelper.getActorInfo().uuid().toString()
+                            : null);
             return null;
         }).when(triggerEvaluator).evaluateTrigger(any(), any(), any(), any(), any(), any(), any());
         return seen;
@@ -328,8 +331,8 @@ class EventHandlerTriggerIdentityTest {
     }
 
     private EventContext<Certificate> contextFor(UUID actingUserUuid) {
-        EventMessage message = new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE,
-                null, null, null, null, actingUserUuid, null);
+        EventMessage message = new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE, null, null,
+                null, null, actingUserUuid, null);
         return new EventContext<>(message, triggerEvaluator, new Certificate(), null);
     }
 
@@ -353,9 +356,10 @@ class EventHandlerTriggerIdentityTest {
     }
 
     private void authenticateAs(UUID userUuid, String username) {
-        AuthenticationInfo info =
-                new AuthenticationInfo(AuthMethod.USER_PROXY, userUuid.toString(), username, List.of());
-        SecurityContextHolder.getContext()
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, userUuid.toString(), username,
+                List.of());
+        SecurityContextHolder
+                .getContext()
                 .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
     }
 
@@ -367,7 +371,7 @@ class EventHandlerTriggerIdentityTest {
     private static class TestEventHandler extends EventHandler<Certificate> {
 
         TestEventHandler(SecurityFilterRepository<Certificate, UUID> repository,
-                         TriggerEvaluator<Certificate> triggerEvaluator) {
+                TriggerEvaluator<Certificate> triggerEvaluator) {
             super(repository, triggerEvaluator);
         }
 

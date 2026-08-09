@@ -11,10 +11,9 @@ import com.otilm.core.evaluator.CertificateTriggerEvaluator;
 import com.otilm.core.events.data.EventDataBuilder;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.service.ComplianceInternalService;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.UUID;
 
 @SuppressWarnings("java:S6830")
 @Component(ResourceEvent.Codes.CERTIFICATE_NOT_COMPLIANT)
@@ -27,7 +26,8 @@ public class CertificateNotCompliantEventHandler extends CertificateEventsHandle
         this.complianceService = complianceService;
     }
 
-    protected CertificateNotCompliantEventHandler(CertificateRepository repository, CertificateTriggerEvaluator ruleEvaluator) {
+    protected CertificateNotCompliantEventHandler(CertificateRepository repository,
+            CertificateTriggerEvaluator ruleEvaluator) {
         super(repository, ruleEvaluator);
     }
 

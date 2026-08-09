@@ -1,10 +1,13 @@
 package com.otilm.core.model.compliance;
 
 import com.otilm.core.dao.entity.ComplianceSubject;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.*;
 
 @Getter
 public class ComplianceCheckSubjectContext<T extends ComplianceSubject> {

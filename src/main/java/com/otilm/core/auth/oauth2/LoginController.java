@@ -13,20 +13,22 @@ import com.otilm.core.util.OAuth2Constants;
 import com.otilm.core.util.OAuth2LoginFlowHelper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
 
 @Controller
 public class LoginController {
@@ -41,29 +43,30 @@ public class LoginController {
     /**
      * @deprecated since 2.17.0, use {@link OAuth2LoginControllerImpl#getOAuth2Providers} instead
      */
-    @GetMapping(
-            value = "/login",
-            produces = {"application/json"}
-    )
+    @GetMapping(value = "/login", produces = {"application/json"})
     @ResponseBody
     @Deprecated(forRemoval = true, since = "2.17.0")
-    public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
+    public ResponseEntity<List<LoginProviderDto>> login(
+            @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request,
+            HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
-        request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
+        request
+                .getSession()
+                .setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE,
+                        ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
 
         if (error != null) {
             request.getSession().invalidate();
             throw new PlatformAuthenticationException("Error during authentication: " + error);
         }
 
-        String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
-                .replacePath(null)
-                .build()
-                .toUriString();
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri().replacePath(null).build().toUriString();
 
         String validatedRedirectUrl = oauth2LoginService.validateAndNormalizeRedirect(redirectUrl);
         if (validatedRedirectUrl != null) {
-            request.getSession().setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
+            request
+                    .getSession()
+                    .setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
         } else {
             throw new PlatformAuthenticationException("No redirect URL provided for login or redirect URL is invalid");
         }
@@ -72,7 +75,8 @@ public class LoginController {
         List<OAuth2ProviderSettingsDto> oauth2Providers = oauth2LoginService.getValidOAuth2Providers();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
-            String redirectPath = ServletUriComponentsBuilder.fromCurrentContextPath()
+            String redirectPath = ServletUriComponentsBuilder
+                    .fromCurrentContextPath()
                     .path("/oauth2/authorization/{provider}")
                     .buildAndExpand(oauth2Providers.getFirst().getName())
                     .encode()
@@ -82,19 +86,18 @@ public class LoginController {
             return new ResponseEntity<>(null, headers, HttpStatus.FOUND);
         }
 
-        List<LoginProviderDto> loginProviders = oauth2Providers.stream()
-                .map(provider -> {
-                    LoginProviderDto loginProvider = new LoginProviderDto();
-                    loginProvider.setName(provider.getName());
-                    String loginUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                            .path("/oauth2/authorization/{provider}/prepare")
-                            .buildAndExpand(provider.getName())
-                            .encode()
-                            .toUriString();
-                    loginProvider.setLoginUrl(loginUrl);
-                    return loginProvider;
-                })
-                .toList();
+        List<LoginProviderDto> loginProviders = oauth2Providers.stream().map(provider -> {
+            LoginProviderDto loginProvider = new LoginProviderDto();
+            loginProvider.setName(provider.getName());
+            String loginUrl = ServletUriComponentsBuilder
+                    .fromCurrentContextPath()
+                    .path("/oauth2/authorization/{provider}/prepare")
+                    .buildAndExpand(provider.getName())
+                    .encode()
+                    .toUriString();
+            loginProvider.setLoginUrl(loginUrl);
+            return loginProvider;
+        }).toList();
 
         return new ResponseEntity<>(loginProviders, HttpStatus.OK);
     }
@@ -104,32 +107,39 @@ public class LoginController {
      */
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     @Deprecated(forRemoval = true, since = "2.17.0")
-    public void loginWithProvider(@PathVariable String provider, @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
-                .replacePath(null)
-                .build()
-                .toUriString();
+    public void loginWithProvider(@PathVariable String provider,
+            @RequestParam(value = "redirect", required = false) String redirect, HttpServletResponse response,
+            HttpServletRequest request) throws IOException {
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri().replacePath(null).build().toUriString();
 
         String validatedRedirectUrl = oauth2LoginService.validateAndNormalizeRedirect(redirect);
         if (validatedRedirectUrl != null) {
-            request.getSession(true).setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
+            request
+                    .getSession(true)
+                    .setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + validatedRedirectUrl);
         }
 
-        OAuth2ProviderSettingsDto providerSettings = oauth2LoginService.resolveProviderOrThrow(provider, OAuth2LoginFlowHelper.getSessionAccessToken(request));
+        OAuth2ProviderSettingsDto providerSettings = oauth2LoginService
+                .resolveProviderOrThrow(provider, OAuth2LoginFlowHelper.getSessionAccessToken(request));
 
-        if (request.getSession(false) == null || request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE) == null) {
-            throw new PlatformAuthenticationException("Missing redirect URL. Please start the login from the beginning.");
+        if (request.getSession(false) == null
+                || request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE) == null) {
+            throw new PlatformAuthenticationException(
+                    "Missing redirect URL. Please start the login from the beginning.");
         }
 
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
-        response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
+        response
+                .sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath()
+                        + "/oauth2/authorization/" + provider);
     }
 
     @GetMapping("/oauth2/{provider}/jwkSet")
     public ResponseEntity<String> getJwkSet(@PathVariable String provider) {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
 
-        if (authenticationSettings.getOAuth2Providers() == null || authenticationSettings.getOAuth2Providers().get(provider) == null) {
+        if (authenticationSettings.getOAuth2Providers() == null
+                || authenticationSettings.getOAuth2Providers().get(provider) == null) {
             throw new ValidationException("Provider %s does not exist.".formatted(provider));
         }
 

@@ -17,8 +17,16 @@ import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.core.config.cache.CacheConfig;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CryptographicKeyExternalService;
@@ -26,6 +34,13 @@ import com.otilm.core.service.CryptographicKeyInternalService;
 import com.otilm.core.service.TokenProfileInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.mockbeans.ProducerMocks;
+import java.security.KeyPairGenerator;
+import java.security.Security;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,19 +51,11 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 
-import java.security.KeyPairGenerator;
-import java.security.Security;
-import java.util.Base64;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests verifying that the cryptographic key item cache is correctly populated on lookup
- * and evicted after mutations that change the key item's observable state.
+ * Integration tests verifying that the cryptographic key item cache is correctly populated on lookup and evicted after
+ * mutations that change the key item's observable state.
  */
 @Import(ProducerMocks.class)
 @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
@@ -217,8 +224,8 @@ class CryptographicKeyItemCacheITest extends BaseSpringBootTest {
         assertThat(cache.get(keyItem.getUuid(), CryptographicKeyItemModel.class)).isNotNull();
 
         // when - key item usages are restricted (SIGN removed)
-        BulkKeyItemUsageRequestDto request = new BulkKeyItemUsageRequestDto(
-                List.of(KeyUsage.DECRYPT), List.of(keyItem.getUuid()));
+        BulkKeyItemUsageRequestDto request = new BulkKeyItemUsageRequestDto(List.of(KeyUsage.DECRYPT),
+                List.of(keyItem.getUuid()));
         cryptographicKeyService.updateKeyItemUsages(request);
 
         // then - cached usage list is purged so SIGN is denied on next lookup
@@ -231,7 +238,8 @@ class CryptographicKeyItemCacheITest extends BaseSpringBootTest {
         keyItem.setState(KeyState.PRE_ACTIVE);
         cryptographicKeyItemRepository.saveAndFlush(keyItem);
         TokenInstanceReference tokenInstanceRef = tokenInstanceReferenceRepository
-                .findByUuid(key.getTokenInstanceReferenceUuid()).orElseThrow();
+                .findByUuid(key.getTokenInstanceReferenceUuid())
+                .orElseThrow();
         tokenInstanceRef.setStatus(TokenInstanceStatus.DEACTIVATED);
         tokenInstanceReferenceRepository.saveAndFlush(tokenInstanceRef);
 
@@ -249,10 +257,9 @@ class CryptographicKeyItemCacheITest extends BaseSpringBootTest {
     @Test
     void notFoundExceptionPropagatesOnCacheMiss() {
         UUID unknownUuid = UUID.randomUUID();
-        org.junit.jupiter.api.Assertions.assertThrows(
-                NotFoundException.class,
-                () -> cryptographicKeyInternalService.getKeyItemModel(unknownUuid)
-        );
+        org.junit.jupiter.api.Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> cryptographicKeyInternalService.getKeyItemModel(unknownUuid));
     }
 
     @Test

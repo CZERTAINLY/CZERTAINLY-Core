@@ -1,8 +1,13 @@
 package com.otilm.core.messaging.model;
 
 import com.otilm.api.model.core.logging.enums.AuditLogOutput;
-import com.otilm.api.model.core.logging.records.*;
-import lombok.*;
+import com.otilm.api.model.core.logging.records.LogRecord;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter

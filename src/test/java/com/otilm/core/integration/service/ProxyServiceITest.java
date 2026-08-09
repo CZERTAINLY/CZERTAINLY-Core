@@ -1,5 +1,6 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
@@ -21,34 +22,39 @@ import com.otilm.core.service.ProxyExternalService;
 import com.otilm.core.service.ProxyInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.List;
-import java.util.Optional;
-
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.delete;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 class ProxyServiceITest extends BaseSpringBootTest {
 
     private static final String PROXY_NAME = "testProxy1";
     private static final String INSTALLATION_INSTRUCTIONS_JSON = """
-        {
-            "command": {
-                "shell": "helm install test-proxy oci://registry.example.com/charts/proxy --version 1.0.0 --namespace default --wait --atomic --set config.key=value"
+            {
+                "command": {
+                    "shell": "helm install test-proxy oci://registry.example.com/charts/proxy --version 1.0.0 --namespace default --wait --atomic --set config.key=value"
+                }
             }
-        }
-        """;
+            """;
 
     @RegisterExtension
-    static WireMockExtension wireMockServer = WireMockExtension.newInstance()
-        .options(wireMockConfig().port(WireMockPorts.PROVISIONING_API))
-        .build();
+    static WireMockExtension wireMockServer = WireMockExtension
+            .newInstance()
+            .options(wireMockConfig().port(WireMockPorts.PROVISIONING_API))
+            .build();
 
     @Autowired
     private ProxyExternalService proxyService;
@@ -85,10 +91,8 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListProxiesByStatus() throws NotFoundException {
-        List<ProxyListDto> proxies = proxyService.listProxies(
-            SecurityFilter.create(),
-            Optional.of(ProxyStatus.CONNECTED)
-        );
+        List<ProxyListDto> proxies = proxyService
+                .listProxies(SecurityFilter.create(), Optional.of(ProxyStatus.CONNECTED));
         Assertions.assertNotNull(proxies);
         Assertions.assertFalse(proxies.isEmpty());
         Assertions.assertEquals(1, proxies.size());
@@ -97,10 +101,7 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListProxiesByStatus_notFound() throws NotFoundException {
-        List<ProxyListDto> proxies = proxyService.listProxies(
-            SecurityFilter.create(),
-            Optional.of(ProxyStatus.FAILED)
-        );
+        List<ProxyListDto> proxies = proxyService.listProxies(SecurityFilter.create(), Optional.of(ProxyStatus.FAILED));
         Assertions.assertNotNull(proxies);
         Assertions.assertTrue(proxies.isEmpty());
     }
@@ -115,23 +116,24 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetProxy_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> proxyService.getProxy(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> proxyService.getProxy(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testAddProxy() throws AlreadyExistException {
         // Stub for POST /api/v1/proxies
-        wireMockServer.stubFor(post(urlPathEqualTo("/api/v1/proxies"))
-            .willReturn(aResponse()
-                .withStatus(201)));
+        wireMockServer.stubFor(post(urlPathEqualTo("/api/v1/proxies")).willReturn(aResponse().withStatus(201)));
 
         // Stub for GET /api/v1/proxies/{code}/installation?format=helm
-        wireMockServer.stubFor(get(urlPathMatching("/api/v1/proxies/.*/installation"))
-            .withQueryParam("format", equalTo("helm"))
-            .willReturn(aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(INSTALLATION_INSTRUCTIONS_JSON)));
+        wireMockServer
+                .stubFor(get(urlPathMatching("/api/v1/proxies/.*/installation"))
+                        .withQueryParam("format", equalTo("helm"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(INSTALLATION_INSTRUCTIONS_JSON)));
 
         ProxyRequestDto request = new ProxyRequestDto();
         request.setName("testProxy2");
@@ -171,14 +173,16 @@ class ProxyServiceITest extends BaseSpringBootTest {
     void testEditProxy_notFound() {
         ProxyUpdateRequestDto request = new ProxyUpdateRequestDto();
         request.setDescription("Updated Description");
-        Assertions.assertThrows(NotFoundException.class, () -> proxyService.editProxy(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> proxyService
+                        .editProxy(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
     void testDeleteProxy() throws NotFoundException {
-        wireMockServer.stubFor(delete(urlPathEqualTo("/api/v1/proxies/TEST_PROXY_DELETE"))
-            .willReturn(aResponse()
-                .withStatus(204)));
+        wireMockServer
+                .stubFor(delete(urlPathEqualTo("/api/v1/proxies/TEST_PROXY_DELETE"))
+                        .willReturn(aResponse().withStatus(204)));
 
         Proxy proxyToDelete = new Proxy();
         proxyToDelete.setName("testProxyDelete");
@@ -194,7 +198,9 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testDeleteProxy_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> proxyService.deleteProxy(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> proxyService.deleteProxy(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -226,12 +232,13 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetInstallationInstructions() throws NotFoundException {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/proxies/TEST_PROXY_1/installation"))
-            .withQueryParam("format", equalTo("helm"))
-            .willReturn(aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(INSTALLATION_INSTRUCTIONS_JSON)));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/proxies/TEST_PROXY_1/installation"))
+                        .withQueryParam("format", equalTo("helm"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(INSTALLATION_INSTRUCTIONS_JSON)));
 
         ProxyInstallInstructionsDto dto = proxyService.getInstallationInstructions(proxy.getSecuredUuid());
 
@@ -243,10 +250,9 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testCreateProxy_provisioningApiFails() {
-        wireMockServer.stubFor(post(urlPathEqualTo("/api/v1/proxies"))
-            .willReturn(aResponse()
-                .withStatus(500)
-                .withBody("Internal Server Error")));
+        wireMockServer
+                .stubFor(post(urlPathEqualTo("/api/v1/proxies"))
+                        .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
         ProxyRequestDto request = new ProxyRequestDto();
         request.setName("failingProxy");
@@ -260,10 +266,9 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testDeleteProxy_decommissioningFails_rollbacksTransaction() {
-        wireMockServer.stubFor(delete(urlPathEqualTo("/api/v1/proxies/DECOMMISSION_FAIL"))
-            .willReturn(aResponse()
-                .withStatus(500)
-                .withBody("Internal Server Error")));
+        wireMockServer
+                .stubFor(delete(urlPathEqualTo("/api/v1/proxies/DECOMMISSION_FAIL"))
+                        .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
         Proxy proxyToDelete = new Proxy();
         proxyToDelete.setName("decommissionFailProxy");
@@ -281,14 +286,13 @@ class ProxyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetInstallationInstructions_apiFails() {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/proxies/TEST_PROXY_1/installation"))
-            .withQueryParam("format", equalTo("helm"))
-            .willReturn(aResponse()
-                .withStatus(500)
-                .withBody("Internal Server Error")));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/proxies/TEST_PROXY_1/installation"))
+                        .withQueryParam("format", equalTo("helm"))
+                        .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
         var securedUuid = proxy.getSecuredUuid();
-        Assertions.assertThrows(ProvisioningException.class,
-            () -> proxyService.getInstallationInstructions(securedUuid));
+        Assertions
+                .assertThrows(ProvisioningException.class, () -> proxyService.getInstallationInstructions(securedUuid));
     }
 }

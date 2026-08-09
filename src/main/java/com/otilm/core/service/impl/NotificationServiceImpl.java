@@ -19,6 +19,11 @@ import com.otilm.core.service.NotificationExternalService;
 import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.RequestValidatorHelper;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +32,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.*;
 
 @Service
 @Transactional
@@ -62,12 +65,14 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
     }
 
     @Override
-    public NotificationDto createNotificationForUser(String message, String detail, String userUuid, Resource target, String targetUuids) throws ValidationException {
+    public NotificationDto createNotificationForUser(String message, String detail, String userUuid, Resource target,
+            String targetUuids) throws ValidationException {
         return createNotificationForUsers(message, detail, List.of(userUuid), target, targetUuids);
     }
 
     @Override
-    public NotificationDto createNotificationForUsers(String message, String detail, List<String> userUuids, Resource target, String targetUuids) throws ValidationException {
+    public NotificationDto createNotificationForUsers(String message, String detail, List<String> userUuids,
+            Resource target, String targetUuids) throws ValidationException {
         if (userUuids == null || userUuids.isEmpty()) {
             logger.debug("Internal notification for {} {} resolved no users; nothing to create.", target, targetUuids);
             return null;
@@ -94,13 +99,25 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
     }
 
     @Override
-    public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> u.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid))).map(UserDto::getUuid).toList(), target, targetUuids);
+    public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target,
+            String targetUuids) throws ValidationException {
+        return createNotificationForUsers(message, detail,
+                userManagementApiClient
+                        .getUsers()
+                        .getData()
+                        .stream()
+                        .filter(u -> u.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid)))
+                        .map(UserDto::getUuid)
+                        .toList(),
+                target, targetUuids);
     }
 
     @Override
-    public NotificationDto createNotificationForRole(String message, String detail, String roleUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, roleManagementApiClient.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).toList(), target, targetUuids);
+    public NotificationDto createNotificationForRole(String message, String detail, String roleUuid, Resource target,
+            String targetUuids) throws ValidationException {
+        return createNotificationForUsers(message, detail,
+                roleManagementApiClient.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).toList(), target,
+                targetUuids);
     }
 
     @Override
@@ -128,8 +145,12 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
     @SelfPrincipalEndpoint
     public void deleteNotification(String uuid) throws NotFoundException {
         final UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid());
-        Notification notification = notificationRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Notification.class, uuid));
-        boolean removed = notification.getNotificationRecipients().removeIf(r -> r.getUserUuid().equals(loggedUserUuid));
+        Notification notification = notificationRepository
+                .findByUuid(SecuredUUID.fromString(uuid))
+                .orElseThrow(() -> new NotFoundException(Notification.class, uuid));
+        boolean removed = notification
+                .getNotificationRecipients()
+                .removeIf(r -> r.getUserUuid().equals(loggedUserUuid));
         if (!removed) {
             // Caller is not a recipient — treat identically to "not found" to avoid UUID existence probing.
             throw new NotFoundException(Notification.class, uuid);
@@ -145,7 +166,9 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
     @SelfPrincipalEndpoint
     public void markNotificationAsRead(String uuid) throws NotFoundException {
         final UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid());
-        Notification notification = notificationRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Notification.class, uuid));
+        Notification notification = notificationRepository
+                .findByUuid(SecuredUUID.fromString(uuid))
+                .orElseThrow(() -> new NotFoundException(Notification.class, uuid));
         boolean found = false;
         for (NotificationRecipient recipient : notification.getNotificationRecipients()) {
             if (recipient.getUserUuid().equals(loggedUserUuid)) {

@@ -6,24 +6,26 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.writer.CertificateValidationWriter;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.OffsetDateTime;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * <p>Verifies that {@link CertificateValidationWriter}'s targeted UPDATE does not clobber columns
- * the validation path does not own — most importantly {@code state}.
+ * <p>
+ * Verifies that {@link CertificateValidationWriter}'s targeted UPDATE does not clobber columns the validation path does
+ * not own — most importantly {@code state}.
  *
- * <p>This test simulates the race by ordering the steps deterministically: persist {@code ISSUED}, directly UPDATE {@code state}
- * to {@code PENDING_REVOKE} via JDBC (modeling the concurrent revoke commit), then call the writer with a stale in-memory view.
- * Under the targeted UPDATE the writer issues, only targeted columns change — {@code state} survives.
+ * <p>
+ * This test simulates the race by ordering the steps deterministically: persist {@code ISSUED}, directly UPDATE
+ * {@code state} to {@code PENDING_REVOKE} via JDBC (modeling the concurrent revoke commit), then call the writer with a
+ * stale in-memory view. Under the targeted UPDATE the writer issues, only targeted columns change — {@code state}
+ * survives.
  */
 class ValidationResultVsRevokeITest extends BaseSpringBootTest {
 
@@ -51,16 +53,18 @@ class ValidationResultVsRevokeITest extends BaseSpringBootTest {
         UUID uuid = cert.getUuid();
 
         // Concurrent revoke commits before the validate path's writer call.
-        int updated = jdbcTemplate.update(
-                "UPDATE core.certificate SET state = ?, i_upd = CURRENT_TIMESTAMP WHERE uuid = ?",
-                CertificateState.PENDING_REVOKE.name(), uuid);
+        int updated = jdbcTemplate
+                .update("UPDATE core.certificate SET state = ?, i_upd = CURRENT_TIMESTAMP WHERE uuid = ?",
+                        CertificateState.PENDING_REVOKE.name(), uuid);
         assertThat(updated).as("JDBC UPDATE must affect exactly one row").isEqualTo(1);
 
         // Validate path now writes its result through the writer. Targeted UPDATE — must not touch state.
-        validationWriter.applyValidationResult(uuid, CertificateValidationStatus.FAILED, OffsetDateTime.now(), "{\"failed\":true}");
+        validationWriter
+                .applyValidationResult(uuid, CertificateValidationStatus.FAILED, OffsetDateTime.now(),
+                        "{\"failed\":true}");
 
-        String finalState = jdbcTemplate.queryForObject(
-                "SELECT state FROM core.certificate WHERE uuid = ?", String.class, uuid);
+        String finalState = jdbcTemplate
+                .queryForObject("SELECT state FROM core.certificate WHERE uuid = ?", String.class, uuid);
         assertThat(finalState)
                 .as("writer.applyValidationResult must not modify state.")
                 .isEqualTo(CertificateState.PENDING_REVOKE.name());
@@ -72,8 +76,8 @@ class ValidationResultVsRevokeITest extends BaseSpringBootTest {
     }
 
     /**
-     * Verifies that {@code @Modifying(clearAutomatically = true)} on {@code updateValidationResult} prevents
-     * a stale managed entity from being flushed back after the bulk UPDATE.
+     * Verifies that {@code @Modifying(clearAutomatically = true)} on {@code updateValidationResult} prevents a stale
+     * managed entity from being flushed back after the bulk UPDATE.
      */
     @Test
     void applyValidationResultWithAmbientTxDoesNotReflushStaleState() {
@@ -92,12 +96,13 @@ class ValidationResultVsRevokeITest extends BaseSpringBootTest {
             assertThat(managed.getState()).isEqualTo(CertificateState.ISSUED);
 
             // Concurrent actor changes state via JDBC (bypasses JPA, same tx so visible immediately)
-            jdbcTemplate.update(
-                    "UPDATE core.certificate SET state = ?, i_upd = CURRENT_TIMESTAMP WHERE uuid = ?",
-                    CertificateState.PENDING_REVOKE.name(), uuid);
+            jdbcTemplate
+                    .update("UPDATE core.certificate SET state = ?, i_upd = CURRENT_TIMESTAMP WHERE uuid = ?",
+                            CertificateState.PENDING_REVOKE.name(), uuid);
 
             // Writer joins ambient tx, does bulk UPDATE on validation columns and clears the persistence context.
-            validationWriter.applyValidationResult(uuid, CertificateValidationStatus.FAILED, OffsetDateTime.now(), null);
+            validationWriter
+                    .applyValidationResult(uuid, CertificateValidationStatus.FAILED, OffsetDateTime.now(), null);
 
             // Simulate X509CertificateValidator post-writer in-memory sync
             managed.setValidationStatus(CertificateValidationStatus.FAILED);
@@ -105,8 +110,8 @@ class ValidationResultVsRevokeITest extends BaseSpringBootTest {
             return null;
         });
 
-        String finalState = jdbcTemplate.queryForObject(
-                "SELECT state FROM core.certificate WHERE uuid = ?", String.class, uuid);
+        String finalState = jdbcTemplate
+                .queryForObject("SELECT state FROM core.certificate WHERE uuid = ?", String.class, uuid);
         assertThat(finalState)
                 .as("clearAutomatically must evict the stale entity so its state is never re-flushed")
                 .isEqualTo(CertificateState.PENDING_REVOKE.name());

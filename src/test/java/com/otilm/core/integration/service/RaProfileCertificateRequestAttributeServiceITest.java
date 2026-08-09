@@ -6,7 +6,10 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v2.InfoAttributeV2;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
-import com.otilm.api.model.common.attribute.v3.mapping.*;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
+import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
+import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
 import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesDto;
@@ -28,12 +31,11 @@ import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,7 +58,8 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     @Autowired
     private IssuanceDefinitionResolver issuanceDefinitionResolver;
 
-    // Stub the connector dynamic-set fetch so resolution-order is exercised without a real authority/connector round-trip.
+    // Stub the connector dynamic-set fetch so resolution-order is exercised without a real authority/connector
+    // round-trip.
     @MockitoBean
     private ExtendedAttributeService extendedAttributeService;
 
@@ -97,8 +100,9 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     void staticOnlyResolvesStoredSetWithValueSourceBindingApplied() throws Exception {
         // given: a stored static set and a value-source binding for it; no authority -> connector set is empty
         RaProfile raProfile = newRaProfile();
-        writer.saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("u1", "server"))),
-                AttributeSetMergeMode.STATIC_ONLY, null);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("u1", "server"))),
+                        AttributeSetMergeMode.STATIC_ONLY, null);
 
         RaProfileValueSourceBinding binding = new RaProfileValueSourceBinding();
         binding.setRaProfileUuid(raProfile.getUuid());
@@ -130,7 +134,8 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         // actually the default set, not merely non-empty (which any of the three sources would satisfy).
         List<BaseAttribute> defaultSet = service.getDefaultSet();
         assertThat(defaultSet).isNotEmpty();
-        assertThat(resolved).extracting(BaseAttribute::getName)
+        assertThat(resolved)
+                .extracting(BaseAttribute::getName)
                 .containsExactlyElementsOf(defaultSet.stream().map(BaseAttribute::getName).toList());
     }
 
@@ -141,8 +146,11 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         attachConnector(raProfile);
         when(extendedAttributeService.listIssueCertificateAttributes(any()))
                 .thenReturn(List.of(def("c1", "connector-name")));
-        writer.saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("c1", "static-conflict"), def("s2", "static-only"))),
-                AttributeSetMergeMode.MERGE, null);
+        writer
+                .saveStaticSet(raProfile,
+                        AttributeDefinitionUtils
+                                .serialize(List.of(def("c1", "static-conflict"), def("s2", "static-only"))),
+                        AttributeSetMergeMode.MERGE, null);
 
         // when
         List<BaseAttribute> resolved = service.resolveIssueAttributeSet(raProfile, AttributeSetMergeMode.MERGE);
@@ -153,13 +161,15 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
 
     @Test
     void connectorUuidSetButConnectorMissingSkipsConnectorSetGracefully() throws Exception {
-        // given: the authority carries a connectorUuid, but its Connector is unresolved/deleted (getConnector() == null)
+        // given: the authority carries a connectorUuid, but its Connector is unresolved/deleted (getConnector() ==
+        // null)
         RaProfile raProfile = newRaProfile();
         AuthorityInstanceReference authority = new AuthorityInstanceReference();
         authority.setConnectorUuid(UUID.randomUUID());
         raProfile.setAuthorityInstanceReference(authority);
-        writer.saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
-                AttributeSetMergeMode.MERGE, null);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.MERGE, null);
 
         // when
         List<BaseAttribute> resolved = service.resolveIssueAttributeSet(raProfile, AttributeSetMergeMode.MERGE);
@@ -176,8 +186,9 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         attachConnector(raProfile);
         when(extendedAttributeService.listIssueCertificateAttributes(any()))
                 .thenReturn(List.of(def("c1", "connector-name")));
-        writer.saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
-                AttributeSetMergeMode.STATIC_ONLY, null);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.STATIC_ONLY, null);
 
         // when: the no-mode overload reads the persisted STATIC_ONLY mode
         List<BaseAttribute> resolved = service.resolveIssueAttributeSet(raProfile);
@@ -190,8 +201,9 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     void buildPathResolverHonoursStoredStaticSet() throws Exception {
         // given — an RA-Profile static set, no authority connector
         RaProfile raProfile = newRaProfile();
-        writer.saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "department"))),
-                AttributeSetMergeMode.STATIC_ONLY, null);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "department"))),
+                        AttributeSetMergeMode.STATIC_ONLY, null);
 
         // when — resolving through the bean the issue/register projection uses
         List<DataAttributeV3> resolved = issuanceDefinitionResolver.resolve(raProfile);
@@ -231,7 +243,9 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         List<DataAttributeV3> resolved = issuanceDefinitionResolver.resolve(raProfile);
 
         // then — the platform default set shapes the projection instead of resolving empty
-        List<String> defaultV3Names = service.getDefaultSet().stream()
+        List<String> defaultV3Names = service
+                .getDefaultSet()
+                .stream()
                 .filter(DataAttributeV3.class::isInstance)
                 .map(BaseAttribute::getName)
                 .toList();
@@ -262,9 +276,11 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
 
         // then — the fallback definitions carry the profile's value-source binding, same as the
         // service-level default fallback does
-        DataAttributeV3 bound = resolved.stream()
+        DataAttributeV3 bound = resolved
+                .stream()
                 .filter(definition -> boundUuid.equals(definition.getUuid()))
-                .findFirst().orElseThrow();
+                .findFirst()
+                .orElseThrow();
         assertThat(bound.getValueSource()).isNotNull();
         assertThat(bound.getValueSource().getKind()).isEqualTo(ValueSourceType.STATIC_LIST);
     }

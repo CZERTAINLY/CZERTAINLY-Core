@@ -4,11 +4,11 @@ import java.security.cert.X509Certificate;
 import java.util.List;
 
 /**
- * A certificate chain where the first element is the end-entity (signing) certificate,
- * followed by any CA certificates in the chain.
+ * A certificate chain where the first element is the end-entity (signing) certificate, followed by any CA certificates
+ * in the chain.
  *
  * @param signingCertificate the end-entity certificate used for signing
- * @param chain              the full chain including the signing certificate as the first element
+ * @param chain the full chain including the signing certificate as the first element
  */
 public record CertificateChain(X509Certificate signingCertificate, List<X509Certificate> chain) {
 
@@ -29,7 +29,8 @@ public record CertificateChain(X509Certificate signingCertificate, List<X509Cert
         }
         for (int i = 1; i < chain.size(); i++) {
             if (chain.get(i).getBasicConstraints() == -1) {
-                throw new IllegalArgumentException("certificate at index " + i + " in the chain must be a CA certificate");
+                throw new IllegalArgumentException(
+                        "certificate at index " + i + " in the chain must be a CA certificate");
             }
         }
     }

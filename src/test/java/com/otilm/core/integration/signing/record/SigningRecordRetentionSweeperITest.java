@@ -11,12 +11,11 @@ import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.signing.record.SigningRecordRetentionSweeper;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -98,9 +97,10 @@ class SigningRecordRetentionSweeperITest extends BaseSpringBootTest {
     }
 
     /**
-     * Persists the version row a record references by int, mirroring {@link com.otilm.core.integration.dao.repository.signing.SigningRecordRepositoryITest SigningRecordRepositoryITest}, so the
-     * fixtures stay valid should the {@code (signing_profile_uuid, signing_profile_version)} reference ever
-     * become a hard FK.
+     * Persists the version row a record references by int, mirroring
+     * {@link com.otilm.core.integration.dao.repository.signing.SigningRecordRepositoryITest
+     * SigningRecordRepositoryITest}, so the fixtures stay valid should the
+     * {@code (signing_profile_uuid, signing_profile_version)} reference ever become a hard FK.
      */
     private void insertProfileVersion(SigningProfile profile, int version, Integer retentionDays) {
         SigningProfileVersion profileVersion = new SigningProfileVersion();

@@ -1,20 +1,28 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.authority.AuthorityInstanceDto;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -22,7 +30,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "authority_instance_reference")
-public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AuthorityInstanceDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<AuthorityInstanceDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Serial
     private static final long serialVersionUID = -2377655450967447704L;
@@ -47,7 +59,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     @Column(name = "connector_uuid")
     private UUID connectorUuid;
 
-    @Column(name="connector_name")
+    @Column(name = "connector_name")
     private String connectorName;
 
     @Column(name = "connector_interface_uuid")
@@ -65,8 +77,11 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-        if(connector != null) this.connectorUuid = connector.getUuid();
-        else this.connectorUuid = null;
+        if (connector != null) {
+            this.connectorUuid = connector.getUuid();
+        } else {
+            this.connectorUuid = null;
+        }
     }
 
     public void setConnectorInterface(ConnectorInterfaceEntity connectorInterface) {
@@ -99,17 +114,29 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         AuthorityInstanceReference that = (AuthorityInstanceReference) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

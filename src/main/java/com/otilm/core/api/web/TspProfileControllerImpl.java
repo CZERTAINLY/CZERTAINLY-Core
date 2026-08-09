@@ -4,16 +4,16 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.core.web.TspProfileController;
+import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.signing.protocols.tsp.TspProfileDto;
 import com.otilm.api.model.client.signing.protocols.tsp.TspProfileListDto;
 import com.otilm.api.model.client.signing.protocols.tsp.TspProfileRequestDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
-import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.common.PaginationResponseDto;
-import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.auth.AuthEndpoint;
 import com.otilm.core.logging.LogResource;
@@ -21,12 +21,11 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TspProfileExternalService;
 import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 public class TspProfileControllerImpl implements TspProfileController {
@@ -59,13 +58,15 @@ public class TspProfileControllerImpl implements TspProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE, operation = Operation.CREATE)
-    public TspProfileDto createTspProfile(@Valid TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+    public TspProfileDto createTspProfile(@Valid TspProfileRequestDto request)
+            throws AlreadyExistException, AttributeException, NotFoundException {
         return tspProfileService.createTspProfile(request, currentBaseUrl());
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE, operation = Operation.UPDATE)
-    public TspProfileDto updateTspProfile(@LogResource(uuid = true) UUID uuid, @Valid TspProfileRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+    public TspProfileDto updateTspProfile(@LogResource(uuid = true) UUID uuid, @Valid TspProfileRequestDto request)
+            throws AlreadyExistException, AttributeException, NotFoundException {
         return tspProfileService.updateTspProfile(SecuredUUID.fromUUID(uuid), request, currentBaseUrl());
     }
 

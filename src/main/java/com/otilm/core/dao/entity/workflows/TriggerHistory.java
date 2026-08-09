@@ -4,15 +4,25 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.workflows.TriggerHistoryDto;
 import com.otilm.core.dao.entity.UniquelyIdentified;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -84,8 +94,12 @@ public class TriggerHistory extends UniquelyIdentified {
         triggerHistoryDto.setUuid(String.valueOf(uuid));
         triggerHistoryDto.setConditionsMatched(conditionsMatched);
         triggerHistoryDto.setActionsPerformed(actionsPerformed);
-        if (objectUuid != null) triggerHistoryDto.setObjectUuid(objectUuid.toString());
-        if (referenceObjectUuid != null) triggerHistoryDto.setReferenceObjectUuid(referenceObjectUuid.toString());
+        if (objectUuid != null) {
+            triggerHistoryDto.setObjectUuid(objectUuid.toString());
+        }
+        if (referenceObjectUuid != null) {
+            triggerHistoryDto.setReferenceObjectUuid(referenceObjectUuid.toString());
+        }
         triggerHistoryDto.setTriggeredAt(triggeredAt);
         triggerHistoryDto.setMessage(message);
         triggerHistoryDto.setRecords(records.stream().map(TriggerHistoryRecord::mapToDto).toList());
@@ -94,22 +108,36 @@ public class TriggerHistory extends UniquelyIdentified {
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         TriggerHistory that = (TriggerHistory) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 
     public void setEventHistory(EventHistory eventHistory) {
-        if (eventHistory == null) return;
+        if (eventHistory == null) {
+            return;
+        }
         this.eventHistoryUuid = eventHistory.getUuid();
         this.eventHistory = eventHistory;
     }

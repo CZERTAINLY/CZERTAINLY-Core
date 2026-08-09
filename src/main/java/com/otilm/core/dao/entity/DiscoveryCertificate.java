@@ -4,18 +4,25 @@ import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.core.discovery.DiscoveryCertificateDto;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.DtoMapper;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.proxy.HibernateProxy;
-import org.hibernate.type.SqlTypes;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -23,7 +30,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "discovery_certificate")
-public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificateDto> {
+public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<DiscoveryCertificateDto> {
 
     @Serial
     private static final long serialVersionUID = 9115753988094130017L;
@@ -88,8 +98,10 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
         dto.setProcessedError(processedError);
         // Certificate Inventory UUID can be obtained from the content table since it has relation to the certificate.
         // If the certificate is deleted from the inventory and the history is not deleted, then the content remains and
-        // the certificate becomes null. Also, the Certificate Content is unique for each certificate and the certificate
-        // inventory does not contain duplicate data. Hence, a single content will be mapped to a single certificate using
+        // the certificate becomes null. Also, the Certificate Content is unique for each certificate and the
+        // certificate
+        // inventory does not contain duplicate data. Hence, a single content will be mapped to a single certificate
+        // using
         // One-to-One relation
         if (certificateContent.getCertificate() != null) {
             dto.setInventoryUuid(certificateContent.getCertificate().getUuid().toString());
@@ -109,17 +121,29 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         DiscoveryCertificate that = (DiscoveryCertificate) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

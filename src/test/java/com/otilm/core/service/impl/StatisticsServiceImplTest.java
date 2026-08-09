@@ -2,7 +2,13 @@ package com.otilm.core.service.impl;
 
 import com.otilm.api.model.client.dashboard.StatisticsDto;
 import com.otilm.core.security.authz.SecurityFilter;
-import com.otilm.core.service.*;
+import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.DiscoveryInternalService;
+import com.otilm.core.service.GroupInternalService;
+import com.otilm.core.service.RaProfileInternalService;
+import com.otilm.core.service.SecretInternalService;
+import com.otilm.core.service.VaultInstanceInternalService;
+import com.otilm.core.service.VaultProfileInternalService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,13 +24,20 @@ class StatisticsServiceImplTest {
 
     private StatisticsServiceImpl statisticsService;
 
-    @Mock private CertificateInternalService certificateService;
-    @Mock private DiscoveryInternalService discoveryService;
-    @Mock private GroupInternalService groupService;
-    @Mock private RaProfileInternalService raProfileService;
-    @Mock private SecretInternalService secretService;
-    @Mock private VaultInstanceInternalService vaultInstanceService;
-    @Mock private VaultProfileInternalService vaultProfileService;
+    @Mock
+    private CertificateInternalService certificateService;
+    @Mock
+    private DiscoveryInternalService discoveryService;
+    @Mock
+    private GroupInternalService groupService;
+    @Mock
+    private RaProfileInternalService raProfileService;
+    @Mock
+    private SecretInternalService secretService;
+    @Mock
+    private VaultInstanceInternalService vaultInstanceService;
+    @Mock
+    private VaultProfileInternalService vaultProfileService;
 
     @BeforeEach
     void setUp() {
@@ -39,7 +52,9 @@ class StatisticsServiceImplTest {
         statisticsService.setVaultProfileService(vaultProfileService);
 
         Mockito.when(certificateService.statisticsCertificateCount(any(), anyBoolean())).thenReturn(0L);
-        Mockito.when(certificateService.addCertificateStatistics(any(), any(), anyBoolean())).thenAnswer(i -> i.getArgument(1));
+        Mockito
+                .when(certificateService.addCertificateStatistics(any(), any(), anyBoolean()))
+                .thenAnswer(i -> i.getArgument(1));
         Mockito.when(discoveryService.statisticsDiscoveryCount(any())).thenReturn(0L);
         Mockito.when(groupService.statisticsGroupCount(any())).thenReturn(0L);
         Mockito.when(raProfileService.statisticsRaProfilesCount(any())).thenReturn(0L);
@@ -47,13 +62,17 @@ class StatisticsServiceImplTest {
 
     @Test
     void testGetStatistics_whenAccessDenied_totalsDefaultToZero() {
-        Mockito.when(secretService.statisticsSecretCount(any(SecurityFilter.class)))
+        Mockito
+                .when(secretService.statisticsSecretCount(any(SecurityFilter.class)))
                 .thenThrow(new AccessDeniedException("denied"));
-        Mockito.when(vaultInstanceService.statisticsVaultInstanceCount(any(SecurityFilter.class)))
+        Mockito
+                .when(vaultInstanceService.statisticsVaultInstanceCount(any(SecurityFilter.class)))
                 .thenThrow(new AccessDeniedException("denied"));
-        Mockito.when(vaultProfileService.statisticsVaultProfileCount(any(SecurityFilter.class)))
+        Mockito
+                .when(vaultProfileService.statisticsVaultProfileCount(any(SecurityFilter.class)))
                 .thenThrow(new AccessDeniedException("denied"));
-        Mockito.when(secretService.addSecretStatistics(any(SecurityFilter.class), any(StatisticsDto.class)))
+        Mockito
+                .when(secretService.addSecretStatistics(any(SecurityFilter.class), any(StatisticsDto.class)))
                 .thenThrow(new AccessDeniedException("denied"));
 
         StatisticsDto result = statisticsService.getStatistics(false);

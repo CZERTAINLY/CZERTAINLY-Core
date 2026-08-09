@@ -15,7 +15,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,21 +44,19 @@ class ProxyControllerITest extends BaseSpringBootTest {
 
     @Test
     void listProxies_empty() throws Exception {
-        mockMvc.perform(get("/v1/proxies"))
-            .andExpectAll(status().isOk());
+        mockMvc.perform(get("/v1/proxies")).andExpectAll(status().isOk());
     }
 
     @Test
     void listProxies_emptyWithFilter() throws Exception {
-        mockMvc.perform(get("/v1/proxies")
-                .param("status", "connected"))
-            .andExpectAll(status().isOk());
+        mockMvc.perform(get("/v1/proxies").param("status", "connected")).andExpectAll(status().isOk());
     }
 
     @Test
     void getProxy_notFound() throws Exception {
-        mockMvc.perform(get("/v1/proxies/{uuid}", "00000000-0000-0000-0000-000000000000"))
-            .andExpectAll(status().isNotFound());
+        mockMvc
+                .perform(get("/v1/proxies/{uuid}", "00000000-0000-0000-0000-000000000000"))
+                .andExpectAll(status().isNotFound());
     }
 
     @Test
@@ -67,29 +68,27 @@ class ProxyControllerITest extends BaseSpringBootTest {
         proxy.setStatus(ProxyStatus.CONNECTED);
         proxy = proxyRepository.save(proxy);
 
-        mockMvc.perform(get("/v1/proxies/{uuid}", proxy.getUuid()))
-            .andExpectAll(status().isOk(),
-                jsonPath("$.uuid").value(proxy.getUuid().toString()),
-                jsonPath("$.name").value(proxy.getName()),
-                jsonPath("$.description").value(proxy.getDescription()),
-                jsonPath("$.code").value(proxy.getCode()),
-                jsonPath("$.status").value(proxy.getStatus().getCode()));
+        mockMvc
+                .perform(get("/v1/proxies/{uuid}", proxy.getUuid()))
+                .andExpectAll(status().isOk(), jsonPath("$.uuid").value(proxy.getUuid().toString()),
+                        jsonPath("$.name").value(proxy.getName()),
+                        jsonPath("$.description").value(proxy.getDescription()),
+                        jsonPath("$.code").value(proxy.getCode()),
+                        jsonPath("$.status").value(proxy.getStatus().getCode()));
     }
 
     @Test
     void createProxy() throws Exception {
         String requestBody = """
-            {
-                "name": "testProxy2",
-                "description": "Test Proxy 2"
-            }
-            """;
+                {
+                    "name": "testProxy2",
+                    "description": "Test Proxy 2"
+                }
+                """;
 
-        mockMvc.perform(post("/v1/proxies")
-                .contentType("application/json")
-                .content(requestBody))
-            .andExpectAll(status().isCreated(),
-                jsonPath("$.uuid").exists());
+        mockMvc
+                .perform(post("/v1/proxies").contentType("application/json").content(requestBody))
+                .andExpectAll(status().isCreated(), jsonPath("$.uuid").exists());
     }
 
     @Test
@@ -102,32 +101,32 @@ class ProxyControllerITest extends BaseSpringBootTest {
         proxy = proxyRepository.save(proxy);
 
         String requestBody = """
-            {
-                "description": "Updated Test Proxy 3"
-            }
-            """;
+                {
+                    "description": "Updated Test Proxy 3"
+                }
+                """;
 
-        mockMvc.perform(put("/v1/proxies/{uuid}", proxy.getUuid())
-                .contentType("application/json")
-                .content(requestBody))
-            .andExpectAll(status().isOk(),
-                jsonPath("$.uuid").value(proxy.getUuid().toString()),
-                jsonPath("$.name").value(proxy.getName()),
-                jsonPath("$.description").value("Updated Test Proxy 3"));
+        mockMvc
+                .perform(
+                        put("/v1/proxies/{uuid}", proxy.getUuid()).contentType("application/json").content(requestBody))
+                .andExpectAll(status().isOk(), jsonPath("$.uuid").value(proxy.getUuid().toString()),
+                        jsonPath("$.name").value(proxy.getName()),
+                        jsonPath("$.description").value("Updated Test Proxy 3"));
     }
 
     @Test
     void editProxy_notFound() throws Exception {
         String requestBody = """
-            {
-                "description": "Updated Description"
-            }
-            """;
+                {
+                    "description": "Updated Description"
+                }
+                """;
 
-        mockMvc.perform(put("/v1/proxies/{uuid}", "00000000-0000-0000-0000-000000000000")
-                .contentType("application/json")
-                .content(requestBody))
-            .andExpectAll(status().isNotFound());
+        mockMvc
+                .perform(put("/v1/proxies/{uuid}", "00000000-0000-0000-0000-000000000000")
+                        .contentType("application/json")
+                        .content(requestBody))
+                .andExpectAll(status().isNotFound());
     }
 
     @Test
@@ -139,13 +138,13 @@ class ProxyControllerITest extends BaseSpringBootTest {
         proxy.setStatus(ProxyStatus.CONNECTED);
         proxy = proxyRepository.save(proxy);
 
-        mockMvc.perform(delete("/v1/proxies/{uuid}", proxy.getUuid()))
-            .andExpectAll(status().isNoContent());
+        mockMvc.perform(delete("/v1/proxies/{uuid}", proxy.getUuid())).andExpectAll(status().isNoContent());
     }
 
     @Test
     void deleteProxy_notFound() throws Exception {
-        mockMvc.perform(delete("/v1/proxies/{uuid}", "00000000-0000-0000-0000-000000000000"))
-            .andExpectAll(status().isNotFound());
+        mockMvc
+                .perform(delete("/v1/proxies/{uuid}", "00000000-0000-0000-0000-000000000000"))
+                .andExpectAll(status().isNotFound());
     }
 }

@@ -1,5 +1,10 @@
 package com.otilm.core.util.builders;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -10,15 +15,9 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.tsp.TSPAlgorithms;
 import org.bouncycastle.tsp.TimeStampRequestGenerator;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Builds DER-encoded RFC 3161 timestamp-request bytes. Defaults produce a minimal, valid
- * SHA-256 request; callers override only the field that drives the scenario under test.
+ * Builds DER-encoded RFC 3161 timestamp-request bytes. Defaults produce a minimal, valid SHA-256 request; callers
+ * override only the field that drives the scenario under test.
  */
 public final class RawTspRequestBuilder {
 
@@ -87,17 +86,14 @@ public final class RawTspRequestBuilder {
 
     /**
      * Emits a request carrying an <em>empty</em> {@code [0] IMPLICIT Extensions} block ({@code A0 00}).
-     * {@code TimeStampRequestGenerator} can never produce this (it omits the tag when there are no
-     * extensions), so the DER is assembled by hand. BouncyCastle deliberately accepts an empty
-     * extensions SEQUENCE while parsing, which is why this otherwise-unreachable shape must be crafted
-     * directly to exercise the parser's empty-extensions handling.
+     * {@code TimeStampRequestGenerator} can never produce this (it omits the tag when there are no extensions), so the
+     * DER is assembled by hand. BouncyCastle deliberately accepts an empty extensions SEQUENCE while parsing, which is
+     * why this otherwise-unreachable shape must be crafted directly to exercise the parser's empty-extensions handling.
      */
     public byte[] buildWithEmptyExtensionsBlock() {
         var version = new ASN1Integer(1);
-        var messageImprint = new DERSequence(new ASN1Encodable[]{
-                new AlgorithmIdentifier(digestAlgorithmOid),
-                new DEROctetString(hashedMessage)
-        });
+        var messageImprint = new DERSequence(
+                new ASN1Encodable[]{new AlgorithmIdentifier(digestAlgorithmOid), new DEROctetString(hashedMessage)});
         var emptyExtensions = new DERTaggedObject(false, 0, new DERSequence());
         var timeStampReq = new DERSequence(new ASN1Encodable[]{version, messageImprint, emptyExtensions});
         try {

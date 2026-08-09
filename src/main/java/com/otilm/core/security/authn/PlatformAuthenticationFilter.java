@@ -9,15 +9,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.lang.NonNull;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.filter.OncePerRequestFilter;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URLDecoder;
@@ -26,6 +17,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.lang.NonNull;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 public class PlatformAuthenticationFilter extends OncePerRequestFilter {
 
@@ -36,15 +35,16 @@ public class PlatformAuthenticationFilter extends OncePerRequestFilter {
 
     private final String context;
 
-
-    public PlatformAuthenticationFilter(PlatformAuthenticationClient authClient, final String certificateHeaderName, final String context) {
+    public PlatformAuthenticationFilter(PlatformAuthenticationClient authClient, final String certificateHeaderName,
+            final String context) {
         this.authClient = authClient;
         this.context = context;
         this.certificateHeaderName = certificateHeaderName;
     }
 
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain) throws ServletException, IOException {
         if (isAuthenticationNeeded(request)) {
             log.trace("Going to authenticate the '{}' request on '{}'.", request.getMethod(), request.getRequestURI());
 
@@ -59,7 +59,8 @@ public class PlatformAuthenticationFilter extends OncePerRequestFilter {
 
                 Authentication authentication;
                 if (authInfo.isAnonymous()) {
-                    authentication = new PlatformAnonymousToken(UUID.randomUUID().toString(), new PlatformUserDetails(authInfo), authInfo.getAuthorities());
+                    authentication = new PlatformAnonymousToken(UUID.randomUUID().toString(),
+                            new PlatformUserDetails(authInfo), authInfo.getAuthorities());
                 } else {
                     authentication = new PlatformAuthenticationToken(new PlatformUserDetails(authInfo));
                 }
@@ -84,7 +85,9 @@ public class PlatformAuthenticationFilter extends OncePerRequestFilter {
         SecurityContextHolder.setContext(securityContext);
         PlatformUserDetails userDetails = (PlatformUserDetails) authentication.getPrincipal();
         if (userDetails.getAuthMethod() == AuthMethod.CERTIFICATE) {
-            log.debug("User with username '{}' has been successfully authenticated with certificate.", userDetails.getUsername());
+            log
+                    .debug("User with username '{}' has been successfully authenticated with certificate.",
+                            userDetails.getUsername());
         } else {
             log.debug("User has not been identified, using anonymous user.");
         }
@@ -108,10 +111,13 @@ public class PlatformAuthenticationFilter extends OncePerRequestFilter {
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {
         SecurityContext securityContext = SecurityContextHolder.getContext();
 
-        if (AuthHelper.permitAllEndpointInRequest(request.getRequestURI(), context) || (AuthHelper.oauth2EndpointInRequest(request.getRequestURI(), context) && securityContext.getAuthentication() == null)) {
+        if (AuthHelper.permitAllEndpointInRequest(request.getRequestURI(), context)
+                || (AuthHelper.oauth2EndpointInRequest(request.getRequestURI(), context)
+                        && securityContext.getAuthentication() == null)) {
             log.trace("Endpoint {} does not need authentication, using anonymous user.", request.getRequestURI());
             AuthenticationInfo authenticationInfo = AuthenticationInfo.getAnonymousAuthenticationInfo();
-            PlatformAnonymousToken authentication = new PlatformAnonymousToken(UUID.randomUUID().toString(), new PlatformUserDetails(authenticationInfo), authenticationInfo.getAuthorities());
+            PlatformAnonymousToken authentication = new PlatformAnonymousToken(UUID.randomUUID().toString(),
+                    new PlatformUserDetails(authenticationInfo), authenticationInfo.getAuthorities());
             authentication.setAccessingPermitAllEndpoint(true);
             SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
             emptyContext.setAuthentication(authentication);
@@ -120,8 +126,11 @@ public class PlatformAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // User is already authenticated and is not anonymous user
-        if (securityContext != null && securityContext.getAuthentication() != null && securityContext.getAuthentication().isAuthenticated()) {
-            log.trace("The user {} is already authenticated. Will not re-authenticate.", securityContext.getAuthentication().getName());
+        if (securityContext != null && securityContext.getAuthentication() != null
+                && securityContext.getAuthentication().isAuthenticated()) {
+            log
+                    .trace("The user {} is already authenticated. Will not re-authenticate.",
+                            securityContext.getAuthentication().getName());
             return false;
         }
 
@@ -143,4 +152,3 @@ public class PlatformAuthenticationFilter extends OncePerRequestFilter {
     }
 
 }
-

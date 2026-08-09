@@ -7,10 +7,20 @@ import com.otilm.api.model.core.workflows.TriggerDetailDto;
 import com.otilm.api.model.core.workflows.TriggerDto;
 import com.otilm.api.model.core.workflows.TriggerType;
 import com.otilm.core.dao.entity.UniquelyIdentified;
-import jakarta.persistence.*;
-import lombok.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
 import java.util.Set;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
@@ -41,18 +51,12 @@ public class Trigger extends UniquelyIdentified {
     private ResourceEvent event;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "trigger_2_rule",
-            joinColumns = @JoinColumn(name = "trigger_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
+    @JoinTable(name = "trigger_2_rule", joinColumns = @JoinColumn(name = "trigger_uuid"), inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
     @ToString.Exclude
     private Set<Rule> rules;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "trigger_2_action",
-            joinColumns = @JoinColumn(name = "trigger_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "action_uuid"))
+    @JoinTable(name = "trigger_2_action", joinColumns = @JoinColumn(name = "trigger_uuid"), inverseJoinColumns = @JoinColumn(name = "action_uuid"))
     @ToString.Exclude
     private Set<Action> actions;
 
@@ -66,8 +70,12 @@ public class Trigger extends UniquelyIdentified {
         TriggerDetailDto triggerDetailDto = new TriggerDetailDto();
         setCommonFields(triggerDetailDto);
 
-        if (rules != null) triggerDetailDto.setRules(rules.stream().map(Rule::mapToDetailDto).toList());
-        if (actions != null) triggerDetailDto.setActions(actions.stream().map(Action::mapToDetailDto).toList());
+        if (rules != null) {
+            triggerDetailDto.setRules(rules.stream().map(Rule::mapToDetailDto).toList());
+        }
+        if (actions != null) {
+            triggerDetailDto.setActions(actions.stream().map(Action::mapToDetailDto).toList());
+        }
         return triggerDetailDto;
     }
 

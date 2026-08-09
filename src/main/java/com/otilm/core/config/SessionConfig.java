@@ -1,6 +1,9 @@
 package com.otilm.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,10 +17,6 @@ import org.springframework.security.jackson2.SecurityJackson2Modules;
 import org.springframework.session.config.SessionRepositoryCustomizer;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHttpSession;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 @Configuration
 @EnableJdbcHttpSession(tableName = "${DB_SCHEMA:core}.spring_session", cleanupCron = Scheduled.CRON_DISABLED)

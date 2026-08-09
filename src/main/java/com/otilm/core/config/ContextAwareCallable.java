@@ -1,9 +1,8 @@
 package com.otilm.core.config;
 
+import java.util.concurrent.Callable;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
-
-import java.util.concurrent.Callable;
 
 public class ContextAwareCallable<T> implements Callable<T> {
     private Callable<T> task;

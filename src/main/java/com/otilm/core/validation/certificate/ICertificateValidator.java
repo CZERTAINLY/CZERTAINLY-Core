@@ -6,5 +6,6 @@ import com.otilm.core.dao.entity.Certificate;
 import java.security.cert.CertificateException;
 
 public interface ICertificateValidator {
-    CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException;
+    CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain)
+            throws CertificateException;
 }

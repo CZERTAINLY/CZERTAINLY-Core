@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.ComplianceInternalRule;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ComplianceInternalRuleRepository extends SecurityFilterRepository<ComplianceInternalRule, UUID> {

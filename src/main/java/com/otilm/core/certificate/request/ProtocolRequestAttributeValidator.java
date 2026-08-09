@@ -6,21 +6,22 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
+import java.security.cert.CertificateException;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.security.cert.CertificateException;
-import java.util.List;
-
 /**
- * Single reuse seam for validating a parsed protocol request (PKCS#10 or CRMF) against the resolved
- * request-attribute set.
+ * Single reuse seam for validating a parsed protocol request (PKCS#10 or CRMF) against the resolved request-attribute
+ * set.
  *
- * <p><b>What it does:</b> resolves the request-attribute set and the effective strictness via the
- * request-attribute service, then runs {@link CertificateRequestContentValidator}.
+ * <p>
+ * <b>What it does:</b> resolves the request-attribute set and the effective strictness via the request-attribute
+ * service, then runs {@link CertificateRequestContentValidator}.
  *
- * <p><b>Failure shaping:</b> a strict policy violation throws {@link RequestAttributePolicyViolationException}.
- * That is a client fault; protocol adapters catch it and shape it into their native error.
+ * <p>
+ * <b>Failure shaping:</b> a strict policy violation throws {@link RequestAttributePolicyViolationException}. That is a
+ * client fault; protocol adapters catch it and shape it into their native error.
  */
 @Slf4j
 @Component
@@ -45,9 +46,9 @@ public class ProtocolRequestAttributeValidator {
     }
 
     /**
-     * Resolves the request-attribute set. A strict availability failure is a server-side inability
-     * (not a client fault), so it surfaces as {@link CertificateException} — adapters classify it as
-     * an issuance failure ("unable to issue"), never a policy violation.
+     * Resolves the request-attribute set. A strict availability failure is a server-side inability (not a client
+     * fault), so it surfaces as {@link CertificateException} — adapters classify it as an issuance failure ("unable to
+     * issue"), never a policy violation.
      */
     private List<BaseAttribute> resolveDefinitions(RaProfile raProfile) throws CertificateException {
         try {
@@ -58,13 +59,17 @@ public class ProtocolRequestAttributeValidator {
                 String reason = e instanceof NotFoundException
                         ? "the request-attribute set is not configured on the authority connector"
                         : "the authority connector is unavailable";
-                log.warn("Could not resolve request-attribute set (RA profile {}); strict validation cannot proceed ({})",
-                        raProfile.getName(), reason, e);
+                log
+                        .warn("Could not resolve request-attribute set (RA profile {}); strict validation cannot proceed ({})",
+                                raProfile.getName(), reason, e);
                 throw new CertificateException(
                         "Request-attribute set is unavailable; strict RA profile '%s' cannot validate the request (%s)"
-                                .formatted(raProfile.getName(), reason), e);
+                                .formatted(raProfile.getName(), reason),
+                        e);
             }
-            log.warn("Could not resolve request-attribute set (RA profile {}); lenient validation skipped", raProfile.getName(), e);
+            log
+                    .warn("Could not resolve request-attribute set (RA profile {}); lenient validation skipped",
+                            raProfile.getName(), e);
             return List.of();
         }
     }
@@ -73,13 +78,16 @@ public class ProtocolRequestAttributeValidator {
      * Parses the request and runs {@link CertificateRequestContentValidator}.
      */
     private RequestAttributeValidationResult runKernel(List<BaseAttribute> definitions, CertificateRequest request,
-                                                       RaProfile raProfile, boolean strict) {
+            RaProfile raProfile, boolean strict) {
         try {
             ParsedRequestContent parsed = X509RequestContentParser.parse(request);
             // Whitelist enforcement is tied to strict mode, so lenient mode does NOT run the whitelist check.
-            return CertificateRequestContentValidator.validate(definitions, parsed, new RequestAttributePolicy(strict, strict));
+            return CertificateRequestContentValidator
+                    .validate(definitions, parsed, new RequestAttributePolicy(strict, strict));
         } catch (RuntimeException e) {
-            log.warn("Certificate request could not be processed for validation (RA profile {})", raProfile.getName(), e);
+            log
+                    .warn("Certificate request could not be processed for validation (RA profile {})",
+                            raProfile.getName(), e);
             String msg = "Certificate request could not be processed for validation";
             throw new RequestAttributePolicyViolationException(msg, List.of(msg));
         }
@@ -87,7 +95,9 @@ public class ProtocolRequestAttributeValidator {
 
     private void reportResult(RequestAttributeValidationResult result, RaProfile raProfile) {
         if (!result.getWarnings().isEmpty()) {
-            log.warn("Request-attribute validation (lenient) RA profile {}: {}", raProfile.getName(), result.getWarnings());
+            log
+                    .warn("Request-attribute validation (lenient) RA profile {}: {}", raProfile.getName(),
+                            result.getWarnings());
         }
         if (result.hasErrors()) {
             List<String> errors = result.getErrors();

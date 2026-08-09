@@ -9,9 +9,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Listener for the shared proxy queue (fire-and-forget messages).
- * Dispatches messages by type to registered handlers (health checks,
- * connector registration). Does not perform correlation.
+ * Listener for the shared proxy queue (fire-and-forget messages). Dispatches messages by type to registered handlers
+ * (health checks, connector registration). Does not perform correlation.
  */
 @Slf4j
 @Component("sharedProxyMessageListener")

@@ -1,19 +1,18 @@
 package com.otilm.core.auth.oauth2;
 
+import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Component
 public class PlatformClientRegistrationRepository implements ClientRegistrationRepository {
@@ -34,7 +33,8 @@ public class PlatformClientRegistrationRepository implements ClientRegistrationR
         return convertSettingsToClientRegistration(clientSettings, registrationId);
     }
 
-    private ClientRegistration convertSettingsToClientRegistration(OAuth2ProviderSettingsDto clientSettings, String registrationId) {
+    private ClientRegistration convertSettingsToClientRegistration(OAuth2ProviderSettingsDto clientSettings,
+            String registrationId) {
         if (clientSettings == null) {
             return null;
         }
@@ -43,15 +43,19 @@ public class PlatformClientRegistrationRepository implements ClientRegistrationR
         configMetadata.put("post_logout_uri", clientSettings.getPostLogoutUrl());
 
         String protocol = sslEnabled ? "https" : "http";
-        return ClientRegistration.withRegistrationId(registrationId)
+        return ClientRegistration
+                .withRegistrationId(registrationId)
                 .clientId(clientSettings.getClientId())
-                .clientSecret(SecretsUtil.decodeAndDecryptSecretString(clientSettings.getClientSecret(), SecretEncodingVersion.V1))
+                .clientSecret(SecretsUtil
+                        .decodeAndDecryptSecretString(clientSettings.getClientSecret(), SecretEncodingVersion.V1))
                 .authorizationGrantType(new AuthorizationGrantType("authorization_code"))
                 .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
                 .scope(clientSettings.getScope())
                 .authorizationUri(clientSettings.getAuthorizationUrl())
                 .tokenUri(clientSettings.getTokenUrl())
-                .jwkSetUri(clientSettings.getJwkSetUrl() != null ? clientSettings.getJwkSetUrl() : protocol + "://localhost:" + port + context + "/oauth2/" + registrationId + "/jwkSet")
+                .jwkSetUri(clientSettings.getJwkSetUrl() != null
+                        ? clientSettings.getJwkSetUrl()
+                        : protocol + "://localhost:" + port + context + "/oauth2/" + registrationId + "/jwkSet")
                 .providerConfigurationMetadata(configMetadata)
                 .build();
     }

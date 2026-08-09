@@ -1,6 +1,5 @@
 package com.otilm.core.security.authz;
 
-
 import java.util.List;
 
 public class GroupParentUUIDGetter implements ParentUUIDGetter {

@@ -4,19 +4,18 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
-import com.otilm.core.util.builders.SigningProfileModelBuilder;
 import com.otilm.core.signing.record.SigningRecordInput;
+import com.otilm.core.util.builders.SigningProfileModelBuilder;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import java.math.BigInteger;
-import java.time.Instant;
-import java.util.Map;
-
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.aSigningRecordPolicy;
 import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -26,10 +25,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Pure unit test for {@link TspSigningRecordFactory}: the assembly of a {@link SigningRecordInput} from a
- * signing profile, TSP request, and the already-encoded granted timestamp token. Uses a real
- * {@link ObjectMapper} (fast and deterministic); the token DER-encoding now happens upstream in the engine,
- * so the factory takes the encoded bytes directly and no token mocking is needed.
+ * Pure unit test for {@link TspSigningRecordFactory}: the assembly of a {@link SigningRecordInput} from a signing
+ * profile, TSP request, and the already-encoded granted timestamp token. Uses a real {@link ObjectMapper} (fast and
+ * deterministic); the token DER-encoding now happens upstream in the engine, so the factory takes the encoded bytes
+ * directly and no token mocking is needed.
  */
 class TspSigningRecordFactoryTest {
 
@@ -51,9 +50,9 @@ class TspSigningRecordFactoryTest {
         // given
         var profileName = "test-profile";
         var profileVersion = 7;
-        var serialNumber = BigInteger.valueOf(255);   // hex "ff"
+        var serialNumber = BigInteger.valueOf(255); // hex "ff"
         var policyOid = "1.2.3.4.5";
-        var nonce = BigInteger.valueOf(255);           // decimal "255" — distinct from the hex serial
+        var nonce = BigInteger.valueOf(255); // decimal "255" — distinct from the hex serial
         var hashAlgorithm = DigestAlgorithm.SHA_256;
         var profile = aRecordingProfile().withName(profileName).withVersion(profileVersion).build();
         var request = aTspRequest().hashAlgorithm(hashAlgorithm).policy(policyOid).nonce(nonce).build();
@@ -77,7 +76,9 @@ class TspSigningRecordFactoryTest {
         var request = aTspRequest().hashAlgorithm(null).policy("1.2.3").nonce(BigInteger.TEN).build();
 
         // when
-        SigningRecordInput input = factory.source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN).build();
+        SigningRecordInput input = factory
+                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .build();
 
         // then
         assertNull(parseMetadata(input.getRequestMetadataJson()).get("hashAlgorithm"));
@@ -89,7 +90,9 @@ class TspSigningRecordFactoryTest {
         var request = aTspRequest().hashAlgorithm(DigestAlgorithm.SHA_256).nonce(BigInteger.TEN).build();
 
         // when
-        SigningRecordInput input = factory.source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN).build();
+        SigningRecordInput input = factory
+                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .build();
 
         // then
         assertNull(parseMetadata(input.getRequestMetadataJson()).get("policy"));
@@ -101,7 +104,9 @@ class TspSigningRecordFactoryTest {
         var request = aTspRequest().hashAlgorithm(DigestAlgorithm.SHA_256).policy("1.2.3").build();
 
         // when
-        SigningRecordInput input = factory.source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN).build();
+        SigningRecordInput input = factory
+                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .build();
 
         // then
         assertNull(parseMetadata(input.getRequestMetadataJson()).get("nonce"));
@@ -111,11 +116,13 @@ class TspSigningRecordFactoryTest {
     void build_buildsDisplayName_asNameWithHexSerial() {
         // given
         var profileName = "my-tsa-profile";
-        var serialNumber = BigInteger.valueOf(255);   // hex "ff"
+        var serialNumber = BigInteger.valueOf(255); // hex "ff"
         var profile = aSigningProfile().withName(profileName).build();
 
         // when
-        SigningRecordInput input = factory.source(profile, aTspRequest().build(), serialNumber, GEN_TIME, ENCODED_TOKEN).build();
+        SigningRecordInput input = factory
+                .source(profile, aTspRequest().build(), serialNumber, GEN_TIME, ENCODED_TOKEN)
+                .build();
 
         // then
         assertEquals(profileName + " #ff", input.getDisplayName());
@@ -127,7 +134,9 @@ class TspSigningRecordFactoryTest {
         var encodedToken = new byte[]{1, 2, 3, 4};
 
         // when
-        SigningRecordInput input = factory.source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, encodedToken).build();
+        SigningRecordInput input = factory
+                .source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, encodedToken)
+                .build();
 
         // then
         assertArrayEquals(encodedToken, input.getSignedDocument());
@@ -138,7 +147,9 @@ class TspSigningRecordFactoryTest {
         // given the TSP path stores only the self-contained token, leaving the other content slots empty
 
         // when
-        SigningRecordInput input = factory.source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN).build();
+        SigningRecordInput input = factory
+                .source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .build();
 
         // then
         assertNull(input.getSignature());
@@ -153,8 +164,9 @@ class TspSigningRecordFactoryTest {
         var factoryWithFailingMapper = new TspSigningRecordFactory(failingMapper);
 
         // when
-        Executable build = () -> factoryWithFailingMapper.source(
-                aRecordingProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN).build();
+        Executable build = () -> factoryWithFailingMapper
+                .source(aRecordingProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .build();
 
         // then
         assertThrows(IllegalStateException.class, build);
@@ -165,6 +177,7 @@ class TspSigningRecordFactoryTest {
     }
 
     private Map<String, Object> parseMetadata(String json) throws JsonProcessingException {
-        return objectMapper.readValue(json, new TypeReference<>() {});
+        return objectMapper.readValue(json, new TypeReference<>() {
+        });
     }
 }

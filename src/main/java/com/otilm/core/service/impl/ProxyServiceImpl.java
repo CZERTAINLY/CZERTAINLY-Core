@@ -4,20 +4,21 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.proxy.ProxyRequestDto;
 import com.otilm.api.model.client.proxy.ProxyUpdateRequestDto;
-import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.proxy.ProxyDto;
 import com.otilm.api.model.core.proxy.ProxyInstallInstructionsDto;
 import com.otilm.api.model.core.proxy.ProxyListDto;
 import com.otilm.api.model.core.proxy.ProxyStatus;
+import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Proxy;
 import com.otilm.core.dao.entity.Proxy_;
 import com.otilm.core.dao.repository.ProxyRepository;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.provisioning.ProxyProvisioningService;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -25,19 +26,17 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ProxyExternalService;
 import com.otilm.core.service.ProxyInternalService;
 import com.otilm.core.util.ProxyCodeHelper;
-import com.otilm.core.model.auth.ResourceAction;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 /**
  * Implementation of {@link ProxyExternalService} and {@link ProxyInternalService} for managing proxy entities.
@@ -56,7 +55,11 @@ public class ProxyServiceImpl implements ProxyExternalService, ProxyInternalServ
     @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.LIST)
     public List<ProxyListDto> listProxies(SecurityFilter filter, Optional<ProxyStatus> status) {
         logger.debug("Listing proxies with status filter: {}", status.orElse(null));
-        List<ProxyListDto> proxies = proxyRepository.findUsingSecurityFilter(filter).stream().map(Proxy::mapToListDto).toList();
+        List<ProxyListDto> proxies = proxyRepository
+                .findUsingSecurityFilter(filter)
+                .stream()
+                .map(Proxy::mapToListDto)
+                .toList();
         if (status.isPresent()) {
             proxies = filterByStatus(proxies, status.get());
         }
@@ -76,8 +79,7 @@ public class ProxyServiceImpl implements ProxyExternalService, ProxyInternalServ
     @Override
     @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.DETAIL)
     public Proxy getProxyEntity(SecuredUUID uuid) throws NotFoundException {
-        return proxyRepository.findByUuid(uuid)
-            .orElseThrow(() -> new NotFoundException(Proxy.class, uuid));
+        return proxyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Proxy.class, uuid));
     }
 
     @Override
@@ -119,8 +121,7 @@ public class ProxyServiceImpl implements ProxyExternalService, ProxyInternalServ
     public ProxyDto editProxy(SecuredUUID uuid, ProxyUpdateRequestDto request) throws NotFoundException {
         logger.info("Editing proxy with UUID: {}", uuid);
 
-        Proxy proxy = proxyRepository.findByUuid(uuid)
-            .orElseThrow(() -> new NotFoundException(Proxy.class, uuid));
+        Proxy proxy = proxyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Proxy.class, uuid));
 
         if (request.getDescription() != null) {
             proxy.setDescription(request.getDescription());
@@ -137,8 +138,7 @@ public class ProxyServiceImpl implements ProxyExternalService, ProxyInternalServ
     public void deleteProxy(SecuredUUID uuid) throws NotFoundException {
         logger.info("Deleting proxy with UUID: {}", uuid);
 
-        Proxy proxy = proxyRepository.findByUuid(uuid)
-            .orElseThrow(() -> new NotFoundException(Proxy.class, uuid));
+        Proxy proxy = proxyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Proxy.class, uuid));
 
         String proxyName = proxy.getName();
         String proxyCode = proxy.getCode();
@@ -153,7 +153,14 @@ public class ProxyServiceImpl implements ProxyExternalService, ProxyInternalServ
     private void deleteProxy(Proxy proxy) {
         List<String> errors = new ArrayList<>();
         if (!proxy.getConnectors().isEmpty()) {
-            errors.add("Dependent connectors: " + String.join(", ", proxy.getConnectors().stream().map(Connector::getName).collect(Collectors.toSet())));
+            errors
+                    .add("Dependent connectors: " + String
+                            .join(", ",
+                                    proxy
+                                            .getConnectors()
+                                            .stream()
+                                            .map(Connector::getName)
+                                            .collect(Collectors.toSet())));
         }
 
         if (!errors.isEmpty()) {
@@ -187,7 +194,8 @@ public class ProxyServiceImpl implements ProxyExternalService, ProxyInternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return proxyRepository.listResourceObjects(filter, Proxy_.name);
     }
 
@@ -199,8 +207,6 @@ public class ProxyServiceImpl implements ProxyExternalService, ProxyInternalServ
     }
 
     private List<ProxyListDto> filterByStatus(List<ProxyListDto> proxies, ProxyStatus status) {
-        return proxies.stream()
-            .filter(proxyDto -> proxyDto.getStatus().equals(status))
-            .toList();
+        return proxies.stream().filter(proxyDto -> proxyDto.getStatus().equals(status)).toList();
     }
 }

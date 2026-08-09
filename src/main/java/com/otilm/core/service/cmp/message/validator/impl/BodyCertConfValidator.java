@@ -5,16 +5,22 @@ import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.CertConfirmContent;
+import org.bouncycastle.asn1.cmp.CertStatus;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIMessage;
 
 /**
- * {@link PKIMessage} validator for type Certificate Confirmation
- * Content (certConf, {@link PKIBody#TYPE_CERT_CONFIRM}).
+ * {@link PKIMessage} validator for type Certificate Confirmation Content (certConf, {@link PKIBody#TYPE_CERT_CONFIRM}).
  */
 public class BodyCertConfValidator extends BaseValidator implements Validator<PKIMessage, Void> {
 
     /**
-     * <p>Certificate Confirmation Content</p>
+     * <p>
+     * Certificate Confirmation Content
+     * </p>
+     *
      * <pre>
      *          CertConfirmContent ::= SEQUENCE OF CertStatus
      *
@@ -28,7 +34,8 @@ public class BodyCertConfValidator extends BaseValidator implements Validator<PK
      * @param request of certConf message, {@link CertConfirmContent}
      * @throws CmpProcessingException if validation has failed
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.18">Certificate Confirmation Content</a>
-     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F. Compilable ASN.1 Definitions
+     * (rfc4210)</a>
      */
     @Override
     public Void validate(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {

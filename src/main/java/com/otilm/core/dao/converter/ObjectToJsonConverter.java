@@ -3,10 +3,9 @@ package com.otilm.core.dao.converter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
+import java.io.Serializable;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.io.Serializable;
 
 @Converter
 public class ObjectToJsonConverter implements AttributeConverter<Object, String> {

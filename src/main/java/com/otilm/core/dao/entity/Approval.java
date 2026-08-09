@@ -7,15 +7,32 @@ import com.otilm.api.model.client.approval.ApprovalStatusEnum;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.model.auth.ResourceAction;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
-import java.util.*;
 
 @Getter
 @Setter
@@ -107,8 +124,12 @@ public class Approval extends UniquelyIdentified {
         return dto;
     }
 
-    private void processRecipient(final ApprovalRecipient recipient, final List<ApprovalDetailStepDto> approvalStepDtos) {
-        final Optional<ApprovalDetailStepDto> approvalStepDto = approvalStepDtos.stream().filter(as -> as.getUuid().toString().equals(recipient.getApprovalStepUuid().toString())).findFirst();
+    private void processRecipient(final ApprovalRecipient recipient,
+            final List<ApprovalDetailStepDto> approvalStepDtos) {
+        final Optional<ApprovalDetailStepDto> approvalStepDto = approvalStepDtos
+                .stream()
+                .filter(as -> as.getUuid().toString().equals(recipient.getApprovalStepUuid().toString()))
+                .findFirst();
         if (approvalStepDto.isPresent()) {
             approvalStepDto.get().getApprovalStepRecipients().add(recipient.mapToDto());
         } else {
@@ -120,17 +141,29 @@ public class Approval extends UniquelyIdentified {
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         Approval approval = (Approval) o;
         return getUuid() != null && Objects.equals(getUuid(), approval.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

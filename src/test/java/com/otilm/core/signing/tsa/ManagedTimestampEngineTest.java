@@ -1,30 +1,33 @@
 package com.otilm.core.signing.tsa;
 
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
-import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.api.model.client.signing.profile.record.SigningRecordPersistenceMode;
+import com.otilm.api.model.core.signing.SigningProtocol;
+import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.SigningRecordPolicyModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
+import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
+import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
 import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.signing.record.SigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordInputSources;
 import com.otilm.core.signing.record.SigningRecordStrategy;
 import com.otilm.core.signing.record.SigningRecordStrategyFactory;
-import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
-import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
 import com.otilm.core.signing.tsa.certificate.SigningCertificateValidator;
 import com.otilm.core.signing.tsa.certificate.SigningCertificateValidatorFactory;
 import com.otilm.core.signing.tsa.certificate.ValidationResult;
 import com.otilm.core.signing.tsa.messages.TspResponse;
 import com.otilm.core.signing.tsa.timequality.TimeQualityRegister;
-import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
 import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.clocksource.TestClockSource;
 import com.otilm.core.util.serialnumber.ClockDriftException;
 import com.otilm.core.util.serialnumber.SerialNumberGenerationException;
 import com.otilm.core.util.serialnumber.SerialNumberGenerator;
+import java.math.BigInteger;
+import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.tsp.TimeStampToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,12 +36,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigInteger;
-import java.util.List;
-import java.util.UUID;
-
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -50,14 +49,22 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ManagedTimestampEngineTest {
 
-    @Mock TimeQualityRegister timeQualityRegister;
-    @Mock SerialNumberGenerator serialNumberGenerator;
-    @Mock ManagedTimestampTokenGenerator tokenGenerator;
-    @Mock SigningCertificateValidatorFactory signingCertificateValidatorFactory;
-    @Mock SigningCertificateValidator signingCertificateValidator;
-    @Mock SigningRecordStrategyFactory signingRecordStrategyFactory;
-    @Mock TspSigningRecordFactory tspSigningRecordFactory;
-    @Mock SigningRecordStrategy signingRecordStrategy;
+    @Mock
+    TimeQualityRegister timeQualityRegister;
+    @Mock
+    SerialNumberGenerator serialNumberGenerator;
+    @Mock
+    ManagedTimestampTokenGenerator tokenGenerator;
+    @Mock
+    SigningCertificateValidatorFactory signingCertificateValidatorFactory;
+    @Mock
+    SigningCertificateValidator signingCertificateValidator;
+    @Mock
+    SigningRecordStrategyFactory signingRecordStrategyFactory;
+    @Mock
+    TspSigningRecordFactory tspSigningRecordFactory;
+    @Mock
+    SigningRecordStrategy signingRecordStrategy;
 
     private final TestClockSource clock = TestClockSource.aTestClock();
     private final SigningProfileModel<?, ?> signingProfile = aSigningProfile().build();
@@ -65,15 +72,19 @@ class ManagedTimestampEngineTest {
 
     @BeforeEach
     void createEngine() {
-        engine = new ManagedTimestampEngine(timeQualityRegister, serialNumberGenerator, tokenGenerator, signingCertificateValidatorFactory, clock, signingRecordStrategyFactory, tspSigningRecordFactory);
+        engine = new ManagedTimestampEngine(timeQualityRegister, serialNumberGenerator, tokenGenerator,
+                signingCertificateValidatorFactory, clock, signingRecordStrategyFactory, tspSigningRecordFactory);
     }
 
     @BeforeEach
     void wireProvider() throws Exception {
         // always route signing scheme lookups to the shared signingCertificateValidator mock
         when(signingCertificateValidatorFactory.getValidator(any())).thenReturn(signingCertificateValidator);
-        // recording is best-effort and only reached on a granted token; lenient so reject paths don't trip strict stubbing
-        lenient().when(signingRecordStrategyFactory.strategyFor(any(SigningRecordPersistenceMode.class))).thenReturn(signingRecordStrategy);
+        // recording is best-effort and only reached on a granted token; lenient so reject paths don't trip strict
+        // stubbing
+        lenient()
+                .when(signingRecordStrategyFactory.strategyFor(any(SigningRecordPersistenceMode.class)))
+                .thenReturn(signingRecordStrategy);
     }
 
     private static TimeStampToken aTokenEncodingTo(byte[] encoded) throws Exception {
@@ -84,22 +95,11 @@ class ManagedTimestampEngineTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static ResolvedManagedTimestampingProfile aResolvedProfile(boolean validateTokenSignature, CertificateChain chain) {
-        return new ResolvedManagedTimestampingProfile(
-                UUID.randomUUID(),
-                "test-profile",
-                null,
-                1,
-                true,
-                List.of(SigningProtocol.TSP),
-                Boolean.FALSE,
-                "1.2.3.4.5",
-                List.of(),
-                List.of(),
-                validateTokenSignature,
-                List.of(),
-                LocalClockTimeQualityConfiguration.INSTANCE,
-                null,
+    private static ResolvedManagedTimestampingProfile aResolvedProfile(boolean validateTokenSignature,
+            CertificateChain chain) {
+        return new ResolvedManagedTimestampingProfile(UUID.randomUUID(), "test-profile", null, 1, true,
+                List.of(SigningProtocol.TSP), Boolean.FALSE, "1.2.3.4.5", List.of(), List.of(), validateTokenSignature,
+                List.of(), LocalClockTimeQualityConfiguration.INSTANCE, null,
                 new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(), chain, List.of()));
     }
 
@@ -145,10 +145,12 @@ class ManagedTimestampEngineTest {
 
     @Test
     void routesRecordingToStrategyForProfilePersistenceMode() throws Exception {
-        // given — the profile pins an explicit persistence mode; the engine must route recording to that mode's strategy
+        // given — the profile pins an explicit persistence mode; the engine must route recording to that mode's
+        // strategy
         var timestampToken = aTokenEncodingTo(new byte[]{1, 2, 3});
         var profileWithImmediateMode = aSigningProfile()
-                .withRecordPolicy(new SigningRecordPolicyModel(true, false, false, false, false, null, false, SigningRecordPersistenceMode.IMMEDIATE))
+                .withRecordPolicy(new SigningRecordPolicyModel(true, false, false, false, false, null, false,
+                        SigningRecordPersistenceMode.IMMEDIATE))
                 .build();
 
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
@@ -181,7 +183,9 @@ class ManagedTimestampEngineTest {
         // given — the signing certificate is not acceptable (e.g. revoked, missing QC extension)
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
         when(signingCertificateValidator.validate(any(), anyBoolean()))
-                .thenReturn(ValidationResult.nok(TspFailureInfo.SYSTEM_FAILURE, "certificate not acceptable", "contact your administrator"));
+                .thenReturn(ValidationResult
+                        .nok(TspFailureInfo.SYSTEM_FAILURE, "certificate not acceptable",
+                                "contact your administrator"));
 
         // when
         var response = engine.process(aTspRequest().build(), signingProfile, aResolvedProfile(false, null));
@@ -196,7 +200,8 @@ class ManagedTimestampEngineTest {
         // given — the monotonic clock drifted relative to wall time, making serial uniqueness unsafe
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
         when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
-        when(serialNumberGenerator.generate()).thenThrow(new ClockDriftException("monotonic clock drifted beyond threshold"));
+        when(serialNumberGenerator.generate())
+                .thenThrow(new ClockDriftException("monotonic clock drifted beyond threshold"));
 
         // when
         var response = engine.process(aTspRequest().build(), signingProfile, aResolvedProfile(false, null));
@@ -211,7 +216,8 @@ class ManagedTimestampEngineTest {
         // given — the serial number generator was interrupted (e.g. thread interrupt during Snowflake epoch)
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
         when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
-        when(serialNumberGenerator.generate()).thenThrow(new SerialNumberGenerationException("thread interrupted during serial number generation"));
+        when(serialNumberGenerator.generate())
+                .thenThrow(new SerialNumberGenerationException("thread interrupted during serial number generation"));
 
         // when
         var response = engine.process(aTspRequest().build(), signingProfile, aResolvedProfile(false, null));
@@ -227,7 +233,8 @@ class ManagedTimestampEngineTest {
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
         when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
-        when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenThrow(new RuntimeException("signing connector unavailable"));
+        when(tokenGenerator.generate(any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("signing connector unavailable"));
 
         // when
         var response = engine.process(aTspRequest().build(), signingProfile, aResolvedProfile(false, null));

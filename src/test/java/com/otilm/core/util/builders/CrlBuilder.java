@@ -6,9 +6,9 @@ import java.util.Date;
 import java.util.UUID;
 
 /**
- * Builds an in-memory {@link Crl}; tests override only the fields whose values drive the assertion under
- * test. Persistence goes through {@code CrlRepository}, not this builder. {@code nextUpdate} defaults to
- * "now" so the common case need not set it.
+ * Builds an in-memory {@link Crl}; tests override only the fields whose values drive the assertion under test.
+ * Persistence goes through {@code CrlRepository}, not this builder. {@code nextUpdate} defaults to "now" so the common
+ * case need not set it.
  */
 public class CrlBuilder {
 

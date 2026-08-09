@@ -20,10 +20,12 @@ public interface ComplianceInternalService {
      * @param complianceResult ComplianceResultDto containing the compliance check result data
      * @return ComplianceCheckResultDto containing the result of the latest compliance check
      */
-    ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid, ComplianceResultDto complianceResult);
+    ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid,
+            ComplianceResultDto complianceResult);
 
     /**
-     * Get the latest compliance check result for the specified resource object, for internal/system use without authorization.
+     * Get the latest compliance check result for the specified resource object, for internal/system use without
+     * authorization.
      *
      * @param resource Resource of the object
      * @param objectUuid UUID of the object
@@ -50,8 +52,8 @@ public interface ComplianceInternalService {
     void checkResourceObjectCompliance(Resource resource, UUID objectUuid);
 
     /**
-     * Check compliance on specified resource object as system user (no user context)
-     * Warning: This method should be used only when running compliance check as part of system operations since it bypasses permissions.
+     * Check compliance on specified resource object as system user (no user context) Warning: This method should be
+     * used only when running compliance check as part of system operations since it bypasses permissions.
      *
      * @param resource Resource of objects checked by compliance
      * @param objectUuid UUID of object to be checked
@@ -60,14 +62,15 @@ public interface ComplianceInternalService {
 
     /**
      * Validate that the specified resource objects exist and support compliance checking, for internal/system use
-     * without authorization.
-     * Warning: This method should be used only when running compliance validation as part of system operations
-     * (e.g. ACME/SCEP/CMP protocol flows) since it bypasses the COMPLIANCE_PROFILE/CHECK_COMPLIANCE permission check.
+     * without authorization. Warning: This method should be used only when running compliance validation as part of
+     * system operations (e.g. ACME/SCEP/CMP protocol flows) since it bypasses the COMPLIANCE_PROFILE/CHECK_COMPLIANCE
+     * permission check.
      *
      * @param resource Resource of the objects
      * @param objectUuids List of UUIDs of the objects to validate
      * @throws ValidationException if the resource does not support compliance check
      * @throws NotFoundException if any of the resource objects is not found
      */
-    void checkResourceObjectsComplianceValidationAsSystem(Resource resource, List<UUID> objectUuids) throws ValidationException, NotFoundException;
+    void checkResourceObjectsComplianceValidationAsSystem(Resource resource, List<UUID> objectUuids)
+            throws ValidationException, NotFoundException;
 }

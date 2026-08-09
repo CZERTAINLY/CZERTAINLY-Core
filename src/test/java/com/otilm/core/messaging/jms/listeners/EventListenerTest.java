@@ -11,6 +11,8 @@ import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.util.AuthHelper;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,9 +20,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.Map;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -61,8 +60,7 @@ class EventListenerTest {
     @Test
     void stillHandlesTheEventWhenTheCarriedUserCannotBeAuthenticated() throws Exception {
         UUID userUuid = UUID.randomUUID();
-        doThrow(new PlatformAuthenticationException("user is gone"))
-                .when(authHelper).authenticateAsUser(userUuid);
+        doThrow(new PlatformAuthenticationException("user is gone")).when(authHelper).authenticateAsUser(userUuid);
 
         EventListener listener = listener();
 
@@ -85,22 +83,21 @@ class EventListenerTest {
 
         listener().processMessage(uploadMessageFrom(userUuid));
 
-        assertThat(actorInfoSeenByHandler)
-                .as("no actor attribution may survive a failed authentication")
-                .isFalse();
+        assertThat(actorInfoSeenByHandler).as("no actor attribution may survive a failed authentication").isFalse();
     }
 
     /**
      * For a deleted user the auth service answers "not authenticated" rather than failing, so
-     * {@code authenticateAsUser} returns normally having installed an anonymous principal — which auditing would
-     * stamp as "anonymousUser" and OPA would treat as genuine. The event must run with no identity instead.
+     * {@code authenticateAsUser} returns normally having installed an anonymous principal — which auditing would stamp
+     * as "anonymousUser" and OPA would treat as genuine. The event must run with no identity instead.
      */
     @Test
     void discardsTheAnonymousPrincipalInstalledForAUserThatNoLongerResolves() throws Exception {
         UUID userUuid = UUID.randomUUID();
         doAnswer(invocation -> {
             AuthenticationInfo anonymous = AuthenticationInfo.getAnonymousAuthenticationInfo();
-            SecurityContextHolder.getContext()
+            SecurityContextHolder
+                    .getContext()
                     .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(anonymous)));
             return null;
         }).when(authHelper).authenticateAsUser(userUuid);
@@ -123,12 +120,11 @@ class EventListenerTest {
     }
 
     private EventListener listener() {
-        return new EventListener(authHelper,
-                Map.of(ResourceEvent.CERTIFICATE_UPLOADED.getCode(), eventHandler));
+        return new EventListener(authHelper, Map.of(ResourceEvent.CERTIFICATE_UPLOADED.getCode(), eventHandler));
     }
 
     private EventMessage uploadMessageFrom(UUID userUuid) {
-        return new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE,
-                null, null, null, "payload", userUuid, null);
+        return new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE, null, null, null, "payload",
+                userUuid, null);
     }
 }

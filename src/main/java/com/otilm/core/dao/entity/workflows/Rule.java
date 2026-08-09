@@ -1,18 +1,28 @@
 
 package com.otilm.core.dao.entity.workflows;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.workflows.RuleDetailDto;
 import com.otilm.api.model.core.workflows.RuleDto;
 import com.otilm.core.dao.entity.UniquelyIdentified;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -32,10 +42,7 @@ public class Rule extends UniquelyIdentified {
     private Resource resource;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "rule_2_condition",
-            joinColumns = @JoinColumn(name = "rule_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "condition_uuid"))
+    @JoinTable(name = "rule_2_condition", joinColumns = @JoinColumn(name = "rule_uuid"), inverseJoinColumns = @JoinColumn(name = "condition_uuid"))
     @ToString.Exclude
     private Set<Condition> conditions;
 
@@ -59,24 +66,40 @@ public class Rule extends UniquelyIdentified {
         ruleDetailDto.setName(name);
         ruleDetailDto.setDescription(description);
         ruleDetailDto.setResource(resource);
-        if (conditions != null) ruleDetailDto.setConditions(conditions.stream().map(Condition::mapToDto).toList());
-        
+        if (conditions != null) {
+            ruleDetailDto.setConditions(conditions.stream().map(Condition::mapToDto).toList());
+        }
+
         return ruleDetailDto;
     }
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof Rule that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof Rule that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

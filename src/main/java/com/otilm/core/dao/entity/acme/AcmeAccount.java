@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity.acme;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.acme.AcmeAccountListResponseDto;
 import com.otilm.api.model.client.acme.AcmeAccountResponseDto;
 import com.otilm.api.model.core.acme.Account;
@@ -8,16 +9,25 @@ import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.MetaDefinitions;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -27,27 +37,27 @@ import java.util.UUID;
 @Table(name = "acme_account")
 public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Account> {
 
-    @Column(name="account_id")
+    @Column(name = "account_id")
     private String accountId;
 
     // length should be enough for more than 4096-bit RSA keys
-    @Column(name="public_key", length = 1000)
+    @Column(name = "public_key", length = 1000)
     private String publicKey;
 
-    @Column(name="is_default_ra_profile")
+    @Column(name = "is_default_ra_profile")
     private boolean isDefaultRaProfile;
 
-    @Column(name="is_enabled")
+    @Column(name = "is_enabled")
     private boolean isEnabled;
 
-    @Column(name="status")
+    @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private AccountStatus status;
 
-    @Column(name="contact")
+    @Column(name = "contact")
     private String contact;
 
-    @Column(name="terms_of_service_agreed")
+    @Column(name = "terms_of_service_agreed")
     private Boolean termsOfServiceAgreed;
 
     @JsonBackReference
@@ -78,7 +88,7 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     private UUID acmeProfileUuid;
 
     @Override
-    public Account mapToDto(){
+    public Account mapToDto() {
         Account account = new Account();
         account.setContact(MetaDefinitions.deserializeArrayString(contact));
         account.setStatus(status);
@@ -86,7 +96,7 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
         return account;
     }
 
-    public AcmeAccountResponseDto mapToDtoForUi(){
+    public AcmeAccountResponseDto mapToDtoForUi() {
         AcmeAccountResponseDto account = new AcmeAccountResponseDto();
         account.setUuid(uuid.toString());
         account.setAccountId(accountId);
@@ -126,16 +136,16 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
         return account;
     }
 
-    public AcmeAccountListResponseDto mapToDtoForUiSimple(){
+    public AcmeAccountListResponseDto mapToDtoForUiSimple() {
         AcmeAccountListResponseDto account = new AcmeAccountListResponseDto();
         account.setUuid(uuid.toString());
         account.setAccountId(accountId);
         account.setEnabled(isEnabled);
-        if(acmeProfile != null) {
+        if (acmeProfile != null) {
             account.setAcmeProfileName(acmeProfile.getName());
             account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
-        if(raProfile != null) {
+        if (raProfile != null) {
             account.setRaProfile(raProfile.mapToDtoSimplified());
         }
         account.setStatus(status);
@@ -175,17 +185,29 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         AcmeAccount that = (AcmeAccount) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

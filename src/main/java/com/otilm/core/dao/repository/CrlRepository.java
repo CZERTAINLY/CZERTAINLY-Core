@@ -1,22 +1,21 @@
 package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.Crl;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 @Repository
-public interface CrlRepository extends SecurityFilterRepository<Crl, Long>
-{
+public interface CrlRepository extends SecurityFilterRepository<Crl, Long> {
     Optional<Crl> findByIssuerDnAndSerialNumber(String issuerDn, String serialNumber);
 
     List<Crl> findByCaCertificateUuid(UUID caCertificateUuid);
+
     List<Crl> findByCaCertificateUuidIn(List<UUID> caCertificateUuids);
 
     @Modifying
@@ -44,10 +43,8 @@ public interface CrlRepository extends SecurityFilterRepository<Crl, Long>
                    c.lastRevocationDate = :lastRevocationDate
              WHERE c.uuid = :uuid
             """)
-    void updateBaseMetadata(@Param("uuid") UUID uuid,
-                            @Param("crlNumber") String crlNumber,
-                            @Param("nextUpdate") Date nextUpdate,
-                            @Param("lastRevocationDate") Date lastRevocationDate);
+    void updateBaseMetadata(@Param("uuid") UUID uuid, @Param("crlNumber") String crlNumber,
+            @Param("nextUpdate") Date nextUpdate, @Param("lastRevocationDate") Date lastRevocationDate);
 
     @Modifying
     @Query("""
@@ -57,8 +54,6 @@ public interface CrlRepository extends SecurityFilterRepository<Crl, Long>
                    c.lastRevocationDate = :lastRevocationDate
              WHERE c.uuid = :uuid
             """)
-    void updateDeltaMetadata(@Param("uuid") UUID uuid,
-                             @Param("crlNumberDelta") String crlNumberDelta,
-                             @Param("nextUpdateDelta") Date nextUpdateDelta,
-                             @Param("lastRevocationDate") Date lastRevocationDate);
+    void updateDeltaMetadata(@Param("uuid") UUID uuid, @Param("crlNumberDelta") String crlNumberDelta,
+            @Param("nextUpdateDelta") Date nextUpdateDelta, @Param("lastRevocationDate") Date lastRevocationDate);
 }

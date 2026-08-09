@@ -1,10 +1,10 @@
 package com.otilm.core.integration.service.writer.registration;
 
+import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
-import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateRegistration;
@@ -13,14 +13,13 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.writer.registration.CertificateRegistrationWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -65,7 +64,8 @@ class CertificateRegistrationWriterITest extends BaseSpringBootTest {
 
         // then
         CertificateRegistration binding = registrationRepository.findByCertificateUuid(certificateUuid).orElseThrow();
-        List<MetadataAttribute> roundTripped = AttributeDefinitionUtils.deserialize(binding.getMeta(), MetadataAttribute.class);
+        List<MetadataAttribute> roundTripped = AttributeDefinitionUtils
+                .deserialize(binding.getMeta(), MetadataAttribute.class);
         assertThat(roundTripped).hasSize(1);
         assertThat(roundTripped.get(0).getName()).isEqualTo("endEntityName");
     }
@@ -126,8 +126,8 @@ class CertificateRegistrationWriterITest extends BaseSpringBootTest {
         writer.upsert(certificateUuid, List.of(handle("endEntityName", "device-7")));
 
         // when — SELECT ... FOR UPDATE requires an active transaction
-        CertificateRegistration locked = new TransactionTemplate(transactionManager).execute(
-                status -> registrationRepository.findAndLockByCertificateUuid(certificateUuid).orElseThrow());
+        CertificateRegistration locked = new TransactionTemplate(transactionManager)
+                .execute(status -> registrationRepository.findAndLockByCertificateUuid(certificateUuid).orElseThrow());
 
         // then
         assertThat(locked).isNotNull();

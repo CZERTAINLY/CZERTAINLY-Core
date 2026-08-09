@@ -7,19 +7,24 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.TriggerDetailDto;
+import com.otilm.api.model.core.workflows.TriggerDto;
+import com.otilm.api.model.core.workflows.TriggerEventAssociationRequestDto;
+import com.otilm.api.model.core.workflows.TriggerHistoryDto;
+import com.otilm.api.model.core.workflows.TriggerHistorySummaryDto;
+import com.otilm.api.model.core.workflows.TriggerRequestDto;
+import com.otilm.api.model.core.workflows.UpdateTriggerRequestDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.util.converter.ResourceCodeConverter;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 @RestController
 public class TriggerControllerImpl implements TriggerController {
@@ -56,7 +61,8 @@ public class TriggerControllerImpl implements TriggerController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.UPDATE)
-    public TriggerDetailDto updateTrigger(@LogResource(uuid = true) String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException, AlreadyExistException {
+    public TriggerDetailDto updateTrigger(@LogResource(uuid = true) String triggerUuid, UpdateTriggerRequestDto request)
+            throws NotFoundException, AlreadyExistException {
         return triggerService.updateTrigger(triggerUuid, request);
     }
 
@@ -68,7 +74,8 @@ public class TriggerControllerImpl implements TriggerController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.HISTORY)
-    public List<TriggerHistoryDto> getTriggerHistory(@LogResource(uuid = true) String triggerUuid, String associationObjectUuid) {
+    public List<TriggerHistoryDto> getTriggerHistory(@LogResource(uuid = true) String triggerUuid,
+            String associationObjectUuid) {
         return triggerService.getTriggerHistory(triggerUuid, associationObjectUuid);
     }
 
@@ -81,7 +88,9 @@ public class TriggerControllerImpl implements TriggerController {
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.ASSOCIATE)
     public void associateEventTriggers(TriggerEventAssociationRequestDto request) throws NotFoundException {
-        triggerService.createTriggerAssociations(request.getEvent(), request.getResource(), request.getObjectUuid(), request.getTriggerUuids(), true);
+        triggerService
+                .createTriggerAssociations(request.getEvent(), request.getResource(), request.getObjectUuid(),
+                        request.getTriggerUuids(), true);
     }
 
     @Override

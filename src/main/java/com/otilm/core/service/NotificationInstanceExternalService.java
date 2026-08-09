@@ -18,11 +18,14 @@ public interface NotificationInstanceExternalService {
 
     NotificationInstanceDto getNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException;
 
-    NotificationInstanceDto createNotificationInstance(NotificationInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
+    NotificationInstanceDto createNotificationInstance(NotificationInstanceRequestDto request)
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
-    NotificationInstanceDto editNotificationInstance(UUID uuid, NotificationInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
+    NotificationInstanceDto editNotificationInstance(UUID uuid, NotificationInstanceUpdateRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException;
 
     void deleteNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException;
 
-    List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException;
+    List<DataAttribute> listMappingAttributes(String connectorUuid, String kind)
+            throws ConnectorException, NotFoundException;
 }

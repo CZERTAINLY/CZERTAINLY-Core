@@ -19,15 +19,14 @@ import com.otilm.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 
@@ -49,13 +48,15 @@ class EventHistoryTransactionITest extends BaseSpringBootTest {
     private TriggerAssociationRepository triggerAssociationRepository;
 
     /**
-     * Verifies that after handleEvent completes: EventHistory is committed with FINISHED status
-     * and the notification JMS message is dispatched via the post-commit TransactionalEventListener.
+     * Verifies that after handleEvent completes: EventHistory is committed with FINISHED status and the notification
+     * JMS message is dispatched via the post-commit TransactionalEventListener.
      */
     @Test
     void testEventHistoryVisibleAfterFollowUpNotificationFailure() throws EventException {
-        Mockito.doThrow(new RuntimeException("JMS broker unavailable"))
-                .when(jmsTemplate).convertAndSend(any(String.class), any(NotificationMessage.class), any());
+        Mockito
+                .doThrow(new RuntimeException("JMS broker unavailable"))
+                .when(jmsTemplate)
+                .convertAndSend(any(String.class), any(NotificationMessage.class), any());
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setName("TestDiscovery");
@@ -81,9 +82,9 @@ class EventHistoryTransactionITest extends BaseSpringBootTest {
         triggerAssociationRepository.save(association);
 
         final UUID discoveryUuid = discovery.getUuid();
-        EventMessage eventMessage = DiscoveryFinishedEventHandler.constructEventMessage(
-                discoveryUuid, UUID.randomUUID(), null,
-                new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test"));
+        EventMessage eventMessage = DiscoveryFinishedEventHandler
+                .constructEventMessage(discoveryUuid, UUID.randomUUID(), null,
+                        new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test"));
         discoveryFinishedEventHandler.handleEvent(eventMessage);
         Mockito.verify(jmsTemplate).convertAndSend(any(String.class), any(NotificationMessage.class), any());
         // Trigger processing succeeded before the notification throws, EventHistory must be FINISHED,

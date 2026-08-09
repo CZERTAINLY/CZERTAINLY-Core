@@ -16,6 +16,8 @@ import com.otilm.core.signing.tsa.messages.TspResponse;
 import com.otilm.core.signing.tsa.resolver.SigningProfileResolverFactory;
 import com.otilm.core.signing.tsa.validator.TspRequestValidationException;
 import com.otilm.core.signing.tsa.validator.TspRequestValidator;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,9 +26,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
-
-import java.util.List;
-import java.util.UUID;
 
 import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
 import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
@@ -65,10 +64,7 @@ class TsaServiceImplUnitTest {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private SigningProfileModel<?, ?> aDefaultSigningProfile() {
-        return aSigningProfile()
-                .withName("signing-profile")
-                .withTspProfileUuid(TSP_PROFILE_UUID)
-                .build();
+        return aSigningProfile().withName("signing-profile").withTspProfileUuid(TSP_PROFILE_UUID).build();
     }
 
     // ── processTspRequestForTspProfile ────────────────────────────────────────
@@ -96,7 +92,8 @@ class TsaServiceImplUnitTest {
             when(tspProfileService.getTspProfile("tsp-profile"))
                     .thenReturn(aTspProfile().withDefaultSigningProfileName("signing-profile").build());
             doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("signing-profile");
-            when(managedTimestampEngine.process(any(), any(), any())).thenReturn(TspResponse.granted(new byte[]{1, 2, 3}));
+            when(managedTimestampEngine.process(any(), any(), any()))
+                    .thenReturn(TspResponse.granted(new byte[]{1, 2, 3}));
 
             // when
             TspResponse response = tsaService.processTspRequestForTspProfile("tsp-profile", aTspRequest().build());
@@ -110,9 +107,7 @@ class TsaServiceImplUnitTest {
         @Test
         void throwsBadRequest_whenTspProfileHasNoDefaultSigningProfile() throws NotFoundException {
             // given
-            var tspProfile = aTspProfile()
-                    .withDefaultSigningProfileName(null)
-                    .build();
+            var tspProfile = aTspProfile().withDefaultSigningProfileName(null).build();
             when(tspProfileService.getTspProfile("tsp-profile")).thenReturn(tspProfile);
 
             // when
@@ -121,17 +116,15 @@ class TsaServiceImplUnitTest {
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST))
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST))
                     .hasMessageContaining("does not have a default signing profile");
         }
 
         @Test
         void throwsBadRequest_whenTspProfileIsDisabled() throws NotFoundException {
             // given
-            var tspProfile = aTspProfile()
-                    .withEnabled(false)
-                    .withDefaultSigningProfileName("signing-profile")
-                    .build();
+            var tspProfile = aTspProfile().withEnabled(false).withDefaultSigningProfileName("signing-profile").build();
             when(tspProfileService.getTspProfile("tsp-profile")).thenReturn(tspProfile);
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
 
@@ -141,7 +134,8 @@ class TsaServiceImplUnitTest {
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST))
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST))
                     .hasMessageContaining("TSP profile")
                     .hasMessageContaining("is disabled");
         }
@@ -155,10 +149,7 @@ class TsaServiceImplUnitTest {
                     .withEnabled(false)
                     .build();
             when(tspProfileService.getTspProfile("tsp-profile"))
-                    .thenReturn(
-                            aTspProfile()
-                                    .withDefaultSigningProfileName(signingProfile.name())
-                                    .build());
+                    .thenReturn(aTspProfile().withDefaultSigningProfileName(signingProfile.name()).build());
             doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("signing-profile");
 
             // when
@@ -167,7 +158,8 @@ class TsaServiceImplUnitTest {
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST))
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST))
                     .hasMessageContaining("Signing profile")
                     .hasMessageContaining("is disabled");
         }
@@ -203,12 +195,10 @@ class TsaServiceImplUnitTest {
             Executable call = () -> tsaService.processTspRequestForTspProfile("tsp-profile", aTspRequest().build());
 
             // then — SYSTEM_FAILURE with a sanitized client message, not a ClassCastException
-            assertThatThrownBy(call::execute)
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> {
-                        assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
-                        assertThat(((TspException) ex).getClientMessage()).isEqualTo("The system is misconfigured.");
-                    });
+            assertThatThrownBy(call::execute).isInstanceOf(TspException.class).satisfies(ex -> {
+                assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                assertThat(((TspException) ex).getClientMessage()).isEqualTo("The system is misconfigured.");
+            });
         }
 
         @Test
@@ -218,7 +208,8 @@ class TsaServiceImplUnitTest {
                     .thenReturn(aTspProfile().withDefaultSigningProfileName("signing-profile").build());
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
             doThrow(new TspRequestValidationException(TspFailureInfo.BAD_ALG, "bad algorithm", "bad algorithm"))
-                    .when(tspRequestValidator).validate(any(), any());
+                    .when(tspRequestValidator)
+                    .validate(any(), any());
 
             // when
             Executable call = () -> tsaService.processTspRequestForTspProfile("tsp-profile", aTspRequest().build());
@@ -226,7 +217,8 @@ class TsaServiceImplUnitTest {
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspRequestValidationException.class)
-                    .satisfies(ex -> assertThat(((TspRequestValidationException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_ALG));
+                    .satisfies(ex -> assertThat(((TspRequestValidationException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_ALG));
         }
 
         @Test
@@ -234,7 +226,8 @@ class TsaServiceImplUnitTest {
             // given — the AuthorizationEnforcer denies access; the service propagates the denial unchanged so
             // the controller can collapse it into the same generic not-found rejection (enumeration defense)
             doThrow(new AccessDeniedException("Access is denied"))
-                    .when(authorizationEnforcer).enforce(eq(Resource.TSP_PROFILE), eq(ResourceAction.TIMESTAMP), any(SecuredUUID.class));
+                    .when(authorizationEnforcer)
+                    .enforce(eq(Resource.TSP_PROFILE), eq(ResourceAction.TIMESTAMP), any(SecuredUUID.class));
             when(tspProfileService.getTspProfile("tsp-profile"))
                     .thenReturn(aTspProfile().withDefaultSigningProfileName("signing-profile").build());
 
@@ -269,10 +262,12 @@ class TsaServiceImplUnitTest {
             // given
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
-            when(managedTimestampEngine.process(any(), any(), any())).thenReturn(TspResponse.granted(new byte[]{7, 8, 9}));
+            when(managedTimestampEngine.process(any(), any(), any()))
+                    .thenReturn(TspResponse.granted(new byte[]{7, 8, 9}));
 
             // when
-            TspResponse response = tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            TspResponse response = tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThat(response).isInstanceOf(TspResponse.Granted.class);
@@ -286,15 +281,18 @@ class TsaServiceImplUnitTest {
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
             doThrow(new TspRequestValidationException(TspFailureInfo.BAD_ALG, "bad algorithm", "bad algorithm"))
-                    .when(tspRequestValidator).validate(any(), any());
+                    .when(tspRequestValidator)
+                    .validate(any(), any());
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspRequestValidationException.class)
-                    .satisfies(ex -> assertThat(((TspRequestValidationException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_ALG));
+                    .satisfies(ex -> assertThat(((TspRequestValidationException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_ALG));
         }
 
         @Test
@@ -306,7 +304,8 @@ class TsaServiceImplUnitTest {
                     .thenReturn(TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "internal error"));
 
             // when
-            TspResponse response = tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            TspResponse response = tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThat(response).isInstanceOf(TspResponse.Rejected.class);
@@ -316,38 +315,36 @@ class TsaServiceImplUnitTest {
         @Test
         void rejectsAsBadRequest_whenSigningProfileHasNoTspProfileAssociated() throws NotFoundException {
             // given — a signing profile with no linked TSP profile cannot be timestamped against
-            var signingProfile = aSigningProfile()
-                    .withName("signing-profile")
-                    .withTspProfileUuid(null)
-                    .build();
+            var signingProfile = aSigningProfile().withName("signing-profile").withTspProfileUuid(null).build();
             doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("signing-profile");
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST));
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST));
         }
 
         @Test
         void throwsBadRequest_whenLinkedTspProfileIsDisabled() throws NotFoundException {
             // given
-            var tspProfile = aTspProfile()
-                    .withEnabled(false)
-                    .withDefaultSigningProfileName("signing-profile")
-                    .build();
+            var tspProfile = aTspProfile().withEnabled(false).withDefaultSigningProfileName("signing-profile").build();
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(tspProfile);
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST))
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST))
                     .hasMessageContaining("TSP profile")
                     .hasMessageContaining("is disabled");
         }
@@ -364,12 +361,14 @@ class TsaServiceImplUnitTest {
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST))
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST))
                     .hasMessageContaining("Signing profile")
                     .hasMessageContaining("is disabled");
         }
@@ -386,12 +385,14 @@ class TsaServiceImplUnitTest {
             doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("signing-profile");
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThatThrownBy(call::execute)
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST))
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST))
                     .hasMessageContaining("does not have the TSP protocol enabled");
         }
 
@@ -403,7 +404,8 @@ class TsaServiceImplUnitTest {
                     .thenThrow(new NotFoundException(TspProfileInternalService.class, "tsp-profile"));
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThatThrownBy(call::execute).isInstanceOf(NotFoundException.class);
@@ -421,15 +423,14 @@ class TsaServiceImplUnitTest {
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then — SYSTEM_FAILURE with a sanitized client message, not a ClassCastException
-            assertThatThrownBy(call::execute)
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> {
-                        assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
-                        assertThat(((TspException) ex).getClientMessage()).isEqualTo("The system is misconfigured.");
-                    });
+            assertThatThrownBy(call::execute).isInstanceOf(TspException.class).satisfies(ex -> {
+                assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                assertThat(((TspException) ex).getClientMessage()).isEqualTo("The system is misconfigured.");
+            });
         }
 
         @Test
@@ -437,11 +438,13 @@ class TsaServiceImplUnitTest {
             // given — the AuthorizationEnforcer denies access; the service propagates the denial unchanged so
             // the controller can collapse it into the same generic not-found rejection (enumeration defense)
             doThrow(new AccessDeniedException("Access is denied"))
-                    .when(authorizationEnforcer).enforce(eq(Resource.TSP_PROFILE), eq(ResourceAction.TIMESTAMP), any(SecuredUUID.class));
+                    .when(authorizationEnforcer)
+                    .enforce(eq(Resource.TSP_PROFILE), eq(ResourceAction.TIMESTAMP), any(SecuredUUID.class));
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
 
             // when
-            Executable call = () -> tsaService.processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
 
             // then
             assertThatThrownBy(call::execute).isInstanceOf(AccessDeniedException.class);

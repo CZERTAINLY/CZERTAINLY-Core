@@ -1,15 +1,24 @@
 package com.otilm.core.dao.entity.cmp;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.core.cmp.CmpTransactionState;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.UniquelyIdentified;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -21,7 +30,7 @@ public class CmpTransaction extends UniquelyIdentified {
 
     @Setter
     @Getter
-    @Column(name="transaction_id")
+    @Column(name = "transaction_id")
     private String transactionId;
 
     @Setter
@@ -46,10 +55,9 @@ public class CmpTransaction extends UniquelyIdentified {
     private String customReason;
 
     /**
-     * BouncyCastle {@code PKIBody.TYPE_*} integer of the original request that opened this
-     * transaction (e.g. {@code TYPE_INIT_REQ=0}, {@code TYPE_CERT_REQ=2},
-     * {@code TYPE_KEY_UPDATE_REQ=7}, {@code TYPE_REVOCATION_REQ=11}). Used by the pollReq
-     * handler to build the right response body type when the in-flight operation eventually
+     * BouncyCastle {@code PKIBody.TYPE_*} integer of the original request that opened this transaction (e.g.
+     * {@code TYPE_INIT_REQ=0}, {@code TYPE_CERT_REQ=2}, {@code TYPE_KEY_UPDATE_REQ=7}, {@code TYPE_REVOCATION_REQ=11}).
+     * Used by the pollReq handler to build the right response body type when the in-flight operation eventually
      * completes. Nullable for transactions created before this column was added.
      */
     @Setter
@@ -62,12 +70,16 @@ public class CmpTransaction extends UniquelyIdentified {
     @JoinColumn(name = "cmp_profile_uuid", insertable = false, updatable = false)
     @ToString.Exclude
     private CmpProfile cmpProfile;
+
     public CmpProfile getCmpProfile() {
         return cmpProfile;
     }
+
     public void setCmpProfile(CmpProfile cmpProfile) {
         this.cmpProfile = cmpProfile;
-        if(cmpProfile != null) this.cmpProfileUuid = cmpProfile.getUuid();
+        if (cmpProfile != null) {
+            this.cmpProfileUuid = cmpProfile.getUuid();
+        }
     }
 
     @OneToOne(fetch = FetchType.LAZY)
@@ -75,27 +87,43 @@ public class CmpTransaction extends UniquelyIdentified {
     @JoinColumn(name = "certificate_uuid", insertable = false, updatable = false)
     @ToString.Exclude
     private Certificate certificate;
+
     public Certificate getCertificate() {
         return certificate;
     }
+
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
-        if(certificate != null) certificateUuid = certificate.getUuid();
+        if (certificate != null) {
+            certificateUuid = certificate.getUuid();
+        }
     }
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         CmpTransaction that = (CmpTransaction) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

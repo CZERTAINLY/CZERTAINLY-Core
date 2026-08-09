@@ -6,25 +6,25 @@ import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.service.CryptographicKeyExternalService;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.UUID;
-
 /**
  * Shared revoke-completion logic used by both the operator-driven path
  * ({@code ClientOperationServiceImpl.manuallyConfirmRevoke}) and the async poll-driven path
- * ({@code CertificateStatusPollListener.applyTerminalTransition}). Extracted to remove the
- * copy-paste of "apply preserved revoke attributes → capture destroyKey → clear pending fields"
- * and the duplicated best-effort key destruction.
+ * ({@code CertificateStatusPollListener.applyTerminalTransition}). Extracted to remove the copy-paste of "apply
+ * preserved revoke attributes → capture destroyKey → clear pending fields" and the duplicated best-effort key
+ * destruction.
  *
- * <p>Stateless leaf collaborator — depends only on {@link AttributeEngine} and
- * {@link CryptographicKeyExternalService}. Neither the service nor the listener calls the other; both
- * call this. The caller owns the surrounding locked transaction and the state-machine
- * transition (the audit event and reason differ between callers), then runs
- * {@link #destroyKeyIfRequested} after commit, outside the lock.</p>
+ * <p>
+ * Stateless leaf collaborator — depends only on {@link AttributeEngine} and {@link CryptographicKeyExternalService}.
+ * Neither the service nor the listener calls the other; both call this. The caller owns the surrounding locked
+ * transaction and the state-machine transition (the audit event and reason differ between callers), then runs
+ * {@link #destroyKeyIfRequested} after commit, outside the lock.
+ * </p>
  */
 @Component
 public class CertificateRevocationFinalizer {
@@ -45,10 +45,10 @@ public class CertificateRevocationFinalizer {
     }
 
     /**
-     * In-transaction revoke finalization: re-apply the preserved revoke attributes (best-effort),
-     * capture the operator's destroyKey decision, and clear the pending-revoke fields. The caller
-     * must perform the state-machine transition itself (audit event/reason vary per caller) and
-     * call {@link #destroyKeyIfRequested} after the transaction commits.
+     * In-transaction revoke finalization: re-apply the preserved revoke attributes (best-effort), capture the
+     * operator's destroyKey decision, and clear the pending-revoke fields. The caller must perform the state-machine
+     * transition itself (audit event/reason vary per caller) and call {@link #destroyKeyIfRequested} after the
+     * transaction commits.
      */
     public KeyCleanup prepareRevokeFinalization(Certificate cert) {
         applyPreservedRevokeAttributes(cert);
@@ -59,11 +59,11 @@ public class CertificateRevocationFinalizer {
     }
 
     /**
-     * Clear the pending-revoke fields ({@code pendingRevokeDestroyKey}, {@code pendingRevokeAttributes})
-     * without applying preserved attributes or destroying the key. Used when a revoke <em>fails</em> or
-     * times out: the certificate returns to {@code ISSUED}, and it must not retain the pending-revoke
-     * parameters — otherwise an otherwise-valid cert looks like a revocation is still in flight, which
-     * is the exact state divergence the operator-cancel path ({@code commitLocalCancel}) avoids.
+     * Clear the pending-revoke fields ({@code pendingRevokeDestroyKey}, {@code pendingRevokeAttributes}) without
+     * applying preserved attributes or destroying the key. Used when a revoke <em>fails</em> or times out: the
+     * certificate returns to {@code ISSUED}, and it must not retain the pending-revoke parameters — otherwise an
+     * otherwise-valid cert looks like a revocation is still in flight, which is the exact state divergence the
+     * operator-cancel path ({@code commitLocalCancel}) avoids.
      */
     public void clearPendingRevokeFields(Certificate cert) {
         cert.setPendingRevokeDestroyKey(null);
@@ -71,30 +71,31 @@ public class CertificateRevocationFinalizer {
     }
 
     /**
-     * Re-apply the revoke-attributes captured when the cert entered PENDING_REVOKE so the cert
-     * detail reflects the revocation parameters. Best-effort: a failure here does not block the
-     * state transition (the connector revoke has already completed upstream).
+     * Re-apply the revoke-attributes captured when the cert entered PENDING_REVOKE so the cert detail reflects the
+     * revocation parameters. Best-effort: a failure here does not block the state transition (the connector revoke has
+     * already completed upstream).
      */
     public void applyPreservedRevokeAttributes(Certificate cert) {
         if (cert.getPendingRevokeAttributes() == null || cert.getPendingRevokeAttributes().isEmpty()) {
             return;
         }
         try {
-            attributeEngine.updateObjectDataAttributesContent(
-                    ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, cert.getUuid())
+            attributeEngine
+                    .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                            .builder(Resource.CERTIFICATE, cert.getUuid())
                             .connector(cert.getRaProfile().getAuthorityInstanceReference().getConnectorUuid())
-                            .operation(AttributeOperation.CERTIFICATE_REVOKE).build(),
-                    cert.getPendingRevokeAttributes());
+                            .operation(AttributeOperation.CERTIFICATE_REVOKE)
+                            .build(), cert.getPendingRevokeAttributes());
         } catch (Exception e) {
-            logger.warn("Failed to apply preserved revoke attributes for cert {}: {}",
-                    cert.getUuid(), e.getMessage(), e);
+            logger
+                    .warn("Failed to apply preserved revoke attributes for cert {}: {}", cert.getUuid(), e.getMessage(),
+                            e);
         }
     }
 
     /**
-     * Best-effort key destruction — runs AFTER the revoke transaction commits, outside any lock,
-     * since destroyKey is a slow connector HTTP call. A failure is logged and does not affect the
-     * already-committed REVOKED state.
+     * Best-effort key destruction — runs AFTER the revoke transaction commits, outside any lock, since destroyKey is a
+     * slow connector HTTP call. A failure is logged and does not affect the already-committed REVOKED state.
      */
     public void destroyKeyIfRequested(KeyCleanup cleanup, UUID certUuid) {
         if (cleanup == null || !cleanup.destroyKey() || cleanup.keyUuid() == null) {
@@ -103,8 +104,9 @@ public class CertificateRevocationFinalizer {
         try {
             keyService.destroyKey(List.of(cleanup.keyUuid().toString()));
         } catch (Exception e) {
-            logger.warn("Failed to destroy key {} after revoke of cert {}: {}",
-                    cleanup.keyUuid(), certUuid, e.getMessage(), e);
+            logger
+                    .warn("Failed to destroy key {} after revoke of cert {}: {}", cleanup.keyUuid(), certUuid,
+                            e.getMessage(), e);
         }
     }
 }

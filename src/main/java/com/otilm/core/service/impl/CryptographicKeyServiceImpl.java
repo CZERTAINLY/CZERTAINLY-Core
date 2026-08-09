@@ -1,13 +1,29 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.api.clients.ApiClientConnectorInfo;
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.cryptography.CryptographicKeyResponseDto;
-import com.otilm.api.model.client.cryptography.key.*;
+import com.otilm.api.model.client.cryptography.key.BulkCompromiseKeyItemRequestDto;
+import com.otilm.api.model.client.cryptography.key.BulkCompromiseKeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.BulkKeyItemUsageRequestDto;
+import com.otilm.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
+import com.otilm.api.model.client.cryptography.key.CompromiseKeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.EditKeyItemDto;
+import com.otilm.api.model.client.cryptography.key.EditKeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.KeyCompromiseReason;
+import com.otilm.api.model.client.cryptography.key.KeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.KeyRequestType;
+import com.otilm.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
@@ -20,20 +36,42 @@ import com.otilm.api.model.connector.cryptography.key.KeyDataResponseDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.UserDto;
-import com.otilm.api.model.core.cryptography.key.*;
+import com.otilm.api.model.core.cryptography.key.KeyDetailDto;
+import com.otilm.api.model.core.cryptography.key.KeyDto;
+import com.otilm.api.model.core.cryptography.key.KeyEvent;
+import com.otilm.api.model.core.cryptography.key.KeyEventHistoryDto;
+import com.otilm.api.model.core.cryptography.key.KeyEventStatus;
+import com.otilm.api.model.core.cryptography.key.KeyItemDetailDto;
+import com.otilm.api.model.core.cryptography.key.KeyItemDto;
+import com.otilm.api.model.core.cryptography.key.KeyState;
+import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.config.cache.CacheConfig;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.config.cache.CacheEvictor;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.CryptographicKeyItem_;
+import com.otilm.core.dao.entity.CryptographicKey_;
+import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.entity.UniquelyIdentified;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.enums.FilterField;
-import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
+import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
@@ -43,19 +81,47 @@ import com.otilm.core.security.authz.ObjectFilterAspect;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-import com.otilm.core.service.*;
-import com.otilm.core.util.*;
+import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.CryptographicKeyEventHistoryService;
+import com.otilm.core.service.CryptographicKeyExternalService;
+import com.otilm.core.service.CryptographicKeyInternalService;
+import com.otilm.core.service.ResourceObjectAssociationService;
+import com.otilm.core.service.TokenInstanceInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.util.AuthHelper;
+import com.otilm.core.util.CertificateUtil;
+import com.otilm.core.util.CryptographyUtil;
+import com.otilm.core.util.FilterPredicatesBuilder;
+import com.otilm.core.util.RequestValidatorHelper;
+import com.otilm.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import com.otilm.core.config.cache.CacheEvictor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -68,14 +134,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import static java.util.function.Predicate.not;
 
 @Service(Resource.Codes.CRYPTOGRAPHIC_KEY)
@@ -85,17 +143,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     private static final Logger logger = LoggerFactory.getLogger(CryptographicKeyServiceImpl.class);
 
     // forbidden usages for the keys -- by key type and by key algorithm
-    private static final Map<KeyType, List<KeyUsage>> FORBIDDEN_TYPE_USAGES = Map.of(
-            KeyType.PRIVATE_KEY, List.of(KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP),
-            KeyType.PUBLIC_KEY, List.of(KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP)
-    );
-    private static final Map<KeyAlgorithm, List<KeyUsage>> FORBIDDEN_ALGORITHM_USAGES = Map.of(
-            KeyAlgorithm.ECDSA, List.of(KeyUsage.ENCRYPT, KeyUsage.DECRYPT)
-    );
+    private static final Map<KeyType, List<KeyUsage>> FORBIDDEN_TYPE_USAGES = Map
+            .of(KeyType.PRIVATE_KEY, List.of(KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP), KeyType.PUBLIC_KEY,
+                    List.of(KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP));
+    private static final Map<KeyAlgorithm, List<KeyUsage>> FORBIDDEN_ALGORITHM_USAGES = Map
+            .of(KeyAlgorithm.ECDSA, List.of(KeyUsage.ENCRYPT, KeyUsage.DECRYPT));
 
     private static List<KeyUsage> getForbiddenUsages(KeyType keyType, KeyAlgorithm keyAlgorithm) {
-        Set<KeyUsage> result = new HashSet<>(Objects.requireNonNullElse(FORBIDDEN_TYPE_USAGES.get(keyType), Collections.emptyList()));
-        result.addAll(Objects.requireNonNullElse(FORBIDDEN_ALGORITHM_USAGES.get(keyAlgorithm), Collections.emptyList()));
+        Set<KeyUsage> result = new HashSet<>(
+                Objects.requireNonNullElse(FORBIDDEN_TYPE_USAGES.get(keyType), Collections.emptyList()));
+        result
+                .addAll(Objects
+                        .requireNonNullElse(FORBIDDEN_ALGORITHM_USAGES.get(keyAlgorithm), Collections.emptyList()));
         return result.stream().toList();
     }
 
@@ -230,28 +289,24 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
+                root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
 
-        List<UUID> filteredKeyUuids = cryptographicKeyItemRepository.findUuidsUsingSecurityFilter(
-                filter,
-                additionalWhereClause,
-                p,
-                (root, cb) -> cb.desc(root.get("createdAt"))
-        );
+        List<UUID> filteredKeyUuids = cryptographicKeyItemRepository
+                .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
+                        (root, cb) -> cb.desc(root.get("createdAt")));
 
-        List<CryptographicKeyItem> filteredKeys = cryptographicKeyItemRepository.findFullByUuidInOrderByCreatedAtDesc(filteredKeyUuids);
+        List<CryptographicKeyItem> filteredKeys = cryptographicKeyItemRepository
+                .findFullByUuidInOrderByCreatedAtDesc(filteredKeyUuids);
 
         List<Integer> associationsCounts = cryptographicKeyItemRepository.getCountsOfAssociations(filteredKeyUuids);
 
-        List<KeyItemDto> listedKeyDtos = IntStream.range(0, filteredKeys.size())
-                .mapToObj(i -> {
-                    CryptographicKeyItem cki = filteredKeys.get(i);
-                    KeyItemDto dto = cki.mapToSummaryDto();
-                    dto.setAssociations(associationsCounts.get(i));
-                    return dto;
-                })
-                .toList();
-
+        List<KeyItemDto> listedKeyDtos = IntStream.range(0, filteredKeys.size()).mapToObj(i -> {
+            CryptographicKeyItem cki = filteredKeys.get(i);
+            KeyItemDto dto = cki.mapToSummaryDto();
+            dto.setAssociations(associationsCounts.get(i));
+            return dto;
+        }).toList();
 
         final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();
@@ -269,7 +324,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         return getSearchableFieldsMap();
     }
 
-
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST)
     public List<KeyDto> listKeyPairs(Optional<String> tokenProfileUuid, SecurityFilter filter) {
@@ -278,28 +332,31 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
         TriFunction<Root<CryptographicKey>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = null;
         if (tokenProfileUuid.isPresent() && !tokenProfileUuid.get().isEmpty()) {
-            additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(CryptographicKey_.tokenProfileUuid), UUID.fromString(tokenProfileUuid.get()));
+            additionalWhereClause = (root, cb, cr) -> cb
+                    .equal(root.get(CryptographicKey_.tokenProfileUuid), UUID.fromString(tokenProfileUuid.get()));
         }
 
-        List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"), additionalWhereClause, null, (root, cb) -> cb.desc(root.get("created")))
+        List<KeyDto> response = cryptographicKeyRepository
+                .findUsingSecurityFilter(filter, List.of("groups", "owner"), additionalWhereClause, null,
+                        (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(CryptographicKey::mapToDto)
                 .toList();
 
         response = response
                 .stream()
-                .filter(
-                        e -> e.getItems().size() == 2
-                ).filter(
-                        e -> e.getItems().stream().filter(i -> i.getState().equals(KeyState.ACTIVE)).count() == 2
-                )
-                .filter(
-                        e -> {
-                            List<KeyType> keyTypes = e.getItems().stream().map(KeyItemDto::getType).collect(Collectors.toList());
-                            keyTypes.removeAll(List.of(KeyType.PUBLIC_KEY, KeyType.PRIVATE_KEY));
-                            return keyTypes.isEmpty();
-                        }
-                ).toList();
+                .filter(e -> e.getItems().size() == 2)
+                .filter(e -> e.getItems().stream().filter(i -> i.getState().equals(KeyState.ACTIVE)).count() == 2)
+                .filter(e -> {
+                    List<KeyType> keyTypes = e
+                            .getItems()
+                            .stream()
+                            .map(KeyItemDto::getType)
+                            .collect(Collectors.toList());
+                    keyTypes.removeAll(List.of(KeyType.PUBLIC_KEY, KeyType.PRIVATE_KEY));
+                    return keyTypes.isEmpty();
+                })
+                .toList();
         return response;
     }
 
@@ -309,35 +366,51 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         CryptographicKey key = checkKeyRequestToken(uuid.getValue(), "get detail of", true, true);
         KeyDetailDto dto = key.mapToDetailDto();
         if (key.getTokenInstanceReferenceUuid() != null) {
-            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, key.getUuid()).connector(key.getTokenInstanceReference().getConnectorUuid()).build()));
+            dto
+                    .setAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CRYPTOGRAPHIC_KEY, key.getUuid())
+                                    .connector(key.getTokenInstanceReference().getConnectorUuid())
+                                    .build()));
         }
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid()));
-        dto.getItems().forEach(k -> k.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(k.getUuid())).build())));
+        dto
+                .setCustomAttributes(
+                        attributeEngine.getObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid()));
+        dto
+                .getItems()
+                .forEach(k -> k
+                        .setMetadata(attributeEngine
+                                .getMappedMetadataContent(ObjectAttributeContentInfo
+                                        .builder(Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(k.getUuid()))
+                                        .build())));
         logger.debug("Key details with attributes {}", dto);
         return dto;
     }
 
-
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL)
     public KeyItemDetailDto getKeyItem(SecuredUUID uuid, String keyItemUuid) throws NotFoundException {
-        CryptographicKey key = checkKeyRequestToken(uuid.getValue(), "get detail of key item %s of".formatted(keyItemUuid), false, true);
-        CryptographicKeyItem item = cryptographicKeyItemRepository.findByUuidAndKey(
-                UUID.fromString(keyItemUuid),
-                key
-        ).orElseThrow(
-                () -> new NotFoundException(CryptographicKeyItem.class, keyItemUuid)
-        );
+        CryptographicKey key = checkKeyRequestToken(uuid.getValue(),
+                "get detail of key item %s of".formatted(keyItemUuid), false, true);
+        CryptographicKeyItem item = cryptographicKeyItemRepository
+                .findByUuidAndKey(UUID.fromString(keyItemUuid), key)
+                .orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, keyItemUuid));
         KeyItemDetailDto dto = item.mapToDto();
         logger.debug("Key details: {}", dto);
-        dto.setMetadata(attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, item.getUuid()).build()));
+        dto
+                .setMetadata(attributeEngine
+                        .getMappedMetadataContent(ObjectAttributeContentInfo
+                                .builder(Resource.CRYPTOGRAPHIC_KEY, item.getUuid())
+                                .build()));
         logger.debug("Key details with attributes {}", dto);
         return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public KeyDetailDto createKey(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public KeyDetailDto createKey(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type,
+            KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException,
+            AttributeException, NotFoundException {
         logger.debug("Creating a new key for Token profile {}. Input: {}", tokenProfileUuid, request);
         if (cryptographicKeyRepository.findByName(request.getName()).isPresent()) {
             logger.error("Key with same name already exists");
@@ -347,15 +420,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             logger.error("Name is empty. Cannot create key without name");
             throw new ValidationException(ValidationError.create("Name is required for creating a new Key"));
         }
-        TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(SecuredUUID.fromUUID(tokenInstanceUuid));
-        TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
-                        tokenProfileUuid)
-                .orElseThrow(
-                        () -> new NotFoundException(
-                                TokenProfile.class,
-                                tokenProfileUuid
-                        )
-                );
+        TokenInstanceReference tokenInstanceReference = tokenInstanceService
+                .getTokenInstanceEntity(SecuredUUID.fromUUID(tokenInstanceUuid));
+        TokenProfile tokenProfile = tokenProfileRepository
+                .findByUuid(tokenProfileUuid)
+                .orElseThrow(() -> new NotFoundException(TokenProfile.class, tokenProfileUuid));
         validateTokenProfileEnabled(tokenProfile);
 
         attributeEngine.validateCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, request.getCustomAttributes());
@@ -366,35 +435,45 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         logger.debug("Connector details: {}", connector);
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         createKeyRequestDto.setCreateKeyAttributes(request.getAttributes());
-        createKeyRequestDto.setTokenProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenProfile.getTokenInstanceReference().getConnectorUuid()).build()));
+        createKeyRequestDto
+                .setTokenProfileAttributes(attributeEngine
+                        .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid())
+                                .connector(tokenProfile.getTokenInstanceReference().getConnectorUuid())
+                                .build()));
 
         CryptographicKey key;
         if (type.equals(KeyRequestType.KEY_PAIR)) {
-            key = createKeyTypeOfKeyPair(
-                    connector,
-                    tokenProfile,
-                    request,
-                    createKeyRequestDto
-            );
+            key = createKeyTypeOfKeyPair(connector, tokenProfile, request, createKeyRequestDto);
         } else {
-            key = createKeyTypeOfSecret(
-                    connector,
-                    tokenProfile,
-                    request,
-                    createKeyRequestDto
-            );
+            key = createKeyTypeOfSecret(connector, tokenProfile, request, createKeyRequestDto);
         }
 
         // set owner of certificate to logged user
         objectAssociationService.setOwnerFromProfile(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
         if (request.getGroupUuids() != null) {
-            key.setGroups(objectAssociationService.setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet())));
+            key
+                    .setGroups(objectAssociationService
+                            .setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(),
+                                    request
+                                            .getGroupUuids()
+                                            .stream()
+                                            .map(UUID::fromString)
+                                            .collect(Collectors.toSet())));
         }
 
         logger.debug("Key creation is successful. UUID is {}", key.getUuid());
         KeyDetailDto keyDetailDto = key.mapToDetailDto();
-        keyDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getCustomAttributes()));
-        keyDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, key.getUuid()).connector(tokenInstanceReference.getConnectorUuid()).build(), request.getAttributes()));
+        keyDetailDto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(),
+                                request.getCustomAttributes()));
+        keyDetailDto
+                .setAttributes(attributeEngine
+                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.CRYPTOGRAPHIC_KEY, key.getUuid())
+                                .connector(tokenInstanceReference.getConnectorUuid())
+                                .build(), request.getAttributes()));
 
         logger.debug("Key details: {}", keyDetailDto);
         return keyDetailDto;
@@ -402,48 +481,54 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE)
-    public KeyDetailDto editKey(SecuredUUID uuid, EditKeyRequestDto request) throws NotFoundException, AttributeException {
+    public KeyDetailDto editKey(SecuredUUID uuid, EditKeyRequestDto request)
+            throws NotFoundException, AttributeException {
         logger.debug("Updating the key with UUID {}. Request: {}", uuid, request);
         CryptographicKey key = getCryptographicKeyEntity(uuid.getValue());
         UUID tokenInstanceUuid = key.getTokenInstanceReferenceUuid();
-        if (tokenInstanceUuid != null)
-            authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.MEMBERS, SecuredUUID.fromUUID(tokenInstanceUuid));
+        if (tokenInstanceUuid != null) {
+            authorizationEnforcer
+                    .enforce(Resource.TOKEN, ResourceAction.MEMBERS, SecuredUUID.fromUUID(tokenInstanceUuid));
+        }
 
         TokenProfile requestedTokenProfile = null;
         if (request.getTokenProfileUuid() != null) {
-            requestedTokenProfile = tokenProfileRepository.findByUuid(
-                            SecuredUUID.fromString(request.getTokenProfileUuid()))
-                    .orElseThrow(
-                            () -> new NotFoundException(
-                                    TokenProfile.class,
-                                    request.getTokenProfileUuid()
-                            )
-                    );
+            requestedTokenProfile = tokenProfileRepository
+                    .findByUuid(SecuredUUID.fromString(request.getTokenProfileUuid()))
+                    .orElseThrow(() -> new NotFoundException(TokenProfile.class, request.getTokenProfileUuid()));
             if (!requestedTokenProfile.getTokenInstanceReferenceUuid().equals(key.getTokenInstanceReferenceUuid())) {
                 throw new ValidationException(
-                        ValidationError.create(
-                                "Cannot assign Token Profile from different provider"
-                        )
-                );
+                        ValidationError.create("Cannot assign Token Profile from different provider"));
             }
             validateTokenProfileEnabled(requestedTokenProfile);
         }
 
         attributeEngine.validateCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, request.getCustomAttributes());
 
-        if (request.getName() != null && !request.getName().isEmpty()) key.setName(request.getName());
-        if (request.getDescription() != null) key.setDescription(request.getDescription());
-        if (requestedTokenProfile != null) key.setTokenProfile(requestedTokenProfile);
+        if (request.getName() != null && !request.getName().isEmpty()) {
+            key.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            key.setDescription(request.getDescription());
+        }
+        if (requestedTokenProfile != null) {
+            key.setTokenProfile(requestedTokenProfile);
+        }
         key = cryptographicKeyRepository.save(key);
         key.getItems().forEach(item -> evictKeyItemCache(item.getUuid()));
 
         if (request.getGroupUuids() != null) {
-            objectAssociationService.setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet()));
+            objectAssociationService
+                    .setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(),
+                            request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet()));
         }
         if (request.getOwnerUuid() != null) {
-            objectAssociationService.setOwner(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), UUID.fromString(request.getOwnerUuid()));
+            objectAssociationService
+                    .setOwner(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), UUID.fromString(request.getOwnerUuid()));
         }
-        attributeEngine.updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getCustomAttributes());
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(),
+                        request.getCustomAttributes());
 
         logger.debug("Key details updated. Key: {}", key);
         return getKey(uuid);
@@ -482,7 +567,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
             try {
                 CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(keyUuid));
-                List<String> keyItemUuids = key.getItems().stream().map(keyItem -> keyItem.getUuid().toString()).toList();
+                List<String> keyItemUuids = key
+                        .getItems()
+                        .stream()
+                        .map(keyItem -> keyItem.getUuid().toString())
+                        .toList();
                 setKeyItemsEnabled(keyItemUuids, true, false);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
@@ -498,7 +587,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
             try {
                 CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(keyUuid));
-                List<String> keyItemUuids = key.getItems().stream().map(keyItem -> keyItem.getUuid().toString()).toList();
+                List<String> keyItemUuids = key
+                        .getItems()
+                        .stream()
+                        .map(keyItem -> keyItem.getUuid().toString())
+                        .toList();
                 setKeyItemsEnabled(keyItemUuids, true, true);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
@@ -528,14 +621,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             for (String keyUuid : new LinkedHashSet<>(keyItemUuids)) {
                 CryptographicKeyItem keyItem = cryptographicKeyItemRepository
                         .findByUuid(UUID.fromString(keyUuid))
-                        .orElseThrow(
-                                () -> new NotFoundException(
-                                        "Sub key with the UUID " + keyUuid + " is not found",
-                                        CryptographicKeyItem.class
-                                )
-                        );
-                if (key.getTokenInstanceReference() != null)
+                        .orElseThrow(() -> new NotFoundException("Sub key with the UUID " + keyUuid + " is not found",
+                                CryptographicKeyItem.class));
+                if (key.getTokenInstanceReference() != null) {
                     destroyKeyFromConnector(key.getTokenInstanceReference(), keyItem.getKeyReferenceUuid());
+                }
                 key.getItems().remove(keyItem);
                 attributeEngine.deleteObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
                 cryptographicKeyItemRepository.delete(keyItem);
@@ -551,21 +641,24 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         logger.info("Key deleted: {}", uuid);
     }
 
-    private void destroyKeyFromConnector(TokenInstanceReference tokenInstanceReference, UUID keyReferenceUuid) throws ConnectorException, NotFoundException {
+    private void destroyKeyFromConnector(TokenInstanceReference tokenInstanceReference, UUID keyReferenceUuid)
+            throws ConnectorException, NotFoundException {
         try {
-            ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(tokenInstanceReference.getConnectorUuid());
-            connectorApiFactory.getKeyManagementApiClient(connectorDto).destroyKey(
-                    connectorDto,
-                    tokenInstanceReference.getTokenInstanceUuid(),
-                    keyReferenceUuid.toString()
-            );
+            ApiClientConnectorInfo connectorDto = connectorService
+                    .getConnectorForApiClient(tokenInstanceReference.getConnectorUuid());
+            connectorApiFactory
+                    .getKeyManagementApiClient(connectorDto)
+                    .destroyKey(connectorDto, tokenInstanceReference.getTokenInstanceUuid(),
+                            keyReferenceUuid.toString());
             logger.info("Key item destroyed in the connector. Removing from the core now.");
         } catch (ConnectorEntityNotFoundException e) {
             logger.info("Key item already destroyed in the connector.");
         } catch (Exception e) {
             if (tokenInstanceReference.getStatus().equals(TokenInstanceStatus.DEACTIVATED)) {
                 logger.info("Key cannot be accessed from the token. Key will not be destroyed in connector.");
-            } else throw e;
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -577,7 +670,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             try {
                 CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
                 if (key.getTokenProfile() != null) {
-                    authorizationEnforcer.enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL, key.getTokenProfile().getSecuredUuid());
+                    authorizationEnforcer
+                            .enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL,
+                                    key.getTokenProfile().getSecuredUuid());
                 }
                 for (CryptographicKeyItem keyItem : key.getItems()) {
                     if (key.getTokenInstanceReference() != null) {
@@ -598,9 +693,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void deleteKeyItems(SecurityFilter filterForTokenInstance, List<String> keyItemUuids) throws ConnectorException {
+    public void deleteKeyItems(SecurityFilter filterForTokenInstance, List<String> keyItemUuids)
+            throws ConnectorException {
         filterForTokenInstance.setParentRefProperty(CryptographicKey_.tokenInstanceReferenceUuid.getName());
-        SecurityFilter filterForTokenProfile = createSecurityFilterFor(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.DELETE, Resource.TOKEN_PROFILE, ResourceAction.MEMBERS,
+        SecurityFilter filterForTokenProfile = createSecurityFilterFor(Resource.CRYPTOGRAPHIC_KEY,
+                ResourceAction.DELETE, Resource.TOKEN_PROFILE, ResourceAction.MEMBERS,
                 CryptographicKey_.tokenProfileUuid.getName());
 
         UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
@@ -620,18 +717,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             } catch (Exception e) {
                 transactionManager.rollback(txStatus);
                 logger.error("Failed to process key item bulk deletion batch: {}", e.getMessage(), e);
-                notificationProducer.produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM,
-                        batchUuids.getFirst(),
-                        NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
-                        "Batch key deletion failed for " + batchUuids.size() + " key items",
-                        e.getMessage());
+                notificationProducer
+                        .produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM, batchUuids.getFirst(),
+                                NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
+                                "Batch key deletion failed for " + batchUuids.size() + " key items", e.getMessage());
 
             }
         }
         logger.debug("Bulk deleted {} of {} key items.", deletedCount, totalToDelete);
     }
 
-    private int deleteKeyItemsBatch(List<SecurityFilter> filters, List<UUID> batchUuids, UUID loggedUserUuid) throws ConnectorException, NotFoundException {
+    private int deleteKeyItemsBatch(List<SecurityFilter> filters, List<UUID> batchUuids, UUID loggedUserUuid)
+            throws ConnectorException, NotFoundException {
         // 1. Check permissions for two parents: TokenInstance/MEMBERS and TokenProfile/MEMBERS
         List<UUID> permittedUuids = batchUuids;
         for (SecurityFilter filter : filters) {
@@ -683,7 +780,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         return permittedUuids.size();
     }
 
-    private static TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> createAdditionalWhereClauseForBulkDeleteBatch(List<UUID> batchUuids) {
+    private static TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> createAdditionalWhereClauseForBulkDeleteBatch(
+            List<UUID> batchUuids) {
         return ((root, cb, cr) -> {
             var in = cb.in(root.get(CryptographicKeyItem_.uuid.getName()));
             batchUuids.forEach(in::value);
@@ -691,25 +789,31 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         });
     }
 
-    private List<UUID> filterKeyItemsBySecurityFilter(SecurityFilter filter, List<UUID> inputUuids, UUID loggedUserUuid) {
-        TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = createAdditionalWhereClauseForBulkDeleteBatch(inputUuids);
-        List<UUID> permittedUuids = cryptographicKeyItemRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, null, null);
+    private List<UUID> filterKeyItemsBySecurityFilter(SecurityFilter filter, List<UUID> inputUuids,
+            UUID loggedUserUuid) {
+        TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = createAdditionalWhereClauseForBulkDeleteBatch(
+                inputUuids);
+        List<UUID> permittedUuids = cryptographicKeyItemRepository
+                .findUuidsUsingSecurityFilter(filter, additionalWhereClause, null, null);
         List<UUID> nonPermittedUuids = new ArrayList<>(inputUuids);
         nonPermittedUuids.removeAll(permittedUuids);
 
         for (UUID nonPermittedUuid : nonPermittedUuids) {
-            logger.error("Unable to delete cryptographic key item {}. The cryptographic key item cannot be found or cannot be authorized for deletion.", nonPermittedUuid);
-            notificationProducer.produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM, nonPermittedUuid,
-                    NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
-                    "Unable to delete cryptographic key item " + nonPermittedUuid,
-                    "The cryptographic key item cannot be found or cannot be authorized for deletion.");
+            logger
+                    .error("Unable to delete cryptographic key item {}. The cryptographic key item cannot be found or cannot be authorized for deletion.",
+                            nonPermittedUuid);
+            notificationProducer
+                    .produceInternalNotificationMessage(Resource.CRYPTOGRAPHIC_KEY_ITEM, nonPermittedUuid,
+                            NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
+                            "Unable to delete cryptographic key item " + nonPermittedUuid,
+                            "The cryptographic key item cannot be found or cannot be authorized for deletion.");
         }
         return permittedUuids;
     }
 
-
     private SecurityFilter createSecurityFilterFor(@NonNull Resource resource, @NonNull ResourceAction action,
-                                                   @Nullable Resource parentResource, @Nullable ResourceAction parentAction, @Nullable String parentRefProperty) {
+            @Nullable Resource parentResource, @Nullable ResourceAction parentAction,
+            @Nullable String parentRefProperty) {
         SecurityFilter filter = SecurityFilter.create();
         objectFilterAspect.populateSecurityFilter(resource, action, parentResource, parentAction, filter);
 
@@ -752,30 +856,27 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid,
+            KeyRequestType type) throws ConnectorException, NotFoundException {
         logger.debug("Request to list the attributes for creating a new key on Token profile: {}", tokenProfileUuid);
-        TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
-                        tokenProfileUuid.getValue())
-                .orElseThrow(
-                        () -> new NotFoundException(
-                                TokenProfile.class,
-                                tokenProfileUuid
-                        )
-                );
+        TokenProfile tokenProfile = tokenProfileRepository
+                .findByUuid(tokenProfileUuid.getValue())
+                .orElseThrow(() -> new NotFoundException(TokenProfile.class, tokenProfileUuid));
         validateTokenProfileEnabled(tokenProfile);
         logger.debug("Token profile details: {}", tokenProfile);
         List<BaseAttribute> attributes;
-        ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(tokenProfile.getTokenInstanceReference().getConnectorUuid());
+        ApiClientConnectorInfo connectorDto = connectorService
+                .getConnectorForApiClient(tokenProfile.getTokenInstanceReference().getConnectorUuid());
         if (type.equals(KeyRequestType.KEY_PAIR)) {
-            attributes = connectorApiFactory.getKeyManagementApiClient(connectorDto).listCreateKeyPairAttributes(
-                    connectorDto,
-                    tokenProfile.getTokenInstanceReference().getTokenInstanceUuid()
-            );
+            attributes = connectorApiFactory
+                    .getKeyManagementApiClient(connectorDto)
+                    .listCreateKeyPairAttributes(connectorDto,
+                            tokenProfile.getTokenInstanceReference().getTokenInstanceUuid());
         } else {
-            attributes = connectorApiFactory.getKeyManagementApiClient(connectorDto).listCreateSecretKeyAttributes(
-                    connectorDto,
-                    tokenProfile.getTokenInstanceReference().getTokenInstanceUuid()
-            );
+            attributes = connectorApiFactory
+                    .getKeyManagementApiClient(connectorDto)
+                    .listCreateSecretKeyAttributes(connectorDto,
+                            tokenProfile.getTokenInstanceReference().getTokenInstanceUuid());
         }
         logger.debug("Attributes for the new creation: {}", attributes);
         return attributes;
@@ -789,25 +890,26 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException, AttributeException, NotFoundException {
-        TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(
-                tokenInstanceUuid
-        );
-        //Create a map to hold the key and its objects. The association key will be used as the name for the parent key object
+    public void syncKeys(SecuredParentUUID tokenInstanceUuid)
+            throws ConnectorException, AttributeException, NotFoundException {
+        TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(tokenInstanceUuid);
+        // Create a map to hold the key and its objects. The association key will be used as the name for the parent key
+        // object
         Map<String, List<KeyDataResponseDto>> associations = new HashMap<>();
         // Get the list of keys from the connector
-        ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(tokenInstanceReference.getConnectorUuid());
-        List<KeyDataResponseDto> keys = connectorApiFactory.getKeyManagementApiClient(connectorDto).listKeys(
-                connectorDto,
-                tokenInstanceReference.getTokenInstanceUuid()
-        );
+        ApiClientConnectorInfo connectorDto = connectorService
+                .getConnectorForApiClient(tokenInstanceReference.getConnectorUuid());
+        List<KeyDataResponseDto> keys = connectorApiFactory
+                .getKeyManagementApiClient(connectorDto)
+                .listKeys(connectorDto, tokenInstanceReference.getTokenInstanceUuid());
 
         // Iterate and add the keys with the same associations to the map
         for (KeyDataResponseDto key : keys) {
-            associations.computeIfAbsent(
-                    (key.getAssociation() == null || key.getAssociation().isEmpty()) ? "" : key.getAssociation(),
-                    k -> new ArrayList<>()
-            ).add(key);
+            associations
+                    .computeIfAbsent((key.getAssociation() == null || key.getAssociation().isEmpty())
+                            ? ""
+                            : key.getAssociation(), k -> new ArrayList<>())
+                    .add(key);
         }
         logger.debug("Total number of keys from the connector: {}", keys.size());
 
@@ -816,20 +918,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             // If the key is empty then it is individual entity. Probably only private or public key or Secret Key
             if (entry.getKey().isEmpty()) {
                 for (KeyDataResponseDto soleEntity : entry.getValue()) {
-                    createKeyAndItems(
-                            tokenInstanceReference.getConnectorUuid(),
-                            tokenInstanceReference,
-                            soleEntity.getName(),
-                            List.of(soleEntity)
-                    );
+                    createKeyAndItems(tokenInstanceReference.getConnectorUuid(), tokenInstanceReference,
+                            soleEntity.getName(), List.of(soleEntity));
                 }
             } else {
-                createKeyAndItems(
-                        tokenInstanceReference.getConnectorUuid(),
-                        tokenInstanceReference,
-                        entry.getKey(),
-                        entry.getValue()
-                );
+                createKeyAndItems(tokenInstanceReference.getConnectorUuid(), tokenInstanceReference, entry.getKey(),
+                        entry.getValue());
             }
         }
         logger.info("Sync Key Completed");
@@ -960,18 +1054,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
                 ? CryptographyUtil.resolvePqcParameterSpecName(keyItem.getKeyAlgorithm(), keyItem.getKeyData())
                 : null;
 
-        return new CryptographicKeyItemModel(
-                keyItem.getUuid(),
-                keyItem.isEnabled(),
-                keyItem.getKeyAlgorithm(),
-                keyItem.getState(),
-                keyItem.getType(),
-                keyItem.getUsage(),
-                pqcParameterSpecName,
-                keyItem.getKeyReferenceUuid(),
-                tokenInstanceReference.getConnectorUuid(),
-                tokenInstanceUuid
-        );
+        return new CryptographicKeyItemModel(keyItem.getUuid(), keyItem.isEnabled(), keyItem.getKeyAlgorithm(),
+                keyItem.getState(), keyItem.getType(), keyItem.getUsage(), pqcParameterSpecName,
+                keyItem.getKeyReferenceUuid(), tokenInstanceReference.getConnectorUuid(), tokenInstanceUuid);
     }
 
     private void evictKeyItemCache(UUID keyItemUuid) {
@@ -1015,11 +1100,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         // permanently and the returned UUID points at a key with no material.
         UUID survivingKeyUuid = findKeyByFingerprint(fingerprint);
         if (survivingKeyUuid == null) {
-            throw new IllegalStateException("Public key with the same fingerprint was committed concurrently but could no longer be read");
+            throw new IllegalStateException(
+                    "Public key with the same fingerprint was committed concurrently but could no longer be read");
         }
         cryptographicKeyRepository.delete(cryptographicKey);
-        logger.debug("Adopted existing cryptographic key {} for fingerprint {}; discarded locally created key {}",
-                survivingKeyUuid, fingerprint, cryptographicKey.getUuid());
+        logger
+                .debug("Adopted existing cryptographic key {} for fingerprint {}; discarded locally created key {}",
+                        survivingKeyUuid, fingerprint, cryptographicKey.getUuid());
         return survivingKeyUuid;
     }
 
@@ -1036,8 +1123,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        throw new NotSupportedException("Listing of resource objects is not supported for resource cryptographic keys.");
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
+        throw new NotSupportedException(
+                "Listing of resource objects is not supported for resource cryptographic keys.");
     }
 
     @Override
@@ -1048,21 +1137,30 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE)
-    public KeyItemDetailDto editKeyItem(SecuredUUID keyUuid, UUID keyItemUuid, EditKeyItemDto editKeyItemDto) throws NotFoundException {
+    public KeyItemDetailDto editKeyItem(SecuredUUID keyUuid, UUID keyItemUuid, EditKeyItemDto editKeyItemDto)
+            throws NotFoundException {
         CryptographicKey key = getCryptographicKeyEntityWithAssociations(keyUuid.getValue());
-        if (key.getTokenInstanceReferenceUuid() != null)
-            authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.DETAIL, key.getTokenInstanceReference().getSecuredUuid());
-        Optional<CryptographicKeyItem> keyItem = key.getItems().stream().filter(cki -> cki.getUuid().equals(keyItemUuid)).findFirst();
-        if (keyItem.isEmpty())
+        if (key.getTokenInstanceReferenceUuid() != null) {
+            authorizationEnforcer
+                    .enforce(Resource.TOKEN, ResourceAction.DETAIL, key.getTokenInstanceReference().getSecuredUuid());
+        }
+        Optional<CryptographicKeyItem> keyItem = key
+                .getItems()
+                .stream()
+                .filter(cki -> cki.getUuid().equals(keyItemUuid))
+                .findFirst();
+        if (keyItem.isEmpty()) {
             throw new NotFoundException("Key Item has not been found for Key with UUID %s.".formatted(keyUuid));
+        }
         keyItem.get().setName(editKeyItemDto.getName());
         cryptographicKeyItemRepository.save(keyItem.get());
         evictKeyItemCache(keyItem.get().getUuid());
         return keyItem.get().mapToDto();
     }
 
-    private void createKeyAndItems(UUID connectorUuid, TokenInstanceReference tokenInstanceReference, String key, List<KeyDataResponseDto> items) throws AttributeException {
-        //Iterate through the items for a specific key
+    private void createKeyAndItems(UUID connectorUuid, TokenInstanceReference tokenInstanceReference, String key,
+            List<KeyDataResponseDto> items) throws AttributeException {
+        // Iterate through the items for a specific key
         if (checkKeyAlreadyExists(tokenInstanceReference.getUuid(), items)) {
             return;
         }
@@ -1074,28 +1172,21 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         // Create the items for each key
         Set<CryptographicKeyItem> children = new HashSet<>();
         for (KeyDataResponseDto item : items) {
-            children.add(
-                    createKeyContent(
-                            item.getUuid(),
-                            item.getName(),
-                            item.getKeyData(),
-                            cryptographicKey,
-                            connectorUuid,
-                            true,
-                            false
-                    )
-            );
+            children
+                    .add(createKeyContent(item.getUuid(), item.getName(), item.getKeyData(), cryptographicKey,
+                            connectorUuid, true, false));
         }
         cryptographicKey.setItems(children);
         cryptographicKeyRepository.save(cryptographicKey);
     }
 
     private boolean checkKeyAlreadyExists(UUID tokenInstanceUuid, List<KeyDataResponseDto> items) {
-        //Iterate through the items for a specific key
+        // Iterate through the items for a specific key
         for (KeyDataResponseDto item : items) {
-            //check if the item with the reference uuid already exists in the database
+            // check if the item with the reference uuid already exists in the database
             // Assumption - Content of the key from earlier does not change
-            for (CryptographicKeyItem keyItem : cryptographicKeyItemRepository.findByKeyReferenceUuid(UUID.fromString(item.getUuid()))) {
+            for (CryptographicKeyItem keyItem : cryptographicKeyItemRepository
+                    .findByKeyReferenceUuid(UUID.fromString(item.getUuid()))) {
                 if (keyItem.getKey().getTokenInstanceReferenceUuid().equals(tokenInstanceUuid)) {
                     return true;
                 }
@@ -1104,7 +1195,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         return false;
     }
 
-    private CryptographicKey createKeyEntity(KeyRequestDto request, TokenProfile tokenProfile, TokenInstanceReference tokenInstanceReference) {
+    private CryptographicKey createKeyEntity(KeyRequestDto request, TokenProfile tokenProfile,
+            TokenInstanceReference tokenInstanceReference) {
         CryptographicKey key = new CryptographicKey();
         key.setName(request.getName());
         key.setDescription(request.getDescription());
@@ -1115,7 +1207,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         return cryptographicKeyRepository.save(key);
     }
 
-    private CryptographicKeyItem createKeyContent(String referenceUuid, String referenceName, KeyData keyData, CryptographicKey cryptographicKey, UUID connectorUuid, boolean isDiscovered, boolean enabled) throws AttributeException {
+    private CryptographicKeyItem createKeyContent(String referenceUuid, String referenceName, KeyData keyData,
+            CryptographicKey cryptographicKey, UUID connectorUuid, boolean isDiscovered, boolean enabled)
+            throws AttributeException {
         logger.debug("Creating the Key Content for {}", cryptographicKey);
         CryptographicKeyItem keyItem = new CryptographicKeyItem();
         keyItem.setName(referenceName);
@@ -1125,13 +1219,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         keyItem.setKeyData(keyData.getFormat(), keyData.getValue());
         if (keyData.getFormat() != KeyFormat.CUSTOM) {
             try {
-                String fingerprint = CertificateUtil.getThumbprint(keyItem.getKeyData().getBytes(StandardCharsets.UTF_8));
+                String fingerprint = CertificateUtil
+                        .getThumbprint(keyItem.getKeyData().getBytes(StandardCharsets.UTF_8));
                 UUID sameKeyUuid = findKeyByFingerprint(fingerprint);
-                if (sameKeyUuid != null)
-                    throw new ValidationException("Key with the same fingerprint as key item of key %s already exists. Existing key UUID: %s".formatted(cryptographicKey.getUuid(), sameKeyUuid));
+                if (sameKeyUuid != null) {
+                    throw new ValidationException(
+                            "Key with the same fingerprint as key item of key %s already exists. Existing key UUID: %s"
+                                    .formatted(cryptographicKey.getUuid(), sameKeyUuid));
+                }
                 keyItem.setFingerprint(fingerprint);
             } catch (NoSuchAlgorithmException e) {
-                throw new ValidationException("Failed to calculate fingerprint from key content: " + keyItem.getKeyData());
+                throw new ValidationException(
+                        "Failed to calculate fingerprint from key content: " + keyItem.getKeyData());
             }
         }
         keyItem.setFormat(keyData.getFormat());
@@ -1140,38 +1239,34 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         keyItem.setState(KeyState.ACTIVE);
         keyItem.setEnabled(enabled);
         if (cryptographicKey.getTokenProfile() != null) {
-            keyItem.setUsage(
-                    cryptographicKey
+            keyItem
+                    .setUsage(cryptographicKey
                             .getTokenProfile()
                             .getUsage()
                             .stream()
-                            .filter(
-                                    not(getForbiddenUsages(keyData.getType(), keyData.getAlgorithm())::contains)
-                            )
-                            .toList()
-            );
+                            .filter(not(getForbiddenUsages(keyData.getType(), keyData.getAlgorithm())::contains))
+                            .toList());
         }
         cryptographicKeyItemRepository.save(keyItem);
         evictKeyItemCache(keyItem.getUuid());
         String message;
         if (isDiscovered) {
-            message = "Key Discovered from Token Instance "
-                    + cryptographicKey.getTokenInstanceReference().getName();
+            message = "Key Discovered from Token Instance " + cryptographicKey.getTokenInstanceReference().getName();
         } else {
-            message = "Key Created from Token Profile "
-                    + cryptographicKey.getTokenProfile().getName()
-                    + " on Token Instance "
-                    + cryptographicKey.getTokenInstanceReference().getName();
+            message = "Key Created from Token Profile " + cryptographicKey.getTokenProfile().getName()
+                    + " on Token Instance " + cryptographicKey.getTokenInstanceReference().getName();
         }
-        keyEventHistoryService.addEventHistory(
-                KeyEvent.CREATE,
-                KeyEventStatus.SUCCESS,
-                message,
-                null,
-                keyItem.getUuid()
-        );
+        keyEventHistoryService
+                .addEventHistory(KeyEvent.CREATE, KeyEventStatus.SUCCESS, message, null, keyItem.getUuid());
 
-        attributeEngine.updateMetadataAttributes(keyData.getMetadata(), ObjectAttributeContentInfo.builder(Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(keyItem.getUuid().toString())).connector(connectorUuid).source(Resource.CRYPTOGRAPHIC_KEY, cryptographicKey.getUuid()).sourceName(cryptographicKey.getName()).build());
+        attributeEngine
+                .updateMetadataAttributes(keyData.getMetadata(),
+                        ObjectAttributeContentInfo
+                                .builder(Resource.CRYPTOGRAPHIC_KEY, UUID.fromString(keyItem.getUuid().toString()))
+                                .connector(connectorUuid)
+                                .source(Resource.CRYPTOGRAPHIC_KEY, cryptographicKey.getUuid())
+                                .sourceName(cryptographicKey.getName())
+                                .build());
         if (keyData.getType().equals(KeyType.PUBLIC_KEY)) {
             certificateService.updateCertificateKeys(cryptographicKey.getUuid(), keyItem.getFingerprint());
         }
@@ -1180,81 +1275,91 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     private CryptographicKey getCryptographicKeyEntity(UUID uuid) throws NotFoundException {
-        return cryptographicKeyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
+        return cryptographicKeyRepository
+                .findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
     }
 
     private CryptographicKey getCryptographicKeyEntityWithAssociations(UUID uuid) throws NotFoundException {
-        return cryptographicKeyRepository.findWithAssociationsByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
+        return cryptographicKeyRepository
+                .findWithAssociationsByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
     }
 
-    private void mergeAndValidateAttributes(KeyRequestType type, TokenInstanceReference tokenInstanceRef, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException {
-        logger.debug("Merging and validating attributes on token instance {}. Request Attributes are: {}", tokenInstanceRef, attributes);
+    private void mergeAndValidateAttributes(KeyRequestType type, TokenInstanceReference tokenInstanceRef,
+            List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException {
+        logger
+                .debug("Merging and validating attributes on token instance {}. Request Attributes are: {}",
+                        tokenInstanceRef, attributes);
         if (tokenInstanceRef.getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Token is not available / deleted"));
         }
 
-        ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(tokenInstanceRef.getConnectorUuid());
+        ApiClientConnectorInfo connectorDto = connectorService
+                .getConnectorForApiClient(tokenInstanceRef.getConnectorUuid());
 
         // validate first by connector and list attributes definitions
         List<BaseAttribute> definitions;
         if (type.equals(KeyRequestType.KEY_PAIR)) {
-            connectorApiFactory.getKeyManagementApiClient(connectorDto).validateCreateKeyPairAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
-            definitions = connectorApiFactory.getKeyManagementApiClient(connectorDto).listCreateKeyPairAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
+            connectorApiFactory
+                    .getKeyManagementApiClient(connectorDto)
+                    .validateCreateKeyPairAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
+            definitions = connectorApiFactory
+                    .getKeyManagementApiClient(connectorDto)
+                    .listCreateKeyPairAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
         } else {
-            connectorApiFactory.getKeyManagementApiClient(connectorDto).validateCreateSecretKeyAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
-            definitions = connectorApiFactory.getKeyManagementApiClient(connectorDto).listCreateSecretKeyAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
+            connectorApiFactory
+                    .getKeyManagementApiClient(connectorDto)
+                    .validateCreateSecretKeyAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(),
+                            attributes);
+            definitions = connectorApiFactory
+                    .getKeyManagementApiClient(connectorDto)
+                    .listCreateSecretKeyAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
         }
 
         // validate and update definitions with attribute engine
-        attributeEngine.validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);
+        attributeEngine
+                .validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);
     }
 
-    private CryptographicKey createKeyTypeOfKeyPair(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto) throws ConnectorException, AttributeException, NotFoundException {
+    private CryptographicKey createKeyTypeOfKeyPair(Connector connector, TokenProfile tokenProfile,
+            KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto)
+            throws ConnectorException, AttributeException, NotFoundException {
         boolean enabled = Boolean.TRUE.equals(request.getEnabled());
         ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(connector.getUuid());
-        KeyPairDataResponseDto response = connectorApiFactory.getKeyManagementApiClient(connectorDto).createKeyPair(
-                connectorDto,
-                tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
-                createKeyRequestDto
-        );
+        KeyPairDataResponseDto response = connectorApiFactory
+                .getKeyManagementApiClient(connectorDto)
+                .createKeyPair(connectorDto, tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
+                        createKeyRequestDto);
 
         logger.debug("Response from the connector for the new Key creation: {}", response);
         Set<CryptographicKeyItem> children = new HashSet<>();
         CryptographicKey key = createKeyEntity(request, tokenProfile, tokenProfile.getTokenInstanceReference());
-        children.add(createKeyContent(
-                response.getPrivateKeyData().getUuid(),
-                response.getPrivateKeyData().getName(),
-                response.getPrivateKeyData().getKeyData(),
-                key,
-                connector.getUuid(),
-                false,
-                enabled
-        ));
-        children.add(createKeyContent(
-                response.getPublicKeyData().getUuid(),
-                response.getPrivateKeyData().getName(),
-                response.getPublicKeyData().getKeyData(),
-                key,
-                connector.getUuid(),
-                false,
-                enabled
-        ));
+        children
+                .add(createKeyContent(response.getPrivateKeyData().getUuid(), response.getPrivateKeyData().getName(),
+                        response.getPrivateKeyData().getKeyData(), key, connector.getUuid(), false, enabled));
+        children
+                .add(createKeyContent(response.getPublicKeyData().getUuid(), response.getPrivateKeyData().getName(),
+                        response.getPublicKeyData().getKeyData(), key, connector.getUuid(), false, enabled));
         key.setItems(children);
         return cryptographicKeyRepository.save(key);
     }
 
-    private CryptographicKey createKeyTypeOfSecret(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto) throws ConnectorException, AttributeException, NotFoundException {
+    private CryptographicKey createKeyTypeOfSecret(Connector connector, TokenProfile tokenProfile,
+            KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto)
+            throws ConnectorException, AttributeException, NotFoundException {
         ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(connector.getUuid());
-        KeyDataResponseDto response = connectorApiFactory.getKeyManagementApiClient(connectorDto).createSecretKey(
-                connectorDto,
-                tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
-                createKeyRequestDto
-        );
+        KeyDataResponseDto response = connectorApiFactory
+                .getKeyManagementApiClient(connectorDto)
+                .createSecretKey(connectorDto, tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
+                        createKeyRequestDto);
         logger.debug("Response from the connector for the new Key creation: {}", response);
         CryptographicKey key = createKeyEntity(request, tokenProfile, tokenProfile.getTokenInstanceReference());
 
         Set<CryptographicKeyItem> items = new HashSet<>();
-        items.add(createKeyContent(response.getUuid(), response.getName(), response.getKeyData(), key, connector.getUuid(), false, Boolean.TRUE.equals(request.getEnabled())));
+        items
+                .add(createKeyContent(response.getUuid(), response.getName(), response.getKeyData(), key,
+                        connector.getUuid(), false, Boolean.TRUE.equals(request.getEnabled())));
         key.setItems(items);
 
         return cryptographicKeyRepository.save(key);
@@ -1290,7 +1395,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
      *
      * @param uuid UUID of the Key Item
      */
-    private boolean setKeyItemEnabled(UUID uuid, boolean evaluateTokenPermission, boolean enabled) throws NotFoundException {
+    private boolean setKeyItemEnabled(UUID uuid, boolean evaluateTokenPermission, boolean enabled)
+            throws NotFoundException {
         CryptographicKeyItem keyItem = getKeyItem(uuid, evaluateTokenPermission);
         if (keyItem.isEnabled() == enabled) {
             String message = "Key " + uuid + " is already " + (enabled ? "enabled." : "disabled.");
@@ -1300,7 +1406,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         keyItem.setEnabled(enabled);
         cryptographicKeyItemRepository.save(keyItem);
         evictKeyItemCache(keyItem.getUuid());
-        keyEventHistoryService.addEventHistory(enabled ? KeyEvent.ENABLE : KeyEvent.DISABLE, KeyEventStatus.SUCCESS, "Key " + (enabled ? "enabled." : "disabled."), null, keyItem);
+        keyEventHistoryService
+                .addEventHistory(enabled ? KeyEvent.ENABLE : KeyEvent.DISABLE, KeyEventStatus.SUCCESS,
+                        "Key " + (enabled ? "enabled." : "disabled."), null, keyItem);
         return true;
     }
 
@@ -1309,7 +1417,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
      *
      * @param keyItemsUuids UUIDs of the Key Items
      */
-    private void compromiseKeyItems(List<UUID> keyItemsUuids, boolean evaluateTokenPermission, KeyCompromiseReason reason) {
+    private void compromiseKeyItems(List<UUID> keyItemsUuids, boolean evaluateTokenPermission,
+            KeyCompromiseReason reason) {
         logger.debug("Request to mark the key items as compromised with UUIDs {}", keyItemsUuids);
         List<String> errors = new ArrayList<>();
         if (keyItemsUuids != null && !keyItemsUuids.isEmpty()) {
@@ -1334,19 +1443,23 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
      *
      * @param uuid UUID of the Key Item
      */
-    private boolean compromiseKeyItem(UUID uuid, KeyCompromiseReason reason, boolean evaluateTokenPermission) throws NotFoundException {
+    private boolean compromiseKeyItem(UUID uuid, KeyCompromiseReason reason, boolean evaluateTokenPermission)
+            throws NotFoundException {
         CryptographicKeyItem keyItem = getKeyItem(uuid, evaluateTokenPermission);
-        if (!keyItem.getState().equals(KeyState.PRE_ACTIVE) && !keyItem.getState().equals(KeyState.ACTIVE) && !keyItem.getState().equals(KeyState.DEACTIVATED)) {
-            String message = "Invalid state of key " + uuid + ". Key is " + keyItem.getState().getLabel() + ", hence can't be set to " + KeyState.COMPROMISED.getLabel() + ".";
-            keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.FAILED,
-                    message, null, keyItem);
+        if (!keyItem.getState().equals(KeyState.PRE_ACTIVE) && !keyItem.getState().equals(KeyState.ACTIVE)
+                && !keyItem.getState().equals(KeyState.DEACTIVATED)) {
+            String message = "Invalid state of key " + uuid + ". Key is " + keyItem.getState().getLabel()
+                    + ", hence can't be set to " + KeyState.COMPROMISED.getLabel() + ".";
+            keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.FAILED, message, null, keyItem);
             return false;
         }
         keyItem.setState(KeyState.COMPROMISED);
         keyItem.setReason(reason);
         cryptographicKeyItemRepository.save(keyItem);
         evictKeyItemCache(keyItem.getUuid());
-        keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.SUCCESS, "Key compromised. Reason: " + reason + ".", null, keyItem);
+        keyEventHistoryService
+                .addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.SUCCESS,
+                        "Key compromised. Reason: " + reason + ".", null, keyItem);
         return true;
     }
 
@@ -1375,14 +1488,19 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
      *
      * @param uuid UUID of the Key Item
      */
-    private boolean setKeyItemUsages(UUID uuid, List<KeyUsage> usages, boolean evaluateTokenPermission) throws NotFoundException {
+    private boolean setKeyItemUsages(UUID uuid, List<KeyUsage> usages, boolean evaluateTokenPermission)
+            throws NotFoundException {
         CryptographicKeyItem content = getKeyItem(uuid, evaluateTokenPermission);
 
-        List<KeyUsage> forbiddenUsages = getForbiddenUsages(content.getType(), content.getKeyAlgorithm()).stream().filter(usages::contains).toList();
+        List<KeyUsage> forbiddenUsages = getForbiddenUsages(content.getType(), content.getKeyAlgorithm())
+                .stream()
+                .filter(usages::contains)
+                .toList();
         if (!forbiddenUsages.isEmpty()) {
             String nonAllowedUsages = forbiddenUsages.stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
             String message = "Unsupported usages of key " + uuid + ": " + nonAllowedUsages + ".";
-            keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.FAILED, message, null, content);
+            keyEventHistoryService
+                    .addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.FAILED, message, null, content);
             return false;
         }
         String oldUsage = content.getUsage().stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
@@ -1390,8 +1508,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         cryptographicKeyItemRepository.save(content);
         evictKeyItemCache(content.getUuid());
         String newUsage = usages.stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
-        keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
-                "Key usages updated from " + oldUsage + " to " + newUsage + ".", null, content);
+        keyEventHistoryService
+                .addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
+                        "Key usages updated from " + oldUsage + " to " + newUsage + ".", null, content);
         return true;
     }
 
@@ -1425,13 +1544,17 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
      *
      * @param uuid UUID of the Key Item
      */
-    private boolean destroyKeyItem(UUID uuid, boolean evaluateTokenPermission) throws ConnectorException, NotFoundException {
+    private boolean destroyKeyItem(UUID uuid, boolean evaluateTokenPermission)
+            throws ConnectorException, NotFoundException {
         CryptographicKeyItem keyItem = getKeyItem(uuid, evaluateTokenPermission);
-        KeyState finalState = keyItem.getState().equals(KeyState.COMPROMISED) ? KeyState.DESTROYED_COMPROMISED : KeyState.DESTROYED;
-        if (!keyItem.getState().equals(KeyState.DEACTIVATED) && !keyItem.getState().equals(KeyState.PRE_ACTIVE) && !keyItem.getState().equals(KeyState.COMPROMISED)) {
-            String message = "Invalid state of key " + uuid + ". Key is " + keyItem.getState().getLabel() + ", hence can't be set to " + finalState.getLabel() + ".";
-            keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.FAILED,
-                    message, null, keyItem);
+        KeyState finalState = keyItem.getState().equals(KeyState.COMPROMISED)
+                ? KeyState.DESTROYED_COMPROMISED
+                : KeyState.DESTROYED;
+        if (!keyItem.getState().equals(KeyState.DEACTIVATED) && !keyItem.getState().equals(KeyState.PRE_ACTIVE)
+                && !keyItem.getState().equals(KeyState.COMPROMISED)) {
+            String message = "Invalid state of key " + uuid + ". Key is " + keyItem.getState().getLabel()
+                    + ", hence can't be set to " + finalState.getLabel() + ".";
+            keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.FAILED, message, null, keyItem);
             return false;
         }
         if (keyItem.getKey().getTokenInstanceReference() != null) {
@@ -1441,17 +1564,22 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         keyItem.setState(finalState);
         cryptographicKeyItemRepository.save(keyItem);
         evictKeyItemCache(keyItem.getUuid());
-        keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.SUCCESS, "Key destroyed.", null, keyItem);
+        keyEventHistoryService
+                .addEventHistory(KeyEvent.DESTROY, KeyEventStatus.SUCCESS, "Key destroyed.", null, keyItem);
         return true;
     }
 
     private CryptographicKeyItem getKeyItem(UUID uuid, boolean evaluateTokenPermission) throws NotFoundException {
         CryptographicKeyItem keyItem = getCryptographicKeyItem(uuid);
         if (keyItem.getKey().getTokenProfileUuid() != null) {
-            authorizationEnforcer.enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL, keyItem.getKey().getTokenProfile().getSecuredUuid());
+            authorizationEnforcer
+                    .enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL,
+                            keyItem.getKey().getTokenProfile().getSecuredUuid());
         }
         if (evaluateTokenPermission && keyItem.getKey().getTokenInstanceReferenceUuid() != null) {
-            authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.DETAIL, keyItem.getKey().getTokenInstanceReference().getSecuredUuid());
+            authorizationEnforcer
+                    .enforce(Resource.TOKEN, ResourceAction.DETAIL,
+                            keyItem.getKey().getTokenInstanceReference().getSecuredUuid());
         }
         return keyItem;
     }
@@ -1459,12 +1587,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     private CryptographicKeyItem getCryptographicKeyItem(UUID uuid) throws NotFoundException {
         return cryptographicKeyItemRepository
                 .findByUuid(uuid)
-                .orElseThrow(
-                        () -> new NotFoundException(
-                                CryptographicKeyItem.class,
-                                uuid
-                        )
-                );
+                .orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, uuid));
     }
 
     private void deleteKeyWithAssociations(CryptographicKey key) {
@@ -1477,22 +1600,50 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     private List<SearchFieldDataByGroupDto> getSearchableFieldsMap() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CRYPTOGRAPHIC_KEY, false);
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine
+                .getResourceSearchableFields(Resource.CRYPTOGRAPHIC_KEY, false);
 
-        List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(FilterField.CKI_NAME),
-                SearchHelper.prepareSearch(FilterField.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
-                SearchHelper.prepareSearch(FilterField.CK_OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
-                SearchHelper.prepareSearch(FilterField.CKI_USAGE, Arrays.stream(KeyUsage.values()).map(KeyUsage::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.CKI_LENGTH),
-                SearchHelper.prepareSearch(FilterField.CKI_STATE, Arrays.stream(KeyState.values()).map(KeyState::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.CKI_FORMAT, Arrays.stream(KeyFormat.values()).map(KeyFormat::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.CKI_TYPE, Arrays.stream(KeyType.values()).map(KeyType::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.CKI_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream(KeyAlgorithm.values()).map(KeyAlgorithm::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.CK_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).toList()),
-                SearchHelper.prepareSearch(FilterField.CK_TOKEN_INSTANCE, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).toList())
+        List<SearchFieldDataDto> fields = List
+                .of(SearchHelper.prepareSearch(FilterField.CKI_NAME),
+                        SearchHelper
+                                .prepareSearch(FilterField.CK_GROUP,
+                                        groupRepository.findAll().stream().map(Group::getName).toList()),
+                        SearchHelper
+                                .prepareSearch(FilterField.CK_OWNER,
+                                        userManagementApiClient
+                                                .getUsers()
+                                                .getData()
+                                                .stream()
+                                                .map(UserDto::getUsername)
+                                                .toList()),
+                        SearchHelper
+                                .prepareSearch(FilterField.CKI_USAGE,
+                                        Arrays.stream(KeyUsage.values()).map(KeyUsage::getCode).toList()),
+                        SearchHelper.prepareSearch(FilterField.CKI_LENGTH),
+                        SearchHelper
+                                .prepareSearch(FilterField.CKI_STATE,
+                                        Arrays.stream(KeyState.values()).map(KeyState::getCode).toList()),
+                        SearchHelper
+                                .prepareSearch(FilterField.CKI_FORMAT,
+                                        Arrays.stream(KeyFormat.values()).map(KeyFormat::getCode).toList()),
+                        SearchHelper
+                                .prepareSearch(FilterField.CKI_TYPE,
+                                        Arrays.stream(KeyType.values()).map(KeyType::getCode).toList()),
+                        SearchHelper
+                                .prepareSearch(FilterField.CKI_CRYPTOGRAPHIC_ALGORITHM,
+                                        Arrays.stream(KeyAlgorithm.values()).map(KeyAlgorithm::getCode).toList()),
+                        SearchHelper
+                                .prepareSearch(FilterField.CK_TOKEN_PROFILE,
+                                        tokenProfileRepository.findAll().stream().map(TokenProfile::getName).toList()),
+                        SearchHelper
+                                .prepareSearch(FilterField.CK_TOKEN_INSTANCE,
+                                        tokenInstanceReferenceRepository
+                                                .findAll()
+                                                .stream()
+                                                .map(TokenInstanceReference::getName)
+                                                .toList())
 
-        );
+                );
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
@@ -1501,14 +1652,21 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         return searchFieldDataByGroupDtos;
     }
 
-    private CryptographicKey checkKeyRequestToken(UUID keyUuid, String operation, boolean withAssociations, boolean tokenMembersPermission) throws NotFoundException {
-        CryptographicKey key = withAssociations ? getCryptographicKeyEntityWithAssociations(keyUuid) : getCryptographicKeyEntity(keyUuid);
+    private CryptographicKey checkKeyRequestToken(UUID keyUuid, String operation, boolean withAssociations,
+            boolean tokenMembersPermission) throws NotFoundException {
+        CryptographicKey key = withAssociations
+                ? getCryptographicKeyEntityWithAssociations(keyUuid)
+                : getCryptographicKeyEntity(keyUuid);
         String tokenInstanceMessage = "";
         if (key.getTokenInstanceReferenceUuid() != null) {
             if (tokenMembersPermission) {
-                authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.MEMBERS, key.getTokenInstanceReference().getSecuredUuid());
+                authorizationEnforcer
+                        .enforce(Resource.TOKEN, ResourceAction.MEMBERS,
+                                key.getTokenInstanceReference().getSecuredUuid());
             } else {
-                authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.DETAIL, key.getTokenInstanceReference().getSecuredUuid());
+                authorizationEnforcer
+                        .enforce(Resource.TOKEN, ResourceAction.DETAIL,
+                                key.getTokenInstanceReference().getSecuredUuid());
             }
             tokenInstanceMessage = " in token instance " + key.getTokenInstanceReferenceUuid();
         }

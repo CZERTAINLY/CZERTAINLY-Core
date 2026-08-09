@@ -8,6 +8,8 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.service.CryptographicKeyExternalService;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,9 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,8 +31,10 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class CertificateRevocationFinalizerTest {
 
-    @Mock private AttributeEngine attributeEngine;
-    @Mock private CryptographicKeyExternalService keyService;
+    @Mock
+    private AttributeEngine attributeEngine;
+    @Mock
+    private CryptographicKeyExternalService keyService;
 
     private CertificateRevocationFinalizer finalizer;
 
@@ -94,7 +95,8 @@ class CertificateRevocationFinalizerTest {
         Certificate cert = certWithAuthority();
         when(cert.getPendingRevokeAttributes()).thenReturn(List.of(mock(RequestAttribute.class)));
         doThrow(new IllegalStateException("attr engine down"))
-                .when(attributeEngine).updateObjectDataAttributesContent(any(ObjectAttributeContentInfo.class), any());
+                .when(attributeEngine)
+                .updateObjectDataAttributesContent(any(ObjectAttributeContentInfo.class), any());
 
         // Best-effort: a failure here must not propagate (the connector revoke already completed).
         finalizer.applyPreservedRevokeAttributes(cert);
@@ -125,8 +127,7 @@ class CertificateRevocationFinalizerTest {
 
     @Test
     void destroyKeyIfRequested_keyServiceFailure_swallowed() throws Exception {
-        doThrow(new IllegalStateException("key service down"))
-                .when(keyService).destroyKey(any());
+        doThrow(new IllegalStateException("key service down")).when(keyService).destroyKey(any());
 
         // Best-effort, post-commit: a failure must not propagate after the revoke is committed.
         finalizer.destroyKeyIfRequested(new CertificateRevocationFinalizer.KeyCleanup(true, KEY_UUID), CERT_UUID);

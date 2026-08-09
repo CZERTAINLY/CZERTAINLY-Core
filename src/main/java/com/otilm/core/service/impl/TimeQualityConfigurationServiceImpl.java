@@ -5,13 +5,13 @@ import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.attribute.ResponseAttribute;
+import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
+import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationDto;
 import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationListDto;
 import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationRequestDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
-import com.otilm.api.model.client.attribute.ResponseAttribute;
-import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
-import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.auth.Resource;
@@ -20,11 +20,9 @@ import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.config.cache.CacheConfig;
 import com.otilm.core.config.cache.CacheEvictor;
-import com.otilm.core.messaging.model.TimeQualityConfigChangedEvent;
-import com.otilm.core.messaging.model.TimeQualityConfigDeletedEvent;
-import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.entity.Audited_;
 import com.otilm.core.dao.entity.signing.SigningProfile;
 import com.otilm.core.dao.entity.signing.TimeQualityConfiguration;
@@ -32,6 +30,8 @@ import com.otilm.core.dao.entity.signing.TimeQualityConfiguration_;
 import com.otilm.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.mapper.signing.TimeQualityConfigurationMapper;
+import com.otilm.core.messaging.model.TimeQualityConfigChangedEvent;
+import com.otilm.core.messaging.model.TimeQualityConfigDeletedEvent;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.otilm.core.security.authz.ExternalAuthorization;
@@ -43,14 +43,19 @@ import com.otilm.core.service.TimeQualityConfigurationInternalService;
 import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.util.FilterPredicatesBuilder;
 import com.otilm.core.util.SearchHelper;
-import org.springframework.cache.annotation.Cacheable;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -60,15 +65,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 @Slf4j
 @Service(Resource.Codes.TIME_QUALITY_CONFIGURATION)
-public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigurationExternalService, TimeQualityConfigurationInternalService {
+public class TimeQualityConfigurationServiceImpl
+        implements
+            TimeQualityConfigurationExternalService,
+            TimeQualityConfigurationInternalService {
 
     private static final String NOT_FOUND_MSG = "Time Quality Configuration not found: ";
 
@@ -83,14 +85,16 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.TIME_QUALITY_CONFIGURATION, false);
-        List<SearchFieldDataDto> fields = new ArrayList<>(List.of(
-                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NAME),
-                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_LEAP_SECOND_GUARD),
-                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE),
-                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER),
-                SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS, timeQualityConfigurationRepository.findAllNtpServers())
-        ));
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine
+                .getResourceSearchableFields(Resource.TIME_QUALITY_CONFIGURATION, false);
+        List<SearchFieldDataDto> fields = new ArrayList<>(List
+                .of(SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NAME),
+                        SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_LEAP_SECOND_GUARD),
+                        SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE),
+                        SearchHelper.prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER),
+                        SearchHelper
+                                .prepareSearch(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS,
+                                        timeQualityConfigurationRepository.findAllNtpServers())));
         fields.sort(new SearchFieldDataComparator());
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
         return searchFieldDataByGroupDtos;
@@ -99,10 +103,14 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
     @Transactional(readOnly = true)
-    public PaginationResponseDto<TimeQualityConfigurationListDto> listTimeQualityConfigurations(SearchRequestDto request, SecurityFilter filter) {
+    public PaginationResponseDto<TimeQualityConfigurationListDto> listTimeQualityConfigurations(
+            SearchRequestDto request, SecurityFilter filter) {
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        TriFunction<Root<TimeQualityConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
-        List<TimeQualityConfigurationListDto> configurations = timeQualityConfigurationRepository.findUsingSecurityFilter(filter, List.of(), predicate, p, (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+        TriFunction<Root<TimeQualityConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
+                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+        List<TimeQualityConfigurationListDto> configurations = timeQualityConfigurationRepository
+                .findUsingSecurityFilter(filter, List.of(), predicate, p,
+                        (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
                 .stream()
                 .map(TimeQualityConfigurationMapper::toListDto)
                 .toList();
@@ -119,9 +127,11 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL)
     @Transactional(readOnly = true)
     public TimeQualityConfigurationDto getTimeQualityConfiguration(SecuredUUID uuid) throws NotFoundException {
-        TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
+        TimeQualityConfiguration configuration = timeQualityConfigurationRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + uuid));
-        List<ResponseAttribute> customAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
+        List<ResponseAttribute> customAttributes = attributeEngine
+                .getObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
         return TimeQualityConfigurationMapper.toDto(configuration, customAttributes);
     }
 
@@ -142,17 +152,22 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.CREATE)
     @Transactional
-    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
+    public TimeQualityConfigurationDto createTimeQualityConfiguration(TimeQualityConfigurationRequestDto request)
+            throws AlreadyExistException, AttributeException, NotFoundException {
         if (timeQualityConfigurationRepository.findByName(request.getName()).isPresent()) {
-            throw new AlreadyExistException("Time Quality Configuration with name '" + request.getName() + "' already exists.");
+            throw new AlreadyExistException(
+                    "Time Quality Configuration with name '" + request.getName() + "' already exists.");
         }
-        attributeEngine.validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
+        attributeEngine
+                .validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
 
         TimeQualityConfiguration configuration = new TimeQualityConfiguration();
         fillTimeQualityConfigurationEntity(configuration, request);
         TimeQualityConfiguration saved = saveOrTranslateUniqueViolation(configuration, request.getName());
 
-        List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, saved.getUuid(), request.getCustomAttributes());
+        List<ResponseAttribute> customAttributes = attributeEngine
+                .updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, saved.getUuid(),
+                        request.getCustomAttributes());
         return TimeQualityConfigurationMapper.toDto(saved, customAttributes);
 
     }
@@ -160,21 +175,29 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.UPDATE)
     @Transactional
-    public TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid, TimeQualityConfigurationRequestDto request) throws AlreadyExistException, AttributeException, NotFoundException {
-        TimeQualityConfiguration configuration = timeQualityConfigurationRepository.findByUuid(uuid)
+    public TimeQualityConfigurationDto updateTimeQualityConfiguration(SecuredUUID uuid,
+            TimeQualityConfigurationRequestDto request)
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        TimeQualityConfiguration configuration = timeQualityConfigurationRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + uuid));
 
-        Optional<TimeQualityConfiguration> existingWithSameName = timeQualityConfigurationRepository.findByName(request.getName());
+        Optional<TimeQualityConfiguration> existingWithSameName = timeQualityConfigurationRepository
+                .findByName(request.getName());
         if (existingWithSameName.isPresent() && !existingWithSameName.get().getUuid().equals(configuration.getUuid())) {
-            throw new AlreadyExistException("Time Quality Configuration with name '" + request.getName() + "' already exists.");
+            throw new AlreadyExistException(
+                    "Time Quality Configuration with name '" + request.getName() + "' already exists.");
         }
-        attributeEngine.validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
+        attributeEngine
+                .validateCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, request.getCustomAttributes());
 
         fillTimeQualityConfigurationEntity(configuration, request);
         TimeQualityConfiguration saved = saveOrTranslateUniqueViolation(configuration, request.getName());
         evictTimeQualityConfigurationCache(saved.getUuid()); // deferred to afterCommit() by the eviction helper
 
-        List<ResponseAttribute> customAttributes = attributeEngine.updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, saved.getUuid(), request.getCustomAttributes());
+        List<ResponseAttribute> customAttributes = attributeEngine
+                .updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, saved.getUuid(),
+                        request.getCustomAttributes());
         return TimeQualityConfigurationMapper.toDto(saved, customAttributes);
     }
 
@@ -196,7 +219,10 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
                 self.deleteInOwnTransaction(configuration);
             } catch (Exception e) {
                 log.error("Failed to delete Time Quality Configuration {}", uuid, e);
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), configuration != null ? configuration.getName() : "", e, "Delete failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(uuid.toString(), configuration != null ? configuration.getName() : "", e,
+                                        "Delete failed"));
             }
         }
         return messages;
@@ -221,13 +247,15 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL)
     @Transactional(readOnly = true)
     public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
-        return timeQualityConfigurationRepository.findResourceObject(objectUuid.getValue(), TimeQualityConfiguration_.name);
+        return timeQualityConfigurationRepository
+                .findResourceObject(objectUuid.getValue(), TimeQualityConfiguration_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.LIST)
     @Transactional(readOnly = true)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return timeQualityConfigurationRepository.listResourceObjects(filter, TimeQualityConfiguration_.name);
     }
 
@@ -235,7 +263,8 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.UPDATE)
     @Transactional(readOnly = true)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
-        timeQualityConfigurationRepository.findByUuid(uuid)
+        timeQualityConfigurationRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + uuid));
     }
 
@@ -244,11 +273,13 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     // ──────────────────────────────────────────────────────────────────────────
 
     private TimeQualityConfiguration getTimeQualityConfigurationEntity(SecuredUUID uuid) throws NotFoundException {
-        return timeQualityConfigurationRepository.findByUuid(uuid)
+        return timeQualityConfigurationRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(NOT_FOUND_MSG + uuid));
     }
 
-    private void fillTimeQualityConfigurationEntity(TimeQualityConfiguration entity, TimeQualityConfigurationRequestDto request) {
+    private void fillTimeQualityConfigurationEntity(TimeQualityConfiguration entity,
+            TimeQualityConfigurationRequestDto request) {
         entity.setName(request.getName());
         entity.setAccuracy(request.getAccuracy());
         entity.setNtpServers(request.getNtpServers());
@@ -261,14 +292,19 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     }
 
     private void deleteTimeQualityConfiguration(TimeQualityConfiguration configuration) {
-        SecuredList<SigningProfile> signingProfiles = signingProfileService.listSigningProfileEntitiesAssociatedTimeQualityConfiguration(
-                SecuredUUID.fromUUID(configuration.getUuid()), SecurityFilter.create());
+        SecuredList<SigningProfile> signingProfiles = signingProfileService
+                .listSigningProfileEntitiesAssociatedTimeQualityConfiguration(
+                        SecuredUUID.fromUUID(configuration.getUuid()), SecurityFilter.create());
         if (!signingProfiles.isEmpty()) {
-            throw new ValidationException(ValidationError.create(String.format(
-                    "Cannot delete Time Quality Configuration: associated with Signing Profiles (%d): %s",
-                    signingProfiles.size(),
-                    signingProfiles.getAllowed().stream().map(SigningProfile::getName).collect(Collectors.joining(", "))
-            )));
+            throw new ValidationException(ValidationError
+                    .create(String
+                            .format("Cannot delete Time Quality Configuration: associated with Signing Profiles (%d): %s",
+                                    signingProfiles.size(),
+                                    signingProfiles
+                                            .getAllowed()
+                                            .stream()
+                                            .map(SigningProfile::getName)
+                                            .collect(Collectors.joining(", ")))));
         }
         UUID uuid = configuration.getUuid();
         attributeEngine.deleteObjectAttributeContent(Resource.TIME_QUALITY_CONFIGURATION, configuration.getUuid());
@@ -282,7 +318,8 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
         cacheEvictor.evict(CacheConfig.TIME_QUALITY_CONFIGURATION_CACHE, uuid);
     }
 
-    private TimeQualityConfiguration saveOrTranslateUniqueViolation(TimeQualityConfiguration configuration, String name) throws AlreadyExistException {
+    private TimeQualityConfiguration saveOrTranslateUniqueViolation(TimeQualityConfiguration configuration, String name)
+            throws AlreadyExistException {
         try {
             TimeQualityConfiguration saved = timeQualityConfigurationRepository.saveAndFlush(configuration);
             applicationEventPublisher.publishEvent(new TimeQualityConfigChangedEvent(this));
@@ -298,7 +335,8 @@ public class TimeQualityConfigurationServiceImpl implements TimeQualityConfigura
     }
 
     @Autowired
-    public void setTimeQualityConfigurationRepository(TimeQualityConfigurationRepository timeQualityConfigurationRepository) {
+    public void setTimeQualityConfigurationRepository(
+            TimeQualityConfigurationRepository timeQualityConfigurationRepository) {
         this.timeQualityConfigurationRepository = timeQualityConfigurationRepository;
     }
 

@@ -1,28 +1,36 @@
 package com.otilm.core.attribute.engine;
 
-import com.otilm.api.model.client.attribute.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV2;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.client.attribute.ResponseAttribute;
+import com.otilm.api.model.client.attribute.ResponseAttributeV2;
+import com.otilm.api.model.client.attribute.ResponseAttributeV3;
 import com.otilm.api.model.client.metadata.ResponseMetadata;
 import com.otilm.api.model.client.metadata.ResponseMetadataV2;
 import com.otilm.api.model.client.metadata.ResponseMetadataV3;
 import com.otilm.api.model.common.NameAndUuidDto;
-import com.otilm.api.model.common.attribute.common.*;
-import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
-import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
+import com.otilm.api.model.common.attribute.common.AttributeContent;
+import com.otilm.api.model.common.attribute.common.AttributeType;
+import com.otilm.api.model.common.attribute.common.AttributeVersion;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallback;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.GroupAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContent;
+import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
-import com.otilm.core.dao.entity.AttributeDefinition;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -33,15 +41,18 @@ import java.util.UUID;
 
 public class AttributeVersionHelper {
 
+    private AttributeVersionHelper() {
+        /* Prevent instantiation of utility class */ }
 
-    private AttributeVersionHelper() { /* Prevent instantiation of utility class */ }
-
-    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = JsonMapper.builder()
+    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = JsonMapper
+            .builder()
             .findAndAddModules()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .build();
 
-    public static ResponseAttribute getResponseAttribute(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType, int version) {
+    public static ResponseAttribute getResponseAttribute(UUID uuid, String name, String label,
+            List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType,
+            int version) {
         if (version == 2) {
             return getResponseAttributeV2(uuid, name, label, content, contentType, attributeType);
         } else if (version == 3) {
@@ -50,7 +61,8 @@ public class AttributeVersionHelper {
         return null;
     }
 
-    public static RequestAttribute getRequestAttribute(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType, int version) {
+    public static RequestAttribute getRequestAttribute(UUID uuid, String name, List<? extends AttributeContent> content,
+            AttributeContentType contentType, int version) {
         if (version == 2) {
             return getRequestAttributeV2(uuid, name, content, contentType);
         } else if (version == 3) {
@@ -59,10 +71,13 @@ public class AttributeVersionHelper {
         return null;
     }
 
-    public static void addRequestAttributeContent(RequestAttribute requestAttribute, ObjectAttributeContent objectContent) {
+    public static void addRequestAttributeContent(RequestAttribute requestAttribute,
+            ObjectAttributeContent objectContent) {
         AttributeContent contentItem = objectContent.contentItem();
         if (objectContent.encryptedContent() != null) {
-            contentItem = AttributeVersionHelper.decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(), objectContent.encryptedContent());
+            contentItem = AttributeVersionHelper
+                    .decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(),
+                            objectContent.encryptedContent());
         }
         if (objectContent.version() == 2) {
             addRequestAttributeContentV2(requestAttribute, contentItem);
@@ -71,10 +86,13 @@ public class AttributeVersionHelper {
         }
     }
 
-    public static void addResponseAttributeContent(ResponseAttribute responseAttribute, ObjectAttributeContent objectContent) {
+    public static void addResponseAttributeContent(ResponseAttribute responseAttribute,
+            ObjectAttributeContent objectContent) {
         AttributeContent contentItem = objectContent.contentItem();
         if (objectContent.encryptedContent() != null) {
-            contentItem = AttributeVersionHelper.decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(), objectContent.encryptedContent());
+            contentItem = AttributeVersionHelper
+                    .decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(),
+                            objectContent.encryptedContent());
         }
         if (objectContent.version() == 2) {
             addResponseAttributeContentV2(responseAttribute, contentItem);
@@ -83,7 +101,9 @@ public class AttributeVersionHelper {
         }
     }
 
-    public static ResponseMetadata getResponseMetadata(int version, List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
+    public static ResponseMetadata getResponseMetadata(int version, List<NameAndUuidDto> sourceObjects, UUID uuid,
+            String name, String label, AttributeType type, AttributeContentType contentType,
+            List<? extends AttributeContent> content) {
         if (version == 2) {
             return getResponseMetadataV2(sourceObjects, uuid, name, label, type, contentType, content);
         } else if (version == 3) {
@@ -92,10 +112,12 @@ public class AttributeVersionHelper {
         return null;
     }
 
-    public static AttributeContent decryptContent(AttributeContent content, int version, AttributeContentType contentType, String encryptedData) {
+    public static AttributeContent decryptContent(AttributeContent content, int version,
+            AttributeContentType contentType, String encryptedData) {
         Serializable decryptedDataObject;
         try {
-            decryptedDataObject = (Serializable) getDataFromDecryptedString(SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1), contentType);
+            decryptedDataObject = (Serializable) getDataFromDecryptedString(
+                    SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1), contentType);
         } catch (JsonProcessingException e) {
             return content;
         }
@@ -114,7 +136,8 @@ public class AttributeVersionHelper {
         return content;
     }
 
-    private static Object getDataFromDecryptedString(String encryptedData, AttributeContentType contentType) throws JsonProcessingException {
+    private static Object getDataFromDecryptedString(String encryptedData, AttributeContentType contentType)
+            throws JsonProcessingException {
         switch (contentType) {
             case SECRET, FILE, CREDENTIAL, RESOURCE, CODEBLOCK -> {
                 return ATTRIBUTES_OBJECT_MAPPER.readValue(encryptedData, contentType.getContentDataClass());
@@ -143,7 +166,8 @@ public class AttributeVersionHelper {
         }
     }
 
-    public static void addResponseMetadataContent(int version, ResponseMetadata responseMetadata, AttributeContent contentItem) {
+    public static void addResponseMetadataContent(int version, ResponseMetadata responseMetadata,
+            AttributeContent contentItem) {
         if (version == 2) {
             addResponseMetadataContentV2(responseMetadata, contentItem);
         } else if (version == 3) {
@@ -167,7 +191,8 @@ public class AttributeVersionHelper {
         }
     }
 
-    public static AttributeContent createEncryptedContent(String reference, AttributeContentType contentType, int version) {
+    public static AttributeContent createEncryptedContent(String reference, AttributeContentType contentType,
+            int version) {
         if (version == 2) {
             BaseAttributeContentV2<?> contentV2 = new BaseAttributeContentV2<>();
             contentV2.setReference(reference);
@@ -190,19 +215,28 @@ public class AttributeVersionHelper {
         return null;
     }
 
-    private static ResponseMetadataV2 getResponseMetadataV2(List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
-        return new ResponseMetadataV2(sourceObjects, uuid, name, label, type, contentType, (List<BaseAttributeContentV2<?>>) content);
+    private static ResponseMetadataV2 getResponseMetadataV2(List<NameAndUuidDto> sourceObjects, UUID uuid, String name,
+            String label, AttributeType type, AttributeContentType contentType,
+            List<? extends AttributeContent> content) {
+        return new ResponseMetadataV2(sourceObjects, uuid, name, label, type, contentType,
+                (List<BaseAttributeContentV2<?>>) content);
     }
 
-    private static ResponseMetadataV3 getResponseMetadataV3(List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
-        return new ResponseMetadataV3(sourceObjects, uuid, name, label, type, contentType, (List<BaseAttributeContentV3<?>>) content);
+    private static ResponseMetadataV3 getResponseMetadataV3(List<NameAndUuidDto> sourceObjects, UUID uuid, String name,
+            String label, AttributeType type, AttributeContentType contentType,
+            List<? extends AttributeContent> content) {
+        return new ResponseMetadataV3(sourceObjects, uuid, name, label, type, contentType,
+                (List<BaseAttributeContentV3<?>>) content);
     }
 
-    private static ResponseAttributeV2 getResponseAttributeV2(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
-        return new ResponseAttributeV2((List<BaseAttributeContentV2<?>>) content, uuid, name, label, attributeType, contentType, AttributeVersion.V2);
+    private static ResponseAttributeV2 getResponseAttributeV2(UUID uuid, String name, String label,
+            List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
+        return new ResponseAttributeV2((List<BaseAttributeContentV2<?>>) content, uuid, name, label, attributeType,
+                contentType, AttributeVersion.V2);
     }
 
-    private static RequestAttributeV2 getRequestAttributeV2(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
+    private static RequestAttributeV2 getRequestAttributeV2(UUID uuid, String name,
+            List<? extends AttributeContent> content, AttributeContentType contentType) {
         return new RequestAttributeV2(uuid, name, contentType, (List<BaseAttributeContentV2<?>>) content);
     }
 
@@ -210,15 +244,19 @@ public class AttributeVersionHelper {
         ((RequestAttributeV2) requestAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
     }
 
-    private static void addResponseAttributeContentV2(ResponseAttribute responseAttribute, AttributeContent contentItem) {
+    private static void addResponseAttributeContentV2(ResponseAttribute responseAttribute,
+            AttributeContent contentItem) {
         ((ResponseAttributeV2) responseAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
     }
 
-    private static ResponseAttribute getResponseAttributeV3(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
-        return new ResponseAttributeV3((List<BaseAttributeContentV3<?>>) content, uuid, name, label, attributeType, contentType, AttributeVersion.V3);
+    private static ResponseAttribute getResponseAttributeV3(UUID uuid, String name, String label,
+            List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
+        return new ResponseAttributeV3((List<BaseAttributeContentV3<?>>) content, uuid, name, label, attributeType,
+                contentType, AttributeVersion.V3);
     }
 
-    private static RequestAttribute getRequestAttributeV3(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
+    private static RequestAttribute getRequestAttributeV3(UUID uuid, String name,
+            List<? extends AttributeContent> content, AttributeContentType contentType) {
         return new RequestAttributeV3(uuid, name, contentType, (List<BaseAttributeContentV3<?>>) content);
     }
 
@@ -226,24 +264,32 @@ public class AttributeVersionHelper {
         ((RequestAttributeV3) requestAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
     }
 
-    private static void addResponseAttributeContentV3(ResponseAttribute responseAttribute, AttributeContent contentItem) {
+    private static void addResponseAttributeContentV3(ResponseAttribute responseAttribute,
+            AttributeContent contentItem) {
         ((ResponseAttributeV3) responseAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
     }
 
     public static AttributeCallback getGroupAttributeCallback(BaseAttribute attribute) {
-        if (attribute.getVersion() == 2) return ((GroupAttributeV2) attribute).getAttributeCallback();
-        if (attribute.getVersion() == 3) return ((GroupAttributeV3) attribute).getAttributeCallback();
+        if (attribute.getVersion() == 2) {
+            return ((GroupAttributeV2) attribute).getAttributeCallback();
+        }
+        if (attribute.getVersion() == 3) {
+            return ((GroupAttributeV3) attribute).getAttributeCallback();
+        }
         return null;
     }
 
-    public static BaseAttributeContentV3<?> convertAttributeContentToV3(AttributeContent attributeContent, AttributeContentType contentType) {
-        if (attributeContent.getContentType() != null) return (BaseAttributeContentV3<?>) attributeContent;
-        else {
+    public static BaseAttributeContentV3<?> convertAttributeContentToV3(AttributeContent attributeContent,
+            AttributeContentType contentType) {
+        if (attributeContent.getContentType() != null) {
+            return (BaseAttributeContentV3<?>) attributeContent;
+        } else {
             return convertV2ToV3((BaseAttributeContentV2<?>) attributeContent, contentType);
         }
     }
 
-    private static <T extends Serializable> BaseAttributeContentV3<T> convertV2ToV3(BaseAttributeContentV2<T> v2, AttributeContentType contentType) {
+    private static <T extends Serializable> BaseAttributeContentV3<T> convertV2ToV3(BaseAttributeContentV2<T> v2,
+            AttributeContentType contentType) {
         BaseAttributeContentV3<T> v3 = new BaseAttributeContentV3<>();
         v3.setContentType(contentType);
         v3.setReference(v2.getReference());
@@ -251,7 +297,8 @@ public class AttributeVersionHelper {
         return v3;
     }
 
-    public static List<BaseAttributeContentV3<?>> getBaseAttributeContentV3s(List<? extends AttributeContent> attributeContentItems, AttributeDefinition attributeDefinition) {
+    public static List<BaseAttributeContentV3<?>> getBaseAttributeContentV3s(
+            List<? extends AttributeContent> attributeContentItems, AttributeDefinition attributeDefinition) {
         List<BaseAttributeContentV3<?>> contentV3s = new ArrayList<>();
         for (AttributeContent content : attributeContentItems) {
             BaseAttributeContentV3<?> baseAttributeContentV3;

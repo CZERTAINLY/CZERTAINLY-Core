@@ -7,11 +7,10 @@ import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CertificateInternalService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.any;
@@ -24,10 +23,11 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link CertificateValidationStatusPoller#resolveOrKeep}.
  *
- * <p>An already-resolved DTO status is returned without any DB read. A NOT_CHECKED status is
- * polled (each sample a fresh read) until it resolves or the budget is exhausted; if it never
- * resolves — or the certificate can no longer be found — NOT_CHECKED is returned so the caller
- * decides the fallback.</p>
+ * <p>
+ * An already-resolved DTO status is returned without any DB read. A NOT_CHECKED status is polled (each sample a fresh
+ * read) until it resolves or the budget is exhausted; if it never resolves — or the certificate can no longer be found
+ * — NOT_CHECKED is returned so the caller decides the fallback.
+ * </p>
  */
 class CertificateValidationStatusPollerTest {
 
@@ -58,13 +58,12 @@ class CertificateValidationStatusPollerTest {
         CertificateDetailDto dto = dto(CertificateValidationStatus.NOT_CHECKED);
         Certificate entity = entity(CertificateValidationStatus.NOT_CHECKED);
         AtomicInteger reads = new AtomicInteger();
-        when(certificateService.getCertificateEntity(any(SecuredUUID.class)))
-                .thenAnswer(invocation -> {
-                    if (reads.incrementAndGet() >= 2) {
-                        entity.setValidationStatus(CertificateValidationStatus.VALID);
-                    }
-                    return entity;
-                });
+        when(certificateService.getCertificateEntity(any(SecuredUUID.class))).thenAnswer(invocation -> {
+            if (reads.incrementAndGet() >= 2) {
+                entity.setValidationStatus(CertificateValidationStatus.VALID);
+            }
+            return entity;
+        });
 
         // Small budget: the per-sample sleep is clamped to the remaining budget, so the test
         // spends ~budget of wall-clock, not a full sampling interval. The flip is driven by the

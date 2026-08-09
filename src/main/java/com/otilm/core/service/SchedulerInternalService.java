@@ -7,7 +7,8 @@ import com.otilm.core.tasks.ScheduledJobTask;
 
 public interface SchedulerInternalService {
 
-    ScheduledJobDetailDto registerScheduledJob(Class<? extends ScheduledJobTask> scheduledJobTaskClass) throws SchedulerException;
+    ScheduledJobDetailDto registerScheduledJob(Class<? extends ScheduledJobTask> scheduledJobTaskClass)
+            throws SchedulerException;
 
     void runScheduledJob(String jobName) throws SchedulerException, NotFoundException;
 }

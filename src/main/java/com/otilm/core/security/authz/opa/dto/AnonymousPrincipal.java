@@ -7,7 +7,7 @@ public class AnonymousPrincipal {
     private AnonymousUser user;
 
     public AnonymousPrincipal(String user) {
-        this.user =  new AnonymousUser(user);
+        this.user = new AnonymousUser(user);
     }
 
     public AnonymousUser getUser() {

@@ -3,13 +3,12 @@ package com.otilm.core.dao.repository.scep;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ScepProfileRepository extends SecurityFilterRepository<ScepProfile, Long> {

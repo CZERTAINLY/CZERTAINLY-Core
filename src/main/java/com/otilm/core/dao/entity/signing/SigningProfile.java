@@ -4,14 +4,21 @@ import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.service.model.Securable;
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
@@ -30,16 +37,16 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
     private boolean enabled = false;
 
     /**
-     * Denormalized cache column — mirrors the latest {@link SigningProfileVersion#signingScheme}.
-     * Updated on every create/update alongside the version row.
+     * Denormalized cache column — mirrors the latest {@link SigningProfileVersion#signingScheme}. Updated on every
+     * create/update alongside the version row.
      */
     @Column(name = "signing_scheme", nullable = false)
     @Enumerated(EnumType.STRING)
     private SigningScheme signingScheme;
 
     /**
-     * Denormalized cache column — mirrors the latest {@link SigningProfileVersion#workflowType}.
-     * Updated on every create/update alongside the version row.
+     * Denormalized cache column — mirrors the latest {@link SigningProfileVersion#workflowType}. Updated on every
+     * create/update alongside the version row.
      */
     @Column(name = "workflow_type", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -70,7 +77,9 @@ public class SigningProfile extends UniquelyIdentifiedAndAudited implements Secu
 
     public void setTimeQualityConfiguration(TimeQualityConfiguration timeQualityConfiguration) {
         this.timeQualityConfiguration = timeQualityConfiguration;
-        this.timeQualityConfigurationUuid = timeQualityConfiguration != null ? timeQualityConfiguration.getUuid() : null;
+        this.timeQualityConfigurationUuid = timeQualityConfiguration != null
+                ? timeQualityConfiguration.getUuid()
+                : null;
     }
 
     public void setTspProfile(TspProfile tspProfile) {

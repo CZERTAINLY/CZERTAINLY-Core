@@ -3,12 +3,11 @@ package com.otilm.core.service.impl;
 import com.otilm.api.model.client.dashboard.SigningRecordStatisticsPeriod.Bucket;
 import com.otilm.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -16,16 +15,20 @@ class SigningRecordStatisticsCalculatorTest {
 
     @Test
     void flattenScheme_delegatedIgnoresManagedType() {
-        assertThat(SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.DELEGATED, null)).isEqualTo("delegated");
-        assertThat(SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.DELEGATED, ManagedSigningType.STATIC_KEY))
+        assertThat(SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.DELEGATED, null))
+                .isEqualTo("delegated");
+        assertThat(
+                SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.DELEGATED, ManagedSigningType.STATIC_KEY))
                 .isEqualTo("delegated");
     }
 
     @Test
     void flattenScheme_managedCombinesWithManagedType() {
-        assertThat(SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.MANAGED, ManagedSigningType.STATIC_KEY))
+        assertThat(
+                SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.MANAGED, ManagedSigningType.STATIC_KEY))
                 .isEqualTo("managed_static_key");
-        assertThat(SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.MANAGED, ManagedSigningType.ONE_TIME_KEY))
+        assertThat(
+                SigningRecordStatisticsCalculator.flattenScheme(SigningScheme.MANAGED, ManagedSigningType.ONE_TIME_KEY))
                 .isEqualTo("managed_one_time_key");
     }
 
@@ -62,8 +65,8 @@ class SigningRecordStatisticsCalculatorTest {
 
         Map<String, Long> dense = SigningRecordStatisticsCalculator.denseBuckets(from, to, Bucket.DAY, sparse);
 
-        assertThat(dense.keySet()).containsExactly(
-                "2026-06-09T00:00:00Z", "2026-06-10T00:00:00Z", "2026-06-11T00:00:00Z");
+        assertThat(dense.keySet())
+                .containsExactly("2026-06-09T00:00:00Z", "2026-06-10T00:00:00Z", "2026-06-11T00:00:00Z");
         assertThat(List.copyOf(dense.values())).containsExactly(0L, 4L, 0L);
     }
 
@@ -75,8 +78,8 @@ class SigningRecordStatisticsCalculatorTest {
 
         Map<String, Long> dense = SigningRecordStatisticsCalculator.denseBuckets(from, to, Bucket.HOUR, sparse);
 
-        assertThat(dense.keySet()).containsExactly(
-                "2026-06-11T08:00:00Z", "2026-06-11T09:00:00Z", "2026-06-11T10:00:00Z");
+        assertThat(dense.keySet())
+                .containsExactly("2026-06-11T08:00:00Z", "2026-06-11T09:00:00Z", "2026-06-11T10:00:00Z");
         assertThat(dense).containsEntry("2026-06-11T09:00:00Z", 7L);
     }
 }

@@ -1,22 +1,28 @@
 package com.otilm.core.service;
 
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.api.model.core.settings.*;
-
-import com.otilm.api.model.core.settings.authentication.*;
+import com.otilm.api.model.core.settings.EventSettingsDto;
+import com.otilm.api.model.core.settings.EventsSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsUpdateDto;
+import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.otilm.api.model.core.settings.logging.LoggingSettingsDto;
 
 public interface SettingExternalService {
 
     /**
      * Get platform settings
-     * @return platform settings
-     * {@link com.otilm.api.model.core.settings.PlatformSettingsDto}
+     *
+     * @return platform settings {@link com.otilm.api.model.core.settings.PlatformSettingsDto}
      */
     PlatformSettingsDto getPlatformSettings();
 
     /**
      * Update platform settings
+     *
      * @param platformSettings Platform settings DTO
      */
     void updatePlatformSettings(PlatformSettingsUpdateDto platformSettings);

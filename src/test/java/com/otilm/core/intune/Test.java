@@ -31,377 +31,356 @@ The important modification are marked with the comment "MODIFICATION"
 
 package com.otilm.core.intune;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import com.otilm.core.intune.scepvalidation.*;
-
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.*;
-
-import java.io.ByteArrayInputStream;
-import java.net.URISyntaxException;
-import java.net.UnknownHostException;
-import java.util.UUID;
-
-import javax.naming.ServiceUnavailableException;
-
 import com.otilm.core.intune.scepvalidation.IntuneClientHttpErrorException;
 import com.otilm.core.intune.scepvalidation.IntuneScepServiceClient;
 import com.otilm.core.intune.scepvalidation.IntuneScepServiceException;
 import com.otilm.core.intune.scepvalidation.IntuneServiceNotFoundException;
+import java.io.ByteArrayInputStream;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.util.UUID;
+import javax.naming.ServiceUnavailableException;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 
-public class Test 
-{
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+public class Test {
     @org.junit.jupiter.api.Test
-    public void TestValidationSuccess() throws Exception
-    {
+    public void TestValidationSuccess() throws Exception {
         Helper helper = new Helper();
-        
-        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
-        
+
+        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
+
         UUID transactionId = UUID.randomUUID();
         String csr = "test";
 
         client.ValidateRequest(transactionId.toString(), csr);
-        
+
         verify(helper.adal, times(0)).getAccessTokenFromCredential(anyString());
         verify(helper.msal, times(2)).getAccessToken(ArgumentMatchers.<String>anySet());
-        
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }}));
 
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }}));
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
+
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
     }
 
     @org.junit.jupiter.api.Test
-    public void TestErrorThrows() throws IntuneScepServiceException, Exception
-    {
+    public void TestErrorThrows() throws IntuneScepServiceException, Exception {
         Helper helper = new Helper();
-        
+
         when(helper.intuneResponseEntity.getContent())
-            .thenReturn(new ByteArrayInputStream(Helper.ERROR_SCEP_RESPONSE.getBytes()));
-        when(helper.intuneResponseEntity.getContentLength())
-            .thenReturn((long)Helper.ERROR_SCEP_RESPONSE.length());
-        
-        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
-        
+                .thenReturn(new ByteArrayInputStream(Helper.ERROR_SCEP_RESPONSE.getBytes()));
+        when(helper.intuneResponseEntity.getContentLength()).thenReturn((long) Helper.ERROR_SCEP_RESPONSE.length());
+
+        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
+
         UUID transactionId = UUID.randomUUID();
         String csr = "test";
-        try 
-        {
+        try {
             client.ValidateRequest(transactionId.toString(), csr);
-        }
-        catch(IntuneScepServiceException e)
-        {
+        } catch (IntuneScepServiceException e) {
             verify(helper.adal, times(0)).getAccessTokenFromCredential(anyString());
             verify(helper.msal, times(2)).getAccessToken(ArgumentMatchers.<String>anySet());
-            
-            verify(helper.httpClient, times(1)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
 
-            verify(helper.httpClient, times(1)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
-            
+            verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
+
+            verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
+
             assertTrue(e.getParsedErrorCode() == IntuneScepServiceException.ErrorCode.ChallengeDecodingError);
             return;
         }
-        
+
         assertNotNull(null);
     }
-    
+
     @org.junit.jupiter.api.Test
-    public void TestServiceRoleMismatchThrows() throws IntuneScepServiceException, Exception 
-    {
+    public void TestServiceRoleMismatchThrows() throws IntuneScepServiceException, Exception {
         Helper helper = new Helper();
-        
-        when(helper.intuneResponse.getCode())
-            .thenReturn(401);
-        
-        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
-        
+
+        when(helper.intuneResponse.getCode()).thenReturn(401);
+
+        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
+
         UUID transactionId = UUID.randomUUID();
         String csr = "test";
-        try 
-        {
+        try {
             client.ValidateRequest(transactionId.toString(), csr);
-        }
-        catch(IntuneClientHttpErrorException e)
-        {
+        } catch (IntuneClientHttpErrorException e) {
             verify(helper.adal, times(0)).getAccessTokenFromCredential(anyString());
             verify(helper.msal, times(2)).getAccessToken(ArgumentMatchers.<String>anySet());
-            
-            verify(helper.httpClient, times(1)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
 
-            verify(helper.httpClient, times(1)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
+            verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
+
+            verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
             return;
         }
-        
+
         assertNotNull(null);
     }
-    
+
     @org.junit.jupiter.api.Test
-    public void TestFailedToGetTokenThrows() throws IntuneScepServiceException, Exception 
-    {
+    public void TestFailedToGetTokenThrows() throws IntuneScepServiceException, Exception {
         Helper helper = new Helper();
-        
-        when(helper.adal.getAccessTokenFromCredential(anyString()))
-            .thenThrow(new ServiceUnavailableException());
+
+        when(helper.adal.getAccessTokenFromCredential(anyString())).thenThrow(new ServiceUnavailableException());
         when(helper.msal.getAccessToken(ArgumentMatchers.<String>anySet()))
-            .thenThrow(new ServiceUnavailableException());
-        
-        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
-        
+                .thenThrow(new ServiceUnavailableException());
+
+        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
+
         UUID transactionId = UUID.randomUUID();
         String csr = "test";
-        try 
-        {
+        try {
             client.ValidateRequest(transactionId.toString(), csr);
-        }
-        catch(ServiceUnavailableException e)
-        {
+        } catch (ServiceUnavailableException e) {
             verify(helper.msal, times(1)).getAccessToken(ArgumentMatchers.<String>anySet());
             verify(helper.adal, times(1)).getAccessTokenFromCredential(anyString());
-            
-            verify(helper.httpClient, times(0)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
 
-            verify(helper.httpClient, times(0)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
+            verify(helper.httpClient, times(0)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
+
+            verify(helper.httpClient, times(0)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
             return;
         }
-        
+
         assertNotNull(null);
     }
-    
+
     @org.junit.jupiter.api.Test
-    public void TestServiceEndpointNotFound() throws IntuneScepServiceException, Exception 
-    {
+    public void TestServiceEndpointNotFound() throws IntuneScepServiceException, Exception {
         Helper helper = new Helper();
-        
+
         when(helper.msal.getAccessToken(ArgumentMatchers.<String>anySet()))
-            .thenThrow(new ServiceUnavailableException());
-            
+                .thenThrow(new ServiceUnavailableException());
+
         when(helper.graphResponseEntity.getContent())
-            .thenReturn(new ByteArrayInputStream(Helper.NO_SERVICE_DISCOVERY_RESPONSE.getBytes()));
+                .thenReturn(new ByteArrayInputStream(Helper.NO_SERVICE_DISCOVERY_RESPONSE.getBytes()));
         when(helper.graphResponseEntity.getContentLength())
-            .thenReturn((long)Helper.NO_SERVICE_DISCOVERY_RESPONSE.length());
-        
-        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
-        
+                .thenReturn((long) Helper.NO_SERVICE_DISCOVERY_RESPONSE.length());
+
+        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
+
         UUID transactionId = UUID.randomUUID();
         String csr = "test";
-        try 
-        {
+        try {
             client.ValidateRequest(transactionId.toString(), csr);
-        }
-        catch(IntuneServiceNotFoundException e)
-        {
+        } catch (IntuneServiceNotFoundException e) {
             verify(helper.msal, times(1)).getAccessToken(ArgumentMatchers.<String>anySet());
             verify(helper.adal, times(1)).getAccessTokenFromCredential(anyString());
-            
-            verify(helper.httpClient, times(1)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.GRAPH_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
 
-            verify(helper.httpClient, times(0)).execute(
-                    argThat(new ArgumentMatcher<HttpUriRequest>() {
-                        @Override
-                        public boolean matches(HttpUriRequest resp) {
-                            try {
-                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                            } catch (URISyntaxException ex) {
-                                return false;
-                            }
-                        }}));
+            verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.GRAPH_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
+
+            verify(helper.httpClient, times(0)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+                @Override
+                public boolean matches(HttpUriRequest resp) {
+                    try {
+                        return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                    } catch (URISyntaxException ex) {
+                        return false;
+                    }
+                }
+            }));
             return;
         }
-        
+
         assertNotNull(null);
     }
-    
+
     @org.junit.jupiter.api.Test
-    public void TestServiceMapClearMockito() throws IntuneScepServiceException, Exception
-    {
+    public void TestServiceMapClearMockito() throws IntuneScepServiceException, Exception {
         Helper helper = new Helper();
 
-        when(helper.httpClient.execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        if(resp == null)
-                            return false;
-                        try {
-                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }})))
-        .thenThrow(new UnknownHostException());
-        
-        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
-        
+        when(helper.httpClient.execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                if (resp == null) {
+                    return false;
+                }
+                try {
+                    return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }))).thenThrow(new UnknownHostException());
+
+        IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal,
+                helper.httpBuilder);
+
         UUID transactionId = UUID.randomUUID();
         String csr = "test";
         boolean caught = false;
-        try 
-        {
+        try {
             // Run test where SERVICE URL throws UnknownHostException to cause refresh service map
             client.ValidateRequest(transactionId.toString(), csr);
-        }
-        catch(UnknownHostException e)
-        {
+        } catch (UnknownHostException e) {
             caught = true;
         }
-        
+
         assertTrue(caught);
-        
+
         verify(helper.msal, times(2)).getAccessToken(ArgumentMatchers.<String>anySet());
         verify(helper.adal, times(0)).getAccessTokenFromCredential(anyString());
-        
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }}));
 
-        verify(helper.httpClient, times(1)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }}));
-        
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
+
+        verify(helper.httpClient, times(1)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
+
         // do this so the result doesn't get cached
         helper.resetMsalRequest();
-        
-        when(helper.httpClient.execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        if (resp == null)
-                            return false;
-                        try {
-                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }})))
-            .thenReturn(helper.intuneResponse);
-        
+
+        when(helper.httpClient.execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                if (resp == null) {
+                    return false;
+                }
+                try {
+                    return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }))).thenReturn(helper.intuneResponse);
+
         // Run test that should trigger a 2nd call to GRAPH for service discovery meaning we refreshed the cache
         client.ValidateRequest(transactionId.toString(), csr);
 
         verify(helper.msal, times(4)).getAccessToken(ArgumentMatchers.<String>anySet());
         verify(helper.adal, times(0)).getAccessTokenFromCredential(anyString());
-        
-        // Verify we indeed called graph a 2nd time
-        verify(helper.httpClient, times(2)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }}));
 
-        verify(helper.httpClient, times(2)).execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        try {
-                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
-                        } catch (URISyntaxException e) {
-                            return false;
-                        }
-                    }}));
+        // Verify we indeed called graph a 2nd time
+        verify(helper.httpClient, times(2)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
+
+        verify(helper.httpClient, times(2)).execute(argThat(new ArgumentMatcher<HttpUriRequest>() {
+            @Override
+            public boolean matches(HttpUriRequest resp) {
+                try {
+                    return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            }
+        }));
     }
 }

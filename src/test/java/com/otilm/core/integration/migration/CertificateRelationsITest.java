@@ -11,6 +11,10 @@ import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.util.CertificateTestUtil;
 import db.migration.V202508130940__CertificateRelations;
+import java.sql.Statement;
+import java.util.Base64;
+import java.util.List;
+import javax.sql.DataSource;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -18,10 +22,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import javax.sql.DataSource;
-import java.sql.Statement;
-import java.util.Base64;
-import java.util.List;
 
 import static org.mockito.Mockito.when;
 
@@ -37,7 +37,6 @@ class CertificateRelationsITest extends BaseMigrationTest {
     CertificateContentRepository certificateContentRepository;
     @Autowired
     CertificateRelationRepository certificateRelationRepository;
-
 
     @Test
     void testMigration() throws Exception {
@@ -72,7 +71,7 @@ class CertificateRelationsITest extends BaseMigrationTest {
         when(context.getConnection()).thenReturn(dataSource.getConnection());
 
         try (Statement alterStatement = context.getConnection().createStatement();
-             Statement insertStatement = context.getConnection().createStatement()) {
+                Statement insertStatement = context.getConnection().createStatement()) {
             alterStatement.execute("ALTER TABLE certificate DROP COLUMN alt_key_fingerprint");
             alterStatement.execute("DROP TABLE certificate_relation;");
             alterStatement.execute("""
@@ -98,12 +97,20 @@ class CertificateRelationsITest extends BaseMigrationTest {
         certificateRelationsMigration.migrate(context);
 
         Assertions.assertEquals(3, certificateRelationRepository.findAll().size());
-        CertificateRelation relation1 = certificateRelationRepository.findById(new CertificateRelationId(certificate1.getUuid(), sourceCertificate.getUuid())).orElseThrow();
+        CertificateRelation relation1 = certificateRelationRepository
+                .findById(new CertificateRelationId(certificate1.getUuid(), sourceCertificate.getUuid()))
+                .orElseThrow();
         Assertions.assertEquals(CertificateRelationType.RENEWAL, relation1.getRelationType());
-        CertificateRelation relation2 = certificateRelationRepository.findById(new CertificateRelationId(certificate2.getUuid(), sourceCertificate.getUuid())).orElseThrow();
+        CertificateRelation relation2 = certificateRelationRepository
+                .findById(new CertificateRelationId(certificate2.getUuid(), sourceCertificate.getUuid()))
+                .orElseThrow();
         Assertions.assertEquals(CertificateRelationType.REKEY, relation2.getRelationType());
-        Assertions.assertFalse(certificateRelationRepository.existsById(new CertificateRelationId(certificate3.getUuid(), sourceCertificate.getUuid())));
-        CertificateRelation relation4 = certificateRelationRepository.findById(new CertificateRelationId(certificate4.getUuid(), sourceCertificate.getUuid())).orElseThrow();
+        Assertions
+                .assertFalse(certificateRelationRepository
+                        .existsById(new CertificateRelationId(certificate3.getUuid(), sourceCertificate.getUuid())));
+        CertificateRelation relation4 = certificateRelationRepository
+                .findById(new CertificateRelationId(certificate4.getUuid(), sourceCertificate.getUuid()))
+                .orElseThrow();
         Assertions.assertEquals(CertificateRelationType.PENDING, relation4.getRelationType());
 
         hybridCertificate = certificateRepository.findByUuid(hybridCertificate.getUuid()).orElseThrow();
