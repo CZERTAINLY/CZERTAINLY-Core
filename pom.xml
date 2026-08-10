@@ -452,8 +452,7 @@
 
     <profiles>
         <!-- Worker 1: everything outside the integration package.
-             The regex also excludes nested classes declared inside ITests; an Ant *ITest.java pattern
-             excludes only the outer class and causes its @Nested tests to run again on this worker. -->
+             The regex also excludes nested classes declared inside ITests. -->
         <profile>
             <id>test-non-integration</id>
             <build>
@@ -495,8 +494,7 @@
         </profile>
 
         <!-- Workers 3 & 4 split integration.service by the shared %regex boundary below.
-             Four heavy A-C classes are transferred to worker 4 to balance wall-clock cost.
-             CertificateServiceITest and CryptographicKeyServiceITest stay together because they share a context. -->
+             Some heavy A-C classes are transferred to worker 4 to balance wall-clock cost. -->
         <!-- Worker 3: integration.service nested subpackages + flat classes A-C, except transfers. -->
         <profile>
             <id>test-integration-service-1</id>
