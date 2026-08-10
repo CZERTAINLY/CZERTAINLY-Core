@@ -451,8 +451,7 @@
     </repositories>
 
     <profiles>
-        <!-- Worker 1: everything outside the integration package.
-             The regex also excludes nested classes declared inside ITests. -->
+        <!-- Worker 1: every runnable test except the integration *ITests (and their nested classes). -->
         <profile>
             <id>test-non-integration</id>
             <build>

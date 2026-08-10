@@ -145,9 +145,22 @@ class CiTestSplitTest {
     @Test
     void nonIntegrationProfileExcludesNestedIntegrationTests() throws Exception {
         List<String> excludes = profilePatterns("test-non-integration", "exclude");
+        String outerClass = "com/otilm/core/integration/service/SampleITest.java";
+        String nestedClass = "com/otilm/core/integration/service/SampleITest$SomethingTest.java";
 
-        assertThat(matchesAny(excludes, "com/otilm/core/integration/service/SampleITest.java")).isTrue();
-        assertThat(matchesAny(excludes, "com/otilm/core/integration/service/SampleITest$Nested.java")).isTrue();
+        assertThat(matchesAny(SUREFIRE_DEFAULT_INCLUDES, nestedClass))
+                .describedAs("""
+                        The nested class this guard uses must be one surefire's default <includes> actually
+                        claim — otherwise the exclusion assertion below passes vacuously and the guard proves
+                        nothing about the duplicate-execution regression it exists to catch.""")
+                .isTrue();
+        assertThat(matchesAny(excludes, outerClass)).isTrue();
+        assertThat(matchesAny(excludes, nestedClass))
+                .describedAs("""
+                        A nested class inside an integration *ITest whose name matches surefire's default
+                        <includes> must still be excluded from test-non-integration, or it runs both there
+                        and on the integration worker that owns its enclosing class.""")
+                .isTrue();
     }
 
     @Test
