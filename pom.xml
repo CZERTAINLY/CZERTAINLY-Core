@@ -451,7 +451,9 @@
     </repositories>
 
     <profiles>
-        <!-- Worker 1: everything except integration ITests (service unit tests + all the rest). -->
+        <!-- Worker 1: everything outside the integration package.
+             The regex also excludes nested classes declared inside ITests; an Ant *ITest.java pattern
+             excludes only the outer class and causes its @Nested tests to run again on this worker. -->
         <profile>
             <id>test-non-integration</id>
             <build>
@@ -461,7 +463,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>com/otilm/core/integration/**/*ITest.java</exclude>
+                                <exclude>%regex[.*/integration/.*ITest.*]</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -469,7 +471,7 @@
             </build>
         </profile>
 
-        <!-- Worker 2: integration ITests outside the service package. -->
+        <!-- Worker 2: integration ITests outside the service package, except transfers to worker 4. -->
         <profile>
             <id>test-integration-core</id>
             <build>
@@ -483,6 +485,8 @@
                             </includes>
                             <excludes>
                                 <exclude>com/otilm/core/integration/service/**/*ITest.java</exclude>
+                                <exclude>com/otilm/core/integration/cryptography/PQCITest.java</exclude>
+                                <exclude>com/otilm/core/integration/search/TimeQualityConfigurationSearchITest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -491,8 +495,9 @@
         </profile>
 
         <!-- Workers 3 & 4 split integration.service by the shared %regex boundary below.
-             The split is currently unbalanced, and rebalancing is manual as the suite grows. -->
-        <!-- Worker 3: integration.service nested subpackages + flat classes A-C. -->
+             Four heavy A-C classes are transferred to worker 4 to balance wall-clock cost.
+             CertificateServiceITest and CryptographicKeyServiceITest stay together because they share a context. -->
+        <!-- Worker 3: integration.service nested subpackages + flat classes A-C, except transfers. -->
         <profile>
             <id>test-integration-service-1</id>
             <build>
@@ -506,6 +511,10 @@
                             </includes>
                             <excludes>
                                 <exclude>%regex[.*/integration/service/[D-Z][^/]*ITest.*]</exclude>
+                                <exclude>com/otilm/core/integration/service/AcmeProfileServiceITest.java</exclude>
+                                <exclude>com/otilm/core/integration/service/AcmeServiceITest.java</exclude>
+                                <exclude>com/otilm/core/integration/service/CertificateServiceITest.java</exclude>
+                                <exclude>com/otilm/core/integration/service/CryptographicKeyServiceITest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -513,7 +522,7 @@
             </build>
         </profile>
 
-        <!-- Worker 4: integration.service flat classes D-Z. -->
+        <!-- Worker 4: integration.service flat classes D-Z plus transfers from workers 2 and 3. -->
         <profile>
             <id>test-integration-service-2</id>
             <build>
@@ -524,6 +533,12 @@
                         <configuration>
                             <includes>
                                 <include>%regex[.*/integration/service/[D-Z][^/]*ITest.*]</include>
+                                <include>com/otilm/core/integration/service/AcmeProfileServiceITest.java</include>
+                                <include>com/otilm/core/integration/service/AcmeServiceITest.java</include>
+                                <include>com/otilm/core/integration/service/CertificateServiceITest.java</include>
+                                <include>com/otilm/core/integration/service/CryptographicKeyServiceITest.java</include>
+                                <include>com/otilm/core/integration/cryptography/PQCITest.java</include>
+                                <include>com/otilm/core/integration/search/TimeQualityConfigurationSearchITest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
