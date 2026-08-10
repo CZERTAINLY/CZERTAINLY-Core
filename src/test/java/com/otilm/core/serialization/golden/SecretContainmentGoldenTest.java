@@ -52,9 +52,17 @@ class SecretContainmentGoldenTest {
 
     private static final String SECRET_VALUE = "s3cr3t-material-expanded-server-side";
 
+    private static final Set<String> RECORDED_SECRET = Set.of(SECRET_VALUE);
+
+    private static final Set<String> NOTHING_RECORDED = Set.of();
+
     private final ObjectMapper mapper = GoldenMappers.web();
 
-    private final OutboundSecretContainment containment = new OutboundSecretContainment(GoldenMappers.web());
+    /**
+     * The guard inspects the bytes {@link #mapper} produces, so it must be driven by that very mapper instance —
+     * a second, independently built one would let the goldens and the guard drift apart silently.
+     */
+    private final OutboundSecretContainment containment = new OutboundSecretContainment(mapper);
 
     @Test
     void populatedResourceSecretContentDataKeepsItsShapeAndIsRefused() {
@@ -64,7 +72,7 @@ class SecretContainmentGoldenTest {
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
                 .describedAs("a populated ResourceSecretContentData must never reach the FE")
-                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(data, Set.of()));
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(data, NOTHING_RECORDED));
     }
 
     @Test
@@ -79,7 +87,7 @@ class SecretContainmentGoldenTest {
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
                 .describedAs("a CredentialAttributeContentV2 is a secret-bearing shape and must be refused by type alone")
-                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(content, Set.of()));
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(content, NOTHING_RECORDED));
     }
 
     /**
@@ -102,7 +110,7 @@ class SecretContainmentGoldenTest {
                 .isEqualTo(SECRET_VALUE);
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
-                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(content, Set.of()));
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(content, NOTHING_RECORDED));
     }
 
     @Test
@@ -112,7 +120,7 @@ class SecretContainmentGoldenTest {
         GoldenJson.assertMatchesGolden("containment-secret-attribute-content-data", mapper, data);
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
-                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(data, Set.of()));
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(data, NOTHING_RECORDED));
     }
 
     /**
@@ -128,7 +136,7 @@ class SecretContainmentGoldenTest {
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
                 .describedAs("the response carries no secret-typed shape, so only the value-echo scan can catch it")
-                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(response, Set.of(SECRET_VALUE)));
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(response, RECORDED_SECRET));
     }
 
     /**
@@ -138,7 +146,7 @@ class SecretContainmentGoldenTest {
     @Test
     void anEquivalentResponseWithoutTheSecretIsAllowedThrough() {
         assertThatCode(() -> containment.assertNoExpandedSecretOutbound(
-                benignCallbackResponse(), Set.of(SECRET_VALUE)))
+                benignCallbackResponse(), RECORDED_SECRET))
                 .describedAs("a response with no secret must pass, otherwise the echo test proves nothing")
                 .doesNotThrowAnyException();
     }
@@ -160,8 +168,7 @@ class SecretContainmentGoldenTest {
 
         assertThat(recorded)
                 .describedAs("the password is the secret leaf that must be recorded for echo detection")
-                .contains("basic-auth-password");
-        assertThat(recorded)
+                .contains("basic-auth-password")
                 .describedAs("the type discriminator and username are low-entropy and must stay unrecorded, or benign "
                         + "responses echoing them would be refused")
                 .doesNotContain("basicAuth", "BASIC_AUTH", "connector-user");
@@ -208,14 +215,14 @@ class SecretContainmentGoldenTest {
                 .isInstanceOf(BaseAttributeContentV2.class)
                 .isNotInstanceOf(SecretAttributeContentV2.class);
 
-        assertThatCode(() -> containment.assertNoExpandedSecretOutbound(deserialized, Set.of()))
+        assertThatCode(() -> containment.assertNoExpandedSecretOutbound(deserialized, NOTHING_RECORDED))
                 .describedAs("with no recorded secret values nothing is left to catch it — this is precisely the gap "
                         + "the value-echo check exists to cover")
                 .doesNotThrowAnyException();
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
                 .describedAs("once the value is recorded, the echo scan catches it despite the lost type")
-                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(deserialized, Set.of(SECRET_VALUE)));
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(deserialized, RECORDED_SECRET));
     }
 
     /**
@@ -233,12 +240,12 @@ class SecretContainmentGoldenTest {
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
                 .describedAs("the echoed secret must still be found after a full serialize/deserialize cycle")
-                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(deserialized, Set.of(SECRET_VALUE)));
+                .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(deserialized, RECORDED_SECRET));
 
         assertThatCode(() -> containment.assertNoExpandedSecretOutbound(
                 mapper.readValue(mapper.writeValueAsString(benignCallbackResponse()),
                         AttributeCallbackResponseDto.class),
-                Set.of(SECRET_VALUE)))
+                RECORDED_SECRET))
                 .describedAs("and the matching benign response must still pass, so the check above is not firing "
                         + "indiscriminately on anything that survived a round trip")
                 .doesNotThrowAnyException();

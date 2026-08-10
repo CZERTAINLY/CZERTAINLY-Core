@@ -38,6 +38,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.Month;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.stream.Stream;
@@ -84,7 +85,7 @@ class AttributeTypeInfoGoldenTest {
                 Arguments.of("boolean", "boolean", new BooleanAttributeContentV3("ref-boolean", Boolean.TRUE)),
                 Arguments.of("codeblock", "codeblock", new CodeBlockAttributeContentV3("ref-codeblock",
                         new CodeBlockAttributeContentData(ProgrammingLanguageEnum.JAVA, "cmV0dXJuIDA7"))),
-                Arguments.of("date", "date", new DateAttributeContentV3(LocalDate.of(2026, 1, 15))),
+                Arguments.of("date", "date", new DateAttributeContentV3(LocalDate.of(2026, Month.JANUARY, 15))),
                 Arguments.of("datetime", "datetime", new DateTimeAttributeContentV3("ref-datetime", FIXED_INSTANT)),
                 Arguments.of("file", "file", fileContent()),
                 Arguments.of("float", "float", new FloatAttributeContentV3("ref-float", 1.5f)),
@@ -129,10 +130,18 @@ class AttributeTypeInfoGoldenTest {
 
     private static Stream<Arguments> resourceContentDataSubtypes() {
         return Stream.of(
-                Arguments.of("authority", "authorities", simpleResource(AttributeResource.AUTHORITY, "Issuing Authority")),
-                Arguments.of("entity", "entities", simpleResource(AttributeResource.ENTITY, "Entity Instance")),
-                Arguments.of("location", "locations", simpleResource(AttributeResource.LOCATION, "Primary Location")),
-                Arguments.of("credential", "credentials", simpleResource(AttributeResource.CREDENTIAL, "Connector Credential")),
+                Arguments.of("authority", "authorities",
+                        simpleResource(AttributeResource.AUTHORITY, "6f1a4d3c-0000-4000-8000-000000000001",
+                                "Issuing Authority")),
+                Arguments.of("entity", "entities",
+                        simpleResource(AttributeResource.ENTITY, "6f1a4d3c-0000-4000-8000-000000000002",
+                                "Entity Instance")),
+                Arguments.of("location", "locations",
+                        simpleResource(AttributeResource.LOCATION, "6f1a4d3c-0000-4000-8000-000000000003",
+                                "Primary Location")),
+                Arguments.of("credential", "credentials",
+                        simpleResource(AttributeResource.CREDENTIAL, "6f1a4d3c-0000-4000-8000-000000000004",
+                                "Connector Credential")),
                 Arguments.of("certificate", "certificates", certificateResource()),
                 // Deliberately left with a null content: a populated one is a leak shape that
                 // OutboundSecretContainment refuses outright, and is covered by SecretContainmentGoldenTest.
@@ -140,8 +149,12 @@ class AttributeTypeInfoGoldenTest {
                         "6f1a4d3c-0000-4000-8000-000000000006", "Vault Secret", null)));
     }
 
-    private static ResourceSimpleContentData simpleResource(AttributeResource resource, String name) {
-        return new ResourceSimpleContentData(resource, "6f1a4d3c-0000-4000-8000-00000000000" + resource.ordinal(), name, null);
+    /**
+     * The uuid is passed in rather than derived from the enum, so that the committed goldens stay valid when
+     * {@code AttributeResource} gains or reorders constants.
+     */
+    private static ResourceSimpleContentData simpleResource(AttributeResource resource, String uuid, String name) {
+        return new ResourceSimpleContentData(resource, uuid, name, null);
     }
 
     private static ResourceCertificateContentData certificateResource() {
