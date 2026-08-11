@@ -1056,12 +1056,6 @@ public class ScepServiceImpl implements ScepExternalService {
                         .info("SCEP registration enrolment rejected: SAN mismatch with registration {} (CSR subject={}, CSR SANs={})",
                                 result.certificateUuid(), csrSubject, csrSans);
             }
-            case AMBIGUOUS -> logger
-                    .info("SCEP registration enrolment rejected: several registrations match the CSR identity (CSR subject={}, CSR SANs={})",
-                            csrSubject, csrSans);
-            case NO_MATCH -> logger
-                    .info("SCEP registration enrolment rejected: no registration matches the CSR identity (CSR subject={}, CSR SANs={}, {} REGISTERED candidate(s) with an active authorization under RA profile {})",
-                            csrSubject, csrSans, candidates.size(), raProfile.getName());
             case AMBIGUOUS -> logger.info(
                     "SCEP registration enrolment rejected: several registrations match the CSR identity (CSR subject={}, CSR SANs={})",
                     csrSubject, csrSans);
