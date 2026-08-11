@@ -17,19 +17,25 @@ import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
 import com.otilm.core.dao.entity.FunctionGroup;
+import com.otilm.api.model.core.certificate.CertificateRelationType;
+import com.otilm.api.model.core.cmp.CmpTransactionState;
+import com.otilm.core.dao.entity.CertificateRelation;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.RegistrationState;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
+import com.otilm.core.dao.entity.cmp.CmpTransaction;
 import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
 import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
+import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.FunctionGroupRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.cmp.CmpProfileRepository;
+import com.otilm.core.dao.repository.cmp.CmpTransactionRepository;
 import com.otilm.core.service.cmp.CmpEntityUtil;
 import com.otilm.core.service.cmp.CmpTestUtil;
 import com.otilm.core.service.cmp.message.handler.PollFeature;
@@ -42,10 +48,12 @@ import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.mockbeans.PollMocks;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.cmp.ErrorMsgContent;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.cmp.PollReqContent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,6 +107,8 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
     @Autowired private FunctionGroupRepository functionGroupRepository;
     @Autowired private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
     @Autowired private CertificateRegistrationAuthorizationRepository authorizationRepository;
+    @Autowired private CertificateRelationRepository certificateRelationRepository;
+    @Autowired private CmpTransactionRepository cmpTransactionRepository;
     @Autowired private CertificateEventHistoryRepository eventHistoryRepository;
     @Autowired private RegistrationChallengeStore registrationChallengeStore;
     @Autowired private PollFeature pollFeature;
@@ -198,6 +208,92 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
         return CmpTestUtil.createMacBasedMessageWithSenderKid(
                 "0102030405060708", challenge, body,
                 senderKid.toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+    }
+
+    /** Distinct from the enrolment tid so a follow-up test's transaction cannot collide with an ir's. */
+    private static final String FOLLOWUP_TID = "1112131415161718";
+
+    private CmpTransaction storeTransaction(Certificate certificate, Integer originalRequestBodyType) {
+        CmpTransaction transaction = CmpEntityUtil.createTransaction(
+                FOLLOWUP_TID, certificate, cmpProfile, CmpTransactionState.CERT_ISSUED);
+        transaction.setOriginalRequestBodyType(originalRequestBodyType);
+        return cmpTransactionRepository.saveAndFlush(transaction);
+    }
+
+    private PKIMessage pollMessage(UUID senderKid) throws Exception {
+        PKIBody body = new PKIBody(PKIBody.TYPE_POLL_REQ, new PollReqContent(new ASN1Integer(0L)));
+        return CmpTestUtil.createMacBasedMessageWithSenderKid(FOLLOWUP_TID, CHALLENGE, body,
+                senderKid.toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+    }
+
+    private PKIMessage certConfMessage(UUID senderKid) throws Exception {
+        KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
+        PKIBody body = CmpTestUtil.createCertConfBody(
+                CmpTestUtil.makeV3Certificate(BigInteger.ONE, keyPair, "CN=confirmed", keyPair, "CN=confirmed"),
+                BigInteger.ZERO);
+        return CmpTestUtil.createMacBasedMessageWithSenderKid(FOLLOWUP_TID, CHALLENGE, body,
+                senderKid.toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+    }
+
+    private void recordSuccessorRelation(Certificate successor, Certificate predecessor) {
+        CertificateRelation relation = new CertificateRelation();
+        relation.setSuccessorCertificate(successor);
+        relation.setPredecessorCertificate(predecessor);
+        relation.setRelationType(CertificateRelationType.REKEY);
+        certificateRelationRepository.saveAndFlush(relation);
+    }
+
+    @Test
+    void pollOfAnotherRegistrationsTransactionIsRejectedGenerically() throws Exception {
+        Certificate victim = seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
+        Certificate attacker = seedRegistration("CN=device-2", null, CertificateState.REGISTERED);
+        CmpTransaction transaction = storeTransaction(victim, PKIBody.TYPE_INIT_REQ);
+
+        ResponseEntity<byte[]> response = post(pollMessage(attacker.getUuid()));
+
+        assertEquals(PKIFailureInfo.badMessageCheck, failInfo(response.getBody()));
+        assertEquals(CmpRegistrationResolver.REGISTRATION_REJECTION, failText(response.getBody()));
+        assertEquals(CmpTransactionState.CERT_ISSUED,
+                cmpTransactionRepository.findByTransactionId(transaction.getTransactionId()).getFirst().getState(),
+                "a cross-registration poll must not fail the transaction it was never bound to");
+    }
+
+    @Test
+    void pollOfTheAuthenticatedRegistrationsOwnTransactionAnswersWithPollRep() throws Exception {
+        Certificate registration = seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
+        storeTransaction(registration, PKIBody.TYPE_INIT_REQ);
+
+        ResponseEntity<byte[]> response = post(pollMessage(registration.getUuid()));
+
+        assertEquals(PKIBody.TYPE_POLL_REP, PKIMessage.getInstance(response.getBody()).getBody().getType());
+    }
+
+    @Test
+    void certConfOfAnotherRegistrationsTransactionIsRejectedAndNotConfirmed() throws Exception {
+        Certificate victim = seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
+        Certificate attacker = seedRegistration("CN=device-2", null, CertificateState.REGISTERED);
+        CmpTransaction transaction = storeTransaction(victim, PKIBody.TYPE_INIT_REQ);
+
+        ResponseEntity<byte[]> response = post(certConfMessage(attacker.getUuid()));
+
+        assertEquals(PKIFailureInfo.badMessageCheck, failInfo(response.getBody()));
+        assertEquals(CmpRegistrationResolver.REGISTRATION_REJECTION, failText(response.getBody()));
+        assertEquals(CmpTransactionState.CERT_ISSUED,
+                cmpTransactionRepository.findByTransactionId(transaction.getTransactionId()).getFirst().getState(),
+                "a cross-registration certConf must not confirm the transaction");
+    }
+
+    @Test
+    void pollOfTheRegistrationsRekeySuccessorTransactionIsAccepted() throws Exception {
+        Certificate registration = seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
+        Certificate successor = certificateRepository.findByUuid(seedIssuedCertificate().getUuid()).orElseThrow();
+        recordSuccessorRelation(successor, registration);
+        storeTransaction(successor, PKIBody.TYPE_KEY_UPDATE_REQ);
+
+        ResponseEntity<byte[]> response = post(pollMessage(registration.getUuid()));
+
+        assertEquals(PKIBody.TYPE_KEY_UPDATE_REP, PKIMessage.getInstance(response.getBody()).getBody().getType(),
+                "a kur follow-up authenticates with the original registration but its transaction holds the successor");
     }
 
     private String failText(byte[] responseBytes) {

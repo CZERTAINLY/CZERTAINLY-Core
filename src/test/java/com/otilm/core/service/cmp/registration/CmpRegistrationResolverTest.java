@@ -5,7 +5,10 @@ import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRelationId;
 import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.cmp.CmpTransaction;
+import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.registration.RegistrationChallengeGate;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -35,18 +38,68 @@ class CmpRegistrationResolverTest {
 
     private CmpRegistrationResolver resolver;
     private CertificateRepository certificateRepository;
+    private CertificateRelationRepository certificateRelationRepository;
     private RegistrationChallengeGate gate;
     private RaProfile raProfile;
 
     @BeforeEach
     void setUp() {
         certificateRepository = mock(CertificateRepository.class);
+        certificateRelationRepository = mock(CertificateRelationRepository.class);
         gate = mock(RegistrationChallengeGate.class);
         resolver = new CmpRegistrationResolver();
         resolver.setCertificateRepository(certificateRepository);
+        resolver.setCertificateRelationRepository(certificateRelationRepository);
         resolver.setRegistrationChallengeGate(gate);
         raProfile = new RaProfile();
         raProfile.setUuid(RA_PROFILE_UUID);
+    }
+
+    private static CmpTransaction transactionFor(UUID certificateUuid) {
+        CmpTransaction transaction = new CmpTransaction();
+        transaction.setTransactionId(TID.toString());
+        transaction.setCertificateUuid(certificateUuid);
+        return transaction;
+    }
+
+    @Test
+    void followupBoundToTheAuthenticatedRegistrationPasses() {
+        Assertions.assertDoesNotThrow(() ->
+                resolver.requireTransactionBinding(registeredCertificate(), transactionFor(CERT_UUID), TID));
+    }
+
+    @Test
+    void followupOnTheRecordedSuccessorOfTheAuthenticatedRegistrationPasses() {
+        UUID successorUuid = UUID.randomUUID();
+        when(certificateRelationRepository.existsById(new CertificateRelationId(successorUuid, CERT_UUID)))
+                .thenReturn(true);
+
+        Assertions.assertDoesNotThrow(() ->
+                resolver.requireTransactionBinding(registeredCertificate(), transactionFor(successorUuid), TID));
+    }
+
+    @Test
+    void followupOnAnotherRegistrationsTransactionRejectsGenericallyWithoutFailingTheTransaction() {
+        CmpTransaction transaction = transactionFor(UUID.randomUUID());
+
+        Certificate matched = registeredCertificate();
+        // The not-bound type is load-bearing: the service's transaction error handling spares the named
+        // transaction only for this rejection.
+        CmpTransactionNotBoundException ex = Assertions.assertThrows(CmpTransactionNotBoundException.class, () ->
+                resolver.requireTransactionBinding(matched, transaction, TID));
+
+        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+    }
+
+    @Test
+    void followupWithoutAMatchedRegistrationRejectsGenerically() {
+        CmpTransaction transaction = transactionFor(CERT_UUID);
+
+        CmpTransactionNotBoundException ex = Assertions.assertThrows(CmpTransactionNotBoundException.class, () ->
+                resolver.requireTransactionBinding(null, transaction, TID));
+
+        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+        verifyNoInteractions(certificateRelationRepository);
     }
 
     private ASN1OctetString senderKid(String value) {

@@ -6,7 +6,10 @@ import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRelationId;
 import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.cmp.CmpTransaction;
+import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.registration.RegistrationChallengeGate;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -39,11 +42,17 @@ public class CmpRegistrationResolver {
     public static final String REGISTRATION_REJECTION = "The request does not match an active certificate registration.";
 
     private CertificateRepository certificateRepository;
+    private CertificateRelationRepository certificateRelationRepository;
     private RegistrationChallengeGate registrationChallengeGate;
 
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
+    }
+
+    @Autowired
+    public void setCertificateRelationRepository(CertificateRelationRepository certificateRelationRepository) {
+        this.certificateRelationRepository = certificateRelationRepository;
     }
 
     @Autowired
@@ -126,6 +135,35 @@ public class CmpRegistrationResolver {
             return reject(tid, "senderKID references a certificate with no active registration authorization");
         }
         return new RegistrationMacResolution(certificate, captured[0]);
+    }
+
+    /**
+     * Requires a registration-mode follow-up (pollReq / certConf) to act only on a transaction its
+     * senderKID's registration opened: the transaction's certificate must be the matched registration
+     * itself (ir/cr) or its recorded rekey/renewal successor (a kur transaction stores the successor,
+     * while the authorization that authenticated the MAC lives on the predecessor). Without this bind,
+     * any active registration under the RA profile could poll or confirm another registration's
+     * transaction; the mismatch surfaces as the single generic rejection.
+     */
+    public void requireTransactionBinding(Certificate matchedRegistration, CmpTransaction transaction,
+                                          ASN1OctetString tid) throws CmpProcessingException {
+        if (matchedRegistration == null) {
+            throw bindingRejection(tid, "follow-up reached the handler without a matched registration");
+        }
+        UUID transactionCertificateUuid = transaction.getCertificateUuid();
+        if (matchedRegistration.getUuid().equals(transactionCertificateUuid)) {
+            return;
+        }
+        if (transactionCertificateUuid == null || !certificateRelationRepository.existsById(
+                new CertificateRelationId(transactionCertificateUuid, matchedRegistration.getUuid()))) {
+            throw bindingRejection(tid, "transaction is not bound to the authenticated registration");
+        }
+    }
+
+    /** Same wire rejection as {@link #rejection}, typed so the error handling spares the named transaction. */
+    private static CmpTransactionNotBoundException bindingRejection(ASN1OctetString tid, String reason) {
+        logger.info("CMP registration enrolment rejected: {}", reason);
+        return new CmpTransactionNotBoundException(tid, PKIFailureInfo.badMessageCheck, REGISTRATION_REJECTION);
     }
 
     /**

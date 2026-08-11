@@ -35,6 +35,7 @@ import com.otilm.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
 import com.otilm.core.service.cmp.message.builder.PkiMessageBuilder;
+import com.otilm.core.service.cmp.registration.CmpTransactionNotBoundException;
 import com.otilm.core.service.cmp.message.handler.CertConfirmMessageHandler;
 import com.otilm.core.service.cmp.message.handler.CrmfMessageHandler;
 import com.otilm.core.service.cmp.message.handler.PollReqMessageHandler;
@@ -364,6 +365,12 @@ public class CmpServiceImpl implements CmpExternalService {
     // annotation was ignored anyway
     // @Transactional(propagation = Propagation.REQUIRES_NEW)
     private void handleTrxError(ASN1OctetString tid, Exception e) {
+        // A follow-up that failed the registration binding was never authorized to act on the transaction
+        // it names — failing it here would let any active registration under the RA profile poison another
+        // registration's in-flight transaction.
+        if (e instanceof CmpTransactionNotBoundException) {
+            return;
+        }
         List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
         if (!trx.isEmpty()) {
             for (CmpTransaction updatedTransaction : trx) {

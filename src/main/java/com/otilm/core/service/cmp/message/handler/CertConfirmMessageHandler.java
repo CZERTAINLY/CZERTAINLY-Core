@@ -10,6 +10,7 @@ import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
 import com.otilm.core.service.cmp.message.builder.PkiMessageBuilder;
+import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.CryptographyUtil;
 import java.security.cert.X509Certificate;
@@ -50,10 +51,16 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
     private static final Logger LOG = LoggerFactory.getLogger(CertConfirmMessageHandler.class.getName());
 
     private CmpTransactionService cmpTransactionService;
+    private CmpRegistrationResolver cmpRegistrationResolver;
 
     @Autowired
     public void setCmpTransactionService(CmpTransactionService cmpTransactionService) {
         this.cmpTransactionService = cmpTransactionService;
+    }
+
+    @Autowired
+    public void setCmpRegistrationResolver(CmpRegistrationResolver cmpRegistrationResolver) {
+        this.cmpRegistrationResolver = cmpRegistrationResolver;
     }
 
     /**
@@ -120,7 +127,7 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         CertConfirmContent certConfirmBody = (CertConfirmContent) request.getBody().getContent();
         CertStatus[] certStatuses = certConfirmBody.toCertStatusArray();
         for (var certStatus : certStatuses) {
-            processConfirmation(tid, certStatus);
+            processConfirmation(tid, certStatus, configuration);
         }
 
         try {
@@ -135,7 +142,8 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         }
     }
 
-    private void processConfirmation(ASN1OctetString tid, CertStatus certStatus) throws CmpProcessingException {
+    private void processConfirmation(ASN1OctetString tid, CertStatus certStatus, ConfigurationContext configuration)
+            throws CmpProcessingException {
         ASN1OctetString incomingFingerprint = certStatus.getCertHash();
         // flag if certificate has been found and confirmed
         boolean confirmed = false;
@@ -143,6 +151,16 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         // find related transactions by transactionId
         // (note: many certificates can be related to one transactionId - future use case; actually 1 trx == 1 cert)
         List<CmpTransaction> relatedTransactions = cmpTransactionService.findByTransactionId(tid.toString());
+
+        // The MAC only proved the sender owns SOME active registration under the RA profile; the confirmation
+        // must additionally act on that registration's own transaction, or any registration could confirm
+        // (or, via a mismatching hash, reject) another registration's issuance.
+        if (configuration.isRegistrationMode()) {
+            for (CmpTransaction cmpTransaction : relatedTransactions) {
+                cmpRegistrationResolver.requireTransactionBinding(
+                        configuration.getMatchedRegistration(), cmpTransaction, tid);
+            }
+        }
 
         // check the fingerprint with the certificate stored in transaction
         for (CmpTransaction cmpTransaction : relatedTransactions) {
