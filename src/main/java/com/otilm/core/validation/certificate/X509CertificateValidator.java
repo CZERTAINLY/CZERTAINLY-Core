@@ -543,7 +543,8 @@ public class X509CertificateValidator implements ICertificateValidator {
     }
 
     enum ZeroRowOutcome {
-        INTENT_ALREADY_SATISFIED, STATE_DIVERGENCE
+        INTENT_ALREADY_SATISFIED,
+        STATE_DIVERGENCE
     }
 
     private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {

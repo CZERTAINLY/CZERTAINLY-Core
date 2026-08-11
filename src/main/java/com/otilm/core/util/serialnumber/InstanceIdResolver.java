@@ -147,7 +147,8 @@ final class InstanceIdResolver {
     }
 
     enum Source {
-        ENV_VAR, IP_ADDRESS
+        ENV_VAR,
+        IP_ADDRESS
     }
 
     record Resolution(int id, Source source, short prefixLength) {
