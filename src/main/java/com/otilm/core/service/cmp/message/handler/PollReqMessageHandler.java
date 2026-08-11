@@ -8,6 +8,7 @@ import com.otilm.core.dao.entity.cmp.CmpTransaction;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.builder.PkiMessageBuilder;
+import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import com.otilm.core.util.CertificateUtil;
 import java.math.BigInteger;
 import java.security.cert.CertificateException;
@@ -51,10 +52,16 @@ public class PollReqMessageHandler implements MessageHandler<PKIMessage> {
     private static final long DEFAULT_CHECK_AFTER_SECONDS = 60L;
 
     private CmpTransactionService cmpTransactionService;
+    private CmpRegistrationResolver cmpRegistrationResolver;
 
     @Autowired
     public void setCmpTransactionService(CmpTransactionService cmpTransactionService) {
         this.cmpTransactionService = cmpTransactionService;
+    }
+
+    @Autowired
+    public void setCmpRegistrationResolver(CmpRegistrationResolver cmpRegistrationResolver) {
+        this.cmpRegistrationResolver = cmpRegistrationResolver;
     }
 
     @Override
@@ -85,6 +92,11 @@ public class PollReqMessageHandler implements MessageHandler<PKIMessage> {
         if (certificate == null) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     "CMP transaction has no associated certificate");
+        }
+        // The MAC only proved the sender owns SOME active registration under the RA profile; the poll must
+        // additionally act on that registration's own transaction, or any registration could poll another's.
+        if (configuration.isRegistrationMode()) {
+            cmpRegistrationResolver.requireTransactionBinding(configuration.getMatchedRegistration(), transaction, tid);
         }
 
         CertificateState state = certificate.getState();

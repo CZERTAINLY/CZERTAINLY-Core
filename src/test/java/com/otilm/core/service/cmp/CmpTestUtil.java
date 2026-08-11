@@ -33,6 +33,7 @@ import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.DERGeneralizedTime;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
@@ -55,6 +56,7 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x509.X509DefaultEntryConverter;
 import org.bouncycastle.asn1.x509.X509Name;
@@ -179,6 +181,78 @@ public class CmpTestUtil {
                 // .setParameters(new PBMParameter(salt, owf, iterCount, macAlg))
                 .build(sharedSecret.toCharArray());
         return createPkiMessageBuilder(transactionId, body).build(macCalculator);
+    }
+
+    /**
+     * A MAC-protected message carrying a {@code senderKID} (used by registration mode to reference the pre-registration
+     * by UUID). The MAC key is {@code sharedSecret}, exactly as {@link #createMacBasedMessage}.
+     */
+    public static ProtectedPKIMessage createMacBasedMessageWithSenderKid(String transactionId, String sharedSecret,
+            PKIBody body, byte[] senderKid) throws CRMFException, CMPException {
+        JcePKMACValuesCalculator jcePkmacCalc = new JcePKMACValuesCalculator();
+        jcePkmacCalc
+                .setup(new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.3.14.3.2.26")), // SHA1
+                        new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.2.840.113549.2.7"))); // HMAC/SHA1
+        MacCalculator macCalculator = new PKMACBuilder(jcePkmacCalc)
+                .setIterationCount(1000)
+                .setSaltLength(25)
+                .build(sharedSecret.toCharArray());
+        // A 16-byte senderNonce: the full handlePost path runs HeaderValidator, which rejects a short one.
+        byte[] senderNonce = new byte[16];
+        new SecureRandom().nextBytes(senderNonce);
+        return createPkiMessageBuilder(transactionId, body)
+                .setSenderNonce(senderNonce)
+                .setSenderKID(senderKid)
+                .build(macCalculator);
+    }
+
+    /**
+     * A CRMF body (ir/cr/kur) for a chosen subject with optional dNSName SANs — for registration-mode identity
+     * matching. {@code oldCertSerial} non-null adds the {@code regCtrl_oldCertID} control a kur needs.
+     */
+    public static PKIBody createRegistrationCrmfBody(KeyPair keyPair, long certReqId, int pkiBodyType, String subjectDn,
+            List<String> dnsSans, BigInteger oldCertSerial)
+            throws IOException, CRMFException, OperatorCreationException {
+        CertificateRequestMessageBuilder msgbuilder = new CertificateRequestMessageBuilder(
+                BigInteger.valueOf(certReqId));
+        X500Name issuerDN = new X500Name("CN=ManagementCA");
+        X500Name subjectDN = new X500Name(subjectDn);
+        msgbuilder.setIssuer(issuerDN);
+        msgbuilder.setSubject(subjectDN);
+        final ByteArrayInputStream bIn = new ByteArrayInputStream(keyPair.getPublic().getEncoded());
+        final ASN1InputStream dIn = new ASN1InputStream(bIn);
+        final SubjectPublicKeyInfo keyInfo = new SubjectPublicKeyInfo((ASN1Sequence) dIn.readObject());
+        msgbuilder.setPublicKey(keyInfo);
+        msgbuilder.setAuthInfoSender(new GeneralName(subjectDN));
+        msgbuilder.addControl(new RegTokenControl("foo123"));
+        if (dnsSans != null && !dnsSans.isEmpty()) {
+            GeneralName[] names = dnsSans
+                    .stream()
+                    .map(dns -> new GeneralName(GeneralName.dNSName, dns))
+                    .toArray(GeneralName[]::new);
+            msgbuilder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(names));
+        }
+        if (oldCertSerial != null) {
+            AttributeTypeAndValue atv = new AttributeTypeAndValue(CMPObjectIdentifiers.regCtrl_oldCertID,
+                    new CertId(new GeneralName(issuerDN), new ASN1Integer(oldCertSerial)));
+            msgbuilder.addControl(new Control() {
+                @Override
+                public ASN1ObjectIdentifier getType() {
+                    return atv.getType();
+                }
+
+                @Override
+                public ASN1Encodable getValue() {
+                    return atv.getValue();
+                }
+            });
+        }
+        ContentSigner popsigner = new JcaContentSignerBuilder("SHA256withECDSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(keyPair.getPrivate());
+        msgbuilder.setProofOfPossessionSigningKeySigner(popsigner);
+        CertReqMessages msgs = new CertReqMessages(msgbuilder.build().toASN1Structure());
+        return new PKIBody(pkiBodyType, msgs);
     }
 
     public static ProtectedPKIMessageBuilder createPkiMessageBuilder(String transactionId, PKIBody body) {
