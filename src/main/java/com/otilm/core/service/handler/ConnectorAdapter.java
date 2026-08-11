@@ -28,6 +28,7 @@ public interface ConnectorAdapter {
      */
     ConnectInfo validateConnection(ConnectInfo connectInfo) throws ConnectorException;
 
-    void updateConnectorFunctions(Connector connector, ConnectInfo connectInfo) throws ConnectorException, NotFoundException;
+    void updateConnectorFunctions(Connector connector, ConnectInfo connectInfo)
+            throws ConnectorException, NotFoundException;
 
 }

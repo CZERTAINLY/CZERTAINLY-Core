@@ -17,11 +17,10 @@ import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
 import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.builders.AuthorityFixtures;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import java.io.StringWriter;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.util.List;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -29,11 +28,11 @@ import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemWriter;
-
-import java.io.StringWriter;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,7 +40,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * Proves that a request-attribute policy violation raised on the v2 issue path reaches the caller as {@link RequestAttributePolicyViolationException}.
+ * Proves that a request-attribute policy violation raised on the v2 issue path reaches the caller as
+ * {@link RequestAttributePolicyViolationException}.
  */
 class ClientOperationRequestAttributePropagationITest extends BaseSpringBootTest {
 
@@ -74,9 +74,9 @@ class ClientOperationRequestAttributePropagationITest extends BaseSpringBootTest
         mockServer = new WireMockServer(0);
         mockServer.start();
 
-        AuthorityFixtures.Repos fixtureRepos = new AuthorityFixtures.Repos(
-                connectorRepository, functionGroupRepository, connector2FunctionGroupRepository,
-                authorityInstanceReferenceRepository, raProfileRepository, connectorInterfaceRepository);
+        AuthorityFixtures.Repos fixtureRepos = new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
+                connector2FunctionGroupRepository, authorityInstanceReferenceRepository, raProfileRepository,
+                connectorInterfaceRepository);
         AuthorityFixtures.Fixture fixture = AuthorityFixtures.v2Authority(fixtureRepos, mockServer, null);
         authorityInstanceReference = fixture.authority();
         raProfile = fixture.raProfile();
@@ -91,7 +91,8 @@ class ClientOperationRequestAttributePropagationITest extends BaseSpringBootTest
     void propagatesSubtypeNotWrapped_whenPolicyViolated() throws Exception {
         // given — a strict RA profile whose resolved set requires a CN, and an uploaded CSR that omits it:
         // a genuine policy violation (a client fault), distinct from an availability failure
-        when(requestAttributeService.resolveIssueAttributeSet(any())).thenReturn(List.of(CsrAttributes.commonNameAttribute()));
+        when(requestAttributeService.resolveIssueAttributeSet(any()))
+                .thenReturn(List.of(CsrAttributes.commonNameAttribute()));
         when(requestAttributeService.resolveExternalCsrValidationStrict(any())).thenReturn(true);
         ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
         request.setRequest(pemEncodedCsrWithSubject("O=Acme,C=US"));
@@ -118,8 +119,8 @@ class ClientOperationRequestAttributePropagationITest extends BaseSpringBootTest
         kpg.initialize(2048);
         KeyPair keyPair = kpg.generateKeyPair();
 
-        JcaPKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), keyPair.getPublic());
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                keyPair.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
         PKCS10CertificationRequest csr = builder.build(signer);
 

@@ -13,13 +13,12 @@ import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.ResourceExternalService;
 import com.otilm.core.util.converter.ResourceCodeConverter;
+import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.Map;
 
 @RestController
 public class ResourceControllerImpl implements ResourceController {
@@ -44,13 +43,16 @@ public class ResourceControllerImpl implements ResourceController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, operation = Operation.LIST)
-    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(@LogResource(resource = true, affiliated = true) Resource resource, boolean settable) throws NotFoundException {
+    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(
+            @LogResource(resource = true, affiliated = true) Resource resource, boolean settable)
+            throws NotFoundException {
         return resourceService.listResourceRuleFilterFields(resource, settable);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.RESOURCE_EVENT, operation = Operation.LIST)
-    public List<ResourceEventDto> listResourceEvents(@LogResource(resource = true, affiliated = true) Resource resource) {
+    public List<ResourceEventDto> listResourceEvents(
+            @LogResource(resource = true, affiliated = true) Resource resource) {
         return resourceService.listResourceEvents(resource);
     }
 

@@ -17,7 +17,9 @@ public interface NotificationProfileExternalService {
 
     void deleteNotificationProfile(SecuredUUID uuid) throws NotFoundException;
 
-    NotificationProfileDetailDto createNotificationProfile(NotificationProfileRequestDto requestDto) throws AlreadyExistException, NotFoundException;
+    NotificationProfileDetailDto createNotificationProfile(NotificationProfileRequestDto requestDto)
+            throws AlreadyExistException, NotFoundException;
 
-    NotificationProfileDetailDto editNotificationProfile(SecuredUUID uuid, NotificationProfileUpdateRequestDto updateRequestDto) throws NotFoundException;
+    NotificationProfileDetailDto editNotificationProfile(SecuredUUID uuid,
+            NotificationProfileUpdateRequestDto updateRequestDto) throws NotFoundException;
 }

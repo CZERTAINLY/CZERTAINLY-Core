@@ -18,11 +18,10 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.util.AuthHelper;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Transactional
 @Component(ResourceEvent.Codes.APPROVAL_CLOSED)
@@ -37,7 +36,9 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
     protected Object getEventData(Approval approval, Object eventMessageData) {
         ApprovalProfile approvalProfile = approval.getApprovalProfileVersion().getApprovalProfile();
 
-        return EventDataBuilder.getApprovalEventData(approval, approvalProfile, authHelper.getUserUsername(approval.getCreatorUuid().toString()));
+        return EventDataBuilder
+                .getApprovalEventData(approval, approvalProfile,
+                        authHelper.getUserUsername(approval.getCreatorUuid().toString()));
     }
 
     @Override
@@ -45,23 +46,31 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
         Approval approval = eventContext.getResourceObjects().getFirst();
         ApprovalEventData eventData = (ApprovalEventData) eventContext.getResourceObjectsEventData().getFirst();
 
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.APPROVAL, approval.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(approval.getCreatorUuid()), eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.APPROVAL,
+                approval.getUuid(), null,
+                NotificationRecipient.buildUserNotificationRecipient(approval.getCreatorUuid()), eventData);
         applicationEventPublisher.publishEvent(notificationMessage);
 
         // produce only for certificates for now until refactoring and uniting of event history for all resources
         if (approval.getResource() == Resource.CERTIFICATE) {
-            applicationEventPublisher.publishEvent(new UpdateCertificateHistoryEvent(approval.getObjectUuid(), CertificateEvent.APPROVAL_CLOSE, CertificateEventStatus.SUCCESS, "Approval for action %s with approval profile %s closed with status %s".formatted(approval.getAction().getCode(), eventData.getApprovalProfileName(), eventData.getStatus().getLabel()), null));
+            applicationEventPublisher
+                    .publishEvent(new UpdateCertificateHistoryEvent(approval.getObjectUuid(),
+                            CertificateEvent.APPROVAL_CLOSE, CertificateEventStatus.SUCCESS,
+                            "Approval for action %s with approval profile %s closed with status %s"
+                                    .formatted(approval.getAction().getCode(), eventData.getApprovalProfileName(),
+                                            eventData.getStatus().getLabel()),
+                            null));
         }
     }
 
     /**
      * Carries the approving or rejecting user so the certificate history row names them. A close as
-     * {@link ApprovalStatusEnum#EXPIRED} carries nobody: the expiry sweep runs as the scheduled job's user, who took
-     * no action on the approval, so that row is left to the system user.
+     * {@link ApprovalStatusEnum#EXPIRED} carries nobody: the expiry sweep runs as the scheduled job's user, who took no
+     * action on the approval, so that row is left to the system user.
      */
     public static EventMessage constructEventMessage(UUID approvalUuid, ApprovalStatusEnum closingStatus) {
         UUID actingUser = closingStatus == ApprovalStatusEnum.EXPIRED ? null : AuthHelper.getActingUserUuidOrNull();
-        return new EventMessage(ResourceEvent.APPROVAL_CLOSED, Resource.APPROVAL, approvalUuid,
-                null, null, null, actingUser, null);
+        return new EventMessage(ResourceEvent.APPROVAL_CLOSED, Resource.APPROVAL, approvalUuid, null, null, null,
+                actingUser, null);
     }
 }

@@ -25,15 +25,24 @@ import static org.mockito.Mockito.mockingDetails;
 @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
 class MockBeanModuleWiringITest extends BaseSpringBootTest {
 
-    @Autowired NotificationProducer notificationProducer;
-    @Autowired ActionProducer actionProducer;
-    @Autowired EventProducer eventProducer;
-    @Autowired ValidationProducer validationProducer;
-    @Autowired UserManagementApiClient userManagementApiClient;
-    @Autowired RoleManagementApiClient roleManagementApiClient;
-    @Autowired PlatformAuthenticationClient authenticationClient;
-    @Autowired PollFeature pollFeature;
-    @Autowired ApplicationContext applicationContext;
+    @Autowired
+    NotificationProducer notificationProducer;
+    @Autowired
+    ActionProducer actionProducer;
+    @Autowired
+    EventProducer eventProducer;
+    @Autowired
+    ValidationProducer validationProducer;
+    @Autowired
+    UserManagementApiClient userManagementApiClient;
+    @Autowired
+    RoleManagementApiClient roleManagementApiClient;
+    @Autowired
+    PlatformAuthenticationClient authenticationClient;
+    @Autowired
+    PollFeature pollFeature;
+    @Autowired
+    ApplicationContext applicationContext;
 
     @Test
     void allModuleBeansAreMocks() {
@@ -51,10 +60,8 @@ class MockBeanModuleWiringITest extends BaseSpringBootTest {
     void producerModuleLeavesNoRealProducerBeanBehind() {
         assertThat(applicationContext.getBeanNamesForType(NotificationProducer.class))
                 .containsExactly("mockNotificationProducer");
-        assertThat(applicationContext.getBeanNamesForType(ActionProducer.class))
-                .containsExactly("mockActionProducer");
-        assertThat(applicationContext.getBeanNamesForType(EventProducer.class))
-                .containsExactly("mockEventProducer");
+        assertThat(applicationContext.getBeanNamesForType(ActionProducer.class)).containsExactly("mockActionProducer");
+        assertThat(applicationContext.getBeanNamesForType(EventProducer.class)).containsExactly("mockEventProducer");
         assertThat(applicationContext.getBeanNamesForType(ValidationProducer.class))
                 .containsExactly("mockValidationProducer");
     }

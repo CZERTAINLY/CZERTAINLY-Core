@@ -9,11 +9,10 @@ import com.otilm.core.evaluator.CertificateTriggerEvaluator;
 import com.otilm.core.events.EventContext;
 import com.otilm.core.events.EventContextTriggers;
 import com.otilm.core.events.EventHandler;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @Transactional
@@ -24,7 +23,8 @@ public abstract class CertificateEventsHandler extends EventHandler<Certificate>
     }
 
     @Override
-    protected List<EventContextTriggers> getOverridingTriggers(EventContext<Certificate> eventContext, Certificate object) throws EventException {
+    protected List<EventContextTriggers> getOverridingTriggers(EventContext<Certificate> eventContext,
+            Certificate object) throws EventException {
         List<EventContextTriggers> eventContextTriggers = new ArrayList<>();
 
         if (object.getGroups() != null && !object.getGroups().isEmpty()) {

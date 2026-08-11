@@ -1,12 +1,15 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
-import com.otilm.api.model.common.enums.cryptography.*;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
@@ -19,8 +22,22 @@ import com.otilm.core.attribute.CsrAttributes;
 import com.otilm.core.attribute.RsaSignatureAttributes;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Connector2FunctionGroup;
+import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.FunctionGroup;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.v2.ClientOperationExternalService;
@@ -30,8 +47,14 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.seeders.CryptographicKeySeeder;
 import com.otilm.core.util.seeders.FunctionGroupSeeder;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.Signature;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.pkcs.Attribute;
@@ -44,9 +67,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.security.*;
-import java.util.*;
 
 import static com.otilm.core.util.builders.RequestAttributeV3Builder.aCustomAttribute;
 import static com.otilm.core.util.builders.RsaSignatureAttributesBuilder.rsaSignatureAttributes;
@@ -167,8 +187,9 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
         // truncateTables() in BaseSpringBootTest wipes all rows including attribute definitions
         // that ContextRefreshListener registers at startup. Re-seed them here exactly as the
         // listener does: connectorUuid=null, operation="sign".
-        attributeEngine.updateDataAttributeDefinitions(null, AttributeOperation.SIGN,
-                RsaSignatureAttributes.getRsaSignatureAttributes());
+        attributeEngine
+                .updateDataAttributeDefinitions(null, AttributeOperation.SIGN,
+                        RsaSignatureAttributes.getRsaSignatureAttributes());
 
         // The extension-mapped connector attribute requires its OID in the process-wide OID
         // registry cache: the issue-attribute definitions flow through the authority adapter
@@ -180,17 +201,21 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
         if (OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION) == null) {
             OidHandler.cacheOidCategory(OidCategory.CERTIFICATE_EXTENSION, new HashMap<>());
         }
-        OidHandler.cacheOid(OidCategory.CERTIFICATE_EXTENSION, CUSTOM_EXT_OID, OidRecord.builder()
-                .displayName("Test Custom Extension")
-                .defaultCritical(false)
-                .valueEncoding(ExtensionValueEncoding.DER)
-                .build());
+        OidHandler
+                .cacheOid(OidCategory.CERTIFICATE_EXTENSION, CUSTOM_EXT_OID,
+                        OidRecord
+                                .builder()
+                                .displayName("Test Custom Extension")
+                                .defaultCritical(false)
+                                .valueEncoding(ExtensionValueEncoding.DER)
+                                .build());
 
         keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
         var publicKeyData = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
-        cryptographicKey = cryptographicKeySeeder.seedKey("rendererTestKey", tokenProfile, tokenInstanceReference,
-                signingPrivateKey(KeyAlgorithm.RSA).withMaterial(KeyFormat.PRKI, "placeholder"),
-                verifyingPublicKey(KeyAlgorithm.RSA).withMaterial(KeyFormat.SPKI, publicKeyData));
+        cryptographicKey = cryptographicKeySeeder
+                .seedKey("rendererTestKey", tokenProfile, tokenInstanceReference,
+                        signingPrivateKey(KeyAlgorithm.RSA).withMaterial(KeyFormat.PRKI, "placeholder"),
+                        verifyingPublicKey(KeyAlgorithm.RSA).withMaterial(KeyFormat.SPKI, publicKeyData));
     }
 
     @AfterEach
@@ -201,9 +226,10 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
     @Test
     void projectsConnectorSanAndExtensionIntoStoredCsr_whenSubmittingRequest() throws Exception {
         // given a connector that returns one SAN-mapped and one extension-mapped attribute
-        requestAttributeWriter.saveStaticSet(raProfile,
-                AttributeDefinitionUtils.serialize(List.of(CsrAttributes.commonNameAttribute())),
-                AttributeSetMergeMode.MERGE, null);
+        requestAttributeWriter
+                .saveStaticSet(raProfile,
+                        AttributeDefinitionUtils.serialize(List.of(CsrAttributes.commonNameAttribute())),
+                        AttributeSetMergeMode.MERGE, null);
 
         String connectorAttrsJson = """
                 [
@@ -243,12 +269,19 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
         // Extension value: DER-encoded UTF8String "rendererExtValue", then base64 for transport.
         var extValueBase64 = Base64.getEncoder().encodeToString(new DERUTF8String("rendererExtValue").getEncoded());
         var request = baseRequest();
-        request.setCsrAttributes(List.of(
-                commonNameAttribute("RendererTest"),
-                aCustomAttribute().withUuid(SAN_ATTR_UUID).withName("sanDns")
-                        .withStringContent("connector.example.com").build(),
-                aCustomAttribute().withUuid(EXT_ATTR_UUID).withName("customExt")
-                        .withStringContent(extValueBase64).build()));
+        request
+                .setCsrAttributes(List
+                        .of(commonNameAttribute("RendererTest"),
+                                aCustomAttribute()
+                                        .withUuid(SAN_ATTR_UUID)
+                                        .withName("sanDns")
+                                        .withStringContent("connector.example.com")
+                                        .build(),
+                                aCustomAttribute()
+                                        .withUuid(EXT_ATTR_UUID)
+                                        .withName("customExt")
+                                        .withStringContent(extValueBase64)
+                                        .build()));
 
         // when
         CertificateDetailDto result = clientOperationService.submitCertificateRequest(request, null);
@@ -272,9 +305,10 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
         // given — the v3 connector issue-attributes endpoint errors. Issuance-definition resolution fails on a genuine
         // connector failure rather than silently falling back to the default CSR set, so the request is rejected.
         stubIssueAttributes("[]");
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v3/authorityProvider/certificates/issue/attributes"))
-                .willReturn(WireMock.serverError().withBody("issue-attributes endpoint is unavailable")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v3/authorityProvider/certificates/issue/attributes"))
+                        .willReturn(WireMock.serverError().withBody("issue-attributes endpoint is unavailable")));
         stubSigning();
 
         var request = baseRequest();
@@ -314,21 +348,28 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private void stubIssueAttributes(String connectorAttrsJson) {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v3/authorityProvider/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson(connectorAttrsJson)));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v3/authorityProvider/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson(connectorAttrsJson)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
     }
 
     /**
-     * Stubs the crypto provider's sign/verify endpoints. The signature is produced with the real
-     * private key so it verifies against the stored public key; the token connector passes the
-     * value through without independent verification here.
+     * Stubs the crypto provider's sign/verify endpoints. The signature is produced with the real private key so it
+     * verifies against the stored public key; the token connector passes the value through without independent
+     * verification here.
      */
     private void stubSigning() throws Exception {
         Signature sig = Signature.getInstance("SHA256withRSA");
@@ -336,16 +377,18 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
         sig.update(keyPair.getPublic().getEncoded());
         var signature = Base64.getEncoder().encodeToString(sig.sign());
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
-                .willReturn(WireMock.okJson("""
-                        {"signatures": [{"data": "%s"}]}
-                        """.formatted(signature))));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
-                .willReturn(WireMock.okJson("""
-                        {"verifications": [{"result": true}]}
-                        """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
+                        .willReturn(WireMock.okJson("""
+                                {"signatures": [{"data": "%s"}]}
+                                """.formatted(signature))));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
+                        .willReturn(WireMock.okJson("""
+                                {"verifications": [{"result": true}]}
+                                """)));
     }
 
     private ClientCertificateRequestDto baseRequest() {

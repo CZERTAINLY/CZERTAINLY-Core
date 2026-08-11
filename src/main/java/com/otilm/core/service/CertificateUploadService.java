@@ -8,5 +8,6 @@ import java.util.List;
 
 public interface CertificateUploadService {
 
-    String upload(String certificateData, List<RequestAttribute> customAttributes, boolean sync) throws CertificateException, AlreadyExistException;
+    String upload(String certificateData, List<RequestAttribute> customAttributes, boolean sync)
+            throws CertificateException, AlreadyExistException;
 }

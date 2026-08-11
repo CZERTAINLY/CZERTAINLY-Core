@@ -1,6 +1,20 @@
 package com.otilm.core.util;
 
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.math.BigInteger;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1TaggedObject;
 import org.bouncycastle.asn1.DERIA5String;
@@ -16,7 +30,15 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
-import org.bouncycastle.cert.ocsp.*;
+import org.bouncycastle.cert.ocsp.BasicOCSPResp;
+import org.bouncycastle.cert.ocsp.CertificateID;
+import org.bouncycastle.cert.ocsp.OCSPException;
+import org.bouncycastle.cert.ocsp.OCSPReq;
+import org.bouncycastle.cert.ocsp.OCSPReqBuilder;
+import org.bouncycastle.cert.ocsp.OCSPResp;
+import org.bouncycastle.cert.ocsp.RevokedStatus;
+import org.bouncycastle.cert.ocsp.SingleResp;
+import org.bouncycastle.cert.ocsp.UnknownStatus;
 import org.bouncycastle.operator.DigestCalculator;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.OperatorException;
@@ -26,17 +48,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.*;
-import java.math.BigInteger;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 @Component
 @SuppressWarnings("java:S2696")
 public class OcspUtil {
@@ -45,14 +56,11 @@ public class OcspUtil {
     private static int ocspReadTimeout; // milliseconds
     private static int ocspConnectTimeout; // milliseconds
 
-    private static final Map<Integer, String> ocspResponseStatuses = Map.of(
-            OCSPResponseStatus.SUCCESSFUL, "Successful",
-            OCSPResponseStatus.MALFORMED_REQUEST, "Malformed request",
-            OCSPResponseStatus.INTERNAL_ERROR, "Internal error",
-            OCSPResponseStatus.TRY_LATER, "Try later",
-            OCSPResponseStatus.SIG_REQUIRED, "Signature required",
-            OCSPResponseStatus.UNAUTHORIZED, "Unauthorized"
-    );
+    private static final Map<Integer, String> ocspResponseStatuses = Map
+            .of(OCSPResponseStatus.SUCCESSFUL, "Successful", OCSPResponseStatus.MALFORMED_REQUEST, "Malformed request",
+                    OCSPResponseStatus.INTERNAL_ERROR, "Internal error", OCSPResponseStatus.TRY_LATER, "Try later",
+                    OCSPResponseStatus.SIG_REQUIRED, "Signature required", OCSPResponseStatus.UNAUTHORIZED,
+                    "Unauthorized");
 
     @Value("${validation.ocsp.read-timeout:1000}")
     public void setOcspReadTimeout(int timeout) {
@@ -74,7 +82,8 @@ public class OcspUtil {
             return null;
         }
 
-        AuthorityInformationAccess aia = AuthorityInformationAccess.getInstance(JcaX509ExtensionUtils.parseExtensionValue(octetBytes));
+        AuthorityInformationAccess aia = AuthorityInformationAccess
+                .getInstance(JcaX509ExtensionUtils.parseExtensionValue(octetBytes));
         AccessDescription[] descriptions = aia.getAccessDescriptions();
         for (AccessDescription ad : descriptions) {
             if (ad.getAccessMethod().equals(X509ObjectIdentifiers.id_ad_caIssuers)) {
@@ -100,10 +109,13 @@ public class OcspUtil {
             return ocspUrls;
         }
 
-        AuthorityInformationAccess authorityInformationAccess = AuthorityInformationAccess.getInstance(fromExtensionValue);
+        AuthorityInformationAccess authorityInformationAccess = AuthorityInformationAccess
+                .getInstance(fromExtensionValue);
         AccessDescription[] accessDescriptions = authorityInformationAccess.getAccessDescriptions();
         for (AccessDescription accessDescription : accessDescriptions) {
-            boolean correctAccessMethod = accessDescription.getAccessMethod().equals(X509ObjectIdentifiers.ocspAccessMethod);
+            boolean correctAccessMethod = accessDescription
+                    .getAccessMethod()
+                    .equals(X509ObjectIdentifiers.ocspAccessMethod);
             if (!correctAccessMethod) {
                 continue;
             }
@@ -111,7 +123,8 @@ public class OcspUtil {
             if (name.getTagNo() != GeneralName.uniformResourceIdentifier) {
                 continue;
             }
-            DERIA5String derStr = (DERIA5String) DERIA5String.getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
+            DERIA5String derStr = (DERIA5String) DERIA5String
+                    .getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
             String ocspUrl = derStr.getString();
             ocspUrls.add(ocspUrl);
         }
@@ -119,7 +132,8 @@ public class OcspUtil {
         return ocspUrls;
     }
 
-    public static CertificateValidationStatus checkOcsp(X509Certificate certificate, X509Certificate issuer, String serviceUrl) throws Exception {
+    public static CertificateValidationStatus checkOcsp(X509Certificate certificate, X509Certificate issuer,
+            String serviceUrl) throws Exception {
         OCSPReq request = generateOCSPRequest(issuer, certificate.getSerialNumber());
         OCSPResp ocspResponse = getOCSPResponse(serviceUrl, request);
 
@@ -136,7 +150,8 @@ public class OcspUtil {
                 return CertificateValidationStatus.FAILED;
             }
         } else if (OCSPResponseStatus.SUCCESSFUL != ocspResponse.getStatus()) {
-            throw new IOException("OCSP Request failed with status " + ocspResponseStatuses.get(ocspResponse.getStatus()));
+            throw new IOException(
+                    "OCSP Request failed with status " + ocspResponseStatuses.get(ocspResponse.getStatus()));
         }
         return CertificateValidationStatus.FAILED;
     }

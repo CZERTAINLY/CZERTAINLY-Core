@@ -2,24 +2,27 @@ package com.otilm.core.dao.repository.notifications;
 
 import com.otilm.core.dao.entity.notifications.NotificationProfileVersion;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 @Repository
-public interface NotificationProfileVersionRepository extends SecurityFilterRepository<NotificationProfileVersion, UUID> {
+public interface NotificationProfileVersionRepository
+        extends
+            SecurityFilterRepository<NotificationProfileVersion, UUID> {
 
     @EntityGraph(attributePaths = {"notificationProfile", "notificationInstance"})
-    Optional<NotificationProfileVersion> findByNotificationProfileUuidAndVersion(UUID notificationProfileUuid, int version);
+    Optional<NotificationProfileVersion> findByNotificationProfileUuidAndVersion(UUID notificationProfileUuid,
+            int version);
 
     @EntityGraph(attributePaths = {"notificationProfile", "notificationInstance"})
-    Optional<NotificationProfileVersion> findTopByNotificationProfileUuidOrderByVersionDesc(UUID notificationProfileUuid);
+    Optional<NotificationProfileVersion> findTopByNotificationProfileUuidOrderByVersionDesc(
+            UUID notificationProfileUuid);
 
     @Query("""
             SELECT np.name

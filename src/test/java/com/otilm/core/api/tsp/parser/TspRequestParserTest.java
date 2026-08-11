@@ -3,6 +3,8 @@ package com.otilm.core.api.tsp.parser;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.core.signing.tsa.messages.TspRequest;
+import java.math.BigInteger;
+import java.util.stream.Stream;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.tsp.TSPAlgorithms;
@@ -12,11 +14,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.math.BigInteger;
-import java.util.stream.Stream;
-
 import static com.otilm.core.util.builders.RawTspRequestBuilder.aRawTspRequest;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Named.named;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -116,9 +121,7 @@ class TspRequestParserTest {
         // given — extnValue must be well-formed DER; DERNull is the minimal valid encoding
         var extensionOid = "1.3.6.1.5.5.7.48.1.2";
         var wellFormedDerValue = DERNull.INSTANCE.getEncoded();
-        var body = aRawTspRequest()
-                .withExtension(extensionOid, wellFormedDerValue)
-                .build();
+        var body = aRawTspRequest().withExtension(extensionOid, wellFormedDerValue).build();
 
         // when
         TspRequest parsed = TspRequestParser.parse(body);
@@ -131,9 +134,7 @@ class TspRequestParserTest {
     void parse_throwsBadDataFormat_forExtensionWithMalformedValue() {
         // given — a SEQUENCE tag declaring 5 content bytes but carrying none is not decodable DER
         var malformedDerValue = new byte[]{0x30, 0x05};
-        var body = aRawTspRequest()
-                .withExtension("1.3.6.1.5.5.7.48.1.2", malformedDerValue)
-                .build();
+        var body = aRawTspRequest().withExtension("1.3.6.1.5.5.7.48.1.2", malformedDerValue).build();
 
         // when
         Executable parse = () -> TspRequestParser.parse(body);
@@ -163,9 +164,7 @@ class TspRequestParserTest {
     void parse_throwsBadAlg_forUnknownDigestAlgorithmOid() {
         // given — an OID that maps to no known DigestAlgorithm
         var unknownDigestOid = new ASN1ObjectIdentifier("1.2.3.4.5");
-        var body = aRawTspRequest()
-                .withDigestAlgorithmOid(unknownDigestOid)
-                .build();
+        var body = aRawTspRequest().withDigestAlgorithmOid(unknownDigestOid).build();
 
         // when
         Executable parse = () -> TspRequestParser.parse(body);
@@ -206,9 +205,9 @@ class TspRequestParserTest {
     }
 
     /**
-     * A SEQUENCE shorter than the two members BC's TimeStampReq reads (version, messageImprint) makes BC index
-     * the parsed vector out of bounds, surfacing as ArrayIndexOutOfBoundsException rather than IOException.
-     * That runtime exception must still be classified as a client-side malformed request, not a server fault.
+     * A SEQUENCE shorter than the two members BC's TimeStampReq reads (version, messageImprint) makes BC index the
+     * parsed vector out of bounds, surfacing as ArrayIndexOutOfBoundsException rather than IOException. That runtime
+     * exception must still be classified as a client-side malformed request, not a server fault.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("truncatedSequences")
@@ -222,9 +221,8 @@ class TspRequestParserTest {
     }
 
     static Stream<Arguments> truncatedSequences() {
-        return Stream.of(
-                arguments(named("empty SEQUENCE", new byte[]{0x30, 0x00})),
-                arguments(named("SEQUENCE with only an INTEGER member", new byte[]{0x30, 0x03, 0x02, 0x01, 0x01}))
-        );
+        return Stream
+                .of(arguments(named("empty SEQUENCE", new byte[]{0x30, 0x00})), arguments(
+                        named("SEQUENCE with only an INTEGER member", new byte[]{0x30, 0x03, 0x02, 0x01, 0x01})));
     }
 }

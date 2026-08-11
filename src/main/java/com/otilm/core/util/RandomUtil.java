@@ -9,6 +9,7 @@ public class RandomUtil {
 
     /**
      * This method generates a random nonce
+     *
      * @param size size of the nonce in bytes
      * @return nonce
      */
@@ -21,6 +22,7 @@ public class RandomUtil {
 
     /**
      * This method generates a random nonce in Base64 format
+     *
      * @param size size of the nonce in bytes
      * @return nonce
      */
@@ -30,6 +32,7 @@ public class RandomUtil {
 
     /**
      * This method generates a random nonce in Base64Url format
+     *
      * @param size size of the nonce in bytes
      * @return nonce
      */

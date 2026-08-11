@@ -4,23 +4,21 @@ import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Component;
 
 /**
- * Coordinates operations that must run on a single cluster node at a time (e.g. scheduled
- * housekeeping that every instance triggers on its own timer). Backed by PostgreSQL
- * transaction-scoped advisory locks: the lock is acquired without blocking and released
- * automatically when the surrounding transaction commits or rolls back.
+ * Coordinates operations that must run on a single cluster node at a time (e.g. scheduled housekeeping that every
+ * instance triggers on its own timer). Backed by PostgreSQL transaction-scoped advisory locks: the lock is acquired
+ * without blocking and released automatically when the surrounding transaction commits or rolls back.
  */
 @Component
 public class ClusterOperationSynchronizer {
 
     /**
-     * Named cluster-wide locks. Each constant owns a distinct advisory-lock key; keys must stay
-     * stable and unique across the application so two unrelated operations never collide.
+     * Named cluster-wide locks. Each constant owns a distinct advisory-lock key; keys must stay stable and unique
+     * across the application so two unrelated operations never collide.
      */
     public enum Operation {
-        SIGNING_RECORD_RETENTION(0x51_67_4E_43_52_45_43_00L),
-        SIGNING_RECORD_DELETE_AFTER_RETRIEVAL(0x51_67_4E_43_52_44_52_00L),
-        SIGNING_RECORD_OUTBOX_DRAIN(0x51_67_4E_43_4F_42_44_52L),
-        PROVIDER_STATUS_POLL_SWEEP(0x50_52_4F_56_50_4F_4C_4CL);
+        SIGNING_RECORD_RETENTION(0x51_67_4E_43_52_45_43_00L), SIGNING_RECORD_DELETE_AFTER_RETRIEVAL(
+                0x51_67_4E_43_52_44_52_00L), SIGNING_RECORD_OUTBOX_DRAIN(
+                        0x51_67_4E_43_4F_42_44_52L), PROVIDER_STATUS_POLL_SWEEP(0x50_52_4F_56_50_4F_4C_4CL);
 
         private final long lockKey;
 
@@ -38,11 +36,10 @@ public class ClusterOperationSynchronizer {
     /**
      * Tries to acquire the cluster-wide lock for the given operation without blocking.
      * <p>
-     * Must be called inside a transaction: the lock is transaction-scoped, so outside a
-     * transaction it would be acquired and released within the single {@code SELECT} statement,
-     * providing no mutual exclusion. Returns {@code true} if this node now holds the lock and
-     * should perform the operation, {@code false} if another node holds it and this node should
-     * skip the operation. The lock is released automatically when the transaction ends.
+     * Must be called inside a transaction: the lock is transaction-scoped, so outside a transaction it would be
+     * acquired and released within the single {@code SELECT} statement, providing no mutual exclusion. Returns
+     * {@code true} if this node now holds the lock and should perform the operation, {@code false} if another node
+     * holds it and this node should skip the operation. The lock is released automatically when the transaction ends.
      */
     public boolean tryLock(Operation operation) {
         return (boolean) entityManager
@@ -54,14 +51,14 @@ public class ClusterOperationSynchronizer {
     /**
      * Acquires a cluster-wide lock keyed on {@code key}, blocking until it becomes available.
      * <p>
-     * Unlike {@link #tryLock(Operation)}, this waits for the lock instead of skipping the work, so use
-     * it to serialize a read-decide-write section that every caller must perform (e.g. the signing-profile
-     * version-bump decision) rather than housekeeping only one node needs to run. The {@code key} is hashed
-     * into the advisory-lock keyspace via {@code hashtext}; distinct keys serialize independently, so callers
-     * scope the lock by composing a stable prefix with the entity identifier (e.g. {@code "signing-profile:" + uuid}).
+     * Unlike {@link #tryLock(Operation)}, this waits for the lock instead of skipping the work, so use it to serialize
+     * a read-decide-write section that every caller must perform (e.g. the signing-profile version-bump decision)
+     * rather than housekeeping only one node needs to run. The {@code key} is hashed into the advisory-lock keyspace
+     * via {@code hashtext}; distinct keys serialize independently, so callers scope the lock by composing a stable
+     * prefix with the entity identifier (e.g. {@code "signing-profile:" + uuid}).
      * <p>
-     * Must be called inside a transaction: the lock is transaction-scoped and released automatically when
-     * the transaction commits or rolls back.
+     * Must be called inside a transaction: the lock is transaction-scoped and released automatically when the
+     * transaction commits or rolls back.
      */
     public void lock(String key) {
         entityManager

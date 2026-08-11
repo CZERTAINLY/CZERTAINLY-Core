@@ -9,7 +9,7 @@ public class CachedBodyServletOutputStream extends ServletOutputStream {
 
     private final OutputStream outputStream;
     private final CustomHttpServletResponseWrapper wrappedResponse;
-    private final ServletOutputStream servletOutputStream = new ServletOutputStream(){
+    private final ServletOutputStream servletOutputStream = new ServletOutputStream() {
         WriteListener writeListener = null;
 
         @Override
@@ -17,9 +17,10 @@ public class CachedBodyServletOutputStream extends ServletOutputStream {
             this.writeListener = writeListener;
         }
 
-        public boolean isReady(){
+        public boolean isReady() {
             return true;
         }
+
         @Override
         public void write(int w) throws IOException {
             outputStream.write(w);
@@ -32,13 +33,13 @@ public class CachedBodyServletOutputStream extends ServletOutputStream {
         this.wrappedResponse = wrappedResponse;
     }
 
-
     @Override
     public void setWriteListener(WriteListener writeListener) {
-        servletOutputStream.setWriteListener( writeListener );
+        servletOutputStream.setWriteListener(writeListener);
     }
+
     @Override
-    public boolean isReady(){
+    public boolean isReady() {
         return servletOutputStream.isReady();
     }
 

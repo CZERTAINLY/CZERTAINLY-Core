@@ -4,6 +4,8 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.model.NotificationMessage;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,9 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessagePostProcessor;
 import org.springframework.retry.support.RetryTemplate;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,8 +25,10 @@ import static org.mockito.Mockito.lenient;
 @ExtendWith(MockitoExtension.class)
 class NotificationProducerTest {
 
-    @Mock JmsTemplate jmsTemplate;
-    @Mock MessagingProperties messagingProperties;
+    @Mock
+    JmsTemplate jmsTemplate;
+    @Mock
+    MessagingProperties messagingProperties;
 
     private NotificationProducer producer;
 
@@ -35,11 +36,9 @@ class NotificationProducerTest {
     void setUp() {
         lenient().when(messagingProperties.produceDestinationNotifications()).thenReturn("/exchanges/ilm/notification");
 
-        MessagingProperties.RoutingKey routingKey = new MessagingProperties.RoutingKey(
-                "actions", "audit-logs", "event", "notification", "scheduler",
-                "validation", "time-quality.config-request", "time-quality.config",
-                "time-quality.results", "provider.status-poll"
-        );
+        MessagingProperties.RoutingKey routingKey = new MessagingProperties.RoutingKey("actions", "audit-logs", "event",
+                "notification", "scheduler", "validation", "time-quality.config-request", "time-quality.config",
+                "time-quality.results", "provider.status-poll");
         lenient().when(messagingProperties.routingKey()).thenReturn(routingKey);
 
         producer = new NotificationProducer(jmsTemplate, messagingProperties,
@@ -53,7 +52,8 @@ class NotificationProducerTest {
 
     private void makeDispatchFail() {
         doThrow(new IllegalStateException("broker unreachable"))
-                .when(jmsTemplate).convertAndSend(anyString(), any(Object.class), any(MessagePostProcessor.class));
+                .when(jmsTemplate)
+                .convertAndSend(anyString(), any(Object.class), any(MessagePostProcessor.class));
     }
 
     /**
@@ -68,8 +68,8 @@ class NotificationProducerTest {
     }
 
     /**
-     * The guard belongs to the listener alone: a caller that dispatches directly is still inside its own operation
-     * and can act on the failure.
+     * The guard belongs to the listener alone: a caller that dispatches directly is still inside its own operation and
+     * can act on the failure.
      */
     @Test
     void aDirectDispatchStillReportsTheFailure() {

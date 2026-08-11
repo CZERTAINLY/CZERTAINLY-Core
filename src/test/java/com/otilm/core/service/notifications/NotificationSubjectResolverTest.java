@@ -4,9 +4,8 @@ import com.otilm.api.model.common.events.data.ApprovalEventData;
 import com.otilm.api.model.common.events.data.CertificateExpiringEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.service.notifications.NotificationSubjectResolver.SubjectRef;
-import org.junit.jupiter.api.Test;
-
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -16,8 +15,8 @@ class NotificationSubjectResolverTest {
     void ordinaryEventsResolveToTheEventObject() {
         UUID certificateUuid = UUID.randomUUID();
 
-        SubjectRef subject = NotificationSubjectResolver.resolveSubject(
-                Resource.CERTIFICATE, certificateUuid, new CertificateExpiringEventData());
+        SubjectRef subject = NotificationSubjectResolver
+                .resolveSubject(Resource.CERTIFICATE, certificateUuid, new CertificateExpiringEventData());
 
         assertEquals(new SubjectRef(Resource.CERTIFICATE, certificateUuid), subject);
     }
@@ -30,8 +29,7 @@ class NotificationSubjectResolverTest {
         approval.setResource(Resource.CERTIFICATE);
         approval.setObjectUuid(targetUuid);
 
-        SubjectRef subject = NotificationSubjectResolver.resolveSubject(
-                Resource.APPROVAL, approvalUuid, approval);
+        SubjectRef subject = NotificationSubjectResolver.resolveSubject(Resource.APPROVAL, approvalUuid, approval);
 
         assertEquals(new SubjectRef(Resource.CERTIFICATE, targetUuid), subject);
     }
@@ -43,8 +41,7 @@ class NotificationSubjectResolverTest {
         approval.setResource(null);
         approval.setObjectUuid(UUID.randomUUID());
 
-        SubjectRef subject = NotificationSubjectResolver.resolveSubject(
-                Resource.APPROVAL, approvalUuid, approval);
+        SubjectRef subject = NotificationSubjectResolver.resolveSubject(Resource.APPROVAL, approvalUuid, approval);
 
         assertEquals(new SubjectRef(Resource.APPROVAL, approvalUuid), subject);
 

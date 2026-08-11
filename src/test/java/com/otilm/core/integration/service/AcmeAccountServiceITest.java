@@ -1,9 +1,9 @@
 package com.otilm.core.integration.service;
 
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.acme.AcmeAccountListResponseDto;
 import com.otilm.api.model.client.acme.AcmeAccountResponseDto;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.acme.AccountStatus;
 import com.otilm.api.model.core.acme.OrderStatus;
@@ -29,15 +29,14 @@ import com.otilm.core.service.AcmeAccountExternalService;
 import com.otilm.core.service.AcmeAccountInternalService;
 import com.otilm.core.service.RaProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class AcmeAccountServiceITest extends BaseSpringBootTest {
 
@@ -137,7 +136,8 @@ class AcmeAccountServiceITest extends BaseSpringBootTest {
         acmeAccount.setValidOrders(1);
         acmeAccountRepository.save(acmeAccount);
         createExpiredOrder(OrderStatus.INVALID);
-        AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
+        AcmeAccountResponseDto dto = acmeAccountService
+                .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeAccount.getAccountId(), dto.getAccountId());
         Assertions.assertNotNull(acmeAccount.getUuid());
@@ -157,61 +157,103 @@ class AcmeAccountServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetAccountById_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> acmeAccountService
+                                .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testRemoveAccount() throws NotFoundException {
-        acmeAccountService.revokeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
-        Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).getStatus());
+        acmeAccountService
+                .revokeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
+        Assertions
+                .assertEquals(AccountStatus.REVOKED,
+                        acmeAccountService
+                                .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                        acmeAccount.getSecuredUuid())
+                                .getStatus());
     }
 
     @Test
     void testRemoveAccount_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> acmeAccountService
+                                .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testEnableAccount() throws NotFoundException {
-        acmeAccountService.enableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
-        Assertions.assertTrue(acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).isEnabled());
+        acmeAccountService
+                .enableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
+        Assertions
+                .assertTrue(acmeAccountService
+                        .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                acmeAccount.getSecuredUuid())
+                        .isEnabled());
     }
 
     @Test
     void testEnableAccount_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.enableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> acmeAccountService
+                                .enableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testDisableAccount() throws NotFoundException {
-        acmeAccountService.disableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
-        Assertions.assertFalse(acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).isEnabled());
+        acmeAccountService
+                .disableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
+        Assertions
+                .assertFalse(acmeAccountService
+                        .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                acmeAccount.getSecuredUuid())
+                        .isEnabled());
     }
 
     @Test
     void testDisableAccount_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.disableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> acmeAccountService
+                                .disableAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testBulkRemove() throws NotFoundException {
         acmeAccountService.bulkRevokeAccount(List.of(acmeAccount.getSecuredUuid()));
-        Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).getStatus());
+        Assertions
+                .assertEquals(AccountStatus.REVOKED,
+                        acmeAccountService
+                                .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                        acmeAccount.getSecuredUuid())
+                                .getStatus());
     }
 
     @Test
     void testBulkEnable() throws NotFoundException {
         acmeAccountService.bulkEnableAccount(List.of(acmeAccount.getSecuredUuid()));
-        Assertions.assertTrue(acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).isEnabled());
+        Assertions
+                .assertTrue(acmeAccountService
+                        .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                acmeAccount.getSecuredUuid())
+                        .isEnabled());
     }
 
     @Test
     void testBulkDisable() throws NotFoundException {
         acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getSecuredUuid()));
-        Assertions.assertFalse(acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid()).isEnabled());
+        Assertions
+                .assertFalse(acmeAccountService
+                        .getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(),
+                                acmeAccount.getSecuredUuid())
+                        .isEnabled());
     }
 
     @Test

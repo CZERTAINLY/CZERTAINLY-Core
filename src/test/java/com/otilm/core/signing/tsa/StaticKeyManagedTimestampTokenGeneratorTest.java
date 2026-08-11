@@ -11,6 +11,10 @@ import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfigurati
 import com.otilm.core.signing.tsa.formatting.SignatureFormattingClient;
 import com.otilm.core.signing.tsa.signer.Signer;
 import com.otilm.core.signing.tsa.signer.SignerFactory;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.tsp.TimeStampToken;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,11 +23,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.math.BigInteger;
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,16 +37,19 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class StaticKeyManagedTimestampTokenGeneratorTest {
 
-    @Mock SignerFactory signerFactory;
-    @Mock SignatureFormattingClient formatting;
-    @Mock Signer signer;
+    @Mock
+    SignerFactory signerFactory;
+    @Mock
+    SignatureFormattingClient formatting;
+    @Mock
+    Signer signer;
 
     @InjectMocks
     StaticKeyManagedTimestampTokenGenerator generator;
 
     /**
-     * A real, parseable DER-encoded TimeStampToken used in happy-path tests.
-     * Generated once via BouncyCastle so the unit tests do not need a live connector.
+     * A real, parseable DER-encoded TimeStampToken used in happy-path tests. Generated once via BouncyCastle so the
+     * unit tests do not need a live connector.
      */
     private static byte[] validTokenBytes;
 
@@ -65,21 +67,9 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static ResolvedManagedTimestampingProfile aTimestampingProfile() {
-        return new ResolvedManagedTimestampingProfile(
-                UUID.randomUUID(),
-                "test-profile",
-                null,
-                1,
-                true,
-                List.of(SigningProtocol.TSP),
-                Boolean.FALSE,
-                "1.2.3.4.5",
-                List.of(),
-                List.of(),
-                false,
-                List.of(),
-                LocalClockTimeQualityConfiguration.INSTANCE,
-                null,
+        return new ResolvedManagedTimestampingProfile(UUID.randomUUID(), "test-profile", null, 1, true,
+                List.of(SigningProtocol.TSP), Boolean.FALSE, "1.2.3.4.5", List.of(), List.of(), false, List.of(),
+                LocalClockTimeQualityConfiguration.INSTANCE, null,
                 new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(), null, List.of()));
     }
 
@@ -97,7 +87,9 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
         when(formatting.formatDtbs(request, profile, serialNumber, genTime, chain, SignatureAlgorithm.SHA256_WITH_RSA))
                 .thenReturn(dtbs);
         when(signer.sign(dtbs)).thenReturn(signature);
-        when(formatting.formatSigningResponse(request, profile, serialNumber, genTime, chain, dtbs, signature, SignatureAlgorithm.SHA256_WITH_RSA))
+        when(formatting
+                .formatSigningResponse(request, profile, serialNumber, genTime, chain, dtbs, signature,
+                        SignatureAlgorithm.SHA256_WITH_RSA))
                 .thenReturn(validTokenBytes);
 
         // when
@@ -126,7 +118,8 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
 
     @Test
     void passesAlgorithmFromSigner_toBothFormattingPhases() throws Exception {
-        // given — the formatting must receive the signer's reported algorithm in both the DTBS and signing-response phases
+        // given — the formatting must receive the signer's reported algorithm in both the DTBS and signing-response
+        // phases
         when(signer.getSignatureAlgorithm()).thenReturn(SignatureAlgorithm.SHA384_WITH_ECDSA);
         when(formatting.formatDtbs(any(), any(), any(), any(), any(), any())).thenReturn(new byte[1]);
         when(signer.sign(any())).thenReturn(new byte[1]);
@@ -134,13 +127,15 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
                 .thenReturn(validTokenBytes);
 
         // when
-        generator.generate(aTspRequest().build(), aTimestampingProfile(),
-                mock(CertificateChain.class), BigInteger.ONE, Instant.now());
+        generator
+                .generate(aTspRequest().build(), aTimestampingProfile(), mock(CertificateChain.class), BigInteger.ONE,
+                        Instant.now());
 
         // then
         verify(formatting).formatDtbs(any(), any(), any(), any(), any(), eq(SignatureAlgorithm.SHA384_WITH_ECDSA));
-        verify(formatting).formatSigningResponse(any(), any(), any(), any(), any(), any(), any(),
-                eq(SignatureAlgorithm.SHA384_WITH_ECDSA));
+        verify(formatting)
+                .formatSigningResponse(any(), any(), any(), any(), any(), any(), any(),
+                        eq(SignatureAlgorithm.SHA384_WITH_ECDSA));
     }
 
     @Test
@@ -154,8 +149,9 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
                 .thenReturn(validTokenBytes);
 
         // when
-        generator.generate(aTspRequest().build(), aTimestampingProfile(),
-                mock(CertificateChain.class), BigInteger.ONE, Instant.now());
+        generator
+                .generate(aTspRequest().build(), aTimestampingProfile(), mock(CertificateChain.class), BigInteger.ONE,
+                        Instant.now());
 
         // then
         verify(signer).sign(dtbs);
@@ -164,15 +160,17 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
 
     @Test
     void throwsSystemFailure_whenTokenBytesAreNotParseable() throws Exception {
-        // given — the formatting.formatSigningResponse returns garbage bytes; BouncyCastle fails to parse them as a CMS SignedData
+        // given — the formatting.formatSigningResponse returns garbage bytes; BouncyCastle fails to parse them as a CMS
+        // SignedData
         when(formatting.formatDtbs(any(), any(), any(), any(), any(), any())).thenReturn(new byte[1]);
         when(signer.sign(any())).thenReturn(new byte[1]);
         when(formatting.formatSigningResponse(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new byte[]{0x00, 0x01, 0x02, 0x03});
 
         // when / then
-        assertThatThrownBy(() -> generator.generate(aTspRequest().build(), aTimestampingProfile(),
-                mock(CertificateChain.class), BigInteger.ONE, Instant.now()))
+        assertThatThrownBy(() -> generator
+                .generate(aTspRequest().build(), aTimestampingProfile(), mock(CertificateChain.class), BigInteger.ONE,
+                        Instant.now()))
                 .isInstanceOf(TspException.class)
                 .satisfies(ex -> {
                     assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
@@ -187,8 +185,9 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
         when(signerFactory.create(any())).thenThrow(cause);
 
         // when / then
-        assertThatThrownBy(() -> generator.generate(aTspRequest().build(), aTimestampingProfile(),
-                mock(CertificateChain.class), BigInteger.ONE, Instant.now()))
+        assertThatThrownBy(() -> generator
+                .generate(aTspRequest().build(), aTimestampingProfile(), mock(CertificateChain.class), BigInteger.ONE,
+                        Instant.now()))
                 .isSameAs(cause);
     }
 
@@ -199,8 +198,9 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
         when(formatting.formatDtbs(any(), any(), any(), any(), any(), any())).thenThrow(cause);
 
         // when / then
-        assertThatThrownBy(() -> generator.generate(aTspRequest().build(), aTimestampingProfile(),
-                mock(CertificateChain.class), BigInteger.ONE, Instant.now()))
+        assertThatThrownBy(() -> generator
+                .generate(aTspRequest().build(), aTimestampingProfile(), mock(CertificateChain.class), BigInteger.ONE,
+                        Instant.now()))
                 .isSameAs(cause);
     }
 
@@ -212,8 +212,9 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
         when(signer.sign(any())).thenThrow(cause);
 
         // when / then
-        assertThatThrownBy(() -> generator.generate(aTspRequest().build(), aTimestampingProfile(),
-                mock(CertificateChain.class), BigInteger.ONE, Instant.now()))
+        assertThatThrownBy(() -> generator
+                .generate(aTspRequest().build(), aTimestampingProfile(), mock(CertificateChain.class), BigInteger.ONE,
+                        Instant.now()))
                 .isSameAs(cause);
     }
 
@@ -226,8 +227,9 @@ class StaticKeyManagedTimestampTokenGeneratorTest {
         when(formatting.formatSigningResponse(any(), any(), any(), any(), any(), any(), any(), any())).thenThrow(cause);
 
         // when / then
-        assertThatThrownBy(() -> generator.generate(aTspRequest().build(), aTimestampingProfile(),
-                mock(CertificateChain.class), BigInteger.ONE, Instant.now()))
+        assertThatThrownBy(() -> generator
+                .generate(aTspRequest().build(), aTimestampingProfile(), mock(CertificateChain.class), BigInteger.ONE,
+                        Instant.now()))
                 .isSameAs(cause);
     }
 }

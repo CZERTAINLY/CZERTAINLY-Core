@@ -2,25 +2,22 @@ package com.otilm.core.service.impl;
 
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link CertificateServiceImpl#identifyRejectionReason(ValidationException)}.
- * Each branch is covered independently so the helper does not depend on Spring context wiring.
+ * Unit tests for {@link CertificateServiceImpl#identifyRejectionReason(ValidationException)}. Each branch is covered
+ * independently so the helper does not depend on Spring context wiring.
  */
 class CertificateServiceImplIdentifyRejectionReasonTest {
 
     @Test
     void joinsNonBlankErrorDescriptions() {
-        ValidationException ex = new ValidationException(List.of(
-                ValidationError.create("first reason"),
-                ValidationError.create("second reason")
-        ));
+        ValidationException ex = new ValidationException(
+                List.of(ValidationError.create("first reason"), ValidationError.create("second reason")));
 
         String reason = CertificateServiceImpl.identifyRejectionReason(ex);
 

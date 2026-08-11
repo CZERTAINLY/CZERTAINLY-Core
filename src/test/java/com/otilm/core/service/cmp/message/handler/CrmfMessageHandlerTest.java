@@ -15,6 +15,15 @@ import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.protection.ProtectionStrategy;
 import com.otilm.core.service.handler.CertificateValidationStatusPoller;
+import java.lang.reflect.UndeclaredThrowableException;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERBitString;
@@ -40,6 +49,10 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
@@ -47,30 +60,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.lang.reflect.UndeclaredThrowableException;
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link CrmfMessageHandler#loadCaCertificateChain} (issue #1830).
  *
- * <p>A certificate can be genuinely ISSUED while its CertificateValidationStatus is still
- * NOT_CHECKED — validation is advanced asynchronously (event-driven after issuance, hourly
- * batch as fallback). NOT_CHECKED is a transient state, not a verdict: the CA-chain builder
- * waits briefly for the in-flight validation to land (so a definitively bad status is still
- * caught) and accepts NOT_CHECKED if it doesn't — the response must reflect issuance
- * success, never fail on validation progress.</p>
+ * <p>
+ * A certificate can be genuinely ISSUED while its CertificateValidationStatus is still NOT_CHECKED — validation is
+ * advanced asynchronously (event-driven after issuance, hourly batch as fallback). NOT_CHECKED is a transient state,
+ * not a verdict: the CA-chain builder waits briefly for the in-flight validation to land (so a definitively bad status
+ * is still caught) and accepts NOT_CHECKED if it doesn't — the response must reflect issuance success, never fail on
+ * validation progress.
+ * </p>
  */
 class CrmfMessageHandlerTest {
 
@@ -107,7 +107,8 @@ class CrmfMessageHandlerTest {
 
     @Test
     void acceptsLeaf_whenResolveOrKeepReturnsNotChecked() throws NotFoundException {
-        // NOT_CHECKED is a transient state for the freshly-issued leaf, not a verdict : if the poller cannot resolve it within the budget, the leaf still passes.
+        // NOT_CHECKED is a transient state for the freshly-issued leaf, not a verdict : if the poller cannot resolve it
+        // within the budget, the leaf still passes.
         UUID leafUuid = UUID.randomUUID();
         Certificate leaf = leafCertificate(leafUuid);
         CertificateDetailDto leafDto = certificateDto(leafUuid.toString(), CertificateValidationStatus.NOT_CHECKED);
@@ -144,7 +145,8 @@ class CrmfMessageHandlerTest {
         UUID leafUuid = UUID.randomUUID();
         Certificate leaf = leafCertificate(leafUuid);
         CertificateDetailDto leafDto = certificateDto(leafUuid.toString(), CertificateValidationStatus.VALID);
-        CertificateDetailDto caDto = certificateDto(UUID.randomUUID().toString(), CertificateValidationStatus.NOT_CHECKED);
+        CertificateDetailDto caDto = certificateDto(UUID.randomUUID().toString(),
+                CertificateValidationStatus.NOT_CHECKED);
         when(certificateService.getCertificateChain(any(SecuredUUID.class), eq(true)))
                 .thenReturn(chainResponse(leafDto, caDto));
         when(validationStatusPoller.resolveOrKeep(leafDto)).thenReturn(CertificateValidationStatus.VALID);
@@ -166,8 +168,7 @@ class CrmfMessageHandlerTest {
         // pollRep as the direct answer to ir is out-of-state and conformant clients
         // (openssl cmp) abort with "unexpected pkibody", orphaning the issued certificate.
         CmpTransactionService cmpTransactionService = mock(CmpTransactionService.class);
-        when(cmpTransactionService.createTransactionEntity(
-                        anyString(), any(), anyString(), any(), any()))
+        when(cmpTransactionService.createTransactionEntity(anyString(), any(), anyString(), any(), any()))
                 .thenReturn(new CmpTransaction());
         CrmfIrCrMessageHandler irCrMessageHandler = mock(CrmfIrCrMessageHandler.class);
         when(irCrMessageHandler.getTransactionState()).thenReturn(CmpTransactionState.CERT_ISSUED);
@@ -175,18 +176,15 @@ class CrmfMessageHandlerTest {
         handler.setCrmfIrCrMessageHandler(irCrMessageHandler);
 
         ConfigurationContext configuration = configurationWithMockedProtection();
-        CertRequest certRequest = new CertRequest(
-                new ASN1Integer(0),
-                new CertTemplateBuilder().setSubject(new X500Name("CN=cmp-certificate")).build(),
-                null);
+        CertRequest certRequest = new CertRequest(new ASN1Integer(0),
+                new CertTemplateBuilder().setSubject(new X500Name("CN=cmp-certificate")).build(), null);
         PKIMessage request = irMessage(certRequest);
         ClientCertificateDataResponseDto requestedCert = new ClientCertificateDataResponseDto();
         requestedCert.setUuid(UUID.randomUUID().toString());
 
-        PKIMessage response = (PKIMessage) ReflectionTestUtils.invokeMethod(
-                handler, "handleAsynchronousAcceptance",
-                request.getHeader().getTransactionID(), request, configuration,
-                "ir", requestedCert, certRequest);
+        PKIMessage response = (PKIMessage) ReflectionTestUtils
+                .invokeMethod(handler, "handleAsynchronousAcceptance", request.getHeader().getTransactionID(), request,
+                        configuration, "ir", requestedCert, certRequest);
 
         assertThat(response).isNotNull();
         assertThat(response.getBody().getType()).isEqualTo(PKIBody.TYPE_INIT_REP);
@@ -198,9 +196,7 @@ class CrmfMessageHandlerTest {
     }
 
     private static PKIMessage irMessage(CertRequest certRequest) {
-        PKIHeader header = new PKIHeaderBuilder(
-                PKIHeader.CMP_2000,
-                new GeneralName(new X500Name("CN=test-sender")),
+        PKIHeader header = new PKIHeaderBuilder(PKIHeader.CMP_2000, new GeneralName(new X500Name("CN=test-sender")),
                 new GeneralName(new X500Name("CN=test-recipient")))
                 .setTransactionID(new DEROctetString(new byte[]{1, 2, 3, 4}))
                 .setSenderNonce(new DEROctetString(new byte[]{5, 6, 7, 8}))
@@ -216,8 +212,8 @@ class CrmfMessageHandlerTest {
             when(cfg.getProtectionStrategy()).thenReturn(strategy);
             when(cfg.getRecipient()).thenReturn(new GeneralName(new X500Name("CN=test-recipient")));
             when(strategy.getSender()).thenReturn(new GeneralName(new X500Name("CN=test-sender")));
-            when(strategy.getProtectionAlg()).thenReturn(new AlgorithmIdentifier(
-                    new ASN1ObjectIdentifier("1.3.6.1.5.5.8.1.2")));
+            when(strategy.getProtectionAlg())
+                    .thenReturn(new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.3.6.1.5.5.8.1.2")));
             when(strategy.getSenderKID()).thenReturn(new DEROctetString(new byte[]{1, 2, 3}));
             when(strategy.getProtectingExtraCerts()).thenReturn(List.of());
             when(strategy.createProtection(any(PKIHeader.class), any(PKIBody.class)))
@@ -230,8 +226,8 @@ class CrmfMessageHandlerTest {
 
     @SuppressWarnings("unchecked")
     private List<X509Certificate> invokeLoadCaCertificateChain(Certificate leaf) {
-        return (List<X509Certificate>) ReflectionTestUtils.invokeMethod(
-                handler, "loadCaCertificateChain", new DEROctetString(new byte[]{1, 2, 3, 4}), 0, leaf);
+        return (List<X509Certificate>) ReflectionTestUtils
+                .invokeMethod(handler, "loadCaCertificateChain", new DEROctetString(new byte[]{1, 2, 3, 4}), 0, leaf);
     }
 
     private static Certificate leafCertificate(UUID uuid) {
@@ -268,8 +264,8 @@ class CrmfMessageHandlerTest {
             X500Name name = new X500Name("CN=test-ca-chain");
             Date notBefore = new Date();
             Date notAfter = new Date(notBefore.getTime() + 365L * 24 * 60 * 60 * 1000);
-            X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                    name, BigInteger.ONE, notBefore, notAfter, name, kp.getPublic());
+            X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(name, BigInteger.ONE, notBefore,
+                    notAfter, name, kp.getPublic());
             ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(kp.getPrivate());
             X509Certificate x509 = new JcaX509CertificateConverter().getCertificate(builder.build(signer));
             return Base64.getEncoder().encodeToString(x509.getEncoded());

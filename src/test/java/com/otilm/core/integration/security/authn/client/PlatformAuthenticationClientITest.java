@@ -1,5 +1,7 @@
 package com.otilm.core.integration.security.authn.client;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.core.logging.enums.ActorType;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.logging.records.ActorRecord;
@@ -10,22 +12,23 @@ import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.function.Executable;
-import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.GrantedAuthority;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -116,12 +119,8 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
 
         );
         // @formatter:on
-        assertEquals(
-                List.of("ROLE_ADMINISTRATOR", "ROLE_USER"),
-                info.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .toList()
-        );
+        assertEquals(List.of("ROLE_ADMINISTRATOR", "ROLE_USER"),
+                info.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList());
 
     }
 
@@ -215,7 +214,8 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
         setUpSuccessfulAuthenticationResponse();
 
         // when
-        AuthenticationInfo result = authenticationClient.authenticateByCertificate("TEST_CERT_CONTENT", "sha256-fingerprint-abc");
+        AuthenticationInfo result = authenticationClient
+                .authenticateByCertificate("TEST_CERT_CONTENT", "sha256-fingerprint-abc");
 
         // then
         assertEquals("FrantisekJednicka", result.getUsername());
@@ -226,7 +226,8 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
     void authenticateByCertificate_cacheHit_doesNotCallAuthService() {
         // given - cache key is the fingerprint, not the raw cert content
         setUpSuccessfulAuthenticationResponse();
-        authenticationClient.authenticateByCertificate("TEST_CERT_CONTENT", "sha256-fingerprint-abc"); // prime the cache
+        authenticationClient.authenticateByCertificate("TEST_CERT_CONTENT", "sha256-fingerprint-abc"); // prime the
+                                                                                                       // cache
 
         // when - same fingerprint, different raw content; the cache should serve the result
         authenticationClient.authenticateByCertificate("OTHER_CERT_CONTENT", "sha256-fingerprint-abc");
@@ -427,12 +428,11 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
     @Test
     void authenticateSystemUser_anonymousResult_leavesLoaderActorMdcUntouched() {
         // given - auth service rejects; anonymous results are never cached, the loader always runs
-        authServiceMock.enqueue(
-                new MockResponse()
+        authServiceMock
+                .enqueue(new MockResponse()
                         .setResponseCode(200)
                         .setHeader("content-type", "application/json")
-                        .setBody("{\"authenticated\": false, \"data\": null}")
-        );
+                        .setBody("{\"authenticated\": false, \"data\": null}"));
 
         // when
         AuthenticationInfo info = authenticationClient.authenticateSystemUser("unknown-user");
@@ -451,26 +451,18 @@ class PlatformAuthenticationClientITest extends BaseSpringBootTest {
     // @formatter:on
 
     void setUpSuccessfulAuthenticationResponse() {
-        authServiceMock.enqueue(
-                new MockResponse()
+        authServiceMock
+                .enqueue(new MockResponse()
                         .setResponseCode(200)
                         .setHeader("content-type", "application/json")
-                        .setBody(RAW_DATA)
-        );
+                        .setBody(RAW_DATA));
     }
 
     void setUpEmptyResponse() {
-        authServiceMock.enqueue(
-                new MockResponse()
-                        .setResponseCode(200)
-                        .setHeader("content-type", "application/json")
-        );
+        authServiceMock.enqueue(new MockResponse().setResponseCode(200).setHeader("content-type", "application/json"));
     }
 
     void setUpFaultyResponse() {
-        authServiceMock.enqueue(
-                new MockResponse()
-                        .setResponseCode(500)
-        );
+        authServiceMock.enqueue(new MockResponse().setResponseCode(500));
     }
 }

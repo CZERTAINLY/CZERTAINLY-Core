@@ -3,9 +3,8 @@ package com.otilm.core.signing.tsa.signer;
 import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * Selects the appropriate {@link SignerCreator} for a given signing scheme.
@@ -20,13 +19,13 @@ public class SignerFactory {
     }
 
     public Signer create(ResolvedManagedScheme signingScheme) throws TspException {
-        return creators.stream()
+        return creators
+                .stream()
                 .filter(c -> c.supports(signingScheme))
                 .findFirst()
-                .orElseThrow(() -> new TspException(
-                        TspFailureInfo.SYSTEM_FAILURE,
-                        "No SignerCreator supports signing scheme '%s'".formatted(
-                                signingScheme.getClass().getSimpleName()),
+                .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
+                        "No SignerCreator supports signing scheme '%s'"
+                                .formatted(signingScheme.getClass().getSimpleName()),
                         "The system is misconfigured."))
                 .create(signingScheme);
     }

@@ -14,18 +14,15 @@ import static org.mockito.Mockito.mock;
 
 /**
  * Guards which {@code AttributeResource} kinds the callback-mode expander will dereference. A missing kind here
- * silently downgrades to a bare-reference pass-through, which for a stateless connector means an unusable
- * reference on the wire (e.g. an authority's {@code oauthClient}, a stored Basic-Auth SECRET reference).
+ * silently downgrades to a bare-reference pass-through, which for a stateless connector means an unusable reference on
+ * the wire (e.g. an authority's {@code oauthClient}, a stored Basic-Auth SECRET reference).
  */
 class CallerAuthorizedReferenceLoaderRegistryTest {
 
     private CallerAuthorizedReferenceLoaderRegistry registry() {
-        return new CallerAuthorizedReferenceLoaderRegistry(
-                mock(CredentialInternalService.class),
-                mock(AuthorityInstanceInternalService.class),
-                mock(EntityInstanceInternalService.class),
-                mock(LocationInternalService.class),
-                mock(SecretInternalService.class));
+        return new CallerAuthorizedReferenceLoaderRegistry(mock(CredentialInternalService.class),
+                mock(AuthorityInstanceInternalService.class), mock(EntityInstanceInternalService.class),
+                mock(LocationInternalService.class), mock(SecretInternalService.class));
     }
 
     @Test

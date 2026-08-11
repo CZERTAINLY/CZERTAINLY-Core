@@ -3,10 +3,9 @@ package com.otilm.core.model.signing.scheme;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -30,8 +29,7 @@ class SigningSchemeModelsTest {
     @Test
     void staticKeyManagedSigning_reportsManagedScheme_andStaticKeyType() {
         StaticKeyManagedSigning scheme = new StaticKeyManagedSigning(
-                UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-                List.of());
+                UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc"), List.of());
 
         assertEquals(SigningScheme.MANAGED, scheme.getSchemeType());
         assertEquals(ManagedSigningType.STATIC_KEY, scheme.getManagedSigningType());
@@ -44,8 +42,7 @@ class SigningSchemeModelsTest {
         OneTimeKeyManagedSigning scheme = new OneTimeKeyManagedSigning(
                 UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd"),
                 UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
-                UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"),
-                List.of());
+                UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"), List.of());
 
         assertEquals(SigningScheme.MANAGED, scheme.getSchemeType());
         assertEquals(ManagedSigningType.ONE_TIME_KEY, scheme.getManagedSigningType());

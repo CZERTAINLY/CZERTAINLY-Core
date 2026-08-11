@@ -1,13 +1,10 @@
 package com.otilm.core.model.cbom;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.LinkedHashMap;
-
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
-import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "Response containing (C)BOM")
 @JsonIgnoreProperties(ignoreUnknown = true)

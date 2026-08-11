@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CmpRaProfileControllerImpl implements CmpRaProfileController {
 
     private CmpExternalService cmpService;
+
     @Autowired
     public void setCmpService(CmpExternalService cmpService) {
         this.cmpService = cmpService;

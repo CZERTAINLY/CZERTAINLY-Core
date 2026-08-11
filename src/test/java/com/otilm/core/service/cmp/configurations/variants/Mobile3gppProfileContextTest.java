@@ -1,6 +1,10 @@
 package com.otilm.core.service.cmp.configurations.variants;
 
 import com.otilm.api.interfaces.core.cmp.error.CmpCrmfValidationException;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.util.Date;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
@@ -23,22 +27,18 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.util.Date;
-
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link Mobile3gppProfileContext#validateOnCrmfResponse}.
  *
- * <p>3GPP requires the extraCerts chain on an ip/cp/kup that carries an issued certificate.
- * A pending response (RFC 4210 §5.3.22 PKIStatus 'waiting', emitted while issuance completes
- * asynchronously) has no certifiedKeyPair and therefore no chain to advertise — it must be
- * exempt from the extraCerts requirement, otherwise the async-pending path returns a
- * systemFailure instead of the intended 'waiting' response.</p>
+ * <p>
+ * 3GPP requires the extraCerts chain on an ip/cp/kup that carries an issued certificate. A pending response (RFC 4210
+ * §5.3.22 PKIStatus 'waiting', emitted while issuance completes asynchronously) has no certifiedKeyPair and therefore
+ * no chain to advertise — it must be exempt from the extraCerts requirement, otherwise the async-pending path returns a
+ * systemFailure instead of the intended 'waiting' response.
+ * </p>
  */
 class Mobile3gppProfileContextTest {
 
@@ -51,20 +51,15 @@ class Mobile3gppProfileContextTest {
     @Test
     void acceptsWaitingResponse_withoutExtraCerts() {
         PKIMessage waiting = certRepMessage(PKIBody.TYPE_INIT_REP,
-                new CertResponse(new ASN1Integer(0), new PKIStatusInfo(PKIStatus.waiting)),
-                null);
+                new CertResponse(new ASN1Integer(0), new PKIStatusInfo(PKIStatus.waiting)), null);
 
-        assertThatCode(() -> context().validateOnCrmfResponse(waiting))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> context().validateOnCrmfResponse(waiting)).doesNotThrowAnyException();
     }
 
     @Test
     void rejectsIssuedResponse_withoutExtraCerts() throws Exception {
-        CertResponse issued = new CertResponse(
-                new ASN1Integer(0),
-                new PKIStatusInfo(PKIStatus.granted),
-                new CertifiedKeyPair(new CertOrEncCert(selfSignedCmpCertificate())),
-                null);
+        CertResponse issued = new CertResponse(new ASN1Integer(0), new PKIStatusInfo(PKIStatus.granted),
+                new CertifiedKeyPair(new CertOrEncCert(selfSignedCmpCertificate())), null);
         PKIMessage issuedResponse = certRepMessage(PKIBody.TYPE_INIT_REP, issued, null);
 
         assertThatThrownBy(() -> context().validateOnCrmfResponse(issuedResponse))
@@ -75,21 +70,15 @@ class Mobile3gppProfileContextTest {
     @Test
     void acceptsIssuedResponse_withExtraCerts() throws Exception {
         CMPCertificate cmpCert = selfSignedCmpCertificate();
-        CertResponse issued = new CertResponse(
-                new ASN1Integer(0),
-                new PKIStatusInfo(PKIStatus.granted),
-                new CertifiedKeyPair(new CertOrEncCert(cmpCert)),
-                null);
+        CertResponse issued = new CertResponse(new ASN1Integer(0), new PKIStatusInfo(PKIStatus.granted),
+                new CertifiedKeyPair(new CertOrEncCert(cmpCert)), null);
         PKIMessage issuedResponse = certRepMessage(PKIBody.TYPE_INIT_REP, issued, new CMPCertificate[]{cmpCert});
 
-        assertThatCode(() -> context().validateOnCrmfResponse(issuedResponse))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> context().validateOnCrmfResponse(issuedResponse)).doesNotThrowAnyException();
     }
 
     private static PKIMessage certRepMessage(int bodyType, CertResponse response, CMPCertificate[] extraCerts) {
-        PKIHeader header = new PKIHeaderBuilder(
-                PKIHeader.CMP_2000,
-                new GeneralName(new X500Name("CN=sender")),
+        PKIHeader header = new PKIHeaderBuilder(PKIHeader.CMP_2000, new GeneralName(new X500Name("CN=sender")),
                 new GeneralName(new X500Name("CN=recipient")))
                 .setTransactionID(new DEROctetString(new byte[]{1, 2, 3, 4}))
                 .build();
@@ -104,8 +93,8 @@ class Mobile3gppProfileContextTest {
         X500Name name = new X500Name("CN=test-3gpp");
         Date notBefore = new Date();
         Date notAfter = new Date(notBefore.getTime() + 365L * 24 * 60 * 60 * 1000);
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                name, BigInteger.ONE, notBefore, notAfter, name, kp.getPublic());
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(name, BigInteger.ONE, notBefore, notAfter,
+                name, kp.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(kp.getPrivate());
         Certificate certificate = builder.build(signer).toASN1Structure();
         return new CMPCertificate(certificate);

@@ -8,9 +8,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Test builder for {@link SigningRecordOutbox} pre-populated with valid defaults, so a test only sets
- * the fields relevant to what it asserts (typically {@code attempts} when exercising poison handling,
- * or the payload fields when exercising the outbox -> signing_record copy).
+ * Test builder for {@link SigningRecordOutbox} pre-populated with valid defaults, so a test only sets the fields
+ * relevant to what it asserts (typically {@code attempts} when exercising poison handling, or the payload fields when
+ * exercising the outbox -> signing_record copy).
  */
 public final class SigningRecordOutboxBuilder {
 

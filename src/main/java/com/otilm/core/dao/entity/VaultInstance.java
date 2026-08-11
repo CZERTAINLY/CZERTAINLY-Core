@@ -3,12 +3,16 @@ package com.otilm.core.dao.entity;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.vault.VaultInstanceDetailDto;
 import com.otilm.api.model.core.vault.VaultInstanceDto;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.util.UUID;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
-
-import java.util.UUID;
 
 @Entity
 @Table(name = "vault_instance")

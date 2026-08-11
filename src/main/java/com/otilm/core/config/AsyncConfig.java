@@ -1,5 +1,7 @@
 package com.otilm.core.config;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
@@ -8,9 +10,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
-
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 @Configuration
 @EnableAsync
@@ -27,6 +26,8 @@ public class AsyncConfig implements AsyncConfigurer {
 
     @Override
     public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {
-        return (ex, method, params) -> logger.error("Uncaught exception in async method {}.{}: {}", method.getDeclaringClass().getName(), method.getName(), ex.getMessage(), ex);
+        return (ex, method, params) -> logger
+                .error("Uncaught exception in async method {}.{}: {}", method.getDeclaringClass().getName(),
+                        method.getName(), ex.getMessage(), ex);
     }
 }

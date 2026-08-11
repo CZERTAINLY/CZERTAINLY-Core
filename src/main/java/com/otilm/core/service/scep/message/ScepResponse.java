@@ -7,6 +7,16 @@ import com.otilm.api.model.core.scep.PkiStatus;
 import com.otilm.core.provider.key.PlatformPrivateKey;
 import com.otilm.core.util.AlgorithmUtil;
 import com.otilm.core.util.CertificateUtil;
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Hashtable;
+import java.util.List;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERPrintableString;
@@ -14,7 +24,17 @@ import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.asn1.smime.SMIMECapability;
-import org.bouncycastle.cms.*;
+import org.bouncycastle.cms.CMSAbsentContent;
+import org.bouncycastle.cms.CMSAlgorithm;
+import org.bouncycastle.cms.CMSEnvelopedData;
+import org.bouncycastle.cms.CMSEnvelopedDataGenerator;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.cms.CMSTypedData;
+import org.bouncycastle.cms.DefaultSignedAttributeTableGenerator;
+import org.bouncycastle.cms.RecipientInfoGenerator;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
 import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
@@ -27,17 +47,6 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.util.CollectionStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
-import java.security.Provider;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Hashtable;
-import java.util.List;
 
 public class ScepResponse {
 
@@ -73,10 +82,9 @@ public class ScepResponse {
     private Provider signerProvider;
 
     /**
-     * Content encryption algorithm
-     * This value should be set based on the data from the SCEP request message
-     * If there is a problem identifying the encryption algorithm, the error will be thrown out
-     * but to be on the safer side, the default value is added
+     * Content encryption algorithm This value should be set based on the data from the SCEP request message If there is
+     * a problem identifying the encryption algorithm, the error will be thrown out but to be on the safer side, the
+     * default value is added
      */
     private ASN1ObjectIdentifier contentEncryptionAlgorithm = SMIMECapability.dES_EDE3_CBC;
 
@@ -124,8 +132,8 @@ public class ScepResponse {
     }
 
     /**
-     * The shared SCEP challenge password, used to envelope the SUCCESS response when the
-     * recipient key cannot receive an RSA-key-transport envelope (e.g. an EC client key).
+     * The shared SCEP challenge password, used to envelope the SUCCESS response when the recipient key cannot receive
+     * an RSA-key-transport envelope (e.g. an EC client key).
      */
     public void setChallengePassword(String challengePassword) {
         this.challengePassword = challengePassword != null ? challengePassword.toCharArray() : null;
@@ -147,7 +155,8 @@ public class ScepResponse {
         this.contentEncryptionAlgorithm = contentEncryptionAlgorithm;
     }
 
-    public void setSigningAttributes(X509Certificate signerCertificate, PlatformPrivateKey signerPrivateKey, Provider signerProvider) {
+    public void setSigningAttributes(X509Certificate signerCertificate, PlatformPrivateKey signerPrivateKey,
+            Provider signerProvider) {
         this.signerCertificate = signerCertificate;
         this.signerPrivateKey = signerPrivateKey;
         this.signerProvider = signerProvider;
@@ -183,7 +192,9 @@ public class ScepResponse {
 
     CMSEnvelopedData buildEnvelopedResponse() throws CertificateException, CMSException, IOException {
         CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
-        cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificateChain)));
+        cmsSignedDataGenerator
+                .addCertificates(
+                        new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificateChain)));
         CMSSignedData cmsSignedData = cmsSignedDataGenerator.generate(new CMSAbsentContent(), false);
 
         X509Certificate recipient = recipientKeyInfo != null
@@ -194,13 +205,15 @@ public class ScepResponse {
         cmsEnvelopedDataGenerator.addRecipientInfoGenerator(buildRecipientInfoGenerator(recipient));
 
         // Take the content encryption algorithm from the response that is set from the SCEP request message
-        JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(contentEncryptionAlgorithm).setProvider(BouncyCastleProvider.PROVIDER_NAME);
-        return cmsEnvelopedDataGenerator.generate(
-                new CMSProcessableByteArray(cmsSignedData.getEncoded()),
-                jceCMSContentEncryptorBuilder.build());
+        JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(
+                contentEncryptionAlgorithm).setProvider(BouncyCastleProvider.PROVIDER_NAME);
+        return cmsEnvelopedDataGenerator
+                .generate(new CMSProcessableByteArray(cmsSignedData.getEncoded()),
+                        jceCMSContentEncryptorBuilder.build());
     }
 
-    private RecipientInfoGenerator buildRecipientInfoGenerator(X509Certificate recipient) throws CMSException, CertificateEncodingException {
+    private RecipientInfoGenerator buildRecipientInfoGenerator(X509Certificate recipient)
+            throws CMSException, CertificateEncodingException {
         // RSA keys can receive an RSA-key-transport envelope; other key types (e.g. EC) cannot,
         // so fall back to the RFC 8894 §3.2.2 password recipient keyed with the shared challenge
         // password — the response-direction mirror of ScepRequest.decryptData.
@@ -209,23 +222,31 @@ public class ScepResponse {
             return new JceKeyTransRecipientInfoGenerator(recipient).setProvider(BouncyCastleProvider.PROVIDER_NAME);
         }
         if (challengePassword == null || challengePassword.length == 0) {
-            throw new CMSException("Recipient key algorithm " + recipient.getPublicKey().getAlgorithm() +
-                    " cannot receive a key-transport envelope and no challenge password is available for password-based enveloping");
+            throw new CMSException("Recipient key algorithm " + recipient.getPublicKey().getAlgorithm()
+                    + " cannot receive a key-transport envelope and no challenge password is available for password-based enveloping");
         }
-        logger.debug("Enveloping SCEP response via password recipient (recipient key algorithm {})",
-                recipient.getPublicKey().getAlgorithm());
+        logger
+                .debug("Enveloping SCEP response via password recipient (recipient key algorithm {})",
+                        recipient.getPublicKey().getAlgorithm());
         return new JcePasswordRecipientInfoGenerator(CMSAlgorithm.AES128_CBC, challengePassword)
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME);
     }
 
-    private void createSignedData() throws NoSuchAlgorithmException, CertificateEncodingException, OperatorCreationException, CMSException {
+    private void createSignedData()
+            throws NoSuchAlgorithmException, CertificateEncodingException, OperatorCreationException, CMSException {
         CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
         // Create attributes that will be signed
         Hashtable<ASN1ObjectIdentifier, Attribute> attributes = createAttributes();
-        String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-", "SHA").replace("WITH", "with");
+        String signatureAlgorithmName = AlgorithmUtil
+                .getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm())
+                .replace("SHA-", "SHA")
+                .replace("WITH", "with");
 
-        ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(signerProvider).build(signerPrivateKey);
-        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
+        ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName)
+                .setProvider(signerProvider)
+                .build(signerPrivateKey);
+        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder()
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME);
         JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
         builder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(attributes)));
         cmsSignedDataGenerator.addSignerInfoGenerator(builder.build(contentSigner, signerCertificate));

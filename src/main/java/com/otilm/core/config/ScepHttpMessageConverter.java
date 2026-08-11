@@ -1,5 +1,6 @@
 package com.otilm.core.config;
 
+import java.io.IOException;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
@@ -8,16 +9,12 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 
-import java.io.IOException;
-
 @Component
 public class ScepHttpMessageConverter<T> extends AbstractHttpMessageConverter<byte[]> {
 
     public ScepHttpMessageConverter() {
-        super(new MediaType("application", "x-x509-ca-cert"),
-                new MediaType("application", "x-x509-ca-ra-cert"),
-                new MediaType("application", "x-pki-message"),
-                MediaType.ALL);
+        super(new MediaType("application", "x-x509-ca-cert"), new MediaType("application", "x-x509-ca-ra-cert"),
+                new MediaType("application", "x-pki-message"), MediaType.ALL);
     }
 
     public boolean supports(Class<?> clazz) {
@@ -29,7 +26,7 @@ public class ScepHttpMessageConverter<T> extends AbstractHttpMessageConverter<by
     }
 
     protected Long getContentLength(byte[] bytes, @Nullable MediaType contentType) {
-        return (long)bytes.length;
+        return (long) bytes.length;
     }
 
     protected void writeInternal(byte[] bytes, HttpOutputMessage outputMessage) throws IOException {

@@ -4,7 +4,12 @@ import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.client.connector.v2.*;
+import com.otilm.api.model.client.connector.v2.ConnectorInfo;
+import com.otilm.api.model.client.connector.v2.ConnectorInterface;
+import com.otilm.api.model.client.connector.v2.ConnectorInterfaceInfo;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
+import com.otilm.api.model.client.connector.v2.HealthInfo;
+import com.otilm.api.model.client.connector.v2.InfoResponse;
 import com.otilm.api.model.core.connector.v2.ConnectInfo;
 import com.otilm.api.model.core.connector.v2.ConnectInfoV2;
 import com.otilm.core.client.ConnectorApiFactory;
@@ -12,13 +17,17 @@ import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.util.NullUtil;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Component(ConnectorVersion.Codes.V2)
 public class ConnectorV2Adapter implements ConnectorAdapter {
@@ -55,7 +64,9 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
 
     @Override
     public ConnectInfoV2 checkConnection(ApiClientConnectorInfo connectorInfo) throws ConnectorException {
-        InfoResponse infoResponse = connectorApiFactory.getInfoApiClientV2(connectorInfo).getConnectorInfo(connectorInfo);
+        InfoResponse infoResponse = connectorApiFactory
+                .getInfoApiClientV2(connectorInfo)
+                .getConnectorInfo(connectorInfo);
 
         ConnectInfoV2 connectInfo = new ConnectInfoV2();
         connectInfo.setConnectorUuid(NullUtil.parseUuidOrNull(connectorInfo.getUuid()));
@@ -74,9 +85,15 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
     public ConnectInfo validateConnection(ConnectInfo connectInfoV2) throws ConnectorException {
         ConnectInfoV2 connectInfo = (ConnectInfoV2) connectInfoV2;
 
-        // Validate that mandatory interfaces are present in list of interfaces provided by the Connector and also at least one other functional provider
-        EnumSet<ConnectorInterface> mandatoryInterfaces = EnumSet.copyOf(List.of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS));
-        Set<ConnectorInterface> implementedInterfaces = connectInfo.getInterfaces().stream().map(ConnectorInterfaceInfo::getCode).collect(Collectors.toSet());
+        // Validate that mandatory interfaces are present in list of interfaces provided by the Connector and also at
+        // least one other functional provider
+        EnumSet<ConnectorInterface> mandatoryInterfaces = EnumSet
+                .copyOf(List.of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS));
+        Set<ConnectorInterface> implementedInterfaces = connectInfo
+                .getInterfaces()
+                .stream()
+                .map(ConnectorInterfaceInfo::getCode)
+                .collect(Collectors.toSet());
 
         // A malformed /v2/info can carry an interface entry with no code; reject it before dereferencing categories.
         if (implementedInterfaces.contains(null)) {
@@ -85,31 +102,33 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
 
         if (!implementedInterfaces.containsAll(mandatoryInterfaces)) {
             mandatoryInterfaces.removeAll(implementedInterfaces);
-            throw new ValidationException("Connector is missing mandatory interfaces: " + String.join(", ", mandatoryInterfaces.stream().map(ConnectorInterface::getLabel).toList()));
+            throw new ValidationException("Connector is missing mandatory interfaces: "
+                    + String.join(", ", mandatoryInterfaces.stream().map(ConnectorInterface::getLabel).toList()));
         }
 
-        boolean hasFunctionalInterface = implementedInterfaces.stream()
+        boolean hasFunctionalInterface = implementedInterfaces
+                .stream()
                 .anyMatch(i -> i.getCategory() == ConnectorInterface.InterfaceCategory.FUNCTIONAL);
         if (!hasFunctionalInterface) {
-            throw new ValidationException("Connector is missing any functional interface. At least one functional interface must be implemented in addition to mandatory interfaces.");
+            throw new ValidationException(
+                    "Connector is missing any functional interface. At least one functional interface must be implemented in addition to mandatory interfaces.");
         }
 
         return connectInfo;
     }
 
     @Override
-    public void updateConnectorFunctions(Connector connector, ConnectInfo connectInfo) throws ConnectorException, NotFoundException {
+    public void updateConnectorFunctions(Connector connector, ConnectInfo connectInfo)
+            throws ConnectorException, NotFoundException {
         ConnectInfoV2 connectInfoV2 = (ConnectInfoV2) connectInfo;
 
         // Get existing interfaces from DB
         Set<ConnectorInterfaceEntity> existingInterfaces = connector.getInterfaces();
 
         // Build a map of existing interfaces by code+version for quick lookup
-        Map<String, ConnectorInterfaceEntity> existingMap = existingInterfaces.stream()
-                .collect(Collectors.toMap(
-                        e -> e.getInterfaceCode().getCode() + ":" + e.getVersion(),
-                        e -> e
-                ));
+        Map<String, ConnectorInterfaceEntity> existingMap = existingInterfaces
+                .stream()
+                .collect(Collectors.toMap(e -> e.getInterfaceCode().getCode() + ":" + e.getVersion(), e -> e));
 
         // Track which interfaces are in the new info
         Set<String> newInterfaceKeys = new HashSet<>();
@@ -140,8 +159,10 @@ public class ConnectorV2Adapter implements ConnectorAdapter {
         }
 
         // Collect interfaces to remove first, then remove them
-        List<ConnectorInterfaceEntity> toRemove = existingInterfaces.stream()
-                .filter(existing -> !newInterfaceKeys.contains(existing.getInterfaceCode().getCode() + ":" + existing.getVersion()))
+        List<ConnectorInterfaceEntity> toRemove = existingInterfaces
+                .stream()
+                .filter(existing -> !newInterfaceKeys
+                        .contains(existing.getInterfaceCode().getCode() + ":" + existing.getVersion()))
                 .toList();
 
         if (!toRemove.isEmpty()) {

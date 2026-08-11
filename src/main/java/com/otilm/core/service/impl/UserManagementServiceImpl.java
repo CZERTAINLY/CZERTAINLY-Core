@@ -1,13 +1,23 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.exception.*;
+import com.nimbusds.jwt.SignedJWT;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.auth.AddUserRequestDto;
 import com.otilm.api.model.client.auth.UpdateUserRequestDto;
 import com.otilm.api.model.client.auth.UserIdentificationRequestDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
-import com.otilm.api.model.core.auth.*;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.RoleDto;
+import com.otilm.api.model.core.auth.SubjectPermissionsDto;
+import com.otilm.api.model.core.auth.UserDetailDto;
+import com.otilm.api.model.core.auth.UserDto;
+import com.otilm.api.model.core.auth.UserRequestDto;
+import com.otilm.api.model.core.auth.UserUpdateRequestDto;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.logging.enums.AuditLogOutput;
@@ -34,12 +44,27 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.RoleAssignmentGuard;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-import com.otilm.core.service.*;
+import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.CertificateUploadService;
+import com.otilm.core.service.GroupExternalService;
+import com.otilm.core.service.ResourceObjectAssociationService;
+import com.otilm.core.service.UserManagementExternalService;
+import com.otilm.core.service.UserManagementInternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.OAuth2Util;
-import com.nimbusds.jwt.SignedJWT;
 import jakarta.transaction.Transactional;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
+import java.security.cert.X509Certificate;
+import java.text.ParseException;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,17 +72,11 @@ import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-import java.security.cert.*;
-import java.text.ParseException;
-import java.time.OffsetDateTime;
-import java.util.*;
-
 @Service(Resource.Codes.USER)
 @Transactional
 public class UserManagementServiceImpl implements UserManagementExternalService, UserManagementInternalService {
-    private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH, Resource.USER);
+    private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH,
+            Resource.USER);
 
     @Value("${logging.schema-version}")
     private String schemaVersion;
@@ -138,21 +157,26 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto getUser(String userUuid) throws NotFoundException {
         UserDetailDto dto = userManagementApiClient.getUserDetail(userUuid);
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.USER, UUID.fromString(userUuid)));
+        dto
+                .setCustomAttributes(
+                        attributeEngine.getObjectCustomAttributesContent(Resource.USER, UUID.fromString(userUuid)));
         return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.CREATE)
-    public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException, AttributeException {
+    public UserDetailDto createUser(AddUserRequestDto request)
+            throws CertificateException, NotFoundException, AttributeException {
         attributeEngine.validateCustomAttributesContent(Resource.USER, request.getCustomAttributes());
         if (StringUtils.isBlank(request.getUsername())) {
             throw new ValidationException(ValidationError.create("username must not be empty"));
         }
         UserRequestDto requestDto = new UserRequestDto();
         Certificate certificate = null;
-        if (StringUtils.isNotBlank(request.getCertificateUuid()) || StringUtils.isNotBlank(request.getCertificateData())) {
-            certificate = addUserCertificate(null, request.getCertificateUuid(), request.getCertificateData(), request.getCertificateCustomAttributes());
+        if (StringUtils.isNotBlank(request.getCertificateUuid())
+                || StringUtils.isNotBlank(request.getCertificateData())) {
+            certificate = addUserCertificate(null, request.getCertificateUuid(), request.getCertificateData(),
+                    request.getCertificateCustomAttributes());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
         }
@@ -170,7 +194,10 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
             certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
         }
 
-        response.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(response.getUuid()), request.getCustomAttributes()));
+        response
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(response.getUuid()),
+                                request.getCustomAttributes()));
 
         logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, response.toLogData(), null, null);
         return response;
@@ -178,17 +205,22 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
-    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
+    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request)
+            throws NotFoundException, CertificateException, AttributeException {
         attributeEngine.validateCustomAttributesContent(Resource.USER, request.getCustomAttributes());
         UserDetailDto dto = getUserUpdateRequestPayload(userUuid, request, "", "");
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(userUuid), request.getCustomAttributes()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(userUuid),
+                                request.getCustomAttributes()));
         authenticationCache.evictByUserUuid(UUID.fromString(userUuid));
         return dto;
     }
 
     @Override
-    //Internal Use Only -- For Auth Profile Update API
-    public UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerprint) throws NotFoundException, CertificateException {
+    // Internal Use Only -- For Auth Profile Update API
+    public UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid,
+            String certificateFingerprint) throws NotFoundException, CertificateException {
         UserDetailDto dto = getUserUpdateRequestPayload(userUuid, request, certificateUuid, certificateFingerprint);
         authenticationCache.evictByUserUuid(UUID.fromString(userUuid));
         return dto;
@@ -208,27 +240,33 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     private void clearAuthenticationData(String userUuid, String actionName) {
         authenticationCache.evictByUserUuid(UUID.fromString(userUuid));
 
-        Map<String, ? extends Session> userSessions =
-                sessionRepository.findByPrincipalName(userUuid);
+        Map<String, ? extends Session> userSessions = sessionRepository.findByPrincipalName(userUuid);
 
         for (Map.Entry<String, ? extends Session> entry : userSessions.entrySet()) {
             OAuth2Util.endUserSession(entry.getValue().getAttribute("SPRING_SECURITY_CONTEXT"));
             sessionRepository.deleteById(entry.getKey());
         }
-        if (!userSessions.isEmpty() && !logger.isLogFiltered(true, Module.AUTH, Resource.USER, OperationResult.SUCCESS)) {
+        if (!userSessions.isEmpty()
+                && !logger.isLogFiltered(true, Module.AUTH, Resource.USER, OperationResult.SUCCESS)) {
             LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
             AuditLogOutput output = loggingSettingsDto == null ? null : loggingSettingsDto.getAuditLogs().getOutput();
-            auditLogsProducer.produceMessage(new AuditLogMessage(LogRecord.builder()
-                    .version(schemaVersion)
-                    .operation(Operation.LOGOUT)
-                    .operationResult(OperationResult.SUCCESS)
-                    .module(Module.AUTH)
-                    .timestamp(OffsetDateTime.now())
-                    .actor(LoggingHelper.getActorInfo())
-                    .source(LoggingHelper.getSourceInfo())
-                    .resource(ResourceRecord.builder().type(Resource.USER).objects(List.of(new ResourceObjectIdentity(null, UUID.fromString(userUuid)))).build())
-                    .message("User with UUID %s has been %s".formatted(userUuid, actionName))
-                    .build(), output));
+            auditLogsProducer
+                    .produceMessage(new AuditLogMessage(LogRecord
+                            .builder()
+                            .version(schemaVersion)
+                            .operation(Operation.LOGOUT)
+                            .operationResult(OperationResult.SUCCESS)
+                            .module(Module.AUTH)
+                            .timestamp(OffsetDateTime.now())
+                            .actor(LoggingHelper.getActorInfo())
+                            .source(LoggingHelper.getSourceInfo())
+                            .resource(ResourceRecord
+                                    .builder()
+                                    .type(Resource.USER)
+                                    .objects(List.of(new ResourceObjectIdentity(null, UUID.fromString(userUuid))))
+                                    .build())
+                            .message("User with UUID %s has been %s".formatted(userUuid, actionName))
+                            .build(), output));
         }
     }
 
@@ -279,15 +317,15 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     }
 
     /**
-     * A system user's account state carries the identity as much as its role does — disabling acme stops ACME
-     * enrolment as surely as detaching its role would. The auth service refuses to update or delete a system user
-     * but not to disable one, so this is the only check standing between USER:ENABLE and a broken protocol.
+     * A system user's account state carries the identity as much as its role does — disabling acme stops ACME enrolment
+     * as surely as detaching its role would. The auth service refuses to update or delete a system user but not to
+     * disable one, so this is the only check standing between USER:ENABLE and a broken protocol.
      */
     private void rejectSystemUser(String userUuid) {
         UserDetailDto user = userManagementApiClient.getUserDetail(userUuid);
         if (user != null && Boolean.TRUE.equals(user.getSystemUser())) {
-            throw new ValidationException("User '%s' is a system user and its state cannot be changed."
-                    .formatted(user.getUsername()));
+            throw new ValidationException(
+                    "User '%s' is a system user and its state cannot be changed.".formatted(user.getUsername()));
         }
     }
 
@@ -311,7 +349,9 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException {
         AuthenticationRequestDto authenticationRequest = new AuthenticationRequestDto();
         if (request.getCertificateContent() != null) {
-            authenticationRequest.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
+            authenticationRequest
+                    .setCertificateContent(
+                            CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
         } else if (request.getAuthenticationToken() != null) {
             Map<String, Object> userClaims;
             SignedJWT signedJWT;
@@ -327,7 +367,9 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
         }
 
         UserDetailDto dto = userManagementApiClient.identifyUser(authenticationRequest);
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.USER, UUID.fromString(dto.getUuid())));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .getObjectCustomAttributesContent(Resource.USER, UUID.fromString(dto.getUuid())));
         return dto;
     }
 
@@ -344,7 +386,8 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return listUsers().stream().map(u -> new NameAndUuidDto(u.getUuid(), u.getUsername())).toList();
     }
 
@@ -366,7 +409,8 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
         return groups;
     }
 
-    private Certificate addUserCertificate(String userUuid, String certificateUuid, String certificateData, List<RequestAttribute> certificateCustomAttributes) throws CertificateException, NotFoundException {
+    private Certificate addUserCertificate(String userUuid, String certificateUuid, String certificateData,
+            List<RequestAttribute> certificateCustomAttributes) throws CertificateException, NotFoundException {
         Certificate certificate = null;
         boolean uploadCertificate = false;
         if (StringUtils.isNotBlank(certificateUuid)) {
@@ -379,33 +423,44 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
                 throw new ValidationException(ValidationError.create("Certificate is not valid."));
             }
             try {
-                certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
+                certificate = certificateService
+                        .getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
             } catch (NotFoundException e) {
                 uploadCertificate = true;
             } catch (NoSuchAlgorithmException e) {
-                throw new ValidationException(ValidationError.create("Cannot assign certificate to the user due to error in fingerprint calculation: " + e.getMessage()));
+                throw new ValidationException(ValidationError
+                        .create("Cannot assign certificate to the user due to error in fingerprint calculation: "
+                                + e.getMessage()));
             }
         }
 
         if (uploadCertificate) {
             certificate = uploadCertificate(certificateData, certificateCustomAttributes);
         } else {
-            if (certificate.isArchived())
+            if (certificate.isArchived()) {
                 throw new ValidationException("Cannot assign archived certificate to the user.");
+            }
             if (!certificate.getState().equals(CertificateState.ISSUED)) {
-                throw new ValidationException(ValidationError.create("Cannot assign certificate with state %s to the user".formatted(certificate.getState().getLabel())));
+                throw new ValidationException(ValidationError
+                        .create("Cannot assign certificate with state %s to the user"
+                                .formatted(certificate.getState().getLabel())));
             }
             if (certificate.getUserUuid() != null && !certificate.getUserUuid().toString().equals(userUuid)) {
-                throw new ValidationException(ValidationError.create("Cannot assign certificate to the user because it is already assigned to other user"));
+                throw new ValidationException(ValidationError
+                        .create("Cannot assign certificate to the user because it is already assigned to other user"));
             }
             if (certificateCustomAttributes != null && !certificateCustomAttributes.isEmpty()) {
-                logger.getLogger().warn("Certificate custom attributes were provided but ignored because certificate {} already exists in the inventory and was not uploaded", certificate.getUuid());
+                logger
+                        .getLogger()
+                        .warn("Certificate custom attributes were provided but ignored because certificate {} already exists in the inventory and was not uploaded",
+                                certificate.getUuid());
             }
         }
         return certificate;
     }
 
-    private Certificate uploadCertificate(String certificateData, List<RequestAttribute> certificateCustomAttributes) throws CertificateException {
+    private Certificate uploadCertificate(String certificateData, List<RequestAttribute> certificateCustomAttributes)
+            throws CertificateException {
         Certificate certificate;
         try {
             String fingerprint = certificateUploadService.upload(certificateData, certificateCustomAttributes, true);
@@ -413,24 +468,31 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
             logger.getLogger().debug("New Certificate uploaded for the user");
         } catch (ValidationException e) {
             throw e;
-        }
-        catch (Exception e) {
-            throw new CertificateException("Cannot upload certificate that should be assigned to the user: " + e.getMessage());
+        } catch (Exception e) {
+            throw new CertificateException(
+                    "Cannot upload certificate that should be assigned to the user: " + e.getMessage());
         }
         return certificate;
     }
 
-    private UserDetailDto getUserUpdateRequestPayload(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerPrint) throws NotFoundException, CertificateException {
+    private UserDetailDto getUserUpdateRequestPayload(String userUuid, UpdateUserRequestDto request,
+            String certificateUuid, String certificateFingerPrint) throws NotFoundException, CertificateException {
         Certificate certificate = null;
         UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
 
-        if (StringUtils.isNotBlank(request.getCertificateUuid()) || StringUtils.isNotBlank(request.getCertificateData())) {
-            certificate = addUserCertificate(userUuid, request.getCertificateUuid(), request.getCertificateData(), request.getCertificateCustomAttributes());
+        if (StringUtils.isNotBlank(request.getCertificateUuid())
+                || StringUtils.isNotBlank(request.getCertificateData())) {
+            certificate = addUserCertificate(userUuid, request.getCertificateUuid(), request.getCertificateData(),
+                    request.getCertificateCustomAttributes());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
         } else {
-            if (!certificateUuid.isEmpty()) requestDto.setCertificateUuid(certificateUuid);
-            if (!certificateFingerPrint.isEmpty()) requestDto.setCertificateFingerprint(certificateFingerPrint);
+            if (!certificateUuid.isEmpty()) {
+                requestDto.setCertificateUuid(certificateUuid);
+            }
+            if (!certificateFingerPrint.isEmpty()) {
+                requestDto.setCertificateFingerprint(certificateFingerPrint);
+            }
         }
 
         requestDto.setDescription(request.getDescription());

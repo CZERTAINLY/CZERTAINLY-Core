@@ -1,6 +1,9 @@
 package com.otilm.core.certificate.request;
 
 import com.otilm.api.model.core.certificate.GeneralNameType;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Primitive;
@@ -11,16 +14,12 @@ import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.Extension;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 import static com.otilm.core.util.builders.MappedDataAttributeV3Builder.aMappedDataAttribute;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies the RFC 7030 §4.5.2 form of the {@code extensionRequest} attribute: its {@code values} SET
- * lists the requested extension OIDs <em>directly</em> as bare OBJECT IDENTIFIERs.
+ * Verifies the RFC 7030 §4.5.2 form of the {@code extensionRequest} attribute: its {@code values} SET lists the
+ * requested extension OIDs <em>directly</em> as bare OBJECT IDENTIFIERs.
  */
 class CsrAttrsEncoderExtensionRequestTest {
 
@@ -33,7 +32,8 @@ class CsrAttrsEncoderExtensionRequestTest {
         List<ASN1ObjectIdentifier> requested = extensionRequestOids(CsrAttrsEncoder.encode(definitions, Map.of()));
 
         // then — SAN is requested under id-ce-subjectAltName (2.5.29.17), as a bare OID
-        assertThat(requested).as("extensionRequest attribute must be present")
+        assertThat(requested)
+                .as("extensionRequest attribute must be present")
                 .isNotNull()
                 .contains(Extension.subjectAlternativeName);
     }
@@ -72,9 +72,9 @@ class CsrAttrsEncoderExtensionRequestTest {
     @Test
     void emitsRdnAndExtensionRequest_whenBothMapped() throws Exception {
         // given — a CN RDN and a DNS SAN in the same set
-        var definitions = List.of(
-                aMappedDataAttribute().withName("cn").mappingRdn("CN").build(),
-                aMappedDataAttribute().withName("san").mappingSan(GeneralNameType.DNS).build());
+        var definitions = List
+                .of(aMappedDataAttribute().withName("cn").mappingRdn("CN").build(),
+                        aMappedDataAttribute().withName("san").mappingSan(GeneralNameType.DNS).build());
 
         // when
         byte[] der = CsrAttrsEncoder.encode(definitions, Map.of("CN", "2.5.4.3"));

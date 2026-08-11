@@ -1,12 +1,11 @@
 package com.otilm.core.security.authn;
 
+import java.util.Collection;
+import java.util.Collections;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
-
-import java.util.Collection;
-import java.util.Collections;
 
 public class PlatformAuthenticationRequest implements Authentication {
 
@@ -14,7 +13,8 @@ public class PlatformAuthenticationRequest implements Authentication {
     private final WebAuthenticationDetails details;
     private final boolean isLocalhostRequest;
 
-    public PlatformAuthenticationRequest(HttpHeaders headers, WebAuthenticationDetails details, boolean isLocalhostRequest) {
+    public PlatformAuthenticationRequest(HttpHeaders headers, WebAuthenticationDetails details,
+            boolean isLocalhostRequest) {
         this.headers = headers;
         this.details = details;
         this.isLocalhostRequest = isLocalhostRequest;
@@ -55,13 +55,14 @@ public class PlatformAuthenticationRequest implements Authentication {
 
     @Override
     public void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException {
-        if (isAuthenticated) throw new IllegalArgumentException("PlatformAuthenticationRequest.isAuthenticated can't be set true.");
+        if (isAuthenticated) {
+            throw new IllegalArgumentException("PlatformAuthenticationRequest.isAuthenticated can't be set true.");
+        }
     }
 
     @Override
     public String getName() {
         return null;
     }
-
 
 }

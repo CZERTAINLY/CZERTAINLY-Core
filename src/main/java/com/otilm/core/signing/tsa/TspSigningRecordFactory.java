@@ -8,23 +8,24 @@ import com.otilm.core.signing.record.DeferredSigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.signing.record.SigningRecordInputSource;
 import com.otilm.core.signing.tsa.messages.TspRequest;
-import org.springframework.stereotype.Component;
-
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 /**
- * Builds the {@link SigningRecordInput} for a granted RFC 3161 timestamp from the signing profile, the
- * request, and the artifacts produced during token assembly.
+ * Builds the {@link SigningRecordInput} for a granted RFC 3161 timestamp from the signing profile, the request, and the
+ * artifacts produced during token assembly.
  *
- * <p>The per-field {@code record*} content toggles are applied downstream by the signing-record mapper, which is
- * the single source of truth for what gets persisted; this factory only assembles the full input, including
+ * <p>
+ * The per-field {@code record*} content toggles are applied downstream by the signing-record mapper, which is the
+ * single source of truth for what gets persisted; this factory only assembles the full input, including
  * {@code requestMetadataJson}, unconditionally.
  *
- * <p>{@code requestedBy} is left {@code null}: the TSP caller identity is resolved in the protocol layer and is
- * not currently threaded down to the TSA engine.
+ * <p>
+ * {@code requestedBy} is left {@code null}: the TSP caller identity is resolved in the protocol layer and is not
+ * currently threaded down to the TSA engine.
  */
 @Component
 public class TspSigningRecordFactory {
@@ -38,23 +39,24 @@ public class TspSigningRecordFactory {
     /**
      * Returns a deferred {@link SigningRecordInputSource} over the same arguments as {@link #build}: the signing
      * profile is exposed immediately for the recording gate, but the full input — including the
-     * {@code requestMetadataJson} serialization — is assembled only when {@link SigningRecordInputSource#build()}
-     * is called, so disabled profiles never pay for it.
+     * {@code requestMetadataJson} serialization — is assembled only when {@link SigningRecordInputSource#build()} is
+     * called, so disabled profiles never pay for it.
      */
     public SigningRecordInputSource source(SigningProfileModel<?, ?> signingProfile, TspRequest request,
-                                           BigInteger serialNumber, Instant genTime, byte[] encodedToken) {
+            BigInteger serialNumber, Instant genTime, byte[] encodedToken) {
         return new DeferredSigningRecordInputSource(signingProfile,
                 () -> build(signingProfile, request, serialNumber, genTime, encodedToken));
     }
 
     private SigningRecordInput build(SigningProfileModel<?, ?> signingProfile, TspRequest request,
-                                     BigInteger serialNumber, Instant genTime, byte[] encodedToken) {
+            BigInteger serialNumber, Instant genTime, byte[] encodedToken) {
         String serialHex = serialNumber.toString(16);
 
         // The timestamp token is the self-contained signed artifact: it already embeds the signature value and the
         // signed attributes (DTBS), so both are recoverable from it. Storing them again under signature/dtbs would
         // duplicate substrings of the token, so only signedDocument is populated for the TSP path.
-        return SigningRecordInput.builder()
+        return SigningRecordInput
+                .builder()
                 .signingProfile(signingProfile)
                 .protocol(SigningProtocol.TSP)
                 .signingTime(genTime)
@@ -65,7 +67,8 @@ public class TspSigningRecordFactory {
                 .build();
     }
 
-    private String buildRequestMetadataJson(SigningProfileModel<?, ?> signingProfile, TspRequest request, String serialHex) {
+    private String buildRequestMetadataJson(SigningProfileModel<?, ?> signingProfile, TspRequest request,
+            String serialHex) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("signingProfileName", signingProfile.name());
         metadata.put("signingProfileVersion", signingProfile.version());

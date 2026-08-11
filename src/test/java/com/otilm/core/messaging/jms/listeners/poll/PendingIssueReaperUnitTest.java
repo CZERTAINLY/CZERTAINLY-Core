@@ -8,17 +8,16 @@ import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,20 +30,25 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit coverage for {@link PendingIssueReaper#reapStaleOrphans()}'s per-certificate behaviors that a
- * real-DB test cannot exercise deterministically: the under-lock state re-assertion (skip a candidate
- * that is no longer PENDING_ISSUE) and the per-certificate try/catch (one certificate's transition
- * failure must not abort the rest of the batch). Collaborators are mocked; the selection predicates and
- * the FAILED+audit outcome are covered against real Postgres in {@link com.otilm.core.integration.messaging.jms.listeners.poll.PendingIssueReaperITest}.
+ * Unit coverage for {@link PendingIssueReaper#reapStaleOrphans()}'s per-certificate behaviors that a real-DB test
+ * cannot exercise deterministically: the under-lock state re-assertion (skip a candidate that is no longer
+ * PENDING_ISSUE) and the per-certificate try/catch (one certificate's transition failure must not abort the rest of the
+ * batch). Collaborators are mocked; the selection predicates and the FAILED+audit outcome are covered against real
+ * Postgres in {@link com.otilm.core.integration.messaging.jms.listeners.poll.PendingIssueReaperITest}.
  */
 @ExtendWith(MockitoExtension.class)
 class PendingIssueReaperUnitTest {
 
-    @Mock private CertificateRepository certificateRepository;
-    @Mock private CertificateRelationRepository certificateRelationRepository;
-    @Mock private TransactionHandler transactionHandler;
-    @Mock private ClusterOperationSynchronizer clusterSynchronizer;
-    @Mock private CertificateStateMachine stateMachine;
+    @Mock
+    private CertificateRepository certificateRepository;
+    @Mock
+    private CertificateRelationRepository certificateRelationRepository;
+    @Mock
+    private TransactionHandler transactionHandler;
+    @Mock
+    private ClusterOperationSynchronizer clusterSynchronizer;
+    @Mock
+    private CertificateStateMachine stateMachine;
 
     private PendingIssueReaper reaper;
 
@@ -54,17 +58,18 @@ class PendingIssueReaperUnitTest {
         reaper = new PendingIssueReaper(certificateRepository, certificateRelationRepository, transactionHandler,
                 clusterSynchronizer, stateMachine, Duration.ofMinutes(30), 200);
         // Execute the transactional lambdas inline so the real selection/reap logic runs under the test.
-        lenient().when(transactionHandler.runInNewTransaction(any(Supplier.class)))
+        lenient()
+                .when(transactionHandler.runInNewTransaction(any(Supplier.class)))
                 .thenAnswer(inv -> ((Supplier<?>) inv.getArgument(0)).get());
-        lenient().when(clusterSynchronizer.tryLock(ClusterOperationSynchronizer.Operation.PROVIDER_STATUS_POLL_SWEEP))
+        lenient()
+                .when(clusterSynchronizer.tryLock(ClusterOperationSynchronizer.Operation.PROVIDER_STATUS_POLL_SWEEP))
                 .thenReturn(true);
     }
 
     @Test
     void skipsCandidateNoLongerInPendingIssueUnderLock() {
         UUID uuid = UUID.randomUUID();
-        when(certificateRepository.findStalePendingIssueWithoutPollRow(any(), any()))
-                .thenReturn(List.of(uuid));
+        when(certificateRepository.findStalePendingIssueWithoutPollRow(any(), any())).thenReturn(List.of(uuid));
         // Between selection and locking the certificate completed elsewhere: it is now ISSUED.
         when(certificateRepository.findAndLockWithAssociationsByUuid(uuid))
                 .thenReturn(Optional.of(cert(uuid, CertificateState.ISSUED)));
@@ -89,8 +94,8 @@ class PendingIssueReaperUnitTest {
         assertThatCode(() -> reaper.reapStaleOrphans()).doesNotThrowAnyException();
 
         // The healthy certificate is still reaped despite the earlier failure.
-        verify(stateMachine).transition(eq(healthyCert), eq(CertificateState.FAILED),
-                eq(CertificateEvent.ISSUE), anyString());
+        verify(stateMachine)
+                .transition(eq(healthyCert), eq(CertificateState.FAILED), eq(CertificateEvent.ISSUE), anyString());
     }
 
     @Test
@@ -107,8 +112,8 @@ class PendingIssueReaperUnitTest {
 
     private void doThrowOnTransition(Certificate cert) {
         doThrow(new RuntimeException("lock timeout"))
-                .when(stateMachine).transition(eq(cert), eq(CertificateState.FAILED),
-                        eq(CertificateEvent.ISSUE), anyString());
+                .when(stateMachine)
+                .transition(eq(cert), eq(CertificateState.FAILED), eq(CertificateEvent.ISSUE), anyString());
     }
 
     private static Certificate cert(UUID uuid, CertificateState state) {

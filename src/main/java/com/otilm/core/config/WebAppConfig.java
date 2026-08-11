@@ -1,14 +1,18 @@
 package com.otilm.core.config;
 
-import com.otilm.api.model.client.dashboard.SigningRecordStatisticsPeriod;
-import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
-import com.otilm.api.model.core.oid.OidCategory;
-import com.otilm.core.auth.oauth2.AuthenticationSnapshotRequestFilter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.otilm.api.model.client.dashboard.SigningRecordStatisticsPeriod;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.core.auth.oauth2.AuthenticationSnapshotRequestFilter;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -30,20 +34,17 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
-import java.util.List;
-
 @Configuration
 @EnableWebMvc
 @ComponentScan("com.otilm.core.api")
 public class WebAppConfig implements WebMvcConfigurer {
 
-    @Bean(name="jacksonObjectMapper")
+    @Bean(name = "jacksonObjectMapper")
     public ObjectMapper jsonObjectMapper() {
-        return Jackson2ObjectMapperBuilder.json()
-                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)
+        return Jackson2ObjectMapperBuilder
+                .json()
+                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS,
+                        DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)
                 .modules(new JavaTimeModule())
                 .serializationInclusion(JsonInclude.Include.NON_NULL)
                 .build();
@@ -63,7 +64,8 @@ public class WebAppConfig implements WebMvcConfigurer {
         sortResolver.setFallbackSort(Sort.by("id"));
         argumentResolvers.add(sortResolver);
 
-        PageableHandlerMethodArgumentResolver pageableResolver = new PageableHandlerMethodArgumentResolver(sortResolver);
+        PageableHandlerMethodArgumentResolver pageableResolver = new PageableHandlerMethodArgumentResolver(
+                sortResolver);
         pageableResolver.setMaxPageSize(100);
         pageableResolver.setFallbackPageable(PageRequest.of(0, 10));
         argumentResolvers.add(pageableResolver);
@@ -74,28 +76,28 @@ public class WebAppConfig implements WebMvcConfigurer {
         registry.addConverter(new Converter<String, LocalDate>() {
             @Override
             public LocalDate convert(String source) {
-            if (StringUtils.isBlank(source)) {
-                return null;
-            }
-            return LocalDate.parse(source);
+                if (StringUtils.isBlank(source)) {
+                    return null;
+                }
+                return LocalDate.parse(source);
             }
         });
         registry.addConverter(new Converter<String, LocalDateTime>() {
             @Override
             public LocalDateTime convert(String source) {
-            if (StringUtils.isBlank(source)) {
-                return null;
-            }
-            return LocalDateTime.parse(source);
+                if (StringUtils.isBlank(source)) {
+                    return null;
+                }
+                return LocalDateTime.parse(source);
             }
         });
         registry.addConverter(new Converter<String, ZonedDateTime>() {
             @Override
             public ZonedDateTime convert(String source) {
-            if (StringUtils.isBlank(source)) {
-                return null;
-            }
-            return ZonedDateTime.parse(source);
+                if (StringUtils.isBlank(source)) {
+                    return null;
+                }
+                return ZonedDateTime.parse(source);
             }
         });
         registry.addConverter(new Converter<String, KeyAlgorithm>() {
@@ -110,13 +112,14 @@ public class WebAppConfig implements WebMvcConfigurer {
                 return SigningRecordStatisticsPeriod.findByCode(source);
             }
         });
-        registry.addConverter(String.class, OidCategory.class,
-                source -> StringUtils.isBlank(source) ? null : OidCategory.fromCode(source));
+        registry
+                .addConverter(String.class, OidCategory.class,
+                        source -> StringUtils.isBlank(source) ? null : OidCategory.fromCode(source));
     }
 
     /**
-     * Registered ahead of every other filter, including the Spring Security chains, so that no component can
-     * observe an authentication-settings snapshot published by an earlier request on the same pooled thread.
+     * Registered ahead of every other filter, including the Spring Security chains, so that no component can observe an
+     * authentication-settings snapshot published by an earlier request on the same pooled thread.
      */
     @Bean
     public FilterRegistrationBean<AuthenticationSnapshotRequestFilter> authenticationSnapshotRequestFilter() {
@@ -130,7 +133,7 @@ public class WebAppConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public FilterRegistrationBean<ApprovalExpirationFilter> approvalExpirationFilter(){
+    public FilterRegistrationBean<ApprovalExpirationFilter> approvalExpirationFilter() {
         FilterRegistrationBean<ApprovalExpirationFilter> registrationBean = new FilterRegistrationBean<>();
 
         registrationBean.setFilter(new ApprovalExpirationFilter());

@@ -11,22 +11,22 @@ import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.service.writer.signingrecord.SigningRecordWriter;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.Duration;
 import java.time.Instant;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Verifies the single {@link SigningRecordWriter}'s deletion contribution on top of the repository queries (the
- * queries' retention/null/flag semantics are covered in {@link com.otilm.core.integration.dao.repository.signing.SigningRecordRepositoryITest SigningRecordRepositoryITest}): each call runs in
- * its own {@code REQUIRES_NEW} transaction, so it deletes and commits with no ambient transaction held by the
- * caller. For {@code deleteExpiredBatch} the {@code limit} bounds a single batch, which is the signal the
- * sweeper uses to detect a full batch and keep looping; {@code deleteByUuid} removes the single
- * operator-selected row. The writer's inbound and drain paths are covered through the strategy integration
- * tests and {@code SigningRecordOutboxDrainerITest}.
+ * queries' retention/null/flag semantics are covered in
+ * {@link com.otilm.core.integration.dao.repository.signing.SigningRecordRepositoryITest SigningRecordRepositoryITest}):
+ * each call runs in its own {@code REQUIRES_NEW} transaction, so it deletes and commits with no ambient transaction
+ * held by the caller. For {@code deleteExpiredBatch} the {@code limit} bounds a single batch, which is the signal the
+ * sweeper uses to detect a full batch and keep looping; {@code deleteByUuid} removes the single operator-selected row.
+ * The writer's inbound and drain paths are covered through the strategy integration tests and
+ * {@code SigningRecordOutboxDrainerITest}.
  */
 class SigningRecordWriterITest extends BaseSpringBootTest {
 
@@ -151,9 +151,10 @@ class SigningRecordWriterITest extends BaseSpringBootTest {
     }
 
     /**
-     * Persists the version row a record references by int, mirroring {@link com.otilm.core.integration.dao.repository.signing.SigningRecordRepositoryITest SigningRecordRepositoryITest}, so the
-     * fixtures stay valid should the {@code (signing_profile_uuid, signing_profile_version)} reference ever
-     * become a hard FK.
+     * Persists the version row a record references by int, mirroring
+     * {@link com.otilm.core.integration.dao.repository.signing.SigningRecordRepositoryITest
+     * SigningRecordRepositoryITest}, so the fixtures stay valid should the
+     * {@code (signing_profile_uuid, signing_profile_version)} reference ever become a hard FK.
      */
     private void insertProfileVersion(SigningProfile profile, int version, Integer retentionDays) {
         SigningProfileVersion profileVersion = new SigningProfileVersion();

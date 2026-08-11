@@ -3,9 +3,8 @@ package com.otilm.core.messaging.model;
 import com.otilm.api.model.client.approval.ApprovalStatusEnum;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.model.auth.ResourceAction;
-import lombok.Data;
-
 import java.util.UUID;
+import lombok.Data;
 
 @Data
 public class ActionMessage {

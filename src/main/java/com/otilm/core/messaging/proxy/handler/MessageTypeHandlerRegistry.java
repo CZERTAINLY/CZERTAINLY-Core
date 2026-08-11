@@ -2,35 +2,39 @@ package com.otilm.core.messaging.proxy.handler;
 
 import com.otilm.api.clients.mq.model.ProxyMessage;
 import jakarta.annotation.PostConstruct;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
- * Registry for messageType-based message handlers.
- * Dispatches proxy messages to appropriate handlers based on messageType.
+ * Registry for messageType-based message handlers. Dispatches proxy messages to appropriate handlers based on
+ * messageType.
  *
- * <p>This enables fire-and-forget style messaging where any instance can process
- * a message based on its messageType, rather than requiring correlation-based
- * routing back to the originating instance.</p>
+ * <p>
+ * This enables fire-and-forget style messaging where any instance can process a message based on its messageType,
+ * rather than requiring correlation-based routing back to the originating instance.
+ * </p>
  *
- * <p>Pattern matching follows RabbitMQ topic exchange semantics:</p>
+ * <p>
+ * Pattern matching follows RabbitMQ topic exchange semantics:
+ * </p>
  * <ul>
- *   <li>Segments are separated by '.' (dot)</li>
- *   <li>Exact match: "health.check" matches exactly "health.check"</li>
- *   <li>Single-segment wildcard: '*' matches exactly one segment
- *       (e.g., "GET.v1.certificates.*" matches "GET.v1.certificates.123" but not "GET.v1.certificates" or "GET.v1.certificates.123.details")</li>
- *   <li>Multi-segment wildcard: '#' matches zero or more segments
- *       (e.g., "audit.events.#" matches "audit.events", "audit.events.users", "audit.events.users.signup")</li>
- *   <li>Pattern "#" alone matches everything (fanout behavior)</li>
+ * <li>Segments are separated by '.' (dot)</li>
+ * <li>Exact match: "health.check" matches exactly "health.check"</li>
+ * <li>Single-segment wildcard: '*' matches exactly one segment (e.g., "GET.v1.certificates.*" matches
+ * "GET.v1.certificates.123" but not "GET.v1.certificates" or "GET.v1.certificates.123.details")</li>
+ * <li>Multi-segment wildcard: '#' matches zero or more segments (e.g., "audit.events.#" matches "audit.events",
+ * "audit.events.users", "audit.events.users.signup")</li>
+ * <li>Pattern "#" alone matches everything (fanout behavior)</li>
  * </ul>
  *
- * <p>When multiple patterns match, the most specific one wins (literal segments > '*' > '#').</p>
+ * <p>
+ * When multiple patterns match, the most specific one wins (literal segments > '*' > '#').
+ * </p>
  */
 @Slf4j
 @Component
@@ -52,8 +56,10 @@ public class MessageTypeHandlerRegistry {
             if (messageType != null && !messageType.isBlank()) {
                 MessageTypeResponseHandler existing = handlers.get(messageType);
                 if (existing != null) {
-                    log.warn("Duplicate messageType '{}' detected: handler {} would overwrite existing handler {}. Keeping first registered handler.",
-                            messageType, handler.getClass().getSimpleName(), existing.getClass().getSimpleName());
+                    log
+                            .warn("Duplicate messageType '{}' detected: handler {} would overwrite existing handler {}. Keeping first registered handler.",
+                                    messageType, handler.getClass().getSimpleName(),
+                                    existing.getClass().getSimpleName());
                     continue;
                 }
                 handlers.put(messageType, handler);
@@ -105,7 +111,9 @@ public class MessageTypeHandlerRegistry {
 
         if (handler != null) {
             try {
-                log.debug("Dispatching to handler {} for messageType={}", handler.getClass().getSimpleName(), messageType);
+                log
+                        .debug("Dispatching to handler {} for messageType={}", handler.getClass().getSimpleName(),
+                                messageType);
                 handler.handleResponse(message);
                 return true;
             } catch (Exception e) {
@@ -119,9 +127,8 @@ public class MessageTypeHandlerRegistry {
     }
 
     /**
-     * Find a handler matching a pattern using RabbitMQ topic exchange semantics.
-     * Uses most-specific-wins strategy based on pattern specificity score.
-     * When scores are equal, uses lexicographic comparison for deterministic selection.
+     * Find a handler matching a pattern using RabbitMQ topic exchange semantics. Uses most-specific-wins strategy based
+     * on pattern specificity score. When scores are equal, uses lexicographic comparison for deterministic selection.
      *
      * @param messageType The messageType to match
      * @return The most specific matching handler, or null if none match
@@ -136,7 +143,8 @@ public class MessageTypeHandlerRegistry {
             if (matches(pattern, messageType)) {
                 int score = calculateSpecificity(pattern);
                 // Use lexicographic comparison as tie-breaker for deterministic selection
-                if (score > bestScore || (score == bestScore && bestPattern != null && pattern.compareTo(bestPattern) < 0)) {
+                if (score > bestScore
+                        || (score == bestScore && bestPattern != null && pattern.compareTo(bestPattern) < 0)) {
                     bestScore = score;
                     bestMatch = entry.getValue();
                     bestPattern = pattern;
@@ -147,8 +155,8 @@ public class MessageTypeHandlerRegistry {
     }
 
     /**
-     * Check if a pattern matches a messageType using RabbitMQ topic exchange semantics.
-     * Segments are separated by '.'; '*' matches exactly one segment; '#' matches zero or more.
+     * Check if a pattern matches a messageType using RabbitMQ topic exchange semantics. Segments are separated by '.';
+     * '*' matches exactly one segment; '#' matches zero or more.
      *
      * @param pattern The pattern (may contain '*' and '#' wildcards)
      * @param messageType The messageType to match
@@ -231,9 +239,8 @@ public class MessageTypeHandlerRegistry {
     }
 
     /**
-     * Calculate specificity score for a pattern.
-     * Higher score = more specific pattern.
-     * Scoring: literal segment = 100, '*' = 10, '#' = 1.
+     * Calculate specificity score for a pattern. Higher score = more specific pattern. Scoring: literal segment = 100,
+     * '*' = 10, '#' = 1.
      *
      * @param pattern The pattern to score
      * @return Specificity score (higher = more specific)
@@ -257,8 +264,7 @@ public class MessageTypeHandlerRegistry {
     }
 
     /**
-     * Get the number of registered handlers.
-     * Useful for monitoring.
+     * Get the number of registered handlers. Useful for monitoring.
      */
     public int getHandlerCount() {
         return handlers.size();

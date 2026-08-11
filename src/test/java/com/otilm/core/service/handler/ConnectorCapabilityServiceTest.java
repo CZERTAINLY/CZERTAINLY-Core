@@ -4,9 +4,8 @@ import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,26 +30,24 @@ class ConnectorCapabilityServiceTest {
 
     @Test
     void enforcedFlagSupportedOnlyWhenAdvertised() {
-        assertTrue(service.supports(
-                authorityWith(authorityInterface("v3", List.of(FeatureFlag.CERTIFICATE_REGISTRATION))),
-                FeatureFlag.CERTIFICATE_REGISTRATION));
-        assertFalse(service.supports(
-                authorityWith(authorityInterface("v3", List.of())),
-                FeatureFlag.CERTIFICATE_REGISTRATION));
+        assertTrue(service
+                .supports(authorityWith(authorityInterface("v3", List.of(FeatureFlag.CERTIFICATE_REGISTRATION))),
+                        FeatureFlag.CERTIFICATE_REGISTRATION));
+        assertFalse(service
+                .supports(authorityWith(authorityInterface("v3", List.of())), FeatureFlag.CERTIFICATE_REGISTRATION));
     }
 
     @Test
     void informationalFlagAlwaysPassesThrough() {
         // STATELESS is INFORMATIONAL — supported even though it is not advertised.
-        assertTrue(service.supports(
-                authorityWith(authorityInterface("v3", List.of())),
-                FeatureFlag.STATELESS));
+        assertTrue(service.supports(authorityWith(authorityInterface("v3", List.of())), FeatureFlag.STATELESS));
     }
 
     @Test
     void enforcedFlagUnsupportedWhenAuthorityInterfaceOrFeaturesMissing() {
         assertFalse(service.supports((AuthorityInstanceReference) null, FeatureFlag.CERTIFICATE_REGISTRATION));
         assertFalse(service.supports(authorityWith(null), FeatureFlag.CERTIFICATE_REGISTRATION));
-        assertFalse(service.supports(authorityWith(authorityInterface("v3", null)), FeatureFlag.CERTIFICATE_REGISTRATION));
+        assertFalse(
+                service.supports(authorityWith(authorityInterface("v3", null)), FeatureFlag.CERTIFICATE_REGISTRATION));
     }
 }

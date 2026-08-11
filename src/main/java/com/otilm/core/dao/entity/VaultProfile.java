@@ -1,15 +1,19 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.vaultprofile.VaultProfileDetailDto;
 import com.otilm.api.model.core.vaultprofile.VaultProfileDto;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.util.UUID;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
-
-import java.util.UUID;
 
 @EqualsAndHashCode(callSuper = true)
 @Entity
@@ -44,7 +48,6 @@ public class VaultProfile extends UniquelyIdentifiedAndAudited {
         dto.setEnabled(enabled);
         return dto;
     }
-
 
     public VaultProfileDetailDto mapToDetailDto() {
         VaultProfileDetailDto detailDto = new VaultProfileDetailDto();

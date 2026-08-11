@@ -21,14 +21,13 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TimeQualityConfigurationExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.UUID;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyEqualsFilter;
@@ -108,7 +107,9 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
         requestAttr.setUuid(UUID.fromString(customAttr.getUuid()));
         requestAttr.setName(CUSTOM_ATTR_NAME);
         requestAttr.setContent(List.of(new TextAttributeContentV3("ref-1", CUSTOM_ATTR_VALUE)));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, strict.getUuid(), List.of(requestAttr));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.TIME_QUALITY_CONFIGURATION, strict.getUuid(),
+                        List.of(requestAttr));
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -120,15 +121,19 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
         List<SearchFieldDataByGroupDto> groups = timeQualityConfigurationService.getSearchableFieldInformation();
 
         Assertions.assertFalse(groups.isEmpty());
-        List<String> identifiers = groups.stream()
+        List<String> identifiers = groups
+                .stream()
                 .flatMap(g -> g.getSearchFieldData().stream())
                 .map(SearchFieldDataDto::getFieldIdentifier)
                 .toList();
 
         Assertions.assertTrue(identifiers.contains(FilterField.TIME_QUALITY_CONFIGURATION_NAME.name()));
         Assertions.assertTrue(identifiers.contains(FilterField.TIME_QUALITY_CONFIGURATION_LEAP_SECOND_GUARD.name()));
-        Assertions.assertTrue(identifiers.contains(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE.name()));
-        Assertions.assertTrue(identifiers.contains(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER.name()));
+        Assertions
+                .assertTrue(
+                        identifiers.contains(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE.name()));
+        Assertions
+                .assertTrue(identifiers.contains(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER.name()));
         Assertions.assertTrue(identifiers.contains(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS.name()));
     }
 
@@ -155,8 +160,8 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
 
     @Test
     void filterByName_startsWith_returnsMatchingConfigs() {
-        List<TimeQualityConfigurationListDto> results = listWithFilters(
-                aPropertyFilter(FilterField.TIME_QUALITY_CONFIGURATION_NAME, FilterConditionOperator.STARTS_WITH, "strict"));
+        List<TimeQualityConfigurationListDto> results = listWithFilters(aPropertyFilter(
+                FilterField.TIME_QUALITY_CONFIGURATION_NAME, FilterConditionOperator.STARTS_WITH, "strict"));
 
         Assertions.assertEquals(1, results.size());
         Assertions.assertEquals("strict-tqc", results.getFirst().getName());
@@ -211,8 +216,8 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
     @Test
     void filterByNtpServersMinReachable_greater_returnsHigherMinConfigs() {
         // strict has minReachable=3, others have 1 and 2
-        List<TimeQualityConfigurationListDto> results = listWithFilters(
-                aPropertyFilter(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE, FilterConditionOperator.GREATER, 1));
+        List<TimeQualityConfigurationListDto> results = listWithFilters(aPropertyFilter(
+                FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE, FilterConditionOperator.GREATER, 1));
 
         Assertions.assertEquals(2, results.size());
         List<String> names = results.stream().map(TimeQualityConfigurationListDto::getName).toList();
@@ -223,8 +228,8 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
     @Test
     void filterByNtpServersMinReachable_lesser_returnsLowerMinConfigs() {
         // loose has minReachable=1
-        List<TimeQualityConfigurationListDto> results = listWithFilters(
-                aPropertyFilter(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE, FilterConditionOperator.LESSER, 2));
+        List<TimeQualityConfigurationListDto> results = listWithFilters(aPropertyFilter(
+                FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE, FilterConditionOperator.LESSER, 2));
 
         Assertions.assertEquals(1, results.size());
         Assertions.assertEquals("loose-tqc", results.getFirst().getName());
@@ -246,8 +251,8 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
     @Test
     void filterByNtpSamplesPerServer_greater_returnsHighSampleConfigs() {
         // strict has 8, guarded has 4, loose has 2
-        List<TimeQualityConfigurationListDto> results = listWithFilters(
-                aPropertyFilter(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER, FilterConditionOperator.GREATER, 3));
+        List<TimeQualityConfigurationListDto> results = listWithFilters(aPropertyFilter(
+                FilterField.TIME_QUALITY_CONFIGURATION_NTP_SAMPLES_PER_SERVER, FilterConditionOperator.GREATER, 3));
 
         Assertions.assertEquals(2, results.size());
         List<String> names = results.stream().map(TimeQualityConfigurationListDto::getName).toList();
@@ -298,12 +303,13 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
         // leapSecondGuard=true AND minReachable > 1 → strict (3) and guarded (2)
         // then add minReachable > 2 → only strict (3)
         SearchRequestDto request = new SearchRequestDto();
-        request.setFilters(List.of(
-                aPropertyEqualsFilter(FilterField.TIME_QUALITY_CONFIGURATION_LEAP_SECOND_GUARD, true),
-                aPropertyFilter(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE, FilterConditionOperator.GREATER, 2)
-        ));
-        PaginationResponseDto<TimeQualityConfigurationListDto> response =
-                timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create());
+        request
+                .setFilters(List
+                        .of(aPropertyEqualsFilter(FilterField.TIME_QUALITY_CONFIGURATION_LEAP_SECOND_GUARD, true),
+                                aPropertyFilter(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS_MIN_REACHABLE,
+                                        FilterConditionOperator.GREATER, 2)));
+        PaginationResponseDto<TimeQualityConfigurationListDto> response = timeQualityConfigurationService
+                .listTimeQualityConfigurations(request, SecurityFilter.create());
 
         Assertions.assertEquals(1, response.getTotalItems());
         Assertions.assertEquals("strict-tqc", response.getItems().getFirst().getName());
@@ -315,8 +321,8 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
 
     @Test
     void filterByCustomAttribute_exactMatch_returnsOnlyTaggedConfiguration() {
-        List<TimeQualityConfigurationListDto> results = listWithFilters(
-                aCustomAttributeFilter(CUSTOM_ATTR_NAME, AttributeContentType.TEXT, FilterConditionOperator.EQUALS, CUSTOM_ATTR_VALUE));
+        List<TimeQualityConfigurationListDto> results = listWithFilters(aCustomAttributeFilter(CUSTOM_ATTR_NAME,
+                AttributeContentType.TEXT, FilterConditionOperator.EQUALS, CUSTOM_ATTR_VALUE));
 
         Assertions.assertEquals(1, results.size());
         Assertions.assertEquals("strict-tqc", results.getFirst().getName());
@@ -324,8 +330,8 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
 
     @Test
     void filterByCustomAttribute_notEquals_excludesTaggedConfiguration() {
-        List<TimeQualityConfigurationListDto> results = listWithFilters(
-                aCustomAttributeFilter(CUSTOM_ATTR_NAME, AttributeContentType.TEXT, FilterConditionOperator.NOT_EQUALS, CUSTOM_ATTR_VALUE));
+        List<TimeQualityConfigurationListDto> results = listWithFilters(aCustomAttributeFilter(CUSTOM_ATTR_NAME,
+                AttributeContentType.TEXT, FilterConditionOperator.NOT_EQUALS, CUSTOM_ATTR_VALUE));
 
         Assertions.assertTrue(results.stream().noneMatch(p -> p.getName().equals("strict-tqc")));
     }
@@ -337,6 +343,8 @@ class TimeQualityConfigurationSearchITest extends BaseSpringBootTest {
     private List<TimeQualityConfigurationListDto> listWithFilters(SearchFilterRequestDto... filters) {
         SearchRequestDto request = new SearchRequestDto();
         request.setFilters(List.of(filters));
-        return timeQualityConfigurationService.listTimeQualityConfigurations(request, SecurityFilter.create()).getItems();
+        return timeQualityConfigurationService
+                .listTimeQualityConfigurations(request, SecurityFilter.create())
+                .getItems();
     }
 }

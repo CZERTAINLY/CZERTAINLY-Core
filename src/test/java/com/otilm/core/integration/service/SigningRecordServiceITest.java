@@ -26,17 +26,16 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.builders.SearchRequestDtoBuilder;
 import com.otilm.core.util.mocks.ConnectorMockFactory;
 import com.otilm.core.util.mocks.SignerConnectorMock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.UUID;
 
 import static com.otilm.core.util.builders.ConnectorRequestDtoBuilder.aV2ConnectorRequest;
 import static com.otilm.core.util.builders.SigningProfileRequestDtoBuilder.aSigningProfileRequest;
@@ -50,9 +49,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Drives {@link SigningRecordExternalService} end to end: signing profiles are created through {@link SigningProfileExternalService}
- * against a live {@link SignerConnectorMock}, signing records are persisted through {@link SigningRecordWriter}, and
- * every assertion reads back through the service under test. Nothing touches a repository directly.
+ * Drives {@link SigningRecordExternalService} end to end: signing profiles are created through
+ * {@link SigningProfileExternalService} against a live {@link SignerConnectorMock}, signing records are persisted
+ * through {@link SigningRecordWriter}, and every assertion reads back through the service under test. Nothing touches a
+ * repository directly.
  */
 class SigningRecordServiceITest extends BaseSpringBootTest {
 
@@ -89,12 +89,9 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() throws Exception {
         signerConnectorMock = connectorMockFactory.startSigner();
-        signerConnector = connectorService.createConnector(
-                aV2ConnectorRequest()
-                        .withName("signer")
-                        .withUrl(signerConnectorMock.getUrl())
-                        .build()
-        );
+        signerConnector = connectorService
+                .createConnector(
+                        aV2ConnectorRequest().withName("signer").withUrl(signerConnectorMock.getUrl()).build());
         defaultProfile = createSigningProfile("default-profile");
     }
 
@@ -112,10 +109,10 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             List<SearchFieldDataByGroupDto> groups = signingRecordService.getSearchableFieldInformation();
 
             // then
-            assertEquals(1, groups.stream()
-                    .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY)
-                    .count());
-            assertEquals(FilterField.getEnumsForResource(Resource.SIGNING_RECORD).size(), propertyFieldsOf(groups).size());
+            assertEquals(1,
+                    groups.stream().filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY).count());
+            assertEquals(FilterField.getEnumsForResource(Resource.SIGNING_RECORD).size(),
+                    propertyFieldsOf(groups).size());
         }
 
         @Test
@@ -124,7 +121,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             List<SearchFieldDataByGroupDto> groups = signingRecordService.getSearchableFieldInformation();
 
             // then
-            List<String> identifiers = propertyFieldsOf(groups).stream()
+            List<String> identifiers = propertyFieldsOf(groups)
+                    .stream()
                     .map(SearchFieldDataDto::getFieldIdentifier)
                     .toList();
             assertTrue(identifiers.contains(FilterField.SIGNING_RECORD_NAME.name()));
@@ -141,7 +139,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             List<SearchFieldDataByGroupDto> groups = signingRecordService.getSearchableFieldInformation();
 
             // then
-            SearchFieldDataDto signingProfileField = propertyFieldsOf(groups).stream()
+            SearchFieldDataDto signingProfileField = propertyFieldsOf(groups)
+                    .stream()
                     .filter(f -> f.getFieldIdentifier().equals(FilterField.SIGNING_RECORD_SIGNING_PROFILE.name()))
                     .findFirst()
                     .orElseThrow();
@@ -149,7 +148,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
         }
 
         private List<SearchFieldDataDto> propertyFieldsOf(List<SearchFieldDataByGroupDto> groups) {
-            return groups.stream()
+            return groups
+                    .stream()
                     .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY)
                     .map(SearchFieldDataByGroupDto::getSearchFieldData)
                     .flatMap(List::stream)
@@ -165,8 +165,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             // given no records seeded
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create());
 
             // then
             assertEquals(0, response.getTotalItems());
@@ -179,8 +179,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             seedRecordsAcrossProfilesAndVersions();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create());
 
             // then
             assertEquals(3, response.getTotalItems());
@@ -194,13 +194,15 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
         void filtersByName() throws Exception {
             // given
             seedRecordsAcrossProfilesAndVersions();
-            SearchRequestDto onlyAlphaV1 = SearchRequestDtoBuilder.aSearchRequest()
-                    .withPropertyFilter(FilterField.SIGNING_RECORD_NAME.name(), FilterConditionOperator.EQUALS, ALPHA_RECORD_V1)
+            SearchRequestDto onlyAlphaV1 = SearchRequestDtoBuilder
+                    .aSearchRequest()
+                    .withPropertyFilter(FilterField.SIGNING_RECORD_NAME.name(), FilterConditionOperator.EQUALS,
+                            ALPHA_RECORD_V1)
                     .build();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecords(onlyAlphaV1, SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecords(onlyAlphaV1, SecurityFilter.create());
 
             // then
             assertEquals(1, response.getTotalItems());
@@ -211,13 +213,15 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
         void filtersBySigningProfile() throws Exception {
             // given
             seedRecordsAcrossProfilesAndVersions();
-            SearchRequestDto onlyAlphaProfile = SearchRequestDtoBuilder.aSearchRequest()
-                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE.name(), FilterConditionOperator.EQUALS, ALPHA_PROFILE)
+            SearchRequestDto onlyAlphaProfile = SearchRequestDtoBuilder
+                    .aSearchRequest()
+                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE.name(),
+                            FilterConditionOperator.EQUALS, ALPHA_PROFILE)
                     .build();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecords(onlyAlphaProfile, SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecords(onlyAlphaProfile, SecurityFilter.create());
 
             // then
             assertEquals(2, response.getTotalItems());
@@ -230,13 +234,15 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
         void filtersBySigningProfileVersion() throws Exception {
             // given
             seedRecordsAcrossProfilesAndVersions();
-            SearchRequestDto onlyVersion2 = SearchRequestDtoBuilder.aSearchRequest()
-                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE_VERSION.name(), FilterConditionOperator.EQUALS, VERSION_2)
+            SearchRequestDto onlyVersion2 = SearchRequestDtoBuilder
+                    .aSearchRequest()
+                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE_VERSION.name(),
+                            FilterConditionOperator.EQUALS, VERSION_2)
                     .build();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecords(onlyVersion2, SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecords(onlyVersion2, SecurityFilter.create());
 
             // then
             assertEquals(1, response.getTotalItems());
@@ -247,14 +253,15 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
         void paginatesResults() throws Exception {
             // given
             seedRecordsAcrossProfilesAndVersions();
-            SearchRequestDto firstPageOfTwo = SearchRequestDtoBuilder.aSearchRequest()
+            SearchRequestDto firstPageOfTwo = SearchRequestDtoBuilder
+                    .aSearchRequest()
                     .withPageNumber(1)
                     .withItemsPerPage(2)
                     .build();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecords(firstPageOfTwo, SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecords(firstPageOfTwo, SecurityFilter.create());
 
             // then
             assertEquals(3, response.getTotalItems());
@@ -273,8 +280,9 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             insertRecord(defaultProfile, VERSION_1, "other-record-v1");
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response = signingRecordService.listSigningRecordsForProfile(
-                    UUID.fromString(targetProfile.getUuid()), SearchRequestDtoBuilder.all(), SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecordsForProfile(UUID.fromString(targetProfile.getUuid()),
+                            SearchRequestDtoBuilder.all(), SecurityFilter.create());
 
             // then
             assertEquals(1, response.getTotalItems());
@@ -287,8 +295,9 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             SigningProfileDto profileWithNoRecords = createSigningProfile("profile-with-no-records");
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response = signingRecordService.listSigningRecordsForProfile(
-                    UUID.fromString(profileWithNoRecords.getUuid()), SearchRequestDtoBuilder.all(), SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecordsForProfile(UUID.fromString(profileWithNoRecords.getUuid()),
+                            SearchRequestDtoBuilder.all(), SecurityFilter.create());
 
             // then
             assertTrue(response.getItems().isEmpty());
@@ -301,13 +310,16 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             insertRecord(targetProfile, VERSION_1, ALPHA_RECORD_V1);
             bumpToNextVersion(targetProfile);
             insertRecord(targetProfile, VERSION_2, ALPHA_RECORD_V2);
-            SearchRequestDto onlyVersion2 = SearchRequestDtoBuilder.aSearchRequest()
-                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE_VERSION.name(), FilterConditionOperator.EQUALS, VERSION_2)
+            SearchRequestDto onlyVersion2 = SearchRequestDtoBuilder
+                    .aSearchRequest()
+                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE_VERSION.name(),
+                            FilterConditionOperator.EQUALS, VERSION_2)
                     .build();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecordsForProfile(UUID.fromString(targetProfile.getUuid()), onlyVersion2, SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecordsForProfile(UUID.fromString(targetProfile.getUuid()), onlyVersion2,
+                            SecurityFilter.create());
 
             // then
             assertEquals(1, response.getTotalItems());
@@ -321,14 +333,15 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             SigningProfileDto betaProfile = createSigningProfile(BETA_PROFILE);
             insertRecord(alphaProfile, VERSION_1, ALPHA_RECORD_V1);
             insertRecord(betaProfile, VERSION_1, BETA_RECORD_V1);
-            SearchRequestDto onlyBetaProfile = SearchRequestDtoBuilder.aSearchRequest()
-                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE.name(), FilterConditionOperator.EQUALS, BETA_PROFILE)
+            SearchRequestDto onlyBetaProfile = SearchRequestDtoBuilder
+                    .aSearchRequest()
+                    .withPropertyFilter(FilterField.SIGNING_RECORD_SIGNING_PROFILE.name(),
+                            FilterConditionOperator.EQUALS, BETA_PROFILE)
                     .build();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecordsForProfile(UUID.fromString(alphaProfile.getUuid()),
-                            onlyBetaProfile,
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecordsForProfile(UUID.fromString(alphaProfile.getUuid()), onlyBetaProfile,
                             SecurityFilter.create());
 
             // then
@@ -343,14 +356,15 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             insertRecord(alphaProfile, VERSION_1, ALPHA_RECORD_V1);
             bumpToNextVersion(alphaProfile);
             insertRecord(alphaProfile, VERSION_2, ALPHA_RECORD_V2);
-            SearchRequestDto firstPageOfOne = SearchRequestDtoBuilder.aSearchRequest()
+            SearchRequestDto firstPageOfOne = SearchRequestDtoBuilder
+                    .aSearchRequest()
                     .withPageNumber(1)
                     .withItemsPerPage(1)
                     .build();
 
             // when
-            PaginationResponseDto<SigningRecordListDto> response =
-                    signingRecordService.listSigningRecordsForProfile(UUID.fromString(alphaProfile.getUuid()), firstPageOfOne,
+            PaginationResponseDto<SigningRecordListDto> response = signingRecordService
+                    .listSigningRecordsForProfile(UUID.fromString(alphaProfile.getUuid()), firstPageOfOne,
                             SecurityFilter.create());
 
             // then
@@ -431,8 +445,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             signingRecordService.deleteSigningRecord(SecuredUUID.fromUUID(remove.getUuid()));
 
             // then
-            PaginationResponseDto<SigningRecordListDto> remaining =
-                    signingRecordService.listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create());
+            PaginationResponseDto<SigningRecordListDto> remaining = signingRecordService
+                    .listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create());
             assertEquals(1, remaining.getTotalItems());
             assertEquals(keep.getUuid().toString(), remaining.getItems().getFirst().getUuid());
         }
@@ -460,16 +474,18 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             SigningRecord second = aSigningRecord().withSigningProfile(defaultProfile).withName("second").build();
             signingRecordWriter.insert(first);
             signingRecordWriter.insert(second);
-            List<SecuredUUID> allRecords = List.of(
-                    SecuredUUID.fromUUID(first.getUuid()), SecuredUUID.fromUUID(second.getUuid()));
+            List<SecuredUUID> allRecords = List
+                    .of(SecuredUUID.fromUUID(first.getUuid()), SecuredUUID.fromUUID(second.getUuid()));
 
             // when
             List<BulkActionMessageDto> messages = signingRecordService.bulkDeleteSigningRecords(allRecords);
 
             // then
             assertTrue(messages.isEmpty());
-            assertEquals(0, signingRecordService.listSigningRecords(
-                    SearchRequestDtoBuilder.all(), SecurityFilter.create()).getTotalItems());
+            assertEquals(0,
+                    signingRecordService
+                            .listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create())
+                            .getTotalItems());
         }
 
         @Test
@@ -481,14 +497,16 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             SecuredUUID missingUuid = SecuredUUID.fromUUID(UUID.randomUUID());
 
             // when
-            List<BulkActionMessageDto> messages =
-                    signingRecordService.bulkDeleteSigningRecords(List.of(existingUuid, missingUuid));
+            List<BulkActionMessageDto> messages = signingRecordService
+                    .bulkDeleteSigningRecords(List.of(existingUuid, missingUuid));
 
             // then
             assertEquals(1, messages.size());
             assertEquals(missingUuid.toString(), messages.getFirst().getUuid());
-            assertEquals(0, signingRecordService.listSigningRecords(
-                    SearchRequestDtoBuilder.all(), SecurityFilter.create()).getTotalItems());
+            assertEquals(0,
+                    signingRecordService
+                            .listSigningRecords(SearchRequestDtoBuilder.all(), SecurityFilter.create())
+                            .getTotalItems());
         }
     }
 
@@ -501,8 +519,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             Fixture fixture = seedRecordsAcrossProfilesAndVersions();
 
             // when
-            boolean exists = signingRecordInternalService.doesSigningRecordExistInternal(
-                    UUID.fromString(fixture.alpha().getUuid()), VERSION_2);
+            boolean exists = signingRecordInternalService
+                    .doesSigningRecordExistInternal(UUID.fromString(fixture.alpha().getUuid()), VERSION_2);
 
             // then
             assertTrue(exists);
@@ -515,8 +533,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             int versionWithoutRecords = 3;
 
             // when
-            boolean exists = signingRecordInternalService.doesSigningRecordExistInternal(
-                    UUID.fromString(fixture.alpha().getUuid()), versionWithoutRecords);
+            boolean exists = signingRecordInternalService
+                    .doesSigningRecordExistInternal(UUID.fromString(fixture.alpha().getUuid()), versionWithoutRecords);
 
             // then
             assertFalse(exists);
@@ -529,8 +547,8 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             Fixture fixture = seedRecordsAcrossProfilesAndVersions();
 
             // when
-            boolean exists = signingRecordInternalService.doesSigningRecordExistInternal(
-                    UUID.fromString(fixture.beta().getUuid()), VERSION_2);
+            boolean exists = signingRecordInternalService
+                    .doesSigningRecordExistInternal(UUID.fromString(fixture.beta().getUuid()), VERSION_2);
 
             // then
             assertFalse(exists);
@@ -563,30 +581,26 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
     }
 
     private SigningProfileDto createSigningProfile(String name) throws Exception {
-        return signingProfileService.createSigningProfile(
-                aSigningProfileRequest()
+        return signingProfileService
+                .createSigningProfile(aSigningProfileRequest()
                         .withName(name)
                         .withDelegatedSigning(signerConnector.getUuid())
                         .withRawSigning()
-                        .build()
-        );
+                        .build());
     }
 
     /**
-     * Bumps {@code profile} to its next version through the service. The bump only materialises a new version row
-     * when records already exist for the current version, so callers must seed a record first.
+     * Bumps {@code profile} to its next version through the service. The bump only materialises a new version row when
+     * records already exist for the current version, so callers must seed a record first.
      */
     private void bumpToNextVersion(SigningProfileDto profile) throws Exception {
-        signingProfileService.updateSigningProfile(
-                SecuredUUID.fromString(profile.getUuid()),
-                aSigningProfileRequestFromExistingProfile(profile).build());
+        signingProfileService
+                .updateSigningProfile(SecuredUUID.fromString(profile.getUuid()),
+                        aSigningProfileRequestFromExistingProfile(profile).build());
     }
 
     private void insertRecord(SigningProfileDto profile, int version, String name) {
-        signingRecordWriter.insert(aSigningRecord()
-                .withSigningProfile(profile)
-                .withVersion(version)
-                .withName(name)
-                .build());
+        signingRecordWriter
+                .insert(aSigningRecord().withSigningProfile(profile).withVersion(version).withName(name).build());
     }
 }

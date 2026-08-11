@@ -9,12 +9,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 
 /**
- * Maps a TSP timestamping request path to the governing {@link TspProfileModel}. This is the single place
- * that understands the endpoint layout:
+ * Maps a TSP timestamping request path to the governing {@link TspProfileModel}. This is the single place that
+ * understands the endpoint layout:
  * <ul>
- *   <li>direct route {@code /v1/protocols/tsp/{name}} → the named TSP Profile, and</li>
- *   <li>indirect route {@code /v1/protocols/tsp/signingProfiles/{name}} → the TSP Profile linked to the
- *       named Signing Profile.</li>
+ * <li>direct route {@code /v1/protocols/tsp/{name}} → the named TSP Profile, and</li>
+ * <li>indirect route {@code /v1/protocols/tsp/signingProfiles/{name}} → the TSP Profile linked to the named Signing
+ * Profile.</li>
  * </ul>
  * Both resolution methods are cache-backed and run before any {@code SecurityContext} exists.
  */
@@ -26,7 +26,8 @@ public class TspRouteResolver {
     private final TspProfileInternalService tspProfileService;
     private final SigningProfileInternalService signingProfileService;
 
-    public TspRouteResolver(TspProfileInternalService tspProfileService, SigningProfileInternalService signingProfileService) {
+    public TspRouteResolver(TspProfileInternalService tspProfileService,
+            SigningProfileInternalService signingProfileService) {
         this.tspProfileService = tspProfileService;
         this.signingProfileService = signingProfileService;
     }
@@ -49,13 +50,13 @@ public class TspRouteResolver {
     }
 
     /**
-     * Extracts the single profile-name segment from the servlet path, anchoring on the exact {@code /v1/protocols/tsp/}.
-     * Returns:
+     * Extracts the single profile-name segment from the servlet path, anchoring on the exact
+     * {@code /v1/protocols/tsp/}. Returns:
      * <ul>
-     *   <li>the TSP Profile name for the direct route {@code /v1/protocols/tsp/{name}}, or</li>
-     *   <li>{@code signingProfiles/<signingProfileName>} for the indirect route
-     *       {@code /v1/protocols/tsp/signingProfiles/{name}}, or</li>
-     *   <li>{@code null} when the path is not a single-segment TSP timestamping endpoint.</li>
+     * <li>the TSP Profile name for the direct route {@code /v1/protocols/tsp/{name}}, or</li>
+     * <li>{@code signingProfiles/<signingProfileName>} for the indirect route
+     * {@code /v1/protocols/tsp/signingProfiles/{name}}, or</li>
+     * <li>{@code null} when the path is not a single-segment TSP timestamping endpoint.</li>
      * </ul>
      */
     private String extractPathName(String servletPath) {

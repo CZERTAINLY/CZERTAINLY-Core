@@ -10,11 +10,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.notRecording;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingDisabled;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingEverything;
 import static com.otilm.core.signing.record.SigningRecordInputBuilder.aSigningRecordInput;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,13 +24,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
- * Pure unit test for {@link DeferredDurableSigningRecordStrategy} over a mocked {@link SigningRecordWriter}.
- * The strategy's job is narrow: every call ticks the intake funnel on the shared ancestor; an empty policy is
- * skipped, otherwise it maps + stages the row into the outbox synchronously. This is intake stage 1 only — the
- * stage-2 persist is the drainer's job, so no {@code persist} meter is touched here. Like the immediate
- * strategy it does not swallow failures: a staging failure ticks {@code intake.failed{save_error}} and
- * propagates. Persistence wiring (the row landing in {@code signing_record_outbox}, field fidelity through
- * jsonb/byte[] columns) is covered against the real context in {@link com.otilm.core.integration.signing.record.DeferredDurableSigningRecordStrategyITest}.
+ * Pure unit test for {@link DeferredDurableSigningRecordStrategy} over a mocked {@link SigningRecordWriter}. The
+ * strategy's job is narrow: every call ticks the intake funnel on the shared ancestor; an empty policy is skipped,
+ * otherwise it maps + stages the row into the outbox synchronously. This is intake stage 1 only — the stage-2 persist
+ * is the drainer's job, so no {@code persist} meter is touched here. Like the immediate strategy it does not swallow
+ * failures: a staging failure ticks {@code intake.failed{save_error}} and propagates. Persistence wiring (the row
+ * landing in {@code signing_record_outbox}, field fidelity through jsonb/byte[] columns) is covered against the real
+ * context in {@link com.otilm.core.integration.signing.record.DeferredDurableSigningRecordStrategyITest}.
  */
 class DeferredDurableSigningRecordStrategyUnitTest {
 
@@ -44,19 +44,15 @@ class DeferredDurableSigningRecordStrategyUnitTest {
     void setUp() {
         registry = new SimpleMeterRegistry();
         writer = mock(SigningRecordWriter.class);
-        strategy = new DeferredDurableSigningRecordStrategy(new SigningRecordMetrics(registry), writer, new SigningRecordInputMapper());
+        strategy = new DeferredDurableSigningRecordStrategy(new SigningRecordMetrics(registry), writer,
+                new SigningRecordInputMapper());
     }
 
     @Test
     void record_countsIntakeSkippedAndDoesNotStage_whenRecordingDisabled() {
         // given
         var recordingDisabledInput = aSigningRecordInput()
-                .signingProfile(
-                        aSigningProfile()
-                                .withRecordPolicy(
-                                        recordingDisabled()
-                                                .build())
-                                .build())
+                .signingProfile(aSigningProfile().withRecordPolicy(recordingDisabled().build()).build())
                 .build();
 
         // when
@@ -72,12 +68,7 @@ class DeferredDurableSigningRecordStrategyUnitTest {
     void record_stagesMetadataOnlyOutboxRow_whenRecordingEnabledButNoContentSelected() {
         // given
         var metadataOnlyInput = aSigningRecordInput()
-                .signingProfile(
-                        aSigningProfile()
-                                .withRecordPolicy(
-                                        notRecording()
-                                                .build())
-                                .build())
+                .signingProfile(aSigningProfile().withRecordPolicy(notRecording().build()).build())
                 .build();
 
         // when

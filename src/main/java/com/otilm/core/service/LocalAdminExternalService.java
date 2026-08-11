@@ -10,5 +10,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 
 public interface LocalAdminExternalService {
-    UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, AttributeException;
+    UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException,
+            NoSuchAlgorithmException, AlreadyExistException, AttributeException;
 }

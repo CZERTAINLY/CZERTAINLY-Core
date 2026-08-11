@@ -10,14 +10,13 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.client.ConnectorApiFactory;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -80,8 +79,10 @@ class AttributeDefinitionResolverTest {
         dto.setDefinitions(List.of(fetched));
         Mockito.when(client.listDefinitions(any(), any())).thenReturn(dto);
 
-        Mockito.doThrow(new AttributeException("raw engine detail: column attribute_definition.secret_col"))
-                .when(attributeEngine).updateDataAttributeDefinitions(any(), any(), any());
+        Mockito
+                .doThrow(new AttributeException("raw engine detail: column attribute_definition.secret_col"))
+                .when(attributeEngine)
+                .updateDataAttributeDefinitions(any(), any(), any());
 
         ValidationException ex = assertThrows(ValidationException.class,
                 () -> resolver.resolve(connector, UUID.randomUUID(), "ngAttr", AttributeType.DATA));
@@ -106,9 +107,11 @@ class AttributeDefinitionResolverTest {
         dto.setDefinitions(List.of(fetched));
         Mockito.when(client.listDefinitions(any(), any())).thenReturn(dto);
 
-        Mockito.doThrow(new org.springframework.dao.DataIntegrityViolationException(
+        Mockito
+                .doThrow(new org.springframework.dao.DataIntegrityViolationException(
                         "ERROR: duplicate key value violates unique constraint \"attribute_definition_uq\""))
-                .when(txManager).commit(any());
+                .when(txManager)
+                .commit(any());
 
         ValidationException ex = assertThrows(ValidationException.class,
                 () -> resolver.resolve(connector, UUID.randomUUID(), "ngAttr", AttributeType.DATA));

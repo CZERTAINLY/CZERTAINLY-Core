@@ -2,9 +2,12 @@ package com.otilm.core.service;
 
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
-import com.otilm.api.model.core.oid.*;
+import com.otilm.api.model.core.oid.CustomOidEntryDetailResponseDto;
+import com.otilm.api.model.core.oid.CustomOidEntryListResponseDto;
+import com.otilm.api.model.core.oid.CustomOidEntryRequestDto;
+import com.otilm.api.model.core.oid.CustomOidEntryUpdateRequestDto;
+import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
-
 import java.util.List;
 import java.util.Set;
 
@@ -32,11 +35,12 @@ public interface CustomOidEntryExternalService {
     /**
      * Edits an existing custom OID entry.
      *
-     * @param oid     the OID to update
+     * @param oid the OID to update
      * @param request the update request data
      * @return updated basic information of the custom OID entry
      */
-    CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto request) throws NotFoundException;
+    CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto request)
+            throws NotFoundException;
 
     /**
      * Deletes a custom OID entry by its OID.
@@ -69,13 +73,14 @@ public interface CustomOidEntryExternalService {
     List<CustomOidEntryDetailResponseDto> listSystemOidEntries(OidCategory category);
 
     /**
-     * OIDs held by a custom entry that a built-in system OID now shares. The custom entry wins, so the
-     * built-in defaults do not apply; deleting it falls back to them. Empty when there is no conflict.
+     * OIDs held by a custom entry that a built-in system OID now shares. The custom entry wins, so the built-in
+     * defaults do not apply; deleting it falls back to them. Empty when there is no conflict.
      *
-     * <p>Such a row can only arise from an upgrade: creating one is rejected because the OID is reserved,
-     * so every entry here predates its OID's promotion to a system OID. The set therefore only grows at
-     * an upgrade and only shrinks as operators resolve entries, and an empty set on a fresh install is
-     * the expected state rather than an unexercised code path.
+     * <p>
+     * Such a row can only arise from an upgrade: creating one is rejected because the OID is reserved, so every entry
+     * here predates its OID's promotion to a system OID. The set therefore only grows at an upgrade and only shrinks as
+     * operators resolve entries, and an empty set on a fresh install is the expected state rather than an unexercised
+     * code path.
      */
     Set<String> getShadowedCustomOidEntries();
 

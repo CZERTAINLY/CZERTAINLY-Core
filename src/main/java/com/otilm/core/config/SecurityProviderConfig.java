@@ -1,14 +1,13 @@
 package com.otilm.core.config;
 
+import java.security.Provider;
+import java.security.Security;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.security.Provider;
-import java.security.Security;
 
 @Configuration
 public class SecurityProviderConfig {

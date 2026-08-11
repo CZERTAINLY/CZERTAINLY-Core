@@ -9,11 +9,10 @@ import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.core.attribute.engine.AttributeOperation;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.springframework.stereotype.Component;
 
 @Component
 public class EcdsaSignatureAttributes {
@@ -21,7 +20,8 @@ public class EcdsaSignatureAttributes {
     /**
      * Private constructor to prevent instantiation of utility class.
      */
-    private EcdsaSignatureAttributes(){}
+    private EcdsaSignatureAttributes() {
+    }
 
     public static final String ATTRIBUTE_DATA_SIG_DIGEST = "data_sigDigest";
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_UUID = "46bfdc2f-a96f-4f5d-a218-d538fde92e6d";
@@ -30,9 +30,7 @@ public class EcdsaSignatureAttributes {
 
     @CoreAttributeDefinitions(operation = AttributeOperation.SIGN)
     public static List<BaseAttribute> getEcdsaSignatureAttributes() {
-        return List.of(
-                buildDataDigest()
-        );
+        return List.of(buildDataDigest());
     }
 
     public static BaseAttribute buildDataDigest() {
@@ -53,11 +51,11 @@ public class EcdsaSignatureAttributes {
         attributeProperties.setReadOnly(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(
-                Stream.of(DigestAlgorithm.values())
+        attribute
+                .setContent(Stream
+                        .of(DigestAlgorithm.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .toList()
-        );
+                        .toList());
 
         return attribute;
     }

@@ -8,6 +8,15 @@ import com.otilm.core.dao.entity.cmp.CmpTransaction;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.protection.ProtectionStrategy;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERBitString;
@@ -31,30 +40,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link PollReqMessageHandler}.
  *
- * <p>Pinned cases:</p>
+ * <p>
+ * Pinned cases:
+ * </p>
  * <ul>
- *   <li>A pollReq for a transaction whose originating body was a revocation request must
- *       be cleanly rejected: wrapping the response in {@code CertRepMessage} regardless of
- *       original type would produce an invalid CMP body for revocation polls.</li>
- *   <li>A pollReq landing on a {@code PENDING_REVOKE} certificate must be rejected — RFC
- *       4210 §5.2.6 limits polling to ip/cp/kup contexts (issue/renew/rekey); CMP has no
- *       in-protocol way to represent a pending revocation.</li>
+ * <li>A pollReq for a transaction whose originating body was a revocation request must be cleanly rejected: wrapping
+ * the response in {@code CertRepMessage} regardless of original type would produce an invalid CMP body for revocation
+ * polls.</li>
+ * <li>A pollReq landing on a {@code PENDING_REVOKE} certificate must be rejected — RFC 4210 §5.2.6 limits polling to
+ * ip/cp/kup contexts (issue/renew/rekey); CMP has no in-protocol way to represent a pending revocation.</li>
  * </ul>
  */
 class PollReqMessageHandlerTest {
@@ -82,8 +82,7 @@ class PollReqMessageHandlerTest {
         // these polls explicitly instead.
         CmpTransaction trx = transactionWithCert(certificateInState(CertificateState.PENDING_REVOKE));
         trx.setOriginalRequestBodyType(PKIBody.TYPE_REVOCATION_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         PKIMessage pollReq = pollReqMessage();
 
@@ -99,8 +98,7 @@ class PollReqMessageHandlerTest {
         // that doesn't correspond to the original operation.
         CmpTransaction trx = transactionWithCert(certificateInState(CertificateState.PENDING_REVOKE));
         trx.setOriginalRequestBodyType(null);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         PKIMessage pollReq = pollReqMessage();
 
@@ -111,8 +109,7 @@ class PollReqMessageHandlerTest {
 
     @Test
     void rejectsPoll_whenNoTransactionForTransactionId() {
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of());
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of());
 
         PKIMessage pollReq = pollReqMessage();
 
@@ -123,11 +120,11 @@ class PollReqMessageHandlerTest {
 
     @Test
     void rejectsPoll_whenCertificateInTerminalState() {
-        for (CertificateState terminal : List.of(CertificateState.REVOKED, CertificateState.REJECTED, CertificateState.FAILED)) {
+        for (CertificateState terminal : List
+                .of(CertificateState.REVOKED, CertificateState.REJECTED, CertificateState.FAILED)) {
             CmpTransaction trx = transactionWithCert(certificateInState(terminal));
             trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-            Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                    .thenReturn(List.of(trx));
+            Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
             PKIMessage pollReq = pollReqMessage();
 
@@ -142,8 +139,7 @@ class PollReqMessageHandlerTest {
         // The handler must guard against being called with a non-pollReq body — protects
         // against accidental wiring elsewhere in the dispatch chain.
         PKIHeader header = pkiHeader();
-        PKIMessage notAPollReq = new PKIMessage(header,
-                new PKIBody(PKIBody.TYPE_CONFIRM, new PKIConfirmContent()));
+        PKIMessage notAPollReq = new PKIMessage(header, new PKIBody(PKIBody.TYPE_CONFIRM, new PKIConfirmContent()));
 
         assertThatThrownBy(() -> handler.handle(notAPollReq, configuration))
                 .isInstanceOf(CmpProcessingException.class)
@@ -182,9 +178,7 @@ class PollReqMessageHandlerTest {
     }
 
     private static PKIHeader pkiHeader() {
-        return new PKIHeaderBuilder(
-                PKIHeader.CMP_2000,
-                new GeneralName(new X500Name("CN=test-sender")),
+        return new PKIHeaderBuilder(PKIHeader.CMP_2000, new GeneralName(new X500Name("CN=test-sender")),
                 new GeneralName(new X500Name("CN=test-recipient")))
                 .setTransactionID(new DEROctetString(new byte[]{1, 2, 3, 4}))
                 .build();
@@ -204,8 +198,7 @@ class PollReqMessageHandlerTest {
         configuration = configurationWithMockedProtection();
         CmpTransaction trx = transactionWithCert(certificateInState(CertificateState.PENDING_ISSUE));
         trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         PKIMessage response = handler.handle(pollReqMessage(), configuration);
 
@@ -220,8 +213,7 @@ class PollReqMessageHandlerTest {
         for (CertificateState inProgress : List.of(CertificateState.REQUESTED, CertificateState.PENDING_APPROVAL)) {
             CmpTransaction trx = transactionWithCert(certificateInState(inProgress));
             trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-            Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                    .thenReturn(List.of(trx));
+            Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
             PKIMessage response = handler.handle(pollReqMessage(), configuration);
 
@@ -239,8 +231,7 @@ class PollReqMessageHandlerTest {
         cert.setCertificateContent(certificateContentWithRealPem());
         CmpTransaction trx = transactionWithCert(cert);
         trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         PKIMessage response = handler.handle(pollReqMessage(), configuration);
 
@@ -256,8 +247,7 @@ class PollReqMessageHandlerTest {
         cert.setCertificateContent(certificateContentWithRealPem());
         CmpTransaction trx = transactionWithCert(cert);
         trx.setOriginalRequestBodyType(PKIBody.TYPE_CERT_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         PKIMessage response = handler.handle(pollReqMessage(), configuration);
 
@@ -271,8 +261,7 @@ class PollReqMessageHandlerTest {
         cert.setCertificateContent(certificateContentWithRealPem());
         CmpTransaction trx = transactionWithCert(cert);
         trx.setOriginalRequestBodyType(PKIBody.TYPE_KEY_UPDATE_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         PKIMessage response = handler.handle(pollReqMessage(), configuration);
 
@@ -288,8 +277,7 @@ class PollReqMessageHandlerTest {
         cert.setCertificateContent(certificateContentWithRealPem());
         CmpTransaction trx = transactionWithCert(cert);
         trx.setOriginalRequestBodyType(null);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         PKIMessage response = handler.handle(pollReqMessage(), configuration);
 
@@ -311,8 +299,7 @@ class PollReqMessageHandlerTest {
         cert.setCertificateContent(malformed);
         CmpTransaction trx = transactionWithCert(cert);
         trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         assertThatThrownBy(() -> handler.handle(pollReqMessage(), configuration))
                 .isInstanceOf(CmpProcessingException.class)
@@ -328,8 +315,7 @@ class PollReqMessageHandlerTest {
         cert.setCertificateContent(null);
         CmpTransaction trx = transactionWithCert(cert);
         trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         assertThatThrownBy(() -> handler.handle(pollReqMessage(), configuration))
                 .isInstanceOf(CmpProcessingException.class)
@@ -344,8 +330,7 @@ class PollReqMessageHandlerTest {
         trx.setUuid(UUID.randomUUID());
         trx.setCertificate(null);
         trx.setTransactionId("test-tid");
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         assertThatThrownBy(() -> handler.handle(pollReqMessage(), configuration))
                 .isInstanceOf(CmpProcessingException.class)
@@ -360,13 +345,15 @@ class PollReqMessageHandlerTest {
         // verify both the resulting exception type and that the underlying RuntimeException
         // is preserved in the cause chain.
         ConfigurationContext cfg = configurationWithMockedProtection();
-        Mockito.when(cfg.getProtectionStrategy().createProtection(Mockito.any(PKIHeader.class), Mockito.any(PKIBody.class)))
+        Mockito
+                .when(cfg
+                        .getProtectionStrategy()
+                        .createProtection(Mockito.any(PKIHeader.class), Mockito.any(PKIBody.class)))
                 .thenThrow(new RuntimeException("forced protection failure"));
 
         CmpTransaction trx = transactionWithCert(certificateInState(CertificateState.PENDING_ISSUE));
         trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         assertThatThrownBy(() -> handler.handle(pollReqMessage(), cfg))
                 .isInstanceOf(CmpProcessingException.class)
@@ -379,15 +366,17 @@ class PollReqMessageHandlerTest {
         // must produce a CmpProcessingException with the underlying failure preserved in the
         // cause chain.
         ConfigurationContext cfg = configurationWithMockedProtection();
-        Mockito.when(cfg.getProtectionStrategy().createProtection(Mockito.any(PKIHeader.class), Mockito.any(PKIBody.class)))
+        Mockito
+                .when(cfg
+                        .getProtectionStrategy()
+                        .createProtection(Mockito.any(PKIHeader.class), Mockito.any(PKIBody.class)))
                 .thenThrow(new RuntimeException("forced protection failure"));
 
         Certificate cert = certificateInState(UUID.randomUUID(), CertificateState.ISSUED);
         cert.setCertificateContent(certificateContentWithRealPem());
         CmpTransaction trx = transactionWithCert(cert);
         trx.setOriginalRequestBodyType(PKIBody.TYPE_INIT_REQ);
-        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString()))
-                .thenReturn(List.of(trx));
+        Mockito.when(cmpTransactionService.findByTransactionId(Mockito.anyString())).thenReturn(List.of(trx));
 
         assertThatThrownBy(() -> handler.handle(pollReqMessage(), cfg))
                 .isInstanceOf(CmpProcessingException.class)
@@ -413,8 +402,8 @@ class PollReqMessageHandlerTest {
             X500Name name = new X500Name("CN=test-poll");
             Date notBefore = new Date();
             Date notAfter = new Date(notBefore.getTime() + 365L * 24 * 60 * 60 * 1000);
-            X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                    name, BigInteger.ONE, notBefore, notAfter, name, kp.getPublic());
+            X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(name, BigInteger.ONE, notBefore,
+                    notAfter, name, kp.getPublic());
             ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(kp.getPrivate());
             X509Certificate x509 = new JcaX509CertificateConverter().getCertificate(builder.build(signer));
             CertificateContent content = new CertificateContent();
@@ -432,11 +421,13 @@ class PollReqMessageHandlerTest {
             Mockito.when(cfg.getProtectionStrategy()).thenReturn(strategy);
             Mockito.when(cfg.getRecipient()).thenReturn(new GeneralName(new X500Name("CN=test-recipient")));
             Mockito.when(strategy.getSender()).thenReturn(new GeneralName(new X500Name("CN=test-sender")));
-            Mockito.when(strategy.getProtectionAlg()).thenReturn(new AlgorithmIdentifier(
-                    new ASN1ObjectIdentifier("1.3.6.1.5.5.8.1.2")));
+            Mockito
+                    .when(strategy.getProtectionAlg())
+                    .thenReturn(new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.3.6.1.5.5.8.1.2")));
             Mockito.when(strategy.getSenderKID()).thenReturn(new DEROctetString(new byte[]{1, 2, 3}));
             Mockito.when(strategy.getProtectingExtraCerts()).thenReturn(List.of());
-            Mockito.when(strategy.createProtection(Mockito.any(PKIHeader.class), Mockito.any(PKIBody.class)))
+            Mockito
+                    .when(strategy.createProtection(Mockito.any(PKIHeader.class), Mockito.any(PKIBody.class)))
                     .thenReturn(new DERBitString(new byte[]{0x01, 0x02}));
         } catch (Exception e) {
             throw new RuntimeException("test setup failed", e);

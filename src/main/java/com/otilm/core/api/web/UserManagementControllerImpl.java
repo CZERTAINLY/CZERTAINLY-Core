@@ -6,20 +6,23 @@ import com.otilm.api.interfaces.core.web.UserManagementController;
 import com.otilm.api.model.client.auth.AddUserRequestDto;
 import com.otilm.api.model.client.auth.UpdateUserRequestDto;
 import com.otilm.api.model.client.auth.UserIdentificationRequestDto;
-import com.otilm.api.model.core.auth.*;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.RoleDto;
+import com.otilm.api.model.core.auth.SubjectPermissionsDto;
+import com.otilm.api.model.core.auth.UserDetailDto;
+import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.UserManagementExternalService;
+import java.net.URI;
+import java.security.cert.CertificateException;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.security.cert.CertificateException;
-import java.util.List;
 
 @RestController
 public class UserManagementControllerImpl implements UserManagementController {
@@ -45,7 +48,8 @@ public class UserManagementControllerImpl implements UserManagementController {
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.CREATE)
-    public ResponseEntity<UserDetailDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
+    public ResponseEntity<UserDetailDto> createUser(AddUserRequestDto request)
+            throws NotFoundException, CertificateException, AttributeException {
         UserDetailDto userDto = userManagementService.createUser(request);
 
         URI location = ServletUriComponentsBuilder
@@ -58,7 +62,8 @@ public class UserManagementControllerImpl implements UserManagementController {
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.UPDATE)
-    public UserDetailDto updateUser(@LogResource(uuid = true) String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
+    public UserDetailDto updateUser(@LogResource(uuid = true) String userUuid, UpdateUserRequestDto request)
+            throws NotFoundException, CertificateException, AttributeException {
         return userManagementService.updateUser(userUuid, request);
     }
 
@@ -88,19 +93,22 @@ public class UserManagementControllerImpl implements UserManagementController {
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.UPDATE)
-    public UserDetailDto updateRoles(@LogResource(uuid = true) String userUuid, @LogResource(uuid = true, affiliated = true) List<String> roleUuids) throws NotFoundException {
+    public UserDetailDto updateRoles(@LogResource(uuid = true) String userUuid,
+            @LogResource(uuid = true, affiliated = true) List<String> roleUuids) throws NotFoundException {
         return userManagementService.updateRoles(userUuid, roleUuids);
     }
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.ADD)
-    public UserDetailDto addRole(@LogResource(uuid = true) String userUuid, @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
+    public UserDetailDto addRole(@LogResource(uuid = true) String userUuid,
+            @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
         return userManagementService.updateRole(userUuid, roleUuid);
     }
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.REMOVE)
-    public UserDetailDto removeRole(@LogResource(uuid = true) String userUuid, @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
+    public UserDetailDto removeRole(@LogResource(uuid = true) String userUuid,
+            @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
         return userManagementService.removeRole(userUuid, roleUuid);
     }
 
@@ -112,7 +120,8 @@ public class UserManagementControllerImpl implements UserManagementController {
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.IDENTIFY)
-    public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException, CertificateException {
+    public UserDetailDto identifyUser(UserIdentificationRequestDto request)
+            throws NotFoundException, CertificateException {
         return userManagementService.identifyUser(request);
     }
 }

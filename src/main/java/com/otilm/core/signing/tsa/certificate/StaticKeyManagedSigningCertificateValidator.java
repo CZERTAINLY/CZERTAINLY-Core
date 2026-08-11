@@ -18,14 +18,20 @@ public class StaticKeyManagedSigningCertificateValidator implements SigningCerti
     @Override
     public ValidationResult validate(ResolvedManagedScheme signingScheme, boolean qualifiedTimestamp) {
         if (!(signingScheme instanceof ResolvedStaticKeyManagedSigning signingSchemeModel)) {
-            return ValidationResult.nok(TspFailureInfo.SYSTEM_FAILURE,
-                    "The signing scheme '%s' is not supported by 'StaticKeyManagedSigningCertificateValidator'.".formatted(signingScheme.getClass().getSimpleName()),
-                    "The system is misconfigured.");
+            return ValidationResult
+                    .nok(TspFailureInfo.SYSTEM_FAILURE,
+                            "The signing scheme '%s' is not supported by 'StaticKeyManagedSigningCertificateValidator'."
+                                    .formatted(signingScheme.getClass().getSimpleName()),
+                            "The system is misconfigured.");
         }
-        if (!CertificateEligibilityUtil.isCertificateDigitalSigningAcceptable(signingSchemeModel.certificate(), signingSchemeModel.keyItems(), SigningWorkflowType.TIMESTAMPING, qualifiedTimestamp)) {
-            return ValidationResult.nok(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signing certificate is not acceptable for %s timestamping".formatted(qualifiedTimestamp ? "qualified" : "non-qualified"),
-                    "Signing certificate failed validation.");
+        if (!CertificateEligibilityUtil
+                .isCertificateDigitalSigningAcceptable(signingSchemeModel.certificate(), signingSchemeModel.keyItems(),
+                        SigningWorkflowType.TIMESTAMPING, qualifiedTimestamp)) {
+            return ValidationResult
+                    .nok(TspFailureInfo.SYSTEM_FAILURE,
+                            "Signing certificate is not acceptable for %s timestamping"
+                                    .formatted(qualifiedTimestamp ? "qualified" : "non-qualified"),
+                            "Signing certificate failed validation.");
         }
         return ValidationResult.ok();
     }

@@ -1,25 +1,26 @@
 package com.otilm.core.events.handlers.discovery;
 
 import com.otilm.api.exception.ValidationException;
+import java.security.cert.CertificateException;
+import java.sql.SQLException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.UnexpectedRollbackException;
 
-import java.security.cert.CertificateException;
-import java.sql.SQLException;
-
 /**
  * Turns an exception into text that is safe to expose.
  *
- * <p>{@code processedError} is returned to API clients through {@code DiscoveryCertificate.mapToDto}, so a raw
+ * <p>
+ * {@code processedError} is returned to API clients through {@code DiscoveryCertificate.mapToDto}, so a raw
  * {@code getMessage()} would put SQL fragments, table and column names, and provider internals on the wire.
  *
- * <p>Exactly one type is forwarded verbatim: {@link DiscoveryImportRollbackException}, whose message this class
- * shaped in the first place. Everything else is classified, {@link ValidationException} included — and it in
- * particular, because a platform-authored message is not the same as a payload-free one. Reachable throw sites
- * concatenate entity data into theirs (a key upload failure embeds the key material), and no property of the type
- * distinguishes those from the useful ones. The full exception still reaches the log.
+ * <p>
+ * Exactly one type is forwarded verbatim: {@link DiscoveryImportRollbackException}, whose message this class shaped in
+ * the first place. Everything else is classified, {@link ValidationException} included — and it in particular, because
+ * a platform-authored message is not the same as a payload-free one. Reachable throw sites concatenate entity data into
+ * theirs (a key upload failure embeds the key material), and no property of the type distinguishes those from the
+ * useful ones. The full exception still reaches the log.
  */
 public final class DiscoveryFailureReason {
 
@@ -67,9 +68,10 @@ public final class DiscoveryFailureReason {
      * the entity annotations, so generated names differ and matching on them would classify correctly in only one of
      * the two.
      *
-     * <p>Three signals because the inserts on this path are native queries. Those do not surface Hibernate's own
-     * {@link ConstraintViolationException}, so its constraint kind alone misses the case this classification exists
-     * for and reports a genuine duplicate as an unspecified constraint failure.
+     * <p>
+     * Three signals because the inserts on this path are native queries. Those do not surface Hibernate's own
+     * {@link ConstraintViolationException}, so its constraint kind alone misses the case this classification exists for
+     * and reports a genuine duplicate as an unspecified constraint failure.
      */
     private static boolean isUniqueViolation(Throwable throwable) {
         Throwable cause = throwable;

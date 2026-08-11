@@ -6,10 +6,6 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "signing-record.best-effort")
-public record SigningRecordBestEffortProperties(
-        @Min(1) int queueCapacity,
-        BestEffortBackpressurePolicy backpressurePolicy,
-        @Min(1) long flushIntervalMs,
-        @Min(1) int maxBatchSize
-) {
+public record SigningRecordBestEffortProperties(@Min(1) int queueCapacity,
+        BestEffortBackpressurePolicy backpressurePolicy, @Min(1) long flushIntervalMs, @Min(1) int maxBatchSize) {
 }

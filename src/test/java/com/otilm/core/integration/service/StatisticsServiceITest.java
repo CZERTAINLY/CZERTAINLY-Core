@@ -6,14 +6,29 @@ import com.otilm.api.model.connector.secrets.SecretType;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.secret.SecretState;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.OwnerAssociation;
+import com.otilm.core.dao.entity.Secret;
+import com.otilm.core.dao.entity.SecretVersion;
+import com.otilm.core.dao.entity.VaultInstance;
+import com.otilm.core.dao.entity.VaultProfile;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.dao.repository.OwnerAssociationRepository;
+import com.otilm.core.dao.repository.SecretRepository;
+import com.otilm.core.dao.repository.SecretVersionRepository;
+import com.otilm.core.dao.repository.VaultInstanceRepository;
+import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
 import com.otilm.core.service.StatisticsExternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.UUID;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -23,10 +38,6 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.SerializationUtils;
-
-import java.security.NoSuchAlgorithmException;
-import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -103,16 +114,13 @@ class StatisticsServiceITest extends BaseSpringBootTest {
     private void mockOpaResponses(List<String> forbiddenObjects) {
         OpaResourceAccessResult resourceAccessNotAllowed = new OpaResourceAccessResult(false, List.of());
         // By default, reject all
-        when(
-                opaClient.checkResourceAccess(any(), any(), any(), any())
-        ).thenReturn(resourceAccessNotAllowed);
+        when(opaClient.checkResourceAccess(any(), any(), any(), any())).thenReturn(resourceAccessNotAllowed);
         OpaObjectAccessResult opaObjectAccessResult = new OpaObjectAccessResult();
         opaObjectAccessResult.setAllowedObjects(List.of());
-        // OPA denies both, but ownership grants access to certificateOwned — this is the low-privilege path being verified
+        // OPA denies both, but ownership grants access to certificateOwned — this is the low-privilege path being
+        // verified
         opaObjectAccessResult.setForbiddenObjects(forbiddenObjects);
-        when(
-                        opaClient.checkObjectAccess(any(), any(), any(), any()))
-                .thenReturn(opaObjectAccessResult);
+        when(opaClient.checkObjectAccess(any(), any(), any(), any())).thenReturn(opaObjectAccessResult);
     }
 
     private @NonNull OwnerAssociation getOwnerAssociation(UUID objectUuid, Resource resource) {

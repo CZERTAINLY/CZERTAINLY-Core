@@ -14,12 +14,11 @@ import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.CallbackExternalService;
 import com.otilm.core.util.converter.ResourceCodeConverter;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
 
 @RestController
 public class CallbackControllerImpl implements CallbackController {
@@ -38,38 +37,24 @@ public class CallbackControllerImpl implements CallbackController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
-    public Object callback(
-            @LogResource(uuid = true, affiliated = true) String uuid,
-            String functionGroup,
-            @LogResource(name = true) String kind,
-            RequestAttributeCallback callback
-    ) throws NotFoundException, ConnectorException, ValidationException, AttributeException {
-        return callbackService.callback(
-                uuid,
-                FunctionGroupCode.findByCode(functionGroup),
-                kind,
-                callback
-        );
+    public Object callback(@LogResource(uuid = true, affiliated = true) String uuid, String functionGroup,
+            @LogResource(name = true) String kind, RequestAttributeCallback callback)
+            throws NotFoundException, ConnectorException, ValidationException, AttributeException {
+        return callbackService.callback(uuid, FunctionGroupCode.findByCode(functionGroup), kind, callback);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
-    public Object callback(UUID uuid, RequestAttributeCallback callback) throws ConnectorException, NotFoundException, AttributeException {
+    public Object callback(UUID uuid, RequestAttributeCallback callback)
+            throws ConnectorException, NotFoundException, AttributeException {
         return callbackService.callback(uuid, callback);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
-    public Object resourceCallback(
-            Resource resource,
-            String parentObjectUuid,
-            RequestAttributeCallback callback
-    ) throws NotFoundException, ConnectorException, ValidationException, AttributeException {
-        return callbackService.resourceCallback(
-                resource,
-                parentObjectUuid,
-                callback
-        );
+    public Object resourceCallback(Resource resource, String parentObjectUuid, RequestAttributeCallback callback)
+            throws NotFoundException, ConnectorException, ValidationException, AttributeException {
+        return callbackService.resourceCallback(resource, parentObjectUuid, callback);
     }
 
 }

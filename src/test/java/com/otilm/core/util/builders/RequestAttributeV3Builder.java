@@ -40,7 +40,6 @@ public class RequestAttributeV3Builder {
     }
 
     public RequestAttributeV3 build() {
-        return new RequestAttributeV3(uuid, name, contentType,
-                List.of(new StringAttributeContentV3(stringValue)));
+        return new RequestAttributeV3(uuid, name, contentType, List.of(new StringAttributeContentV3(stringValue)));
     }
 }

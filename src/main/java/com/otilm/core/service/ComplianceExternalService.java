@@ -17,25 +17,31 @@ public interface ComplianceExternalService {
      *
      * @param authorizableResource Resource used as the authorization subject (mapped owning resource)
      * @param authorizableObjectUuid SecuredUUID of the object used as the object-level authorization subject, or
-     *                               {@code null} to authorize at resource level only (no per-object scoping)
+     * {@code null} to authorize at resource level only (no per-object scoping)
      * @param resource Resource of the object (used for repository dispatch)
      * @param objectUuid UUID of the object
      * @return ComplianceCheckResultDto containing the result of the latest compliance check
      * @throws NotFoundException if the resource object is not found
      */
-    ComplianceCheckResultDto getComplianceCheckResult(SecuredResource authorizableResource, SecuredUUID authorizableObjectUuid, Resource resource, UUID objectUuid) throws NotFoundException;
+    ComplianceCheckResultDto getComplianceCheckResult(SecuredResource authorizableResource,
+            SecuredUUID authorizableObjectUuid, Resource resource, UUID objectUuid) throws NotFoundException;
 
     /**
      * Resolves the {@link SecuredUUID} authorization subject.
      *
-     * <p>Returns the object's own UUID for resources authorized directly ({@link Resource#CERTIFICATE}, {@link Resource#SECRET}),
-     * the owning key UUID for {@link Resource#CRYPTOGRAPHIC_KEY_ITEM}, and {@code null} when the resource has no stable owning object to
-     * scope against (e.g. {@link Resource#CERTIFICATE_REQUEST}, which carries its own compliance result and may
-     * predate any certificate) or the object cannot be found — in which case authorization is at resource level only.</p>
+     * <p>
+     * Returns the object's own UUID for resources authorized directly ({@link Resource#CERTIFICATE},
+     * {@link Resource#SECRET}), the owning key UUID for {@link Resource#CRYPTOGRAPHIC_KEY_ITEM}, and {@code null} when
+     * the resource has no stable owning object to scope against (e.g. {@link Resource#CERTIFICATE_REQUEST}, which
+     * carries its own compliance result and may predate any certificate) or the object cannot be found — in which case
+     * authorization is at resource level only.
+     * </p>
      *
-     * <p><b>Not an authorized read.</b> This only maps a resource and object UUID to the {@link SecuredUUID} used
-     * for object-level scoping. It returns the same mapping for every caller and discloses no resource data.
-     * Safe under {@code @AnyPrincipalEndpoint}.</p>
+     * <p>
+     * <b>Not an authorized read.</b> This only maps a resource and object UUID to the {@link SecuredUUID} used for
+     * object-level scoping. It returns the same mapping for every caller and discloses no resource data. Safe under
+     * {@code @AnyPrincipalEndpoint}.
+     * </p>
      *
      * @param resource Resource of the object
      * @param objectUuid UUID of the object
@@ -52,7 +58,8 @@ public interface ComplianceExternalService {
      * @throws ValidationException if validation fails
      * @throws NotFoundException if compliance profile is not found
      */
-    void checkComplianceValidation(List<SecuredUUID> uuids, Resource resource, String type) throws ValidationException, NotFoundException;
+    void checkComplianceValidation(List<SecuredUUID> uuids, Resource resource, String type)
+            throws ValidationException, NotFoundException;
 
     /**
      * Check the compliance for all objects associated with the compliance profiles in asynchronous way
@@ -71,7 +78,8 @@ public interface ComplianceExternalService {
      * @throws ValidationException if validation fails
      * @throws NotFoundException if resource object is not found
      */
-    void checkResourceObjectsComplianceValidation(Resource resource, List<UUID> objectUuids) throws ValidationException, NotFoundException;
+    void checkResourceObjectsComplianceValidation(Resource resource, List<UUID> objectUuids)
+            throws ValidationException, NotFoundException;
 
     /**
      * Check compliance on specified resource object

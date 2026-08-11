@@ -25,6 +25,9 @@ import com.otilm.core.messaging.jms.listeners.AuditLogsListener;
 import com.otilm.core.messaging.model.AuditLogMessage;
 import com.otilm.core.service.SettingExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -35,16 +38,11 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 class AuditLogAspectITest extends BaseSpringBootTest {
 
     /**
-     * Minimal bean that demonstrates the AuditResultOverride contract: the method swallows an
-     * exception internally (like the TSP controller does) and signals audit failure via the override
-     * instead of throwing past the aspect.
+     * Minimal bean that demonstrates the AuditResultOverride contract: the method swallows an exception internally
+     * (like the TSP controller does) and signals audit failure via the override instead of throwing past the aspect.
      */
     @TestConfiguration
     static class Config {
@@ -98,15 +96,23 @@ class AuditLogAspectITest extends BaseSpringBootTest {
         keyController.listKeyPairs(Optional.empty());
         List<AuditLog> auditLogs = auditLogRepository.findAll();
 
-        Assertions.assertThrows(NotFoundException.class, () -> keyController.destroyKey(UUID.randomUUID().toString(), null));
-        Assertions.assertThrows(NotFoundException.class, () -> keyController.compromiseKey(UUID.randomUUID().toString(), null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> keyController.destroyKey(UUID.randomUUID().toString(), null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> keyController.compromiseKey(UUID.randomUUID().toString(), null));
         Assertions.assertEquals(0, auditLogs.size());
 
         turnOnLogging();
 
         keyController.listKeyPairs(Optional.empty());
         keyController.listKeyPairs(Optional.ofNullable(UUID.randomUUID().toString()));
-        Assertions.assertThrows(NotFoundException.class, () -> keyController.listCreateKeyAttributes(UUID.randomUUID().toString(), UUID.randomUUID().toString(), KeyRequestType.KEY_PAIR));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> keyController
+                                .listCreateKeyAttributes(UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+                                        KeyRequestType.KEY_PAIR));
         keyController.deleteKeys(List.of(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
         settingController.getLoggingSettings();
         BulkCompromiseKeyRequestDto bulkCompromiseKeyRequestDto = new BulkCompromiseKeyRequestDto();
@@ -123,25 +129,35 @@ class AuditLogAspectITest extends BaseSpringBootTest {
         Assertions.assertEquals(7, auditLogs.size());
 
         AuditLog auditLogNoUuidResource = auditLogs.getFirst();
-        Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogNoUuidResource.getLogRecord().affiliatedResource().type());
+        Assertions
+                .assertEquals(Resource.TOKEN_PROFILE,
+                        auditLogNoUuidResource.getLogRecord().affiliatedResource().type());
         Assertions.assertNull(auditLogNoUuidResource.getLogRecord().affiliatedResource().objects());
 
         AuditLog auditLogWithUuidResource = auditLogs.get(1);
-        Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogWithUuidResource.getLogRecord().affiliatedResource().type());
+        Assertions
+                .assertEquals(Resource.TOKEN_PROFILE,
+                        auditLogWithUuidResource.getLogRecord().affiliatedResource().type());
         Assertions.assertEquals(1, auditLogWithUuidResource.getLogRecord().affiliatedResource().objects().size());
 
         AuditLog auditLogWithNamedResource = auditLogs.get(2);
         Assertions.assertEquals(OperationResult.FAILURE, auditLogWithNamedResource.getOperationResult());
         Assertions.assertEquals(Resource.ATTRIBUTE, auditLogWithNamedResource.getLogRecord().resource().type());
-        Assertions.assertEquals(KeyRequestType.KEY_PAIR.getCode(), auditLogWithNamedResource.getLogRecord().resource().objects().getFirst().name());
+        Assertions
+                .assertEquals(KeyRequestType.KEY_PAIR.getCode(),
+                        auditLogWithNamedResource.getLogRecord().resource().objects().getFirst().name());
 
         AuditLog auditLogWithMoreUuidResource = auditLogs.get(3);
-        Assertions.assertEquals(Resource.CRYPTOGRAPHIC_KEY, auditLogWithMoreUuidResource.getLogRecord().resource().type());
+        Assertions
+                .assertEquals(Resource.CRYPTOGRAPHIC_KEY,
+                        auditLogWithMoreUuidResource.getLogRecord().resource().type());
         Assertions.assertEquals(2, auditLogWithMoreUuidResource.getLogRecord().resource().objects().size());
 
         AuditLog auditLogWithNamedResourceDirectly = auditLogs.get(4);
         Assertions.assertEquals(Resource.SETTINGS, auditLogWithNamedResourceDirectly.getLogRecord().resource().type());
-        Assertions.assertEquals(SettingsSection.LOGGING.getCode(), auditLogWithNamedResourceDirectly.getLogRecord().resource().objects().getFirst().name());
+        Assertions
+                .assertEquals(SettingsSection.LOGGING.getCode(),
+                        auditLogWithNamedResourceDirectly.getLogRecord().resource().objects().getFirst().name());
 
         AuditLog auditLogWithUuidsFromRequest = auditLogs.get(5);
         Assertions.assertEquals(2, auditLogWithUuidsFromRequest.getLogRecord().resource().objects().size());
@@ -194,9 +210,8 @@ class AuditLogAspectITest extends BaseSpringBootTest {
     }
 
     /**
-     * Binds a request scope around the action so the request-scoped {@link AuditResultOverride}
-     * resolves — production audited methods always run inside a DispatcherServlet request, but the
-     * test invokes the bean directly.
+     * Binds a request scope around the action so the request-scoped {@link AuditResultOverride} resolves — production
+     * audited methods always run inside a DispatcherServlet request, but the test invokes the bean directly.
      */
     private void runInRequestScope(Runnable action) {
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));

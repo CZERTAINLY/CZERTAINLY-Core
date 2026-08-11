@@ -61,11 +61,14 @@ public class CbomSyncTask implements ScheduledJobTask {
         try {
             syncResultMessage = cbomService.sync();
         } catch (Exception e) {
-            if (e instanceof CbomRepositoryException ex && ex.getProblemDetail() != null && ex.getProblemDetail().getStatus() == HttpStatus.SERVICE_UNAVAILABLE.value()) {
+            if (e instanceof CbomRepositoryException ex && ex.getProblemDetail() != null
+                    && ex.getProblemDetail().getStatus() == HttpStatus.SERVICE_UNAVAILABLE.value()) {
                 throw new ScheduledJobSkippedException();
             }
 
-            final String errorMessage = String.format("Unable to sync CBOMs for job %s. Error: %s", scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
+            final String errorMessage = String
+                    .format("Unable to sync CBOMs for job %s. Error: %s",
+                            scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
             logger.error(errorMessage, e);
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, Resource.CBOM, null);
         }

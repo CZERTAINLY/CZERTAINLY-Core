@@ -1,14 +1,12 @@
 package com.otilm.core.dao.repository;
 
+import com.otilm.core.dao.entity.Cbom;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import com.otilm.core.dao.entity.Cbom;
 
 @Repository
 public interface CbomRepository extends SecurityFilterRepository<Cbom, UUID> {

@@ -25,18 +25,17 @@ import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.CertificateOperation;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
-
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
@@ -158,7 +157,8 @@ class ClientOperationServiceImplIssueDispatchTest {
                 .thenReturn(AdapterOperationResult.syncNoContent());
         // Poll scheduling reloads the cert with the polling graph and re-checks pollability against the adapter.
         when(certificateRepository.findForPollingByUuid(certUuid)).thenReturn(Optional.of(certificate));
-        when(capabilityService.supports(ArgumentMatchers.any(), ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_STATUS_POLLING)))
+        when(capabilityService
+                .supports(ArgumentMatchers.any(), ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_STATUS_POLLING)))
                 .thenReturn(true);
 
         // when
@@ -166,12 +166,15 @@ class ClientOperationServiceImplIssueDispatchTest {
 
         // then — the async-acceptance path was taken: no synchronous completion, a poll IS scheduled exactly once,
         // the action event is raised, and the certificate is not failed
-        verify(certificateService, never()).issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
-        verify(pollWriter, times(1)).schedule(ArgumentMatchers.eq(certUuid),
-                ArgumentMatchers.eq(CertificateOperation.ISSUE), ArgumentMatchers.any());
+        verify(certificateService, never())
+                .issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(pollWriter, times(1))
+                .schedule(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateOperation.ISSUE),
+                        ArgumentMatchers.any());
         verify(eventProducer).produceMessage(ArgumentMatchers.any());
-        verify(stateMachine, never()).transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine, never())
+                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -179,14 +182,16 @@ class ClientOperationServiceImplIssueDispatchTest {
         // given
         when(adapter.issue(ArgumentMatchers.any(), ArgumentMatchers.any()))
                 .thenThrow(new ConnectorException("upstream refused"));
-        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED))).thenReturn(true);
+        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED)))
+                .thenReturn(true);
 
         // when / then
         assertThatThrownBy(() -> service.issueCertificateAction(certUuid, true))
                 .isInstanceOf(CertificateOperationException.class);
 
-        verify(stateMachine).transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine)
+                .transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -208,8 +213,9 @@ class ClientOperationServiceImplIssueDispatchTest {
                 .isInstanceOf(CertificateOperationException.class);
 
         verify(transactionManager).rollback(failTx);
-        verify(stateMachine, never()).transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine, never())
+                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -241,27 +247,31 @@ class ClientOperationServiceImplIssueDispatchTest {
     }
 
     private void assertNoFailTransitionAndReconcileEventRecorded() throws Exception {
-        verify(certificateService, never()).issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
-        verify(stateMachine, never()).transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
-        verify(certificateEventHistoryService).addEventHistory(
-                ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
-                ArgumentMatchers.eq(CertificateEventStatus.FAILED),
-                ArgumentMatchers.contains("reconcile manually"), ArgumentMatchers.eq(""));
+        verify(certificateService, never())
+                .issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine, never())
+                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(certificateEventHistoryService)
+                .addEventHistory(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
+                        ArgumentMatchers.eq(CertificateEventStatus.FAILED),
+                        ArgumentMatchers.contains("reconcile manually"), ArgumentMatchers.eq(""));
     }
 
     @Test
     void leavesCertificateUnfailed_whenPostAcceptanceLocalFailureOccurs() throws Exception {
         // given
         when(adapter.issue(ArgumentMatchers.any(), ArgumentMatchers.any()))
-                .thenThrow(new ConnectorAcceptedButLocalFailureException("accepted, local failed", new RuntimeException("boom")));
+                .thenThrow(new ConnectorAcceptedButLocalFailureException("accepted, local failed",
+                        new RuntimeException("boom")));
 
         // when / then
         assertThatThrownBy(() -> service.issueCertificateAction(certUuid, true))
                 .isInstanceOf(CertificateOperationException.class);
 
-        verify(stateMachine, never()).transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine, never())
+                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
@@ -270,15 +280,18 @@ class ClientOperationServiceImplIssueDispatchTest {
         String leakySecret = "jdbc://internal-host:5432/secret-schema constraint violation";
         when(adapter.issue(ArgumentMatchers.any(), ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException(leakySecret));
-        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED))).thenReturn(true);
+        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED)))
+                .thenReturn(true);
 
         // when / then — safeMessage gates exposure, so the raw message reaches neither the caller nor the audit reason
         assertThatThrownBy(() -> service.issueCertificateAction(certUuid, true))
                 .isInstanceOf(CertificateOperationException.class)
                 .hasMessageNotContaining(leakySecret);
 
-        verify(stateMachine).transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.eq("issuance failed"), ArgumentMatchers.any());
+        verify(stateMachine)
+                .transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.eq("issuance failed"),
+                        ArgumentMatchers.any());
     }
 
     @Test
@@ -290,20 +303,24 @@ class ClientOperationServiceImplIssueDispatchTest {
         when(adapter.issue(ArgumentMatchers.any(), ArgumentMatchers.any()))
                 .thenReturn(AdapterOperationResult.syncOk(certificateData, List.of(), CertificateType.X509));
         doThrow(new IllegalStateException(leakySecret))
-                .when(certificateService).issueRequestedCertificate(certUuid, certificateData, List.of());
+                .when(certificateService)
+                .issueRequestedCertificate(certUuid, certificateData, List.of());
 
         // when / then — state-divergence rule: surface a shaped error but do NOT roll the cert back to FAILED
         assertThatThrownBy(() -> service.issueCertificateAction(certUuid, true))
                 .isInstanceOf(CertificateOperationException.class)
                 .hasMessageNotContaining(leakySecret);
 
-        verify(stateMachine, never()).transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine, never())
+                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
         // the divergence is recorded to event history for the operator, with the leaky text scrubbed
-        verify(certificateEventHistoryService).addEventHistory(
-                ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
-                ArgumentMatchers.eq(CertificateEventStatus.FAILED),
-                ArgumentMatchers.argThat(msg -> msg.contains("completing local state failed") && !msg.contains(leakySecret)),
-                ArgumentMatchers.eq(""));
+        verify(certificateEventHistoryService)
+                .addEventHistory(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
+                        ArgumentMatchers.eq(CertificateEventStatus.FAILED),
+                        ArgumentMatchers
+                                .argThat(msg -> msg.contains("completing local state failed")
+                                        && !msg.contains(leakySecret)),
+                        ArgumentMatchers.eq(""));
     }
 }

@@ -1,10 +1,9 @@
 package com.otilm.core.security.authn.client;
 
 import com.github.benmanes.caffeine.cache.RemovalCause;
-import org.junit.jupiter.api.Test;
-
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;

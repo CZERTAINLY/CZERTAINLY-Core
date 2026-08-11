@@ -1,6 +1,10 @@
 package com.otilm.core.api.web;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.CredentialController;
 import com.otilm.api.model.client.credential.CredentialRequestDto;
 import com.otilm.api.model.client.credential.CredentialUpdateRequestDto;
@@ -15,15 +19,14 @@ import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CredentialExternalService;
+import java.net.URI;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
 
 @RestController
 public class CredentialControllerImpl implements CredentialController {
@@ -50,7 +53,8 @@ public class CredentialControllerImpl implements CredentialController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.CREATE)
-    public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
+    public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request)
+            throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         CredentialDto credentialDto = credentialService.createCredential(request);
 
         URI location = ServletUriComponentsBuilder
@@ -67,7 +71,9 @@ public class CredentialControllerImpl implements CredentialController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.UPDATE)
-    public CredentialDto editCredential(@LogResource(uuid = true) @PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
+    public CredentialDto editCredential(@LogResource(uuid = true) @PathVariable String uuid,
+            @RequestBody CredentialUpdateRequestDto request)
+            throws NotFoundException, ConnectorException, AttributeException {
         return credentialService.editCredential(SecuredUUID.fromString(uuid), request);
     }
 
@@ -91,7 +97,8 @@ public class CredentialControllerImpl implements CredentialController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.DELETE)
-    public void bulkDeleteCredential(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
+    public void bulkDeleteCredential(@LogResource(uuid = true) List<String> uuids)
+            throws NotFoundException, ValidationException {
         credentialService.bulkDeleteCredential(SecuredUUID.fromList(uuids));
     }
 }

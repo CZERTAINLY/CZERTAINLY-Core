@@ -28,12 +28,14 @@ public interface AuditLogExternalService {
 
     /**
      * Removes the audit logs from the database
+     *
      * @param filters {@link SearchFilterRequestDto}
      */
     void purgeAuditLogs(final List<SearchFilterRequestDto> filters);
 
     /**
      * Get all possible field to be able to search by customer
+     *
      * @return List of {@link SearchFieldDataByGroupDto} object with definition the possible fields
      */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();

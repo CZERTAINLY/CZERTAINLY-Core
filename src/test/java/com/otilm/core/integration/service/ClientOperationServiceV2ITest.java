@@ -1,51 +1,107 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.CertificateOperationException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.certificate.CancelPendingCertificateRequestDto;
 import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
 import com.otilm.api.model.common.NameAndIdDto;
-import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.AttributeType;
-import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
-import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.certificate.*;
+import com.otilm.api.model.core.certificate.CertificateEvent;
+import com.otilm.api.model.core.certificate.CertificateEventStatus;
+import com.otilm.api.model.core.certificate.CertificateRelationType;
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
-import com.otilm.core.service.CertificateInternalService;
-import com.otilm.core.service.CryptographicOperationExternalService;
-import com.otilm.core.service.CryptographicOperationInternalService;
-import com.otilm.core.util.builders.AuthorityFixtures;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
+import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRevocationDto;
-import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
 import com.otilm.core.attribute.CsrAttributes;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.otilm.core.model.auth.ResourceAction;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.CertificateLocation;
+import com.otilm.core.dao.entity.CertificateRelation;
+import com.otilm.core.dao.entity.CertificateRequestEntity;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.EntityInstanceReference;
+import com.otilm.core.dao.entity.Location;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
+import com.otilm.core.dao.repository.CertificateRelationRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.CertificateRequestRepository;
+import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.EntityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.FunctionGroupRepository;
+import com.otilm.core.dao.repository.LocationRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
+import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.CryptographicOperationExternalService;
+import com.otilm.core.service.CryptographicOperationInternalService;
 import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.CertificateUtil;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.core.util.builders.AuthorityFixtures;
 import com.otilm.core.util.builders.CertificateRequestEntityBuilder;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigInteger;
+import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
@@ -66,22 +122,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.math.BigInteger;
-import java.security.*;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -180,7 +223,6 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         this.attributeEngine = attributeEngine;
     }
 
-
     @BeforeEach
     void setUp() throws GeneralSecurityException, IOException, NotFoundException, AttributeException {
         mockServer = new WireMockServer(0);
@@ -188,9 +230,9 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        AuthorityFixtures.Repos fixtureRepos = new AuthorityFixtures.Repos(
-                connectorRepository, functionGroupRepository, connector2FunctionGroupRepository,
-                authorityInstanceReferenceRepository, raProfileRepository, connectorInterfaceRepository);
+        AuthorityFixtures.Repos fixtureRepos = new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
+                connector2FunctionGroupRepository, authorityInstanceReferenceRepository, raProfileRepository,
+                connectorInterfaceRepository);
         AuthorityFixtures.Fixture fixture = AuthorityFixtures.v2Authority(fixtureRepos, mockServer, null);
         connector = fixture.connector();
         authorityInstanceReference = fixture.authority();
@@ -212,8 +254,15 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), null, List.of(attribute));
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(new ObjectAttributeContentV2(new NameAndIdDto(1, "profile")))));
-        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(connector.getUuid()).build(), requestAttributes);
+        requestAttributes
+                .add(new RequestAttributeV2(UUID.fromString(attribute.getUuid()), "endEntityProfile",
+                        AttributeContentType.OBJECT,
+                        List.of(new ObjectAttributeContentV2(new NameAndIdDto(1, "profile")))));
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.RA_PROFILE, raProfile.getUuid())
+                        .connector(connector.getUuid())
+                        .build(), requestAttributes);
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
 
@@ -244,73 +293,112 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
     @Test
     void testListIssueCertificateAttributes() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
-        List<BaseAttribute> attributes = clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
+        List<BaseAttribute> attributes = clientOperationService
+                .listIssueCertificateAttributes(
+                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                        SecuredUUID.fromUUID(raProfile.getUuid()));
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     void testListIssueCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService
+                                .listIssueCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testValidateIssueCertificateAttributes() {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.ok()));
 
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileUuid = SecuredUUID.fromUUID(raProfile.getUuid());
         List<RequestAttribute> attributes = List.of();
-        Assertions.assertDoesNotThrow(() -> clientOperationService.validateIssueCertificateAttributes(authorityUuid, raProfileUuid, attributes));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .validateIssueCertificateAttributes(authorityUuid, raProfileUuid, attributes));
     }
 
     @Test
     void testValidateIssueCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class,
-                () -> clientOperationService.validateIssueCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService
+                                .validateIssueCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
-
 
     @Test
     void testIssueCertificate() throws CertificateException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
         request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
-        Assertions.assertDoesNotThrow(() -> clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                                request, null));
 
         String csrWithAltKey = "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";
         request.setRequest(csrWithAltKey);
-        Assertions.assertDoesNotThrow(() -> clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                                request, null));
     }
 
     @Test
     void issueCertificate_mergesIssueAttributesOutsideTransaction() throws Exception {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         // The issue-attribute merge is a connector round-trip and must run before the persistence transaction opens,
         // so no DB connection is held across it. Capture the transaction state at the merge seam.
@@ -323,20 +411,30 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
         request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
-        clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null);
+        clientOperationService
+                .issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        request, null);
 
         Assertions.assertNotNull(txActiveAtMerge.get(), "the issue-attribute merge must have been invoked");
-        Assertions.assertFalse(txActiveAtMerge.get(), "no DB transaction may be active when the issue-attribute merge (connector round-trip) runs");
+        Assertions
+                .assertFalse(txActiveAtMerge.get(),
+                        "no DB transaction may be active when the issue-attribute merge (connector round-trip) runs");
     }
 
     @Test
     void issueCertificate_wrapsPersistenceFailureAsGenericCertificateOperationException() {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         // Force the persistence (inside the REQUIRED transaction) to fail, exercising the rollback and the
         // generic-message mapping — the raw cause must not leak into the surfaced exception message.
@@ -345,8 +443,11 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
         request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
-        CertificateOperationException ex = Assertions.assertThrows(CertificateOperationException.class,
-                () -> clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null));
+        CertificateOperationException ex = Assertions
+                .assertThrows(CertificateOperationException.class,
+                        () -> clientOperationService
+                                .issueCertificate(authorityInstanceReference.getSecuredParentUuid(),
+                                        raProfile.getSecuredUuid(), request, null));
         Assertions.assertEquals("Failed to submit certificate request", ex.getMessage());
     }
 
@@ -355,13 +456,17 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         // A ValidationException from the merge is platform-authored and client-actionable, so its reason must survive
         // the mapping to CertificateOperationException (unlike a runtime failure, covered by the test above).
         doThrow(new ValidationException("connector unavailable"))
-                .when(extendedAttributeService).mergeAndValidateIssueAttributes(any(), any());
+                .when(extendedAttributeService)
+                .mergeAndValidateIssueAttributes(any(), any());
 
         ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
         request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
-        CertificateOperationException ex = Assertions.assertThrows(CertificateOperationException.class,
-                () -> clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null));
+        CertificateOperationException ex = Assertions
+                .assertThrows(CertificateOperationException.class,
+                        () -> clientOperationService
+                                .issueCertificate(authorityInstanceReference.getSecuredParentUuid(),
+                                        raProfile.getSecuredUuid(), request, null));
         Assertions.assertEquals("Failed to submit certificate request: connector unavailable", ex.getMessage());
     }
 
@@ -371,25 +476,32 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         raProfile = raProfileRepository.save(raProfile);
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.issueCertificate(authorityUuid, raProfileSecuredUuid, null, null));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> clientOperationService.issueCertificate(authorityUuid, raProfileSecuredUuid, null, null));
     }
 
     @Test
     void testRenewCertificate() throws CertificateException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
         request.setRequest(SAMPLE_PKCS10);
         UUID certificateUuid = certificate.getUuid();
         certificate.setArchived(true);
         certificateRepository.save(certificate);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationInternalService.renewCertificateAction(certificateUuid, request, true));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> clientOperationInternalService.renewCertificateAction(certificateUuid, request, true));
         certificate.setArchived(false);
         certificateRepository.save(certificate);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationInternalService.renewCertificateAction(certificateUuid, request, true));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> clientOperationInternalService.renewCertificateAction(certificateUuid, request, true));
     }
 
     @Test
@@ -404,63 +516,96 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile2.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile2.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, null));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .renewCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, null));
 
         raProfileRepository.delete(raProfile2);
     }
 
     @Test
     void testListRevokeCertificateAttributes() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
-        List<BaseAttribute> attributes = clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
+        List<BaseAttribute> attributes = clientOperationService
+                .listRevokeCertificateAttributes(
+                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                        SecuredUUID.fromUUID(raProfile.getUuid()));
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     void testListRevokeCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService
+                                .listRevokeCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    void testValidateRevokeCertificateAttributes(){
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
-                .willReturn(WireMock.ok()));
+    void testValidateRevokeCertificateAttributes() {
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                        .willReturn(WireMock.ok()));
 
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileUuid = SecuredUUID.fromUUID(raProfile.getUuid());
         List<RequestAttribute> attributes = List.of();
-        Assertions.assertDoesNotThrow(() -> clientOperationService.validateRevokeCertificateAttributes(authorityUuid, raProfileUuid, attributes));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .validateRevokeCertificateAttributes(authorityUuid, raProfileUuid, attributes));
     }
 
     @Test
     void testValidateRevokeCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class,
-                () -> clientOperationService.validateRevokeCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService
+                                .validateRevokeCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
     void testRevokeCertificate() {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.ok()));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
-        Assertions.assertDoesNotThrow(() -> clientOperationInternalService.revokeCertificateAction(certificate.getUuid(), request, true));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .revokeCertificateAction(certificate.getUuid(), request, true));
     }
 
     @Test
-    void testRekeyCertificate() throws NotFoundException, IOException, NoSuchAlgorithmException, InvalidKeySpecException, AttributeException, InvalidAlgorithmParameterException, CertificateException, SignatureException, InvalidKeyException, OperatorCreationException {
+    void testRekeyCertificate() throws NotFoundException, IOException, NoSuchAlgorithmException,
+            InvalidKeySpecException, AttributeException, InvalidAlgorithmParameterException, CertificateException,
+            SignatureException, InvalidKeyException, OperatorCreationException {
         stubAuthorityProviderAttributesEndpoints();
 
         CryptographicKey key = createCryptographicKey(null);
@@ -482,49 +627,73 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         request.setAltKeyUuid(altKey.getUuid());
         request.setAltTokenProfileUuid(altKey.getTokenProfileUuid());
         request.setAltSignatureAttributes(List.of());
-        when(cryptographicOperationService.generateCsr(eq(key.getUuid()), eq(key.getTokenProfileUuid()), any(), any(), anyList(), any(), eq(altKey.getTokenProfileUuid()), anyList())).thenReturn("MIIBUjCBvAIBADATMREwDwYDVQQDDAhuZXdfY2VydDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA52WsWllsOi/XtK8VcKHN63Mhk6awMboP9iuwgtPXzkFLV/wILHH+YPAJcS8dP037SZQlAng9dF+IoLHn7WFYmQqqgkObWoH1+5LxHjkPRRNPJLKPtxfM/V+IafsddK7a5TiVD+PiKjoWQaGHVEieozV1fK2BfqVbenKbYMupGVkCAwEAAaAAMA0GCSqGSIb3DQEBBAUAA4GBALtgmv31dFCSO+KnXWeaGEVr2H8g6O0D/RS8xoTRF4yHIgU84EXL5ZWUxhLF6mAXP1de0IfeEf95gGrU9FQ7tdUnwfsBZCIhHOQ/PdzVhRRhaVaPK8N+/g1GyXM/mC074u8y+VoyhHTqAlnbGwzyJkLnVwJ0/jLiRaTdvn7zFDWr");
+        when(cryptographicOperationService
+                .generateCsr(eq(key.getUuid()), eq(key.getTokenProfileUuid()), any(), any(), anyList(), any(),
+                        eq(altKey.getTokenProfileUuid()), anyList()))
+                .thenReturn(
+                        "MIIBUjCBvAIBADATMREwDwYDVQQDDAhuZXdfY2VydDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA52WsWllsOi/XtK8VcKHN63Mhk6awMboP9iuwgtPXzkFLV/wILHH+YPAJcS8dP037SZQlAng9dF+IoLHn7WFYmQqqgkObWoH1+5LxHjkPRRNPJLKPtxfM/V+IafsddK7a5TiVD+PiKjoWQaGHVEieozV1fK2BfqVbenKbYMupGVkCAwEAAaAAMA0GCSqGSIb3DQEBBAUAA4GBALtgmv31dFCSO+KnXWeaGEVr2H8g6O0D/RS8xoTRF4yHIgU84EXL5ZWUxhLF6mAXP1de0IfeEf95gGrU9FQ7tdUnwfsBZCIhHOQ/PdzVhRRhaVaPK8N+/g1GyXM/mC074u8y+VoyhHTqAlnbGwzyJkLnVwJ0/jLiRaTdvn7zFDWr");
         SecuredParentUUID authorityUuid = authorityInstanceReference.getSecuredParentUuid();
         SecuredUUID raProfileUuid = raProfile.getSecuredUuid();
         String certificateUuid = String.valueOf(certificate.getUuid());
-        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
 
         certificate.setAltKeyUuid(null);
         certificateRepository.save(certificate);
-        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
 
         certificate.setAltKeyUuid(altKey.getUuid());
         certificateRepository.save(certificate);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
 
         certificate.setAltKeyUuid(null);
         certificateRepository.save(certificate);
-        String fingerprint = CertificateUtil.getThumbprint(CertificateUtil.getAltPublicKey(x509Certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId())).getEncoded());
+        String fingerprint = CertificateUtil
+                .getThumbprint(CertificateUtil
+                        .getAltPublicKey(x509Certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId()))
+                        .getEncoded());
         request.setAltKeyUuid(createCryptographicKey(fingerprint).getUuid());
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
 
         request.setAltKeyUuid(null);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
 
         certificate.setHybridCertificate(false);
         request.setAltKeyUuid(altKey.getUuid());
         certificateRepository.save(certificate);
-        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
     }
 
     private void stubAuthorityProviderAttributesEndpoints() {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
     }
 
     @Test
     void testRekeyAndRenewFromCsr() {
         stubAuthorityProviderAttributesEndpoints();
-        String certificateHybridContent =
-                """
+        String certificateHybridContent = """
                 MIIXoDCCFoigAwIBAgIUalJUMfDEf/XyxRYQVI6cKrbtyiwwDQYJKoZIhvcNAQEL
                 BQAwIDEeMBwGA1UEAwwVSHlicmlkZUNlcnRpZmljYXRlIENBMB4XDTI1MDYwNDEy
                 MTIyMFoXDTI2MDYwNDEyMTIxOVowEjEQMA4GA1UEAwwHaHlicmlkMTCBnzANBgkq
@@ -964,20 +1133,30 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = authorityInstanceReference.getSecuredParentUuid();
         SecuredUUID raProfileUuid = raProfile.getSecuredUuid();
         String certificateUuid = String.valueOf(certificate.getUuid());
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
 
         rekeyRequest.setRequest(csrWithoutAltKey);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
 
         rekeyRequest.setRequest(differentKeysCsr);
-        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
 
         ClientCertificateRenewRequestDto renewRequest = new ClientCertificateRenewRequestDto();
         renewRequest.setRequest(matchingKeysCsr);
-        Assertions.assertDoesNotThrow(() -> clientOperationService.renewCertificate(authorityUuid, raProfileUuid, certificateUuid, renewRequest));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .renewCertificate(authorityUuid, raProfileUuid, certificateUuid, renewRequest));
 
         renewRequest.setRequest(differentKeysCsr);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificate(authorityUuid, raProfileUuid, certificateUuid, renewRequest));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .renewCertificate(authorityUuid, raProfileUuid, certificateUuid, renewRequest));
     }
 
     private CryptographicKey createCryptographicKey(String fingerprint) {
@@ -1008,7 +1187,9 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
     @Test
     void testRevokeCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationInternalService.revokeCertificateAction(UUID.randomUUID(), null, true));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationInternalService.revokeCertificateAction(UUID.randomUUID(), null, true));
     }
 
     @Test
@@ -1016,9 +1197,13 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setArchived(true);
         certificateRepository.save(certificate);
         UUID certificateUuid = certificate.getUuid();
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationInternalService.issueCertificateAction(certificateUuid, true));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> clientOperationInternalService.issueCertificateAction(certificateUuid, true));
         ClientCertificateRenewRequestDto renewRequest = new ClientCertificateRenewRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationInternalService.renewCertificateAction(certificateUuid, renewRequest, true));
+        Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationInternalService
+                        .renewCertificateAction(certificateUuid, renewRequest, true));
 
     }
 
@@ -1038,11 +1223,14 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         Assertions.assertFalse(certificateRelationRepository.existsById(relation.getId()));
         certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow();
         Assertions.assertEquals(CertificateState.REJECTED, certificate.getState());
-        Assertions.assertTrue(
-                certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream()
-                        .anyMatch(h -> h.getEvent() == CertificateEvent.UPDATE_STATE
-                                && h.getStatus() == CertificateEventStatus.FAILED),
-                "a rejected issue with no message must record UPDATE_STATE/FAILED, not SUCCESS");
+        Assertions
+                .assertTrue(
+                        certificateEventHistoryRepository
+                                .findByCertificateOrderByCreatedDesc(certificate)
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.UPDATE_STATE
+                                        && h.getStatus() == CertificateEventStatus.FAILED),
+                        "a rejected issue with no message must record UPDATE_STATE/FAILED, not SUCCESS");
 
         certificateRelationRepository.save(relation);
         certificate.setState(CertificateState.REQUESTED);
@@ -1054,7 +1242,9 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setCertificateRequest(certificateRequest);
         certificate.setCertificateRequestUuid(certificateRequest.getUuid());
         certificateRepository.save(certificate);
-        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationInternalService.issueCertificateAction(certificateUuid, true));
+        Assertions
+                .assertThrows(CertificateOperationException.class,
+                        () -> clientOperationInternalService.issueCertificateAction(certificateUuid, true));
         Assertions.assertFalse(certificateRelationRepository.existsById(relation.getId()));
         certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow();
         Assertions.assertEquals(CertificateState.FAILED, certificate.getState());
@@ -1064,16 +1254,18 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setState(CertificateState.REQUESTED);
         certificateRepository.save(certificate);
         ClientCertificateRekeyRequestDto rekeyRequest = new ClientCertificateRekeyRequestDto();
-        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationInternalService.rekeyCertificateAction(certificateUuid, rekeyRequest, true));
+        Assertions
+                .assertThrows(CertificateOperationException.class, () -> clientOperationInternalService
+                        .rekeyCertificateAction(certificateUuid, rekeyRequest, true));
 
         stubAuthorityProviderAttributesEndpoints();
         certificateRelationRepository.save(relation);
         certificate.setState(CertificateState.REQUESTED);
         certificateRepository.save(certificate);
         ClientCertificateRenewRequestDto renewRequest = new ClientCertificateRenewRequestDto();
-        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationInternalService.renewCertificateAction(certificateUuid, renewRequest, true));
-
-
+        Assertions
+                .assertThrows(CertificateOperationException.class, () -> clientOperationInternalService
+                        .renewCertificateAction(certificateUuid, renewRequest, true));
 
     }
 
@@ -1098,9 +1290,10 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         location.getCertificates().add(certificateLocation);
         locationRepository.save(location);
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove"))
-                .willReturn(WireMock.okJson("{}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove"))
+                        .willReturn(WireMock.okJson("{}")));
 
         UUID certificateUuid = certificate.getUuid();
 
@@ -1108,8 +1301,10 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         clientOperationInternalService.issueCertificateRejectedAction(certificateUuid);
 
         // then: every location the certificate sat on is told to drop it via its entity-provider connector
-        mockServer.verify(WireMock.moreThanOrExactly(1),
-                WireMock.postRequestedFor(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove")));
+        mockServer
+                .verify(WireMock.moreThanOrExactly(1), WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove")));
 
         certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow();
         Assertions.assertEquals(CertificateState.REJECTED, certificate.getState());
@@ -1123,7 +1318,8 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate = certificateRepository.save(certificate);
         UUID rejectedUuid = certificate.getUuid();
 
-        Assertions.assertDoesNotThrow(() -> clientOperationInternalService.issueCertificateRejectedAction(rejectedUuid));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService.issueCertificateRejectedAction(rejectedUuid));
 
         certificate = certificateRepository.findByUuid(rejectedUuid).orElseThrow();
         Assertions.assertEquals(CertificateState.REJECTED, certificate.getState());
@@ -1141,11 +1337,13 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         Assertions.assertEquals(CertificateState.ISSUED, certificate.getState());
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.REVOKE
-                                && h.getStatus() == CertificateEventStatus.FAILED),
-                "expected a REVOKE/FAILED event in cert history after revocation approval was rejected");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.REVOKE
+                                        && h.getStatus() == CertificateEventStatus.FAILED),
+                        "expected a REVOKE/FAILED event in cert history after revocation approval was rejected");
     }
 
     @Test
@@ -1164,7 +1362,8 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
      * Sets the certificate to REQUESTED with a CSR ready for issuance, then returns its UUID.
      */
     private UUID prepareCertificateForIssuance() {
-        CertificateRequestEntity csr = CertificateRequestEntityBuilder.aCertificateRequest()
+        CertificateRequestEntity csr = CertificateRequestEntityBuilder
+                .aCertificateRequest()
                 .withContent("content")
                 .build();
         certificateRequestRepository.save(csr);
@@ -1178,9 +1377,10 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     @Test
     void issueCertificateAction_transitionsToPendingIssue_when202FromConnector() throws Exception {
         UUID certUuid = prepareCertificateForIssuance();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         Assertions.assertDoesNotThrow(() -> clientOperationInternalService.issueCertificateAction(certUuid, true));
 
@@ -1192,159 +1392,175 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     void issueCertificateAction_persistsMeta_when202CarriesMetadata() throws Exception {
         UUID certUuid = prepareCertificateForIssuance();
         // 202 with a meta entry the connector wants to track against the certificate
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "meta": [
-                                    {
-                                      "uuid": "00000000-0000-0000-0000-000000000001",
-                                      "name": "orderId",
-                                      "type": "meta",
-                                      "label": "Order ID",
-                                      "contentType": "string",
-                                      "content": [{"data": "ORD-123"}],
-                                      "properties": {"label": "Order ID", "global": false, "overwrite": false},
-                                      "version": 2
-                                    }
-                                  ]
-                                }
-                                """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(202)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {
+                                          "meta": [
+                                            {
+                                              "uuid": "00000000-0000-0000-0000-000000000001",
+                                              "name": "orderId",
+                                              "type": "meta",
+                                              "label": "Order ID",
+                                              "contentType": "string",
+                                              "content": [{"data": "ORD-123"}],
+                                              "properties": {"label": "Order ID", "global": false, "overwrite": false},
+                                              "version": 2
+                                            }
+                                          ]
+                                        }
+                                        """)));
 
         clientOperationInternalService.issueCertificateAction(certUuid, true);
 
         Certificate fetched = certificateRepository.findByUuid(certUuid).orElseThrow();
         Assertions.assertEquals(CertificateState.PENDING_ISSUE, fetched.getState());
         // Meta should be persisted against the certificate via the standard attribute pipeline
-        var storedMeta = attributeEngine.getMetadataAttributesDefinitionContent(
-                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, fetched.getUuid())
-                        .connector(connector.getUuid()).build());
+        var storedMeta = attributeEngine
+                .getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, fetched.getUuid())
+                        .connector(connector.getUuid())
+                        .build());
         Assertions.assertNotNull(storedMeta);
-        Assertions.assertFalse(storedMeta.isEmpty(),
-                "expected the connector's meta to be persisted against the certificate");
+        Assertions
+                .assertFalse(storedMeta.isEmpty(),
+                        "expected the connector's meta to be persisted against the certificate");
         Assertions.assertEquals("orderId", storedMeta.getFirst().getName());
     }
 
     @Test
     void issueCertificateAction_recordsEventHistoryEntry_on202() throws Exception {
         UUID certUuid = prepareCertificateForIssuance();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         clientOperationInternalService.issueCertificateAction(certUuid, true);
 
         // The state transition to PENDING_ISSUE should produce an ISSUE event in the cert history.
         Certificate fetched = certificateRepository.findByUuid(certUuid).orElseThrow();
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(fetched);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.ISSUE
-                                && h.getStatus() == CertificateEventStatus.SUCCESS),
-                "expected an ISSUE/SUCCESS event in cert history after 202 from connector");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS),
+                        "expected an ISSUE/SUCCESS event in cert history after 202 from connector");
     }
 
     /**
-     * The synchronous (HTTP 200) issue path must now pass through PENDING_ISSUE via the state
-     * machine BEFORE the connector call, then finish in ISSUED. The pre-connector transition is the
-     * only source of an ISSUE/SUCCESS "Certificate requested" audit row, so its presence proves the
-     * cert went through PENDING_ISSUE on the way to ISSUED.
+     * The synchronous (HTTP 200) issue path must now pass through PENDING_ISSUE via the state machine BEFORE the
+     * connector call, then finish in ISSUED. The pre-connector transition is the only source of an ISSUE/SUCCESS
+     * "Certificate requested" audit row, so its presence proves the cert went through PENDING_ISSUE on the way to
+     * ISSUED.
      */
     @Test
     void issueCertificateAction_transitionsThroughPendingIssue_on200Sync() throws Exception {
         UUID certUuid = prepareCertificateForIssuance();
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         clientOperationInternalService.issueCertificateAction(certUuid, true);
 
         Certificate fetched = certificateRepository.findByUuid(certUuid).orElseThrow();
-        Assertions.assertEquals(CertificateState.ISSUED, fetched.getState(),
-                "sync 200 issue must finish in ISSUED");
+        Assertions.assertEquals(CertificateState.ISSUED, fetched.getState(), "sync 200 issue must finish in ISSUED");
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(fetched);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.ISSUE
-                                && h.getStatus() == CertificateEventStatus.SUCCESS
-                                && "Certificate requested".equals(h.getMessage())),
-                "expected the state-machine's PENDING_ISSUE audit row (ISSUE/SUCCESS, "
-                        + "\"Certificate requested\") to precede ISSUED on the sync path");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS
+                                        && "Certificate requested".equals(h.getMessage())),
+                        "expected the state-machine's PENDING_ISSUE audit row (ISSUE/SUCCESS, "
+                                + "\"Certificate requested\") to precede ISSUED on the sync path");
     }
 
     /**
-     * A 200 on a synchronous issue call asserts the authority issued, and the interfaces contract
-     * requires certificateData on it. A 200 with an empty body is therefore a post-acceptance
-     * contract violation: the certificate must stay claimed in PENDING_ISSUE for reconciliation
-     * (not FAILED — the CA may hold a live certificate), with an ISSUE/FAILED audit row pointing
-     * the operator at manual reconciliation.
+     * A 200 on a synchronous issue call asserts the authority issued, and the interfaces contract requires
+     * certificateData on it. A 200 with an empty body is therefore a post-acceptance contract violation: the
+     * certificate must stay claimed in PENDING_ISSUE for reconciliation (not FAILED — the CA may hold a live
+     * certificate), with an ISSUE/FAILED audit row pointing the operator at manual reconciliation.
      */
     @Test
     void issueCertificateAction_staysPendingIssueForReconciliation_onSync200WithoutCertificateData() throws Exception {
         UUID certUuid = prepareCertificateForIssuance();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.okJson("{}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.okJson("{}")));
 
-        Assertions.assertThrows(
-                CertificateOperationException.class,
-                () -> clientOperationInternalService.issueCertificateAction(certUuid, true),
-                "sync 200 without certificate data must throw");
+        Assertions
+                .assertThrows(CertificateOperationException.class,
+                        () -> clientOperationInternalService.issueCertificateAction(certUuid, true),
+                        "sync 200 without certificate data must throw");
 
         Certificate fetched = certificateRepository.findByUuid(certUuid).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, fetched.getState(),
-                "cert must stay claimed in PENDING_ISSUE after a sync 200 without certificate data");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, fetched.getState(),
+                        "cert must stay claimed in PENDING_ISSUE after a sync 200 without certificate data");
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(fetched);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.ISSUE
-                                && h.getStatus() == CertificateEventStatus.FAILED
-                                && h.getMessage() != null && h.getMessage().contains("reconcile manually")),
-                "an ISSUE/FAILED reconcile-manually audit row must be written for the malformed 200");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
+                                        && h.getStatus() == CertificateEventStatus.FAILED && h.getMessage() != null
+                                        && h.getMessage().contains("reconcile manually")),
+                        "an ISSUE/FAILED reconcile-manually audit row must be written for the malformed 200");
     }
 
     /**
-     * When the connector itself fails a synchronous issue call (HTTP 500 — pre-acceptance, nothing
-     * committed upstream), the certificate must end in FAILED and the audit history must contain an
-     * ISSUE/FAILED row. The failure-from-state is PENDING_ISSUE (the pre-connector transition
-     * already ran), so this exercises the PENDING_ISSUE -> FAILED arc.
+     * When the connector itself fails a synchronous issue call (HTTP 500 — pre-acceptance, nothing committed upstream),
+     * the certificate must end in FAILED and the audit history must contain an ISSUE/FAILED row. The failure-from-state
+     * is PENDING_ISSUE (the pre-connector transition already ran), so this exercises the PENDING_ISSUE -> FAILED arc.
      */
     @Test
     void issueCertificateAction_transitionsToFailed_onSyncConnectorError() throws Exception {
         UUID certUuid = prepareCertificateForIssuance();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(500)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(500)));
 
-        Assertions.assertThrows(
-                CertificateOperationException.class,
-                () -> clientOperationInternalService.issueCertificateAction(certUuid, true),
-                "sync issue failing with a connector error must throw");
+        Assertions
+                .assertThrows(CertificateOperationException.class,
+                        () -> clientOperationInternalService.issueCertificateAction(certUuid, true),
+                        "sync issue failing with a connector error must throw");
 
         Certificate fetched = certificateRepository.findByUuid(certUuid).orElseThrow();
-        Assertions.assertEquals(CertificateState.FAILED, fetched.getState(),
-                "cert must end in FAILED after a sync connector error");
+        Assertions
+                .assertEquals(CertificateState.FAILED, fetched.getState(),
+                        "cert must end in FAILED after a sync connector error");
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(fetched);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.ISSUE
-                                && h.getStatus() == CertificateEventStatus.FAILED),
-                "an ISSUE/FAILED audit row must be written after a sync connector error");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
+                                        && h.getStatus() == CertificateEventStatus.FAILED),
+                        "an ISSUE/FAILED audit row must be written after a sync connector error");
     }
 
     /**
-     * Concurrency guard: the claim of a certificate for issuance now happens under a
-     * pessimistic row lock, and the state is re-asserted under that lock. A second ISSUE action for
-     * a certificate already claimed to PENDING_ISSUE (the state a concurrent winner leaves behind)
-     * must be a benign no-op — it must NOT call the connector again and must NOT drive the cert to
-     * FAILED (PENDING_ISSUE -> FAILED is a legal transition, so a wrong path here would fail the
-     * winner's in-flight issuance).
+     * Concurrency guard: the claim of a certificate for issuance now happens under a pessimistic row lock, and the
+     * state is re-asserted under that lock. A second ISSUE action for a certificate already claimed to PENDING_ISSUE
+     * (the state a concurrent winner leaves behind) must be a benign no-op — it must NOT call the connector again and
+     * must NOT drive the cert to FAILED (PENDING_ISSUE -> FAILED is a legal transition, so a wrong path here would fail
+     * the winner's in-flight issuance).
      */
     @Test
     void issueCertificateAction_benignSkip_whenAlreadyPendingIssue_doesNotCallConnectorOrFail() throws Exception {
@@ -1354,25 +1570,30 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         // Stub the issue endpoint so that, were the skip broken and the connector called, the call
         // would still succeed — leaving the verify(0) below as the decisive proof it was not called.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         Assertions.assertDoesNotThrow(() -> clientOperationInternalService.issueCertificateAction(certUuid, true));
 
         Certificate fetched = certificateRepository.findByUuid(certUuid).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, fetched.getState(),
-                "a duplicate ISSUE for a cert already claimed to PENDING_ISSUE must leave it in PENDING_ISSUE, not FAILED");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, fetched.getState(),
+                        "a duplicate ISSUE for a cert already claimed to PENDING_ISSUE must leave it in PENDING_ISSUE, not FAILED");
 
-        mockServer.verify(0, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue")));
+        mockServer
+                .verify(0, WireMock
+                        .postRequestedFor(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue")));
     }
 
     @Test
     void revokeCertificateAction_transitionsToPendingRevoke_when202FromConnector() throws Exception {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
@@ -1382,10 +1603,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         Certificate fetched = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.PENDING_REVOKE, fetched.getState());
-        Assertions.assertEquals(Boolean.TRUE, fetched.getPendingRevokeDestroyKey(),
-                "destroyKey flag should be persisted for later finalization");
-        Assertions.assertNotNull(fetched.getPendingRevokeAttributes(),
-                "revoke attributes should be persisted for later finalization");
+        Assertions
+                .assertEquals(Boolean.TRUE, fetched.getPendingRevokeDestroyKey(),
+                        "destroyKey flag should be persisted for later finalization");
+        Assertions
+                .assertNotNull(fetched.getPendingRevokeAttributes(),
+                        "revoke attributes should be persisted for later finalization");
     }
 
     @Test
@@ -1393,15 +1616,17 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         // Default WireMock 200 response: no Content-Length, no Content-Type, no body.
         // This is the typical synchronous-success response from a v2 connector
         // (Spring `void` controller → 200 OK + empty body).
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock.ok()));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationInternalService.revokeCertificateAction(certificate.getUuid(), request, true));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .revokeCertificateAction(certificate.getUuid(), request, true));
 
         Certificate fetched = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.REVOKED, fetched.getState());
@@ -1413,16 +1638,18 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     void revokeCertificateAction_completesSynchronously_on200WithEmptyJsonBody() {
         // 200 + Content-Type: application/json + empty body. Some HTTP frameworks emit this even
         // when the controller returns void. Body should deserialize to null without throwing.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(
+                                WireMock.aResponse().withStatus(200).withHeader("Content-Type", "application/json")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationInternalService.revokeCertificateAction(certificate.getUuid(), request, true));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .revokeCertificateAction(certificate.getUuid(), request, true));
 
         Certificate fetched = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.REVOKED, fetched.getState());
@@ -1432,26 +1659,34 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     void revokeCertificateAction_completesSynchronously_on200WithEmptyJsonObjectBody() {
         // 200 + Content-Type: application/json + body "{}". Jackson must deserialize to a
         // CertificateDataResponseDto with all null fields without throwing.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("{}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("{}")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationInternalService.revokeCertificateAction(certificate.getUuid(), request, true));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .revokeCertificateAction(certificate.getUuid(), request, true));
 
         Certificate fetched = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.REVOKED, fetched.getState());
         // The sync-200 revoke routes through transitionAuditedExternally so the REVOKE history is written
         // exactly once (SUCCESS), after the attribute update — not a misleading SUCCESS+FAILED pair.
-        var revokeEvents = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(fetched)
-                .stream().filter(h -> h.getEvent() == CertificateEvent.REVOKE).toList();
-        Assertions.assertEquals(1, revokeEvents.size(),
-                "sync-200 revoke must record exactly one REVOKE history entry, not a SUCCESS+FAILED pair");
+        var revokeEvents = certificateEventHistoryRepository
+                .findByCertificateOrderByCreatedDesc(fetched)
+                .stream()
+                .filter(h -> h.getEvent() == CertificateEvent.REVOKE)
+                .toList();
+        Assertions
+                .assertEquals(1, revokeEvents.size(),
+                        "sync-200 revoke must record exactly one REVOKE history entry, not a SUCCESS+FAILED pair");
         Assertions.assertEquals(CertificateEventStatus.SUCCESS, revokeEvents.get(0).getStatus());
     }
 
@@ -1459,15 +1694,17 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     void revokeCertificateAction_completesSynchronously_on204NoContent() {
         // 204 No Content — RFC-correct alternative for synchronous void operations. WebClient
         // must not attempt to deserialize a body that isn't there.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.aResponse().withStatus(204)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock.aResponse().withStatus(204)));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationInternalService.revokeCertificateAction(certificate.getUuid(), request, true));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .revokeCertificateAction(certificate.getUuid(), request, true));
 
         Certificate fetched = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.REVOKED, fetched.getState());
@@ -1475,9 +1712,10 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
     @Test
     void revokeCertificateAction_recordsEventHistoryEntry_on202() throws Exception {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
@@ -1487,17 +1725,19 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         Certificate fetched = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(fetched);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.REVOKE
-                                && h.getStatus() == CertificateEventStatus.SUCCESS),
-                "expected a REVOKE/SUCCESS event in cert history after 202 from connector");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.REVOKE
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS),
+                        "expected a REVOKE/SUCCESS event in cert history after 202 from connector");
     }
 
     /**
-     * Creates a renewal/rekey setup: an ISSUED predecessor certificate plus the existing
-     * {@code certificate} field re-purposed as the REQUESTED successor with a CSR. Returns
-     * the predecessor UUID; the successor UUID is {@code certificate.getUuid()}.
+     * Creates a renewal/rekey setup: an ISSUED predecessor certificate plus the existing {@code certificate} field
+     * re-purposed as the REQUESTED successor with a CSR. Returns the predecessor UUID; the successor UUID is
+     * {@code certificate.getUuid()}.
      */
     private UUID prepareCertificateForRenewal() {
         CertificateContent predContent = new CertificateContent();
@@ -1514,7 +1754,8 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         predCert.setRaProfile(certificate.getRaProfile());
         predCert = certificateRepository.save(predCert);
 
-        CertificateRequestEntity csr = CertificateRequestEntityBuilder.aCertificateRequest()
+        CertificateRequestEntity csr = CertificateRequestEntityBuilder
+                .aCertificateRequest()
                 .withContent("content")
                 .build();
         certificateRequestRepository.save(csr);
@@ -1535,9 +1776,10 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     @Test
     void renewCertificateAction_transitionsNewCertToPendingIssue_when202FromConnector() throws Exception {
         UUID predUuid = prepareCertificateForRenewal();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
         clientOperationInternalService.renewCertificateAction(certificate.getUuid(), request, true);
@@ -1546,33 +1788,38 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         Assertions.assertEquals(CertificateState.PENDING_ISSUE, newCert.getState());
 
         Certificate predCert = certificateRepository.findByUuid(predUuid).orElseThrow();
-        Assertions.assertEquals(CertificateState.ISSUED, predCert.getState(),
-                "predecessor must remain ISSUED while the new cert awaits asynchronous completion");
+        Assertions
+                .assertEquals(CertificateState.ISSUED, predCert.getState(),
+                        "predecessor must remain ISSUED while the new cert awaits asynchronous completion");
     }
 
     @Test
     void renewCertificateAction_persistsMeta_when202CarriesMetadata() throws Exception {
         prepareCertificateForRenewal();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
-                .willReturn(WireMock.aResponse().withStatus(202)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "meta": [
-                                    {
-                                      "uuid": "00000000-0000-0000-0000-000000000003",
-                                      "name": "renewOrderId",
-                                      "type": "meta",
-                                      "label": "Renew Order ID",
-                                      "contentType": "string",
-                                      "content": [{"data": "REN-789"}],
-                                      "properties": {"label": "Renew Order ID", "global": false, "overwrite": false},
-                                      "version": 2
-                                    }
-                                  ]
-                                }
-                                """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(202)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(
+                                        """
+                                                {
+                                                  "meta": [
+                                                    {
+                                                      "uuid": "00000000-0000-0000-0000-000000000003",
+                                                      "name": "renewOrderId",
+                                                      "type": "meta",
+                                                      "label": "Renew Order ID",
+                                                      "contentType": "string",
+                                                      "content": [{"data": "REN-789"}],
+                                                      "properties": {"label": "Renew Order ID", "global": false, "overwrite": false},
+                                                      "version": 2
+                                                    }
+                                                  ]
+                                                }
+                                                """)));
 
         ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
         clientOperationInternalService.renewCertificateAction(certificate.getUuid(), request, true);
@@ -1580,40 +1827,47 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         Certificate newCert = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.PENDING_ISSUE, newCert.getState());
 
-        var storedMeta = attributeEngine.getMetadataAttributesDefinitionContent(
-                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, newCert.getUuid())
-                        .connector(connector.getUuid()).build());
+        var storedMeta = attributeEngine
+                .getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, newCert.getUuid())
+                        .connector(connector.getUuid())
+                        .build());
         Assertions.assertNotNull(storedMeta);
-        Assertions.assertFalse(storedMeta.isEmpty(),
-                "expected the connector's renew meta to be persisted against the new certificate");
+        Assertions
+                .assertFalse(storedMeta.isEmpty(),
+                        "expected the connector's renew meta to be persisted against the new certificate");
         Assertions.assertEquals("renewOrderId", storedMeta.getFirst().getName());
     }
 
     @Test
     void renewCertificateAction_recordsRenewEventOnPredecessor_on202() throws Exception {
         UUID predUuid = prepareCertificateForRenewal();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
         clientOperationInternalService.renewCertificateAction(certificate.getUuid(), request, true);
 
         Certificate predCert = certificateRepository.findByUuid(predUuid).orElseThrow();
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(predCert);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.RENEW
-                                && h.getStatus() == CertificateEventStatus.SUCCESS),
-                "expected a RENEW/SUCCESS event on the predecessor after 202 from connector");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.RENEW
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS),
+                        "expected a RENEW/SUCCESS event on the predecessor after 202 from connector");
     }
 
     @Test
     void rekeyCertificateAction_transitionsNewCertToPendingIssue_when202FromConnector() throws Exception {
         UUID predUuid = prepareCertificateForRenewal();
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
         clientOperationInternalService.rekeyCertificateAction(certificate.getUuid(), request, true);
@@ -1625,70 +1879,76 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         Assertions.assertEquals(CertificateState.ISSUED, predCert.getState());
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(predCert);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.REKEY
-                                && h.getStatus() == CertificateEventStatus.SUCCESS),
-                "expected a REKEY/SUCCESS event on the predecessor after 202 from connector");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.REKEY
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS),
+                        "expected a REKEY/SUCCESS event on the predecessor after 202 from connector");
     }
 
     /**
-     * The synchronous (HTTP 200) renew path moves the new certificate to PENDING_ISSUE via the state
-     * machine BEFORE the connector call, then finishes in ISSUED. The "Certificate requested" audit
-     * row proves the new cert passed through PENDING_ISSUE on the way to ISSUED.
+     * The synchronous (HTTP 200) renew path moves the new certificate to PENDING_ISSUE via the state machine BEFORE the
+     * connector call, then finishes in ISSUED. The "Certificate requested" audit row proves the new cert passed through
+     * PENDING_ISSUE on the way to ISSUED.
      */
     @Test
     void renewCertificateAction_transitionsThroughPendingIssue_on200Sync() throws Exception {
         prepareCertificateForRenewal();
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
         clientOperationInternalService.renewCertificateAction(certificate.getUuid(), request, true);
 
         Certificate newCert = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.ISSUED, newCert.getState(),
-                "sync 200 renew must finish in ISSUED");
+        Assertions.assertEquals(CertificateState.ISSUED, newCert.getState(), "sync 200 renew must finish in ISSUED");
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(newCert);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.ISSUE
-                                && h.getStatus() == CertificateEventStatus.SUCCESS
-                                && "Certificate requested".equals(h.getMessage())),
-                "expected the PENDING_ISSUE audit row (ISSUE/SUCCESS, \"Certificate requested\") "
-                        + "to precede ISSUED on the sync renew path");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS
+                                        && "Certificate requested".equals(h.getMessage())),
+                        "expected the PENDING_ISSUE audit row (ISSUE/SUCCESS, \"Certificate requested\") "
+                                + "to precede ISSUED on the sync renew path");
     }
 
     /**
-     * The synchronous (HTTP 200) rekey path moves the new certificate to PENDING_ISSUE via the state
-     * machine BEFORE the connector call, then finishes in ISSUED — mirroring the renew path.
+     * The synchronous (HTTP 200) rekey path moves the new certificate to PENDING_ISSUE via the state machine BEFORE the
+     * connector call, then finishes in ISSUED — mirroring the renew path.
      */
     @Test
     void rekeyCertificateAction_transitionsThroughPendingIssue_on200Sync() throws Exception {
         prepareCertificateForRenewal();
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
         clientOperationInternalService.rekeyCertificateAction(certificate.getUuid(), request, true);
 
         Certificate newCert = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.ISSUED, newCert.getState(),
-                "sync 200 rekey must finish in ISSUED");
+        Assertions.assertEquals(CertificateState.ISSUED, newCert.getState(), "sync 200 rekey must finish in ISSUED");
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(newCert);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.ISSUE
-                                && h.getStatus() == CertificateEventStatus.SUCCESS
-                                && "Certificate requested".equals(h.getMessage())),
-                "expected the PENDING_ISSUE audit row (ISSUE/SUCCESS, \"Certificate requested\") "
-                        + "to precede ISSUED on the sync rekey path");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS
+                                        && "Certificate requested".equals(h.getMessage())),
+                        "expected the PENDING_ISSUE audit row (ISSUE/SUCCESS, \"Certificate requested\") "
+                                + "to precede ISSUED on the sync rekey path");
     }
 
     @Test
@@ -1700,10 +1960,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.renewCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending"),
-                "expected error message to mention pending state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .renewCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
+                        "expected error message to mention pending state, got: " + ex.getMessage());
     }
 
     @Test
@@ -1715,10 +1977,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.rekeyCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending"),
-                "expected error message to mention pending state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .rekeyCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
+                        "expected error message to mention pending state, got: " + ex.getMessage());
     }
 
     @Test
@@ -1731,10 +1995,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.revokeCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending"),
-                "expected error message to mention pending state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .revokeCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
+                        "expected error message to mention pending state, got: " + ex.getMessage());
     }
 
     @Test
@@ -1747,10 +2013,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.revokeCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending"),
-                "expected error message to mention pending state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .revokeCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, request));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
+                        "expected error message to mention pending state, got: " + ex.getMessage());
     }
 
     @Test
@@ -1760,10 +2028,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         SecuredUUID certSecuredUuid = certificate.getSecuredUuid();
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending"),
-                "expected error message to mention pending state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
+                        "expected error message to mention pending state, got: " + ex.getMessage());
     }
 
     @Test
@@ -1773,16 +2043,18 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         SecuredUUID certSecuredUuid = certificate.getSecuredUuid();
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending"),
-                "expected error message to mention pending state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
+                        "expected error message to mention pending state, got: " + ex.getMessage());
     }
 
     /**
-     * Sets {@code certificate} to PENDING_ISSUE with a real PKCS10 CSR backed by the returned
-     * KeyPair. Tests can use the same KeyPair to build a matching uploaded cert (happy path) or
-     * a different one to exercise the public-key mismatch branch.
+     * Sets {@code certificate} to PENDING_ISSUE with a real PKCS10 CSR backed by the returned KeyPair. Tests can use
+     * the same KeyPair to build a matching uploaded cert (happy path) or a different one to exercise the public-key
+     * mismatch branch.
      */
     private KeyPair setupPendingIssueCertWithRealCsr() throws Exception {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
@@ -1790,12 +2062,14 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         KeyPair kp = kpg.generateKeyPair();
 
         X500Name subject = new X500Name("CN=test-pending-issue");
-        JcaPKCS10CertificationRequestBuilder csrBuilder = new JcaPKCS10CertificationRequestBuilder(subject, kp.getPublic());
+        JcaPKCS10CertificationRequestBuilder csrBuilder = new JcaPKCS10CertificationRequestBuilder(subject,
+                kp.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(kp.getPrivate());
         PKCS10CertificationRequest csr = csrBuilder.build(signer);
         String csrBase64 = Base64.getEncoder().encodeToString(csr.getEncoded());
 
-        CertificateRequestEntity csrEntity = CertificateRequestEntityBuilder.aCertificateRequest()
+        CertificateRequestEntity csrEntity = CertificateRequestEntityBuilder
+                .aCertificateRequest()
                 .withContent(csrBase64)
                 .withSubjectDn("CN=test-pending-issue")
                 .withPublicKeyAlgorithm("RSA")
@@ -1816,7 +2090,8 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         X500Name name = new X500Name("CN=" + cn);
         Date notBefore = new Date();
         Date notAfter = new Date(notBefore.getTime() + 365L * 24 * 60 * 60 * 1000);
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(name, BigInteger.ONE, notBefore, notAfter, name, kp.getPublic());
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(name, BigInteger.ONE, notBefore, notAfter,
+                name, kp.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(kp.getPrivate());
         X509Certificate x509 = new JcaX509CertificateConverter().getCertificate(builder.build(signer));
         return Base64.getEncoder().encodeToString(x509.getEncoded());
@@ -1827,19 +2102,18 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         KeyPair kp = setupPendingIssueCertWithRealCsr();
         String certBase64 = buildSelfSignedCertBase64(kp, "test-pending-issue");
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[]}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
+                        .willReturn(WireMock.okJson("{\"meta\":[]}")));
 
         UploadCertificateRequestDto req = new UploadCertificateRequestDto();
         req.setCertificate(certBase64);
         req.setCustomAttributes(List.of());
 
-        clientOperationService.manuallyIssueCertificate(
-                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                raProfile.getSecuredUuid(),
-                certificate.getUuid().toString(),
-                req);
+        clientOperationService
+                .manuallyIssueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                        raProfile.getSecuredUuid(), certificate.getUuid().toString(), req);
 
         Certificate fetched = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.ISSUED, fetched.getState());
@@ -1855,35 +2129,39 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending_issue"),
-                "expected error mentioning PENDING_ISSUE state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending_issue"),
+                        "expected error mentioning PENDING_ISSUE state, got: " + ex.getMessage());
     }
 
     /**
-     * Concurrency guard: the PENDING_ISSUE -> ISSUED finalize now runs under a pessimistic
-     * row lock and re-asserts PENDING_ISSUE after acquiring it. This models the losing side of a race —
-     * the outer (unlocked) checks and the connector identify all saw PENDING_ISSUE, but by the time the
-     * lock is acquired a concurrent upload has already finalized the certificate to ISSUED. Only the
-     * re-assert under the lock can catch this; it must reject the duplicate rather than finalizing twice.
-     * The locked read is stubbed to return an already-ISSUED row so the scenario is deterministic.
+     * Concurrency guard: the PENDING_ISSUE -> ISSUED finalize now runs under a pessimistic row lock and re-asserts
+     * PENDING_ISSUE after acquiring it. This models the losing side of a race — the outer (unlocked) checks and the
+     * connector identify all saw PENDING_ISSUE, but by the time the lock is acquired a concurrent upload has already
+     * finalized the certificate to ISSUED. Only the re-assert under the lock can catch this; it must reject the
+     * duplicate rather than finalizing twice. The locked read is stubbed to return an already-ISSUED row so the
+     * scenario is deterministic.
      */
     @Test
     void manuallyIssueCertificate_reassertUnderLock_blocksWhenConcurrentUploadAlreadyFinalized() throws Exception {
         KeyPair kp = setupPendingIssueCertWithRealCsr();
         String certBase64 = buildSelfSignedCertBase64(kp, "test-pending-issue");
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[]}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
+                        .willReturn(WireMock.okJson("{\"meta\":[]}")));
 
         // The real row stays PENDING_ISSUE (so the outer read + identify pass), but the row observed under
         // the lock is ISSUED — as if a concurrent upload committed the finalize just before we locked.
         Certificate alreadyIssued = new Certificate();
         alreadyIssued.setState(CertificateState.ISSUED);
         doReturn(Optional.of(alreadyIssued))
-                .when(certificateRepository).findAndLockWithAssociationsByUuid(certificate.getUuid());
+                .when(certificateRepository)
+                .findAndLockWithAssociationsByUuid(certificate.getUuid());
 
         UploadCertificateRequestDto req = new UploadCertificateRequestDto();
         req.setCertificate(certBase64);
@@ -1893,43 +2171,52 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending_issue"),
-                "expected the re-assert under the lock to reject with a PENDING_ISSUE message, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending_issue"),
+                        "expected the re-assert under the lock to reject with a PENDING_ISSUE message, got: "
+                                + ex.getMessage());
 
         // The losing upload must not have finalized: the real row is untouched, still PENDING_ISSUE.
         // (findByUuid is unstubbed, so the spy delegates to the real repository here.)
         Certificate afterAttempt = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, afterAttempt.getState(),
-                "the losing concurrent upload must not finalize the certificate");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, afterAttempt.getState(),
+                        "the losing concurrent upload must not finalize the certificate");
     }
 
     /**
-     * Concurrency guard on the CSR-attach path: addCertificateRequestToExisting authorizes against the RA
-     * profile read before the lock, then attaches the CSR to the row read under the lock. switchRaProfile
-     * is allowed on REGISTERED certificates and takes no row lock, so a concurrent switch can move the
-     * certificate between those two reads. The re-assert under the lock must reject when the locked row no
-     * longer belongs to the authorized profile — otherwise a caller authorized on the old profile could
-     * attach a CSR to a certificate under one they do not control. The locked read is stubbed to return a
-     * row under a different (here, removed) profile so the scenario is deterministic.
+     * Concurrency guard on the CSR-attach path: addCertificateRequestToExisting authorizes against the RA profile read
+     * before the lock, then attaches the CSR to the row read under the lock. switchRaProfile is allowed on REGISTERED
+     * certificates and takes no row lock, so a concurrent switch can move the certificate between those two reads. The
+     * re-assert under the lock must reject when the locked row no longer belongs to the authorized profile — otherwise
+     * a caller authorized on the old profile could attach a CSR to a certificate under one they do not control. The
+     * locked read is stubbed to return a row under a different (here, removed) profile so the scenario is
+     * deterministic.
      */
     @Test
-    void addCertificateRequestToExisting_reassertUnderLock_rejectsWhenRaProfileChangedDuringAuthorization() throws Exception {
+    void addCertificateRequestToExisting_reassertUnderLock_rejectsWhenRaProfileChangedDuringAuthorization()
+            throws Exception {
         Certificate switchedAway = new Certificate();
-        switchedAway.setState(CertificateState.REGISTERED);   // raProfileUuid left null: profile changed away
+        switchedAway.setState(CertificateState.REGISTERED); // raProfileUuid left null: profile changed away
         doReturn(Optional.of(switchedAway))
-                .when(certificateRepository).findAndLockWithAssociationsByUuid(certificate.getUuid());
+                .when(certificateRepository)
+                .findAndLockWithAssociationsByUuid(certificate.getUuid());
 
         ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
         issueRequest.setRequest(SAMPLE_PKCS10);
         issueRequest.setFormat(CertificateRequestFormat.PKCS10);
 
         UUID certUuid = certificate.getUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                certificateService.addCertificateRequestToExisting(certUuid, issueRequest));
-        Assertions.assertTrue(ex.getMessage().contains("RA profile changed"),
-                "expected the re-assert under the lock to reject on RA-profile change, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> certificateService.addCertificateRequestToExisting(certUuid, issueRequest));
+        Assertions
+                .assertTrue(ex.getMessage().contains("RA profile changed"),
+                        "expected the re-assert under the lock to reject on RA-profile change, got: "
+                                + ex.getMessage());
     }
 
     @Test
@@ -1941,9 +2228,10 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         KeyPair otherKp = kpg.generateKeyPair();
         String mismatchedCertBase64 = buildSelfSignedCertBase64(otherKp, "test-pending-issue");
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[]}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
+                        .willReturn(WireMock.okJson("{\"meta\":[]}")));
 
         UploadCertificateRequestDto req = new UploadCertificateRequestDto();
         req.setCertificate(mismatchedCertBase64);
@@ -1952,10 +2240,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("public key"),
-                "expected error mentioning public key mismatch, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("public key"),
+                        "expected error mentioning public key mismatch, got: " + ex.getMessage());
     }
 
     @Test
@@ -1965,18 +2255,20 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setPendingRevokeAttributes(List.of());
         certificateRepository.save(certificate);
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.manuallyConfirmRevoke(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString()));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .manuallyConfirmRevoke(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString()));
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.REVOKED, after.getState());
-        Assertions.assertNull(after.getPendingRevokeDestroyKey(),
-                "destroyKey flag should be cleared after manual revoke confirm");
-        Assertions.assertNull(after.getPendingRevokeAttributes(),
-                "preserved revoke attributes should be cleared after manual revoke confirm");
+        Assertions
+                .assertNull(after.getPendingRevokeDestroyKey(),
+                        "destroyKey flag should be cleared after manual revoke confirm");
+        Assertions
+                .assertNull(after.getPendingRevokeAttributes(),
+                        "preserved revoke attributes should be cleared after manual revoke confirm");
     }
 
     @Test
@@ -1986,19 +2278,21 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setPendingRevokeAttributes(List.of());
         certificateRepository.save(certificate);
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.manuallyConfirmRevoke(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString()));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .manuallyConfirmRevoke(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString()));
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(after);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.REVOKE
-                                && h.getStatus() == CertificateEventStatus.SUCCESS),
-                "expected REVOKE/SUCCESS event after manual revoke confirm");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.REVOKE
+                                        && h.getStatus() == CertificateEventStatus.SUCCESS),
+                        "expected REVOKE/SUCCESS event after manual revoke confirm");
     }
 
     @Test
@@ -2006,30 +2300,35 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setState(CertificateState.PENDING_ISSUE);
         certificateRepository.save(certificate);
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(204)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(204)));
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
         req.setReason("requirement changed");
 
-        var dto = Assertions.assertDoesNotThrow(() ->
-                clientOperationService.cancelPendingCertificateOperation(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString(), req));
+        var dto = Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .cancelPendingCertificateOperation(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString(), req));
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.FAILED, after.getState());
-        Assertions.assertEquals(CertificateState.FAILED, dto.getState(),
-                "returned DTO must reflect the post-cancel state, not the stale pre-cancel one");
+        Assertions
+                .assertEquals(CertificateState.FAILED, dto.getState(),
+                        "returned DTO must reflect the post-cancel state, not the stale pre-cancel one");
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(after);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.ISSUE
-                                && h.getStatus() == CertificateEventStatus.FAILED),
-                "cancelling a pending issue must record ISSUE/FAILED, not SUCCESS");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.ISSUE
+                                        && h.getStatus() == CertificateEventStatus.FAILED),
+                        "cancelling a pending issue must record ISSUE/FAILED, not SUCCESS");
     }
 
     @Test
@@ -2039,17 +2338,19 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setPendingRevokeAttributes(List.of());
         certificateRepository.save(certificate);
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(204)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(204)));
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.cancelPendingCertificateOperation(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString(), req));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .cancelPendingCertificateOperation(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString(), req));
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.ISSUED, after.getState());
@@ -2057,11 +2358,13 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         Assertions.assertNull(after.getPendingRevokeAttributes());
 
         var history = certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(after);
-        Assertions.assertTrue(
-                history.stream().anyMatch(h ->
-                        h.getEvent() == CertificateEvent.REVOKE
-                                && h.getStatus() == CertificateEventStatus.FAILED),
-                "cancelling a pending revoke must record REVOKE/FAILED for the restored cert");
+        Assertions
+                .assertTrue(
+                        history
+                                .stream()
+                                .anyMatch(h -> h.getEvent() == CertificateEvent.REVOKE
+                                        && h.getStatus() == CertificateEventStatus.FAILED),
+                        "cancelling a pending revoke must record REVOKE/FAILED for the restored cert");
     }
 
     @Test
@@ -2072,10 +2375,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending"),
-                "expected error mentioning pending state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
+                        "expected error mentioning pending state, got: " + ex.getMessage());
     }
 
     @Test
@@ -2084,17 +2389,19 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificateRepository.save(certificate);
 
         // 404: connector does not track this operation — soft failure, local cancel proceeds.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(404).withBody("not tracked")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(404).withBody("not tracked")));
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.cancelPendingCertificateOperation(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString(), req));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .cancelPendingCertificateOperation(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString(), req));
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.FAILED, after.getState());
@@ -2106,17 +2413,19 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificateRepository.save(certificate);
 
         // 500 server error from connector — soft failure, local cancel proceeds.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(500).withBody("server fault")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(500).withBody("server fault")));
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.cancelPendingCertificateOperation(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString(), req));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .cancelPendingCertificateOperation(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString(), req));
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.FAILED, after.getState());
@@ -2129,25 +2438,32 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         // 422: HARD refusal — connector tracks the op but cannot abort it.
         // Local cancel must NOT proceed; cert stays PENDING_ISSUE; user sees upstream reason.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(422)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("[\"Issuance is past the point of no return\"]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(422)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[\"Issuance is past the point of no return\"]")));
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().contains("past the point of no return"),
-                "expected upstream reason in error message, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().contains("past the point of no return"),
+                        "expected upstream reason in error message, got: " + ex.getMessage());
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, after.getState(),
-                "state must NOT change on hard 422 refusal");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, after.getState(),
+                        "state must NOT change on hard 422 refusal");
     }
 
     @Test
@@ -2159,25 +2475,32 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setState(CertificateState.PENDING_ISSUE);
         certificateRepository.save(certificate);
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(403)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("[\"forbidden\"]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(403)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[\"forbidden\"]")));
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().contains("403") || ex.getMessage().toLowerCase().contains("rejected"),
-                "expected error mentioning the connector's 403 rejection, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().contains("403") || ex.getMessage().toLowerCase().contains("rejected"),
+                        "expected error mentioning the connector's 403 rejection, got: " + ex.getMessage());
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, after.getState(),
-                "state MUST NOT change on 4xx connector rejection — the upstream operation was not cancelled");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, after.getState(),
+                        "state MUST NOT change on 4xx connector rejection — the upstream operation was not cancelled");
     }
 
     @Test
@@ -2211,22 +2534,25 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         relation.setRelationType(CertificateRelationType.PENDING);
         certificateRelationRepository.save(relation);
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(204)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(204)));
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.cancelPendingCertificateOperation(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString(), req));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .cancelPendingCertificateOperation(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString(), req));
 
         Certificate after = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(CertificateState.FAILED, after.getState());
-        Assertions.assertFalse(certificateRelationRepository.existsById(relation.getId()),
-                "PENDING predecessor relation must be removed after cancel-issue → FAILED");
+        Assertions
+                .assertFalse(certificateRelationRepository.existsById(relation.getId()),
+                        "PENDING predecessor relation must be removed after cancel-issue → FAILED");
 
         certificateRepository.delete(predecessor);
     }
@@ -2237,10 +2563,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyConfirmRevoke(authorityUuid, raProfileSecuredUuid, certUuidString));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("pending_revoke"),
-                "expected error mentioning PENDING_REVOKE state, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyConfirmRevoke(authorityUuid, raProfileSecuredUuid, certUuidString));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("pending_revoke"),
+                        "expected error mentioning PENDING_REVOKE state, got: " + ex.getMessage());
     }
 
     @Test
@@ -2249,11 +2577,14 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         String certBase64 = buildSelfSignedCertBase64(kp, "test-pending-issue");
 
         // Connector rejects the cert via identify (e.g., not issued by the configured CA)
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.aResponse().withStatus(422)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("[\"Certificate not issued by the configured CA\"]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(422)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[\"Certificate not issued by the configured CA\"]")));
 
         UploadCertificateRequestDto req = new UploadCertificateRequestDto();
         req.setCertificate(certBase64);
@@ -2262,10 +2593,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().toLowerCase().contains("identify"),
-                "expected error mentioning connector identify, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().toLowerCase().contains("identify"),
+                        "expected error mentioning connector identify, got: " + ex.getMessage());
     }
 
     // ---------------------------------------------------------------------------------------
@@ -2285,12 +2618,14 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         KeyPair kp = kpg.generateKeyPair();
 
         X500Name subject = new X500Name("CN=smoke-async");
-        JcaPKCS10CertificationRequestBuilder csrBuilder = new JcaPKCS10CertificationRequestBuilder(subject, kp.getPublic());
+        JcaPKCS10CertificationRequestBuilder csrBuilder = new JcaPKCS10CertificationRequestBuilder(subject,
+                kp.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(kp.getPrivate());
         PKCS10CertificationRequest csr = csrBuilder.build(signer);
         String csrBase64 = Base64.getEncoder().encodeToString(csr.getEncoded());
 
-        CertificateRequestEntity csrEntity = CertificateRequestEntityBuilder.aCertificateRequest()
+        CertificateRequestEntity csrEntity = CertificateRequestEntityBuilder
+                .aCertificateRequest()
                 .withContent(csrBase64)
                 .withSubjectDn("CN=smoke-async")
                 .withPublicKeyAlgorithm("RSA")
@@ -2311,37 +2646,38 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         KeyPair kp = setupRequestedCertWithRealCsr();
 
         // Step 1: connector accepts the issue request asynchronously (HTTP 202)
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         clientOperationInternalService.issueCertificateAction(certificate.getUuid(), true);
 
         Certificate afterIssue = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, afterIssue.getState(),
-                "after 202 from connector cert must be in PENDING_ISSUE");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, afterIssue.getState(),
+                        "after 202 from connector cert must be in PENDING_ISSUE");
 
         // Step 2: out-of-band, the certificate is issued. Operator uploads it via finalize.
         String certBase64 = buildSelfSignedCertBase64(kp, "smoke-async");
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[]}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
+                        .willReturn(WireMock.okJson("{\"meta\":[]}")));
 
         UploadCertificateRequestDto finalizeReq = new UploadCertificateRequestDto();
         finalizeReq.setCertificate(certBase64);
         finalizeReq.setCustomAttributes(List.of());
 
-        clientOperationService.manuallyIssueCertificate(
-                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                raProfile.getSecuredUuid(),
-                certificate.getUuid().toString(),
-                finalizeReq);
+        clientOperationService
+                .manuallyIssueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                        raProfile.getSecuredUuid(), certificate.getUuid().toString(), finalizeReq);
 
         Certificate afterFinalize = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.ISSUED, afterFinalize.getState(),
-                "after manual finalize cert must be in ISSUED");
-        Assertions.assertNotNull(afterFinalize.getFingerprint(),
-                "fingerprint must be populated after finalize");
+        Assertions
+                .assertEquals(CertificateState.ISSUED, afterFinalize.getState(),
+                        "after manual finalize cert must be in ISSUED");
+        Assertions.assertNotNull(afterFinalize.getFingerprint(), "fingerprint must be populated after finalize");
     }
 
     @Test
@@ -2349,9 +2685,10 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         KeyPair kp = setupRequestedCertWithRealCsr();
 
         // connector accepts asynchronously, so the certificate parks in PENDING_ISSUE
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
         clientOperationInternalService.issueCertificateAction(certificate.getUuid(), true);
 
         // associate the pending certificate with a location on a connected entity
@@ -2374,28 +2711,32 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         locationRepository.save(location);
 
         // finalize: operator uploads the issued certificate, which is then pushed to its locations
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[]}")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push"))
-                .willReturn(WireMock.okJson("{\"withKey\": false}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
+                        .willReturn(WireMock.okJson("{\"meta\":[]}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push"))
+                        .willReturn(WireMock.okJson("{\"withKey\": false}")));
 
         UploadCertificateRequestDto finalizeReq = new UploadCertificateRequestDto();
         finalizeReq.setCertificate(buildSelfSignedCertBase64(kp, "finalized-loc-push"));
         finalizeReq.setCustomAttributes(List.of());
 
-        clientOperationService.manuallyIssueCertificate(
-                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                raProfile.getSecuredUuid(),
-                certificate.getUuid().toString(),
-                finalizeReq);
+        clientOperationService
+                .manuallyIssueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                        raProfile.getSecuredUuid(), certificate.getUuid().toString(), finalizeReq);
 
         // the finalized certificate is pushed to every location it is associated with
-        mockServer.verify(WireMock.moreThanOrExactly(1),
-                WireMock.postRequestedFor(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push")));
-        Assertions.assertEquals(CertificateState.ISSUED,
-                certificateRepository.findByUuid(certificate.getUuid()).orElseThrow().getState());
+        mockServer
+                .verify(WireMock.moreThanOrExactly(1),
+                        WireMock
+                                .postRequestedFor(
+                                        WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push")));
+        Assertions
+                .assertEquals(CertificateState.ISSUED,
+                        certificateRepository.findByUuid(certificate.getUuid()).orElseThrow().getState());
     }
 
     @Test
@@ -2403,37 +2744,44 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         // certificate is in ISSUED state from setUp()
 
         // Step 1: connector accepts the revoke request asynchronously (HTTP 202)
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         ClientCertificateRevocationDto revokeReq = new ClientCertificateRevocationDto();
         revokeReq.setAttributes(List.of());
         revokeReq.setDestroyKey(false);
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationInternalService.revokeCertificateAction(certificate.getUuid(), revokeReq, true));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .revokeCertificateAction(certificate.getUuid(), revokeReq, true));
 
         Certificate afterRevoke = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_REVOKE, afterRevoke.getState(),
-                "after 202 from connector cert must be in PENDING_REVOKE");
-        Assertions.assertNotNull(afterRevoke.getPendingRevokeAttributes(),
-                "preserved revoke attributes must be present while pending");
+        Assertions
+                .assertEquals(CertificateState.PENDING_REVOKE, afterRevoke.getState(),
+                        "after 202 from connector cert must be in PENDING_REVOKE");
+        Assertions
+                .assertNotNull(afterRevoke.getPendingRevokeAttributes(),
+                        "preserved revoke attributes must be present while pending");
 
         // Step 2: out-of-band, the revoke completed. Operator confirms via manuallyConfirmRevoke.
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.manuallyConfirmRevoke(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString()));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .manuallyConfirmRevoke(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString()));
 
         Certificate afterConfirm = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.REVOKED, afterConfirm.getState(),
-                "after manual confirm cert must be in REVOKED");
-        Assertions.assertNull(afterConfirm.getPendingRevokeAttributes(),
-                "preserved revoke attributes must be cleared after confirmation");
-        Assertions.assertNull(afterConfirm.getPendingRevokeDestroyKey(),
-                "preserved destroyKey flag must be cleared after confirmation");
+        Assertions
+                .assertEquals(CertificateState.REVOKED, afterConfirm.getState(),
+                        "after manual confirm cert must be in REVOKED");
+        Assertions
+                .assertNull(afterConfirm.getPendingRevokeAttributes(),
+                        "preserved revoke attributes must be cleared after confirmation");
+        Assertions
+                .assertNull(afterConfirm.getPendingRevokeDestroyKey(),
+                        "preserved destroyKey flag must be cleared after confirmation");
     }
 
     @Test
@@ -2441,65 +2789,81 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         setupRequestedCertWithRealCsr();
 
         // Step 1: connector returns 202 → PENDING_ISSUE
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         clientOperationInternalService.issueCertificateAction(certificate.getUuid(), true);
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE,
-                certificateRepository.findByUuid(certificate.getUuid()).orElseThrow().getState());
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE,
+                        certificateRepository.findByUuid(certificate.getUuid()).orElseThrow().getState());
 
         // Step 2: cancel; connector aborts upstream and returns 204 → cert moves to FAILED
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(204)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(204)));
 
         CancelPendingCertificateRequestDto cancelReq = new CancelPendingCertificateRequestDto();
         cancelReq.setReason("smoke test cancel");
 
-        Assertions.assertDoesNotThrow(() ->
-                clientOperationService.cancelPendingCertificateOperation(
-                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                        raProfile.getSecuredUuid(),
-                        certificate.getUuid().toString(), cancelReq));
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationService
+                        .cancelPendingCertificateOperation(
+                                SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                raProfile.getSecuredUuid(), certificate.getUuid().toString(), cancelReq));
 
         Certificate afterCancel = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.FAILED, afterCancel.getState(),
-                "after 204 cancel cert must be in FAILED");
+        Assertions
+                .assertEquals(CertificateState.FAILED, afterCancel.getState(),
+                        "after 204 cancel cert must be in FAILED");
     }
 
     @Test
     void smoke_cancelPendingIssue_422_preservesState() throws Exception {
         setupRequestedCertWithRealCsr();
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.aResponse().withStatus(202)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withStatus(202)));
 
         clientOperationInternalService.issueCertificateAction(certificate.getUuid(), true);
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE,
-                certificateRepository.findByUuid(certificate.getUuid()).orElseThrow().getState());
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE,
+                        certificateRepository.findByUuid(certificate.getUuid()).orElseThrow().getState());
 
         // Connector hard-refuses cancel (422): cert MUST remain in PENDING_ISSUE.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
-                .willReturn(WireMock.aResponse().withStatus(422)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("[\"Issuance is past the point of no return\"]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/cancel"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(422)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[\"Issuance is past the point of no return\"]")));
 
         CancelPendingCertificateRequestDto cancelReq = new CancelPendingCertificateRequestDto();
 
         SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, cancelReq));
-        Assertions.assertTrue(ex.getMessage().contains("past the point of no return"),
-                "expected upstream reason in error message, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> clientOperationService
+                                .cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString,
+                                        cancelReq));
+        Assertions
+                .assertTrue(ex.getMessage().contains("past the point of no return"),
+                        "expected upstream reason in error message, got: " + ex.getMessage());
 
         Certificate afterCancel = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, afterCancel.getState(),
-                "state MUST NOT change on hard 422 refusal");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, afterCancel.getState(),
+                        "state MUST NOT change on hard 422 refusal");
     }
 
     // ---------------------------------------------------------------------------------------
@@ -2531,13 +2895,16 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         req.setCertificate("dGVzdA==");
         req.setCustomAttributes(List.of());
 
-        SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(foreignRaProfile.getAuthorityInstanceReferenceUuid());
+        SecuredParentUUID authorityUuid = SecuredParentUUID
+                .fromUUID(foreignRaProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = foreignRaProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().contains("RA profile is different"),
-                "expected RA profile binding rejection, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyIssueCertificate(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().contains("RA profile is different"),
+                        "expected RA profile binding rejection, got: " + ex.getMessage());
 
         raProfileRepository.delete(foreignRaProfile);
     }
@@ -2556,13 +2923,16 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         foreignRaProfile.setEnabled(true);
         raProfileRepository.save(foreignRaProfile);
 
-        SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(foreignRaProfile.getAuthorityInstanceReferenceUuid());
+        SecuredParentUUID authorityUuid = SecuredParentUUID
+                .fromUUID(foreignRaProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = foreignRaProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyConfirmRevoke(authorityUuid, raProfileSecuredUuid, certUuidString));
-        Assertions.assertTrue(ex.getMessage().contains("RA profile is different"),
-                "expected RA profile binding rejection, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyConfirmRevoke(authorityUuid, raProfileSecuredUuid, certUuidString));
+        Assertions
+                .assertTrue(ex.getMessage().contains("RA profile is different"),
+                        "expected RA profile binding rejection, got: " + ex.getMessage());
 
         raProfileRepository.delete(foreignRaProfile);
     }
@@ -2581,13 +2951,16 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
 
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
-        SecuredParentUUID authorityUuid = SecuredParentUUID.fromUUID(foreignRaProfile.getAuthorityInstanceReferenceUuid());
+        SecuredParentUUID authorityUuid = SecuredParentUUID
+                .fromUUID(foreignRaProfile.getAuthorityInstanceReferenceUuid());
         SecuredUUID raProfileSecuredUuid = foreignRaProfile.getSecuredUuid();
         String certUuidString = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
-        Assertions.assertTrue(ex.getMessage().contains("RA profile is different"),
-                "expected RA profile binding rejection, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .cancelPendingCertificateOperation(authorityUuid, raProfileSecuredUuid, certUuidString, req));
+        Assertions
+                .assertTrue(ex.getMessage().contains("RA profile is different"),
+                        "expected RA profile binding rejection, got: " + ex.getMessage());
 
         raProfileRepository.delete(foreignRaProfile);
     }
@@ -2607,10 +2980,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID strangerSecured = SecuredParentUUID.fromUUID(UUID.randomUUID());
         SecuredUUID raProfileSecured = raProfile.getSecuredUuid();
         String certUuid = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyIssueCertificate(strangerSecured, raProfileSecured, certUuid, req));
-        Assertions.assertTrue(ex.getMessage().contains("authority is different"),
-                "expected authority binding rejection, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyIssueCertificate(strangerSecured, raProfileSecured, certUuid, req));
+        Assertions
+                .assertTrue(ex.getMessage().contains("authority is different"),
+                        "expected authority binding rejection, got: " + ex.getMessage());
     }
 
     @Test
@@ -2623,10 +2998,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID strangerSecured = SecuredParentUUID.fromUUID(UUID.randomUUID());
         SecuredUUID raProfileSecured = raProfile.getSecuredUuid();
         String certUuid = certificate.getUuid().toString();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.manuallyConfirmRevoke(strangerSecured, raProfileSecured, certUuid));
-        Assertions.assertTrue(ex.getMessage().contains("authority is different"),
-                "expected authority binding rejection, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .manuallyConfirmRevoke(strangerSecured, raProfileSecured, certUuid));
+        Assertions
+                .assertTrue(ex.getMessage().contains("authority is different"),
+                        "expected authority binding rejection, got: " + ex.getMessage());
     }
 
     @Test
@@ -2639,10 +3016,12 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         String certUuid = certificate.getUuid().toString();
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class, () ->
-                clientOperationService.cancelPendingCertificateOperation(strangerSecured, raProfileSecured, certUuid, req));
-        Assertions.assertTrue(ex.getMessage().contains("authority is different"),
-                "expected authority binding rejection, got: " + ex.getMessage());
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .cancelPendingCertificateOperation(strangerSecured, raProfileSecured, certUuid, req));
+        Assertions
+                .assertTrue(ex.getMessage().contains("authority is different"),
+                        "expected authority binding rejection, got: " + ex.getMessage());
     }
 
     @Test
@@ -2653,8 +3032,9 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         UploadCertificateRequestDto req = new UploadCertificateRequestDto();
         req.setCertificate("dGVzdA==");
 
-        Assertions.assertThrows(NotFoundException.class, () ->
-                clientOperationService.manuallyIssueCertificate(authority, raProfileSecured, missingId, req));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> clientOperationService
+                        .manuallyIssueCertificate(authority, raProfileSecured, missingId, req));
     }
 
     @Test
@@ -2663,8 +3043,9 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredUUID raProfileSecured = raProfile.getSecuredUuid();
         String missingId = UUID.randomUUID().toString();
 
-        Assertions.assertThrows(NotFoundException.class, () ->
-                clientOperationService.manuallyConfirmRevoke(authority, raProfileSecured, missingId));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService.manuallyConfirmRevoke(authority, raProfileSecured, missingId));
     }
 
     @Test
@@ -2674,8 +3055,9 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         String missingId = UUID.randomUUID().toString();
         CancelPendingCertificateRequestDto req = new CancelPendingCertificateRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () ->
-                clientOperationService.cancelPendingCertificateOperation(authority, raProfileSecured, missingId, req));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> clientOperationService
+                        .cancelPendingCertificateOperation(authority, raProfileSecured, missingId, req));
     }
 
     @Test
@@ -2690,19 +3072,24 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         request.setFormat(CertificateRequestFormat.PKCS10);
         request.setKeyUuid(key.getUuid());
         request.setTokenProfileUuid(key.getTokenProfileUuid());
-        request.setCsrAttributes(List.of(new RequestAttributeV3(UUID.fromString(CsrAttributes.COMMON_NAME_UUID),
-                CsrAttributes.COMMON_NAME_ATTRIBUTE_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("DenyBeforeSigning")))));
+        request
+                .setCsrAttributes(List
+                        .of(new RequestAttributeV3(UUID.fromString(CsrAttributes.COMMON_NAME_UUID),
+                                CsrAttributes.COMMON_NAME_ATTRIBUTE_NAME, AttributeContentType.STRING,
+                                List.of(new StringAttributeContentV3("DenyBeforeSigning")))));
         request.setSignatureAttributes(List.of());
         request.setAttributes(List.of());
         SecuredParentUUID authorityUuid = authorityInstanceReference.getSecuredParentUuid();
         SecuredUUID raProfileUuid = raProfile.getSecuredUuid();
 
-        Assertions.assertThrows(CertificateOperationException.class,
-                () -> clientOperationService.issueCertificate(authorityUuid, raProfileUuid, request, null));
+        Assertions
+                .assertThrows(CertificateOperationException.class,
+                        () -> clientOperationService.issueCertificate(authorityUuid, raProfileUuid, request, null));
 
-        verify(cryptographicOperationService, never()).generateCsr(any(), any(), any(), any(), any(), any(), any(), any());
-        Assertions.assertEquals(1, certificateRepository.count(),
-                "only the fixture certificate exists; the denied request must persist none");
+        verify(cryptographicOperationService, never())
+                .generateCsr(any(), any(), any(), any(), any(), any(), any(), any());
+        Assertions
+                .assertEquals(1, certificateRepository.count(),
+                        "only the fixture certificate exists; the denied request must persist none");
     }
 }

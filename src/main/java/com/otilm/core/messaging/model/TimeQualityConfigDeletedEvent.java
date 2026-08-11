@@ -1,8 +1,7 @@
 package com.otilm.core.messaging.model;
 
-import org.springframework.context.ApplicationEvent;
-
 import java.util.UUID;
+import org.springframework.context.ApplicationEvent;
 
 public class TimeQualityConfigDeletedEvent extends ApplicationEvent {
 

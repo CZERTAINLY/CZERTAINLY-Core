@@ -9,8 +9,8 @@ public interface VaultProfileInternalService extends ResourceExtensionService {
 
     /**
      * Internal, unauthorized accessor for the {@link VaultProfile} entity by UUID. Unlike
-     * {@link VaultProfileExternalService#getVaultProfileDetails}, this performs no {@code @ExternalAuthorization} check and is not
-     * parent-scoped on the vault-instance UUID, so callers that already authorize the operation through
+     * {@link VaultProfileExternalService#getVaultProfileDetails}, this performs no {@code @ExternalAuthorization} check
+     * and is not parent-scoped on the vault-instance UUID, so callers that already authorize the operation through
      * their own resource can resolve a vault profile without imposing VAULT/VAULT_PROFILE permissions.
      */
     VaultProfile getVaultProfileEntity(SecuredUUID vaultProfileUuid) throws NotFoundException;

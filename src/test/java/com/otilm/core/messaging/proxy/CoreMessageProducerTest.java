@@ -5,6 +5,8 @@ import com.otilm.api.clients.mq.model.CoreMessage;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import jakarta.jms.JMSException;
 import jakarta.jms.Message;
+import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,17 +19,16 @@ import org.springframework.jms.core.MessagePostProcessor;
 import org.springframework.retry.RetryCallback;
 import org.springframework.retry.support.RetryTemplate;
 
-import java.time.Duration;
-import java.time.Instant;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link CoreMessageProducer}.
- * Tests message sending with different broker configurations.
+ * Unit tests for {@link CoreMessageProducer}. Tests message sending with different broker configurations.
  */
 @ExtendWith(MockitoExtension.class)
 class CoreMessageProducerTest {
@@ -49,14 +50,10 @@ class CoreMessageProducerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        proxyProperties = new ProxyProperties(
-                "ilm-proxy",  // exchange
-                "core",              // responseQueue
-                "test-instance",     // instanceId
-                Duration.ofSeconds(30),
-                1000,
-                null
-        );
+        proxyProperties = new ProxyProperties("ilm-proxy", // exchange
+                "core", // responseQueue
+                "test-instance", // instanceId
+                Duration.ofSeconds(30), 1000, null);
 
         // Default: execute callback immediately for RetryTemplate
         when(retryTemplate.execute(any())).thenAnswer(invocation -> {
@@ -76,11 +73,7 @@ class CoreMessageProducerTest {
         CoreMessage message = createCoreMessage("corr-1");
         producer.send(message, "proxy-001");
 
-        verify(jmsTemplate).convertAndSend(
-                eq("ilm-proxy"),
-                eq(message),
-                any(MessagePostProcessor.class)
-        );
+        verify(jmsTemplate).convertAndSend(eq("ilm-proxy"), eq(message), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -90,11 +83,7 @@ class CoreMessageProducerTest {
         CoreMessage message = createCoreMessage("corr-1");
         producer.send(message, "proxy-001");
 
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                eq(message),
-                postProcessorCaptor.capture()
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), eq(message), postProcessorCaptor.capture());
 
         // Verify the post processor sets JMSType correctly
         Message mockMessage = mock(Message.class);
@@ -110,11 +99,7 @@ class CoreMessageProducerTest {
         CoreMessage message = createCoreMessage("my-correlation-id");
         producer.send(message, "proxy-001");
 
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                eq(message),
-                postProcessorCaptor.capture()
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), eq(message), postProcessorCaptor.capture());
 
         Message mockMessage = mock(Message.class);
         postProcessorCaptor.getValue().postProcessMessage(mockMessage);
@@ -131,11 +116,9 @@ class CoreMessageProducerTest {
         CoreMessage message = createCoreMessage("corr-1");
         producer.send(message, "proxy-002");
 
-        verify(jmsTemplate).convertAndSend(
-                eq("/exchanges/ilm-proxy/coremessage.proxy-002"),
-                eq(message),
-                any(MessagePostProcessor.class)
-        );
+        verify(jmsTemplate)
+                .convertAndSend(eq("/exchanges/ilm-proxy/coremessage.proxy-002"), eq(message),
+                        any(MessagePostProcessor.class));
     }
 
     @Test
@@ -145,11 +128,7 @@ class CoreMessageProducerTest {
         CoreMessage message = createCoreMessage("corr-1");
         producer.send(message, "my-proxy-instance");
 
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                eq(message),
-                postProcessorCaptor.capture()
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), eq(message), postProcessorCaptor.capture());
 
         Message mockMessage = mock(Message.class);
         postProcessorCaptor.getValue().postProcessMessage(mockMessage);
@@ -167,11 +146,7 @@ class CoreMessageProducerTest {
         producer.send(message, "proxy-001");
 
         verify(retryTemplate).execute(any());
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                eq(message),
-                any(MessagePostProcessor.class)
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), eq(message), any(MessagePostProcessor.class));
     }
 
     // ==================== Different ProxyId Tests ====================
@@ -183,11 +158,7 @@ class CoreMessageProducerTest {
         // First request
         producer.send(createCoreMessage("corr-1"), "proxy-alpha");
 
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                any(CoreMessage.class),
-                postProcessorCaptor.capture()
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), any(CoreMessage.class), postProcessorCaptor.capture());
 
         Message mockMessage1 = mock(Message.class);
         postProcessorCaptor.getValue().postProcessMessage(mockMessage1);
@@ -199,11 +170,7 @@ class CoreMessageProducerTest {
         // Second request with different proxyId
         producer.send(createCoreMessage("corr-2"), "proxy-beta");
 
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                any(CoreMessage.class),
-                postProcessorCaptor.capture()
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), any(CoreMessage.class), postProcessorCaptor.capture());
 
         Message mockMessage2 = mock(Message.class);
         postProcessorCaptor.getValue().postProcessMessage(mockMessage2);
@@ -217,11 +184,7 @@ class CoreMessageProducerTest {
         CoreMessage message = createCoreMessage("unique-correlation-123");
         producer.send(message, "proxy-001");
 
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                eq(message),
-                postProcessorCaptor.capture()
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), eq(message), postProcessorCaptor.capture());
 
         Message mockMessage = mock(Message.class);
         postProcessorCaptor.getValue().postProcessMessage(mockMessage);
@@ -238,11 +201,7 @@ class CoreMessageProducerTest {
         CoreMessage message = createCoreMessage("corr-1");
         producer.send(message, "proxy-001");
 
-        verify(jmsTemplate).convertAndSend(
-                any(String.class),
-                eq(message),
-                postProcessorCaptor.capture()
-        );
+        verify(jmsTemplate).convertAndSend(any(String.class), eq(message), postProcessorCaptor.capture());
 
         Message mockMessage = mock(Message.class);
         postProcessorCaptor.getValue().postProcessMessage(mockMessage);
@@ -256,11 +215,13 @@ class CoreMessageProducerTest {
     // ==================== Helper Methods ====================
 
     private CoreMessage createCoreMessage(String correlationId) {
-        return CoreMessage.builder()
+        return CoreMessage
+                .builder()
                 .correlationId(correlationId)
                 .messageType("POST:/v1/test")
                 .timestamp(Instant.now())
-                .connectorRequest(ConnectorRequest.builder()
+                .connectorRequest(ConnectorRequest
+                        .builder()
                         .connectorUrl("http://connector.example.com")
                         .method("POST")
                         .path("/v1/test")

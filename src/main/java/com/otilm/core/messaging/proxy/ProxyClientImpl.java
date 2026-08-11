@@ -1,19 +1,18 @@
 package com.otilm.core.messaging.proxy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.clients.mq.ProxyClient;
 import com.otilm.api.clients.mq.model.ConnectorRequest;
 import com.otilm.api.clients.mq.model.ConnectorResponse;
 import com.otilm.api.clients.mq.model.CoreMessage;
 import com.otilm.api.clients.mq.model.ProxyMessage;
-import com.otilm.api.exception.*;
-import com.otilm.api.clients.ApiClientConnectorInfo;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
-
+import com.otilm.api.exception.ConnectorClientException;
+import com.otilm.api.exception.ConnectorCommunicationException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.ConnectorServerException;
+import com.otilm.api.exception.ValidationException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -23,13 +22,19 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 
 /**
  * Implementation of ProxyClient that communicates with connectors via message queue proxy.
  *
- * <p>Sends requests to a message queue topic where a proxy service forwards them to
- * the actual connector via HTTP. Responses are received through a response queue
- * and correlated using correlation IDs.</p>
+ * <p>
+ * Sends requests to a message queue topic where a proxy service forwards them to the actual connector via HTTP.
+ * Responses are received through a response queue and correlated using correlation IDs.
+ * </p>
  */
 @Slf4j
 @Component
@@ -37,11 +42,10 @@ import java.util.concurrent.TimeoutException;
 public class ProxyClientImpl implements ProxyClient {
 
     /**
-     * Slack added on top of {@link ProxyProperties#requestTimeout()} when waiting for the
-     * MQ-correlated response future. Covers the round-trip overhead (publish → broker dispatch
-     * → proxy worker → response correlation) so the {@code future.get} on the caller side does
-     * not give up on a request that the upstream connector is still completing within its own
-     * configured budget. Tunable per-environment; the 5 s default reflects observed broker +
+     * Slack added on top of {@link ProxyProperties#requestTimeout()} when waiting for the MQ-correlated response
+     * future. Covers the round-trip overhead (publish → broker dispatch → proxy worker → response correlation) so the
+     * {@code future.get} on the caller side does not give up on a request that the upstream connector is still
+     * completing within its own configured budget. Tunable per-environment; the 5 s default reflects observed broker +
      * deserialization overhead.
      */
     private static final long MESSAGE_ROUND_TRIP_BUFFER_MS = 5_000L;
@@ -52,12 +56,8 @@ public class ProxyClientImpl implements ProxyClient {
     private final ObjectMapper objectMapper;
     private final ProxyProperties proxyProperties;
 
-    public ProxyClientImpl(
-            CoreMessageProducer producer,
-            ProxyMessageCorrelator correlator,
-            ConnectorAuthConverter authConverter,
-            ObjectMapper objectMapper,
-            ProxyProperties proxyProperties) {
+    public ProxyClientImpl(CoreMessageProducer producer, ProxyMessageCorrelator correlator,
+            ConnectorAuthConverter authConverter, ObjectMapper objectMapper, ProxyProperties proxyProperties) {
         this.producer = producer;
         this.correlator = correlator;
         this.authConverter = authConverter;
@@ -67,52 +67,34 @@ public class ProxyClientImpl implements ProxyClient {
     }
 
     @Override
-    public <T> T sendRequest(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Object body,
+    public <T> T sendRequest(ApiClientConnectorInfo connector, String path, String method, Object body,
             Class<T> responseType) throws ConnectorException {
         return sendRequest(connector, path, method, body, responseType, proxyProperties.requestTimeout());
     }
 
     @Override
-    public <T> T sendRequest(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Object body,
-            Class<T> responseType,
-            Duration timeout) throws ConnectorException {
+    public <T> T sendRequest(ApiClientConnectorInfo connector, String path, String method, Object body,
+            Class<T> responseType, Duration timeout) throws ConnectorException {
         return sendRequest(connector, path, method, null, body, responseType, timeout);
     }
 
     @Override
-    public <T> T sendRequest(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Map<String, String> pathVariables,
-            Object body,
-            Class<T> responseType) throws ConnectorException {
-        return sendRequest(connector, path, method, pathVariables, body, responseType, proxyProperties.requestTimeout());
+    public <T> T sendRequest(ApiClientConnectorInfo connector, String path, String method,
+            Map<String, String> pathVariables, Object body, Class<T> responseType) throws ConnectorException {
+        return sendRequest(connector, path, method, pathVariables, body, responseType,
+                proxyProperties.requestTimeout());
     }
 
     @Override
-    public <T> ResponseEntity<T> sendRequestForEntity(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Object body,
-            Class<T> responseType) throws ConnectorException {
+    public <T> ResponseEntity<T> sendRequestForEntity(ApiClientConnectorInfo connector, String path, String method,
+            Object body, Class<T> responseType) throws ConnectorException {
         Duration timeout = proxyProperties.requestTimeout();
         try {
-            CompletableFuture<ResponseEntity<T>> future =
-                    sendRequestForEntityAsync(connector, path, method, body, responseType, timeout);
+            CompletableFuture<ResponseEntity<T>> future = sendRequestForEntityAsync(connector, path, method, body,
+                    responseType, timeout);
             return future.get(timeout.toMillis() + MESSAGE_ROUND_TRIP_BUFFER_MS, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            throw new ConnectorCommunicationException(
-                    "Proxy request timed out after " + timeout, e, connector);
+            throw new ConnectorCommunicationException("Proxy request timed out after " + timeout, e, connector);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof CompletionException ce && ce.getCause() != null) {
@@ -124,22 +106,15 @@ public class ProxyClientImpl implements ProxyClient {
             if (cause instanceof RuntimeException re) {
                 throw re;
             }
-            throw new ConnectorCommunicationException(
-                    "Proxy request failed: " + cause.getMessage(), cause, connector);
+            throw new ConnectorCommunicationException("Proxy request failed: " + cause.getMessage(), cause, connector);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new ConnectorCommunicationException(
-                    "Proxy request interrupted", e, connector);
+            throw new ConnectorCommunicationException("Proxy request interrupted", e, connector);
         }
     }
 
-    private <T> CompletableFuture<ResponseEntity<T>> sendRequestForEntityAsync(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Object body,
-            Class<T> responseType,
-            Duration timeout) {
+    private <T> CompletableFuture<ResponseEntity<T>> sendRequestForEntityAsync(ApiClientConnectorInfo connector,
+            String path, String method, Object body, Class<T> responseType, Duration timeout) {
 
         String correlationId = UUID.randomUUID().toString();
         String proxyCode = connector.getProxy() != null ? connector.getProxy().getCode() : null;
@@ -150,14 +125,17 @@ public class ProxyClientImpl implements ProxyClient {
 
         String resolvedPath = resolvePath(path, null);
 
-        log.debug("Sending async proxy request (entity) correlationId={} proxyCode={} method={} path={}",
-                correlationId, proxyCode, method, resolvedPath);
+        log
+                .debug("Sending async proxy request (entity) correlationId={} proxyCode={} method={} path={}",
+                        correlationId, proxyCode, method, resolvedPath);
 
-        CoreMessage message = CoreMessage.builder()
+        CoreMessage message = CoreMessage
+                .builder()
                 .correlationId(correlationId)
                 .messageType(toMessageType(method, resolvedPath))
                 .timestamp(Instant.now())
-                .connectorRequest(ConnectorRequest.builder()
+                .connectorRequest(ConnectorRequest
+                        .builder()
                         .connectorUrl(connector.getUrl())
                         .method(method)
                         .path(resolvedPath)
@@ -173,23 +151,17 @@ public class ProxyClientImpl implements ProxyClient {
         return messageFuture.thenApply(proxyMessage -> handleResponseForEntity(proxyMessage, responseType, connector));
     }
 
-    private <T> T sendRequest(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Map<String, String> pathVariables,
-            Object body,
-            Class<T> responseType,
-            Duration timeout) throws ConnectorException {
+    private <T> T sendRequest(ApiClientConnectorInfo connector, String path, String method,
+            Map<String, String> pathVariables, Object body, Class<T> responseType, Duration timeout)
+            throws ConnectorException {
         try {
-            CompletableFuture<T> future = sendRequestAsync(
-                    connector, path, method, pathVariables, body, responseType, timeout);
+            CompletableFuture<T> future = sendRequestAsync(connector, path, method, pathVariables, body, responseType,
+                    timeout);
 
             return future.get(timeout.toMillis() + MESSAGE_ROUND_TRIP_BUFFER_MS, TimeUnit.MILLISECONDS);
 
         } catch (TimeoutException e) {
-            throw new ConnectorCommunicationException(
-                    "Proxy request timed out after " + timeout, e, connector);
+            throw new ConnectorCommunicationException("Proxy request timed out after " + timeout, e, connector);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             // CompletableFuture.thenApply wraps thrown exceptions in CompletionException
@@ -203,45 +175,28 @@ public class ProxyClientImpl implements ProxyClient {
             if (cause instanceof RuntimeException re) {
                 throw re;
             }
-            throw new ConnectorCommunicationException(
-                    "Proxy request failed: " + cause.getMessage(), cause, connector);
+            throw new ConnectorCommunicationException("Proxy request failed: " + cause.getMessage(), cause, connector);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new ConnectorCommunicationException(
-                    "Proxy request interrupted", e, connector);
+            throw new ConnectorCommunicationException("Proxy request interrupted", e, connector);
         }
     }
 
     @Override
-    public <T> CompletableFuture<T> sendRequestAsync(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Object body,
-            Class<T> responseType) {
+    public <T> CompletableFuture<T> sendRequestAsync(ApiClientConnectorInfo connector, String path, String method,
+            Object body, Class<T> responseType) {
         return sendRequestAsync(connector, path, method, null, body, responseType, proxyProperties.requestTimeout());
     }
 
     @Override
-    public <T> CompletableFuture<T> sendRequestAsync(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Object body,
-            Class<T> responseType,
-            Duration timeout) {
+    public <T> CompletableFuture<T> sendRequestAsync(ApiClientConnectorInfo connector, String path, String method,
+            Object body, Class<T> responseType, Duration timeout) {
         return sendRequestAsync(connector, path, method, null, body, responseType, timeout);
     }
 
     @Override
-    public <T> CompletableFuture<T> sendRequestAsync(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Map<String, String> pathVariables,
-            Object body,
-            Class<T> responseType,
-            Duration timeout) {
+    public <T> CompletableFuture<T> sendRequestAsync(ApiClientConnectorInfo connector, String path, String method,
+            Map<String, String> pathVariables, Object body, Class<T> responseType, Duration timeout) {
 
         String correlationId = UUID.randomUUID().toString();
         String proxyCode = connector.getProxy() != null ? connector.getProxy().getCode() : null;
@@ -253,15 +208,18 @@ public class ProxyClientImpl implements ProxyClient {
         // Resolve path variables
         String resolvedPath = resolvePath(path, pathVariables);
 
-        log.debug("Sending async proxy request correlationId={} proxyCode={} method={} path={}",
-                correlationId, proxyCode, method, resolvedPath);
+        log
+                .debug("Sending async proxy request correlationId={} proxyCode={} method={} path={}", correlationId,
+                        proxyCode, method, resolvedPath);
 
         // Build the core message
-        CoreMessage message = CoreMessage.builder()
+        CoreMessage message = CoreMessage
+                .builder()
                 .correlationId(correlationId)
                 .messageType(toMessageType(method, resolvedPath))
                 .timestamp(Instant.now())
-                .connectorRequest(ConnectorRequest.builder()
+                .connectorRequest(ConnectorRequest
+                        .builder()
                         .connectorUrl(connector.getUrl())
                         .method(method)
                         .path(resolvedPath)
@@ -282,21 +240,21 @@ public class ProxyClientImpl implements ProxyClient {
     }
 
     /**
-     * Handle proxy message preserving the upstream HTTP status. Returns a
-     * {@link ResponseEntity} so callers can distinguish 200 OK (synchronous completion)
-     * from 202 Accepted (asynchronous completion). Body is {@code null} when the upstream
-     * response had no body (e.g. 204 No Content) or when the upstream response was 202
-     * with an empty body.
+     * Handle proxy message preserving the upstream HTTP status. Returns a {@link ResponseEntity} so callers can
+     * distinguish 200 OK (synchronous completion) from 202 Accepted (asynchronous completion). Body is {@code null}
+     * when the upstream response had no body (e.g. 204 No Content) or when the upstream response was 202 with an empty
+     * body.
      */
-    private <T> ResponseEntity<T> handleResponseForEntity(ProxyMessage message, Class<T> responseType, ApiClientConnectorInfo connector) {
+    private <T> ResponseEntity<T> handleResponseForEntity(ProxyMessage message, Class<T> responseType,
+            ApiClientConnectorInfo connector) {
         ConnectorResponse response = message.getConnectorResponse();
 
         if (response == null) {
             if (message.isHealthCheck()) {
                 return ResponseEntity.ok().build();
             }
-            sneakyThrow(new ConnectorCommunicationException(
-                    "Received proxy message without connector response", connector));
+            sneakyThrow(new ConnectorCommunicationException("Received proxy message without connector response",
+                    connector));
             return null;
         }
 
@@ -321,8 +279,7 @@ public class ProxyClientImpl implements ProxyClient {
                 body = objectMapper.convertValue(response.getBody(), responseType);
             } catch (Exception e) {
                 sneakyThrow(new ConnectorCommunicationException(
-                        "Failed to deserialize proxy response body to " + responseType.getSimpleName(),
-                        e, connector));
+                        "Failed to deserialize proxy response body to " + responseType.getSimpleName(), e, connector));
                 return null;
             }
         }
@@ -341,8 +298,8 @@ public class ProxyClientImpl implements ProxyClient {
             if (message.isHealthCheck()) {
                 return null; // Health checks don't have a response body
             }
-            sneakyThrow(new ConnectorCommunicationException(
-                    "Received proxy message without connector response", connector));
+            sneakyThrow(new ConnectorCommunicationException("Received proxy message without connector response",
+                    connector));
             return null;
         }
 
@@ -367,15 +324,14 @@ public class ProxyClientImpl implements ProxyClient {
             return objectMapper.convertValue(response.getBody(), responseType);
         } catch (Exception e) {
             sneakyThrow(new ConnectorCommunicationException(
-                    "Failed to deserialize proxy response body to " + responseType.getSimpleName(),
-                    e, connector));
+                    "Failed to deserialize proxy response body to " + responseType.getSimpleName(), e, connector));
             return null; // Never reached, but needed for compiler
         }
     }
 
     /**
-     * Sneaky throw helper to throw checked exceptions without declaring them.
-     * Used to throw ConnectorException from lambda contexts.
+     * Sneaky throw helper to throw checked exceptions without declaring them. Used to throw ConnectorException from
+     * lambda contexts.
      */
     @SuppressWarnings("unchecked")
     private static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
@@ -383,9 +339,8 @@ public class ProxyClientImpl implements ProxyClient {
     }
 
     /**
-     * Map proxy error category to appropriate exception and throw it.
-     * ValidationException is a RuntimeException so it's thrown directly.
-     * ConnectorException subtypes are thrown using sneakyThrow for lambda compatibility.
+     * Map proxy error category to appropriate exception and throw it. ValidationException is a RuntimeException so it's
+     * thrown directly. ConnectorException subtypes are thrown using sneakyThrow for lambda compatibility.
      */
     private void throwProxyError(ConnectorResponse response, ApiClientConnectorInfo connector) {
         String errorCategory = response.getErrorCategory();
@@ -399,29 +354,26 @@ public class ProxyClientImpl implements ProxyClient {
         switch (errorCategory.toLowerCase()) {
             case "validation" -> throw new ValidationException(errorMessage);
 
-            case "authentication" -> sneakyThrow(new ConnectorClientException(
-                    errorMessage, HttpStatus.UNAUTHORIZED));
+            case "authentication" -> sneakyThrow(new ConnectorClientException(errorMessage, HttpStatus.UNAUTHORIZED));
 
-            case "authorization" -> sneakyThrow(new ConnectorClientException(
-                    errorMessage, HttpStatus.FORBIDDEN));
+            case "authorization" -> sneakyThrow(new ConnectorClientException(errorMessage, HttpStatus.FORBIDDEN));
 
             case "not_found" -> sneakyThrow(new ConnectorEntityNotFoundException(errorMessage));
 
-            case "timeout", "connection" -> sneakyThrow(new ConnectorCommunicationException(
-                    errorMessage, connector));
+            case "timeout", "connection" -> sneakyThrow(new ConnectorCommunicationException(errorMessage, connector));
 
-            case "server_error" -> sneakyThrow(new ConnectorServerException(
-                    errorMessage,
-                    response.getStatusCode() > 0 ? HttpStatus.valueOf(response.getStatusCode()) : HttpStatus.INTERNAL_SERVER_ERROR));
+            case "server_error" -> sneakyThrow(new ConnectorServerException(errorMessage,
+                    response.getStatusCode() > 0
+                            ? HttpStatus.valueOf(response.getStatusCode())
+                            : HttpStatus.INTERNAL_SERVER_ERROR));
 
             default -> sneakyThrow(new ConnectorException(errorMessage, connector));
         }
     }
 
     /**
-     * Map HTTP status codes to appropriate exception and throw it.
-     * ValidationException is a RuntimeException so it's thrown directly.
-     * ConnectorException subtypes are thrown using sneakyThrow for lambda compatibility.
+     * Map HTTP status codes to appropriate exception and throw it. ValidationException is a RuntimeException so it's
+     * thrown directly. ConnectorException subtypes are thrown using sneakyThrow for lambda compatibility.
      */
     private void throwHttpError(ConnectorResponse response, ApiClientConnectorInfo connector) {
         int statusCode = response.getStatusCode();
@@ -480,11 +432,7 @@ public class ProxyClientImpl implements ProxyClient {
     }
 
     @Override
-    public void sendFireAndForget(
-            ApiClientConnectorInfo connector,
-            String path,
-            String method,
-            Object body,
+    public void sendFireAndForget(ApiClientConnectorInfo connector, String path, String method, Object body,
             String messageType) {
 
         String proxyCode = connector.getProxy() != null ? connector.getProxy().getCode() : null;
@@ -498,14 +446,17 @@ public class ProxyClientImpl implements ProxyClient {
                 ? messageType
                 : toMessageType(method, path);
 
-        log.debug("Sending fire-and-forget proxy request proxyCode={} method={} path={} messageType={}",
-                proxyCode, method, path, resolvedMessageType);
+        log
+                .debug("Sending fire-and-forget proxy request proxyCode={} method={} path={} messageType={}", proxyCode,
+                        method, path, resolvedMessageType);
 
         // Build the core message - no correlationId for fire-and-forget
-        CoreMessage message = CoreMessage.builder()
+        CoreMessage message = CoreMessage
+                .builder()
                 .messageType(resolvedMessageType)
                 .timestamp(Instant.now())
-                .connectorRequest(ConnectorRequest.builder()
+                .connectorRequest(ConnectorRequest
+                        .builder()
                         .connectorUrl(connector.getUrl())
                         .method(method)
                         .path(path)
@@ -521,14 +472,16 @@ public class ProxyClientImpl implements ProxyClient {
     }
 
     /**
-     * Convert HTTP method and path to dot-separated messageType format.
-     * This format follows RabbitMQ topic exchange segment conventions.
+     * Convert HTTP method and path to dot-separated messageType format. This format follows RabbitMQ topic exchange
+     * segment conventions.
      *
-     * <p>Examples:</p>
+     * <p>
+     * Examples:
+     * </p>
      * <ul>
-     *   <li>"GET", "/v1/certificates" → "GET.v1.certificates"</li>
-     *   <li>"POST", "/v1/authorities/123/issue" → "POST.v1.authorities.123.issue"</li>
-     *   <li>"GET", "" → "GET"</li>
+     * <li>"GET", "/v1/certificates" → "GET.v1.certificates"</li>
+     * <li>"POST", "/v1/authorities/123/issue" → "POST.v1.authorities.123.issue"</li>
+     * <li>"GET", "" → "GET"</li>
      * </ul>
      *
      * @param method HTTP method (GET, POST, etc.)

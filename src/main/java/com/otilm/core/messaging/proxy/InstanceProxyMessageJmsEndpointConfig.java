@@ -1,10 +1,10 @@
 package com.otilm.core.messaging.proxy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.clients.mq.model.ProxyMessage;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.jms.listeners.AbstractJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.MessageProcessor;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
@@ -13,8 +13,8 @@ import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * JMS endpoint configuration for receiving proxy responses on the per-instance queue.
- * Each Core instance listens on its own queue identified by {@link ProxyProperties#instanceId()}.
+ * JMS endpoint configuration for receiving proxy responses on the per-instance queue. Each Core instance listens on its
+ * own queue identified by {@link ProxyProperties#instanceId()}.
  */
 @Component
 @Profile("!test")
@@ -23,27 +23,19 @@ public class InstanceProxyMessageJmsEndpointConfig extends AbstractJmsEndpointCo
 
     private final ProxyProperties proxyProperties;
 
-    public InstanceProxyMessageJmsEndpointConfig(
-            ObjectMapper objectMapper,
+    public InstanceProxyMessageJmsEndpointConfig(ObjectMapper objectMapper,
             @Qualifier("instanceProxyMessageListener") MessageProcessor<ProxyMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            ProxyProperties proxyProperties) {
+            RetryTemplate jmsRetryTemplate, MessagingProperties messagingProperties, ProxyProperties proxyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.proxyProperties = proxyProperties;
     }
 
     @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
-        return listenerEndpointInternal(
-                "instanceProxyMessageListener",
+        return listenerEndpointInternal("instanceProxyMessageListener",
                 messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS
                         ? proxyProperties.exchange()
                         : "/queues/" + proxyProperties.instanceId(),
-                proxyProperties.instanceId(),
-                null,
-                proxyProperties.concurrency(),
-                ProxyMessage.class
-        );
+                proxyProperties.instanceId(), null, proxyProperties.concurrency(), ProxyMessage.class);
     }
 }

@@ -49,7 +49,7 @@ public interface ProxyExternalService {
     /**
      * Updates an existing proxy.
      *
-     * @param uuid    the proxy UUID
+     * @param uuid the proxy UUID
      * @param request proxy update request
      * @return updated proxy DTO
      * @throws NotFoundException if proxy not found

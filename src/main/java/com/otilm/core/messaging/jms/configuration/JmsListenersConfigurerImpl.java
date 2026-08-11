@@ -11,13 +11,12 @@ import com.otilm.core.messaging.jms.listeners.timequality.TimeQualityResultsJmsE
 import com.otilm.core.messaging.jms.listeners.validation.ValidationJmsEndpointConfig;
 import com.otilm.core.messaging.proxy.InstanceProxyMessageJmsEndpointConfig;
 import com.otilm.core.messaging.proxy.SharedProxyMessageJmsEndpointConfig;
+import java.util.Optional;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jms.annotation.JmsListenerConfigurer;
 import org.springframework.jms.config.JmsListenerEndpointRegistrar;
-
-import java.util.Optional;
 
 @Configuration
 @Profile("!test")

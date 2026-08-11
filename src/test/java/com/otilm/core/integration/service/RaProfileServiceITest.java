@@ -1,11 +1,24 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.otilm.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
-import com.otilm.api.model.client.raprofile.*;
+import com.otilm.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.ActivateCmpForRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.ActivateScepForRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.AddRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.otilm.api.model.client.raprofile.RaProfileCmpDetailResponseDto;
+import com.otilm.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.AttributeVersion;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -14,20 +27,40 @@ import com.otilm.api.model.common.attribute.common.properties.DataAttributePrope
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
-import com.otilm.api.model.common.attribute.v3.mapping.*;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
+import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
+import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
-import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
-import com.otilm.api.model.core.raprofile.RaProfileDto;
-import com.otilm.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesUpdateDto;
-import com.otilm.core.dao.entity.*;
+import com.otilm.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
+import com.otilm.api.model.core.raprofile.RaProfileDto;
+import com.otilm.core.dao.entity.ApprovalProfile;
+import com.otilm.core.dao.entity.ApprovalProfileRelation;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Connector2FunctionGroup;
+import com.otilm.core.dao.entity.FunctionGroup;
+import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.acme.AcmeProfile;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.repository.AcmeProfileRepository;
+import com.otilm.core.dao.repository.ApprovalProfileRelationRepository;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.FunctionGroupRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.cmp.CmpProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
 import com.otilm.core.security.authz.SecuredParentUUID;
@@ -40,15 +73,14 @@ import com.otilm.core.service.RaProfileInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.builders.AuthorityFixtures;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.*;
 
 class RaProfileServiceITest extends ApprovalProfileData {
 
@@ -106,7 +138,7 @@ class RaProfileServiceITest extends ApprovalProfileData {
         connector = new Connector();
         connector.setUuid(UUID.randomUUID());
         connector.setName("authorityInstanceConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
@@ -170,24 +202,31 @@ class RaProfileServiceITest extends ApprovalProfileData {
 
     @Test
     void testGetRaProfileByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> raProfileService
+                        .getRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "certificates": [
-                            ]
-                        }""")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
-                .willReturn(WireMock.aResponse().withStatus(200)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
+                        .willReturn(WireMock.okJson("""
+                                {
+                                    "certificates": [
+                                    ]
+                                }""")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
+                        .willReturn(WireMock.aResponse().withStatus(200)));
 
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName("testRaProfile2");
@@ -202,33 +241,41 @@ class RaProfileServiceITest extends ApprovalProfileData {
     void testAddRaProfile_connectorRejectsAttributes() {
         // v2 adapter path: the connector's RA-profile /validate returning false must surface as
         // ValidationException and abort the create before anything is persisted.
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
-                .willReturn(WireMock.aResponse().withStatus(422)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("[\"RA profile attributes validation failed\"]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(422)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[\"RA profile attributes validation failed\"]")));
 
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName("testRaProfileRejected");
         request.setAttributes(List.of());
 
         SecuredParentUUID authorityInstanceUuid = authorityInstanceReference.getSecuredParentUuid();
-        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceUuid, request));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> raProfileService.addRaProfile(authorityInstanceUuid, request));
         Assertions.assertTrue(raProfileRepository.findByName("testRaProfileRejected").isEmpty());
     }
 
     @Test
-    void testAddRaProfile_v3Authority() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testAddRaProfile_v3Authority()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         // v3 adapter path: definitions come from the stateless v3 endpoint and there is no
         // connector-side /validate round-trip at all.
-        AuthorityFixtures.Fixture v3 = AuthorityFixtures.v3Authority(
-                new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
-                        connector2FunctionGroupRepository, authorityInstanceReferenceRepository,
-                        raProfileRepository, connectorInterfaceRepository),
-                mockServer);
-        mockServer.stubFor(WireMock
-                .any(WireMock.urlPathMatching("/v3/authorityProvider(/authorities)?/raProfile/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        AuthorityFixtures.Fixture v3 = AuthorityFixtures
+                .v3Authority(new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
+                        connector2FunctionGroupRepository, authorityInstanceReferenceRepository, raProfileRepository,
+                        connectorInterfaceRepository), mockServer);
+        mockServer
+                .stubFor(WireMock
+                        .any(WireMock.urlPathMatching("/v3/authorityProvider(/authorities)?/raProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName("testRaProfileV3");
@@ -245,7 +292,9 @@ class RaProfileServiceITest extends ApprovalProfileData {
     void testAddRaProfile_validationFail() {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         SecuredParentUUID authorityInstanceUuid = authorityInstanceReference.getSecuredParentUuid();
-        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceUuid, request));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> raProfileService.addRaProfile(authorityInstanceUuid, request));
     }
 
     @Test
@@ -253,23 +302,30 @@ class RaProfileServiceITest extends ApprovalProfileData {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName(RA_PROFILE_NAME); // raProfile with same username exist
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), request));
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> raProfileService
+                        .addRaProfile(authorityInstanceReference.getSecuredParentUuid(), request));
     }
 
     @Test
     void testEditRaProfile() throws ConnectorException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
-                .willReturn(WireMock.aResponse().withStatus(200)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
+                        .willReturn(WireMock.aResponse().withStatus(200)));
 
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
 
-        RaProfileDto dto = raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
+        RaProfileDto dto = raProfileService
+                .editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -278,7 +334,11 @@ class RaProfileServiceITest extends ApprovalProfileData {
     void testEditRaProfile_notFound() {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> raProfileService
+                                .editRaProfile(authorityInstanceReference.getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
@@ -287,24 +347,35 @@ class RaProfileServiceITest extends ApprovalProfileData {
         updateDto.setEnabled(true);
         updateDto.setFrequency(10);
         updateDto.setExpiringThreshold(5);
-        RaProfileDto raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
+        RaProfileDto raProfileDto = raProfileService
+                .updateRaProfileValidationConfiguration(
+                        raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        updateDto);
         Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
-        Assertions.assertEquals(updateDto.getFrequency(), raProfileDto.getCertificateValidationSettings().getFrequency());
-        Assertions.assertEquals(updateDto.getExpiringThreshold(), raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+        Assertions
+                .assertEquals(updateDto.getFrequency(), raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions
+                .assertEquals(updateDto.getExpiringThreshold(),
+                        raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
 
         RaProfileCertificateValidationSettingsUpdateDto updateDtoDefault = new RaProfileCertificateValidationSettingsUpdateDto();
         updateDtoDefault.setEnabled(true);
-        raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDtoDefault);
+        raProfileDto = raProfileService
+                .updateRaProfileValidationConfiguration(
+                        raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        updateDtoDefault);
         Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
         Assertions.assertEquals(1, raProfileDto.getCertificateValidationSettings().getFrequency());
         Assertions.assertEquals(30, raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
 
         updateDto.setEnabled(false);
-        raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
+        raProfileDto = raProfileService
+                .updateRaProfileValidationConfiguration(
+                        raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        updateDto);
         Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
         Assertions.assertNull(raProfileDto.getCertificateValidationSettings().getFrequency());
         Assertions.assertNull(raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
-
 
     }
 
@@ -331,29 +402,39 @@ class RaProfileServiceITest extends ApprovalProfileData {
         updateDto.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
         updateDto.setExternalCsrValidationStrict(Boolean.TRUE);
 
-        RaProfileDto updated = raProfileService.updateRaProfileRequestAttributesConfiguration(
-                raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
+        RaProfileDto updated = raProfileService
+                .updateRaProfileRequestAttributesConfiguration(
+                        raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        updateDto);
 
         Assertions.assertNotNull(updated.getCertificateRequestAttributes());
         Assertions.assertEquals(1, updated.getCertificateRequestAttributes().getRequestAttributes().size());
-        Assertions.assertEquals(AttributeSetMergeMode.STATIC_ONLY, updated.getCertificateRequestAttributes().getMergeMode());
-        Assertions.assertEquals(Boolean.TRUE, updated.getCertificateRequestAttributes().getExternalCsrValidationStrict());
+        Assertions
+                .assertEquals(AttributeSetMergeMode.STATIC_ONLY,
+                        updated.getCertificateRequestAttributes().getMergeMode());
+        Assertions
+                .assertEquals(Boolean.TRUE, updated.getCertificateRequestAttributes().getExternalCsrValidationStrict());
 
         // the configuration is embedded on the detail view too
         RaProfileDto detail = raProfileService.getRaProfile(raProfile.getSecuredUuid());
         Assertions.assertEquals(1, detail.getCertificateRequestAttributes().getRequestAttributes().size());
-        Assertions.assertEquals("server", detail.getCertificateRequestAttributes().getRequestAttributes().get(0).getName());
+        Assertions
+                .assertEquals("server",
+                        detail.getCertificateRequestAttributes().getRequestAttributes().get(0).getName());
     }
 
     @Test
     void testRemoveRaProfile() throws NotFoundException {
         raProfileService.deleteRaProfile(raProfile.getSecuredUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 
     @Test
     void testRemoveRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.deleteRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> raProfileService
+                        .deleteRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -364,7 +445,11 @@ class RaProfileServiceITest extends ApprovalProfileData {
 
     @Test
     void testEnableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile(raProfile.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> raProfileService
+                                .enableRaProfile(raProfile.getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -375,14 +460,18 @@ class RaProfileServiceITest extends ApprovalProfileData {
 
     @Test
     void testDisableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(raProfile.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> raProfileService
+                                .disableRaProfile(raProfile.getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
-
 
     @Test
     void testBulkRemove() {
         raProfileService.bulkDeleteRaProfile(List.of(raProfile.getSecuredUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 
     @Test
@@ -406,7 +495,9 @@ class RaProfileServiceITest extends ApprovalProfileData {
     @Test
     void testAssociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        final ApprovalProfileRelationDto approvalProfileRelation = raProfileService.associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
+        final ApprovalProfileRelationDto approvalProfileRelation = raProfileService
+                .associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(),
+                        raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
 
         Assertions.assertNotNull(approvalProfileRelation);
         Assertions.assertEquals(raProfile.getUuid(), approvalProfileRelation.getResourceUuid());
@@ -417,12 +508,17 @@ class RaProfileServiceITest extends ApprovalProfileData {
     @Test
     void testDisassociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        final ApprovalProfileRelationDto approvalProfileRelation = raProfileService.associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
+        final ApprovalProfileRelationDto approvalProfileRelation = raProfileService
+                .associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(),
+                        raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
         Assertions.assertNotNull(approvalProfileRelation);
 
-        raProfileService.disassociateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
+        raProfileService
+                .disassociateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(),
+                        raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
 
-        final Optional<ApprovalProfileRelation> approvalProfileRelationOptional = approvalProfileRelationRepository.findByUuid(SecuredUUID.fromString(approvalProfileRelation.getUuid()));
+        final Optional<ApprovalProfileRelation> approvalProfileRelationOptional = approvalProfileRelationRepository
+                .findByUuid(SecuredUUID.fromString(approvalProfileRelation.getUuid()));
         Assertions.assertFalse(approvalProfileRelationOptional.isPresent());
     }
 
@@ -430,10 +526,14 @@ class RaProfileServiceITest extends ApprovalProfileData {
     void testListOfApprovalProfilesByRAProfile() throws NotFoundException, AlreadyExistException {
         final SecurityFilter securityFilter = SecurityFilter.create();
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        final ApprovalProfileRelationDto approvalProfileRelation = raProfileService.associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
+        final ApprovalProfileRelationDto approvalProfileRelation = raProfileService
+                .associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(),
+                        raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
         Assertions.assertNotNull(approvalProfileRelation);
 
-        final List<ApprovalProfileDto> approvalProfiles = raProfileService.getAssociatedApprovalProfiles(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), securityFilter);
+        final List<ApprovalProfileDto> approvalProfiles = raProfileService
+                .getAssociatedApprovalProfiles(raProfile.getAuthorityInstanceReferenceUuid().toString(),
+                        raProfile.getUuid().toString(), securityFilter);
 
         Assertions.assertEquals(1, approvalProfiles.size());
 
@@ -442,43 +542,53 @@ class RaProfileServiceITest extends ApprovalProfileData {
     }
 
     @Test
-    void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "certificates": [
-                                {
-                                    "certificateData": "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",
-                                    "uuid": null,
-                                    "meta": null,
-                                    "certificateType": "X.509"
-                                }    ]
-                        }""")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+    void testGetAuthorityCertificateChain()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
+                        .willReturn(WireMock
+                                .okJson("""
+                                        {
+                                            "certificates": [
+                                                {
+                                                    "certificateData": "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",
+                                                    "uuid": null,
+                                                    "meta": null,
+                                                    "certificateType": "X.509"
+                                                }    ]
+                                        }""")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
-        raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
+        raProfileService
+                .editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
 
         RaProfile refreshedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElse(null);
         Assertions.assertNotNull(refreshedRaProfile);
         Assertions.assertNotNull(refreshedRaProfile.getAuthorityCertificateUuid());
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "certificates": [
-                            ]
-                        }""")));
-        raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
+                        .willReturn(WireMock.okJson("""
+                                {
+                                    "certificates": [
+                                    ]
+                                }""")));
+        raProfileService
+                .editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
 
         refreshedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElse(null);
         Assertions.assertNotNull(refreshedRaProfile);
@@ -488,32 +598,40 @@ class RaProfileServiceITest extends ApprovalProfileData {
         requestAdd.setName("testRaProfile2");
         requestAdd.setAttributes(List.of());
         RaProfileDto dto = raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), requestAdd);
-        Assertions.assertEquals(refreshedRaProfile.getAuthorityCertificateUuid(), raProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).get().getAuthorityCertificateUuid());
+        Assertions
+                .assertEquals(refreshedRaProfile.getAuthorityCertificateUuid(),
+                        raProfileRepository
+                                .findByUuid(UUID.fromString(dto.getUuid()))
+                                .get()
+                                .getAuthorityCertificateUuid());
     }
 
     @Test
-    void testGetAuthorityCertificateChain_v3Authority() throws ConnectorException, AttributeException, NotFoundException {
+    void testGetAuthorityCertificateChain_v3Authority()
+            throws ConnectorException, AttributeException, NotFoundException {
         // v3 adapter path: the CA chain comes from the stateless v3 endpoint (authority/RA-profile
         // attributes in the request body); the v1/v2 instance-scoped endpoint is never called.
-        AuthorityFixtures.Fixture v3 = AuthorityFixtures.v3Authority(
-                new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
-                        connector2FunctionGroupRepository, authorityInstanceReferenceRepository,
-                        raProfileRepository, connectorInterfaceRepository),
-                mockServer);
-        mockServer.stubFor(WireMock
-                .any(WireMock.urlPathMatching("/v3/authorityProvider(/authorities)?/raProfile/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v3/authorityProvider/authorities/caCertificates"))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "certificates": [
-                                {
-                                    "certificateData": "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",
-                                    "meta": [],
-                                    "certificateType": "X.509"
-                                }    ]
-                        }""")));
+        AuthorityFixtures.Fixture v3 = AuthorityFixtures
+                .v3Authority(new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
+                        connector2FunctionGroupRepository, authorityInstanceReferenceRepository, raProfileRepository,
+                        connectorInterfaceRepository), mockServer);
+        mockServer
+                .stubFor(WireMock
+                        .any(WireMock.urlPathMatching("/v3/authorityProvider(/authorities)?/raProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v3/authorityProvider/authorities/caCertificates"))
+                        .willReturn(WireMock
+                                .okJson("""
+                                        {
+                                            "certificates": [
+                                                {
+                                                    "certificateData": "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",
+                                                    "meta": [],
+                                                    "certificateType": "X.509"
+                                                }    ]
+                                        }""")));
 
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
         request.setDescription("v3 chain");
@@ -522,20 +640,28 @@ class RaProfileServiceITest extends ApprovalProfileData {
 
         RaProfile refreshedRaProfile = raProfileRepository.findByUuid(v3.raProfile().getUuid()).orElse(null);
         Assertions.assertNotNull(refreshedRaProfile);
-        Assertions.assertNotNull(refreshedRaProfile.getAuthorityCertificateUuid(),
-                "v3 authority certificate chain must be linked to the RA profile");
-        mockServer.verify(0, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates")));
+        Assertions
+                .assertNotNull(refreshedRaProfile.getAuthorityCertificateUuid(),
+                        "v3 authority certificate chain must be linked to the RA profile");
+        mockServer
+                .verify(0, WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates")));
     }
 
     @Test
     void testListIssueCertificateAttributes() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("""
-                        []""")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("""
+                                []""")));
 
-        List<BaseAttribute> attributes = raProfileService.listIssueCertificateAttributes(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid());
+        List<BaseAttribute> attributes = raProfileService
+                .listIssueCertificateAttributes(authorityInstanceReference.getSecuredParentUuid(),
+                        raProfile.getSecuredUuid());
         Assertions.assertNotNull(attributes);
     }
 
@@ -548,15 +674,24 @@ class RaProfileServiceITest extends ApprovalProfileData {
         ScepProfile scepProfile = new ScepProfile();
         scepProfileRepository.save(scepProfile);
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
         UUID uuid = UUID.randomUUID();
 
         DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
@@ -566,27 +701,52 @@ class RaProfileServiceITest extends ApprovalProfileData {
         DataAttributeProperties properties = new DataAttributeProperties();
         properties.setLabel("label");
         dataAttributeV2.setProperties(properties);
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson(AttributeDefinitionUtils.serialize(List.of(dataAttributeV2)))));
-        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2(uuid, dataAttributeV2.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("data")), AttributeVersion.V2);
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson(AttributeDefinitionUtils.serialize(List.of(dataAttributeV2)))));
+        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2(uuid, dataAttributeV2.getName(),
+                AttributeContentType.STRING, List.of(new StringAttributeContentV2("data")), AttributeVersion.V2);
 
         ActivateAcmeForRaProfileRequestDto request = new ActivateAcmeForRaProfileRequestDto();
         request.setIssueCertificateAttributes(List.of(requestAttributeV2));
         request.setRevokeCertificateAttributes(List.of());
-        RaProfileAcmeDetailResponseDto response = raProfileService.activateAcmeForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), acmeProfile.getSecuredUuid(), request);
-        Assertions.assertEquals(requestAttributeV2.getContent().getFirst().getData(), ((List<BaseAttributeContentV2>)response.getIssueCertificateAttributes().getFirst().getContent()).getFirst().getData());
+        RaProfileAcmeDetailResponseDto response = raProfileService
+                .activateAcmeForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        acmeProfile.getSecuredUuid(), request);
+        Assertions
+                .assertEquals(requestAttributeV2.getContent().getFirst().getData(),
+                        ((List<BaseAttributeContentV2>) response
+                                .getIssueCertificateAttributes()
+                                .getFirst()
+                                .getContent()).getFirst().getData());
 
         ActivateScepForRaProfileRequestDto requestScep = new ActivateScepForRaProfileRequestDto();
         requestScep.setIssueCertificateAttributes(List.of(requestAttributeV2));
-        RaProfileScepDetailResponseDto responseScep = raProfileService.activateScepForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), scepProfile.getSecuredUuid(), requestScep);
-        Assertions.assertEquals(requestAttributeV2.getContent().getFirst().getData(), ((List<BaseAttributeContentV2>)responseScep.getIssueCertificateAttributes().getFirst().getContent()).getFirst().getData());
+        RaProfileScepDetailResponseDto responseScep = raProfileService
+                .activateScepForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        scepProfile.getSecuredUuid(), requestScep);
+        Assertions
+                .assertEquals(requestAttributeV2.getContent().getFirst().getData(),
+                        ((List<BaseAttributeContentV2>) responseScep
+                                .getIssueCertificateAttributes()
+                                .getFirst()
+                                .getContent()).getFirst().getData());
 
         ActivateCmpForRaProfileRequestDto requestCmp = new ActivateCmpForRaProfileRequestDto();
         requestCmp.setIssueCertificateAttributes(List.of(requestAttributeV2));
         requestCmp.setRevokeCertificateAttributes(List.of());
-        RaProfileCmpDetailResponseDto responseCmp = raProfileService.activateCmpForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), cmpProfile.getSecuredUuid(), requestCmp);
-        Assertions.assertEquals(requestAttributeV2.getContent().getFirst().getData(), ((List<BaseAttributeContentV2>)responseCmp.getIssueCertificateAttributes().getFirst().getContent()).getFirst().getData());
+        RaProfileCmpDetailResponseDto responseCmp = raProfileService
+                .activateCmpForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                        cmpProfile.getSecuredUuid(), requestCmp);
+        Assertions
+                .assertEquals(requestAttributeV2.getContent().getFirst().getData(),
+                        ((List<BaseAttributeContentV2>) responseCmp
+                                .getIssueCertificateAttributes()
+                                .getFirst()
+                                .getContent()).getFirst().getData());
     }
 
 }

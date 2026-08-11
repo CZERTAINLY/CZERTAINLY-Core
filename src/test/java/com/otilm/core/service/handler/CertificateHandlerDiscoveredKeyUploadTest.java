@@ -3,17 +3,16 @@ package com.otilm.core.service.handler;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.CryptographicKeyInternalService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,7 +48,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
     }
 
     @Test
-    void uploadDiscoveredCertificateKey_whenNoCommittedCertificate_skipsAndReportsNotAssociated() throws NoSuchAlgorithmException {
+    void uploadDiscoveredCertificateKey_whenNoCommittedCertificate_skipsAndReportsNotAssociated()
+            throws NoSuchAlgorithmException {
         List<UUID> uuids = List.of(UUID.randomUUID());
         when(certificateRepository.findFirstByUuidIn(uuids)).thenReturn(null);
 
@@ -61,7 +61,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
     }
 
     @Test
-    void uploadDiscoveredCertificateAltKey_whenNoCommittedCertificate_skipsAndReportsNotAssociated() throws NoSuchAlgorithmException {
+    void uploadDiscoveredCertificateAltKey_whenNoCommittedCertificate_skipsAndReportsNotAssociated()
+            throws NoSuchAlgorithmException {
         List<UUID> uuids = List.of(UUID.randomUUID());
         when(certificateRepository.findFirstByUuidIn(uuids)).thenReturn(null);
 
@@ -73,7 +74,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
     }
 
     @Test
-    void uploadDiscoveredCertificateKey_whenNoCommittedCertificate_skipsBeforeConsultingExistingKey() throws NoSuchAlgorithmException {
+    void uploadDiscoveredCertificateKey_whenNoCommittedCertificate_skipsBeforeConsultingExistingKey()
+            throws NoSuchAlgorithmException {
         List<UUID> uuids = List.of(UUID.randomUUID());
         when(certificateRepository.findFirstByUuidIn(uuids)).thenReturn(null);
 
@@ -88,7 +90,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
     }
 
     @Test
-    void uploadDiscoveredCertificateKey_whenCertificateCommitted_uploadsKeyAssociatesAndReportsAssociated() throws NoSuchAlgorithmException {
+    void uploadDiscoveredCertificateKey_whenCertificateCommitted_uploadsKeyAssociatesAndReportsAssociated()
+            throws NoSuchAlgorithmException {
         List<UUID> uuids = List.of(UUID.randomUUID());
         UUID keyUuid = UUID.randomUUID();
         Certificate certificate = new Certificate();
@@ -96,7 +99,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
 
         when(certificateRepository.findFirstByUuidIn(uuids)).thenReturn(certificate);
         when(cryptographicKeyService.findKeyByFingerprint(anyString())).thenReturn(null);
-        when(cryptographicKeyService.uploadCertificatePublicKey(eq("certKey_example.com"), any(), anyInt(), anyString()))
+        when(cryptographicKeyService
+                .uploadCertificatePublicKey(eq("certKey_example.com"), any(), anyInt(), anyString()))
                 .thenReturn(keyUuid);
 
         boolean associated = handler.uploadDiscoveredCertificateKey(publicKey, uuids);
@@ -106,7 +110,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
     }
 
     @Test
-    void uploadDiscoveredCertificateAltKey_whenCertificateCommitted_uploadsKeyAssociatesAndReportsAssociated() throws NoSuchAlgorithmException {
+    void uploadDiscoveredCertificateAltKey_whenCertificateCommitted_uploadsKeyAssociatesAndReportsAssociated()
+            throws NoSuchAlgorithmException {
         List<UUID> uuids = List.of(UUID.randomUUID());
         UUID keyUuid = UUID.randomUUID();
         Certificate certificate = new Certificate();
@@ -114,7 +119,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
 
         when(certificateRepository.findFirstByUuidIn(uuids)).thenReturn(certificate);
         when(cryptographicKeyService.findKeyByFingerprint(anyString())).thenReturn(null);
-        when(cryptographicKeyService.uploadCertificatePublicKey(eq("altCertKey_example.com"), any(), anyInt(), anyString()))
+        when(cryptographicKeyService
+                .uploadCertificatePublicKey(eq("altCertKey_example.com"), any(), anyInt(), anyString()))
                 .thenReturn(keyUuid);
 
         boolean associated = handler.uploadDiscoveredCertificateAltKey(publicKey, uuids);
@@ -124,7 +130,8 @@ class CertificateHandlerDiscoveredKeyUploadTest {
     }
 
     @Test
-    void uploadDiscoveredCertificateKey_whenKeyAlreadyExistsAndCertificateCommitted_skipsUploadButAssociatesAndReportsAssociated() throws NoSuchAlgorithmException {
+    void uploadDiscoveredCertificateKey_whenKeyAlreadyExistsAndCertificateCommitted_skipsUploadButAssociatesAndReportsAssociated()
+            throws NoSuchAlgorithmException {
         List<UUID> uuids = List.of(UUID.randomUUID());
         UUID keyUuid = UUID.randomUUID();
         Certificate certificate = new Certificate();

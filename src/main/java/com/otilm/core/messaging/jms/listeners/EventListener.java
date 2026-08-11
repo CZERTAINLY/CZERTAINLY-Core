@@ -7,6 +7,7 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.util.AuthHelper;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,8 +16,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Map;
 
 @Component
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -39,36 +38,39 @@ public class EventListener implements MessageProcessor<EventMessage> {
         try {
             eventHandler.handleEvent(eventMessage);
         } catch (EventException e) {
-            logger.error("Error in handling event {}: {}. Message: {}", eventMessage.getEvent().getLabel(), e.getMessage(), eventMessage);
+            logger
+                    .error("Error in handling event {}: {}. Message: {}", eventMessage.getEvent().getLabel(),
+                            e.getMessage(), eventMessage);
         }
     }
 
     /**
      * Attribution is best-effort: losing it beats losing the event, so a failure must not escape into the JMS retry
-     * template. Failure has two shapes — an unreachable auth service throws, while a user that no longer resolves
-     * comes back as {@link AuthenticationInfo#getAnonymousAuthenticationInfo()}, a principal auditing would stamp as
+     * template. Failure has two shapes — an unreachable auth service throws, while a user that no longer resolves comes
+     * back as {@link AuthenticationInfo#getAnonymousAuthenticationInfo()}, a principal auditing would stamp as
      * "anonymousUser" and authorization would accept. Both are reduced to no identity at all.
      */
     private void authenticateAsActingUser(EventMessage eventMessage) {
         try {
             authHelper.authenticateAsUser(eventMessage.getUserUuid());
             if (!resolvesToRealUser(SecurityContextHolder.getContext().getAuthentication())) {
-                logger.warn("User {} carried by event '{}' no longer resolves to a platform user. The event will be "
+                logger
+                        .warn("User {} carried by event '{}' no longer resolves to a platform user. The event will be "
                                 + "handled without an identity and its audited records attributed to the system user.",
-                        eventMessage.getUserUuid(), eventMessage.getEvent().getLabel());
+                                eventMessage.getUserUuid(), eventMessage.getEvent().getLabel());
                 discardIdentity();
             }
         } catch (Exception e) {
-            logger.warn("Could not authenticate as user {} carried by event '{}'. The event will be handled without "
+            logger
+                    .warn("Could not authenticate as user {} carried by event '{}'. The event will be handled without "
                             + "an identity and its audited records attributed to the system user. Message: {}",
-                    eventMessage.getUserUuid(), eventMessage.getEvent().getLabel(), e.getMessage(), e);
+                            eventMessage.getUserUuid(), eventMessage.getEvent().getLabel(), e.getMessage(), e);
             discardIdentity();
         }
     }
 
     private boolean resolvesToRealUser(Authentication authentication) {
-        return authentication != null
-                && authentication.getPrincipal() instanceof PlatformUserDetails userDetails
+        return authentication != null && authentication.getPrincipal() instanceof PlatformUserDetails userDetails
                 && userDetails.getUserUuid() != null;
     }
 

@@ -26,7 +26,8 @@ public class TspProfileMapper {
         dto.setDescription(profile.getDescription());
         dto.setEnabled(profile.isEnabled());
         if (profile.getDefaultSigningProfile() != null) {
-            SimplifiedSigningProfileDto signingProfileDto = SigningProfileMapper.toSimpleDto(profile.getDefaultSigningProfile());
+            SimplifiedSigningProfileDto signingProfileDto = SigningProfileMapper
+                    .toSimpleDto(profile.getDefaultSigningProfile());
             dto.setSigningUrl(TspProtocolUrlFactory.forTspProfile(baseUrl, profile.getName()));
             dto.setDefaultSigningProfile(signingProfileDto);
         }
@@ -38,23 +39,20 @@ public class TspProfileMapper {
         return dto;
     }
 
-    public static TspProfileModel toModel(TspProfile profile, List<ResponseAttribute> customAttributes, Map<UUID, String> fingerprintsBySecretUuid) {
+    public static TspProfileModel toModel(TspProfile profile, List<ResponseAttribute> customAttributes,
+            Map<UUID, String> fingerprintsBySecretUuid) {
         SigningProfile defaultSigningProfile = profile.getDefaultSigningProfile();
-        List<BasicCredentialRef> basicCredentialRefs = profile.getBasicCredentials().stream()
-                .map(c -> new BasicCredentialRef(c.getUsername(), c.getSecretUuid(), c.getMappedUserUuid(), fingerprintsBySecretUuid.get(c.getSecretUuid())))
+        List<BasicCredentialRef> basicCredentialRefs = profile
+                .getBasicCredentials()
+                .stream()
+                .map(c -> new BasicCredentialRef(c.getUsername(), c.getSecretUuid(), c.getMappedUserUuid(),
+                        fingerprintsBySecretUuid.get(c.getSecretUuid())))
                 .toList();
-        return new TspProfileModel(
-                profile.getUuid(),
-                profile.getName(),
-                profile.getDescription(),
-                profile.isEnabled(),
+        return new TspProfileModel(profile.getUuid(), profile.getName(), profile.getDescription(), profile.isEnabled(),
                 defaultSigningProfile != null ? defaultSigningProfile.getUuid() : null,
-                defaultSigningProfile != null ? defaultSigningProfile.getName() : null,
-                customAttributes,
-                List.copyOf(profile.getAllowedAuthenticationMethods()),
-                basicCredentialRefs,
-                profile.getVaultProfileUuid()
-        );
+                defaultSigningProfile != null ? defaultSigningProfile.getName() : null, customAttributes,
+                List.copyOf(profile.getAllowedAuthenticationMethods()), basicCredentialRefs,
+                profile.getVaultProfileUuid());
     }
 
     public static TspProfileListDto toListDto(TspProfile profile, String baseUrl) {

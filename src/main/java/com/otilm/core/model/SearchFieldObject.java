@@ -1,15 +1,19 @@
 package com.otilm.core.model;
 
-import com.otilm.api.model.common.attribute.common.*;
+import com.otilm.api.model.common.attribute.common.AttributeContent;
+import com.otilm.api.model.common.attribute.common.AttributeType;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.CustomAttribute;
+import com.otilm.api.model.common.attribute.common.DataAttribute;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
-import lombok.Data;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import lombok.Data;
 
 @Data
 public class SearchFieldObject {
@@ -30,18 +34,19 @@ public class SearchFieldObject {
 
     private List<String> contentItems;
 
-
     public SearchFieldObject(AttributeContentType attributeContentType) {
         this.attributeContentType = attributeContentType;
     }
 
-    public SearchFieldObject(String attributeName, AttributeContentType attributeContentType, AttributeType attributeType) {
+    public SearchFieldObject(String attributeName, AttributeContentType attributeContentType,
+            AttributeType attributeType) {
         this.attributeName = attributeName;
         this.attributeContentType = attributeContentType;
         this.attributeType = attributeType;
     }
 
-    public SearchFieldObject(String attributeName, AttributeContentType attributeContentType, AttributeType attributeType, String label, BaseAttribute attributeDefinition) {
+    public SearchFieldObject(String attributeName, AttributeContentType attributeContentType,
+            AttributeType attributeType, String label, BaseAttribute attributeDefinition) {
         this.attributeName = attributeName;
         this.attributeContentType = attributeContentType;
         this.attributeType = attributeType;
@@ -53,11 +58,15 @@ public class SearchFieldObject {
                 multiSelect = customAttribute.getProperties().isMultiSelect();
                 protectionLevel = customAttribute.getProperties().getProtectionLevel();
                 if (list && customAttribute.getContent() != null && protectionLevel != ProtectionLevel.ENCRYPTED) {
-                    contentItems = ((List<? extends AttributeContent>) customAttribute.getContent()).stream().map(item -> item.getData().toString()).toList();
+                    contentItems = ((List<? extends AttributeContent>) customAttribute.getContent())
+                            .stream()
+                            .map(item -> item.getData().toString())
+                            .toList();
                 }
             } else {
                 DataAttribute dataAttribute = (DataAttribute) attributeDefinition;
-                // data attributes that are list can have content provided later by callback so do not mark it as list if content is empty
+                // data attributes that are list can have content provided later by callback so do not mark it as list
+                // if content is empty
                 List<? extends AttributeContent> content = dataAttribute.getContent();
                 list = dataAttribute.getProperties().isList() && content != null && !content.isEmpty();
                 multiSelect = dataAttribute.getProperties().isMultiSelect();

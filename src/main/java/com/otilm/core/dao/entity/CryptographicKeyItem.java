@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.cryptography.key.KeyCompromiseReason;
 import com.otilm.api.model.common.enums.BitMaskEnum;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
@@ -7,25 +8,41 @@ import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
-import com.otilm.core.model.compliance.ComplianceResultDto;
 import com.otilm.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.otilm.api.model.core.cryptography.key.KeyItemDto;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
+import com.otilm.core.model.compliance.ComplianceResultDto;
 import com.otilm.core.util.CryptographicHelper;
 import com.otilm.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
-import java.time.LocalDateTime;
-import java.util.*;
 
 @Getter
 @Setter
@@ -108,7 +125,9 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Complian
 
     public void setKey(CryptographicKey key) {
         this.key = key;
-        if (key != null) this.keyUuid = key.getUuid();
+        if (key != null) {
+            this.keyUuid = key.getUuid();
+        }
     }
 
     public void setKeyData(KeyFormat keyFormat, KeyValue value) {
@@ -124,7 +143,8 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Complian
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        this.usage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(KeyUsage.class) : EnumSet.copyOf(usage));
+        this.usage = BitMaskEnum
+                .convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(KeyUsage.class) : EnumSet.copyOf(usage));
     }
 
     @Override
@@ -132,7 +152,9 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Complian
         KeyItemDetailDto dto = new KeyItemDetailDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
-        if (keyReferenceUuid != null) dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        if (keyReferenceUuid != null) {
+            dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        }
         dto.setKeyAlgorithm(keyAlgorithm);
         dto.setType(type);
         dto.setLength(length);
@@ -150,7 +172,9 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Complian
         KeyItemDto dto = new KeyItemDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
-        if (keyReferenceUuid != null) dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        if (keyReferenceUuid != null) {
+            dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        }
         dto.setKeyAlgorithm(keyAlgorithm);
         dto.setType(type);
         dto.setLength(length);
@@ -187,17 +211,31 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Complian
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof CryptographicKeyItem that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof CryptographicKeyItem that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.ApprovalProfileRelation;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ApprovalProfileRelationRepository extends SecurityFilterRepository<ApprovalProfileRelation, UUID> {
@@ -15,11 +14,14 @@ public interface ApprovalProfileRelationRepository extends SecurityFilterReposit
     Optional<List<ApprovalProfileRelation>> findByResourceUuid(final UUID resourceUuid);
 
     @EntityGraph(attributePaths = {"approvalProfile", "approvalProfile.approvalProfileVersions"})
-    Optional<List<ApprovalProfileRelation>> findByResourceUuidAndResource(final UUID resourceUuid, final Resource resource);
+    Optional<List<ApprovalProfileRelation>> findByResourceUuidAndResource(final UUID resourceUuid,
+            final Resource resource);
 
-    boolean existsByApprovalProfileUuidAndResourceAndResourceUuid(UUID approvalProfileUuid, Resource resource, UUID resourceUuid);
+    boolean existsByApprovalProfileUuidAndResourceAndResourceUuid(UUID approvalProfileUuid, Resource resource,
+            UUID resourceUuid);
 
-    void deleteByApprovalProfileUuidAndResourceAndResourceUuid(UUID value, Resource resource, UUID associationObjectUuid);
+    void deleteByApprovalProfileUuidAndResourceAndResourceUuid(UUID value, Resource resource,
+            UUID associationObjectUuid);
 
     List<ApprovalProfileRelation> findDistinctByResourceAndResourceUuid(Resource resource, UUID associationObjectUuid);
 

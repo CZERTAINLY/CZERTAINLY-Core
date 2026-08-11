@@ -8,11 +8,11 @@ import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.attribute.common.AttributeType;
-import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.TextAttributeContentV3;
@@ -31,15 +31,14 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.EntityInstanceExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aMetaAttributeFilter;
@@ -64,7 +63,6 @@ class EntityInstanceSearchITest extends BaseSpringBootTest {
     }
 
     private EntityInstanceReference entityInstanceReference;
-
 
     private Connector connector;
 
@@ -175,7 +173,9 @@ class EntityInstanceSearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aMetaAttributeFilter("attributeMeta1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS, "-meta-"));
+        filters
+                .add(aMetaAttributeFilter("attributeMeta1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS,
+                        "-meta-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getEntities().size());
     }
@@ -183,7 +183,9 @@ class EntityInstanceSearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aCustomAttributeFilter("attributeCustom1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS, "-custom-"));
+        filters
+                .add(aCustomAttributeFilter("attributeCustom1", AttributeContentType.TEXT,
+                        FilterConditionOperator.CONTAINS, "-custom-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getEntities().size());
     }
@@ -202,9 +204,15 @@ class EntityInstanceSearchITest extends BaseSpringBootTest {
         metadataAttribute.setContentType(AttributeContentType.TEXT);
         MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
         metadataAttributeProperties.setLabel("Test meta");
-        metadataAttribute.setProperties(metadataAttributeProperties);        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
+        metadataAttribute.setProperties(metadataAttributeProperties);
+        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
 
-        attributeEngine.updateMetadataAttribute(metadataAttribute, ObjectAttributeContentInfo.builder(Resource.ENTITY, entityInstanceReference.getUuid()).connector(connector.getUuid()).build());
+        attributeEngine
+                .updateMetadataAttribute(metadataAttribute,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.ENTITY, entityInstanceReference.getUuid())
+                                .connector(connector.getUuid())
+                                .build());
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
@@ -216,22 +224,17 @@ class EntityInstanceSearchITest extends BaseSpringBootTest {
         CustomAttributeProperties properties = new CustomAttributeProperties();
         properties.setLabel("Test custom");
         customAttribute.setProperties(properties);
-        List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        List<BaseAttributeContentV3<?>> contentItems = List
+                .of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
         requestAttribute.setName(customAttribute.getName());
         requestAttribute.setContent(contentItems);
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.ENTITY));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceReference.getUuid(), List.of(requestAttribute));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceReference.getUuid(),
+                        List.of(requestAttribute));
     }
-
-
-
-
-
-
-
-
 
 }

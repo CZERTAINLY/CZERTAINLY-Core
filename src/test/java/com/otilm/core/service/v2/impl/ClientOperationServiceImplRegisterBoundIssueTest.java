@@ -13,8 +13,7 @@ import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.oid.OidCategory;
-import com.otilm.core.oid.OidHandler;
-import com.otilm.core.oid.OidRecord;
+import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateRegistration;
@@ -25,6 +24,8 @@ import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.exception.ConnectorAcceptedButLocalFailureException;
 import com.otilm.core.messaging.jms.producers.EventProducer;
+import com.otilm.core.oid.OidHandler;
+import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.handler.ConnectorCapabilityService;
@@ -37,7 +38,12 @@ import com.otilm.core.service.handler.authority.RegisterCapability;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
 import com.otilm.core.service.writer.registration.CertificateRegistrationWriter;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
-import com.otilm.core.attribute.engine.AttributeEngine;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,13 +55,6 @@ import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
-
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
@@ -103,16 +102,19 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
         savedRdnCache = existing == null ? null : new HashMap<>(existing);
 
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
-                OidRecord.builder().displayName("Organization").code("O").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
+                        OidRecord.builder().displayName("Organization").code("O").build());
     }
 
     @AfterAll
     static void restoreRdnOidCache() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnCache != null ? savedRdnCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnCache != null ? savedRdnCache : new HashMap<>());
     }
 
     @BeforeEach
@@ -178,7 +180,9 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
         when(certificateRegistrationRepository.findByCertificateUuid(certUuid)).thenReturn(Optional.of(binding));
         when(certificateRegistrationRepository.findAndLockByCertificateUuid(certUuid)).thenReturn(Optional.of(binding));
         when(capabilityService.supports(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(false);
-        when(capabilityService.supports(ArgumentMatchers.any(), ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_REGISTRATION))).thenReturn(true);
+        when(capabilityService
+                .supports(ArgumentMatchers.any(), ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_REGISTRATION)))
+                .thenReturn(true);
     }
 
     /** Mocks an adapter that supports the register-bound issue path and wires the factory to return it. */
@@ -201,7 +205,8 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
 
         issue();
 
-        verify(adapter).issueRegistered(ArgumentMatchers.eq(certificate), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(adapter)
+                .issueRegistered(ArgumentMatchers.eq(certificate), ArgumentMatchers.any(), ArgumentMatchers.any());
         verify(certificateService).issueRequestedCertificate(certUuid, "cert-data", List.of());
     }
 
@@ -246,9 +251,7 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
         racedRead.setState(racedState);
         when(certificateRepository.findAndLockWithAssociationsByUuid(certUuid)).thenReturn(Optional.of(racedRead));
 
-        assertThatThrownBy(this::issue)
-                .isInstanceOf(CertificateOperationException.class)
-                .hasMessageContaining("raced");
+        assertThatThrownBy(this::issue).isInstanceOf(CertificateOperationException.class).hasMessageContaining("raced");
 
         Mockito.verifyNoInteractions(adapter);
     }
@@ -262,8 +265,10 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
         issue();
 
         InOrder inOrder = Mockito.inOrder(stateMachine, adapter);
-        inOrder.verify(stateMachine).transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.PENDING_ISSUE),
-                ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.any());
+        inOrder
+                .verify(stateMachine)
+                .transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.PENDING_ISSUE),
+                        ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.any());
         inOrder.verify(adapter).issueRegistered(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
@@ -330,27 +335,35 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
 
         issue();
 
-        verify(stateMachine).transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.PENDING_ISSUE),
-                ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine)
+                .transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.PENDING_ISSUE),
+                        ArgumentMatchers.any(), ArgumentMatchers.any());
         verify(pollWriter, times(1))
-                .schedule(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateOperation.ISSUE), ArgumentMatchers.any());
+                .schedule(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateOperation.ISSUE),
+                        ArgumentMatchers.any());
         verify(certificateRegistrationWriter).clear(certUuid);
-        verify(certificateService, never()).issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(certificateService, never())
+                .issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
     }
 
     @Test
     void connectorAcceptedButLocalFailureDoesNotFailTheCertificate() throws Exception {
         RegisterCapability adapter = registerCapableAdapter();
         when(adapter.issueRegistered(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
-                .thenThrow(new ConnectorAcceptedButLocalFailureException("accepted upstream, local step failed", new RuntimeException("boom")));
+                .thenThrow(new ConnectorAcceptedButLocalFailureException("accepted upstream, local step failed",
+                        new RuntimeException("boom")));
 
         assertThatThrownBy(this::issue).isInstanceOf(CertificateOperationException.class);
 
         verify(stateMachine, never())
-                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
-        verify(certificateEventHistoryService).addEventHistory(
-                ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.eq(CertificateEventStatus.FAILED),
-                ArgumentMatchers.contains("left " + CertificateState.PENDING_ISSUE.getLabel() + " for reconciliation"), ArgumentMatchers.eq(""));
+                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(certificateEventHistoryService)
+                .addEventHistory(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
+                        ArgumentMatchers.eq(CertificateEventStatus.FAILED),
+                        ArgumentMatchers
+                                .contains("left " + CertificateState.PENDING_ISSUE.getLabel() + " for reconciliation"),
+                        ArgumentMatchers.eq(""));
     }
 
     @Test
@@ -358,15 +371,17 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
         RegisterCapability adapter = registerCapableAdapter();
         when(adapter.issueRegistered(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
                 .thenThrow(new ConnectorException("upstream refused"));
-        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED))).thenReturn(true);
+        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED)))
+                .thenReturn(true);
         when(certificateRepository.findAndLockWithAssociationsByUuid(certUuid)).thenReturn(Optional.of(certificate));
 
         assertThatThrownBy(this::issue).isInstanceOf(CertificateOperationException.class);
 
         // handleFailedOrRejectedEvent delegates the FAILED transition and its audit-history write to the (mocked)
         // state machine, so verifying this call is the unit-level proxy for "the certificate was failed".
-        verify(stateMachine).transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine)
+                .transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.any(), ArgumentMatchers.any());
         // Pre-acceptance FAILED is terminal — the binding is dropped.
         verify(certificateRegistrationWriter).clear(certUuid);
     }
@@ -377,7 +392,8 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
         String leakySecret = "jdbc://internal-host:5432/secret-schema constraint violation";
         when(adapter.issueRegistered(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException(leakySecret));
-        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED))).thenReturn(true);
+        when(stateMachine.canTransition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED)))
+                .thenReturn(true);
         when(certificateRepository.findAndLockWithAssociationsByUuid(certUuid)).thenReturn(Optional.of(certificate));
 
         assertThatThrownBy(this::issue)
@@ -386,8 +402,10 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
 
         // The audit message handed to the state machine (and therefore to the persisted event history) is
         // the safe placeholder, not the raw IllegalStateException message.
-        verify(stateMachine).transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.eq("register-bound issuance failed"), ArgumentMatchers.any());
+        verify(stateMachine)
+                .transition(ArgumentMatchers.eq(certificate), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.eq(CertificateEvent.ISSUE),
+                        ArgumentMatchers.eq("register-bound issuance failed"), ArgumentMatchers.any());
     }
 
     // The state-divergence-critical branch the feature exists to protect: connector accepted (SYNC_OK) but local
@@ -400,7 +418,8 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
                 .thenReturn(AdapterOperationResult.syncOk("cert-data", List.of(), CertificateType.X509));
         String leakySecret = "jdbc://internal-host:5432/secret-schema constraint violation";
         doThrow(new IllegalStateException(leakySecret))
-                .when(certificateService).issueRequestedCertificate(certUuid, "cert-data", List.of());
+                .when(certificateService)
+                .issueRequestedCertificate(certUuid, "cert-data", List.of());
 
         assertThatThrownBy(this::issue)
                 .isInstanceOf(CertificateOperationException.class)
@@ -411,12 +430,13 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
                 .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
                         ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
         // Divergence recorded to event history; the persisted cause is the safe placeholder, not the leaky text.
-        verify(certificateEventHistoryService).addEventHistory(
-                ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE), ArgumentMatchers.eq(CertificateEventStatus.FAILED),
-                ArgumentMatchers.argThat(msg -> msg.contains("completing local state failed")
-                        && msg.contains("issuance completion failed")
-                        && !msg.contains(leakySecret)),
-                ArgumentMatchers.eq(""));
+        verify(certificateEventHistoryService)
+                .addEventHistory(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
+                        ArgumentMatchers.eq(CertificateEventStatus.FAILED),
+                        ArgumentMatchers
+                                .argThat(msg -> msg.contains("completing local state failed")
+                                        && msg.contains("issuance completion failed") && !msg.contains(leakySecret)),
+                        ArgumentMatchers.eq(""));
         // Best-effort binding cleanup (step 4) is skipped because completing local state threw.
         verify(certificateRegistrationWriter, never()).clear(ArgumentMatchers.any());
     }
@@ -431,14 +451,16 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
                 .isInstanceOf(CertificateOperationException.class)
                 .hasMessageContaining("reconcile manually");
 
-        verify(certificateService, never()).issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
-        verify(stateMachine, never()).transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
-                ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(certificateService, never())
+                .issueRequestedCertificate(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(stateMachine, never())
+                .transition(ArgumentMatchers.any(), ArgumentMatchers.eq(CertificateState.FAILED),
+                        ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
         verify(certificateRegistrationWriter, never()).clear(ArgumentMatchers.any());
-        verify(certificateEventHistoryService).addEventHistory(
-                ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
-                ArgumentMatchers.eq(CertificateEventStatus.FAILED),
-                ArgumentMatchers.contains("reconcile manually"), ArgumentMatchers.eq(""));
+        verify(certificateEventHistoryService)
+                .addEventHistory(ArgumentMatchers.eq(certUuid), ArgumentMatchers.eq(CertificateEvent.ISSUE),
+                        ArgumentMatchers.eq(CertificateEventStatus.FAILED),
+                        ArgumentMatchers.contains("reconcile manually"), ArgumentMatchers.eq(""));
     }
 
     // The binding, not the state, is the dispatch discriminator: a placeholder moved to PENDING_APPROVAL still
@@ -452,7 +474,8 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
 
         issue();
 
-        verify(adapter).issueRegistered(ArgumentMatchers.eq(certificate), ArgumentMatchers.any(), ArgumentMatchers.any());
+        verify(adapter)
+                .issueRegistered(ArgumentMatchers.eq(certificate), ArgumentMatchers.any(), ArgumentMatchers.any());
         verify(certificateService).issueRequestedCertificate(certUuid, "cert-data", List.of());
     }
 

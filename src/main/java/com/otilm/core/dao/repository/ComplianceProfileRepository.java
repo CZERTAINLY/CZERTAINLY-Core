@@ -1,14 +1,13 @@
 package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.ComplianceProfile;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Repository
 public interface ComplianceProfileRepository extends SecurityFilterRepository<ComplianceProfile, UUID> {
@@ -18,7 +17,8 @@ public interface ComplianceProfileRepository extends SecurityFilterRepository<Co
     @EntityGraph(attributePaths = {"complianceRules", "complianceRules.internalRule", "associations"})
     Optional<ComplianceProfile> findWithAssociationsByUuid(UUID uuid);
 
-    @EntityGraph(attributePaths = {"associations", "complianceRules", "complianceRules.connector", "complianceRules.internalRule", "complianceRules.internalRule.conditionItems"})
+    @EntityGraph(attributePaths = {"associations", "complianceRules", "complianceRules.connector",
+            "complianceRules.internalRule", "complianceRules.internalRule.conditionItems"})
     List<ComplianceProfile> findWithAssociationsByUuidIn(List<UUID> uuids);
 
     List<ComplianceProfile> findDistinctByComplianceRulesConnectorUuid(UUID connectorUuid);

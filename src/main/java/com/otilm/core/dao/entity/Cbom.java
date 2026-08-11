@@ -1,21 +1,18 @@
 package com.otilm.core.dao.entity;
 
-import java.time.OffsetDateTime;
-import java.util.Objects;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.proxy.HibernateProxy;
-
 import com.otilm.api.model.core.cbom.CbomDto;
 import com.otilm.core.util.DtoMapper;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -79,21 +76,29 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy hibernateProxy 
-        ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass() 
-        : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy hibernateProxy 
-        ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass() 
-        : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy hibernateProxy
+                ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy hibernateProxy
+                ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         Cbom that = (Cbom) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

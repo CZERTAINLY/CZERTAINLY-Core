@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.acme.AcmeProfile;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AcmeProfileRepository extends SecurityFilterRepository<AcmeProfile, Long> {

@@ -1,5 +1,7 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.notification.NotificationRequestDto;
 import com.otilm.api.model.client.notification.NotificationResponseDto;
@@ -10,8 +12,7 @@ import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,8 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @SpringBootTest
 @Transactional
@@ -64,9 +63,15 @@ class NotificationServiceITest extends BaseSpringBootTest {
     void testNotificationsOperations() throws NotFoundException {
         setupAuthServiceMock();
 
-        notificationInternalService.createNotificationForRole("TestMessage", null, MOCK_ROLE_UUID, Resource.DISCOVERY, UUID.randomUUID().toString());
-        notificationInternalService.createNotificationForGroup("TestMessage2", null, MOCK_GROUP_1_UUID, Resource.DISCOVERY, "%s,%s".formatted(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
-        notificationInternalService.createNotificationForUser("TestMessage3", null, mockUser1Uuid, Resource.DISCOVERY, UUID.randomUUID().toString());
+        notificationInternalService
+                .createNotificationForRole("TestMessage", null, MOCK_ROLE_UUID, Resource.DISCOVERY,
+                        UUID.randomUUID().toString());
+        notificationInternalService
+                .createNotificationForGroup("TestMessage2", null, MOCK_GROUP_1_UUID, Resource.DISCOVERY,
+                        "%s,%s".formatted(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
+        notificationInternalService
+                .createNotificationForUser("TestMessage3", null, mockUser1Uuid, Resource.DISCOVERY,
+                        UUID.randomUUID().toString());
 
         Assertions.assertEquals(6, notificationRecipientRepository.findAll().size());
 
@@ -84,9 +89,15 @@ class NotificationServiceITest extends BaseSpringBootTest {
 
         Assertions.assertEquals(2, listingResponse.getItems().size());
 
-        notificationExternalService.bulkDeleteNotifications(notificationRecipientRepository.findAll().stream().map(n -> n.getNotificationUuid().toString()).toList());
+        notificationExternalService
+                .bulkDeleteNotifications(notificationRecipientRepository
+                        .findAll()
+                        .stream()
+                        .map(n -> n.getNotificationUuid().toString())
+                        .toList());
 
-        // all notifications that are present in DB are send to bulk delete, but deleted should be only those of logged user
+        // all notifications that are present in DB are send to bulk delete, but deleted should be only those of logged
+        // user
         Assertions.assertEquals(3, notificationRecipientRepository.findAll().size());
     }
 
@@ -140,7 +151,9 @@ class NotificationServiceITest extends BaseSpringBootTest {
                          "systemUser": false
                      }
                 ]
-                """.formatted(mockUser1Uuid, MOCK_GROUP_1_UUID, MOCK_GROUP_2_UUID, MOCK_USER_2_UUID, MOCK_GROUP_1_UUID, MOCK_USER_3_UUID, MOCK_GROUP_2_UUID);
+                """
+                .formatted(mockUser1Uuid, MOCK_GROUP_1_UUID, MOCK_GROUP_2_UUID, MOCK_USER_2_UUID, MOCK_GROUP_1_UUID,
+                        MOCK_USER_3_UUID, MOCK_GROUP_2_UUID);
 
         String paginatedListUsersMockResponse = """
                 {
@@ -159,8 +172,17 @@ class NotificationServiceITest extends BaseSpringBootTest {
                 }
                 """.formatted(MOCK_ROLE_UUID, listUsersMockResponse);
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users")).willReturn(WireMock.okJson(paginatedListUsersMockResponse)));
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/%s".formatted(MOCK_ROLE_UUID))).willReturn(WireMock.okJson(roleDetailMockResponse)));
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/%s/users".formatted(MOCK_ROLE_UUID))).willReturn(WireMock.okJson(listUsersMockResponse)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/auth/users"))
+                        .willReturn(WireMock.okJson(paginatedListUsersMockResponse)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/auth/roles/%s".formatted(MOCK_ROLE_UUID)))
+                        .willReturn(WireMock.okJson(roleDetailMockResponse)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/auth/roles/%s/users".formatted(MOCK_ROLE_UUID)))
+                        .willReturn(WireMock.okJson(listUsersMockResponse)));
     }
 }

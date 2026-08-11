@@ -1,14 +1,13 @@
 package com.otilm.core.events.handlers.discovery;
 
 import com.otilm.api.exception.ValidationException;
+import java.security.cert.CertificateException;
+import java.sql.SQLException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.UnexpectedRollbackException;
-
-import java.security.cert.CertificateException;
-import java.sql.SQLException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -20,8 +19,8 @@ class DiscoveryFailureReasonTest {
      */
     @Test
     void classifiesAValidationFailureRatherThanForwardingItsMessage() {
-        assertThat(DiscoveryFailureReason.shape(
-                new ValidationException("Failed to calculate fingerprint from key content: MIIBIjANBgkq")))
+        assertThat(DiscoveryFailureReason
+                .shape(new ValidationException("Failed to calculate fingerprint from key content: MIIBIjANBgkq")))
                 .as("no entity data may reach an API-exposed field")
                 .isEqualTo("the certificate did not pass validation");
     }
@@ -35,29 +34,34 @@ class DiscoveryFailureReasonTest {
 
     @Test
     void classifiesAWrappedDataIntegrityViolationWithoutLeakingTheWrappersText() {
-        String reason = DiscoveryFailureReason.shape(new IllegalStateException(
-                "could not execute statement [insert into core.certificate (uuid,fingerprint) ...]",
-                new DataIntegrityViolationException("duplicate key value violates unique constraint",
-                        uniqueViolation("certificate_fingerprint_key"))));
+        String reason = DiscoveryFailureReason
+                .shape(new IllegalStateException(
+                        "could not execute statement [insert into core.certificate (uuid,fingerprint) ...]",
+                        new DataIntegrityViolationException("duplicate key value violates unique constraint",
+                                uniqueViolation("certificate_fingerprint_key"))));
 
-        assertThat(reason).isEqualTo("a concurrent import committed the same certificate")
-                .doesNotContain("insert into").doesNotContain("core.certificate");
+        assertThat(reason)
+                .isEqualTo("a concurrent import committed the same certificate")
+                .doesNotContain("insert into")
+                .doesNotContain("core.certificate");
     }
 
     @Test
     void separatesADuplicateFromAnyOtherIntegrityViolation() {
-        assertThat(DiscoveryFailureReason.shape(new DataIntegrityViolationException(
-                "violates foreign key constraint", constraintViolation(
-                        ConstraintViolationException.ConstraintKind.OTHER, "certificate_owner_fk"))))
+        assertThat(DiscoveryFailureReason
+                .shape(new DataIntegrityViolationException("violates foreign key constraint",
+                        constraintViolation(ConstraintViolationException.ConstraintKind.OTHER,
+                                "certificate_owner_fk"))))
                 .as("a foreign-key or check violation is a different defect and must not read as a benign race")
                 .isEqualTo("a database constraint rejected the certificate");
     }
 
     @Test
     void passesThroughAnAlreadyShapedRollbackReason() {
-        String reason = DiscoveryFailureReason.shape(new DiscoveryImportRollbackException(
-                "trigger evaluation failed: the discovered certificate could not be parsed",
-                new DataIntegrityViolationException("insert into core.certificate ...")));
+        String reason = DiscoveryFailureReason
+                .shape(new DiscoveryImportRollbackException(
+                        "trigger evaluation failed: the discovered certificate could not be parsed",
+                        new DataIntegrityViolationException("insert into core.certificate ...")));
 
         assertThat(reason)
                 .as("re-deriving from the cause would replace the specific reason with generic text")
@@ -75,13 +79,16 @@ class DiscoveryFailureReasonTest {
 
     @Test
     void classifiesADataIntegrityViolationWithoutLeakingSql() {
-        String reason = DiscoveryFailureReason.shape(new DataIntegrityViolationException(
-                "could not execute statement [ERROR: duplicate key value violates unique constraint "
-                        + "\"certificate_fingerprint_key\"] [insert into core.certificate (uuid,fingerprint) ...]",
-                uniqueViolation("certificate_fingerprint_key")));
+        String reason = DiscoveryFailureReason
+                .shape(new DataIntegrityViolationException(
+                        "could not execute statement [ERROR: duplicate key value violates unique constraint "
+                                + "\"certificate_fingerprint_key\"] [insert into core.certificate (uuid,fingerprint) ...]",
+                        uniqueViolation("certificate_fingerprint_key")));
 
-        assertThat(reason).isEqualTo("a concurrent import committed the same certificate")
-                .doesNotContain("insert into").doesNotContain("certificate_fingerprint_key");
+        assertThat(reason)
+                .isEqualTo("a concurrent import committed the same certificate")
+                .doesNotContain("insert into")
+                .doesNotContain("certificate_fingerprint_key");
     }
 
     /**
@@ -90,39 +97,37 @@ class DiscoveryFailureReasonTest {
      */
     @Test
     void doesNotClaimARaceWhenTheConstraintKindIsUnknown() {
-        assertThat(DiscoveryFailureReason.shape(
-                new DataIntegrityViolationException("could not execute statement")))
+        assertThat(DiscoveryFailureReason.shape(new DataIntegrityViolationException("could not execute statement")))
                 .isEqualTo("a database constraint rejected the certificate");
     }
 
     /**
-     * The signals a native insert actually produces. Hibernate's own constraint kind is absent there, so relying on
-     * it alone reported a genuine duplicate as an unspecified constraint failure.
+     * The signals a native insert actually produces. Hibernate's own constraint kind is absent there, so relying on it
+     * alone reported a genuine duplicate as an unspecified constraint failure.
      */
     @Test
     void recognisesADuplicateFromTheSqlStateAlone() {
-        SQLException uniqueViolation = new SQLException(
-                "ERROR: duplicate key value violates unique constraint", "23505");
+        SQLException uniqueViolation = new SQLException("ERROR: duplicate key value violates unique constraint",
+                "23505");
 
-        assertThat(DiscoveryFailureReason.shape(
-                new DataIntegrityViolationException("could not execute statement", uniqueViolation)))
+        assertThat(DiscoveryFailureReason
+                .shape(new DataIntegrityViolationException("could not execute statement", uniqueViolation)))
                 .isEqualTo("a concurrent import committed the same certificate");
     }
 
     @Test
     void recognisesADuplicateFromSpringsOwnTranslation() {
-        assertThat(DiscoveryFailureReason.shape(
-                new DuplicateKeyException("duplicate key value violates unique constraint")))
+        assertThat(DiscoveryFailureReason
+                .shape(new DuplicateKeyException("duplicate key value violates unique constraint")))
                 .isEqualTo("a concurrent import committed the same certificate");
     }
 
     @Test
     void doesNotTreatAnotherIntegrityStateAsADuplicate() {
-        SQLException foreignKeyViolation = new SQLException(
-                "ERROR: violates foreign key constraint", "23503");
+        SQLException foreignKeyViolation = new SQLException("ERROR: violates foreign key constraint", "23503");
 
-        assertThat(DiscoveryFailureReason.shape(
-                new DataIntegrityViolationException("could not execute statement", foreignKeyViolation)))
+        assertThat(DiscoveryFailureReason
+                .shape(new DataIntegrityViolationException("could not execute statement", foreignKeyViolation)))
                 .isEqualTo("a database constraint rejected the certificate");
     }
 
@@ -130,17 +135,17 @@ class DiscoveryFailureReasonTest {
         return constraintViolation(ConstraintViolationException.ConstraintKind.UNIQUE, constraintName);
     }
 
-    private static ConstraintViolationException constraintViolation(
-            ConstraintViolationException.ConstraintKind kind, String constraintName) {
+    private static ConstraintViolationException constraintViolation(ConstraintViolationException.ConstraintKind kind,
+            String constraintName) {
         return new ConstraintViolationException("could not execute statement",
-                new SQLException("ERROR: violates constraint \"%s\"".formatted(constraintName)),
-                kind, constraintName);
+                new SQLException("ERROR: violates constraint \"%s\"".formatted(constraintName)), kind, constraintName);
     }
 
     @Test
     void classifiesAnUnexpectedRollbackWithoutLeakingInternals() {
-        assertThat(DiscoveryFailureReason.shape(new UnexpectedRollbackException(
-                "Transaction silently rolled back because it has been marked as rollback-only")))
+        assertThat(DiscoveryFailureReason
+                .shape(new UnexpectedRollbackException(
+                        "Transaction silently rolled back because it has been marked as rollback-only")))
                 .isEqualTo("the import transaction was rolled back");
     }
 
@@ -150,8 +155,9 @@ class DiscoveryFailureReasonTest {
      */
     @Test
     void namesTheTriggerTransactionWhenTheImportHasAlreadyCommitted() {
-        assertThat(DiscoveryFailureReason.shapeTriggerFailure(new UnexpectedRollbackException(
-                "Transaction silently rolled back because it has been marked as rollback-only")))
+        assertThat(DiscoveryFailureReason
+                .shapeTriggerFailure(new UnexpectedRollbackException(
+                        "Transaction silently rolled back because it has been marked as rollback-only")))
                 .isEqualTo("the trigger's transaction was rolled back");
     }
 
@@ -160,7 +166,8 @@ class DiscoveryFailureReasonTest {
     void classifiesEverythingElseTheSameWayForATriggerFailure() {
         assertThat(DiscoveryFailureReason.shapeTriggerFailure(new CertificateException("bad signature")))
                 .isEqualTo("the discovered certificate could not be parsed");
-        assertThat(DiscoveryFailureReason.shapeTriggerFailure(new IllegalStateException("core.cert_content.id is null")))
+        assertThat(
+                DiscoveryFailureReason.shapeTriggerFailure(new IllegalStateException("core.cert_content.id is null")))
                 .isEqualTo("an unexpected error occurred");
     }
 

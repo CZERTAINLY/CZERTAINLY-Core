@@ -25,23 +25,27 @@ import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.dao.entity.AttributeRelation;
 import com.otilm.core.dao.entity.VaultInstance;
 import com.otilm.core.dao.entity.VaultProfile;
+import com.otilm.core.dao.entity.signing.SigningProfile;
 import com.otilm.core.dao.entity.signing.TspProfile;
 import com.otilm.core.dao.entity.signing.TspProfileBasicCredential;
 import com.otilm.core.dao.repository.AttributeDefinitionRepository;
 import com.otilm.core.dao.repository.AttributeRelationRepository;
 import com.otilm.core.dao.repository.VaultInstanceRepository;
 import com.otilm.core.dao.repository.VaultProfileRepository;
+import com.otilm.core.dao.repository.signing.SigningProfileRepository;
 import com.otilm.core.dao.repository.signing.TspProfileBasicCredentialRepository;
 import com.otilm.core.dao.repository.signing.TspProfileRepository;
+import com.otilm.core.security.authz.SecuredUUID;
+import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ResourceExternalService;
 import com.otilm.core.service.TspProfileExternalService;
 import com.otilm.core.service.TspProfileInternalService;
 import com.otilm.core.service.impl.SecretServiceImpl;
-import com.otilm.core.dao.entity.signing.SigningProfile;
-import com.otilm.core.dao.repository.signing.SigningProfileRepository;
-import com.otilm.core.security.authz.SecuredUUID;
-import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
@@ -49,14 +53,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class TspProfileServiceImplITest extends BaseSpringBootTest {
 
@@ -157,7 +164,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     @Test
     void testListTspProfiles_returnsExistingEntries() {
         SearchRequestDto request = new SearchRequestDto();
-        PaginationResponseDto<TspProfileListDto> response = tspService.listTspProfiles(request, SecurityFilter.create(), BASE_URL);
+        PaginationResponseDto<TspProfileListDto> response = tspService
+                .listTspProfiles(request, SecurityFilter.create(), BASE_URL);
 
         assertNotNull(response);
         assertNotNull(response.getItems());
@@ -169,7 +177,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     @Test
     void testListTspProfiles_withoutDefaultSigningProfile_signingUrlIsNull() {
         SearchRequestDto request = new SearchRequestDto();
-        PaginationResponseDto<TspProfileListDto> response = tspService.listTspProfiles(request, SecurityFilter.create(), BASE_URL);
+        PaginationResponseDto<TspProfileListDto> response = tspService
+                .listTspProfiles(request, SecurityFilter.create(), BASE_URL);
 
         assertEquals(1, response.getTotalItems());
         assertNull(response.getItems().getFirst().getSigningUrl(),
@@ -190,7 +199,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         savedTspProfile = tspRepository.save(savedTspProfile);
 
         SearchRequestDto request = new SearchRequestDto();
-        PaginationResponseDto<TspProfileListDto> response = tspService.listTspProfiles(request, SecurityFilter.create(), BASE_URL);
+        PaginationResponseDto<TspProfileListDto> response = tspService
+                .listTspProfiles(request, SecurityFilter.create(), BASE_URL);
 
         TspProfileListDto listDto = response.getItems().getFirst();
         assertNotNull(listDto.getSigningUrl(),
@@ -204,7 +214,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         tspRepository.delete(savedTspProfile);
 
         SearchRequestDto request = new SearchRequestDto();
-        PaginationResponseDto<TspProfileListDto> response = tspService.listTspProfiles(request, SecurityFilter.create(), BASE_URL);
+        PaginationResponseDto<TspProfileListDto> response = tspService
+                .listTspProfiles(request, SecurityFilter.create(), BASE_URL);
 
         assertNotNull(response);
         assertEquals(0, response.getTotalItems());
@@ -228,9 +239,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
 
     @Test
     void testGetTspProfile_notFound() {
-        assertThrows(NotFoundException.class,
-                () -> tspService.getTspProfile(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), BASE_URL));
+        assertThrows(NotFoundException.class, () -> tspService
+                .getTspProfile(SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), BASE_URL));
     }
 
     @Test
@@ -244,9 +254,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
 
     @Test
     void testGetTspProfileEntity_notFound() {
-        assertThrows(NotFoundException.class,
-                () -> tspInternalService.getTspProfileEntity(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+        assertThrows(NotFoundException.class, () -> tspInternalService
+                .getTspProfileEntity(SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -290,7 +299,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testCreateTspProfile_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateTspProfile_assertDtoAndDbEntity()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("new-tsp-profile");
         request.setDescription("New TSP profile description");
@@ -316,7 +326,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testUpdateTspProfile_assertDtoAndDbEntity() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testUpdateTspProfile_assertDtoAndDbEntity()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("updated-tsp-profile");
         request.setDescription("Updated description");
@@ -342,9 +353,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("does-not-matter");
 
-        assertThrows(NotFoundException.class,
-                () -> tspService.updateTspProfile(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), request, BASE_URL));
+        assertThrows(NotFoundException.class, () -> tspService
+                .updateTspProfile(SecuredUUID.fromString("00000000-0000-0000-0000-000000000001"), request, BASE_URL));
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -363,8 +373,7 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     @Test
     void testDeleteTspProfile_notFound_throwsNotFoundException() {
         assertThrows(NotFoundException.class,
-                () -> tspService.deleteTspProfile(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+                () -> tspService.deleteTspProfile(SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
     }
 
     @Test
@@ -402,8 +411,7 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         persistBasicCredential(savedTspProfile, "svc-fails", failingSecret);
         persistBasicCredential(savedTspProfile, "svc-succeeds", succeedingSecret);
 
-        doThrow(new ConnectorException("vault unavailable"))
-                .when(secretService).deleteSecret(failingSecret, true);
+        doThrow(new ConnectorException("vault unavailable")).when(secretService).deleteSecret(failingSecret, true);
 
         tspService.deleteTspProfile(savedTspProfile.getSecuredUuid());
 
@@ -426,8 +434,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         second.setName("second-tsp-profile");
         second = tspRepository.save(second);
 
-        List<BulkActionMessageDto> messages = tspService.bulkDeleteTspProfiles(
-                List.of(savedTspProfile.getSecuredUuid(), second.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = tspService
+                .bulkDeleteTspProfiles(List.of(savedTspProfile.getSecuredUuid(), second.getSecuredUuid()));
 
         assertNotNull(messages);
         assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
@@ -438,8 +446,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     @Test
     void testBulkDeleteTspProfiles_partialFailure_returnsErrorMessages() {
         UUID nonExistent = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        List<BulkActionMessageDto> messages = tspService.bulkDeleteTspProfiles(
-                List.of(savedTspProfile.getSecuredUuid(), SecuredUUID.fromUUID(nonExistent)));
+        List<BulkActionMessageDto> messages = tspService
+                .bulkDeleteTspProfiles(List.of(savedTspProfile.getSecuredUuid(), SecuredUUID.fromUUID(nonExistent)));
 
         assertNotNull(messages);
         assertEquals(1, messages.size(), "Expected exactly one error for the unknown profile");
@@ -477,15 +485,13 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     @Test
     void testEnableTspProfile_notFound_throwsNotFoundException() {
         assertThrows(NotFoundException.class,
-                () -> tspService.enableTspProfile(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+                () -> tspService.enableTspProfile(SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
     }
 
     @Test
     void testDisableTspProfile_notFound_throwsNotFoundException() {
         assertThrows(NotFoundException.class,
-                () -> tspService.disableTspProfile(
-                        SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
+                () -> tspService.disableTspProfile(SecuredUUID.fromString("00000000-0000-0000-0000-000000000001")));
     }
 
     @Test
@@ -494,8 +500,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         second.setName("second-tsp-profile");
         second = tspRepository.save(second);
 
-        List<BulkActionMessageDto> messages = tspService.bulkEnableTspProfiles(
-                List.of(savedTspProfile.getSecuredUuid(), second.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = tspService
+                .bulkEnableTspProfiles(List.of(savedTspProfile.getSecuredUuid(), second.getSecuredUuid()));
 
         assertNotNull(messages);
         assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
@@ -514,8 +520,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         second.setEnabled(true);
         second = tspRepository.save(second);
 
-        List<BulkActionMessageDto> messages = tspService.bulkDisableTspProfiles(
-                List.of(savedTspProfile.getSecuredUuid(), second.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = tspService
+                .bulkDisableTspProfiles(List.of(savedTspProfile.getSecuredUuid(), second.getSecuredUuid()));
 
         assertNotNull(messages);
         assertTrue(messages.isEmpty(), "Expected no errors but got: " + messages);
@@ -528,10 +534,10 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void testCreateTspProfile_withCustomAttributes_returnedInDto() throws AlreadyExistException, AttributeException, NotFoundException {
-        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("tsp-value-on-create")));
+    void testCreateTspProfile_withCustomAttributes_returnedInDto()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        RequestAttributeV3 customAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("tsp-value-on-create")));
 
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName("tsp-with-custom-attr");
@@ -540,30 +546,28 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         TspProfileDto dto = tspService.createTspProfile(request, BASE_URL);
 
         assertNotNull(dto.getCustomAttributes());
-        assertFalse(dto.getCustomAttributes().isEmpty(),
-                "Custom attributes should be returned in the create DTO");
+        assertFalse(dto.getCustomAttributes().isEmpty(), "Custom attributes should be returned in the create DTO");
         assertEquals("tsp-value-on-create",
                 ((ResponseAttributeV3) dto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
     }
 
     @Test
-    void testUpdateTspProfile_withCustomAttributes_returnedInDto() throws AlreadyExistException, AttributeException, NotFoundException {
-        RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("initial-value")));
+    void testUpdateTspProfile_withCustomAttributes_returnedInDto()
+            throws AlreadyExistException, AttributeException, NotFoundException {
+        RequestAttributeV3 createAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("initial-value")));
         TspProfileRequestDto createRequest = new TspProfileRequestDto();
         createRequest.setName("tsp-update-custom-attr");
         createRequest.setCustomAttributes(List.of(createAttr));
         TspProfileDto created = tspService.createTspProfile(createRequest, BASE_URL);
 
-        RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID),
-                CUSTOM_ATTR_NAME, AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("updated-value")));
+        RequestAttributeV3 updateAttr = new RequestAttributeV3(UUID.fromString(CUSTOM_ATTR_UUID), CUSTOM_ATTR_NAME,
+                AttributeContentType.STRING, List.of(new StringAttributeContentV3("updated-value")));
         TspProfileRequestDto updateRequest = new TspProfileRequestDto();
         updateRequest.setName("tsp-update-custom-attr");
         updateRequest.setCustomAttributes(List.of(updateAttr));
-        TspProfileDto updated = tspService.updateTspProfile(
-                SecuredUUID.fromString(created.getUuid()), updateRequest, BASE_URL);
+        TspProfileDto updated = tspService
+                .updateTspProfile(SecuredUUID.fromString(created.getUuid()), updateRequest, BASE_URL);
 
         assertNotNull(updated.getCustomAttributes());
         assertFalse(updated.getCustomAttributes().isEmpty());
@@ -580,12 +584,12 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName(savedTspProfile.getName());
 
-        assertThrows(AlreadyExistException.class,
-                () -> tspService.createTspProfile(request, BASE_URL));
+        assertThrows(AlreadyExistException.class, () -> tspService.createTspProfile(request, BASE_URL));
     }
 
     @Test
-    void testUpdateTspProfile_toExistingNameOfAnotherProfile_throwsAlreadyExistException() throws AttributeException, NotFoundException {
+    void testUpdateTspProfile_toExistingNameOfAnotherProfile_throwsAlreadyExistException()
+            throws AttributeException, NotFoundException {
         TspProfile second = new TspProfile();
         second.setName("second-tsp-profile");
         tspRepository.save(second);
@@ -598,7 +602,8 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateTspProfile_keepingSameName_succeeds() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testUpdateTspProfile_keepingSameName_succeeds()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         TspProfileRequestDto request = new TspProfileRequestDto();
         request.setName(savedTspProfile.getName());
         request.setDescription("updated description");
@@ -637,11 +642,10 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
 
     @Test
     void testBulkDeleteTspProfiles_deleteFailure_returnsErrorWithProfileName() {
-        doThrow(new RuntimeException("DB error during delete"))
-                .when(tspRepositorySpy).delete(ArgumentMatchers.any());
+        doThrow(new RuntimeException("DB error during delete")).when(tspRepositorySpy).delete(ArgumentMatchers.any());
 
-        List<BulkActionMessageDto> messages = tspService.bulkDeleteTspProfiles(
-                List.of(savedTspProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = tspService
+                .bulkDeleteTspProfiles(List.of(savedTspProfile.getSecuredUuid()));
 
         assertEquals(1, messages.size());
         assertEquals(savedTspProfile.getUuid().toString(), messages.getFirst().getUuid());
@@ -651,11 +655,10 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
 
     @Test
     void testBulkEnableTspProfiles_saveFailure_returnsErrorWithProfileName() {
-        doThrow(new RuntimeException("DB error during save"))
-                .when(tspRepositorySpy).save(ArgumentMatchers.any());
+        doThrow(new RuntimeException("DB error during save")).when(tspRepositorySpy).save(ArgumentMatchers.any());
 
-        List<BulkActionMessageDto> messages = tspService.bulkEnableTspProfiles(
-                List.of(savedTspProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = tspService
+                .bulkEnableTspProfiles(List.of(savedTspProfile.getSecuredUuid()));
 
         assertEquals(1, messages.size());
         assertEquals(savedTspProfile.getUuid().toString(), messages.getFirst().getUuid());
@@ -665,11 +668,10 @@ class TspProfileServiceImplITest extends BaseSpringBootTest {
 
     @Test
     void testBulkDisableTspProfiles_saveFailure_returnsErrorWithProfileName() {
-        doThrow(new RuntimeException("DB error during save"))
-                .when(tspRepositorySpy).save(ArgumentMatchers.any());
+        doThrow(new RuntimeException("DB error during save")).when(tspRepositorySpy).save(ArgumentMatchers.any());
 
-        List<BulkActionMessageDto> messages = tspService.bulkDisableTspProfiles(
-                List.of(savedTspProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = tspService
+                .bulkDisableTspProfiles(List.of(savedTspProfile.getSecuredUuid()));
 
         assertEquals(1, messages.size());
         assertEquals(savedTspProfile.getUuid().toString(), messages.getFirst().getUuid());

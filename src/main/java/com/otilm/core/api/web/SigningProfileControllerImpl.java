@@ -6,22 +6,22 @@ import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.SigningProfileController;
+import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.signing.profile.SigningProfileDto;
 import com.otilm.api.model.client.signing.profile.SigningProfileListDto;
 import com.otilm.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
-import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.core.certificate.CertificateDto;
-import com.otilm.api.model.core.signing.SigningProtocol;
-import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.otilm.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
-import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.common.PaginationResponseDto;
-import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.certificate.CertificateDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
+import com.otilm.api.model.core.signing.SigningProtocol;
+import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.auth.AuthEndpoint;
 import com.otilm.core.logging.LogResource;
@@ -29,14 +29,13 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.SigningProfileExternalService;
 import com.otilm.core.util.converter.SigningWorkflowTypeConverter;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 public class SigningProfileControllerImpl implements SigningProfileController {
@@ -74,7 +73,8 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DETAIL)
-    public SigningProfileDto getSigningProfile(@LogResource(uuid = true) UUID uuid, Integer version) throws NotFoundException {
+    public SigningProfileDto getSigningProfile(@LogResource(uuid = true) UUID uuid, Integer version)
+            throws NotFoundException {
         return signingProfileService.getSigningProfile(SecuredUUID.fromUUID(uuid), version);
     }
 
@@ -94,7 +94,8 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DELETE)
-    public void deleteSigningProfile(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ValidationException {
+    public void deleteSigningProfile(@LogResource(uuid = true) UUID uuid)
+            throws NotFoundException, ValidationException {
         signingProfileService.deleteSigningProfile(SecuredUUID.fromUUID(uuid));
     }
 
@@ -130,38 +131,48 @@ public class SigningProfileControllerImpl implements SigningProfileController {
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
-    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp) {
+    public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType,
+            boolean qualifiedTimestamp) {
         return signingProfileService.listSigningCertificates(signingWorkflowType, qualifiedTimestamp);
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
-    public List<BaseAttribute> listSignatureAttributesForCertificate(@LogResource(uuid = true) UUID certificateUuid) throws NotFoundException {
+    public List<BaseAttribute> listSignatureAttributesForCertificate(@LogResource(uuid = true) UUID certificateUuid)
+            throws NotFoundException {
         return signingProfileService.listSignatureAttributesForCertificate(SecuredUUID.fromUUID(certificateUuid));
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listSignatureFormattingConnectorAttributes(UUID connectorUuid, UUID signingProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
-        return signingProfileService.listSignatureFormattingConnectorAttributes(connectorUuid, SecuredUUID.fromUUID(signingProfileUuid));
+    public List<BaseAttribute> listSignatureFormattingConnectorAttributes(UUID connectorUuid, UUID signingProfileUuid)
+            throws NotFoundException, ConnectorException, AttributeException {
+        return signingProfileService
+                .listSignatureFormattingConnectorAttributes(connectorUuid, SecuredUUID.fromUUID(signingProfileUuid));
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DETAIL)
-    public PaginationResponseDto<SigningRecordListDto> listSigningRecordsForSigningProfile(@LogResource(uuid = true) UUID uuid, SearchRequestDto request) throws NotFoundException {
-        return signingProfileService.listSigningRecordsForSigningProfile(SecuredUUID.fromUUID(uuid), request, SecurityFilter.create());
+    public PaginationResponseDto<SigningRecordListDto> listSigningRecordsForSigningProfile(
+            @LogResource(uuid = true) UUID uuid, SearchRequestDto request) throws NotFoundException {
+        return signingProfileService
+                .listSigningRecordsForSigningProfile(SecuredUUID.fromUUID(uuid), request, SecurityFilter.create());
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DETAIL)
-    public TspActivationDetailDto getTspActivationDetails(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+    public TspActivationDetailDto getTspActivationDetails(@LogResource(uuid = true) UUID uuid)
+            throws NotFoundException {
         return signingProfileService.getTspActivationDetails(SecuredUUID.fromUUID(uuid), currentBaseUrl());
     }
 
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
-    public TspActivationDetailDto activateTsp(@LogResource(uuid = true) UUID signingProfileUuid, @LogResource(uuid = true, affiliated = true) UUID tspProfileUuid) throws NotFoundException {
-        return signingProfileService.activateTsp(SecuredUUID.fromUUID(signingProfileUuid), SecuredUUID.fromUUID(tspProfileUuid), currentBaseUrl());
+    public TspActivationDetailDto activateTsp(@LogResource(uuid = true) UUID signingProfileUuid,
+            @LogResource(uuid = true, affiliated = true) UUID tspProfileUuid) throws NotFoundException {
+        return signingProfileService
+                .activateTsp(SecuredUUID.fromUUID(signingProfileUuid), SecuredUUID.fromUUID(tspProfileUuid),
+                        currentBaseUrl());
     }
 
     @Override

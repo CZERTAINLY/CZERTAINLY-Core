@@ -3,4 +3,5 @@ package com.otilm.core.model.signing.workflow;
 /**
  * Raw-signing workflow for ILM-managed signing.
  */
-public record ManagedRawSigningWorkflow() implements RawSigningWorkflow {}
+public record ManagedRawSigningWorkflow() implements RawSigningWorkflow {
+}

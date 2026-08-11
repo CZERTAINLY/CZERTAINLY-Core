@@ -30,15 +30,14 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.LocationExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aMetaAttributeFilter;
@@ -161,7 +160,9 @@ class LocationsSearchITest extends BaseSpringBootTest {
     @Test
     void testLocationByInstanceName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aPropertyFilter(FilterField.LOCATION_ENTITY_INSTANCE, FilterConditionOperator.ENDS_WITH, "instance-name-3"));
+        filters
+                .add(aPropertyFilter(FilterField.LOCATION_ENTITY_INSTANCE, FilterConditionOperator.ENDS_WITH,
+                        "instance-name-3"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -193,7 +194,9 @@ class LocationsSearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aMetaAttributeFilter("attributeMeta1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS, "-meta-"));
+        filters
+                .add(aMetaAttributeFilter("attributeMeta1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS,
+                        "-meta-"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -201,7 +204,9 @@ class LocationsSearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aCustomAttributeFilter("attributeCustom1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS, "-custom-"));
+        filters
+                .add(aCustomAttributeFilter("attributeCustom1", AttributeContentType.TEXT,
+                        FilterConditionOperator.CONTAINS, "-custom-"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -223,7 +228,12 @@ class LocationsSearchITest extends BaseSpringBootTest {
         metadataAttribute.setProperties(metadataAttributeProperties);
         metadataAttribute.setContent(List.of(new TextAttributeContentV3("reference-test-1", "data-meta-test-1")));
 
-        attributeEngine.updateMetadataAttribute(metadataAttribute, ObjectAttributeContentInfo.builder(Resource.LOCATION, location.getUuid()).connector(connector.getUuid()).build());
+        attributeEngine
+                .updateMetadataAttribute(metadataAttribute,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.LOCATION, location.getUuid())
+                                .connector(connector.getUuid())
+                                .build());
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
@@ -236,13 +246,15 @@ class LocationsSearchITest extends BaseSpringBootTest {
         properties.setLabel("Test custom");
         customAttribute.setProperties(properties);
 
-        List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        List<BaseAttributeContentV3<?>> contentItems = List
+                .of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
         requestAttribute.setName(customAttribute.getName());
         requestAttribute.setContent(contentItems);
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.LOCATION));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.LOCATION, location.getUuid(), List.of(requestAttribute));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.LOCATION, location.getUuid(), List.of(requestAttribute));
     }
 }

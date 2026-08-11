@@ -4,12 +4,11 @@ import com.otilm.api.exception.ScepException;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.core.service.handler.CertificateValidationStatusPoller;
+import java.lang.reflect.UndeclaredThrowableException;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.lang.reflect.UndeclaredThrowableException;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,10 +19,11 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link ScepServiceImpl#checkCertificateValidity}.
  *
- * <p>NOT_CHECKED is a transient state only for the freshly-issued end-entity certificate
- * (tolerateNotChecked=true): its status is resolved through {@link CertificateValidationStatusPoller}
- * and NOT_CHECKED is accepted if it never resolves. CA / issuer certs (tolerateNotChecked=false)
- * are never waited on and must already be VALID/EXPIRING.</p>
+ * <p>
+ * NOT_CHECKED is a transient state only for the freshly-issued end-entity certificate (tolerateNotChecked=true): its
+ * status is resolved through {@link CertificateValidationStatusPoller} and NOT_CHECKED is accepted if it never
+ * resolves. CA / issuer certs (tolerateNotChecked=false) are never waited on and must already be VALID/EXPIRING.
+ * </p>
  */
 class ScepServiceImplValidationStatusTest {
 

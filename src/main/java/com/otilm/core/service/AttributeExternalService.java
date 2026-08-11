@@ -30,7 +30,8 @@ public interface AttributeExternalService {
      * @param attributeContentType : Attribute content type to filter custom attributes
      * @return - List of Custom Attributes stored in the database
      */
-    List<CustomAttributeDefinitionDto> listCustomAttributes(SecurityFilter filter, AttributeContentType attributeContentType);
+    List<CustomAttributeDefinitionDto> listCustomAttributes(SecurityFilter filter,
+            AttributeContentType attributeContentType);
 
     /**
      * Function to list the available global metadata stored in the database
@@ -61,7 +62,8 @@ public interface AttributeExternalService {
      * @param request: {@link CustomAttributeCreateRequestDto} request information
      * @return UUID of the newly created attribute
      */
-    CustomAttributeDefinitionDetailDto createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, AttributeException;
+    CustomAttributeDefinitionDetailDto createCustomAttribute(CustomAttributeCreateRequestDto request)
+            throws AlreadyExistException, AttributeException;
 
     /**
      * Function to create a global metadata
@@ -69,31 +71,33 @@ public interface AttributeExternalService {
      * @param request Request containing the details for creating a new global metadata
      * @return Details of the newly created global metadata
      */
-    GlobalMetadataDefinitionDetailDto createGlobalMetadata(GlobalMetadataCreateRequestDto request) throws AlreadyExistException, AttributeException;
-
+    GlobalMetadataDefinitionDetailDto createGlobalMetadata(GlobalMetadataCreateRequestDto request)
+            throws AlreadyExistException, AttributeException;
 
     /**
      * Function to update the custom attribute
      *
-     * @param uuid    UUID of the attribute definition
+     * @param uuid UUID of the attribute definition
      * @param request Request containting the attribute information
      * @return
      */
-    CustomAttributeDefinitionDetailDto editCustomAttribute(UUID uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException, AttributeException;
+    CustomAttributeDefinitionDetailDto editCustomAttribute(UUID uuid, CustomAttributeUpdateRequestDto request)
+            throws NotFoundException, AttributeException;
 
     /**
      * Function to update the global metadata
      *
-     * @param uuid    UUID of the global metadata
+     * @param uuid UUID of the global metadata
      * @param request Details to Update the global metadata
      * @return Details of the updated global metadata
      */
-    GlobalMetadataDefinitionDetailDto editGlobalMetadata(UUID uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException, AttributeException;
+    GlobalMetadataDefinitionDetailDto editGlobalMetadata(UUID uuid, GlobalMetadataUpdateRequestDto request)
+            throws NotFoundException, AttributeException;
 
     /**
      * Function to delete custom attribute
      *
-     * @param uuid  Attribute UUID
+     * @param uuid Attribute UUID
      * @throws NotFoundException
      */
     void deleteCustomAttribute(UUID uuid) throws NotFoundException;
@@ -108,7 +112,7 @@ public interface AttributeExternalService {
     /**
      * Function to enable custom attribute. Objects can use the attributes if and only if they are enabled
      *
-     * @param uuid  Custom Attribute UUID
+     * @param uuid Custom Attribute UUID
      * @param enable flag if to enable or disable attribute
      * @throws NotFoundException when attribute is not found
      */
@@ -125,7 +129,7 @@ public interface AttributeExternalService {
     /**
      * Update the resources to which the attributes can be used
      *
-     * @param uuid      UUID of the custom attribute
+     * @param uuid UUID of the custom attribute
      * @param resources List of resources to which the attribute has to be associated
      * @throws NotFoundException
      */
@@ -134,7 +138,7 @@ public interface AttributeExternalService {
     /**
      * Function to get the list of custom attributes that are applicable for the resource
      *
-     * @param filter   : SecurityFilter to load object permissions
+     * @param filter : SecurityFilter to load object permissions
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
@@ -149,12 +153,14 @@ public interface AttributeExternalService {
 
     /**
      * Function to get the list of all the connector metadata that can be promoted as global metadata
+     *
      * @param connectorUuid UUID of the connector for filtering
      */
     List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid);
 
     /**
      * Function to promote the metadata from connector to global metadata
+     *
      * @return Details of the global metadata
      */
     GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(UUID uuid, UUID connectorUUid) throws NotFoundException;
@@ -168,7 +174,8 @@ public interface AttributeExternalService {
 
     /**
      * Function to demote the metadata from global metadata to connector metadata as result of delete operation
-     * @param uuid    UUID of the global metadata
+     *
+     * @param uuid UUID of the global metadata
      */
     void demoteConnectorMetadata(UUID uuid) throws NotFoundException;
 }

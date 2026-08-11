@@ -5,24 +5,24 @@ import com.otilm.api.clients.mq.model.ConnectorAuth;
 import com.otilm.api.model.client.attribute.ResponseAttribute;
 import com.otilm.api.model.client.attribute.ResponseAttributeV2;
 import com.otilm.api.model.common.attribute.common.AttributeType;
-import com.otilm.api.model.common.attribute.v2.content.FileAttributeContentV2;
 import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
+import com.otilm.api.model.common.attribute.common.content.data.SecretAttributeContentData;
+import com.otilm.api.model.common.attribute.v2.content.FileAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
-import com.otilm.api.model.common.attribute.common.content.data.SecretAttributeContentData;
 import com.otilm.api.model.core.connector.AuthType;
 import com.otilm.api.model.core.connector.ConnectorDto;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link ConnectorAuthConverter}.
- * Tests conversion of ConnectorDto authentication to proxy ConnectorAuth format.
+ * Unit tests for {@link ConnectorAuthConverter}. Tests conversion of ConnectorDto authentication to proxy ConnectorAuth
+ * format.
  */
 class ConnectorAuthConverterTest {
 
@@ -141,8 +141,7 @@ class ConnectorAuthConverterTest {
 
         // AttributeDefinitionUtils.getAttributeContent throws NPE when attributes is null
         // This is expected behavior - the converter relies on valid input
-        assertThatThrownBy(() -> converter.convert(connector))
-                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> converter.convert(connector)).isInstanceOf(NullPointerException.class);
     }
 
     // ==================== API_KEY Auth Type Tests ====================

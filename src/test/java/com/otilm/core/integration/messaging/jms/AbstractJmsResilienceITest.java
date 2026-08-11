@@ -7,6 +7,7 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.RabbitMQContainerFactory;
 import eu.rekawek.toxiproxy.Proxy;
 import eu.rekawek.toxiproxy.ToxiproxyClient;
+import java.io.IOException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -23,8 +24,6 @@ import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.containers.ToxiproxyContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.io.IOException;
 
 @Tag("chaos")
 @SpringBootTest

@@ -3,7 +3,6 @@ package com.otilm.core.service.handler.authority;
 import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v1.AuthorityInstanceSyncApiClient;
 import com.otilm.api.interfaces.client.v2.CertificateSyncApiClient;
 import com.otilm.api.model.client.attribute.RequestAttribute;
@@ -19,9 +18,9 @@ import com.otilm.api.model.connector.v2.CertificateRenewRequestDto;
 import com.otilm.api.model.connector.v2.CertificateSignRequestDto;
 import com.otilm.api.model.core.authority.CertificateRevocationReason;
 import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRevocationDto;
-import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
@@ -30,6 +29,8 @@ import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.CertificateRequestEntity;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,12 +41,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuthorityProviderV2AdapterTest {
@@ -122,7 +130,8 @@ class AuthorityProviderV2AdapterTest {
     void issue_wrapsV2ResponseAsSyncOk() throws ConnectorException {
         CertificateDataResponseDto responseBody = new CertificateDataResponseDto();
         responseBody.setCertificateData("issuedCertData==");
-        when(certClient.issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
+        when(certClient
+                .issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
                 .thenReturn(ResponseEntity.ok(responseBody));
 
         AdapterOperationResult result = adapter.issue(cert, new ClientCertificateIssueRequestDto());
@@ -136,7 +145,8 @@ class AuthorityProviderV2AdapterTest {
     void issue_buildsWireDtoFromCertEntity() throws ConnectorException {
         CertificateDataResponseDto responseBody = new CertificateDataResponseDto();
         responseBody.setCertificateData("cert==");
-        when(certClient.issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
+        when(certClient
+                .issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
                 .thenReturn(ResponseEntity.ok(responseBody));
 
         adapter.issue(cert, new ClientCertificateIssueRequestDto());
@@ -152,7 +162,8 @@ class AuthorityProviderV2AdapterTest {
         // the stored ra-profile attributes for v2 — they reach the wire exactly as stored (byte-identical guard).
         List<RequestAttribute> stored = List.of(mock(RequestAttribute.class));
         when(attributeEngine.getRequestObjectDataAttributesContent(any())).thenReturn(stored);
-        when(certClient.issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
+        when(certClient
+                .issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
                 .thenReturn(ResponseEntity.ok(new CertificateDataResponseDto()));
 
         adapter.issue(cert, new ClientCertificateIssueRequestDto());
@@ -170,7 +181,8 @@ class AuthorityProviderV2AdapterTest {
         CertificateDataResponseDto responseBody = new CertificateDataResponseDto();
         responseBody.setCertificateData("renewedCertData==");
         when(attributeEngine.getMetadataAttributesDefinitionContent(any())).thenReturn(List.of());
-        when(certClient.renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
+        when(certClient
+                .renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
                 .thenReturn(ResponseEntity.ok(responseBody));
 
         AdapterOperationResult result = adapter.renew(oldCert, cert, new ClientCertificateRenewRequestDto());
@@ -184,7 +196,8 @@ class AuthorityProviderV2AdapterTest {
         CertificateDataResponseDto responseBody = new CertificateDataResponseDto();
         responseBody.setCertificateData("cert==");
         when(attributeEngine.getMetadataAttributesDefinitionContent(any())).thenReturn(List.of());
-        when(certClient.renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
+        when(certClient
+                .renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
                 .thenReturn(ResponseEntity.ok(responseBody));
 
         // newCert (cert) provides the CSR; oldCert provides the predecessor cert content.
@@ -192,7 +205,7 @@ class AuthorityProviderV2AdapterTest {
 
         ArgumentCaptor<CertificateRenewRequestDto> captor = ArgumentCaptor.forClass(CertificateRenewRequestDto.class);
         verify(certClient).renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), captor.capture());
-        assertEquals("dGVzdGNzcg==", captor.getValue().getRequest());   // from newCert (cert)
+        assertEquals("dGVzdGNzcg==", captor.getValue().getRequest()); // from newCert (cert)
         assertEquals("dGVzdGNlcnQ=", captor.getValue().getCertificate()); // from oldCert
     }
 
@@ -204,7 +217,8 @@ class AuthorityProviderV2AdapterTest {
         CertificateDataResponseDto responseBody = new CertificateDataResponseDto();
         responseBody.setCertificateData("renewedNoCsr==");
         when(attributeEngine.getMetadataAttributesDefinitionContent(any())).thenReturn(List.of());
-        when(certClient.renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
+        when(certClient
+                .renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
                 .thenReturn(ResponseEntity.ok(responseBody));
 
         AdapterOperationResult result = adapter.renew(oldCert, cert, new ClientCertificateRenewRequestDto());
@@ -220,7 +234,8 @@ class AuthorityProviderV2AdapterTest {
     void issue_status202ReturnsAsyncAccepted() throws ConnectorException {
         CertificateDataResponseDto responseBody = new CertificateDataResponseDto();
         responseBody.setCertificateData(null); // 202 body may omit cert data
-        when(certClient.issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
+        when(certClient
+                .issueCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateSignRequestDto.class)))
                 .thenReturn(ResponseEntity.status(202).body(responseBody));
 
         AdapterOperationResult result = adapter.issue(cert, new ClientCertificateIssueRequestDto());
@@ -233,7 +248,8 @@ class AuthorityProviderV2AdapterTest {
     @Test
     void renew_status202ReturnsAsyncAccepted() throws ConnectorException {
         when(attributeEngine.getMetadataAttributesDefinitionContent(any())).thenReturn(List.of());
-        when(certClient.renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
+        when(certClient
+                .renewCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateRenewRequestDto.class)))
                 .thenReturn(ResponseEntity.status(202).build());
 
         AdapterOperationResult result = adapter.renew(oldCert, cert, new ClientCertificateRenewRequestDto());
@@ -294,13 +310,16 @@ class AuthorityProviderV2AdapterTest {
         CertificateIdentificationResponseDto response = new CertificateIdentificationResponseDto();
         List<MetadataAttribute> meta = List.of(mock(MetadataAttribute.class));
         response.setMeta(meta);
-        when(certClient.identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateIdentificationRequestDto.class)))
+        when(certClient
+                .identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"),
+                        any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(response);
 
         List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=");
 
         assertSame(meta, result);
-        ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor.forClass(CertificateIdentificationRequestDto.class);
+        ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor
+                .forClass(CertificateIdentificationRequestDto.class);
         verify(certClient).identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"), captor.capture());
         assertEquals("dGVzdGNlcnQ=", captor.getValue().getCertificate());
     }
@@ -310,19 +329,24 @@ class AuthorityProviderV2AdapterTest {
         // v2 is stateful: stored ra-profile attributes must reach the wire exactly as stored (no dereference).
         List<RequestAttribute> stored = List.of(mock(RequestAttribute.class));
         when(attributeEngine.getRequestObjectDataAttributesContent(any())).thenReturn(stored);
-        when(certClient.identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateIdentificationRequestDto.class)))
+        when(certClient
+                .identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"),
+                        any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
         adapter.identify(raProfile, "dGVzdGNlcnQ=");
 
-        ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor.forClass(CertificateIdentificationRequestDto.class);
+        ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor
+                .forClass(CertificateIdentificationRequestDto.class);
         verify(certClient).identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"), captor.capture());
         assertSame(stored, captor.getValue().getRaProfileAttributes());
     }
 
     @Test
     void identify_normalizesNullMetaToEmptyList() throws Exception {
-        when(certClient.identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"), any(CertificateIdentificationRequestDto.class)))
+        when(certClient
+                .identifyCertificate(eq(connectorInfo), eq("auth-instance-uuid"),
+                        any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
         assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ="));
@@ -339,7 +363,8 @@ class AuthorityProviderV2AdapterTest {
         chainCert.setCertificateType(CertificateType.X509);
         CaCertificatesResponseDto response = new CaCertificatesResponseDto();
         response.setCertificates(List.of(chainCert));
-        when(authorityClient.getCaCertificates(eq(connectorInfo), eq("auth-instance-uuid"), any(CaCertificatesRequestDto.class)))
+        when(authorityClient
+                .getCaCertificates(eq(connectorInfo), eq("auth-instance-uuid"), any(CaCertificatesRequestDto.class)))
                 .thenReturn(response);
 
         List<AdapterOperationResult> result = adapter.getCaCertificates(authority, raProfile);
@@ -358,7 +383,8 @@ class AuthorityProviderV2AdapterTest {
         when(attributeEngine.getRequestObjectDataAttributesContent(any())).thenReturn(stored);
         CaCertificatesResponseDto response = new CaCertificatesResponseDto();
         response.setCertificates(List.of());
-        when(authorityClient.getCaCertificates(eq(connectorInfo), eq("auth-instance-uuid"), any(CaCertificatesRequestDto.class)))
+        when(authorityClient
+                .getCaCertificates(eq(connectorInfo), eq("auth-instance-uuid"), any(CaCertificatesRequestDto.class)))
                 .thenReturn(response);
 
         adapter.getCaCertificates(authority, raProfile);
@@ -370,7 +396,8 @@ class AuthorityProviderV2AdapterTest {
 
     @Test
     void getCaCertificates_normalizesNullCertificatesToEmptyList() throws Exception {
-        when(authorityClient.getCaCertificates(eq(connectorInfo), eq("auth-instance-uuid"), any(CaCertificatesRequestDto.class)))
+        when(authorityClient
+                .getCaCertificates(eq(connectorInfo), eq("auth-instance-uuid"), any(CaCertificatesRequestDto.class)))
                 .thenReturn(new CaCertificatesResponseDto());
 
         assertEquals(List.of(), adapter.getCaCertificates(authority, raProfile));
@@ -448,7 +475,8 @@ class AuthorityProviderV2AdapterTest {
     @Test
     void validateRaProfileAttributes_passesThroughConnectorRejection() throws Exception {
         List<RequestAttribute> attrs = List.of(mock(RequestAttribute.class));
-        when(authorityClient.validateRAProfileAttributes(connectorInfo, "auth-instance-uuid", attrs)).thenThrow(new ConnectorException("Invalid attributes"));
+        when(authorityClient.validateRAProfileAttributes(connectorInfo, "auth-instance-uuid", attrs))
+                .thenThrow(new ConnectorException("Invalid attributes"));
 
         assertThrows(ConnectorException.class, () -> adapter.validateRaProfileAttributes(authority, attrs));
     }

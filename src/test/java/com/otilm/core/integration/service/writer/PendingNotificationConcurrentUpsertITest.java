@@ -11,12 +11,6 @@ import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRep
 import com.otilm.core.dao.repository.notifications.PendingNotificationRepository;
 import com.otilm.core.service.writer.PendingNotificationWriter;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -25,12 +19,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
- * Proves the suppression-row upsert is atomic: two consumers recording a send for the same
- * (profile, resource, object, event) at the same time must converge on one row with an
- * accurate repetition count, and the pinned profile version must never change on conflict.
- * The pre-upsert read-then-insert flow produced duplicate rows in exactly this race.
+ * Proves the suppression-row upsert is atomic: two consumers recording a send for the same (profile, resource, object,
+ * event) at the same time must converge on one row with an accurate repetition count, and the pinned profile version
+ * must never change on conflict. The pre-upsert read-then-insert flow produced duplicate rows in exactly this race.
  */
 class PendingNotificationConcurrentUpsertITest extends BaseSpringBootTest {
 
@@ -76,9 +74,8 @@ class PendingNotificationConcurrentUpsertITest extends BaseSpringBootTest {
         AtomicReference<Throwable> failure = new AtomicReference<>();
 
         try {
-            List<Future<?>> futures = List.of(
-                    pool.submit(raceWorker(ready, fire, failure)),
-                    pool.submit(raceWorker(ready, fire, failure)));
+            List<Future<?>> futures = List
+                    .of(pool.submit(raceWorker(ready, fire, failure)), pool.submit(raceWorker(ready, fire, failure)));
 
             Assertions.assertTrue(ready.await(10, TimeUnit.SECONDS), "workers did not become ready in time");
             fire.countDown();
@@ -92,8 +89,11 @@ class PendingNotificationConcurrentUpsertITest extends BaseSpringBootTest {
         Assertions.assertNull(failure.get(), () -> "worker failed: " + failure.get());
 
         PendingNotification row = pendingNotificationRepository
-                .findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(profileUuid, RESOURCE, objectUuid, EVENT);
-        Assertions.assertNotNull(row, "exactly one suppression row should exist; a duplicate would make the finder throw");
+                .findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(profileUuid, RESOURCE, objectUuid,
+                        EVENT);
+        Assertions
+                .assertNotNull(row,
+                        "exactly one suppression row should exist; a duplicate would make the finder throw");
         Assertions.assertEquals(2, row.getRepetitions(), "both concurrent sends must be counted");
         Assertions.assertEquals(1, row.getVersion());
         Assertions.assertNotNull(row.getLastSentAt());
@@ -101,7 +101,8 @@ class PendingNotificationConcurrentUpsertITest extends BaseSpringBootTest {
         // A later send updates in place and never touches the pinned version.
         pendingNotificationWriter.recordSent(profileUuid, RESOURCE, objectUuid, EVENT, 7);
         PendingNotification updated = pendingNotificationRepository
-                .findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(profileUuid, RESOURCE, objectUuid, EVENT);
+                .findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(profileUuid, RESOURCE, objectUuid,
+                        EVENT);
         Assertions.assertEquals(3, updated.getRepetitions());
         Assertions.assertEquals(1, updated.getVersion(), "the pinned version must survive conflicts");
     }

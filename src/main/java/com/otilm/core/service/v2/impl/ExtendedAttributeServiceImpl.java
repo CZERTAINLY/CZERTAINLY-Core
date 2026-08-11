@@ -1,6 +1,10 @@
 package com.otilm.core.service.v2.impl;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -15,11 +19,10 @@ import com.otilm.core.service.handler.authority.AuthorityProviderAdapter;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.RegisterCapability;
 import com.otilm.core.service.v2.ExtendedAttributeService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service("extendedAcmeServiceImpl")
 public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
@@ -55,7 +58,8 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public List<BaseAttribute> listIssueCertificateAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listIssueCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();
         var connector = authorityRef.getConnector();
         if (connector == null) {
@@ -66,7 +70,8 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public void validateIssueCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
+    public void validateIssueCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, ValidationException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();
         var connector = authorityRef.getConnector();
         if (connector == null) {
@@ -79,11 +84,13 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException {
+    public void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException {
         if (raProfile.getAuthorityInstanceReference().getConnector() == null) {
             throw new ValidationException(ValidationError.create(CONNECTOR_UNAVAILABLE_MESSAGE));
         }
-        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory.forAuthority(raProfile.getAuthorityInstanceReference());
+        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory
+                .forAuthority(raProfile.getAuthorityInstanceReference());
 
         // validate first by connector
         if (attributes == null) {
@@ -92,26 +99,32 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         adapter.validateIssueAttributes(raProfile.getAuthorityInstanceReference(), attributes);
 
         // get definitions from connector
-        List<BaseAttribute> definitions = adapter.listIssueAttributes(raProfile.getAuthorityInstanceReference(), raProfile);
+        List<BaseAttribute> definitions = adapter
+                .listIssueAttributes(raProfile.getAuthorityInstanceReference(), raProfile);
 
         // validate and update definitions with attribute engine
-        attributeEngine.validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, definitions, attributes);
+        attributeEngine
+                .validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                        AttributeOperation.CERTIFICATE_ISSUE, definitions, attributes);
     }
 
     @Override
-    public List<BaseAttribute> listRevokeCertificateAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listRevokeCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();
         var connector = authorityRef.getConnector();
         if (connector == null) {
             throw new NotFoundException(CONNECTOR_UNAVAILABLE_MESSAGE);
         }
         validateLegacyConnector(connector);
-        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory.forAuthority(raProfile.getAuthorityInstanceReference());
+        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory
+                .forAuthority(raProfile.getAuthorityInstanceReference());
         return adapter.listRevokeAttributes(authorityRef, raProfile);
     }
 
     @Override
-    public List<BaseAttribute> listRegisterCertificateAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listRegisterCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();
         var connector = authorityRef.getConnector();
         if (connector == null) {
@@ -129,7 +142,8 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public void mergeAndValidateRegisterAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException {
+    public void mergeAndValidateRegisterAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();
         if (authorityRef.getConnector() == null) {
             throw new ValidationException(ValidationError.create(CONNECTOR_UNAVAILABLE_MESSAGE));
@@ -145,27 +159,33 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         }
         // v3 has no connector-side validate; materialize the register schema and validate structurally via the engine.
         List<BaseAttribute> definitions = registerCapability.listRegisterAttributes(authorityRef, raProfile);
-        attributeEngine.validateUpdateDataAttributes(authorityRef.getConnectorUuid(), AttributeOperation.CERTIFICATE_REGISTER, definitions, attributes);
+        attributeEngine
+                .validateUpdateDataAttributes(authorityRef.getConnectorUuid(), AttributeOperation.CERTIFICATE_REGISTER,
+                        definitions, attributes);
     }
 
     @Override
-    public void validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
+    public void validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, ValidationException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();
         var connector = authorityRef.getConnector();
         if (connector == null) {
             throw new NotFoundException(CONNECTOR_UNAVAILABLE_MESSAGE);
         }
         validateLegacyConnector(connector);
-        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory.forAuthority(raProfile.getAuthorityInstanceReference());
+        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory
+                .forAuthority(raProfile.getAuthorityInstanceReference());
         adapter.validateRevokeAttributes(authorityRef, attributes);
     }
 
     @Override
-    public void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException {
+    public void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException {
         if (raProfile.getAuthorityInstanceReference().getConnector() == null) {
             throw new ValidationException(ValidationError.create(CONNECTOR_UNAVAILABLE_MESSAGE));
         }
-        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory.forAuthority(raProfile.getAuthorityInstanceReference());
+        AuthorityProviderAdapter adapter = authorityProviderAdapterFactory
+                .forAuthority(raProfile.getAuthorityInstanceReference());
 
         // validate first by connector
         if (attributes == null) {
@@ -174,16 +194,21 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         adapter.validateRevokeAttributes(raProfile.getAuthorityInstanceReference(), attributes);
 
         // get definitions from connector
-        List<BaseAttribute> definitions = adapter.listRevokeAttributes(raProfile.getAuthorityInstanceReference(), raProfile);
+        List<BaseAttribute> definitions = adapter
+                .listRevokeAttributes(raProfile.getAuthorityInstanceReference(), raProfile);
 
         // validate and update definitions with attribute engine
-        attributeEngine.validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, definitions, attributes);
+        attributeEngine
+                .validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                        AttributeOperation.CERTIFICATE_REVOKE, definitions, attributes);
     }
 
     @Override
     public void validateLegacyConnector(Connector connector) throws NotFoundException {
         for (Connector2FunctionGroup fg : connector.getFunctionGroups()) {
-            if (!connectorRepository.findConnectedByFunctionGroupAndKind(fg.getFunctionGroup(), "LegacyEjbca").isEmpty()) {
+            if (!connectorRepository
+                    .findConnectedByFunctionGroupAndKind(fg.getFunctionGroup(), "LegacyEjbca")
+                    .isEmpty()) {
                 throw new NotFoundException("Legacy Authority. V2 Implementation not found on the connector");
             }
         }

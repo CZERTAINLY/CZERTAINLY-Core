@@ -1,6 +1,11 @@
 package com.otilm.core.integration.migration;
 
 import com.otilm.core.util.BaseSpringBootTest;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Properties;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,12 +15,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Properties;
 
 // Migration DDL commits FK renames Hibernate can't undo; resetSchema() + @DirtiesContext gives each class a clean slate without touching the shared daemon container.
 // Route migration tests to their own isolated TC daemon container.
@@ -56,8 +55,7 @@ public abstract class BaseMigrationTest extends BaseSpringBootTest {
         if (!dbSchema.matches("^[a-zA-Z0-9_]+$")) {
             throw new IllegalArgumentException("Invalid schema name: " + dbSchema);
         }
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+        try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             stmt.execute("DROP SCHEMA IF EXISTS " + dbSchema + " CASCADE");
             stmt.execute("CREATE SCHEMA " + dbSchema);
         }

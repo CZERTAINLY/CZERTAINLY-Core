@@ -16,8 +16,9 @@ import java.util.Optional;
 /**
  * Pure resolution kernel for request-attribute sets.
  *
- * <p>Combines the RA-Profile static set with the connector-supplied dynamic set per a merge mode, and applies
- * Core-side {@code valueSource} bindings onto connector (or static) definitions.
+ * <p>
+ * Combines the RA-Profile static set with the connector-supplied dynamic set per a merge mode, and applies Core-side
+ * {@code valueSource} bindings onto connector (or static) definitions.
  */
 public final class RequestAttributeSetResolver {
 
@@ -35,14 +36,13 @@ public final class RequestAttributeSetResolver {
     }
 
     /**
-     * @param staticSet    the RA-Profile static definitions (may be {@code null})
+     * @param staticSet the RA-Profile static definitions (may be {@code null})
      * @param connectorSet the connector-supplied dynamic definitions (may be {@code null})
-     * @param mode         the per-RA-Profile merge mode; {@code null} is treated as {@link AttributeSetMergeMode#MERGE}
+     * @param mode the per-RA-Profile merge mode; {@code null} is treated as {@link AttributeSetMergeMode#MERGE}
      * @return the resolved, ordered set
      */
     public static List<BaseAttribute> merge(List<? extends BaseAttribute> staticSet,
-                                            List<? extends BaseAttribute> connectorSet,
-                                            AttributeSetMergeMode mode) {
+            List<? extends BaseAttribute> connectorSet, AttributeSetMergeMode mode) {
         List<? extends BaseAttribute> staticDefs = staticSet == null ? List.of() : staticSet;
         List<? extends BaseAttribute> connectorDefs = connectorSet == null ? List.of() : connectorSet;
         AttributeSetMergeMode effective = effectiveMode(mode);
@@ -55,7 +55,7 @@ public final class RequestAttributeSetResolver {
     }
 
     private static List<BaseAttribute> mergeUnion(List<? extends BaseAttribute> staticDefs,
-                                                  List<? extends BaseAttribute> connectorDefs) {
+            List<? extends BaseAttribute> connectorDefs) {
         // Connector definitions first, in their order; they win any key conflict.
         Map<String, BaseAttribute> byKey = new LinkedHashMap<>();
         for (BaseAttribute def : connectorDefs) {
@@ -79,25 +79,23 @@ public final class RequestAttributeSetResolver {
     // ---- value-source binding -------------------------------------------------------
 
     /**
-     * A Core-side value-source binding, decoupled from the {@code RaProfileValueSourceBinding} entity so the
-     * kernel stays Spring/JPA-free. {@code attributeUuid} is the primary key; {@code attributeName} is the fallback.
+     * A Core-side value-source binding, decoupled from the {@code RaProfileValueSourceBinding} entity so the kernel
+     * stays Spring/JPA-free. {@code attributeUuid} is the primary key; {@code attributeName} is the fallback.
      */
-    public record ValueSourceBindingSpec(String attributeUuid,
-                                         String attributeName,
-                                         ValueSourceType valueSourceType,
-                                         String collectionRef,
-                                         List<SourceParam> params) {
+    public record ValueSourceBindingSpec(String attributeUuid, String attributeName, ValueSourceType valueSourceType,
+            String collectionRef, List<SourceParam> params) {
     }
 
     /**
      * Applies Core-side value-source bindings onto the resolved definitions. A binding binds to a definition by UUID,
-     * falling back to name. Only {@link DataAttributeV3} definitions can carry a {@code valueSource}; others are passed through untouched.
-     * Definitions are mutated in place and returned.
+     * falling back to name. Only {@link DataAttributeV3} definitions can carry a {@code valueSource}; others are passed
+     * through untouched. Definitions are mutated in place and returned.
      *
-     * <p>A matched binding <em>overrides</em> any {@code valueSource} a connector definition already carries.
+     * <p>
+     * A matched binding <em>overrides</em> any {@code valueSource} a connector definition already carries.
      */
     public static List<BaseAttribute> applyValueSourceBindings(List<? extends BaseAttribute> definitions,
-                                                               List<ValueSourceBindingSpec> bindings) {
+            List<ValueSourceBindingSpec> bindings) {
         if (definitions == null) {
             return new ArrayList<>();
         }
@@ -112,10 +110,11 @@ public final class RequestAttributeSetResolver {
     }
 
     private static Optional<ValueSourceBindingSpec> findValueSourceBinding(DataAttributeV3 def,
-                                                                           List<ValueSourceBindingSpec> bindings) {
+            List<ValueSourceBindingSpec> bindings) {
         for (ValueSourceBindingSpec binding : bindings) {
             boolean uuidMatch = binding.attributeUuid() != null && binding.attributeUuid().equals(def.getUuid());
-            // Name is a deliberate fallback that fires even when the binding has a UUID, so a binding survives the connector rotating the attribute's UUID.
+            // Name is a deliberate fallback that fires even when the binding has a UUID, so a binding survives the
+            // connector rotating the attribute's UUID.
             boolean nameMatch = binding.attributeName() != null && binding.attributeName().equals(def.getName());
             if (uuidMatch || nameMatch) {
                 return Optional.of(binding);

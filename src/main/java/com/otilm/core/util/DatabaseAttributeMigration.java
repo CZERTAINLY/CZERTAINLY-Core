@@ -1,28 +1,32 @@
 package com.otilm.core.util;
 
-import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
-import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
-import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
-import com.otilm.api.model.core.auth.Resource;
-import com.otilm.core.attribute.engine.AttributeEngine;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.flywaydb.core.api.migration.Context;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.sql.*;
+import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.core.attribute.engine.AttributeEngine;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.flywaydb.core.api.migration.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabaseAttributeMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(DatabaseAttributeMigration.class);
-    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     private static Map<String, UUID> attributeNameDefinitionMapping = new HashMap<>();
     private static final Map<UUID, Map<String, UUID>> definitionsItemsContentMapping = new HashMap<>();
@@ -35,7 +39,8 @@ public class DatabaseAttributeMigration {
 
     public static void loadExistingDataAttributesDefinitions(Context context) throws SQLException {
         try (final Statement selectStatement = context.getConnection().createStatement()) {
-            ResultSet rows = selectStatement.executeQuery("SELECT uuid, connector_uuid, name FROM attribute_definition WHERE type = 'DATA'");
+            ResultSet rows = selectStatement
+                    .executeQuery("SELECT uuid, connector_uuid, name FROM attribute_definition WHERE type = 'DATA'");
             while (rows.next()) {
                 UUID uuid = rows.getObject("uuid", UUID.class);
                 UUID connectorUuid = rows.getObject("connector_uuid", UUID.class);
@@ -46,12 +51,25 @@ public class DatabaseAttributeMigration {
         }
     }
 
-    public static void moveTableDataAttributes(Context context, Resource resource, String tableName, String[] columns, String[] operations, boolean[] fromConnector) throws SQLException, JsonProcessingException {
-        logger.debug("Moving data attribute definitions for resource '{}', table '{}', columns [{}] and operations [{}]", resource.getLabel(), tableName, String.join(", ", columns), String.join(", ", operations));
+    public static void moveTableDataAttributes(Context context, Resource resource, String tableName, String[] columns,
+            String[] operations, boolean[] fromConnector) throws SQLException, JsonProcessingException {
+        logger
+                .debug("Moving data attribute definitions for resource '{}', table '{}', columns [{}] and operations [{}]",
+                        resource.getLabel(), tableName, String.join(", ", columns), String.join(", ", operations));
         try (final Statement selectStatement = context.getConnection().createStatement();
-             final PreparedStatement insertDefinitionStatement = context.getConnection().prepareStatement("INSERT INTO attribute_definition(uuid, connector_uuid, attribute_uuid, name, type, content_type, label, required, read_only, definition, operation, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?::jsonb,?,?,?)"); // 13 fields
-             final PreparedStatement insertContentItemStatement = context.getConnection().prepareStatement("INSERT INTO attribute_content_item(uuid, attribute_definition_uuid, json) VALUES (?,?,?::jsonb)");
-             final PreparedStatement insertObjectContentStatement = context.getConnection().prepareStatement("INSERT INTO attribute_content_2_object(uuid, connector_uuid, attribute_content_item_uuid, object_type, object_uuid, source_object_type, source_object_uuid, source_object_name, item_order) VALUES (?,?,?,?,?,?,?,?,?)")) {
+                final PreparedStatement insertDefinitionStatement = context
+                        .getConnection()
+                        .prepareStatement(
+                                "INSERT INTO attribute_definition(uuid, connector_uuid, attribute_uuid, name, type, content_type, label, required, read_only, definition, operation, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?::jsonb,?,?,?)"); // 13
+                                                                                                                                                                                                                                                          // fields
+                final PreparedStatement insertContentItemStatement = context
+                        .getConnection()
+                        .prepareStatement(
+                                "INSERT INTO attribute_content_item(uuid, attribute_definition_uuid, json) VALUES (?,?,?::jsonb)");
+                final PreparedStatement insertObjectContentStatement = context
+                        .getConnection()
+                        .prepareStatement(
+                                "INSERT INTO attribute_content_2_object(uuid, connector_uuid, attribute_content_item_uuid, object_type, object_uuid, source_object_type, source_object_uuid, source_object_name, item_order) VALUES (?,?,?,?,?,?,?,?,?)")) {
 
             int definitionInsertsCount = 0;
             int contentItemsInsertsCount = 0;
@@ -67,7 +85,8 @@ public class DatabaseAttributeMigration {
                         continue;
                     }
 
-                    List<DataAttributeV2> attributes = AttributeDefinitionUtils.deserialize(json, DataAttributeV2.class);
+                    List<DataAttributeV2> attributes = AttributeDefinitionUtils
+                            .deserialize(json, DataAttributeV2.class);
                     Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
                     for (DataAttributeV2 dataAttribute : attributes) {
                         // check if attribute was not deserialized from RequestAttribute
@@ -90,10 +109,14 @@ public class DatabaseAttributeMigration {
                         }
 
                         // TODO: can be connector null for DATA attribute?
-                        UUID connectorUuid = fromConnector[i] ? getConnectorUuidForResource(context, resource, rows) : null;
+                        UUID connectorUuid = fromConnector[i]
+                                ? getConnectorUuidForResource(context, resource, rows)
+                                : null;
 
                         // create or get attribute definition
-                        String attributeKey = String.join("|", connectorUuid != null ? connectorUuid.toString() : "", dataAttribute.getName());
+                        String attributeKey = String
+                                .join("|", connectorUuid != null ? connectorUuid.toString() : "",
+                                        dataAttribute.getName());
                         UUID definitionUuid = attributeNameDefinitionMapping.get(attributeKey);
                         if (definitionUuid == null) {
                             definitionUuid = UUID.randomUUID();
@@ -117,9 +140,9 @@ public class DatabaseAttributeMigration {
                             attributeNameDefinitionMapping.put(attributeKey, definitionUuid);
                         }
 
-
                         // mapping serialized content to existing item UUID
-                        Map<String, UUID> definitionItemsContentMapping = definitionsItemsContentMapping.get(definitionUuid);
+                        Map<String, UUID> definitionItemsContentMapping = definitionsItemsContentMapping
+                                .get(definitionUuid);
                         if (definitionItemsContentMapping == null) {
                             definitionItemsContentMapping = new HashMap<>();
                             definitionsItemsContentMapping.put(definitionUuid, definitionItemsContentMapping);
@@ -159,13 +182,18 @@ public class DatabaseAttributeMigration {
                 }
             }
 
-            logger.debug("Executing batch insert with {} data attribute definitions for resource '{}', table '{}', columns [{}] and operations [{}]", definitionInsertsCount, resource.getLabel(), tableName, String.join(", ", columns), String.join(", ", operations));
+            logger
+                    .debug("Executing batch insert with {} data attribute definitions for resource '{}', table '{}', columns [{}] and operations [{}]",
+                            definitionInsertsCount, resource.getLabel(), tableName, String.join(", ", columns),
+                            String.join(", ", operations));
             insertDefinitionStatement.executeBatch();
 
             logger.debug("Executing batch insert with {} attribute content items.", contentItemsInsertsCount);
             insertContentItemStatement.executeBatch();
 
-            logger.debug("Executing batch insert with {} attribute content items assigned to {} objects.", contentObjectsInsertsCount, resource.getLabel());
+            logger
+                    .debug("Executing batch insert with {} attribute content items assigned to {} objects.",
+                            contentObjectsInsertsCount, resource.getLabel());
             insertObjectContentStatement.executeBatch();
         }
 
@@ -179,7 +207,8 @@ public class DatabaseAttributeMigration {
         }
     }
 
-    private static UUID getConnectorUuidForResource(Context context, Resource resource, ResultSet rows) throws SQLException {
+    private static UUID getConnectorUuidForResource(Context context, Resource resource, ResultSet rows)
+            throws SQLException {
         switch (resource) {
             case CREDENTIAL, DISCOVERY, TOKEN -> {
                 return rows.getObject("connector_uuid", UUID.class);
@@ -189,7 +218,9 @@ public class DatabaseAttributeMigration {
                     loadRaProfileConnectorMapping(context);
                 }
                 UUID raProfileUuid = rows.getObject("ra_profile_uuid", UUID.class);
-                return raProfilesConnectorMapping == null ? null : raProfilesConnectorMapping.getOrDefault(raProfileUuid, null);
+                return raProfilesConnectorMapping == null
+                        ? null
+                        : raProfilesConnectorMapping.getOrDefault(raProfileUuid, null);
             }
             case RA_PROFILE -> {
                 if (authoritiesConnectorMapping == null) {
@@ -228,7 +259,9 @@ public class DatabaseAttributeMigration {
     private static void loadRaProfileConnectorMapping(Context context) throws SQLException {
         raProfilesConnectorMapping = new HashMap<>();
         try (final Statement selectStatement = context.getConnection().createStatement()) {
-            ResultSet rows = selectStatement.executeQuery("SELECT ra.uuid AS uuid, a.connector_uuid AS connectorUuid FROM ra_profile AS ra JOIN authority_instance_reference AS a ON ra.authority_instance_ref_uuid = a.uuid");
+            ResultSet rows = selectStatement
+                    .executeQuery(
+                            "SELECT ra.uuid AS uuid, a.connector_uuid AS connectorUuid FROM ra_profile AS ra JOIN authority_instance_reference AS a ON ra.authority_instance_ref_uuid = a.uuid");
             while (rows.next()) {
                 UUID uuid = rows.getObject("uuid", UUID.class);
                 UUID connectorUuid = rows.getObject("connectorUuid", UUID.class);

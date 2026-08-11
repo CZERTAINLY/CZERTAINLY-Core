@@ -13,30 +13,19 @@ import com.otilm.core.util.AttributeDefinitionUtils;
 import java.util.List;
 
 /**
- * Immutable snapshot (shallow) of the connector fields required to route an API client call.
- * The cache returns shared instances, so this type must not expose setters — any mutation of a
- * cached value would silently affect every other caller in the JVM.
+ * Immutable snapshot (shallow) of the connector fields required to route an API client call. The cache returns shared
+ * instances, so this type must not expose setters — any mutation of a cached value would silently affect every other
+ * caller in the JVM.
  */
-record ImmutableConnectorInfo(
-        String uuid,
-        String name,
-        String url,
-        ConnectorStatus status,
-        AuthType authType,
-        List<ResponseAttribute> authAttributes,
-        ProxyDto proxy
-) implements ApiClientConnectorInfo {
+record ImmutableConnectorInfo(String uuid, String name, String url, ConnectorStatus status, AuthType authType,
+        List<ResponseAttribute> authAttributes, ProxyDto proxy) implements ApiClientConnectorInfo {
 
     static ImmutableConnectorInfo of(Connector connector) {
-        List<ResponseAttribute> attrs = AttributeEngine.getResponseAttributesFromBaseAttributes(
-                AttributeDefinitionUtils.deserialize(connector.getAuthAttributes(), BaseAttribute.class));
-        return new ImmutableConnectorInfo(
-                connector.getUuid().toString(),
-                connector.getName(),
-                connector.getUrl(),
-                connector.getStatus(),
-                connector.getAuthType(),
-                attrs == null ? List.of() : List.copyOf(attrs),
+        List<ResponseAttribute> attrs = AttributeEngine
+                .getResponseAttributesFromBaseAttributes(
+                        AttributeDefinitionUtils.deserialize(connector.getAuthAttributes(), BaseAttribute.class));
+        return new ImmutableConnectorInfo(connector.getUuid().toString(), connector.getName(), connector.getUrl(),
+                connector.getStatus(), connector.getAuthType(), attrs == null ? List.of() : List.copyOf(attrs),
                 connector.getProxy() == null ? null : connector.getProxy().mapToDtoSimple());
     }
 

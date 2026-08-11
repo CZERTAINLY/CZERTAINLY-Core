@@ -1,6 +1,10 @@
 package com.otilm.core.api.web.v2;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.v2.ConnectorController;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.ConnectRequestDto;
@@ -9,7 +13,11 @@ import com.otilm.api.model.client.connector.v2.HealthInfo;
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.connector.v2.*;
+import com.otilm.api.model.core.connector.v2.ConnectInfo;
+import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
+import com.otilm.api.model.core.connector.v2.ConnectorDto;
+import com.otilm.api.model.core.connector.v2.ConnectorRequestDto;
+import com.otilm.api.model.core.connector.v2.ConnectorUpdateRequestDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
@@ -18,12 +26,11 @@ import com.otilm.core.auth.AuthEndpoint;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.v2.ConnectorExternalService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.net.ConnectException;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class ConnectorControllerImpl implements ConnectorController {
@@ -56,13 +63,15 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.CREATE)
-    public ConnectorDetailDto createConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+    public ConnectorDetailDto createConnector(ConnectorRequestDto request)
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         return connectorService.createConnector(request);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.UPDATE)
-    public ConnectorDetailDto editConnector(UUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public ConnectorDetailDto editConnector(UUID uuid, ConnectorUpdateRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException {
         return connectorService.editConnector(SecuredUUID.fromUUID(uuid), request);
     }
 
@@ -74,13 +83,15 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.CONNECT)
-    public List<ConnectInfo> connect(ConnectRequestDto request) throws ValidationException, ConnectException, ConnectorException {
+    public List<ConnectInfo> connect(ConnectRequestDto request)
+            throws ValidationException, ConnectException, ConnectorException {
         return connectorService.connect(request);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.RECONNECT)
-    public ConnectInfo reconnect(UUID uuid) throws ValidationException, NotFoundException, ConnectException, ConnectorException {
+    public ConnectInfo reconnect(UUID uuid)
+            throws ValidationException, NotFoundException, ConnectException, ConnectorException {
         return connectorService.reconnect(SecuredUUID.fromUUID(uuid));
     }
 
@@ -98,19 +109,22 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.RECONNECT)
-    public List<BulkActionMessageDto> bulkReconnect(List<UUID> uuids) throws ValidationException, NotFoundException, ConnectException, ConnectorException {
+    public List<BulkActionMessageDto> bulkReconnect(List<UUID> uuids)
+            throws ValidationException, NotFoundException, ConnectException, ConnectorException {
         return connectorService.bulkReconnect(SecuredUUID.fromUuidList(uuids));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.DELETE)
-    public List<BulkActionMessageDto> bulkDeleteConnector(List<UUID> uuids) throws NotFoundException, ValidationException, ConnectorException {
+    public List<BulkActionMessageDto> bulkDeleteConnector(List<UUID> uuids)
+            throws NotFoundException, ValidationException, ConnectorException {
         return connectorService.bulkDeleteConnector(SecuredUUID.fromUuidList(uuids));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceDeleteConnector(List<UUID> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> bulkForceDeleteConnector(List<UUID> uuids)
+            throws NotFoundException, ValidationException {
         return connectorService.forceDeleteConnector(SecuredUUID.fromUuidList(uuids));
     }
 

@@ -11,6 +11,8 @@ import com.otilm.core.service.UserManagementInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SessionTableHelper;
 import com.otilm.core.util.mockbeans.ManagementApiMocks;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,9 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -135,7 +134,8 @@ class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
         UUID roleUuid = UUID.randomUUID();
         when(roleManagementApiClient.getRoleDetail(roleUuid.toString())).thenReturn(roleDetailDto(roleUuid.toString()));
         when(userManagementApiClient.getUserDetail(userUuid.toString())).thenReturn(userDetailDto(userUuid.toString()));
-        when(userManagementApiClient.updateRole(userUuid.toString(), roleUuid.toString())).thenReturn(userDetailDto(userUuid.toString()));
+        when(userManagementApiClient.updateRole(userUuid.toString(), roleUuid.toString()))
+                .thenReturn(userDetailDto(userUuid.toString()));
 
         // when
         userManagementService.updateRole(userUuid.toString(), roleUuid.toString());
@@ -149,7 +149,8 @@ class UserManagementServiceCacheEvictionITest extends BaseSpringBootTest {
         // given
         UUID userUuid = UUID.randomUUID();
         UUID roleUuid = UUID.randomUUID();
-        when(userManagementApiClient.removeRole(userUuid.toString(), roleUuid.toString())).thenReturn(userDetailDto(userUuid.toString()));
+        when(userManagementApiClient.removeRole(userUuid.toString(), roleUuid.toString()))
+                .thenReturn(userDetailDto(userUuid.toString()));
 
         // when
         userManagementService.removeRole(userUuid.toString(), roleUuid.toString());

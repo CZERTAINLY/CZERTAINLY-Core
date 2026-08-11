@@ -5,10 +5,6 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 
 import java.util.UUID;
 
-public record ObjectAttributeDefinitionContent(
-    UUID uuid,
-    BaseAttribute definition,
-    AttributeContent contentItem,
-    String encryptedContent
-)
-{}
+public record ObjectAttributeDefinitionContent(UUID uuid, BaseAttribute definition, AttributeContent contentItem,
+        String encryptedContent) {
+}

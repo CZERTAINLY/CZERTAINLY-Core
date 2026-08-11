@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 public interface CertificateContentRepository extends SecurityFilterRepository<CertificateContent, Long> {
 
     CertificateContent findByFingerprint(String thumbprint);
+
     CertificateContent findByContent(String content);
 
     @Modifying

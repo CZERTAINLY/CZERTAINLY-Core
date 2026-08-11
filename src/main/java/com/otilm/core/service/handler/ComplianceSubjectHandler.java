@@ -12,20 +12,26 @@ import com.otilm.core.model.compliance.ComplianceCheckSubjectContext;
 import com.otilm.core.model.compliance.ComplianceResultDto;
 import com.otilm.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.otilm.core.model.compliance.ComplianceResultRulesDto;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.OffsetDateTime;
-import java.util.*;
 
 @Getter
 public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
     private static final Logger logger = LoggerFactory.getLogger(ComplianceSubjectHandler.class);
 
-    // If compliance is checked by profiles, the compliance result fro subject is being updated and not built from scratch
-    // This means only rules of chosen compliance profiles that are reevaluated will be partially updated and new compliance status will be calculated
+    // If compliance is checked by profiles, the compliance result fro subject is being updated and not built from
+    // scratch
+    // This means only rules of chosen compliance profiles that are reevaluated will be partially updated and new
+    // compliance status will be calculated
     private final boolean checkByProfiles;
     private final Resource resource;
     private final TriggerEvaluator<T> triggerEvaluator;
@@ -33,7 +39,8 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
     private final Map<UUID, ComplianceCheckSubjectContext<T>> subjectContexts = new HashMap<>();
 
-    public ComplianceSubjectHandler(boolean checkByProfiles, Resource resource, TriggerEvaluator<T> triggerEvaluator, SecurityFilterRepository<T, UUID> repository) {
+    public ComplianceSubjectHandler(boolean checkByProfiles, Resource resource, TriggerEvaluator<T> triggerEvaluator,
+            SecurityFilterRepository<T, UUID> repository) {
         this.checkByProfiles = checkByProfiles;
         this.resource = resource;
         this.triggerEvaluator = triggerEvaluator;
@@ -43,13 +50,16 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
     public void initSubjectComplianceResult(ComplianceSubject subject) {
         subjectContexts.computeIfAbsent(subject.getUuid(), uuid -> {
             T typedSubject = (T) subject;
-            ComplianceResultDto initialComplianceResult = checkByProfiles && subject.getComplianceResult() != null ? subject.getComplianceResult() : new ComplianceResultDto();
+            ComplianceResultDto initialComplianceResult = checkByProfiles && subject.getComplianceResult() != null
+                    ? subject.getComplianceResult()
+                    : new ComplianceResultDto();
             return new ComplianceCheckSubjectContext<>(typedSubject, initialComplianceResult);
         });
     }
 
     /**
-     * Evaluate internal rule for the given subject. If the rule was already checked for the subject, it will be skipped.
+     * Evaluate internal rule for the given subject. If the rule was already checked for the subject, it will be
+     * skipped.
      *
      * @param subjectUuid UUID of the subject being evaluated
      * @param profileRule the profile rule containing the internal rule to be evaluated
@@ -78,9 +88,11 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
         boolean valid;
         try {
-            valid = triggerEvaluator.evaluateInternalRule(profileRule.getInternalRule(), subjectContext.getComplianceSubject());
+            valid = triggerEvaluator
+                    .evaluateInternalRule(profileRule.getInternalRule(), subjectContext.getComplianceSubject());
         } catch (RuleException e) {
-            String message = "Failed evaluating internal rule %s: %s".formatted(profileRule.getInternalRule().getName(), e.getMessage());
+            String message = "Failed evaluating internal rule %s: %s"
+                    .formatted(profileRule.getInternalRule().getName(), e.getMessage());
             logger.warn(message);
             throw new RuleException(message);
         }
@@ -113,28 +125,34 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
             checkedSet = subjectContext.getCheckedProviderRulesMap().computeIfAbsent(providerKey, k -> new HashSet<>());
         } else {
             checkedUuid = profileRule.getComplianceGroupUuid();
-            checkedSet = subjectContext.getCheckedProviderGroupsMap().computeIfAbsent(providerKey, k -> new HashSet<>());
+            checkedSet = subjectContext
+                    .getCheckedProviderGroupsMap()
+                    .computeIfAbsent(providerKey, k -> new HashSet<>());
         }
 
         return checkedSet.contains(checkedUuid);
     }
 
     /**
-     * Records the result of a provider rule evaluation for a subject and updates the in-memory compliance result.
-     * If {@code groupUuid} is provided the group is just marked as checked
+     * Records the result of a provider rule evaluation for a subject and updates the in-memory compliance result. If
+     * {@code groupUuid} is provided the group is just marked as checked
      *
-     * @param subjectUuid   UUID of the subject the result belongs to
-     * @param providerKey   key of the provider
+     * @param subjectUuid UUID of the subject the result belongs to
+     * @param providerKey key of the provider
      * @param connectorUuid UUID identifying the provider connector
-     * @param kind          kind identifier
-     * @param ruleUUid      UUID of the evaluated rule (may be null when groupUuid is provided)
-     * @param groupUuid     UUID of the evaluated rule group (may be null)
-     * @param ruleStatus    status returned by the provider for the evaluated rule
+     * @param kind kind identifier
+     * @param ruleUUid UUID of the evaluated rule (may be null when groupUuid is provided)
+     * @param groupUuid UUID of the evaluated rule group (may be null)
+     * @param ruleStatus status returned by the provider for the evaluated rule
      */
-    public void addProviderRuleResult(UUID subjectUuid, String providerKey, UUID connectorUuid, String kind, UUID ruleUUid, UUID groupUuid, ComplianceRuleStatus ruleStatus) {
+    public void addProviderRuleResult(UUID subjectUuid, String providerKey, UUID connectorUuid, String kind,
+            UUID ruleUUid, UUID groupUuid, ComplianceRuleStatus ruleStatus) {
         ComplianceCheckSubjectContext<T> subjectContext = subjectContexts.get(subjectUuid);
         if (groupUuid != null) {
-            subjectContext.getCheckedProviderGroupsMap().computeIfAbsent(providerKey, k -> new HashSet<>()).add(groupUuid);
+            subjectContext
+                    .getCheckedProviderGroupsMap()
+                    .computeIfAbsent(providerKey, k -> new HashSet<>())
+                    .add(groupUuid);
             return;
         }
 
@@ -149,7 +167,13 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
         if (complianceResultDto.getProviderRules() == null) {
             complianceResultDto.setProviderRules(new ArrayList<>());
         }
-        ComplianceResultProviderRulesDto providerResult = complianceResultDto.getProviderRules().stream().filter(provider -> provider.getConnectorUuid().equals(connectorUuid) && provider.getKind().equals(kind)).findFirst().orElse(null);
+        ComplianceResultProviderRulesDto providerResult = complianceResultDto
+                .getProviderRules()
+                .stream()
+                .filter(provider -> provider.getConnectorUuid().equals(connectorUuid)
+                        && provider.getKind().equals(kind))
+                .findFirst()
+                .orElse(null);
         if (providerResult == null) {
             providerResult = new ComplianceResultProviderRulesDto();
             providerResult.setConnectorUuid(connectorUuid);
@@ -170,9 +194,8 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
     }
 
     /**
-     * Persists the calculated compliance result for the provided subject.
-     * The method sets the result timestamp, computes the overall compliance status,
-     * stores the result on the subject entity and saves it via the repository.
+     * Persists the calculated compliance result for the provided subject. The method sets the result timestamp,
+     * computes the overall compliance status, stores the result on the subject entity and saves it via the repository.
      *
      * @param subjectUuid the subject UUID whose compliance result should be saved
      * @param errorMessage optional error message, if provided the compliance status will be set to FAILED

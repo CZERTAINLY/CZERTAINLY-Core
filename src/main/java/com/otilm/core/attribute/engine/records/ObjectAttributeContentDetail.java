@@ -7,19 +7,8 @@ import com.otilm.api.model.core.auth.Resource;
 
 import java.util.UUID;
 
-public record ObjectAttributeContentDetail(
-    UUID uuid,
-    String name,
-    String label,
-    AttributeType type,
-    AttributeContentType contentType,
-    AttributeContent contentItem,
-    UUID connectorUuid,
-    String connectorName,
-    Resource sourceObjectType,
-    UUID sourceObjectUuid,
-    String sourceObjectName,
-    int version,
-    String encryptedContent
-)
-{}
+public record ObjectAttributeContentDetail(UUID uuid, String name, String label, AttributeType type,
+        AttributeContentType contentType, AttributeContent contentItem, UUID connectorUuid, String connectorName,
+        Resource sourceObjectType, UUID sourceObjectUuid, String sourceObjectName, int version,
+        String encryptedContent) {
+}

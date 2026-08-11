@@ -18,12 +18,11 @@ import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
 import com.otilm.core.security.authz.SecuredUUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -59,8 +58,8 @@ class AttributeCallbackScopeResolverTest {
         tokenProfileRepo = mock(TokenProfileRepository.class);
         tokenInstanceRepo = mock(TokenInstanceReferenceRepository.class);
         entityRepo = mock(EntityInstanceReferenceRepository.class);
-        resolver = new AttributeCallbackScopeResolver(attributeEngine, expander, authorizationEnforcer,
-                authorityRepo, raProfileRepo, tokenProfileRepo, tokenInstanceRepo, entityRepo);
+        resolver = new AttributeCallbackScopeResolver(attributeEngine, expander, authorizationEnforcer, authorityRepo,
+                raProfileRepo, tokenProfileRepo, tokenInstanceRepo, entityRepo);
     }
 
     private Connector connectorWithUuid() {
@@ -91,8 +90,10 @@ class AttributeCallbackScopeResolverTest {
 
         resolver.resolveScopeChain(Resource.CERTIFICATE, raProfileUuid, new HashSet<>());
 
-        verify(authorizationEnforcer).enforce(eq(Resource.AUTHORITY), eq(ResourceAction.DETAIL), any(SecuredUUID.class));
-        verify(authorizationEnforcer).enforce(eq(Resource.RA_PROFILE), eq(ResourceAction.DETAIL), any(SecuredUUID.class));
+        verify(authorizationEnforcer)
+                .enforce(eq(Resource.AUTHORITY), eq(ResourceAction.DETAIL), any(SecuredUUID.class));
+        verify(authorizationEnforcer)
+                .enforce(eq(Resource.RA_PROFILE), eq(ResourceAction.DETAIL), any(SecuredUUID.class));
     }
 
     @Test
@@ -126,7 +127,8 @@ class AttributeCallbackScopeResolverTest {
         resolver.resolveScopeChain(Resource.CRYPTOGRAPHIC_KEY, tokenProfileUuid, new HashSet<>());
 
         verify(authorizationEnforcer).enforce(eq(Resource.TOKEN), eq(ResourceAction.DETAIL), any(SecuredUUID.class));
-        verify(authorizationEnforcer).enforce(eq(Resource.TOKEN_PROFILE), eq(ResourceAction.DETAIL), any(SecuredUUID.class));
+        verify(authorizationEnforcer)
+                .enforce(eq(Resource.TOKEN_PROFILE), eq(ResourceAction.DETAIL), any(SecuredUUID.class));
     }
 
     @Test

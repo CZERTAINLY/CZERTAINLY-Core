@@ -1,14 +1,12 @@
 package com.otilm.core.signing.tsa.messages;
 
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
-import org.bouncycastle.asn1.x509.Extensions;
-
 import java.math.BigInteger;
 import java.util.Optional;
+import org.bouncycastle.asn1.x509.Extensions;
 
 /**
- * Test builder for {@link TspRequest}.
- * Defaults produce a minimal valid request.
+ * Test builder for {@link TspRequest}. Defaults produce a minimal valid request.
  */
 public final class TspRequestBuilder {
 

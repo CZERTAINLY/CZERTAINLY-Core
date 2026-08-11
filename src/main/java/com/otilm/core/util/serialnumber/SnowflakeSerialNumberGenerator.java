@@ -1,19 +1,17 @@
 package com.otilm.core.util.serialnumber;
 
-
 import com.otilm.core.util.clocksource.ClockSource;
-import lombok.extern.slf4j.Slf4j;
-
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.concurrent.locks.ReentrantLock;
-
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Snowflake/Sonyflake-style 64-bit serial number generator that produces unique identifiers without
- * coordination between instances.
+ * Snowflake/Sonyflake-style 64-bit serial number generator that produces unique identifiers without coordination
+ * between instances.
  *
  * <h2>Bit layout</h2>
+ *
  * <pre>
  * | Segment                  | Bits | Description                                                      |
  * |--------------------------|------|------------------------------------------------------------------|
@@ -23,20 +21,20 @@ import java.util.concurrent.locks.ReentrantLock;
  * | Total                    |   64 | Hex-aligned; within the 160-bit RFC 3161 limit                   |
  * </pre>
  *
- * Uniqueness is structural: the timestamp separates tokens across time, the instance ID separates
- * tokens across replicas, and the sequence counter separates tokens within the same tick on the same
- * instance. No locking, no network round-trips, no shared state.
+ * Uniqueness is structural: the timestamp separates tokens across time, the instance ID separates tokens across
+ * replicas, and the sequence counter separates tokens within the same tick on the same instance. No locking, no network
+ * round-trips, no shared state.
  *
- * <p><b>Throughput:</b> up to 25,600 tokens/sec per instance (256 × 100 ticks/sec).
+ * <p>
+ * <b>Throughput:</b> up to 25,600 tokens/sec per instance (256 × 100 ticks/sec).
  *
  * <h2>Overflow &amp; clock-regression protection</h2>
  * <ul>
- *   <li><b>Sequence overflow</b> — when the 8-bit counter exhausts within a single 10 ms tick,
- *       waits for the next tick (max 10 ms wait; negligible relative to SignServer round-trip).</li>
- *   <li><b>Timestamp overflow</b> — rejects requests if the 40-bit tick field would overflow.</li>
- *   <li><b>Backward clock jump</b> — if the current time is behind the last issued tick, waits for
- *       the clock to catch up. Rejects if the jump exceeds 100 ms. No serial numbers are issued
- *       during the wait period.</li>
+ * <li><b>Sequence overflow</b> — when the 8-bit counter exhausts within a single 10 ms tick, waits for the next tick
+ * (max 10 ms wait; negligible relative to SignServer round-trip).</li>
+ * <li><b>Timestamp overflow</b> — rejects requests if the 40-bit tick field would overflow.</li>
+ * <li><b>Backward clock jump</b> — if the current time is behind the last issued tick, waits for the clock to catch up.
+ * Rejects if the jump exceeds 100 ms. No serial numbers are issued during the wait period.</li>
  * </ul>
  *
  * @see InstanceIdResolver
@@ -106,7 +104,8 @@ final class SnowflakeSerialNumberGenerator implements SerialNumberGenerator {
             }
 
             lastTick = currentTick;
-            return BigInteger.valueOf(currentTick)
+            return BigInteger
+                    .valueOf(currentTick)
                     .shiftLeft(TICK_SHIFT)
                     .or(BigInteger.valueOf(instanceId).shiftLeft(INSTANCE_ID_SHIFT))
                     .or(BigInteger.valueOf(sequence));
@@ -134,7 +133,9 @@ final class SnowflakeSerialNumberGenerator implements SerialNumberGenerator {
                     "Clock moved backward by " + driftMs + " ms, exceeding max drift of " + maxClockDriftMs + " ms");
         }
 
-        log.warn("Clock moved backward by {} ms — waiting for clock to catch up before issuing next serial number", driftMs);
+        log
+                .warn("Clock moved backward by {} ms — waiting for clock to catch up before issuing next serial number",
+                        driftMs);
         while (currentTick < lastTick) {
             if (Thread.currentThread().isInterrupted()) {
                 Thread.currentThread().interrupt();

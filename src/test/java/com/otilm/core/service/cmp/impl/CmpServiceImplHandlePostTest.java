@@ -15,6 +15,13 @@ import com.otilm.core.service.cmp.message.CmpTransactionService;
 import com.otilm.core.service.cmp.message.validator.impl.BodyValidator;
 import com.otilm.core.service.cmp.message.validator.impl.HeaderValidator;
 import com.otilm.core.service.cmp.message.validator.impl.ProtectionValidator;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.Security;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIHeader;
@@ -33,14 +40,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.security.Security;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -49,14 +48,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Drives {@link CmpServiceImpl#handlePost(String, byte[])} through its error paths to verify that the
- * wire-visible {@code PKIFreeText} carries a shaped message and never leaks a raw runtime exception.
+ * Drives {@link CmpServiceImpl#handlePost(String, byte[])} through its error paths to verify that the wire-visible
+ * {@code PKIFreeText} carries a shaped message and never leaks a raw runtime exception.
  */
 class CmpServiceImplHandlePostTest {
 
     private static final String PROFILE_NAME = "missing-profile";
-    private static final String LEAKY_MESSAGE =
-            "ERROR: duplicate key value violates unique constraint \"ra_profile_pkey\"";
+    private static final String LEAKY_MESSAGE = "ERROR: duplicate key value violates unique constraint \"ra_profile_pkey\"";
 
     @BeforeAll
     static void registerBouncyCastle() {
@@ -97,7 +95,8 @@ class CmpServiceImplHandlePostTest {
         HeaderValidator headerValidator = mock(HeaderValidator.class);
         when(headerValidator.validate(any(), any())).thenThrow(new RuntimeException(LEAKY_MESSAGE));
 
-        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator, true);
+        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator,
+                true);
 
         // when
         ResponseEntity<byte[]> response = service.handlePost(PROFILE_NAME, revocationRequest());
@@ -124,7 +123,8 @@ class CmpServiceImplHandlePostTest {
         when(headerValidator.validate(any(), any()))
                 .thenThrow(new CmpProcessingException(PKIFailureInfo.badRequest, "sender name is not trusted"));
 
-        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator, false);
+        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator,
+                false);
 
         // when
         ResponseEntity<byte[]> response = service.handlePost(PROFILE_NAME, macProtectedRevocationRequest());
@@ -137,7 +137,8 @@ class CmpServiceImplHandlePostTest {
     }
 
     @Test
-    void handlePost_replacesRawMessageWithGenericDetail_whenProfileValidationThrowsNonDomainException() throws Exception {
+    void handlePost_replacesRawMessageWithGenericDetail_whenProfileValidationThrowsNonDomainException()
+            throws Exception {
         // given: a resolved, enabled profile that uses SIGNATURE protection but whose signing certificate has
         // no content, so profile validation trips a NullPointerException — a non-domain exception whose (helpful)
         // message would otherwise leak internal class/method names to the wire
@@ -189,8 +190,8 @@ class CmpServiceImplHandlePostTest {
         CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), null, false);
 
         CmpTransaction transaction = new CmpTransaction();
-        CmpTransactionService cmpTransactionService =
-                (CmpTransactionService) ReflectionTestUtils.getField(service, "cmpTransactionService");
+        CmpTransactionService cmpTransactionService = (CmpTransactionService) ReflectionTestUtils
+                .getField(service, "cmpTransactionService");
         when(cmpTransactionService.findByTransactionId(anyString())).thenReturn(List.of(transaction));
 
         // when
@@ -244,7 +245,8 @@ class CmpServiceImplHandlePostTest {
         HeaderValidator headerValidator = mock(HeaderValidator.class);
         when(headerValidator.validate(any(), any()))
                 .thenThrow(new CmpProcessingException(PKIFailureInfo.badRequest, "sender name is not trusted"));
-        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator, false);
+        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator,
+                false);
 
         // when
         ResponseEntity<byte[]> response = service.handlePost(PROFILE_NAME, revocationRequest());
@@ -268,11 +270,12 @@ class CmpServiceImplHandlePostTest {
 
         HeaderValidator headerValidator = mock(HeaderValidator.class);
         when(headerValidator.validate(any(), any())).thenThrow(new RuntimeException());
-        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator, false);
+        CmpServiceImpl service = newService(raProfileRepository, mock(CmpProfileRepository.class), headerValidator,
+                false);
 
         CmpTransaction transaction = new CmpTransaction();
-        CmpTransactionService cmpTransactionService =
-                (CmpTransactionService) ReflectionTestUtils.getField(service, "cmpTransactionService");
+        CmpTransactionService cmpTransactionService = (CmpTransactionService) ReflectionTestUtils
+                .getField(service, "cmpTransactionService");
         when(cmpTransactionService.findByTransactionId(anyString())).thenReturn(List.of(transaction));
 
         // when
@@ -286,22 +289,21 @@ class CmpServiceImplHandlePostTest {
     }
 
     private CmpServiceImpl newService(RaProfileRepository raProfileRepository,
-                                      CmpProfileRepository cmpProfileRepository,
-                                      HeaderValidator headerValidator,
-                                      boolean verbose) {
+            CmpProfileRepository cmpProfileRepository, HeaderValidator headerValidator, boolean verbose) {
         CmpServiceImpl service = new CmpServiceImpl();
         service.setRaProfileRepository(raProfileRepository);
         service.setCmpProfileRepository(cmpProfileRepository);
 
         CmpTransactionService cmpTransactionService = mock(CmpTransactionService.class);
-        when(cmpTransactionService.findByTransactionId(anyString())).thenReturn(Collections.<CmpTransaction>emptyList());
+        when(cmpTransactionService.findByTransactionId(anyString()))
+                .thenReturn(Collections.<CmpTransaction>emptyList());
 
         ReflectionTestUtils.setField(service, "cmpTransactionService", cmpTransactionService);
         ReflectionTestUtils.setField(service, "headerValidator", headerValidator);
         ReflectionTestUtils.setField(service, "verbose", verbose);
 
-        MockHttpServletRequest request =
-                new MockHttpServletRequest("POST", "/v1/protocols/cmp/raProfile/" + PROFILE_NAME);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                "/v1/protocols/cmp/raProfile/" + PROFILE_NAME);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         return service;
     }
@@ -324,10 +326,8 @@ class CmpServiceImplHandlePostTest {
     }
 
     private static byte[] revocationRequest() throws Exception {
-        PKIHeaderBuilder headerBuilder = new PKIHeaderBuilder(
-                PKIHeader.CMP_2000,
-                new GeneralName(new X500Name("CN=user")),
-                new GeneralName(new X500Name("CN=ManagementCA")));
+        PKIHeaderBuilder headerBuilder = new PKIHeaderBuilder(PKIHeader.CMP_2000,
+                new GeneralName(new X500Name("CN=user")), new GeneralName(new X500Name("CN=ManagementCA")));
         headerBuilder.setTransactionID(new byte[]{1, 2, 3, 4});
         headerBuilder.setSenderNonce("12345".getBytes(StandardCharsets.UTF_8));
         PKIBody body = CmpTestUtil.createRevocationBody(BigInteger.ONE);
@@ -336,15 +336,19 @@ class CmpServiceImplHandlePostTest {
 
     private static byte[] macProtectedRevocationRequest() throws Exception {
         PKIBody body = CmpTestUtil.createRevocationBody(BigInteger.ONE);
-        return CmpTestUtil.createMacBasedMessage("transaction1", "shared-secret-value", body)
-                .toASN1Structure().getEncoded();
+        return CmpTestUtil
+                .createMacBasedMessage("transaction1", "shared-secret-value", body)
+                .toASN1Structure()
+                .getEncoded();
     }
 
     private static byte[] signatureProtectedRevocationRequest() throws Exception {
         PKIBody body = CmpTestUtil.createRevocationBody(BigInteger.ONE);
         var keyPair = CmpTestUtil.generateKeyPairEC();
-        return CmpTestUtil.createSignatureBasedMessage("transaction1", keyPair.getPrivate(), body)
-                .toASN1Structure().getEncoded();
+        return CmpTestUtil
+                .createSignatureBasedMessage("transaction1", keyPair.getPrivate(), body)
+                .toASN1Structure()
+                .getEncoded();
     }
 
     private static String wireStatusText(byte[] response) {

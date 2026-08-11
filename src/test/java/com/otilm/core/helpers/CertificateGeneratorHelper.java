@@ -1,12 +1,35 @@
 package com.otilm.core.helpers;
 
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import java.math.BigInteger;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.RSAKeyGenParameterSpec;
+import java.util.Base64;
+import java.util.Date;
+import javax.security.auth.x500.X500Principal;
 import lombok.Getter;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.asn1.x509.AccessDescription;
+import org.bouncycastle.asn1.x509.AuthorityInformationAccess;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.bouncycastle.asn1.x509.KeyUsage;
+import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
 import org.bouncycastle.asn1.x509.qualified.ETSIQCObjectIdentifiers;
 import org.bouncycastle.asn1.x509.qualified.QCStatement;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -14,7 +37,12 @@ import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.cert.ocsp.*;
+import org.bouncycastle.cert.ocsp.BasicOCSPResp;
+import org.bouncycastle.cert.ocsp.BasicOCSPRespBuilder;
+import org.bouncycastle.cert.ocsp.CertificateID;
+import org.bouncycastle.cert.ocsp.CertificateStatus;
+import org.bouncycastle.cert.ocsp.OCSPResp;
+import org.bouncycastle.cert.ocsp.OCSPRespBuilder;
 import org.bouncycastle.cert.ocsp.jcajce.JcaBasicOCSPRespBuilder;
 import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jcajce.spec.MLKEMParameterSpec;
@@ -29,30 +57,24 @@ import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.bouncycastle.pqc.jcajce.spec.FalconParameterSpec;
 
-import javax.security.auth.x500.X500Principal;
-import java.math.BigInteger;
-import java.security.*;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.X509Certificate;
-import java.security.spec.AlgorithmParameterSpec;
-import java.security.spec.ECGenParameterSpec;
-import java.security.spec.RSAKeyGenParameterSpec;
-import java.util.Base64;
-import java.util.Date;
-
 public class CertificateGeneratorHelper {
 
     private CertificateGeneratorHelper() {
     }
 
-    public static String generateCsrBase64Der(PrivateKey privateKey, PublicKey publicKey, String subjectDN, String signatureAlgorithm) throws Exception {
-        PKCS10CertificationRequest csr = new JcaPKCS10CertificationRequestBuilder(new X500Principal(subjectDN), publicKey)
-                .build(new JcaContentSignerBuilder(signatureAlgorithm).setProvider(BouncyCastleProvider.PROVIDER_NAME).build(privateKey));
+    public static String generateCsrBase64Der(PrivateKey privateKey, PublicKey publicKey, String subjectDN,
+            String signatureAlgorithm) throws Exception {
+        PKCS10CertificationRequest csr = new JcaPKCS10CertificationRequestBuilder(new X500Principal(subjectDN),
+                publicKey)
+                .build(new JcaContentSignerBuilder(signatureAlgorithm)
+                        .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                        .build(privateKey));
         byte[] der = csr.getEncoded();
         return Base64.getEncoder().encodeToString(der);
     }
 
-    public static CertificateChainInfo generateCertificateWithIssuer(KeyAlgorithm algorithm, String issuerDn, String subjectDn, String ocspUrl) throws Exception {
+    public static CertificateChainInfo generateCertificateWithIssuer(KeyAlgorithm algorithm, String issuerDn,
+            String subjectDn, String ocspUrl) throws Exception {
         // Generate self-signed CA
         KeyPair caKeyPair = generateKeyPair(algorithm, null);
         X509Certificate caCert = generateCACertificate(caKeyPair, issuerDn);
@@ -64,7 +86,8 @@ public class CertificateGeneratorHelper {
         return new CertificateChainInfo(caKeyPair, caCert, eeKeyPair, eeCert);
     }
 
-    public static KeyPair generateKeyPair(KeyAlgorithm algorithm, AlgorithmParameterSpec params) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+    public static KeyPair generateKeyPair(KeyAlgorithm algorithm, AlgorithmParameterSpec params)
+            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance(algorithm.getCode());
         keyGen.initialize(params == null ? getDefaultParameterSpec(algorithm) : params);
         return keyGen.generateKeyPair();
@@ -80,22 +103,20 @@ public class CertificateGeneratorHelper {
         Date start = new Date();
         Date end = new Date(System.currentTimeMillis() + 3650 * 86400000L); // 10 year
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuer, serial, start, end, issuer, caKeyPair.getPublic()
-        );
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, issuer,
+                caKeyPair.getPublic());
 
         // CA extensions
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign));
 
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA")
-                .build(caKeyPair.getPrivate());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(caKeyPair.getPrivate());
 
-        return new JcaX509CertificateConverter()
-                .getCertificate(builder.build(signer));
+        return new JcaX509CertificateConverter().getCertificate(builder.build(signer));
     }
 
-    public static X509Certificate generateCACertificateWithQcStatements(KeyPair caKeyPair, String subjectDn) throws Exception {
+    public static X509Certificate generateCACertificateWithQcStatements(KeyPair caKeyPair, String subjectDn)
+            throws Exception {
         if (caKeyPair == null) {
             caKeyPair = generateKeyPair(KeyAlgorithm.RSA, null);
         }
@@ -105,9 +126,8 @@ public class CertificateGeneratorHelper {
         Date start = new Date();
         Date end = new Date(System.currentTimeMillis() + 3650 * 86400000L);
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuer, serial, start, end, issuer, caKeyPair.getPublic()
-        );
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, issuer,
+                caKeyPair.getPublic());
 
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign));
@@ -123,15 +143,13 @@ public class CertificateGeneratorHelper {
         stmts.add(new QCStatement(ETSIQCObjectIdentifiers.id_etsi_qcs_QcCClegislation, new DERSequence(ccVec)));
         builder.addExtension(Extension.qCStatements, false, new DERSequence(stmts));
 
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA")
-                .build(caKeyPair.getPrivate());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(caKeyPair.getPrivate());
 
-        return new JcaX509CertificateConverter()
-                .getCertificate(builder.build(signer));
+        return new JcaX509CertificateConverter().getCertificate(builder.build(signer));
     }
 
-    public static X509Certificate generateEndEntityCertificate(
-            KeyPair caKeyPair, X509Certificate caCert, KeyPair eeKeyPair, String subjectDn, String ocspUrl) throws Exception {
+    public static X509Certificate generateEndEntityCertificate(KeyPair caKeyPair, X509Certificate caCert,
+            KeyPair eeKeyPair, String subjectDn, String ocspUrl) throws Exception {
 
         X500Name issuer = new X500Name(caCert.getSubjectX500Principal().getName());
         X500Name subject = new X500Name(subjectDn);
@@ -139,9 +157,8 @@ public class CertificateGeneratorHelper {
         Date start = new Date();
         Date end = new Date(System.currentTimeMillis() + 365 * 86400000L); // 1 year
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuer, serial, start, end, subject, eeKeyPair.getPublic()
-        );
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, subject,
+                eeKeyPair.getPublic());
 
         // Add OCSP AIA extension
         if (ocspUrl != null) {
@@ -156,11 +173,9 @@ public class CertificateGeneratorHelper {
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
 
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA")
-                .build(caKeyPair.getPrivate());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(caKeyPair.getPrivate());
 
-        return new JcaX509CertificateConverter()
-                .getCertificate(builder.build(signer));
+        return new JcaX509CertificateConverter().getCertificate(builder.build(signer));
     }
 
     /**
@@ -168,8 +183,8 @@ public class CertificateGeneratorHelper {
      * {@code id-kp-timeStamping}-only EKU as required by RFC 3161 (and enforced by
      * {@code CertificateUtil.isCertificateDigitalSigningAcceptable}).
      */
-    public static X509Certificate generateTimestampingCertificate(
-            KeyPair caKeyPair, X509Certificate caCert, KeyPair eeKeyPair, String subjectDn) throws Exception {
+    public static X509Certificate generateTimestampingCertificate(KeyPair caKeyPair, X509Certificate caCert,
+            KeyPair eeKeyPair, String subjectDn) throws Exception {
 
         X500Name issuer = new X500Name(caCert.getSubjectX500Principal().getName());
         X500Name subject = new X500Name(subjectDn);
@@ -177,8 +192,8 @@ public class CertificateGeneratorHelper {
         Date start = new Date();
         Date end = new Date(System.currentTimeMillis() + 365 * 86400000L);
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuer, serial, start, end, subject, eeKeyPair.getPublic());
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, subject,
+                eeKeyPair.getPublic());
 
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
@@ -189,12 +204,12 @@ public class CertificateGeneratorHelper {
     }
 
     /**
-     * Generates a qualified timestamping certificate signed by the given CA.
-     * Carries a critical id-kp-timeStamping EKU (RFC 3161) and id-etsi-qcs-QcCompliance
-     * in qcStatements (ETSI EN 319 421 §6.2), making it eligible for qualified electronic timestamps.
+     * Generates a qualified timestamping certificate signed by the given CA. Carries a critical id-kp-timeStamping EKU
+     * (RFC 3161) and id-etsi-qcs-QcCompliance in qcStatements (ETSI EN 319 421 §6.2), making it eligible for qualified
+     * electronic timestamps.
      */
-    public static X509Certificate generateQualifiedTimestampingCertificate(
-            KeyPair caKeyPair, X509Certificate caCert, KeyPair eeKeyPair, String subjectDn) throws Exception {
+    public static X509Certificate generateQualifiedTimestampingCertificate(KeyPair caKeyPair, X509Certificate caCert,
+            KeyPair eeKeyPair, String subjectDn) throws Exception {
 
         X500Name issuer = new X500Name(caCert.getSubjectX500Principal().getName());
         X500Name subject = new X500Name(subjectDn);
@@ -202,8 +217,8 @@ public class CertificateGeneratorHelper {
         Date start = new Date();
         Date end = new Date(System.currentTimeMillis() + 365 * 86400000L);
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuer, serial, start, end, subject, eeKeyPair.getPublic());
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, subject,
+                eeKeyPair.getPublic());
 
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
@@ -229,8 +244,8 @@ public class CertificateGeneratorHelper {
         };
     }
 
-    public static X509Certificate generateEndEntityCertificateWithCaIssuers(
-            KeyPair caKeyPair, X509Certificate caCert, KeyPair eeKeyPair, String subjectDn, String caIssuersUrl) throws Exception {
+    public static X509Certificate generateEndEntityCertificateWithCaIssuers(KeyPair caKeyPair, X509Certificate caCert,
+            KeyPair eeKeyPair, String subjectDn, String caIssuersUrl) throws Exception {
 
         X500Name issuer = new X500Name(caCert.getSubjectX500Principal().getName());
         X500Name subject = new X500Name(subjectDn);
@@ -238,8 +253,8 @@ public class CertificateGeneratorHelper {
         Date start = new Date();
         Date end = new Date(System.currentTimeMillis() + 365 * 86400000L);
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuer, serial, start, end, subject, eeKeyPair.getPublic());
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, subject,
+                eeKeyPair.getPublic());
 
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
@@ -254,18 +269,15 @@ public class CertificateGeneratorHelper {
         return new JcaX509CertificateConverter().getCertificate(builder.build(signer));
     }
 
-    public static OCSPResp generateOCSPResponse(
-            X509Certificate issuerCert,
-            PrivateKey issuerKey,
-            X509Certificate certToCheck,
-            CertificateStatus status
-    ) throws Exception {
+    public static OCSPResp generateOCSPResponse(X509Certificate issuerCert, PrivateKey issuerKey,
+            X509Certificate certToCheck, CertificateStatus status) throws Exception {
         // Digest calculator for CertificateID
         DigestCalculatorProvider digCalcProv = new JcaDigestCalculatorProviderBuilder().build();
         DigestCalculator digCalc = digCalcProv.get(CertificateID.HASH_SHA1);
 
         // Create CertificateID for the cert to check
-        CertificateID certId = new CertificateID(digCalc, new JcaX509CertificateHolder(issuerCert), certToCheck.getSerialNumber());
+        CertificateID certId = new CertificateID(digCalc, new JcaX509CertificateHolder(issuerCert),
+                certToCheck.getSerialNumber());
 
         // Build OCSP response
         BasicOCSPRespBuilder respBuilder = new JcaBasicOCSPRespBuilder(issuerCert.getPublicKey(), digCalc);
@@ -276,7 +288,7 @@ public class CertificateGeneratorHelper {
         // Sign the OCSP response
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC").build(issuerKey);
 
-        X509CertificateHolder[] chain = { new JcaX509CertificateHolder(issuerCert) };
+        X509CertificateHolder[] chain = {new JcaX509CertificateHolder(issuerCert)};
         BasicOCSPResp basicResp = respBuilder.build(signer, chain, new Date());
 
         // Wrap in OCSPResp
@@ -300,7 +312,8 @@ public class CertificateGeneratorHelper {
             return Base64.getEncoder().encodeToString(endEntityCertificate.getEncoded());
         }
 
-        public CertificateChainInfo(KeyPair caCertificateKeyPair, X509Certificate caCertificate, KeyPair endEntityCertificateKeyPair, X509Certificate endEntityCertificate) {
+        public CertificateChainInfo(KeyPair caCertificateKeyPair, X509Certificate caCertificate,
+                KeyPair endEntityCertificateKeyPair, X509Certificate endEntityCertificate) {
             this.caCertificateKeyPair = caCertificateKeyPair;
             this.caCertificate = caCertificate;
             this.endEntityCertificateKeyPair = endEntityCertificateKeyPair;

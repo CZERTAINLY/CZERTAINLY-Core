@@ -17,28 +17,28 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class StatisticsControllerImpl implements StatisticsController {
 
-	private StatisticsExternalService statisticsService;
-	private SigningRecordExternalService signingRecordService;
+    private StatisticsExternalService statisticsService;
+    private SigningRecordExternalService signingRecordService;
 
-	@Autowired
-	public void setStatisticsService(StatisticsExternalService statisticsService) {
-		this.statisticsService = statisticsService;
-	}
+    @Autowired
+    public void setStatisticsService(StatisticsExternalService statisticsService) {
+        this.statisticsService = statisticsService;
+    }
 
-	@Autowired
-	public void setSigningRecordService(SigningRecordExternalService signingRecordService) {
-		this.signingRecordService = signingRecordService;
-	}
+    @Autowired
+    public void setSigningRecordService(SigningRecordExternalService signingRecordService) {
+        this.signingRecordService = signingRecordService;
+    }
 
-	@Override
-	@AuditLogged(module = Module.CORE, resource = Resource.DASHBOARD, operation = Operation.STATISTICS)
-	public StatisticsDto getStatistics(boolean includeArchived) {
-		return statisticsService.getStatistics(includeArchived);
-	}
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.DASHBOARD, operation = Operation.STATISTICS)
+    public StatisticsDto getStatistics(boolean includeArchived) {
+        return statisticsService.getStatistics(includeArchived);
+    }
 
-	@Override
-	@AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_RECORD, operation = Operation.STATISTICS)
-	public SigningRecordStatisticsDto getSigningRecordStatistics(SigningRecordStatisticsPeriod period) {
-		return signingRecordService.getSigningRecordStatistics(period, SecurityFilter.create());
-	}
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_RECORD, operation = Operation.STATISTICS)
+    public SigningRecordStatisticsDto getSigningRecordStatistics(SigningRecordStatisticsPeriod period) {
+        return signingRecordService.getSigningRecordStatistics(period, SecurityFilter.create());
+    }
 }

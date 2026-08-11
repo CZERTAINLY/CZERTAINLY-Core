@@ -11,11 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Unit test for {@link SigningRecordMetrics#timed(String, Runnable)} over a {@link SimpleMeterRegistry}.
- * The helper wraps the action in a {@code finally}-stopped timer sample, so duration is recorded under the
- * mode's {@code signing_record.write.duration} timer whether the action succeeds or throws — and a thrown
- * action propagates unchanged. The counters incremented inside the action ({@code persist}, {@code persist.failed})
- * are pinned against each strategy in their own unit tests.
+ * Unit test for {@link SigningRecordMetrics#timed(String, Runnable)} over a {@link SimpleMeterRegistry}. The helper
+ * wraps the action in a {@code finally}-stopped timer sample, so duration is recorded under the mode's
+ * {@code signing_record.write.duration} timer whether the action succeeds or throws — and a thrown action propagates
+ * unchanged. The counters incremented inside the action ({@code persist}, {@code persist.failed}) are pinned against
+ * each strategy in their own unit tests.
  */
 class SigningRecordMetricsTest {
 
@@ -34,7 +34,8 @@ class SigningRecordMetricsTest {
         var mode = "IMMEDIATE";
 
         // when
-        metrics.timed(mode, () -> { /* successful write */ });
+        metrics.timed(mode, () -> {
+            /* successful write */ });
 
         // then
         assertEquals(1, durationSampleCount(mode));
@@ -43,8 +44,10 @@ class SigningRecordMetricsTest {
     @Test
     void timed_tagsTheTimerByMode_soModesAreMeasuredIndependently() {
         // when
-        metrics.timed("IMMEDIATE", () -> { /* successful write */ });
-        metrics.timed("DEFERRED_DURABLE", () -> { /* successful write */ });
+        metrics.timed("IMMEDIATE", () -> {
+            /* successful write */ });
+        metrics.timed("DEFERRED_DURABLE", () -> {
+            /* successful write */ });
 
         // then
         assertEquals(1, durationSampleCount("IMMEDIATE"));

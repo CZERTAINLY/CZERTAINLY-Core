@@ -1,20 +1,36 @@
 package com.otilm.core.util;
 
-import com.otilm.api.model.core.auth.*;
+import com.otilm.api.model.core.auth.ObjectPermissionsDto;
+import com.otilm.api.model.core.auth.ObjectPermissionsRequestDto;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.ResourcePermissionsDto;
+import com.otilm.api.model.core.auth.ResourcePermissionsRequestDto;
+import com.otilm.api.model.core.auth.RoleDetailDto;
+import com.otilm.api.model.core.auth.RoleDto;
+import com.otilm.api.model.core.auth.RolePermissionsRequestDto;
+import com.otilm.api.model.core.auth.RoleRequestDto;
+import com.otilm.api.model.core.auth.SubjectPermissionsDto;
+import com.otilm.api.model.core.auth.UserDetailDto;
+import com.otilm.api.model.core.auth.UserRequestDto;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.auth.ResourceSyncRequestDto;
 import com.otilm.core.security.authn.client.ResourceApiClient;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
-import org.springframework.web.reactive.function.client.WebClient;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import org.springframework.web.reactive.function.client.WebClient;
 
 public class DatabaseAuthMigration {
 
@@ -56,7 +72,8 @@ public class DatabaseAuthMigration {
         return splitData[splitData.length - 1].replace("}", "");
     }
 
-    public static void seedResources(Map<Resource, List<ResourceAction>> resources) throws IOException, URISyntaxException {
+    public static void seedResources(Map<Resource, List<ResourceAction>> resources)
+            throws IOException, URISyntaxException {
         List<ResourceSyncRequestDto> resourceDtos = new ArrayList<>();
 
         for (Map.Entry<Resource, List<ResourceAction>> resourceEntry : resources.entrySet()) {
@@ -82,12 +99,14 @@ public class DatabaseAuthMigration {
         return systemRolesMapping;
     }
 
-    public static UserDetailDto createUser(UserRequestDto request, List<String> roleUuids) throws IOException, URISyntaxException {
+    public static UserDetailDto createUser(UserRequestDto request, List<String> roleUuids)
+            throws IOException, URISyntaxException {
         UserDetailDto user = getUserManagementApiClient().createUser(request);
         return getUserManagementApiClient().updateRoles(user.getUuid(), roleUuids);
     }
 
-    public static RoleDetailDto createRole(RoleRequestDto request, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
+    public static RoleDetailDto createRole(RoleRequestDto request, Map<Resource, List<ResourceAction>> resourcesActions)
+            throws IOException, URISyntaxException {
         RolePermissionsRequestDto permissionsRequest = new RolePermissionsRequestDto();
         permissionsRequest.setAllowAllResources(resourcesActions.isEmpty());
         permissionsRequest.setResources(new ArrayList<>());
@@ -96,7 +115,10 @@ public class DatabaseAuthMigration {
             ResourcePermissionsRequestDto resourcePermissionsRequest = new ResourcePermissionsRequestDto();
             resourcePermissionsRequest.setName(resourceEntry.getKey().getCode());
             resourcePermissionsRequest.setAllowAllActions(resourceActions == null || resourceActions.isEmpty());
-            resourcePermissionsRequest.setActions(resourceActions == null ? null : resourceActions.stream().map(ResourceAction::getCode).toList());
+            resourcePermissionsRequest
+                    .setActions(resourceActions == null
+                            ? null
+                            : resourceActions.stream().map(ResourceAction::getCode).toList());
             resourcePermissionsRequest.setObjects(List.of());
 
             permissionsRequest.getResources().add(resourcePermissionsRequest);
@@ -106,7 +128,8 @@ public class DatabaseAuthMigration {
         return getRoleManagementApiClient().createRole(request);
     }
 
-    public static void updateRolePermissions(String roleUuid, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
+    public static void updateRolePermissions(String roleUuid, Map<Resource, List<ResourceAction>> resourcesActions)
+            throws IOException, URISyntaxException {
         Map<Resource, List<ResourceAction>> resourcesActionsCopy = new EnumMap<>(resourcesActions);
         SubjectPermissionsDto permissions = getRoleManagementApiClient().getPermissions(roleUuid);
 
@@ -154,7 +177,10 @@ public class DatabaseAuthMigration {
                 ResourcePermissionsRequestDto requestDto = new ResourcePermissionsRequestDto();
                 requestDto.setName(resource.getCode());
                 requestDto.setAllowAllActions(resourceActions == null || resourceActions.isEmpty());
-                requestDto.setActions(resourceActions == null ? List.of() : resourceActions.stream().map(ResourceAction::getCode).toList());
+                requestDto
+                        .setActions(resourceActions == null
+                                ? List.of()
+                                : resourceActions.stream().map(ResourceAction::getCode).toList());
                 requestDto.setObjects(List.of());
                 resourcePermissionsRequests.add(requestDto);
             }

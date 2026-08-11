@@ -19,9 +19,11 @@ public interface UserManagementExternalService {
 
     UserDetailDto getUser(String userUuid) throws NotFoundException;
 
-    UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException, AttributeException;
+    UserDetailDto createUser(AddUserRequestDto request)
+            throws CertificateException, NotFoundException, AttributeException;
 
-    UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException;
+    UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request)
+            throws NotFoundException, CertificateException, AttributeException;
 
     void deleteUser(String userUuid);
 

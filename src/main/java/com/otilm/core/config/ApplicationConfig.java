@@ -26,26 +26,23 @@ import com.otilm.api.clients.v2.MetricsApiClient;
 import com.otilm.core.security.authn.client.ResourceApiClient;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
+import com.otilm.core.service.DiscoveryProperties;
+import javax.net.ssl.TrustManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.TypeExcludeFilter;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.otilm.core.service.DiscoveryProperties;
-
-import javax.net.ssl.TrustManager;
-
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
 @EnableConfigurationProperties({DiscoveryProperties.class, ConnectorApiClientProperties.class})
-@ComponentScan(basePackages = "com.otilm.core",
-        excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
+@ComponentScan(basePackages = "com.otilm.core", excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
 public class ApplicationConfig {
 
     @Autowired
@@ -54,7 +51,8 @@ public class ApplicationConfig {
     // Connectors v2 API Clients
 
     @Bean(name = "healthApiClientV2")
-    public com.otilm.api.clients.v2.HealthApiClient healthApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public com.otilm.api.clients.v2.HealthApiClient healthApiClientV2(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new com.otilm.api.clients.v2.HealthApiClient(webClient, defaultTrustManagers);
     }
 
@@ -75,11 +73,10 @@ public class ApplicationConfig {
 
     @Bean
     public WebClient webClient(ConnectorApiClientProperties connectorApiClientProperties) {
-        return BaseApiClient.prepareWebClient(new ClientTuning(
-                connectorApiClientProperties.connectTimeout(),
-                connectorApiClientProperties.responseTimeout(),
-                connectorApiClientProperties.maxConnections(),
-                connectorApiClientProperties.pendingAcquireTimeout()));
+        return BaseApiClient
+                .prepareWebClient(new ClientTuning(connectorApiClientProperties.connectTimeout(),
+                        connectorApiClientProperties.responseTimeout(), connectorApiClientProperties.maxConnections(),
+                        connectorApiClientProperties.pendingAcquireTimeout()));
     }
 
     @Bean
@@ -103,12 +100,14 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public AuthorityInstanceApiClient authorityInstanceApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public AuthorityInstanceApiClient authorityInstanceApiClient(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new AuthorityInstanceApiClient(webClient, defaultTrustManagers);
     }
 
     @Bean
-    public NotificationInstanceApiClient notificationInstanceApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public NotificationInstanceApiClient notificationInstanceApiClient(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new NotificationInstanceApiClient(webClient, defaultTrustManagers);
     }
 
@@ -123,7 +122,8 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public EndEntityProfileApiClient endEntityProfileApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public EndEntityProfileApiClient endEntityProfileApiClient(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new EndEntityProfileApiClient(webClient, defaultTrustManagers);
     }
 
@@ -143,12 +143,14 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public com.otilm.api.clients.v2.AttributesApiClient attributesApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public com.otilm.api.clients.v2.AttributesApiClient attributesApiClientV2(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new com.otilm.api.clients.v2.AttributesApiClient(webClient, defaultTrustManagers);
     }
 
     @Bean
-    public com.otilm.api.clients.v2.CertificateApiClient certificateApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public com.otilm.api.clients.v2.CertificateApiClient certificateApiClientV2(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new com.otilm.api.clients.v2.CertificateApiClient(webClient, defaultTrustManagers);
     }
 
@@ -158,7 +160,8 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public com.otilm.api.clients.v2.ComplianceApiClient complianceApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public com.otilm.api.clients.v2.ComplianceApiClient complianceApiClientV2(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new com.otilm.api.clients.v2.ComplianceApiClient(webClient, defaultTrustManagers);
     }
 
@@ -177,7 +180,7 @@ public class ApplicationConfig {
         return new ResourceApiClient();
     }
 
-    //Cryptographic API Clients
+    // Cryptographic API Clients
     @Bean
     public TokenInstanceApiClient tokenInstanceApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
         return new TokenInstanceApiClient(webClient, defaultTrustManagers);
@@ -189,7 +192,8 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public CryptographicOperationsApiClient cryptographicOperationsApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public CryptographicOperationsApiClient cryptographicOperationsApiClient(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new CryptographicOperationsApiClient(webClient, defaultTrustManagers);
     }
 
@@ -211,17 +215,20 @@ public class ApplicationConfig {
     // Connectors v3 API Clients
 
     @Bean
-    public com.otilm.api.clients.v3.CertificateApiClient certificateApiClientV3(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public com.otilm.api.clients.v3.CertificateApiClient certificateApiClientV3(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new com.otilm.api.clients.v3.CertificateApiClient(webClient, defaultTrustManagers);
     }
 
     @Bean
-    public com.otilm.api.clients.v3.AuthorityApiClient authorityApiClientV3(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public com.otilm.api.clients.v3.AuthorityApiClient authorityApiClientV3(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new com.otilm.api.clients.v3.AuthorityApiClient(webClient, defaultTrustManagers);
     }
 
     @Bean
-    public SignatureFormattingApiClient signatureFormattingApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+    public SignatureFormattingApiClient signatureFormattingApiClient(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
         return new SignatureFormattingApiClient(webClient, defaultTrustManagers);
     }
 }

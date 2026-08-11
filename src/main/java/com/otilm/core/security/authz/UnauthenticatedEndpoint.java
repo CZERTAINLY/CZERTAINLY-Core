@@ -8,7 +8,8 @@ import java.lang.annotation.Target;
 
 /**
  * No Spring Security principal is expected for this endpoint. Access is controlled by deployment topology or
- * transport-level identity — for example the separate {@code local} API surface, or mTLS-authenticated connector self-registration.
+ * transport-level identity — for example the separate {@code local} API surface, or mTLS-authenticated connector
+ * self-registration.
  * <p>
  * Permanent: the no-principal contract for these operations does not change after migration.
  */

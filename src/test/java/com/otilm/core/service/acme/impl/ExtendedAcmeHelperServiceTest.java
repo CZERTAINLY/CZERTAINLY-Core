@@ -1,10 +1,9 @@
 package com.otilm.core.service.acme.impl;
 
 import com.otilm.api.model.core.authority.CertificateRevocationReason;
+import java.util.Arrays;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
 
 public class ExtendedAcmeHelperServiceTest {
 
@@ -14,7 +13,11 @@ public class ExtendedAcmeHelperServiceTest {
         final CertificateRevocationReason reason = CertificateRevocationReason.fromReasonCode(code);
 
         Assertions.assertNull(reason);
-        final String details = "Allowed revocation reason codes: " + Arrays.toString(Arrays.stream(CertificateRevocationReason.values()).map(CertificateRevocationReason::getReasonCode).toArray());
+        final String details = "Allowed revocation reason codes: " + Arrays
+                .toString(Arrays
+                        .stream(CertificateRevocationReason.values())
+                        .map(CertificateRevocationReason::getReasonCode)
+                        .toArray());
 
         Assertions.assertTrue(details.contains("[0"));
     }

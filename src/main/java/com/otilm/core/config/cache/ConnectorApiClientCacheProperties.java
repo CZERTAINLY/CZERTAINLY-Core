@@ -6,8 +6,5 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "caching.connectors")
-public record ConnectorApiClientCacheProperties(
-        @Min(1) int ttlMinutes,
-        @Min(1) int maxSize
-) {
+public record ConnectorApiClientCacheProperties(@Min(1) int ttlMinutes, @Min(1) int maxSize) {
 }

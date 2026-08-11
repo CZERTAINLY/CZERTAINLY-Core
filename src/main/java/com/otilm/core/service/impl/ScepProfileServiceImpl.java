@@ -1,6 +1,11 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.scep.BaseScepProfileRequestDto;
@@ -9,10 +14,10 @@ import com.otilm.api.model.client.scep.ScepProfileRequestDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
-import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.certificate.CertificateDto;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.certificate.CertificateDto;
 import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
@@ -20,7 +25,10 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.otilm.core.dao.entity.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.ProtocolCertificateAssociations;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile_;
 import com.otilm.core.dao.repository.ProtocolCertificateAssociationsRepository;
@@ -30,21 +38,23 @@ import com.otilm.core.security.authz.AnyPrincipalEndpoint;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-import com.otilm.core.service.*;
+import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.RaProfileInternalService;
+import com.otilm.core.service.ScepProfileExternalService;
+import com.otilm.core.service.ScepProfileInternalService;
 import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.util.CertificateEligibilityUtil;
 import com.otilm.core.util.ValidatorUtil;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service(Resource.Codes.SCEP_PROFILE)
 @Transactional
@@ -59,7 +69,8 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
     private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
 
     @Autowired
-    public void setCertificateAssociationRepository(ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
+    public void setCertificateAssociationRepository(
+            ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
         this.certificateAssociationRepository = certificateAssociationRepository;
     }
 
@@ -92,7 +103,8 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.LIST)
     public List<ScepProfileDto> listScepProfile(SecurityFilter filter) {
         logger.debug("Getting all the SCEP Profiles available in the database");
-        return scepProfileRepository.findUsingSecurityFilter(filter)
+        return scepProfileRepository
+                .findUsingSecurityFilter(filter)
                 .stream()
                 .map(ScepProfile::mapToDto)
                 .collect(Collectors.toList());
@@ -109,12 +121,14 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
 
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.CREATE)
-    public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException,
+            ValidationException, ConnectorException, AttributeException, NotFoundException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
         }
         if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
-            throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
+            throw new ValidationException(ValidationError
+                    .create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
         }
         if (scepProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("SCEP Profile with same name already exists");
@@ -124,9 +138,11 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         }
 
         boolean intuneEnabled = Boolean.TRUE.equals(request.getEnableIntune());
-        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCaCertificateUuid()));
+        Certificate certificate = certificateService
+                .getCertificateEntity(SecuredUUID.fromString(request.getCaCertificateUuid()));
         if (!CertificateEligibilityUtil.isCertificateScepCaCertAcceptable(certificate, intuneEnabled)) {
-            throw new ValidationException(ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
+            throw new ValidationException(
+                    ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
         }
 
         if (request.getChallengeSource() == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
@@ -136,7 +152,8 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         if (intuneEnabled && (request.getIntuneTenant() == null || request.getIntuneTenant().isBlank()
                 || request.getIntuneApplicationId() == null || request.getIntuneApplicationId().isBlank()
                 || !isIntuneKeyProvided(request))) {
-            throw new ValidationException(ValidationError.create("Invalid Intune configuration. Intune tenant, application ID and application key are required when Intune is enabled"));
+            throw new ValidationException(ValidationError
+                    .create("Invalid Intune configuration. Intune tenant, application ID and application key are required when Intune is enabled"));
         }
 
         RaProfile raProfile = null;
@@ -144,7 +161,8 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
             raProfile = getRaProfile(request.getRaProfileUuid());
 
-            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+            extendedAttributeService
+                    .mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
         }
 
         logger.info("Creating a new SCEP Profile");
@@ -181,25 +199,24 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
 
         scepProfile = scepProfileRepository.save(scepProfile);
 
-        return updateAndMapDtoAttributes(
-                scepProfile,
-                raProfile,
-                request.getIssueCertificateAttributes(),
-                request.getCustomAttributes()
-        );
+        return updateAndMapDtoAttributes(scepProfile, raProfile, request.getIssueCertificateAttributes(),
+                request.getCustomAttributes());
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
-    public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException {
         if (request.getCaCertificateUuid() == null || request.getCaCertificateUuid().isEmpty()) {
             throw new ValidationException(ValidationError.create("CA Certificate cannot be empty"));
         }
 
         boolean intuneEnabled = Boolean.TRUE.equals(request.getEnableIntune());
-        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCaCertificateUuid()));
-        if(!CertificateEligibilityUtil.isCertificateScepCaCertAcceptable(certificate, intuneEnabled)) {
-            throw new ValidationException(ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
+        Certificate certificate = certificateService
+                .getCertificateEntity(SecuredUUID.fromString(request.getCaCertificateUuid()));
+        if (!CertificateEligibilityUtil.isCertificateScepCaCertAcceptable(certificate, intuneEnabled)) {
+            throw new ValidationException(
+                    ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
         }
 
         ScepProfile scepProfile = getScepProfileEntity(uuid);
@@ -207,7 +224,8 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         // An absent challengeSource keeps the stored value — collapsing it would silently flip
         // registration-mode profiles back to the password regime for clients omitting the field.
         ProtocolChallengeSource challengeSource = request.getChallengeSource() != null
-                ? request.getChallengeSource() : scepProfile.getChallengeSource();
+                ? request.getChallengeSource()
+                : scepProfile.getChallengeSource();
         if (challengeSource == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
             validateRegistrationChallengeSource(request, intuneEnabled, certificate);
         }
@@ -217,7 +235,8 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         if (intuneEnabled && (request.getIntuneTenant() == null || request.getIntuneTenant().isBlank()
                 || request.getIntuneApplicationId() == null || request.getIntuneApplicationId().isBlank()
                 || (!isIntuneKeyProvided(request) && scepProfile.getIntuneApplicationKey() == null))) {
-            throw new ValidationException(ValidationError.create("Invalid Intune configuration. Intune tenant, application ID and application key are required when Intune is enabled (the application key may be omitted only if one is already stored)"));
+            throw new ValidationException(ValidationError
+                    .create("Invalid Intune configuration. Intune tenant, application ID and application key are required when Intune is enabled (the application key may be omitted only if one is already stored)"));
         }
 
         attributeEngine.validateCustomAttributesContent(Resource.SCEP_PROFILE, request.getCustomAttributes());
@@ -225,13 +244,16 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         RaProfile raProfile = null;
         if (request.getRaProfileUuid() != null) {
             raProfile = getRaProfile(request.getRaProfileUuid());
-            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+            extendedAttributeService
+                    .mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
         }
 
         scepProfile.setRequireManualApproval(false);
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
-        if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
+        if (request.getRenewalThreshold() != null) {
+            scepProfile.setRenewalThreshold(request.getRenewalThreshold());
+        }
         scepProfile.setChallengeSource(challengeSource);
         if (challengeSource == ProtocolChallengeSource.CERTIFICATE_REGISTRATION) {
             // The registration challenge lives on each certificate registration; a leftover profile
@@ -242,9 +264,17 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         }
 
         // delete old connector data attributes content
-        UUID oldConnectorUuid = scepProfile.getRaProfile() == null ? null : scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
+        UUID oldConnectorUuid = scepProfile.getRaProfile() == null
+                ? null
+                : scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
         if (oldConnectorUuid != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, ObjectAttributeContentInfo.builder(Resource.SCEP_PROFILE, scepProfile.getUuid()).connector(oldConnectorUuid).operation(AttributeOperation.CERTIFICATE_ISSUE).build());
+            attributeEngine
+                    .deleteOperationObjectAttributesContent(AttributeType.DATA,
+                            ObjectAttributeContentInfo
+                                    .builder(Resource.SCEP_PROFILE, scepProfile.getUuid())
+                                    .connector(oldConnectorUuid)
+                                    .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                                    .build());
         }
 
         scepProfile.setRaProfile(raProfile);
@@ -265,46 +295,70 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
 
         scepProfile = scepProfileRepository.save(scepProfile);
 
-        return updateAndMapDtoAttributes(
-                scepProfile,
-                raProfile,
-                request.getIssueCertificateAttributes(),
-                request.getCustomAttributes()
-        );
+        return updateAndMapDtoAttributes(scepProfile, raProfile, request.getIssueCertificateAttributes(),
+                request.getCustomAttributes());
     }
 
     private ScepProfileDetailDto mapToDetailDto(ScepProfile scepProfile) {
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid()));
+        dto
+                .setCustomAttributes(
+                        attributeEngine.getObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid()));
         if (scepProfile.getRaProfile() != null) {
-            dto.setIssueCertificateAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SCEP_PROFILE, scepProfile.getUuid()).connector(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build()));
+            dto
+                    .setIssueCertificateAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.SCEP_PROFILE, scepProfile.getUuid())
+                                    .connector(scepProfile
+                                            .getRaProfile()
+                                            .getAuthorityInstanceReference()
+                                            .getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                                    .build()));
         }
         if (scepProfile.getCertificateAssociations() != null) {
-            dto.setCertificateAssociations(scepProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
+            dto
+                    .setCertificateAssociations(scepProfile
+                            .getCertificateAssociations()
+                            .mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine
+                                    .loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
         }
         return dto;
     }
 
     private ScepProfileDetailDto updateAndMapDtoAttributes(ScepProfile scepProfile, RaProfile raProfile,
-                                                     List<RequestAttribute> issueCertificateAttributes,
-                                                     List<RequestAttribute> customAttributes) throws NotFoundException, AttributeException {
+            List<RequestAttribute> issueCertificateAttributes, List<RequestAttribute> customAttributes)
+            throws NotFoundException, AttributeException {
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), customAttributes));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(),
+                                customAttributes));
         if (raProfile != null) {
-            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.SCEP_PROFILE, scepProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build(), issueCertificateAttributes));
+            dto
+                    .setIssueCertificateAttributes(attributeEngine
+                            .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.SCEP_PROFILE, scepProfile.getUuid())
+                                    .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                                    .build(), issueCertificateAttributes));
         }
         if (scepProfile.getCertificateAssociations() != null) {
-            dto.setCertificateAssociations(scepProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
+            dto
+                    .setCertificateAssociations(scepProfile
+                            .getCertificateAssociations()
+                            .mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine
+                                    .loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
         }
 
         return dto;
     }
 
     /**
-     * Persists the Intune sub-config, shared by create and edit. When Intune is enabled the tenant and
-     * application id are set from the request and the application key is treated as a write-only secret —
-     * kept as stored when the request omits it (blank on a fresh entity means no key). When Intune is
-     * disabled the whole sub-config is cleared so no stale secret lingers or is silently reused on re-enable.
+     * Persists the Intune sub-config, shared by create and edit. When Intune is enabled the tenant and application id
+     * are set from the request and the application key is treated as a write-only secret — kept as stored when the
+     * request omits it (blank on a fresh entity means no key). When Intune is disabled the whole sub-config is cleared
+     * so no stale secret lingers or is silently reused on re-enable.
      */
     private void applyIntuneConfig(ScepProfile scepProfile, BaseScepProfileRequestDto request, boolean intuneEnabled) {
         scepProfile.setIntuneEnabled(intuneEnabled);
@@ -326,45 +380,49 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
     }
 
     /**
-     * Rules of the certificate-registration challenge source: each registration carries its own challenge,
-     * so a profile password is forbidden; Intune validates challenges in its own regime; and the CA
-     * certificate must hold an RSA decryption key, because without a shared password the platform can only
-     * decrypt requests enveloped via RSA key transport.
+     * Rules of the certificate-registration challenge source: each registration carries its own challenge, so a profile
+     * password is forbidden; Intune validates challenges in its own regime; and the CA certificate must hold an RSA
+     * decryption key, because without a shared password the platform can only decrypt requests enveloped via RSA key
+     * transport.
      */
-    private static void validateRegistrationChallengeSource(BaseScepProfileRequestDto request, boolean intuneEnabled, Certificate caCertificate) {
+    private static void validateRegistrationChallengeSource(BaseScepProfileRequestDto request, boolean intuneEnabled,
+            Certificate caCertificate) {
         if (Boolean.TRUE.equals(request.getEnableChallengePassword())
                 || (request.getChallengePassword() != null && !request.getChallengePassword().isBlank())) {
-            throw new ValidationException(ValidationError.create(
-                    "A challenge password cannot be configured when the challenge source is certificate registration"));
+            throw new ValidationException(ValidationError
+                    .create("A challenge password cannot be configured when the challenge source is certificate registration"));
         }
         if (intuneEnabled) {
-            throw new ValidationException(ValidationError.create(
-                    "Intune requires the profile challenge password as the challenge source"));
+            throw new ValidationException(
+                    ValidationError.create("Intune requires the profile challenge password as the challenge source"));
         }
         if (!hasRsaDecryptionKey(caCertificate)) {
-            throw new ValidationException(ValidationError.create(
-                    "Certificate registration challenge source requires an RSA CA certificate; requests enveloped to a non-RSA CA key need a shared challenge password to decrypt"));
+            throw new ValidationException(ValidationError
+                    .create("Certificate registration challenge source requires an RSA CA certificate; requests enveloped to a non-RSA CA key need a shared challenge password to decrypt"));
         }
     }
 
     private static boolean hasRsaDecryptionKey(Certificate caCertificate) {
-        return caCertificate.getKey() != null && caCertificate.getKey().getItems().stream()
+        return caCertificate.getKey() != null && caCertificate
+                .getKey()
+                .getItems()
+                .stream()
                 .anyMatch(item -> item.getType() == KeyType.PRIVATE_KEY && item.getKeyAlgorithm() == KeyAlgorithm.RSA);
     }
 
     /**
-     * Applies the write-only challenge password according to the tri-state {@code enableChallengePassword} toggle.
-     * The toggle MUST be treated as keep-when-null: an absent toggle (legacy clients, or clients that do not send
-     * the field) must never wipe a stored password. Do NOT collapse it with {@code Boolean.TRUE.equals(...)} the way
+     * Applies the write-only challenge password according to the tri-state {@code enableChallengePassword} toggle. The
+     * toggle MUST be treated as keep-when-null: an absent toggle (legacy clients, or clients that do not send the
+     * field) must never wipe a stored password. Do NOT collapse it with {@code Boolean.TRUE.equals(...)} the way
      * {@code enableIntune} is handled — that would turn a missing toggle into {@code false} and silently clear the
      * stored secret.
      *
      * <ul>
-     *   <li>toggle {@code null} — set when a value is supplied, otherwise leave the entity untouched
-     *       (keep on edit, no password on create).</li>
-     *   <li>toggle {@code false} — clear the challenge password.</li>
-     *   <li>toggle {@code true} + non-blank value — set the new password.</li>
-     *   <li>toggle {@code true} + blank value — keep the stored password, or reject when none is stored.</li>
+     * <li>toggle {@code null} — set when a value is supplied, otherwise leave the entity untouched (keep on edit, no
+     * password on create).</li>
+     * <li>toggle {@code false} — clear the challenge password.</li>
+     * <li>toggle {@code true} + non-blank value — set the new password.</li>
+     * <li>toggle {@code true} + blank value — keep the stored password, or reject when none is stored.</li>
      * </ul>
      */
     private void applyChallengePassword(ScepProfile scepProfile, BaseScepProfileRequestDto request) {
@@ -372,7 +430,9 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         boolean valueProvided = request.getChallengePassword() != null && !request.getChallengePassword().isBlank();
 
         if (enable == null) {
-            if (valueProvided) scepProfile.setChallengePassword(request.getChallengePassword());
+            if (valueProvided) {
+                scepProfile.setChallengePassword(request.getChallengePassword());
+            }
             return;
         }
         if (!enable) {
@@ -382,13 +442,17 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
         if (valueProvided) {
             scepProfile.setChallengePassword(request.getChallengePassword());
         } else if (scepProfile.getChallengePassword() == null) {
-            throw new ValidationException(ValidationError.create("Challenge password is required when challenge password protection is enabled"));
+            throw new ValidationException(ValidationError
+                    .create("Challenge password is required when challenge password protection is enabled"));
         }
     }
 
-    private static ProtocolCertificateAssociations getCertificateAssociation(ScepProfileEditRequestDto request, ScepProfile scepProfile) {
+    private static ProtocolCertificateAssociations getCertificateAssociation(ScepProfileEditRequestDto request,
+            ScepProfile scepProfile) {
         ProtocolCertificateAssociations certificateAssociation = scepProfile.getCertificateAssociations();
-        if (certificateAssociation == null) certificateAssociation = new ProtocolCertificateAssociations();
+        if (certificateAssociation == null) {
+            certificateAssociation = new ProtocolCertificateAssociations();
+        }
         certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
         certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
         certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
@@ -449,7 +513,10 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
                 deleteScepProfile(scepProfile);
             } catch (Exception e) {
                 logger.error(e.getMessage());
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), scepProfile != null ? scepProfile.getName() : "", e, "Delete failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(uuid.toString(), scepProfile != null ? scepProfile.getName() : "", e,
+                                        "Delete failed"));
             }
         }
         return messages;
@@ -471,13 +538,24 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
             ScepProfile scepProfile = null;
             try {
                 scepProfile = getScepProfileEntity(uuid);
-                SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithScepProfile(scepProfile.getUuid().toString(), SecurityFilter.create());
-                // SCEP profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent SCEP profile.
-                raProfileService.bulkRemoveAssociatedScepProfile(raProfiles.getAll().stream().map(UniquelyIdentifiedAndAudited::getSecuredParentUuid).collect(Collectors.toList()));
+                SecuredList<RaProfile> raProfiles = raProfileService
+                        .listRaProfilesAssociatedWithScepProfile(scepProfile.getUuid().toString(),
+                                SecurityFilter.create());
+                // SCEP profile only from allowed ones, but that would make the forbidden ra profiles point to
+                // nonexistent SCEP profile.
+                raProfileService
+                        .bulkRemoveAssociatedScepProfile(raProfiles
+                                .getAll()
+                                .stream()
+                                .map(UniquelyIdentifiedAndAudited::getSecuredParentUuid)
+                                .collect(Collectors.toList()));
                 deleteScepProfile(scepProfile);
             } catch (Exception e) {
                 logger.warn(e.getMessage());
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), scepProfile != null ? scepProfile.getName() : "", e, "Delete failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(uuid.toString(), scepProfile != null ? scepProfile.getName() : "", e,
+                                        "Delete failed"));
             }
         }
         return messages;
@@ -496,7 +574,8 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
 
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return scepProfileRepository.listResourceObjects(filter, ScepProfile_.name);
     }
 
@@ -534,17 +613,17 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
     }
 
     private void deleteScepProfile(ScepProfile scepProfile) {
-        SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithScepProfile(scepProfile.getUuid().toString(), SecurityFilter.create());
+        SecuredList<RaProfile> raProfiles = raProfileService
+                .listRaProfilesAssociatedWithScepProfile(scepProfile.getUuid().toString(), SecurityFilter.create());
         if (!raProfiles.isEmpty()) {
-            throw new ValidationException(
-                    ValidationError.create(
-                            String.format(
-                                    "Dependent SCEP Profiles (%d): %s",
-                                    raProfiles.size(),
-                                    raProfiles.getAllowed().stream().map(RaProfile::getName).collect(Collectors.joining(","))
-                            )
-                    )
-            );
+            throw new ValidationException(ValidationError
+                    .create(String
+                            .format("Dependent SCEP Profiles (%d): %s", raProfiles.size(),
+                                    raProfiles
+                                            .getAllowed()
+                                            .stream()
+                                            .map(RaProfile::getName)
+                                            .collect(Collectors.joining(",")))));
         } else {
             attributeEngine.deleteObjectAttributeContent(Resource.SCEP_PROFILE, scepProfile.getUuid());
             scepProfileRepository.delete(scepProfile);

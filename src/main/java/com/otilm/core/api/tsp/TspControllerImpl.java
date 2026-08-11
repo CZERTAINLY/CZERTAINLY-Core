@@ -36,7 +36,8 @@ public class TspControllerImpl implements TspController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.SIGN)
-    public ResponseEntity<byte[]> timestamp(@LogResource(name = true, affiliated = true) String tspProfileName, byte[] request) {
+    public ResponseEntity<byte[]> timestamp(@LogResource(name = true, affiliated = true) String tspProfileName,
+            byte[] request) {
         byte[] responseBytes;
         try {
             TspRequest parsedRequest = TspRequestParser.parse(request);
@@ -52,18 +53,23 @@ public class TspControllerImpl implements TspController {
             log.warn("TSP request rejected with {}: {}", e.getFailureInfo(), e.getMessage());
         } catch (NotFoundException e) {
             auditResultOverride.setFailure();
-            responseBytes = TspResponseBuilder.buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
-            log.warn("Resource not found while processing TSP request for profile '{}': {}", tspProfileName, e.getMessage());
+            responseBytes = TspResponseBuilder
+                    .buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
+            log
+                    .warn("Resource not found while processing TSP request for profile '{}': {}", tspProfileName,
+                            e.getMessage());
         } catch (AccessDeniedException e) {
             // An authorization denial is rendered as the same generic not-found rejection as a non-existent profile so
             // a caller cannot probe which profiles exist by observing differing outcomes (enumeration defense). The
             // real cause is logged for operators but never put on the wire.
             auditResultOverride.setFailure();
-            responseBytes = TspResponseBuilder.buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
+            responseBytes = TspResponseBuilder
+                    .buildRejection(TspFailureInfo.BAD_REQUEST, "Resource not found. See logs for details.");
             log.warn("Access denied while processing TSP request for profile '{}': {}", tspProfileName, e.getMessage());
         } catch (Exception e) {
             auditResultOverride.setFailure();
-            responseBytes = TspResponseBuilder.buildRejection(TspFailureInfo.SYSTEM_FAILURE, "An unexpected error occurred during timestamping.");
+            responseBytes = TspResponseBuilder
+                    .buildRejection(TspFailureInfo.SYSTEM_FAILURE, "An unexpected error occurred during timestamping.");
             log.error("Unexpected TSP processing failure", e);
         }
 

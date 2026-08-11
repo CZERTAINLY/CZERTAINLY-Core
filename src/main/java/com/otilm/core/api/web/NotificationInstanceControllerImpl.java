@@ -16,16 +16,15 @@ import com.otilm.api.model.core.notification.NotificationInstanceUpdateRequestDt
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.NotificationInstanceExternalService;
+import java.net.URI;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 public class NotificationInstanceControllerImpl implements NotificationInstanceController {
@@ -40,17 +39,19 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.DETAIL)
-    public NotificationInstanceDto getNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws ConnectorException, NotFoundException {
+    public NotificationInstanceDto getNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid)
+            throws ConnectorException, NotFoundException {
         return notificationInstanceService.getNotificationInstance(UUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.CREATE)
-    public ResponseEntity<?> createNotificationInstance(
-            @RequestBody NotificationInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+    public ResponseEntity<?> createNotificationInstance(@RequestBody NotificationInstanceRequestDto request)
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         NotificationInstanceDto notificationInstance = notificationInstanceService.createNotificationInstance(request);
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
                 .path("/{uuid}")
                 .buildAndExpand(notificationInstance.getUuid())
                 .toUri();
@@ -61,20 +62,22 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.UPDATE)
-    public NotificationInstanceDto editNotificationInstance(
-            @LogResource(uuid = true) @PathVariable String uuid,
-            @RequestBody NotificationInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public NotificationInstanceDto editNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid,
+            @RequestBody NotificationInstanceUpdateRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException {
         return notificationInstanceService.editNotificationInstance(UUID.fromString(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.DELETE)
-    public void deleteNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws ConnectorException, NotFoundException {
+    public void deleteNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid)
+            throws ConnectorException, NotFoundException {
         notificationInstanceService.deleteNotificationInstance(UUID.fromString(uuid));
     }
 
     @Override
-    public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
+    public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind)
+            throws ConnectorException, NotFoundException {
         return notificationInstanceService.listMappingAttributes(connectorUuid, kind);
     }
 

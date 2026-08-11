@@ -1,5 +1,7 @@
 package com.otilm.core.integration.signing.record;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.core.dao.entity.signing.SigningProfile;
@@ -12,20 +14,17 @@ import com.otilm.core.signing.record.DeferredDurableSigningRecordStrategy;
 import com.otilm.core.signing.record.SigningRecordInputSources;
 import com.otilm.core.signing.record.SigningRecordOutboxDrainer;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.Instant;
-import java.util.List;
-
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.notRecording;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingDisabled;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingEverything;
 import static com.otilm.core.signing.record.SigningRecordInputBuilder.aSigningRecordInput;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,12 +34,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Integration test for {@link DeferredDurableSigningRecordStrategy} over a real Postgres via
- * {@link BaseSpringBootTest}. The strategy's branch logic (policy gating, metrics, failure counting,
- * propagation) is pinned over mocks in {@link DeferredDurableSigningRecordStrategyUnitTest}; what only a real
- * database can prove lives here: a recorded input lands as a row in {@code signing_record_outbox} (the staging
- * table the {@link SigningRecordOutboxDrainer} later moves) and <em>not</em> in {@code signing_record}, reads
- * back field-for-field through the jsonb and {@code byte[]} columns a mocked writer would only echo, and a
- * constraint violation propagates to the caller leaving nothing staged.
+ * {@link BaseSpringBootTest}. The strategy's branch logic (policy gating, metrics, failure counting, propagation) is
+ * pinned over mocks in {@link DeferredDurableSigningRecordStrategyUnitTest}; what only a real database can prove lives
+ * here: a recorded input lands as a row in {@code signing_record_outbox} (the staging table the
+ * {@link SigningRecordOutboxDrainer} later moves) and <em>not</em> in {@code signing_record}, reads back
+ * field-for-field through the jsonb and {@code byte[]} columns a mocked writer would only echo, and a constraint
+ * violation propagates to the caller leaving nothing staged.
  */
 class DeferredDurableSigningRecordStrategyITest extends BaseSpringBootTest {
 
@@ -64,15 +63,17 @@ class DeferredDurableSigningRecordStrategyITest extends BaseSpringBootTest {
                 .build();
 
         // when
-        strategy.recordSigning(SigningRecordInputSources.of(aSigningRecordInput()
-                .signingProfile(recordingProfile)
-                .displayName("round-trip-record")
-                .signingTime(Instant.parse("2026-03-04T05:06:07Z"))
-                .requestMetadataJson("{ \"alg\": \"ES256\" }")
-                .signature("the-signature".getBytes(UTF_8))
-                .signedDocument("the-signed-document".getBytes(UTF_8))
-                .dtbs("the-data-to-be-signed".getBytes(UTF_8))
-                .build()));
+        strategy
+                .recordSigning(SigningRecordInputSources
+                        .of(aSigningRecordInput()
+                                .signingProfile(recordingProfile)
+                                .displayName("round-trip-record")
+                                .signingTime(Instant.parse("2026-03-04T05:06:07Z"))
+                                .requestMetadataJson("{ \"alg\": \"ES256\" }")
+                                .signature("the-signature".getBytes(UTF_8))
+                                .signedDocument("the-signed-document".getBytes(UTF_8))
+                                .dtbs("the-data-to-be-signed".getBytes(UTF_8))
+                                .build()));
 
         // then the row is staged into the outbox, never directly into signing_record
         assertEquals(0, recordRepo.count());
@@ -96,7 +97,9 @@ class DeferredDurableSigningRecordStrategyITest extends BaseSpringBootTest {
                 .build();
 
         // when
-        strategy.recordSigning(SigningRecordInputSources.of(aSigningRecordInput().signingProfile(recordingDisabledProfile).build()));
+        strategy
+                .recordSigning(SigningRecordInputSources
+                        .of(aSigningRecordInput().signingProfile(recordingDisabledProfile).build()));
 
         // then
         assertEquals(0, outboxRepo.count());
@@ -111,10 +114,12 @@ class DeferredDurableSigningRecordStrategyITest extends BaseSpringBootTest {
                 .build();
 
         // when
-        strategy.recordSigning(SigningRecordInputSources.of(aSigningRecordInput()
-                .signingProfile(metadataOnlyProfile)
-                .displayName("metadata-only-record")
-                .build()));
+        strategy
+                .recordSigning(SigningRecordInputSources
+                        .of(aSigningRecordInput()
+                                .signingProfile(metadataOnlyProfile)
+                                .displayName("metadata-only-record")
+                                .build()));
 
         // then the row is staged with intrinsic metadata only; the optional content columns stay null
         assertEquals(0, recordRepo.count());
@@ -140,10 +145,12 @@ class DeferredDurableSigningRecordStrategyITest extends BaseSpringBootTest {
                 .build();
 
         // when
-        Executable signingRecord = () -> strategy.recordSigning(SigningRecordInputSources.of(aSigningRecordInput()
-                .signingProfile(recordingProfile)
-                .signingTime(missingSigningTime)
-                .build()));
+        Executable signingRecord = () -> strategy
+                .recordSigning(SigningRecordInputSources
+                        .of(aSigningRecordInput()
+                                .signingProfile(recordingProfile)
+                                .signingTime(missingSigningTime)
+                                .build()));
 
         // then the violation surfaces to the caller and the outbox stays empty
         assertThrows(Exception.class, signingRecord);
@@ -158,9 +165,9 @@ class DeferredDurableSigningRecordStrategyITest extends BaseSpringBootTest {
     }
 
     /**
-     * Persists the {@code signing_profile} row referenced by a staged record's {@code signing_profile_uuid}.
-     * The profile's model fields are irrelevant to the strategy (it reads only uuid, version and record policy),
-     * so this fills the NOT NULL columns with unremarkable values.
+     * Persists the {@code signing_profile} row referenced by a staged record's {@code signing_profile_uuid}. The
+     * profile's model fields are irrelevant to the strategy (it reads only uuid, version and record policy), so this
+     * fills the NOT NULL columns with unremarkable values.
      */
     private SigningProfile insertSigningProfile(String name) {
         SigningProfile profile = new SigningProfile();

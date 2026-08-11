@@ -7,21 +7,20 @@ import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.security.authn.client.CredentialVerificationCache;
 import com.otilm.core.util.SecretsUtil;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 
 /**
- * Authenticates a TSP request presenting HTTP Basic credentials. Verifies the presented password against the
- * stored credential fingerprint (positive results cached), then proxies as the mapped user. Never touches
- * secret values beyond computing the verification fingerprint.
+ * Authenticates a TSP request presenting HTTP Basic credentials. Verifies the presented password against the stored
+ * credential fingerprint (positive results cached), then proxies as the mapped user. Never touches secret values beyond
+ * computing the verification fingerprint.
  */
 public class BasicPasswordAuthenticator implements TspAuthenticator {
 
@@ -32,7 +31,7 @@ public class BasicPasswordAuthenticator implements TspAuthenticator {
     private final TspSecurityContextWriter contextWriter;
 
     public BasicPasswordAuthenticator(CredentialVerificationCache credentialVerificationCache,
-                                      TspSecurityContextWriter contextWriter) {
+            TspSecurityContextWriter contextWriter) {
         this.credentialVerificationCache = credentialVerificationCache;
         this.contextWriter = contextWriter;
     }
@@ -61,14 +60,18 @@ public class BasicPasswordAuthenticator implements TspAuthenticator {
             return false;
         }
 
-        TspProfileModel.BasicCredentialRef credential = profile.basicCredentials().stream()
+        TspProfileModel.BasicCredentialRef credential = profile
+                .basicCredentials()
+                .stream()
                 .filter(ref -> ref.username().equals(username))
                 .findFirst()
                 .orElse(null);
         if (credential == null) {
             // Compute and discard a fingerprint to prevent side-channel timing attacks.
             computeFingerprint(username, password, profile);
-            log.warn("TSP authentication: no Basic credential for the presented username on profile '{}'.", profile.name());
+            log
+                    .warn("TSP authentication: no Basic credential for the presented username on profile '{}'.",
+                            profile.name());
             return false;
         }
 
@@ -85,9 +88,8 @@ public class BasicPasswordAuthenticator implements TspAuthenticator {
         }
 
         String stored = credential.fingerprint();
-        if (stored == null || !MessageDigest.isEqual(
-                candidate.getBytes(StandardCharsets.UTF_8),
-                stored.getBytes(StandardCharsets.UTF_8))) {
+        if (stored == null || !MessageDigest
+                .isEqual(candidate.getBytes(StandardCharsets.UTF_8), stored.getBytes(StandardCharsets.UTF_8))) {
             log.warn("TSP authentication: Basic credential fingerprint mismatch for profile '{}'.", profile.name());
             return false;
         }
@@ -100,7 +102,9 @@ public class BasicPasswordAuthenticator implements TspAuthenticator {
         try {
             return SecretsUtil.calculateSecretContentFingerprint(new BasicAuthSecretContent(username, password));
         } catch (JsonProcessingException | NoSuchAlgorithmException e) {
-            log.warn("TSP authentication: failed to compute credential fingerprint for profile '{}': {}", profile.name(), e.getMessage());
+            log
+                    .warn("TSP authentication: failed to compute credential fingerprint for profile '{}': {}",
+                            profile.name(), e.getMessage());
             return null;
         }
     }

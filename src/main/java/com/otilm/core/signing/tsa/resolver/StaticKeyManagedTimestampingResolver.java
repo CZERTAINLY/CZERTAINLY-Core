@@ -5,7 +5,6 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
-import com.otilm.core.signing.tsa.CertificateChain;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
@@ -20,22 +19,23 @@ import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.CryptographicKeyInternalService;
 import com.otilm.core.service.TimeQualityConfigurationInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
-import org.springframework.stereotype.Component;
-
+import com.otilm.core.signing.tsa.CertificateChain;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Component;
 
 /**
- * Resolves a {@link SigningProfileModel} with a {@link ManagedTimestampingWorkflow} and
- * {@link StaticKeyManagedSigning} scheme into the transient {@link ResolvedManagedTimestampingProfile}
- * consumed by the timestamping pipeline.
+ * Resolves a {@link SigningProfileModel} with a {@link ManagedTimestampingWorkflow} and {@link StaticKeyManagedSigning}
+ * scheme into the transient {@link ResolvedManagedTimestampingProfile} consumed by the timestamping pipeline.
  *
- * <p>The cached model deliberately holds only UUIDs for objects owned by other caches or
- * repositories (Time Quality Configuration, Signature Formatting Provider, signing certificate).
- * This resolver dereferences those UUIDs at request time. The resolved form is never cached.</p>
+ * <p>
+ * The cached model deliberately holds only UUIDs for objects owned by other caches or repositories (Time Quality
+ * Configuration, Signature Formatting Provider, signing certificate). This resolver dereferences those UUIDs at request
+ * time. The resolved form is never cached.
+ * </p>
  */
 @Component
 public class StaticKeyManagedTimestampingResolver implements SigningProfileResolver {
@@ -46,9 +46,9 @@ public class StaticKeyManagedTimestampingResolver implements SigningProfileResol
     private final ConnectorInternalService connectorService;
 
     public StaticKeyManagedTimestampingResolver(CertificateInternalService certificateService,
-                                                CryptographicKeyInternalService cryptographicKeyService,
-                                                TimeQualityConfigurationInternalService timeQualityConfigurationService,
-                                                ConnectorInternalService connectorService) {
+            CryptographicKeyInternalService cryptographicKeyService,
+            TimeQualityConfigurationInternalService timeQualityConfigurationService,
+            ConnectorInternalService connectorService) {
         this.certificateService = certificateService;
         this.cryptographicKeyService = cryptographicKeyService;
         this.timeQualityConfigurationService = timeQualityConfigurationService;
@@ -64,35 +64,23 @@ public class StaticKeyManagedTimestampingResolver implements SigningProfileResol
     public ResolvedManagedTimestampingProfile resolve(SigningProfileModel<?, ?> model) throws TspException {
         ManagedTimestampingWorkflow workflow = (ManagedTimestampingWorkflow) model.workflow();
         ResolvedManagedScheme resolvedScheme = resolveScheme(model.name(), model.signingScheme());
-        TimeQualityConfigurationModel timeQualityConfiguration = resolveTimeQualityConfiguration(workflow.timeQualityConfigurationUuid());
-        ApiClientConnectorInfo signatureFormattingConnector = resolveSignatureFormattingConnector(workflow.signatureFormattingConnectorUuid());
+        TimeQualityConfigurationModel timeQualityConfiguration = resolveTimeQualityConfiguration(
+                workflow.timeQualityConfigurationUuid());
+        ApiClientConnectorInfo signatureFormattingConnector = resolveSignatureFormattingConnector(
+                workflow.signatureFormattingConnectorUuid());
 
-        return new ResolvedManagedTimestampingProfile(
-                model.uuid(),
-                model.name(),
-                model.description(),
-                model.version(),
-                model.enabled(),
-                model.enabledProtocols(),
-                workflow.isQualifiedTimestamp(),
-                workflow.defaultPolicyId(),
-                workflow.allowedPolicyIds(),
-                workflow.allowedDigestAlgorithms(),
-                workflow.validateTokenSignature(),
-                workflow.signatureFormattingConnectorAttributes(),
-                timeQualityConfiguration,
-                signatureFormattingConnector,
-                resolvedScheme);
+        return new ResolvedManagedTimestampingProfile(model.uuid(), model.name(), model.description(), model.version(),
+                model.enabled(), model.enabledProtocols(), workflow.isQualifiedTimestamp(), workflow.defaultPolicyId(),
+                workflow.allowedPolicyIds(), workflow.allowedDigestAlgorithms(), workflow.validateTokenSignature(),
+                workflow.signatureFormattingConnectorAttributes(), timeQualityConfiguration,
+                signatureFormattingConnector, resolvedScheme);
     }
 
     private ResolvedManagedScheme resolveScheme(String profileName, SigningSchemeModel scheme) throws TspException {
-        if (!(scheme instanceof StaticKeyManagedSigning(
-                UUID certificateUuid,
-                List<com.otilm.api.model.client.attribute.RequestAttribute> signingOperationAttributes
-        ))) {
+        if (!(scheme instanceof StaticKeyManagedSigning(UUID certificateUuid, List<com.otilm.api.model.client.attribute.RequestAttribute> signingOperationAttributes))) {
             throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signing Profile '%s' uses an unsupported signing scheme: %s".formatted(
-                            profileName, scheme.getClass().getSimpleName()),
+                    "Signing Profile '%s' uses an unsupported signing scheme: %s"
+                            .formatted(profileName, scheme.getClass().getSimpleName()),
                     "The system is misconfigured.");
         }
 
@@ -100,9 +88,8 @@ public class StaticKeyManagedTimestampingResolver implements SigningProfileResol
         try {
             certificate = certificateService.getSigningCertificate(certificateUuid);
         } catch (NotFoundException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signing certificate not found: " + certificateUuid, e,
-                    "Signing key certificate could not be found.");
+            throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Signing certificate not found: " + certificateUuid,
+                    e, "Signing key certificate could not be found.");
         }
 
         List<CryptographicKeyItemModel> keyItems = new ArrayList<>();
@@ -111,8 +98,9 @@ public class StaticKeyManagedTimestampingResolver implements SigningProfileResol
                 keyItems.add(cryptographicKeyService.getKeyItemModel(keyItemUuid));
             } catch (NotFoundException e) {
                 throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                        "Key item %s referenced by signing certificate %s not found.".formatted(keyItemUuid, certificateUuid), e,
-                        "Signing key could not be found.");
+                        "Key item %s referenced by signing certificate %s not found."
+                                .formatted(keyItemUuid, certificateUuid),
+                        e, "Signing key could not be found.");
             }
         }
 
@@ -135,14 +123,17 @@ public class StaticKeyManagedTimestampingResolver implements SigningProfileResol
             certificateChain = CertificateChain.of(chain);
         } catch (IllegalArgumentException e) {
             throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signing Profile '%s' has an invalid certificate chain for %s: %s".formatted(profileName, certificateUuid, e.getMessage()), e,
-                    "The system is misconfigured.");
+                    "Signing Profile '%s' has an invalid certificate chain for %s: %s"
+                            .formatted(profileName, certificateUuid, e.getMessage()),
+                    e, "The system is misconfigured.");
         }
 
-        return new ResolvedStaticKeyManagedSigning(certificate, List.copyOf(keyItems), certificateChain, signingOperationAttributes);
+        return new ResolvedStaticKeyManagedSigning(certificate, List.copyOf(keyItems), certificateChain,
+                signingOperationAttributes);
     }
 
-    private TimeQualityConfigurationModel resolveTimeQualityConfiguration(UUID timeQualityConfigurationUuid) throws TspException {
+    private TimeQualityConfigurationModel resolveTimeQualityConfiguration(UUID timeQualityConfigurationUuid)
+            throws TspException {
         if (timeQualityConfigurationUuid == null) {
             // No explicit Time Quality Configuration: fall back to the local system clock.
             return LocalClockTimeQualityConfiguration.INSTANCE;
@@ -156,7 +147,8 @@ public class StaticKeyManagedTimestampingResolver implements SigningProfileResol
         }
     }
 
-    private ApiClientConnectorInfo resolveSignatureFormattingConnector(UUID signatureFormattingConnectorUuid) throws TspException {
+    private ApiClientConnectorInfo resolveSignatureFormattingConnector(UUID signatureFormattingConnectorUuid)
+            throws TspException {
         try {
             return connectorService.getConnectorForApiClient(signatureFormattingConnectorUuid);
         } catch (NotFoundException e) {

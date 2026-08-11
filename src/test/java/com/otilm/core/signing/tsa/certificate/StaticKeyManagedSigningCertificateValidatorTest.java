@@ -7,9 +7,8 @@ import com.otilm.core.model.crypto.CryptographicKeyItemModel;
 import com.otilm.core.model.crypto.CryptographicKeyItemModelFixtures;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,9 +16,9 @@ class StaticKeyManagedSigningCertificateValidatorTest {
 
     private final StaticKeyManagedSigningCertificateValidator provider = new StaticKeyManagedSigningCertificateValidator();
 
-    private static final List<CryptographicKeyItemModel> SIGNING_KEY_ITEMS = List.of(
-            CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA),
-            CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA));
+    private static final List<CryptographicKeyItemModel> SIGNING_KEY_ITEMS = List
+            .of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA),
+                    CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA));
 
     // ── validate() ───────────────────────────────────────────────────────────
 
@@ -40,7 +39,8 @@ class StaticKeyManagedSigningCertificateValidatorTest {
     @Test
     void returnsOk_whenCertificateIsAcceptableForNonQualifiedTimestamping() {
         // given
-        var scheme = new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), SIGNING_KEY_ITEMS, null, List.of());
+        var scheme = new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), SIGNING_KEY_ITEMS, null,
+                List.of());
 
         // when
         var result = provider.validate(scheme, false);
@@ -52,7 +52,8 @@ class StaticKeyManagedSigningCertificateValidatorTest {
     @Test
     void returnsNok_whenCertificateHasNoQcComplianceForQualifiedTimestamping() {
         // given — qcCompliance is absent, which is required for qualified timestamps (ETSI EN 319 421)
-        var scheme = new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), SIGNING_KEY_ITEMS, null, List.of());
+        var scheme = new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), SIGNING_KEY_ITEMS, null,
+                List.of());
 
         // when
         var result = provider.validate(scheme, true);

@@ -2,16 +2,15 @@ package com.otilm.core.service;
 
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
-import com.otilm.api.model.common.BulkActionMessageDto;
-import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.client.dashboard.SigningRecordStatisticsDto;
 import com.otilm.api.model.client.dashboard.SigningRecordStatisticsPeriod;
+import com.otilm.api.model.common.BulkActionMessageDto;
+import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.signing.signingrecord.SigningRecordDto;
 import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -23,11 +22,12 @@ public interface SigningRecordExternalService {
 
     /**
      * Lists signing records scoped to a single signing profile. Authorized independently as a
-     * {@code SIGNING_RECORD/LIST} operation (with row-level access delegated to the parent signing
-     * profile as {@code SIGNING_PROFILE/DETAIL}, matching the single-record paths), so signing-record
-     * visibility is required even when reached via a profile-scoped endpoint.
+     * {@code SIGNING_RECORD/LIST} operation (with row-level access delegated to the parent signing profile as
+     * {@code SIGNING_PROFILE/DETAIL}, matching the single-record paths), so signing-record visibility is required even
+     * when reached via a profile-scoped endpoint.
      */
-    PaginationResponseDto<SigningRecordListDto> listSigningRecordsForProfile(UUID signingProfileUuid, SearchRequestDto request, SecurityFilter filter);
+    PaginationResponseDto<SigningRecordListDto> listSigningRecordsForProfile(UUID signingProfileUuid,
+            SearchRequestDto request, SecurityFilter filter);
 
     /**
      * Computes the Signing Records dashboard statistics from the shared {@code signing_record} table, scoped to the

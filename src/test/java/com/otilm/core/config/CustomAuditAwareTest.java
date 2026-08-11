@@ -5,20 +5,19 @@ import com.otilm.core.security.authn.PlatformAnonymousToken;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.List;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Characterization tests for the resolver behind every {@code @CreatedBy} / {@code @LastModifiedBy} column —
- * it is what decides the author of a certificate and of its event-history rows.
+ * Characterization tests for the resolver behind every {@code @CreatedBy} / {@code @LastModifiedBy} column — it is what
+ * decides the author of a certificate and of its event-history rows.
  */
 class CustomAuditAwareTest {
 
@@ -31,8 +30,9 @@ class CustomAuditAwareTest {
 
     @Test
     void authenticatedUserIsTheAuditor() {
-        SecurityContextHolder.getContext().setAuthentication(new PlatformAuthenticationToken(
-                new PlatformUserDetails(new AuthenticationInfo(
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(new AuthenticationInfo(
                         AuthMethod.USER_PROXY, UUID.randomUUID().toString(), "uploader", List.of()))));
 
         assertThat(auditAware.getCurrentAuditor()).contains("uploader");
@@ -49,10 +49,11 @@ class CustomAuditAwareTest {
      */
     @Test
     void platformAnonymousPrincipalIsAttributedToAnonymousUser() {
-        SecurityContextHolder.getContext().setAuthentication(new PlatformAnonymousToken(
-                UUID.randomUUID().toString(),
-                new PlatformUserDetails(AuthenticationInfo.getAnonymousAuthenticationInfo()),
-                AuthenticationInfo.getAnonymousAuthenticationInfo().getAuthorities()));
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new PlatformAnonymousToken(UUID.randomUUID().toString(),
+                        new PlatformUserDetails(AuthenticationInfo.getAnonymousAuthenticationInfo()),
+                        AuthenticationInfo.getAnonymousAuthenticationInfo().getAuthorities()));
 
         assertThat(auditAware.getCurrentAuditor()).contains("anonymousUser");
     }
@@ -60,8 +61,10 @@ class CustomAuditAwareTest {
     /** The string-principal branch supports connector self-registration. */
     @Test
     void stringAnonymousPrincipalIsAttributedToAnonymousUser() {
-        SecurityContextHolder.getContext().setAuthentication(new AnonymousAuthenticationToken(
-                "key", "anonymousUser", List.of(new SimpleGrantedAuthority("ANONYMOUS"))));
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new AnonymousAuthenticationToken("key", "anonymousUser",
+                        List.of(new SimpleGrantedAuthority("ANONYMOUS"))));
 
         assertThat(auditAware.getCurrentAuditor()).contains("anonymousUser");
     }

@@ -1,45 +1,43 @@
 package com.otilm.core.dao.repository.workflows;
 
-
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
-import java.util.List;
-import java.util.UUID;
-
 @Repository
 public interface TriggerHistoryRepository extends SecurityFilterRepository<TriggerHistory, UUID> {
 
     @EntityGraph(attributePaths = {"records"})
-    List<TriggerHistory> findAllByTriggerUuidAndTriggerAssociationObjectUuid(UUID triggerUuid, UUID triggerAssociationObjectUuid);
+    List<TriggerHistory> findAllByTriggerUuidAndTriggerAssociationObjectUuid(UUID triggerUuid,
+            UUID triggerAssociationObjectUuid);
 
     @EntityGraph(attributePaths = {"records"})
-    List<TriggerHistory> findByTriggerAssociationObjectUuidOrderByTriggerUuidAscTriggeredAtAsc(UUID triggerAssociationObjectUuid);
+    List<TriggerHistory> findByTriggerAssociationObjectUuidOrderByTriggerUuidAscTriggeredAtAsc(
+            UUID triggerAssociationObjectUuid);
 
     @Modifying
     @Query("UPDATE TriggerHistory t SET t.triggerAssociationUuid = NULL WHERE t.triggerAssociationUuid = :uuid")
     int removeTriggerAssociation(@Param("uuid") UUID uuid);
 
-    @EntityGraph(attributePaths = {"records", "triggerAssociation", "records.execution", "records.execution.items", "records.execution.items.notificationProfile"})
-    Page<TriggerHistory> findByObjectUuidAndObjectResourceOrderByTriggeredAtDesc(UUID objectUuid, Resource objectResource, Pageable pageable);
-
-
+    @EntityGraph(attributePaths = {"records", "triggerAssociation", "records.execution", "records.execution.items",
+            "records.execution.items.notificationProfile"})
+    Page<TriggerHistory> findByObjectUuidAndObjectResourceOrderByTriggeredAtDesc(UUID objectUuid,
+            Resource objectResource, Pageable pageable);
 
     /**
-     * Returns one row per event history with three counts in a single GROUP BY query,
-     * replacing three separate per-row count queries when mapping a page of EventHistory records.
-     * Each row is [eventHistoryUuid, objectsEvaluated, objectsMatched, objectsIgnored].
-     * Null object_uuid (ignored certificates never persisted) is counted as one distinct object
-     * via bool_or, since COUNT(DISTINCT ...) ignores nulls.
+     * Returns one row per event history with three counts in a single GROUP BY query, replacing three separate per-row
+     * count queries when mapping a page of EventHistory records. Each row is [eventHistoryUuid, objectsEvaluated,
+     * objectsMatched, objectsIgnored]. Null object_uuid (ignored certificates never persisted) is counted as one
+     * distinct object via bool_or, since COUNT(DISTINCT ...) ignores nulls.
      */
     @Query(value = """
             SELECT t.event_history_uuid,
@@ -57,10 +55,9 @@ public interface TriggerHistoryRepository extends SecurityFilterRepository<Trigg
     List<Object[]> countStatsByEventHistoryUuids(@Param("uuids") List<UUID> uuids);
 
     /**
-     * Returns paginated (event_history_uuid, object_uuid) pairs for a batch of event histories
-     * in a single window-function query, replacing one paginated query per event history row.
-     * Offset is zero-based; limit is the page size.
-     * Null object_uuid is treated as a distinct entry (e.g. ignored certificates) and counted in pagination.
+     * Returns paginated (event_history_uuid, object_uuid) pairs for a batch of event histories in a single
+     * window-function query, replacing one paginated query per event history row. Offset is zero-based; limit is the
+     * page size. Null object_uuid is treated as a distinct entry (e.g. ignored certificates) and counted in pagination.
      */
     @Query(value = """
             SELECT event_history_uuid, object_uuid
@@ -75,15 +72,13 @@ public interface TriggerHistoryRepository extends SecurityFilterRepository<Trigg
             ) ranked
             WHERE rn > :offset AND rn <= :offset + :limit
             """, nativeQuery = true)
-    List<Object[]> findPaginatedObjectUuidsByEventHistoryUuids(
-            @Param("uuids") List<UUID> uuids,
-            @Param("offset") int offset,
-            @Param("limit") int limit);
+    List<Object[]> findPaginatedObjectUuidsByEventHistoryUuids(@Param("uuids") List<UUID> uuids,
+            @Param("offset") int offset, @Param("limit") int limit);
 
     /**
-     * Fetches all trigger histories for a set of event histories filtered to specific object UUIDs,
-     * replacing one query per event history row. Results are grouped in Java by eventHistoryUuid → objectUuid.
-     * Includes rows where objectUuid IS NULL (e.g. ignored certificates that were never persisted).
+     * Fetches all trigger histories for a set of event histories filtered to specific object UUIDs, replacing one query
+     * per event history row. Results are grouped in Java by eventHistoryUuid → objectUuid. Includes rows where
+     * objectUuid IS NULL (e.g. ignored certificates that were never persisted).
      */
     @Query("""
             SELECT t FROM TriggerHistory t
@@ -91,17 +86,16 @@ public interface TriggerHistoryRepository extends SecurityFilterRepository<Trigg
               AND (t.objectUuid IN :objectUuids OR t.objectUuid IS NULL)
             ORDER BY t.eventHistoryUuid ASC, t.objectUuid ASC NULLS LAST, t.triggeredAt DESC
             """)
-    @EntityGraph(attributePaths = {"records", "triggerAssociation", "records.execution", "records.execution.items", "records.execution.items.notificationProfile"})
-    List<TriggerHistory> findByEventHistoryUuidsAndObjectUuids(
-            @Param("eventHistoryUuids") List<UUID> eventHistoryUuids,
+    @EntityGraph(attributePaths = {"records", "triggerAssociation", "records.execution", "records.execution.items",
+            "records.execution.items.notificationProfile"})
+    List<TriggerHistory> findByEventHistoryUuidsAndObjectUuids(@Param("eventHistoryUuids") List<UUID> eventHistoryUuids,
             @Param("objectUuids") List<UUID> objectUuids);
-
-
 
     @Query("""
             UPDATE TriggerHistory th SET th.objectUuid = :objectUuid, th.objectResource = :objectResource
             WHERE th.eventHistoryUuid = :eventHistoryUuid
             """)
     @Modifying
-    void updateObjectUuidAndObjectResource(@Param("objectUuid") UUID objectUuid, @Param("objectResource") Resource objectResource, @Param("eventHistoryUuid") UUID eventHistoryUuid);
+    void updateObjectUuidAndObjectResource(@Param("objectUuid") UUID objectUuid,
+            @Param("objectResource") Resource objectResource, @Param("eventHistoryUuid") UUID eventHistoryUuid);
 }

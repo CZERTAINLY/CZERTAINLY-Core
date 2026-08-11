@@ -1,9 +1,8 @@
 package com.otilm.core.mapper.workflows;
 
 import com.otilm.api.model.common.PaginationResponseDto;
-import org.springframework.data.domain.Page;
-
 import java.util.List;
+import org.springframework.data.domain.Page;
 
 public class PaginationResponseMapper {
 
@@ -18,8 +17,8 @@ public class PaginationResponseMapper {
     }
 
     /**
-     * Builds a paginated response from flat parameters (e.g. SecurityFilterRepository which returns
-     * a List + a separate count instead of a Page).
+     * Builds a paginated response from flat parameters (e.g. SecurityFilterRepository which returns a List + a separate
+     * count instead of a Page).
      */
     public static <T> PaginationResponseDto<T> toDto(List<T> items, int pageNumber, int itemsPerPage, long totalItems) {
         PaginationResponseDto<T> dto = new PaginationResponseDto<>();

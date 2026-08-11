@@ -2,15 +2,14 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Repository
 public interface CryptographicKeyItemRepository extends SecurityFilterRepository<CryptographicKeyItem, UUID> {
@@ -67,10 +66,6 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
             """)
     List<Integer> getCountsOfAssociations(@Param("uuids") List<UUID> uuids);
 
-    @EntityGraph(attributePaths = {
-            "key",
-            "key.tokenInstanceReference",
-            "key.tokenInstanceReference.connector"
-    })
+    @EntityGraph(attributePaths = {"key", "key.tokenInstanceReference", "key.tokenInstanceReference.connector"})
     Optional<CryptographicKeyItem> findWithConnectorByUuid(UUID uuid);
 }

@@ -30,107 +30,100 @@ The important modification are marked with the comment "MODIFICATION"
 */
 package com.otilm.core.intune.scepvalidation;
 
+import com.microsoft.aad.msal4j.ClientCredentialFactory;
+import com.microsoft.aad.msal4j.ClientCredentialParameters;
+import com.microsoft.aad.msal4j.ConfidentialClientApplication;
+import com.microsoft.aad.msal4j.ConfidentialClientApplication.Builder;
+import com.microsoft.aad.msal4j.IAuthenticationResult;
 import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import javax.naming.ServiceUnavailableException;
 import javax.net.ssl.SSLSocketFactory;
 
-import com.microsoft.aad.msal4j.ClientCredentialFactory;
-import com.microsoft.aad.msal4j.ClientCredentialParameters;
-import com.microsoft.aad.msal4j.ConfidentialClientApplication;
-import com.microsoft.aad.msal4j.ConfidentialClientApplication.Builder;
-import com.microsoft.aad.msal4j.IAuthenticationResult;
 /**
  * MSAL Authentication Client
  */
-public class MSALClientWrapper 
-{
+public class MSALClientWrapper {
 
     private String authority = "https://login.microsoftonline.com/";
     private String azureAppId = null;
     private ExecutorService service = null;
     private Builder builder = null;
-    
+
     /**
      * MSAL Authentication Client
+     *
      * @param aadTenant - Azure tenant
      * @throws IllegalArgumentException
      */
-    public MSALClientWrapper(String aadTenant, Properties props) throws IllegalArgumentException
-    {
-        if(aadTenant == null || aadTenant.isEmpty())
-        {
+    public MSALClientWrapper(String aadTenant, Properties props) throws IllegalArgumentException {
+        if (aadTenant == null || aadTenant.isEmpty()) {
             throw new IllegalArgumentException("The argument 'aadTenant' is missing");
         }
-        
-        if(props == null)
-        {
+
+        if (props == null) {
             throw new IllegalArgumentException("The argument 'props' is missing");
         }
-        
-        this.authority = props.getProperty("AUTH_AUTHORITY",this.authority);
-        
+
+        this.authority = props.getProperty("AUTH_AUTHORITY", this.authority);
+
         this.azureAppId = props.getProperty("AAD_APP_ID");
-        if(this.azureAppId == null || this.azureAppId.isEmpty())
-        {
+        if (this.azureAppId == null || this.azureAppId.isEmpty()) {
             throw new IllegalArgumentException("The argument 'AAD_APP_ID' is missing");
         }
-        
+
         String azureAppKey = props.getProperty("AAD_APP_KEY");
-        if(azureAppKey == null || azureAppKey.isEmpty())
-        {
+        if (azureAppKey == null || azureAppKey.isEmpty()) {
             throw new IllegalArgumentException("The argument 'AAD_APP_KEY' is missing");
         }
-        
+
         this.service = Executors.newFixedThreadPool(1);
 
-        try 
-        {
+        try {
             builder = ConfidentialClientApplication
                     .builder(azureAppId, ClientCredentialFactory.createFromSecret(azureAppKey))
                     .authority(authority + aadTenant);
-        }
-        catch(MalformedURLException e)
-        {
-            throw new IllegalArgumentException("AUTH_AUTHORITY parameter was not formatted correctly which resulted in a MalformedURLException", e);
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException(
+                    "AUTH_AUTHORITY parameter was not formatted correctly which resulted in a MalformedURLException",
+                    e);
         }
     }
-    
+
     /**
      * Sets the SSL factory to be used on the HTTP client for authentication.
+     *
      * @param factory
      */
-    public void SetSslSocketFactory(SSLSocketFactory factory) throws IllegalArgumentException
-    {
-        if(factory == null)
-        {
+    public void SetSslSocketFactory(SSLSocketFactory factory) throws IllegalArgumentException {
+        if (factory == null) {
             throw new IllegalArgumentException("The argument 'factory' is missing.");
         }
-        
+
         this.builder.sslSocketFactory(factory);
     }
-    
+
     /**
      * Sets the proxy to be used by the client for any HTTP or HTTPS calls
+     *
      * @param proxy
      */
-    public void SetProxy(Proxy proxy)
-    {
+    public void SetProxy(Proxy proxy) {
         this.builder.proxy(proxy);
     }
-    
+
     /**
      * Gets an access token from MSAL for the specified scopes.
+     *
      * @param scopes Scopes to request access for.
      * @return
-     * @throws MalformedURLException 
-     * @throws ServiceUnavailableException 
-     */    
+     * @throws MalformedURLException
+     * @throws ServiceUnavailableException
+     */
     public String getAccessToken(Set<String> scopes) throws MalformedURLException, ServiceUnavailableException {
 
         IAuthenticationResult result;
@@ -140,17 +133,15 @@ public class MSALClientWrapper
         ConfidentialClientApplication app = builder.build();
         result = app.acquireToken(params).join();
 
-        if (result == null) 
-        {
+        if (result == null) {
             throw new ServiceUnavailableException("Authentication result was null");
         }
-        
+
         return result.accessToken();
     }
-    
+
     @Override
-    public void finalize()
-    {
+    public void finalize() {
         service.shutdown();
     }
 }

@@ -1,10 +1,10 @@
 package com.otilm.core.service;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.security.authz.SecuredUUID;
-
 import java.util.List;
 
 public interface TokenInstanceInternalService extends ResourceExtensionService {
@@ -20,10 +20,11 @@ public interface TokenInstanceInternalService extends ResourceExtensionService {
     /**
      * Validate the token Profile attributes
      *
-     * @param uuid       UUID of the token instance
+     * @param uuid UUID of the token instance
      * @param attributes attributes to be validated
      * @throws ConnectorException when there are issues with the communication
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      */
-    void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException;
+    void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttribute> attributes)
+            throws ConnectorException, NotFoundException;
 }

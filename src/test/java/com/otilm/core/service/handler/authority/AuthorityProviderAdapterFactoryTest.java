@@ -3,12 +3,13 @@ package com.otilm.core.service.handler.authority;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.exception.UnsupportedAuthorityVersionException;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 class AuthorityProviderAdapterFactoryTest {
 
@@ -29,8 +30,7 @@ class AuthorityProviderAdapterFactoryTest {
     @Test
     void rejectsV1() {
         AuthorityInstanceReference auth = authorityWithVersion("v1");
-        UnsupportedAuthorityVersionException ex = assertThrows(
-                UnsupportedAuthorityVersionException.class,
+        UnsupportedAuthorityVersionException ex = assertThrows(UnsupportedAuthorityVersionException.class,
                 () -> factory.forAuthority(auth));
         assertTrue(ex.getMessage().contains("v1"));
     }
@@ -64,10 +64,9 @@ class AuthorityProviderAdapterFactoryTest {
     }
 
     /**
-     * @param version connector-format version string, e.g. {@code "v2"}, {@code "v3"}, {@code "v1"}.
-     *                Must include the {@code v} prefix — that is the format stored by
-     *                {@link com.otilm.core.service.handler.ConnectorV2Adapter} from the
-     *                connector's info endpoint.
+     * @param version connector-format version string, e.g. {@code "v2"}, {@code "v3"}, {@code "v1"}. Must include the
+     * {@code v} prefix — that is the format stored by {@link com.otilm.core.service.handler.ConnectorV2Adapter} from
+     * the connector's info endpoint.
      */
     private AuthorityInstanceReference authorityWithVersion(String version) {
         AuthorityInstanceReference auth = new AuthorityInstanceReference();

@@ -1,5 +1,8 @@
 package com.otilm.core.integration.service.v2;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
@@ -18,8 +21,14 @@ import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.io.StringWriter;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.cert.CertificateException;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.DERSet;
@@ -43,22 +52,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.StringWriter;
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import com.otilm.api.exception.ValidationException;
-
-import java.security.cert.CertificateException;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * A strict RA Profile whose resolved set requires a CN rejects an uploaded CSR missing CN; a lenient profile accepts the same CSR.
+ * A strict RA Profile whose resolved set requires a CN rejects an uploaded CSR missing CN; a lenient profile accepts
+ * the same CSR.
  */
 class UploadedCsrValidationITest extends BaseSpringBootTest {
 
@@ -170,9 +169,12 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
         // MERGE is seeded via the writer: the update service rejects non-STATIC_ONLY modes
         persistCommonNameConfig(AttributeSetMergeMode.MERGE, Boolean.TRUE);
 
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.serverError().withBody("authority connector is unavailable")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.serverError().withBody("authority connector is unavailable")));
 
         ClientCertificateRequestDto request = uploadRequest(csrMissingCommonName);
 
@@ -188,13 +190,14 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
-    /** Persists the profile's request-attribute config directly through the writer, bypassing the gated update service. */
+    /**
+     * Persists the profile's request-attribute config directly through the writer, bypassing the gated update service.
+     */
     private void persistCommonNameConfig(AttributeSetMergeMode mergeMode, Boolean externalCsrValidationStrict) {
-        requestAttributeWriter.saveStaticSet(
-                raProfile,
-                AttributeDefinitionUtils.serialize(List.of(CsrAttributes.commonNameAttribute())),
-                mergeMode,
-                externalCsrValidationStrict);
+        requestAttributeWriter
+                .saveStaticSet(raProfile,
+                        AttributeDefinitionUtils.serialize(List.of(CsrAttributes.commonNameAttribute())), mergeMode,
+                        externalCsrValidationStrict);
     }
 
     private ClientCertificateRequestDto uploadRequest(String pemCsr) {
@@ -206,35 +209,40 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
     }
 
     private void stubIssueAttributesAndSigning() throws Exception {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
         kpg.initialize(2048);
         KeyPair issuerKeyPair = kpg.generateKeyPair();
         X500Name issuerDn = new X500Name("CN=Test CA");
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(issuerKeyPair.getPrivate());
-        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
-                issuerDn, BigInteger.valueOf(System.currentTimeMillis()),
-                new Date(System.currentTimeMillis() - 60_000L),
-                new Date(System.currentTimeMillis() + 3_600_000L),
-                issuerDn, issuerKeyPair.getPublic());
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(issuerDn,
+                BigInteger.valueOf(System.currentTimeMillis()), new Date(System.currentTimeMillis() - 60_000L),
+                new Date(System.currentTimeMillis() + 3_600_000L), issuerDn, issuerKeyPair.getPublic());
         var issuedCert = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
         String certificateData = Base64.getEncoder().encodeToString(issuedCert.getEncoded());
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
     }
 
     /**
-     * Hand-assembles a PKCS#10 whose {@code extensionRequest} attribute has an empty value set —
-     * legal ASN.1 that no BC builder produces, and that fails extension extraction with an unchecked
-     * exception. The signature is a placeholder: request-attribute validation runs before any signature check.
+     * Hand-assembles a PKCS#10 whose {@code extensionRequest} attribute has an empty value set — legal ASN.1 that no BC
+     * builder produces, and that fails extension extraction with an unchecked exception. The signature is a
+     * placeholder: request-attribute validation runs before any signature check.
      */
     private static String pemEncodedCsrWithEmptyExtensionRequest() throws Exception {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
@@ -242,10 +250,8 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
         KeyPair keyPair = kpg.generateKeyPair();
 
         Attribute emptyExtensionRequest = new Attribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, new DERSet());
-        CertificationRequestInfo info = new CertificationRequestInfo(
-                new X500Name("O=Acme"),
-                SubjectPublicKeyInfo.getInstance(keyPair.getPublic().getEncoded()),
-                new DERSet(emptyExtensionRequest));
+        CertificationRequestInfo info = new CertificationRequestInfo(new X500Name("O=Acme"),
+                SubjectPublicKeyInfo.getInstance(keyPair.getPublic().getEncoded()), new DERSet(emptyExtensionRequest));
         CertificationRequest csr = new CertificationRequest(info,
                 new AlgorithmIdentifier(PKCSObjectIdentifiers.sha256WithRSAEncryption, DERNull.INSTANCE),
                 new DERBitString(new byte[]{0}));
@@ -263,8 +269,8 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
         kpg.initialize(2048);
         KeyPair keyPair = kpg.generateKeyPair();
 
-        JcaPKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), keyPair.getPublic());
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                keyPair.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
         PKCS10CertificationRequest csr = builder.build(signer);
 

@@ -13,7 +13,7 @@ public class AcmeConstants {
     public static final Integer ACME_RSA_MINIMUM_KEY_LENGTH = 1024;
     public static final Integer ACME_EC_MINIMUM_KEY_LENGTH = 112;
     public static final String ACME_URI_HEADER = "/v1/protocols/acme";
-    public static final Integer NONCE_VALIDITY = 60 * 60; //1 Hour
+    public static final Integer NONCE_VALIDITY = 60 * 60; // 1 Hour
     public static final Integer MAX_REDIRECT_COUNT = 15;
     public static final String CERTIFICATE_TYPE = "X.509";
     public static final String MESSAGE_DIGEST_ALGORITHM = "SHA-256";

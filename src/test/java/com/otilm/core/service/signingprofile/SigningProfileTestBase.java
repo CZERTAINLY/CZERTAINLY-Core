@@ -1,10 +1,15 @@
 package com.otilm.core.service.signingprofile;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
+import com.otilm.api.model.client.connector.v2.ConnectorInterface;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
+import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.client.signing.profile.SigningProfileDto;
 import com.otilm.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.otilm.api.model.client.signing.profile.scheme.DelegatedSigningRequestDto;
@@ -28,9 +33,6 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.oid.SystemOid;
-import com.otilm.api.model.client.connector.v2.ConnectorInterface;
-import com.otilm.api.model.client.connector.v2.ConnectorVersion;
-import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.core.attribute.RsaSignatureAttributes;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.AttributeDefinition;
@@ -65,19 +67,16 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.seeders.CryptographicKeySeeder;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.UUID;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.seeders.CryptographicKeySeeder.KeyItemSpec.signingPrivateKey;
 
@@ -159,20 +158,20 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     protected TokenProfile tokenProfile;
 
     /**
-     * A CryptographicKey backed by an MLDSA key item (empty signing operation attribute definitions).
-     * Used for generic static-key scheme tests that do not exercise signing operation attributes.
+     * A CryptographicKey backed by an MLDSA key item (empty signing operation attribute definitions). Used for generic
+     * static-key scheme tests that do not exercise signing operation attributes.
      */
     protected CryptographicKey cryptographicKey;
 
     /**
-     * A CryptographicKey backed by an RSA key item (RSA signing operation attribute definitions).
-     * Used for tests that specifically exercise signing operation attribute storage and retrieval.
+     * A CryptographicKey backed by an RSA key item (RSA signing operation attribute definitions). Used for tests that
+     * specifically exercise signing operation attribute storage and retrieval.
      */
     protected CryptographicKey rsaCryptographicKey;
 
     /**
-     * A Certificate associated with {@link #cryptographicKey} (MLDSA key).
-     * Satisfies all conditions of constructQueryDigitalSigningCertAcceptable.
+     * A Certificate associated with {@link #cryptographicKey} (MLDSA key). Satisfies all conditions of
+     * constructQueryDigitalSigningCertAcceptable.
      */
     protected Certificate certificate;
 
@@ -182,8 +181,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     protected Certificate rsaCertificate;
 
     /**
-     * A Certificate specifically configured for TIMESTAMPING workflow type.
-     * Contains the id-kp-timeStamping EKU and is marked as critical.
+     * A Certificate specifically configured for TIMESTAMPING workflow type. Contains the id-kp-timeStamping EKU and is
+     * marked as critical.
      */
     protected Certificate tsaCertificate;
 
@@ -208,10 +207,10 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         mockServer = new WireMockServer(0);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
-        mockServer.stubFor(
-                WireMock.get(WireMock.urlPathMatching(".*/v1/signatureProvider/formatting/attributes"))
-                        .willReturn(WireMock.okJson("[]"))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching(".*/v1/signatureProvider/formatting/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
         // Shared token instance infrastructure required by the static-key managed scheme
         Connector connector = new Connector();
@@ -236,8 +235,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         tokenProfile = tokenProfileRepository.saveAndFlush(tokenProfile);
 
         // MLDSA key — produces empty attribute definitions; used by generic scheme tests
-        cryptographicKey = cryptographicKeySeeder.seedKey("test-key-mldsa", tokenProfile, tokenInstanceRef,
-                signingPrivateKey(KeyAlgorithm.MLDSA));
+        cryptographicKey = cryptographicKeySeeder
+                .seedKey("test-key-mldsa", tokenProfile, tokenInstanceRef, signingPrivateKey(KeyAlgorithm.MLDSA));
 
         // Certificate associated with the MLDSA key; satisfies constructQueryDigitalSigningCertAcceptable conditions
         certificate = new Certificate();
@@ -248,8 +247,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         attachSelfSignedContent(certificate);
 
         // RSA key — produces RSA attribute definitions; used by attribute-persistence tests
-        rsaCryptographicKey = cryptographicKeySeeder.seedKey("test-key-rsa", tokenProfile, tokenInstanceRef,
-                signingPrivateKey(KeyAlgorithm.RSA));
+        rsaCryptographicKey = cryptographicKeySeeder
+                .seedKey("test-key-rsa", tokenProfile, tokenInstanceRef, signingPrivateKey(KeyAlgorithm.RSA));
 
         // Certificate associated with the RSA key; satisfies constructQueryDigitalSigningCertAcceptable conditions
         rsaCertificate = new Certificate();
@@ -264,7 +263,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         tsaCertificate.setKey(rsaCryptographicKey);
         tsaCertificate.setState(CertificateState.ISSUED);
         tsaCertificate.setValidationStatus(CertificateValidationStatus.VALID);
-        tsaCertificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid())));
+        tsaCertificate
+                .setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid())));
         tsaCertificate.setExtendedKeyUsageCritical(true);
         tsaCertificate = certificateRepository.saveAndFlush(tsaCertificate);
         attachSelfSignedContent(tsaCertificate);
@@ -310,7 +310,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         attributeRelation.setAttributeDefinitionUuid(attributeDefinition.getUuid());
         attributeRelationRepository.save(attributeRelation);
 
-        SigningProfileDto created = signingProfileService.createSigningProfile(buildDelegatedRawRequest("existing-signing-profile"));
+        SigningProfileDto created = signingProfileService
+                .createSigningProfile(buildDelegatedRawRequest("existing-signing-profile"));
         savedProfile = signingProfileInternalService.getSigningProfileEntity(SecuredUUID.fromString(created.getUuid()));
     }
 
@@ -341,9 +342,9 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and RAW_SIGNING workflow.
-     * Uses the shared MLDSA {@link #cryptographicKey} so no signing-operation-attribute
-     * definitions are produced and no attribute content needs to be provided.
+     * Builds a request using a MANAGED/STATIC_KEY scheme and RAW_SIGNING workflow. Uses the shared MLDSA
+     * {@link #cryptographicKey} so no signing-operation-attribute definitions are produced and no attribute content
+     * needs to be provided.
      */
     protected SigningProfileRequestDto buildManagedStaticKeyRawRequest(String name) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
@@ -401,8 +402,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and CONTENT_SIGNING workflow,
-     * optionally setting a Signature Formatting Provider UUID on the workflow.
+     * Builds a request using a MANAGED/STATIC_KEY scheme and CONTENT_SIGNING workflow, optionally setting a Signature
+     * Formatting Provider UUID on the workflow.
      */
     protected SigningProfileRequestDto buildManagedStaticKeyContentRequest(String name, UUID formattingConnectorUuid) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
@@ -418,8 +419,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow,
-     * with no additional validation properties set.
+     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow, with no additional validation
+     * properties set.
      */
     protected SigningProfileRequestDto buildManagedStaticKeyTimestampingRequest(String name) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
@@ -427,9 +428,10 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         request.setDescription("Test description for " + name);
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
         scheme.setCertificateUuid(tsaCertificate.getUuid());
-        scheme.setSigningOperationAttributes(List.of(
-                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
-                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        scheme
+                .setSigningOperationAttributes(List
+                        .of(buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                                buildDigestAttribute(DigestAlgorithm.SHA_256)));
         request.setSigningScheme(scheme);
         TimestampingWorkflowRequestDto workflow = new TimestampingWorkflowRequestDto();
         workflow.setSignatureFormattingConnectorUuid(formattingConnector.getUuid());
@@ -438,8 +440,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow
-     * with a default policy ID, two allowed policy IDs, and SHA-256 as an allowed digest algorithm.
+     * Builds a request using a MANAGED/STATIC_KEY scheme and TIMESTAMPING workflow with a default policy ID, two
+     * allowed policy IDs, and SHA-256 as an allowed digest algorithm.
      */
     protected SigningProfileRequestDto buildManagedStaticKeyTimestampingRequestWithValidationProps(String name) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
@@ -447,9 +449,10 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         request.setDescription("Test description for " + name);
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
         scheme.setCertificateUuid(tsaCertificate.getUuid());
-        scheme.setSigningOperationAttributes(List.of(
-                buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
-                buildDigestAttribute(DigestAlgorithm.SHA_256)));
+        scheme
+                .setSigningOperationAttributes(List
+                        .of(buildRsaSchemeAttribute(RsaSignatureScheme.PKCS1_v1_5),
+                                buildDigestAttribute(DigestAlgorithm.SHA_256)));
         request.setSigningScheme(scheme);
         TimestampingWorkflowRequestDto wf = new TimestampingWorkflowRequestDto();
         wf.setSignatureFormattingConnectorUuid(formattingConnector.getUuid());
@@ -488,8 +491,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Creates and persists a minimal {@link Connector} entity for use as a signature formatting connector,
-     * also pre-registering a simple data attribute definition so that AttributeEngine can accept content.
+     * Creates and persists a minimal {@link Connector} entity for use as a signature formatting connector, also
+     * pre-registering a simple data attribute definition so that AttributeEngine can accept content.
      */
     protected Connector createFormattingConnector(String name) {
         Connector connector = new Connector();
@@ -510,9 +513,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a {@link RequestAttributeV2} to use as a formatting connector attribute in tests.
-     * The UUID and name must be pre-registered via
-     * {@link AttributeEngine#updateDataAttributeDefinitions} before being stored.
+     * Builds a {@link RequestAttributeV2} to use as a formatting connector attribute in tests. The UUID and name must
+     * be pre-registered via {@link AttributeEngine#updateDataAttributeDefinitions} before being stored.
      */
     protected RequestAttributeV2 buildFormattingAttribute(UUID attrUuid, String attrName, String value) {
         RequestAttributeV2 attr = new RequestAttributeV2();

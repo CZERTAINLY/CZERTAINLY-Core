@@ -24,14 +24,15 @@ public interface CryptographicKeyEventHistoryService {
     /**
      * Get a single event for an associated Key
      *
-     * @param event                 Event
-     * @param status                Status of the event
-     * @param message               Message for the event
+     * @param event Event
+     * @param status Status of the event
+     * @param message Message for the event
      * @param additionalInformation Additional Information associated with the event
-     * @param key                   Key Entity
+     * @param key Key Entity
      * @return Key History Event
      */
-    CryptographicKeyEventHistory getEventHistory(KeyEvent event, KeyEventStatus status, String message, String additionalInformation, CryptographicKeyItem key);
+    CryptographicKeyEventHistory getEventHistory(KeyEvent event, KeyEventStatus status, String message,
+            String additionalInformation, CryptographicKeyItem key);
 
     /**
      * Function to save multiple Events for a key in async
@@ -43,22 +44,24 @@ public interface CryptographicKeyEventHistoryService {
     /**
      * Method to add event into the Certificate history.
      *
-     * @param event                 Certificate event
-     * @param status                Event result
-     * @param message               Short message for the event
+     * @param event Certificate event
+     * @param status Event result
+     * @param message Short message for the event
      * @param additionalInformation Additional information as key-value pairs
-     * @param key                   key entity that should record the event
+     * @param key key entity that should record the event
      */
-    void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, CryptographicKeyItem key);
+    void addEventHistory(KeyEvent event, KeyEventStatus status, String message,
+            Map<String, Object> additionalInformation, CryptographicKeyItem key);
 
     /**
      * Method to add event into the Certificate history.
      *
-     * @param event                 Certificate event
-     * @param status                Event result
-     * @param message               Short message for the event
+     * @param event Certificate event
+     * @param status Event result
+     * @param message Short message for the event
      * @param additionalInformation Additional information as key-value pairs
-     * @param keyUuid               key entity that should record the event
+     * @param keyUuid key entity that should record the event
      */
-    void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, UUID keyUuid);
+    void addEventHistory(KeyEvent event, KeyEventStatus status, String message,
+            Map<String, Object> additionalInformation, UUID keyUuid);
 }

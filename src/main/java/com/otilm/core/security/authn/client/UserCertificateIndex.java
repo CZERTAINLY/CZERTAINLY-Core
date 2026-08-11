@@ -2,15 +2,13 @@ package com.otilm.core.security.authn.client;
 
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.RemovalListener;
-import org.springframework.stereotype.Component;
-
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Component;
 
 /**
- * Secondary index: userUuid → certificate fingerprint cached for that user.
- * Enables per-user certificate eviction when only the userUuid is known.
- * Kept in sync automatically via the Caffeine removal listener registered in CacheConfig.
+ * Secondary index: userUuid → certificate fingerprint cached for that user. Enables per-user certificate eviction when
+ * only the userUuid is known. Kept in sync automatically via the Caffeine removal listener registered in CacheConfig.
  */
 @Component
 public class UserCertificateIndex implements RemovalListener<Object, Object> {
@@ -20,7 +18,10 @@ public class UserCertificateIndex implements RemovalListener<Object, Object> {
     /** Called by Caffeine on every certificate cache eviction (TTL, size pressure, explicit, replace). */
     @Override
     public void onRemoval(Object key, Object value, RemovalCause cause) {
-        if (!(key instanceof String fingerprint) || !(value instanceof AuthenticationInfo info) || info.getUserUuid() == null) return;
+        if (!(key instanceof String fingerprint) || !(value instanceof AuthenticationInfo info)
+                || info.getUserUuid() == null) {
+            return;
+        }
         index.computeIfPresent(UUID.fromString(info.getUserUuid()), (uuid, fp) -> fp.equals(fingerprint) ? null : fp);
     }
 

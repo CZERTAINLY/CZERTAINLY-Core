@@ -2,35 +2,33 @@ package com.otilm.core.oid;
 
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.oid.SystemOid;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Field;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Pure unit coverage for the {@link OidHandler} RDN-code lookup and copy-on-write mutators —
- * no Spring context.
+ * Pure unit coverage for the {@link OidHandler} RDN-code lookup and copy-on-write mutators — no Spring context.
  *
- * <p>The OID cache is process-wide static state shared across the surefire JVM, so this class
- * snapshots every category it touches in {@code @BeforeAll} and restores it in {@code @AfterAll}
- * (mirroring {@code X509RequestContentRendererTest.ToX500Principal}) rather than leaking state
- * into other test classes.
+ * <p>
+ * The OID cache is process-wide static state shared across the surefire JVM, so this class snapshots every category it
+ * touches in {@code @BeforeAll} and restores it in {@code @AfterAll} (mirroring
+ * {@code X509RequestContentRendererTest.ToX500Principal}) rather than leaking state into other test classes.
  */
 class OidHandlerTest {
 
-    private static final OidCategory[] TOUCHED =
-            {OidCategory.RDN_ATTRIBUTE_TYPE, OidCategory.GENERIC, OidCategory.EXTENDED_KEY_USAGE};
+    private static final OidCategory[] TOUCHED = {OidCategory.RDN_ATTRIBUTE_TYPE, OidCategory.GENERIC,
+            OidCategory.EXTENDED_KEY_USAGE};
 
     private static final Map<OidCategory, Map<String, OidRecord>> saved = new EnumMap<>(OidCategory.class);
 
@@ -75,9 +73,14 @@ class OidHandlerTest {
 
     @Test
     void getOidForRdnCode_matchesCodeAndAltCodesCaseInsensitively() {
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "1.2.840.113549.1.9.1",
-                OidRecord.builder().displayName("Email").code("EMAIL")
-                        .altCodes(List.of("E", "EMAILADDRESS")).build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "1.2.840.113549.1.9.1",
+                        OidRecord
+                                .builder()
+                                .displayName("Email")
+                                .code("EMAIL")
+                                .altCodes(List.of("E", "EMAILADDRESS"))
+                                .build());
 
         assertThat(OidHandler.getOidForRdnCode("EMAIL")).isEqualTo("1.2.840.113549.1.9.1");
         assertThat(OidHandler.getOidForRdnCode("email")).isEqualTo("1.2.840.113549.1.9.1");
@@ -90,8 +93,9 @@ class OidHandlerTest {
         // The authoring-time gate reads this map directly rather than the derived index, so it must
         // match the same way request-time resolution does — otherwise a mixed-case system code such
         // as PostalCode is rejected when authored in another casing but resolves fine at runtime.
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.17",
-                OidRecord.builder().displayName("Postal Code").code("PostalCode").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.17",
+                        OidRecord.builder().displayName("Postal Code").code("PostalCode").build());
 
         assertThat(OidHandler.getCodeToOidMap()).containsEntry("POSTALCODE", "2.5.4.17");
         assertThat(OidHandler.getCodeToOidMap()).containsEntry("postalcode", "2.5.4.17");
@@ -102,7 +106,9 @@ class OidHandlerTest {
         // given — a deployment registered its own OID under code UID before 0.9.2342.19200300.100.1.1
         // became a system OID. Both now claim the token.
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
+        rdn
+                .put(SystemOid.USER_ID.getOid(),
+                        OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -116,14 +122,17 @@ class OidHandlerTest {
     void contestedRdnCode_resolutionSurvivesAnUnrelatedCacheRebuild() {
         // given — the same contest as above
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
+        rdn
+                .put(SystemOid.USER_ID.getOid(),
+                        OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
         String before = OidHandler.getOidForRdnCode("UID");
 
         // when — any unrelated custom-OID write rebuilds the derived index
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "9.8.7.6",
-                OidRecord.builder().displayName("Unrelated").code("UNRELATED").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "9.8.7.6",
+                        OidRecord.builder().displayName("Unrelated").code("UNRELATED").build());
 
         // then — the winner must not flip; previously this depended on HashMap iteration order
         assertThat(OidHandler.getOidForRdnCode("UID")).isEqualTo(before).isEqualTo("1.2.3.4.5.6");
@@ -134,7 +143,9 @@ class OidHandlerTest {
         // given — the cache rebuilds every few seconds, so the conflict has to be readable state an
         // operator can be shown, not just a log line that repeats until it is filtered out
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
+        rdn
+                .put(SystemOid.USER_ID.getOid(),
+                        OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("uid").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -150,7 +161,9 @@ class OidHandlerTest {
         // given — the conflict map is process-wide static state reachable through a public accessor, so
         // a caller must not be able to reach through the unmodifiable map into a mutable value set
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
+        rdn
+                .put(SystemOid.USER_ID.getOid(),
+                        OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -167,7 +180,9 @@ class OidHandlerTest {
         // given — every other code lookup in the registry is case-insensitive; this one must agree or a
         // caller reading the conflict for "uid" silently sees nothing
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
+        rdn
+                .put(SystemOid.USER_ID.getOid(),
+                        OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
 
@@ -208,7 +223,9 @@ class OidHandlerTest {
     void resolvingAContestedRdnCode_clearsTheConflictState() {
         // given — a contest that an operator then resolves by renaming their code
         Map<String, OidRecord> rdn = new HashMap<>();
-        rdn.put(SystemOid.USER_ID.getOid(), OidRecord.builder().displayName("User ID").code("UID").system(true).build());
+        rdn
+                .put(SystemOid.USER_ID.getOid(),
+                        OidRecord.builder().displayName("User ID").code("UID").system(true).build());
         rdn.put("1.2.3.4.5.6", OidRecord.builder().displayName("Legacy UID").code("UID").build());
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, rdn);
         assertThat(OidHandler.getRdnCodeConflicts()).isNotEmpty();
@@ -223,8 +240,9 @@ class OidHandlerTest {
 
     @Test
     void unambiguousRegistry_reportsNoConflicts() {
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
 
         assertThat(OidHandler.getRdnCodeConflicts()).isEmpty();
     }
@@ -233,12 +251,13 @@ class OidHandlerTest {
     void cacheAllCategories_abandonsAStaleSnapshot() {
         // given — a refresh read its source data, then a mutator published before the refresh could
         long staleGeneration = OidHandler.getGeneration();
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
 
         // when — the refresh tries to publish a snapshot that predates that mutation
-        boolean published = OidHandler.cacheAllCategories(staleGeneration,
-                Map.of(OidCategory.RDN_ATTRIBUTE_TYPE, Map.of()));
+        boolean published = OidHandler
+                .cacheAllCategories(staleGeneration, Map.of(OidCategory.RDN_ATTRIBUTE_TYPE, Map.of()));
 
         // then — abandoned, so the committed mutation is not clobbered
         assertThat(published).isFalse();
@@ -248,13 +267,16 @@ class OidHandlerTest {
     @Test
     void cacheAllCategories_publishesWhenTheGenerationStillMatches() {
         // given
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
         long current = OidHandler.getGeneration();
 
         // when — a full swap of the category, replacing its contents
-        boolean published = OidHandler.cacheAllCategories(current, Map.of(OidCategory.RDN_ATTRIBUTE_TYPE,
-                Map.of("2.5.4.6", OidRecord.builder().displayName("Country").code("C").build())));
+        boolean published = OidHandler
+                .cacheAllCategories(current, Map
+                        .of(OidCategory.RDN_ATTRIBUTE_TYPE,
+                                Map.of("2.5.4.6", OidRecord.builder().displayName("Country").code("C").build())));
 
         // then — published, dropping what the snapshot did not contain, and the derived index is rebuilt
         assertThat(published).isTrue();
@@ -269,8 +291,7 @@ class OidHandlerTest {
         OidHandler.cacheOid(OidCategory.GENERIC, "1.2.3.4", OidRecord.builder().displayName("kept").build());
 
         // when
-        OidHandler.cacheAllCategories(OidHandler.getGeneration(),
-                Map.of(OidCategory.RDN_ATTRIBUTE_TYPE, Map.of()));
+        OidHandler.cacheAllCategories(OidHandler.getGeneration(), Map.of(OidCategory.RDN_ATTRIBUTE_TYPE, Map.of()));
 
         // then
         assertThat(OidHandler.getOidCache(OidCategory.GENERIC)).containsKey("1.2.3.4");
@@ -278,8 +299,9 @@ class OidHandlerTest {
 
     @Test
     void removeCachedOid_deregistersRdnCode() {
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
         assertThat(OidHandler.getOidForRdnCode("cn")).isEqualTo("2.5.4.3");
 
         OidHandler.removeCachedOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3");
@@ -295,8 +317,8 @@ class OidHandlerTest {
         evictCategory(OidCategory.GENERIC);
         assertThat(OidHandler.getOidCache(OidCategory.GENERIC)).isNull();
 
-        assertThatCode(() -> OidHandler.cacheOid(OidCategory.GENERIC, "1.2.3.4",
-                OidRecord.builder().displayName("x").build()))
+        assertThatCode(
+                () -> OidHandler.cacheOid(OidCategory.GENERIC, "1.2.3.4", OidRecord.builder().displayName("x").build()))
                 .doesNotThrowAnyException();
         assertThat(OidHandler.getOidCache(OidCategory.GENERIC)).containsKey("1.2.3.4");
     }
@@ -314,9 +336,9 @@ class OidHandlerTest {
     }
 
     /**
-     * Removes a category from the private static cache so an uncached ({@code null}) precondition
-     * is deterministic. There is no public API to drop a whole category, so the guard tests reach
-     * into the field directly — acceptable for white-box unit coverage in the same package.
+     * Removes a category from the private static cache so an uncached ({@code null}) precondition is deterministic.
+     * There is no public API to drop a whole category, so the guard tests reach into the field directly — acceptable
+     * for white-box unit coverage in the same package.
      */
     @SuppressWarnings("unchecked")
     private static void evictCategory(OidCategory category) {

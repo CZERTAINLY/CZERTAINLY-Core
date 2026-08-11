@@ -1,6 +1,10 @@
 package com.otilm.core.evaluator;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.CertificateOperationException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.RuleException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.ResponseAttribute;
 import com.otilm.api.model.client.attribute.ResponseAttributeV3;
@@ -22,7 +26,17 @@ import com.otilm.core.attribute.engine.AttributeVersionHelper;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.ComplianceInternalRule;
 import com.otilm.core.dao.entity.UniquelyIdentifiedObject;
-import com.otilm.core.dao.entity.workflows.*;
+import com.otilm.core.dao.entity.workflows.Action;
+import com.otilm.core.dao.entity.workflows.Condition;
+import com.otilm.core.dao.entity.workflows.ConditionItem;
+import com.otilm.core.dao.entity.workflows.EventHistory;
+import com.otilm.core.dao.entity.workflows.Execution;
+import com.otilm.core.dao.entity.workflows.ExecutionItem;
+import com.otilm.core.dao.entity.workflows.Rule;
+import com.otilm.core.dao.entity.workflows.Trigger;
+import com.otilm.core.dao.entity.workflows.TriggerAssociation;
+import com.otilm.core.dao.entity.workflows.TriggerHistory;
+import com.otilm.core.dao.entity.workflows.TriggerHistoryRecord;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.enums.ResourceToClass;
 import com.otilm.core.messaging.model.NotificationMessage;
@@ -30,6 +44,25 @@ import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.metamodel.Attribute;
+import java.lang.reflect.InvocationTargetException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.BiPredicate;
+import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.Duration;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,17 +70,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import javax.xml.datatype.DatatypeFactory;
-import javax.xml.datatype.Duration;
-import java.lang.reflect.InvocationTargetException;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.Period;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.function.BiPredicate;
 
 @Component
 @Transactional
@@ -77,12 +99,18 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     }
 
     @Override
-    public TriggerHistory evaluateTrigger(Trigger trigger, TriggerAssociation triggerAssociation, T object, UUID referenceObjectUuid, Object data, EventHistory eventHistory, List<RequestAttribute> pendingCustomAttributes) throws RuleException {
-        TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociation, object.getUuid(), referenceObjectUuid, eventHistory, trigger.getResource());
+    public TriggerHistory evaluateTrigger(Trigger trigger, TriggerAssociation triggerAssociation, T object,
+            UUID referenceObjectUuid, Object data, EventHistory eventHistory,
+            List<RequestAttribute> pendingCustomAttributes) throws RuleException {
+        TriggerHistory triggerHistory = triggerService
+                .createTriggerHistory(trigger.getUuid(), triggerAssociation, object.getUuid(), referenceObjectUuid,
+                        eventHistory, trigger.getResource());
         if (evaluateRules(triggerHistory, trigger.getRules(), object, pendingCustomAttributes)) {
             triggerHistory.setConditionsMatched(true);
             if (trigger.isIgnoreTrigger()) {
-                if (data instanceof CertificateEventData) triggerHistory.setMessage(data.toString());
+                if (data instanceof CertificateEventData) {
+                    triggerHistory.setMessage(data.toString());
+                }
                 triggerHistory.setActionsPerformed(true);
             } else {
                 performActions(trigger, triggerHistory, object, data);
@@ -97,7 +125,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     }
 
     @Override
-    public boolean evaluateRules(TriggerHistory triggerHistory, Set<Rule> rules, T object, List<RequestAttribute> pendingCustomAttributes) throws RuleException {
+    public boolean evaluateRules(TriggerHistory triggerHistory, Set<Rule> rules, T object,
+            List<RequestAttribute> pendingCustomAttributes) throws RuleException {
         // if trigger has no rules, return true as it is trigger that should perform actions on all objects
         if (rules.isEmpty()) {
             return true;
@@ -108,7 +137,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             pendingCustomAttributes = attributeEngine.applySecurityFilterForRequestAttributes(pendingCustomAttributes);
         }
 
-        // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list have incompatible resource
+        // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list
+        // have incompatible resource
         boolean ruleEvaluated = false;
         for (Rule rule : rules) {
             logger.debug("Evaluating rule '{}'.", rule.getName());
@@ -126,7 +156,10 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             ruleEvaluated = true;
             for (Condition condition : rule.getConditions()) {
                 for (ConditionItem conditionItem : condition.getItems()) {
-                    if (!getConditionEvaluationResult(conditionItem, object, triggerHistory, rule, pendingCustomAttributes)) return false;
+                    if (!getConditionEvaluationResult(conditionItem, object, triggerHistory, rule,
+                            pendingCustomAttributes)) {
+                        return false;
+                    }
                 }
             }
         }
@@ -156,7 +189,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     }
 
     @Override
-    public boolean evaluateConditionItem(ConditionItem conditionItem, T object, Resource resource, List<RequestAttribute> pendingCustomAttributes) throws RuleException {
+    public boolean evaluateConditionItem(ConditionItem conditionItem, T object, Resource resource,
+            List<RequestAttribute> pendingCustomAttributes) throws RuleException {
         FilterFieldSource fieldSource = conditionItem.getFieldSource();
         String fieldIdentifier = conditionItem.getFieldIdentifier();
         FilterConditionOperator operator = conditionItem.getOperator();
@@ -167,7 +201,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             return evaluatePropertyConditionItem(object, resource, fieldIdentifier, operator, conditionValue);
         }
 
-        // Check for UUID in the object, if there is no UUID, it means that the object is not yet in database and therefore won't have any attributes linked to it
+        // Check for UUID in the object, if there is no UUID, it means that the object is not yet in database and
+        // therefore won't have any attributes linked to it
         UUID objectUuid;
         try {
             objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
@@ -178,18 +213,21 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         // Custom Attribute conditions can be evaluated against request-provided pending content even when the object
         // has no UUID yet (e.g. CERTIFICATE_UPLOADED ignore-triggers, evaluated before the certificate is persisted).
         if (fieldSource == FilterFieldSource.CUSTOM && (objectUuid != null || pendingCustomAttributes != null)) {
-            return evaluateCustomAttributeConditionItem(resource, objectUuid, fieldIdentifier, conditionValue, operator, pendingCustomAttributes);
+            return evaluateCustomAttributeConditionItem(resource, objectUuid, fieldIdentifier, conditionValue, operator,
+                    pendingCustomAttributes);
         }
 
         if (objectUuid != null && fieldSource == FilterFieldSource.META) {
             return evaluateMetaAttributeConditionItem(resource, fieldIdentifier, objectUuid, conditionValue, operator);
         }
 
-        // Field source is not Property and object is not database, therefore attributes can not be evaluated and condition is not satisfied
+        // Field source is not Property and object is not database, therefore attributes can not be evaluated and
+        // condition is not satisfied
         return false;
     }
 
-    private boolean evaluatePropertyConditionItem(T object, Resource resource, String fieldIdentifier, FilterConditionOperator operator, Object conditionValue) throws RuleException {
+    private boolean evaluatePropertyConditionItem(T object, Resource resource, String fieldIdentifier,
+            FilterConditionOperator operator, Object conditionValue) throws RuleException {
         Object objectValue;
         FilterField filterField;
         try {
@@ -204,18 +242,20 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         boolean isNested = filterField.getJoinAttributes() != null && !filterField.getJoinAttributes().isEmpty();
         if (isNested) {
             List<Attribute> joinAttributes = new ArrayList<>(filterField.getJoinAttributes());
-            // Find index which separates path to object holding property to check against and path to the property in that object
-            int lastCollectionAttributeIndex = FilterPredicatesBuilder.getLastCollectionIndex(
-                    joinAttributes, joinAttributes.size()
-            );
+            // Find index which separates path to object holding property to check against and path to the property in
+            // that object
+            int lastCollectionAttributeIndex = FilterPredicatesBuilder
+                    .getLastCollectionIndex(joinAttributes, joinAttributes.size());
             // If the object is already nested, the path to the property in that object is needed
-            nestedJoinAttributes = new ArrayList<>(joinAttributes.subList(lastCollectionAttributeIndex, joinAttributes.size()));
+            nestedJoinAttributes = new ArrayList<>(
+                    joinAttributes.subList(lastCollectionAttributeIndex, joinAttributes.size()));
             // Otherwise the path to the nested object is needed
             nonNestedJoinAttributes = new ArrayList<>(joinAttributes.subList(0, lastCollectionAttributeIndex));
         }
 
         try {
-            boolean anyCollection = nonNestedJoinAttributes != null && !nonNestedJoinAttributes.isEmpty() && nonNestedJoinAttributes.getLast().isCollection();
+            boolean anyCollection = nonNestedJoinAttributes != null && !nonNestedJoinAttributes.isEmpty()
+                    && nonNestedJoinAttributes.getLast().isCollection();
             Attribute fieldAttribute = isNested && anyCollection ? null : filterField.getFieldAttribute();
             objectValue = getPropertyValue(object, nonNestedJoinAttributes, fieldAttribute);
         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
@@ -229,8 +269,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         FilterFieldType fieldType = filterField.getType().getFieldType();
 
-
-        // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
+        // Apply comparing function on value in object and value in condition, based on operator and field type, return
+        // whether the condition is satisfied
         try {
             if (!(objectValue instanceof Collection<?> objectValues)) {
                 if (objectValue != null && filterField.getEnumClass() != null) {
@@ -239,17 +279,22 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
                 return fieldTypeToOperatorActionMap.get(fieldType).get(operator).test(objectValue, conditionValue);
             }
 
-            if (listSpecificOperatorsFunctionMap.get(operator) != null)
+            if (listSpecificOperatorsFunctionMap.get(operator) != null) {
                 return listSpecificOperatorsFunctionMap.get(operator).test(objectValues, conditionValue);
+            }
 
-            return evaluateItemsInCollection(operator, conditionValue, objectValues, nestedJoinAttributes, filterField, fieldType);
+            return evaluateItemsInCollection(operator, conditionValue, objectValues, nestedJoinAttributes, filterField,
+                    fieldType);
         } catch (Exception e) {
             throw new RuleException("Condition is not set properly: " + e.getMessage());
         }
     }
 
-    private boolean evaluateItemsInCollection(FilterConditionOperator operator, Object conditionValue, Collection<?> objectValues, List<Attribute> nestedJoinAttributes, FilterField filterField, FilterFieldType fieldType) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-        // For EQUALS, if no true evaluation during loop, result stays false, for NOT_EQUALS, if there is no false evaluation during loop, result stays true
+    private boolean evaluateItemsInCollection(FilterConditionOperator operator, Object conditionValue,
+            Collection<?> objectValues, List<Attribute> nestedJoinAttributes, FilterField filterField,
+            FilterFieldType fieldType) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        // For EQUALS, if no true evaluation during loop, result stays false, for NOT_EQUALS, if there is no false
+        // evaluation during loop, result stays true
         boolean result = (operator == FilterConditionOperator.NOT_EQUALS);
         for (Object item : objectValues) {
             if (nestedJoinAttributes != null) {
@@ -260,8 +305,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
             // For EQUALS: succeed if any true
             // For NOT_EQUALS: fail if any false
-            if ((operator == FilterConditionOperator.EQUALS && eval) ||
-                    (operator == FilterConditionOperator.NOT_EQUALS && !eval)) {
+            if ((operator == FilterConditionOperator.EQUALS && eval)
+                    || (operator == FilterConditionOperator.NOT_EQUALS && !eval)) {
                 result = (operator == FilterConditionOperator.EQUALS);
                 break;
             }
@@ -270,51 +315,80 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return result;
     }
 
-    private boolean evaluateMetaAttributeConditionItem(Resource resource, String fieldIdentifier, UUID objectUuid, Object conditionValue, FilterConditionOperator operator) throws RuleException {
-        // If the Field Source is Meta Attribute, we expect Field Identifier to be formatted as follows 'name|contentType', since there can be multiple Meta Attributes with the same name, the Content Type must be specified
+    private boolean evaluateMetaAttributeConditionItem(Resource resource, String fieldIdentifier, UUID objectUuid,
+            Object conditionValue, FilterConditionOperator operator) throws RuleException {
+        // If the Field Source is Meta Attribute, we expect Field Identifier to be formatted as follows
+        // 'name|contentType', since there can be multiple Meta Attributes with the same name, the Content Type must be
+        // specified
         String[] parts = parseNameAndContentType(fieldIdentifier);
         AttributeContentType fieldAttributeContentType = parseAttributeContentType(parts[1]);
         String fieldIdentifierName = parts[0];
-        // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on these, return true for the first satisfying entry, otherwise continue with next.
-        // Note: negated operators are evaluated per entry (true if any entry satisfies them), which diverges from FilterPredicatesBuilder's NOT EXISTS semantics when the same meta attribute is contributed by multiple connectors.
-        List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(resource, objectUuid).build());
+        // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on
+        // these, return true for the first satisfying entry, otherwise continue with next.
+        // Note: negated operators are evaluated per entry (true if any entry satisfies them), which diverges from
+        // FilterPredicatesBuilder's NOT EXISTS semantics when the same meta attribute is contributed by multiple
+        // connectors.
+        List<MetadataResponseDto> metadata = attributeEngine
+                .getMappedMetadataContent(ObjectAttributeContentInfo.builder(resource, objectUuid).build());
         for (List<ResponseMetadata> responseMetadata : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
             for (ResponseMetadata responseAttributeDto : responseMetadata) {
-                if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) && fieldAttributeContentType == responseAttributeDto.getContentType() && evaluateConditionOnAttribute(responseAttributeDto.getContent(), responseAttributeDto.getContentType(), conditionValue, operator))
-                        return true;
+                if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName)
+                        && fieldAttributeContentType == responseAttributeDto.getContentType()
+                        && evaluateConditionOnAttribute(responseAttributeDto.getContent(),
+                                responseAttributeDto.getContentType(), conditionValue, operator)) {
+                    return true;
+                }
             }
         }
         // If no entry has been evaluated as satisfying, the condition is not satisfied as a whole
         return false;
     }
 
-    private boolean evaluateCustomAttributeConditionItem(Resource resource, UUID objectUuid, String fieldIdentifier, Object conditionValue, FilterConditionOperator operator, List<RequestAttribute> pendingCustomAttributes) throws RuleException {
-        // If source is Custom Attribute, Field Identifier is either formatted as 'name|contentType', or only as `name` since the content type is not needed
-        String attributeName = fieldIdentifier.contains("|") ? parseNameAndContentType(fieldIdentifier)[0] : fieldIdentifier;
+    private boolean evaluateCustomAttributeConditionItem(Resource resource, UUID objectUuid, String fieldIdentifier,
+            Object conditionValue, FilterConditionOperator operator, List<RequestAttribute> pendingCustomAttributes)
+            throws RuleException {
+        // If source is Custom Attribute, Field Identifier is either formatted as 'name|contentType', or only as `name`
+        // since the content type is not needed
+        String attributeName = fieldIdentifier.contains("|")
+                ? parseNameAndContentType(fieldIdentifier)[0]
+                : fieldIdentifier;
         List<? extends AttributeContent> attributeContent = null;
         AttributeContentType attributeContentType = null;
         // Pending (request-supplied) content takes precedence for this specific attribute name — it may not exist in
         // the DB yet (e.g. a certificate upload request, evaluated before its attributes are persisted). If this
         // attribute isn't in the pending list, fall through to the DB, which may hold a value written by an earlier
         // trigger's action in this same evaluation pass (e.g. a SET_FIELD execution).
-        RequestAttribute requestAttribute = pendingCustomAttributes == null ? null : pendingCustomAttributes.stream().filter(ra -> Objects.equals(ra.getName(), attributeName)).findFirst().orElse(null);
+        RequestAttribute requestAttribute = pendingCustomAttributes == null
+                ? null
+                : pendingCustomAttributes
+                        .stream()
+                        .filter(ra -> Objects.equals(ra.getName(), attributeName))
+                        .findFirst()
+                        .orElse(null);
         if (requestAttribute != null) {
             attributeContentType = requestAttribute.getContentType();
             attributeContent = requestAttribute.getContent();
         } else if (objectUuid != null) {
-            List<ResponseAttribute> responseAttributes = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
-            ResponseAttributeV3 attributeToCompare = (ResponseAttributeV3) responseAttributes.stream().filter(rad -> Objects.equals(rad.getName(), attributeName)).findFirst().orElse(null);
+            List<ResponseAttribute> responseAttributes = attributeEngine
+                    .getObjectCustomAttributesContent(resource, objectUuid);
+            ResponseAttributeV3 attributeToCompare = (ResponseAttributeV3) responseAttributes
+                    .stream()
+                    .filter(rad -> Objects.equals(rad.getName(), attributeName))
+                    .findFirst()
+                    .orElse(null);
             if (attributeToCompare != null) {
                 attributeContentType = attributeToCompare.getContentType();
                 attributeContent = attributeToCompare.getContent();
             }
         }
-        // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
+        // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as
+        // satisfied at least once, the condition is satisfied for the object
         return evaluateConditionOnAttribute(attributeContent, attributeContentType, conditionValue, operator);
     }
 
     @Override
-    public void performActions(Trigger trigger, TriggerHistory triggerHistory, T object, Object data) throws RuleException {
+    public void performActions(Trigger trigger, TriggerHistory triggerHistory, T object, Object data)
+            throws RuleException {
         Class resourceClass = ResourceToClass.getClassByResource(trigger.getResource());
         if (resourceClass == null) {
             throw new RuleException("Unknown class for resource " + trigger.getResource().getLabel());
@@ -337,12 +411,19 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
                         if (execution.getType() == ExecutionType.SET_FIELD) {
                             performSetFieldExecution(trigger.getResource(), execution, object);
                         } else {
-                            performSendNotificationAction(trigger.getResource(), event, execution, object, data, triggerHistory);
+                            performSendNotificationAction(trigger.getResource(), event, execution, object, data,
+                                    triggerHistory);
                         }
-                        logger.debug("Execution '{}' of action '{}' has been performed.", action.getName(), execution.getName());
+                        logger
+                                .debug("Execution '{}' of action '{}' has been performed.", action.getName(),
+                                        execution.getName());
                     } catch (Exception e) {
-                        logger.debug("Execution '{}' of action '{}' has not been performed. Reason: {}", action.getName(), execution.getName(), e.getMessage());
-                        TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory.getUuid(), null, execution.getUuid(), e.getMessage());
+                        logger
+                                .debug("Execution '{}' of action '{}' has not been performed. Reason: {}",
+                                        action.getName(), execution.getName(), e.getMessage());
+                        TriggerHistoryRecord triggerHistoryRecord = triggerService
+                                .createTriggerHistoryRecord(triggerHistory.getUuid(), null, execution.getUuid(),
+                                        e.getMessage());
                         triggerHistory.getRecords().add(triggerHistoryRecord);
                     }
                 }
@@ -351,7 +432,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
     }
 
-    private List<BaseAttributeContentV3<?>> resolveSourceAttributeContent(Resource resource, ExecutionItem executionItem, T object) throws RuleException {
+    private List<BaseAttributeContentV3<?>> resolveSourceAttributeContent(Resource resource,
+            ExecutionItem executionItem, T object) throws RuleException {
         UUID objectUuid;
         try {
             objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
@@ -367,31 +449,45 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         List<BaseAttributeContentV3<?>> content = switch (sourceFieldSource) {
             case META -> {
-                List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(
-                        ObjectAttributeContentInfo.builder(resource, objectUuid).build());
-                yield metadata.stream()
+                List<MetadataResponseDto> metadata = attributeEngine
+                        .getMappedMetadataContent(ObjectAttributeContentInfo.builder(resource, objectUuid).build());
+                yield metadata
+                        .stream()
                         .flatMap(m -> m.getItems().stream())
-                        .filter(rm -> Objects.equals(rm.getName(), sourceName) && sourceContentType == rm.getContentType())
+                        .filter(rm -> Objects.equals(rm.getName(), sourceName)
+                                && sourceContentType == rm.getContentType())
                         .findFirst()
-                        .map(rm -> rm.getContent().stream()
-                                .<BaseAttributeContentV3<?>>map(c -> AttributeVersionHelper.convertAttributeContentToV3(c, rm.getContentType()))
+                        .map(rm -> rm
+                                .getContent()
+                                .stream()
+                                .<BaseAttributeContentV3<?>>map(
+                                        c -> AttributeVersionHelper.convertAttributeContentToV3(c, rm.getContentType()))
                                 .toList())
                         .orElse(null);
             }
             case DATA -> {
-                List<ResponseAttribute> dataAttrs = attributeEngine.getObjectDataAttributesContentUnversioned(resource, objectUuid);
-                yield dataAttrs.stream()
-                        .filter(ra -> Objects.equals(ra.getName(), sourceName) && sourceContentType == ra.getContentType())
+                List<ResponseAttribute> dataAttrs = attributeEngine
+                        .getObjectDataAttributesContentUnversioned(resource, objectUuid);
+                yield dataAttrs
+                        .stream()
+                        .filter(ra -> Objects.equals(ra.getName(), sourceName)
+                                && sourceContentType == ra.getContentType())
                         .findFirst()
-                        .map(ra -> ra.<List<AttributeContent>>getContent().stream()
-                                .<BaseAttributeContentV3<?>>map(c -> AttributeVersionHelper.convertAttributeContentToV3(c, ra.getContentType()))
+                        .map(ra -> ra
+                                .<List<AttributeContent>>getContent()
+                                .stream()
+                                .<BaseAttributeContentV3<?>>map(
+                                        c -> AttributeVersionHelper.convertAttributeContentToV3(c, ra.getContentType()))
                                 .toList())
                         .orElse(null);
             }
             case CUSTOM -> {
-                List<ResponseAttribute> customAttrs = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
-                yield customAttrs.stream()
-                        .filter(ra -> Objects.equals(ra.getName(), sourceName) && sourceContentType == ra.getContentType())
+                List<ResponseAttribute> customAttrs = attributeEngine
+                        .getObjectCustomAttributesContent(resource, objectUuid);
+                yield customAttrs
+                        .stream()
+                        .filter(ra -> Objects.equals(ra.getName(), sourceName)
+                                && sourceContentType == ra.getContentType())
                         .findFirst()
                         .map(ra -> ((ResponseAttributeV3) ra).getContent())
                         .orElse(null);
@@ -400,18 +496,21 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         };
 
         if (content == null) {
-            throw new RuleException("Source attribute '" + sourceName + "' of type " + sourceFieldSource + " not found on object.");
+            throw new RuleException(
+                    "Source attribute '" + sourceName + "' of type " + sourceFieldSource + " not found on object.");
         }
         return content;
     }
 
-    protected void performSetFieldExecution(Resource resource, Execution execution, T object) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
+    protected void performSetFieldExecution(Resource resource, Execution execution, T object)
+            throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
         for (ExecutionItem executionItem : execution.getItems()) {
             String fieldIdentifier = executionItem.getFieldIdentifier();
             FilterFieldSource fieldSource = executionItem.getFieldSource();
 
             if (executionItem.getSourceFieldSource() != null) {
-                List<BaseAttributeContentV3<?>> resolvedContent = resolveSourceAttributeContent(resource, executionItem, object);
+                List<BaseAttributeContentV3<?>> resolvedContent = resolveSourceAttributeContent(resource, executionItem,
+                        object);
                 performSetFieldAttributeExecution(resource, fieldIdentifier, resolvedContent, object);
             } else {
                 Object actionData = executionItem.getData();
@@ -424,10 +523,12 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
     }
 
-    protected void performSetFieldPropertyExecution(String fieldIdentifier, Object actionData, T object) throws RuleException, CertificateOperationException, NotFoundException, AttributeException {
+    protected void performSetFieldPropertyExecution(String fieldIdentifier, Object actionData, T object)
+            throws RuleException, CertificateOperationException, NotFoundException, AttributeException {
         FilterField propertyEnum = Enum.valueOf(FilterField.class, fieldIdentifier);
-        if (!propertyEnum.isSettable())
+        if (!propertyEnum.isSettable()) {
             throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
+        }
         try {
             PropertyUtils.setProperty(object, propertyEnum.getFieldAttribute().getName(), actionData);
         } catch (Exception e) {
@@ -435,11 +536,15 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
     }
 
-    protected void performSetFieldAttributeExecution(Resource resource, String fieldIdentifier, Object actionData, T object) throws RuleException, NotFoundException, AttributeException {
-        performSetFieldAttributeExecution(resource, fieldIdentifier, AttributeDefinitionUtils.convertContentItemsFromObject(actionData), object);
+    protected void performSetFieldAttributeExecution(Resource resource, String fieldIdentifier, Object actionData,
+            T object) throws RuleException, NotFoundException, AttributeException {
+        performSetFieldAttributeExecution(resource, fieldIdentifier,
+                AttributeDefinitionUtils.convertContentItemsFromObject(actionData), object);
     }
 
-    private void performSetFieldAttributeExecution(Resource resource, String fieldIdentifier, List<BaseAttributeContentV3<?>> attributeContents, T object) throws RuleException, NotFoundException, AttributeException {
+    private void performSetFieldAttributeExecution(Resource resource, String fieldIdentifier,
+            List<BaseAttributeContentV3<?>> attributeContents, T object)
+            throws RuleException, NotFoundException, AttributeException {
         UUID objectUuid;
         try {
             objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
@@ -449,51 +554,64 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         if (objectUuid == null) {
             throw new RuleException("Cannot set custom attributes for an object not in database.");
         }
-        attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null,
-                parseNameAndContentType(fieldIdentifier)[0], attributeContents);
+        attributeEngine
+                .updateObjectCustomAttributeContent(resource, objectUuid, null,
+                        parseNameAndContentType(fieldIdentifier)[0], attributeContents);
     }
 
     /**
-     * Published through the event bus, not to the producer: the listener is {@code AFTER_COMMIT}, so the message
-     * leaves only if this transaction commits, and the {@code TriggerHistory} it carries is visible by then. Where
-     * each trigger has its own transaction, each notification is released as that trigger commits.
+     * Published through the event bus, not to the producer: the listener is {@code AFTER_COMMIT}, so the message leaves
+     * only if this transaction commits, and the {@code TriggerHistory} it carries is visible by then. Where each
+     * trigger has its own transaction, each notification is released as that trigger commits.
      */
-    protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data, TriggerHistory triggerHistory) {
+    protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object,
+            Object data, TriggerHistory triggerHistory) {
         List<UUID> notificationProfileUuids = new ArrayList<>();
         for (ExecutionItem executionItem : execution.getItems()) {
             notificationProfileUuids.add(executionItem.getNotificationProfileUuid());
         }
 
-        NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(), notificationProfileUuids, null, data, triggerHistory.getUuid(), execution.getUuid());
+        NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(),
+                notificationProfileUuids, null, data, triggerHistory.getUuid(), execution.getUuid());
         applicationEventPublisher.publishEvent(message);
     }
 
-    private Object getPropertyValue(Object object, List<Attribute> joinAttributes, Attribute fieldAttribute) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+    private Object getPropertyValue(Object object, List<Attribute> joinAttributes, Attribute fieldAttribute)
+            throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
         String pathToProperty = FilterPredicatesBuilder.buildPathToProperty(joinAttributes, fieldAttribute);
         return PropertyUtils.getProperty(object, pathToProperty);
     }
 
-    private boolean getConditionEvaluationResult(ConditionItem conditionItem, T object, TriggerHistory triggerHistory, Rule rule, List<RequestAttribute> pendingCustomAttributes) {
+    private boolean getConditionEvaluationResult(ConditionItem conditionItem, T object, TriggerHistory triggerHistory,
+            Rule rule, List<RequestAttribute> pendingCustomAttributes) {
         try {
             if (!evaluateConditionItem(conditionItem, object, rule.getResource(), pendingCustomAttributes)) {
-                String message = String.format("Condition item '%s %s %s %s' is false.", conditionItem.getFieldSource().getLabel(), conditionItem.getFieldIdentifier(), conditionItem.getOperator().getLabel(), conditionItem.getValue() != null ? conditionItem.getValue().toString() : "");
+                String message = String
+                        .format("Condition item '%s %s %s %s' is false.", conditionItem.getFieldSource().getLabel(),
+                                conditionItem.getFieldIdentifier(), conditionItem.getOperator().getLabel(),
+                                conditionItem.getValue() != null ? conditionItem.getValue().toString() : "");
                 logger.debug("Rule {} is not satisfied. Reason: {}", rule.getName(), message);
-                TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory.getUuid(), conditionItem.getCondition().getUuid(), null, message);
+                TriggerHistoryRecord triggerHistoryRecord = triggerService
+                        .createTriggerHistoryRecord(triggerHistory.getUuid(), conditionItem.getCondition().getUuid(),
+                                null, message);
                 triggerHistory.getRecords().add(triggerHistoryRecord);
                 return false;
             }
         } catch (RuleException e) {
-            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory.getUuid(), conditionItem.getCondition().getUuid(), null, e.getMessage());
+            TriggerHistoryRecord triggerHistoryRecord = triggerService
+                    .createTriggerHistoryRecord(triggerHistory.getUuid(), conditionItem.getCondition().getUuid(), null,
+                            e.getMessage());
             triggerHistory.getRecords().add(triggerHistoryRecord);
             return false;
         } catch (RuntimeException e) {
             // Broad on purpose: this class is @Transactional, so anything unchecked leaving it marks the caller's
             // transaction rollback-only, past any catch of theirs. Unevaluable counts as unsatisfied, which imports.
-            logger.error("Condition item '{}' of rule {} could not be evaluated: {}",
-                    conditionItem.getFieldIdentifier(), rule.getName(), e.getMessage(), e);
-            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(
-                    triggerHistory.getUuid(), conditionItem.getCondition().getUuid(), null,
-                    "Condition could not be evaluated: " + e.getClass().getSimpleName());
+            logger
+                    .error("Condition item '{}' of rule {} could not be evaluated: {}",
+                            conditionItem.getFieldIdentifier(), rule.getName(), e.getMessage(), e);
+            TriggerHistoryRecord triggerHistoryRecord = triggerService
+                    .createTriggerHistoryRecord(triggerHistory.getUuid(), conditionItem.getCondition().getUuid(), null,
+                            "Condition could not be evaluated: " + e.getClass().getSimpleName());
             triggerHistory.getRecords().add(triggerHistoryRecord);
             return false;
         }
@@ -503,7 +621,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     private static String[] parseNameAndContentType(String fieldIdentifier) throws RuleException {
         String[] parts = fieldIdentifier.split("\\|", 2);
         if (parts.length < 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
-            throw new RuleException("Field identifier is not in correct format 'name|contentType', got: " + fieldIdentifier);
+            throw new RuleException(
+                    "Field identifier is not in correct format 'name|contentType', got: " + fieldIdentifier);
         }
         return parts;
     }
@@ -512,7 +631,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         try {
             return AttributeContentType.valueOf(contentType);
         } catch (IllegalArgumentException e) {
-            throw new RuleException("Cannot parse content type %s from field identifier: %s".formatted(contentType, e.getMessage()));
+            throw new RuleException(
+                    "Cannot parse content type %s from field identifier: %s".formatted(contentType, e.getMessage()));
         }
     }
 
@@ -524,16 +644,13 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     private static final Map<FilterConditionOperator, BiPredicate<Object, Object>> dateOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiPredicate<Object, Object>> datetimeOperatorFunctionMap;
 
-    private static final Map<FilterConditionOperator, BiPredicate<Collection<?>, Object>> listSpecificOperatorsFunctionMap =
-            Map.of(
-                    FilterConditionOperator.EMPTY, (list, value) -> list.isEmpty(),
-                    FilterConditionOperator.NOT_EMPTY, (list, value) -> !list.isEmpty(),
-                    FilterConditionOperator.COUNT_EQUAL, (list, value) -> list.size() == (int) value,
-                    FilterConditionOperator.COUNT_NOT_EQUAL, (list, value) -> list.size() != (int) value,
-                    FilterConditionOperator.COUNT_GREATER_THAN, (list, value) -> list.size() > (int) value,
-                    FilterConditionOperator.COUNT_LESS_THAN, (list, value) -> list.size() < (int) value
-            );
-
+    private static final Map<FilterConditionOperator, BiPredicate<Collection<?>, Object>> listSpecificOperatorsFunctionMap = Map
+            .of(FilterConditionOperator.EMPTY, (list, value) -> list.isEmpty(), FilterConditionOperator.NOT_EMPTY,
+                    (list, value) -> !list.isEmpty(), FilterConditionOperator.COUNT_EQUAL,
+                    (list, value) -> list.size() == (int) value, FilterConditionOperator.COUNT_NOT_EQUAL,
+                    (list, value) -> list.size() != (int) value, FilterConditionOperator.COUNT_GREATER_THAN,
+                    (list, value) -> list.size() > (int) value, FilterConditionOperator.COUNT_LESS_THAN,
+                    (list, value) -> list.size() < (int) value);
 
     static {
         commonOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
@@ -547,11 +664,14 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         stringOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         stringOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         stringOperatorFunctionMap.put(FilterConditionOperator.CONTAINS, (o, c) -> o.toString().contains(c.toString()));
-        stringOperatorFunctionMap.put(FilterConditionOperator.NOT_CONTAINS, (o, c) -> !o.toString().contains(c.toString()));
-        stringOperatorFunctionMap.put(FilterConditionOperator.STARTS_WITH, (o, c) -> o.toString().startsWith(c.toString()));
+        stringOperatorFunctionMap
+                .put(FilterConditionOperator.NOT_CONTAINS, (o, c) -> !o.toString().contains(c.toString()));
+        stringOperatorFunctionMap
+                .put(FilterConditionOperator.STARTS_WITH, (o, c) -> o.toString().startsWith(c.toString()));
         stringOperatorFunctionMap.put(FilterConditionOperator.ENDS_WITH, (o, c) -> o.toString().endsWith(c.toString()));
         stringOperatorFunctionMap.put(FilterConditionOperator.MATCHES, (o, c) -> o.toString().matches(c.toString()));
-        stringOperatorFunctionMap.put(FilterConditionOperator.NOT_MATCHES, (o, c) -> !o.toString().matches(c.toString()));
+        stringOperatorFunctionMap
+                .put(FilterConditionOperator.NOT_MATCHES, (o, c) -> !o.toString().matches(c.toString()));
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.STRING, stringOperatorFunctionMap);
 
@@ -560,30 +680,62 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         numberOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> compareNumbers((Number) o, c) == 0);
         numberOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> compareNumbers((Number) o, c) != 0);
         numberOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> compareNumbers((Number) o, c) > 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, c) > 0 || compareNumbers((Number) o, c) == 0);
+        numberOperatorFunctionMap
+                .put(FilterConditionOperator.GREATER_OR_EQUAL,
+                        (o, c) -> compareNumbers((Number) o, c) > 0 || compareNumbers((Number) o, c) == 0);
         numberOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> compareNumbers((Number) o, c) < 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, c) < 0 || compareNumbers((Number) o, c) == 0);
+        numberOperatorFunctionMap
+                .put(FilterConditionOperator.LESSER_OR_EQUAL,
+                        (o, c) -> compareNumbers((Number) o, c) < 0 || compareNumbers((Number) o, c) == 0);
         fieldTypeToOperatorActionMap.put(FilterFieldType.NUMBER, numberOperatorFunctionMap);
 
         dateOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         dateOperatorFunctionMap.putAll(commonOperatorFunctionMap);
-        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString())));
-        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString()))));
-        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString())));
-        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString()))));
-        dateOperatorFunctionMap.put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDate((Date) o)).isBefore(LocalDate.now()) && (getLocalDate((Date) o)).isAfter(getLocalDateNowMinusDuration(c.toString())));
-        dateOperatorFunctionMap.put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDate((Date) o)).isAfter(LocalDate.now()) && (getLocalDate((Date) o)).isBefore(getLocalDateNowPlusDuration(c.toString())));
+        dateOperatorFunctionMap
+                .put(FilterConditionOperator.GREATER,
+                        (o, c) -> getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString())));
+        dateOperatorFunctionMap
+                .put(FilterConditionOperator.GREATER_OR_EQUAL,
+                        (o, c) -> !(getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString()))));
+        dateOperatorFunctionMap
+                .put(FilterConditionOperator.LESSER,
+                        (o, c) -> getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString())));
+        dateOperatorFunctionMap
+                .put(FilterConditionOperator.LESSER_OR_EQUAL,
+                        (o, c) -> !(getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString()))));
+        dateOperatorFunctionMap
+                .put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDate((Date) o)).isBefore(LocalDate.now())
+                        && (getLocalDate((Date) o)).isAfter(getLocalDateNowMinusDuration(c.toString())));
+        dateOperatorFunctionMap
+                .put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDate((Date) o)).isAfter(LocalDate.now())
+                        && (getLocalDate((Date) o)).isBefore(getLocalDateNowPlusDuration(c.toString())));
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATE, dateOperatorFunctionMap);
 
         datetimeOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         datetimeOperatorFunctionMap.putAll(commonOperatorFunctionMap);
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> getLocalDateTime((Date) o).isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o).isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> getLocalDateTime((Date) o).isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o).isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDateTime((Date) o)).isBefore(LocalDateTime.now()) && (getLocalDateTime((Date) o)).isAfter(getLocalDateTimeNowMinusDuration(c.toString())));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDateTime((Date) o)).isAfter(LocalDateTime.now()) && (getLocalDateTime((Date) o)).isBefore(getLocalDateTimeNowPlusDuration(c.toString())));
+        datetimeOperatorFunctionMap
+                .put(FilterConditionOperator.GREATER, (o, c) -> getLocalDateTime((Date) o)
+                        .isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
+        datetimeOperatorFunctionMap
+                .put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o)
+                        .isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
+        datetimeOperatorFunctionMap
+                .put(FilterConditionOperator.LESSER, (o, c) -> getLocalDateTime((Date) o)
+                        .isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
+        datetimeOperatorFunctionMap
+                .put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o)
+                        .isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
+        datetimeOperatorFunctionMap
+                .put(FilterConditionOperator.IN_PAST,
+                        (o, c) -> (getLocalDateTime((Date) o)).isBefore(LocalDateTime.now())
+                                && (getLocalDateTime((Date) o))
+                                        .isAfter(getLocalDateTimeNowMinusDuration(c.toString())));
+        datetimeOperatorFunctionMap
+                .put(FilterConditionOperator.IN_NEXT,
+                        (o, c) -> (getLocalDateTime((Date) o)).isAfter(LocalDateTime.now())
+                                && (getLocalDateTime((Date) o))
+                                        .isBefore(getLocalDateTimeNowPlusDuration(c.toString())));
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
@@ -607,24 +759,36 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
     private static LocalDateTime getLocalDateTimeNowMinusDuration(String duration) {
         Duration durationParsed = getDurationParsed(duration);
-        return LocalDateTime.now().minus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()))
-                .minusHours(durationParsed.getHours()).minusMinutes(durationParsed.getMinutes()).minusSeconds(durationParsed.getSeconds());
+        return LocalDateTime
+                .now()
+                .minus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()))
+                .minusHours(durationParsed.getHours())
+                .minusMinutes(durationParsed.getMinutes())
+                .minusSeconds(durationParsed.getSeconds());
     }
 
     private static LocalDate getLocalDateNowMinusDuration(String duration) {
         Duration durationParsed = getDurationParsed(duration);
-        return LocalDate.now().minus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()));
+        return LocalDate
+                .now()
+                .minus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()));
     }
 
     private static LocalDateTime getLocalDateTimeNowPlusDuration(String duration) {
         Duration durationParsed = getDurationParsed(duration);
-        return LocalDateTime.now().plus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()))
-                .plusHours(durationParsed.getHours()).plusMinutes(durationParsed.getMinutes()).plusSeconds(durationParsed.getSeconds());
+        return LocalDateTime
+                .now()
+                .plus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()))
+                .plusHours(durationParsed.getHours())
+                .plusMinutes(durationParsed.getMinutes())
+                .plusSeconds(durationParsed.getSeconds());
     }
 
     private static LocalDate getLocalDateNowPlusDuration(String duration) {
         Duration durationParsed = getDurationParsed(duration);
-        return LocalDate.now().plus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()));
+        return LocalDate
+                .now()
+                .plus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()));
     }
 
     private static Duration getDurationParsed(String duration) {
@@ -647,7 +811,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
     }
 
-    private boolean evaluateConditionOnAttribute(List<? extends AttributeContent> content, AttributeContentType contentType, Object conditionValue, FilterConditionOperator operator) throws RuleException {
+    private boolean evaluateConditionOnAttribute(List<? extends AttributeContent> content,
+            AttributeContentType contentType, Object conditionValue, FilterConditionOperator operator)
+            throws RuleException {
         boolean missingContent = content == null || content.isEmpty();
         if (operator == FilterConditionOperator.EMPTY) {
             return missingContent;
@@ -657,7 +823,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
 
         // For negated operators, evaluate the positive counterpart across all items and negate the result:
-        // "none of the items satisfies EQUALS/CONTAINS/MATCHES" — mirrors FilterPredicatesBuilder's NOT EXISTS semantics.
+        // "none of the items satisfies EQUALS/CONTAINS/MATCHES" — mirrors FilterPredicatesBuilder's NOT EXISTS
+        // semantics.
         FilterConditionOperator effectiveOperator = switch (operator) {
             case NOT_EQUALS -> FilterConditionOperator.EQUALS;
             case NOT_CONTAINS -> FilterConditionOperator.CONTAINS;
@@ -670,31 +837,44 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         // expanding CONTAINS/MATCHES/numeric/date comparisons to any-of would diverge from the query side
         // (FilterPredicatesBuilder does not support multi-value for non-equality operators on custom attributes).
         if (conditionValue instanceof List && effectiveOperator != FilterConditionOperator.EQUALS) {
-            throw new RuleException("Multi-value condition is supported only for operators EQUALS and NOT_EQUALS, got %s.".formatted(operator));
+            throw new RuleException(
+                    "Multi-value condition is supported only for operators EQUALS and NOT_EQUALS, got %s."
+                            .formatted(operator));
         }
 
-        // For negated operators, attributes without content also match the operator, mirroring FilterPredicatesBuilder's NOT EXISTS semantics.
+        // For negated operators, attributes without content also match the operator, mirroring
+        // FilterPredicatesBuilder's NOT EXISTS semantics.
         if (isNegated && missingContent) {
             return true;
         }
         // For non-negated operators, attributes without content do not match the operator.
-        if (missingContent) return false;
+        if (missingContent) {
+            return false;
+        }
 
         // A multi-select list attribute condition arrives as a JSON array of selected values; normalize a scalar
         // value to a one-element list so EQUALS means "equals any of" (IN semantics), mirroring
         // FilterPredicatesBuilder.prepareAttributeFilterValues. Collections.singletonList permits a null value.
-        List<?> conditionValueList = conditionValue instanceof List ? (List<?>) conditionValue : Collections.singletonList(conditionValue);
+        List<?> conditionValueList = conditionValue instanceof List
+                ? (List<?>) conditionValue
+                : Collections.singletonList(conditionValue);
 
         // If the attribute is a list, iterate through each item and short-circuit on the first definitive result.
         // If the attribute is not a list, there is only one item in the content list, so only one check will be done.
-        BiPredicate<Object, Object> conditionEvaluator = fieldTypeToOperatorActionMap.get(contentTypeToFieldType(contentType)).get(effectiveOperator);
+        BiPredicate<Object, Object> conditionEvaluator = fieldTypeToOperatorActionMap
+                .get(contentTypeToFieldType(contentType))
+                .get(effectiveOperator);
         for (AttributeContent attributeContent : content) {
-            Object attributeValue = contentType.isFilterByData() ? attributeContent.getData() : attributeContent.getReference();
+            Object attributeValue = contentType.isFilterByData()
+                    ? attributeContent.getData()
+                    : attributeContent.getReference();
             try {
                 for (Object conditionValueItem : conditionValueList) {
-                    if (conditionEvaluator.test(attributeValue, conditionValueItem))
-                        // Positive match found: for non-negated ops return true, for negated ops return false (a match disqualifies NOT_EQUALS/NOT_CONTAINS/NOT_MATCHES)
+                    if (conditionEvaluator.test(attributeValue, conditionValueItem)) {
+                        // Positive match found: for non-negated ops return true, for negated ops return false (a match
+                        // disqualifies NOT_EQUALS/NOT_CONTAINS/NOT_MATCHES)
                         return !isNegated;
+                    }
                 }
             } catch (Exception e) {
                 throw new RuleException("Cannot evaluate operator %s with condition value '%s' (contentType: %s): %s"
@@ -704,7 +884,6 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         // No positive match found: for non-negated ops return false, for negated ops return true
         return isNegated;
     }
-
 
     private FilterFieldType contentTypeToFieldType(AttributeContentType contentType) {
         switch (contentType) {
@@ -727,6 +906,4 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return null;
     }
 
-
 }
-

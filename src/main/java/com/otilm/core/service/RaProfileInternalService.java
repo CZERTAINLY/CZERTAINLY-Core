@@ -21,6 +21,7 @@ public interface RaProfileInternalService extends ResourceExtensionService {
 
     /**
      * Function to list the RA Profiles associated with the CMP Profiles
+     *
      * @param cmpProfileUuid UUID of the CMP Profile
      * @param filter Security filter
      * @return List of RA Profiles associated with the CMP Profiles
@@ -59,6 +60,7 @@ public interface RaProfileInternalService extends ResourceExtensionService {
 
     /**
      * Function to list the RA Profiles associated with the SCEP Profiles
+     *
      * @param scepProfileUuid UUID of the SCEP Profile
      * @param filter Security filter
      * @return List of RA Profiles associated with the SCEP Profiles

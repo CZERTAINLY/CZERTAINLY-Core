@@ -1,5 +1,6 @@
 package com.otilm.core.util;
 
+import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -13,17 +14,16 @@ import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.io.IOException;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Base class for integration tests that require a real RabbitMQ broker via Testcontainers.
  *
- * <p>{@code @DirtiesContext(BEFORE_CLASS)} is intentional and must stay here. The static
- * {@link RabbitMQContainer} is started/stopped per concrete subclass by the Testcontainers
- * JUnit 5 extension, so each subclass gets a new container at a new random host port.
- * Spring's context cache key does NOT include {@link DynamicPropertySource} values.</p>
+ * <p>
+ * {@code @DirtiesContext(BEFORE_CLASS)} is intentional and must stay here. The static {@link RabbitMQContainer} is
+ * started/stopped per concrete subclass by the Testcontainers JUnit 5 extension, so each subclass gets a new container
+ * at a new random host port. Spring's context cache key does NOT include {@link DynamicPropertySource} values.
+ * </p>
  */
 @SpringBootTest
 @ActiveProfiles(value = {"messaging-int-test"}, inheritProfiles = false)
@@ -42,8 +42,9 @@ public abstract class BaseMessagingIntTest extends BaseSpringBootTest {
         logger.info("Importing RabbitMQ definitions...");
         RabbitMQContainerFactory.importDefinitions(rabbitMQContainer);
 
-        registry.add("spring.messaging.broker-url",
-                () -> String.format("amqp://%s:%d", rabbitMQContainer.getHost(), rabbitMQContainer.getAmqpPort()));
+        registry
+                .add("spring.messaging.broker-url", () -> String
+                        .format("amqp://%s:%d", rabbitMQContainer.getHost(), rabbitMQContainer.getAmqpPort()));
         registry.add("spring.messaging.broker-type", () -> "RABBITMQ");
         registry.add("spring.messaging.username", rabbitMQContainer::getAdminUsername);
         registry.add("spring.messaging.password", rabbitMQContainer::getAdminPassword);

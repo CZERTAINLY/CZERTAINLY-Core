@@ -5,10 +5,9 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.ConnectorInterfaceInfo;
 import com.otilm.api.model.core.connector.v2.ConnectInfoV2;
-import org.junit.jupiter.api.Test;
-
 import java.util.Arrays;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,8 +28,8 @@ class ConnectorV2AdapterTest {
 
     @Test
     void onlyMandatoryCommons_throwsMissingFunctional() {
-        ConnectInfoV2 connectInfo = connectInfo(
-                ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS);
+        ConnectInfoV2 connectInfo = connectInfo(ConnectorInterface.INFO, ConnectorInterface.HEALTH,
+                ConnectorInterface.METRICS);
         assertThatThrownBy(() -> adapter.validateConnection(connectInfo))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("functional");
@@ -39,8 +38,7 @@ class ConnectorV2AdapterTest {
     /** ATTRIBUTES is a common interface, so it must not count toward the functional-interface requirement. */
     @Test
     void commonsWithAttributes_throwsMissingFunctional() {
-        ConnectInfoV2 connectInfo = connectInfo(
-                ConnectorInterface.INFO, ConnectorInterface.HEALTH,
+        ConnectInfoV2 connectInfo = connectInfo(ConnectorInterface.INFO, ConnectorInterface.HEALTH,
                 ConnectorInterface.METRICS, ConnectorInterface.ATTRIBUTES);
         assertThatThrownBy(() -> adapter.validateConnection(connectInfo))
                 .isInstanceOf(ValidationException.class)
@@ -51,10 +49,11 @@ class ConnectorV2AdapterTest {
     @Test
     void malformedInterfaceWithNullCode_throws() {
         ConnectInfoV2 connectInfo = new ConnectInfoV2();
-        connectInfo.setInterfaces(List.of(
-                iface(ConnectorInterface.INFO), iface(ConnectorInterface.HEALTH),
-                iface(ConnectorInterface.METRICS), iface(ConnectorInterface.AUTHORITY),
-                new ConnectorInterfaceInfo(null, "2.0", List.of())));
+        connectInfo
+                .setInterfaces(List
+                        .of(iface(ConnectorInterface.INFO), iface(ConnectorInterface.HEALTH),
+                                iface(ConnectorInterface.METRICS), iface(ConnectorInterface.AUTHORITY),
+                                new ConnectorInterfaceInfo(null, "2.0", List.of())));
         assertThatThrownBy(() -> adapter.validateConnection(connectInfo))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("no code");
@@ -62,17 +61,15 @@ class ConnectorV2AdapterTest {
 
     @Test
     void mandatoryPlusFunctional_passes() throws ConnectorException {
-        ConnectInfoV2 connectInfo = connectInfo(
-                ConnectorInterface.INFO, ConnectorInterface.HEALTH,
+        ConnectInfoV2 connectInfo = connectInfo(ConnectorInterface.INFO, ConnectorInterface.HEALTH,
                 ConnectorInterface.METRICS, ConnectorInterface.AUTHORITY);
         assertThat(adapter.validateConnection(connectInfo)).isSameAs(connectInfo);
     }
 
     @Test
     void attributesPlusFunctional_passes() throws ConnectorException {
-        ConnectInfoV2 connectInfo = connectInfo(
-                ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS,
-                ConnectorInterface.ATTRIBUTES, ConnectorInterface.AUTHORITY);
+        ConnectInfoV2 connectInfo = connectInfo(ConnectorInterface.INFO, ConnectorInterface.HEALTH,
+                ConnectorInterface.METRICS, ConnectorInterface.ATTRIBUTES, ConnectorInterface.AUTHORITY);
         assertThat(adapter.validateConnection(connectInfo)).isSameAs(connectInfo);
     }
 

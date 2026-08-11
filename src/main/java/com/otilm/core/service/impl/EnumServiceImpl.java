@@ -6,9 +6,10 @@ import com.otilm.api.model.core.enums.EnumItemDto;
 import com.otilm.core.security.authz.AnyPrincipalEndpoint;
 import com.otilm.core.service.EnumExternalService;
 import jakarta.transaction.Transactional;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.stereotype.Service;
-
-import java.util.*;
 
 @Service
 @Transactional
@@ -19,7 +20,7 @@ public class EnumServiceImpl implements EnumExternalService {
     public Map<PlatformEnum, Map<String, EnumItemDto>> getPlatformEnums() {
         Map<PlatformEnum, Map<String, EnumItemDto>> enumsMap = new EnumMap<>(PlatformEnum.class);
 
-        for (PlatformEnum platformEnum: PlatformEnum.values()) {
+        for (PlatformEnum platformEnum : PlatformEnum.values()) {
             Map<String, EnumItemDto> enumItemsMap = new HashMap<>();
 
             IPlatformEnum[] enumConstants = platformEnum.getEnumClass().getEnumConstants();

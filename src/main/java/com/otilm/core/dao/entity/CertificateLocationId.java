@@ -2,14 +2,17 @@ package com.otilm.core.dao.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import lombok.*;
-
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 /**
- Embedded class for a composite primary key
+ * Embedded class for a composite primary key
  */
 @Setter
 @Getter
@@ -27,10 +30,13 @@ public class CertificateLocationId implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof CertificateLocationId that)) return false;
-        return Objects.equals(locationUuid, that.locationUuid) &&
-                Objects.equals(certificateUuid, that.certificateUuid);
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof CertificateLocationId that)) {
+            return false;
+        }
+        return Objects.equals(locationUuid, that.locationUuid) && Objects.equals(certificateUuid, that.certificateUuid);
     }
 
     @Override

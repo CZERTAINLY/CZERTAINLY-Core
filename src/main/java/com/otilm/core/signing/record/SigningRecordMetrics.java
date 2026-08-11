@@ -6,24 +6,25 @@ import io.micrometer.core.instrument.Timer;
 import org.springframework.stereotype.Component;
 
 /**
- * The {@code signing_record.*} meter catalog. Modelled as a funnel; see {@code docs/signing-record-metrics.md}
- * for the full design (stages, invariants, and the queries each meter answers).
+ * The {@code signing_record.*} meter catalog. Modelled as a funnel; see {@code docs/signing-record-metrics.md} for the
+ * full design (stages, invariants, and the queries each meter answers).
  *
- * <p>Counter names are written in Micrometer (dotted) form; the Prometheus registry auto-appends {@code _total}
- * and converts dots to underscores, so {@code signing_record.intake} exports as {@code signing_record_intake_total}.
+ * <p>
+ * Counter names are written in Micrometer (dotted) form; the Prometheus registry auto-appends {@code _total} and
+ * converts dots to underscores, so {@code signing_record.intake} exports as {@code signing_record_intake_total}.
  */
 @Component
 public class SigningRecordMetrics {
 
     // intake.failed reasons — the synchronous handoff refusal per mode
-    public static final String REASON_PERSIST_ERROR = "persist_error";   // IMMEDIATE synchronous persist threw
-    public static final String REASON_SAVE_ERROR = "save_error";         // DEFERRED_DURABLE outbox save threw
-    public static final String REASON_INTERRUPTED = "interrupted";       // BEST_EFFORT BLOCK admission interrupted
+    public static final String REASON_PERSIST_ERROR = "persist_error"; // IMMEDIATE synchronous persist threw
+    public static final String REASON_SAVE_ERROR = "save_error"; // DEFERRED_DURABLE outbox save threw
+    public static final String REASON_INTERRUPTED = "interrupted"; // BEST_EFFORT BLOCK admission interrupted
 
     // deletion types
-    public static final String DELETE_TYPE_AFTER_RETRIEVAL = "after_retrieval";                   // read-path, per record
+    public static final String DELETE_TYPE_AFTER_RETRIEVAL = "after_retrieval"; // read-path, per record
     public static final String DELETE_TYPE_AFTER_RETRIEVAL_FALLBACK = "after_retrieval_fallback"; // fallback sweep
-    public static final String DELETE_TYPE_EXPIRED = "expired";                                   // retention sweep
+    public static final String DELETE_TYPE_EXPIRED = "expired"; // retention sweep
 
     private final MeterRegistry registry;
 
@@ -51,7 +52,11 @@ public class SigningRecordMetrics {
      * Intake calls whose synchronous handoff was refused; {@code reason} is one of the {@code REASON_*} constants.
      */
     public Counter intakeFailed(String mode, String reason) {
-        return Counter.builder("signing_record.intake.failed").tag("mode", mode).tag("reason", reason).register(registry);
+        return Counter
+                .builder("signing_record.intake.failed")
+                .tag("mode", mode)
+                .tag("reason", reason)
+                .register(registry);
     }
 
     // --- Stage 2: persist — records reaching signing_record (all modes) -------------------------------

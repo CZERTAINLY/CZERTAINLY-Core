@@ -16,20 +16,24 @@ public interface NotificationInternalService {
     /**
      * @return the created notification, never {@code null} -- the user is named explicitly.
      */
-    NotificationDto createNotificationForUser(String message, String detail, String userUuid, Resource target, String targetUuids) throws ValidationException;
+    NotificationDto createNotificationForUser(String message, String detail, String userUuid, Resource target,
+            String targetUuids) throws ValidationException;
 
     /**
      * @return the created notification, or {@code null} when {@code userUuids} is null or empty.
      */
-    NotificationDto createNotificationForUsers(String message, String detail, List<String> userUuids, Resource target, String targetUuids) throws ValidationException;
+    NotificationDto createNotificationForUsers(String message, String detail, List<String> userUuids, Resource target,
+            String targetUuids) throws ValidationException;
 
     /**
      * @return the created notification, or {@code null} when the group has no members.
      */
-    NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target, String targetUuids) throws ValidationException;
+    NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target,
+            String targetUuids) throws ValidationException;
 
     /**
      * @return the created notification, or {@code null} when the role has no members.
      */
-    NotificationDto createNotificationForRole(String message, String detail, String roleUuid, Resource target, String targetUuids) throws ValidationException;
+    NotificationDto createNotificationForRole(String message, String detail, String roleUuid, Resource target,
+            String targetUuids) throws ValidationException;
 }

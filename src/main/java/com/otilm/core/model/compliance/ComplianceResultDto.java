@@ -1,17 +1,16 @@
 package com.otilm.core.model.compliance;
 
-import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.otilm.api.model.core.compliance.ComplianceStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-
 import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
@@ -36,11 +35,14 @@ public class ComplianceResultDto implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         ComplianceResultDto that = (ComplianceResultDto) o;
-        return status == that.status
-                && Objects.equals(timestamp, that.timestamp)
+        return status == that.status && Objects.equals(timestamp, that.timestamp)
                 && Objects.equals(message, that.message);
     }
 

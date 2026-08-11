@@ -1,5 +1,9 @@
 package com.otilm.core.auth;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.model.core.auth.ResourcePermissionsDto;
 import com.otilm.api.model.core.auth.RoleDetailDto;
 import com.otilm.api.model.core.auth.RoleDto;
@@ -14,10 +18,11 @@ import com.otilm.core.security.authn.client.ResourceApiClient;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.exception.AuthenticationServiceException;
 import com.otilm.core.util.AuthHelper;
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
+import java.net.ConnectException;
+import java.net.URI;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,12 +31,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
-
-import java.net.ConnectException;
-import java.net.URI;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -69,9 +68,10 @@ class AuthResourceSynchronizerTest {
         synchronizer.setEndPointApiClient(resourceApiClient);
         synchronizer.setRoleManagementApiClient(roleManagementApiClient);
 
-        when(contextRefreshListener.getResources()).thenReturn(List.of(
-                resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.REVOKE),
-                resource(Resource.SECRET, ResourceAction.GET_SECRET_CONTENT)));
+        when(contextRefreshListener.getResources())
+                .thenReturn(List
+                        .of(resource(Resource.CERTIFICATE, ResourceAction.LIST, ResourceAction.DETAIL,
+                                ResourceAction.REVOKE), resource(Resource.SECRET, ResourceAction.GET_SECRET_CONTENT)));
     }
 
     /** The logger is a process-wide singleton, so a capturing appender left on it would follow the next test. */
@@ -134,9 +134,7 @@ class AuthResourceSynchronizerTest {
         synchronizer.register();
 
         assertThat(messagesLoggedAt(logged, Level.INFO))
-                .anySatisfy(message -> assertThat(message)
-                        .contains(AuthHelper.AUDITOR_ROLE_NAME)
-                        .contains("created"))
+                .anySatisfy(message -> assertThat(message).contains(AuthHelper.AUDITOR_ROLE_NAME).contains("created"))
                 .noneSatisfy(message -> assertThat(message).contains("rebuilt"));
     }
 
@@ -160,9 +158,9 @@ class AuthResourceSynchronizerTest {
     }
 
     /**
-     * Replicas start together and each finds the role missing, so several will try to create it. Role names are
-     * unique in the auth service, so the losers are refused - and must go on reconciling the role that now exists
-     * instead of leaving it unmanaged for this boot.
+     * Replicas start together and each finds the role missing, so several will try to create it. Role names are unique
+     * in the auth service, so the losers are refused - and must go on reconciling the role that now exists instead of
+     * leaving it unmanaged for this boot.
      */
     @Test
     void reconcilesTheRoleAnotherInstanceCreatedFirst() {
@@ -200,8 +198,9 @@ class AuthResourceSynchronizerTest {
     @Test
     void leavesTheRoleAloneWhenItAlreadyHoldsTheDerivedGrants() {
         auditorRoleExists(true);
-        when(roleManagementApiClient.getPermissions(AUDITOR_ROLE_UUID)).thenReturn(storedPermissions(
-                storedResource(Resource.CERTIFICATE, ResourceAction.LIST.getCode(), ResourceAction.DETAIL.getCode())));
+        when(roleManagementApiClient.getPermissions(AUDITOR_ROLE_UUID))
+                .thenReturn(storedPermissions(storedResource(Resource.CERTIFICATE, ResourceAction.LIST.getCode(),
+                        ResourceAction.DETAIL.getCode())));
 
         ListAppender<ILoggingEvent> logged = captureLogsOfSynchronizer();
         synchronizer.register();
@@ -227,8 +226,8 @@ class AuthResourceSynchronizerTest {
     }
 
     /**
-     * A reachable auth service that rejects the sync fails with something other than a connection error, so
-     * narrowing this to {@code WebClientRequestException} would make an unexpected response abort startup.
+     * A reachable auth service that rejects the sync fails with something other than a connection error, so narrowing
+     * this to {@code WebClientRequestException} would make an unexpected response abort startup.
      */
     @Test
     void completesStartupWhenTheResourceSyncIsRejectedRatherThanUnreachable() {
@@ -292,7 +291,8 @@ class AuthResourceSynchronizerTest {
     }
 
     private static List<String> messagesLoggedAt(ListAppender<ILoggingEvent> logged, Level level) {
-        return logged.list.stream()
+        return logged.list
+                .stream()
                 .filter(event -> event.getLevel() == level)
                 .map(ILoggingEvent::getFormattedMessage)
                 .toList();

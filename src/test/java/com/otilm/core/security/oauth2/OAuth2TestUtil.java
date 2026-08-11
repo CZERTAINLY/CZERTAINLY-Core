@@ -1,10 +1,5 @@
 package com.otilm.core.security.oauth2;
 
-import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.otilm.core.util.OAuth2Constants;
-import com.otilm.core.util.SecretEncodingVersion;
-import com.otilm.core.util.SecretsUtil;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -12,7 +7,11 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-
+import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.otilm.core.util.OAuth2Constants;
+import com.otilm.core.util.SecretEncodingVersion;
+import com.otilm.core.util.SecretsUtil;
 import java.security.PrivateKey;
 import java.util.Date;
 import java.util.HashMap;
@@ -21,14 +20,19 @@ import java.util.Map;
 
 public class OAuth2TestUtil {
 
-    public static String createJwtTokenValue(PrivateKey privateKey, Integer expiryInMilliseconds, String issuerUrl, String audience, String username) throws JOSEException {
-        return createJwtTokenValue(privateKey, expiryInMilliseconds, issuerUrl, audience, OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, username);
+    public static String createJwtTokenValue(PrivateKey privateKey, Integer expiryInMilliseconds, String issuerUrl,
+            String audience, String username) throws JOSEException {
+        return createJwtTokenValue(privateKey, expiryInMilliseconds, issuerUrl, audience,
+                OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, username);
     }
 
-    public static String createJwtTokenValue(PrivateKey privateKey, Integer expiryInMilliseconds, String issuerUrl, String audience, String claimName, String claimValue) throws JOSEException {
+    public static String createJwtTokenValue(PrivateKey privateKey, Integer expiryInMilliseconds, String issuerUrl,
+            String audience, String claimName, String claimValue) throws JOSEException {
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .audience(audience)
-                .expirationTime(expiryInMilliseconds == null ? null : new Date(System.currentTimeMillis() + expiryInMilliseconds))
+                .expirationTime(expiryInMilliseconds == null
+                        ? null
+                        : new Date(System.currentTimeMillis() + expiryInMilliseconds))
                 .claim(claimName, claimValue)
                 .issuer(issuerUrl)
                 .build();
@@ -39,7 +43,8 @@ public class OAuth2TestUtil {
         return signedJWT.serialize();
     }
 
-    public static AuthenticationSettingsDto getAuthenticationSettings(String userInfoUrl, int port, List<String> audiences, String issuerUrl) {
+    public static AuthenticationSettingsDto getAuthenticationSettings(String userInfoUrl, int port,
+            List<String> audiences, String issuerUrl) {
         OAuth2ProviderSettingsDto providerSettingsDto = new OAuth2ProviderSettingsDto();
         providerSettingsDto.setName("test");
         providerSettingsDto.setClientId("client");
@@ -50,7 +55,8 @@ public class OAuth2TestUtil {
         providerSettingsDto.setUserInfoUrl(userInfoUrl);
         providerSettingsDto.setAudiences(audiences);
         providerSettingsDto.setIssuerUrl(issuerUrl);
-        providerSettingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString("secret", SecretEncodingVersion.V1));
+        providerSettingsDto
+                .setClientSecret(SecretsUtil.encryptAndEncodeSecretString("secret", SecretEncodingVersion.V1));
         AuthenticationSettingsDto authenticationSettingsDto = new AuthenticationSettingsDto();
         Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
         providers.put("test", providerSettingsDto);

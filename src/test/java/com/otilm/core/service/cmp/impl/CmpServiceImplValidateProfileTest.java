@@ -6,6 +6,9 @@ import com.otilm.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.CmpTestUtil;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
@@ -14,16 +17,11 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.nio.charset.StandardCharsets;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CmpServiceImplValidateProfileTest {
 
-    private static final String LEAKY_MESSAGE =
-            "ERROR: duplicate key value violates unique constraint \"ra_profile_pkey\"";
+    private static final String LEAKY_MESSAGE = "ERROR: duplicate key value violates unique constraint \"ra_profile_pkey\"";
 
     @Test
     void validateProfile_forwardsShapedConfigurationMessage_forEnrollmentRequest() throws Exception {
@@ -48,9 +46,7 @@ class CmpServiceImplValidateProfileTest {
         CmpBaseException thrown = invokeValidateProfile(service, PKIBody.TYPE_REVOCATION_REQ);
 
         // then: the shaped message reaches the error body's PKIFreeText unchanged
-        assertThat(thrown)
-                .isInstanceOf(CmpProcessingException.class)
-                .isNotInstanceOf(CmpCrmfValidationException.class);
+        assertThat(thrown).isInstanceOf(CmpProcessingException.class).isNotInstanceOf(CmpCrmfValidationException.class);
         assertThat(wireStatusText(thrown)).contains("Requested CMP Profile not found");
     }
 
@@ -63,16 +59,14 @@ class CmpServiceImplValidateProfileTest {
         String detail = CmpServiceImpl.safeCmpDetail(leaky, "CMP profile validation failed");
 
         // then: the sensitive message is not forwarded
-        assertThat(detail)
-                .isEqualTo("CMP profile validation failed")
-                .doesNotContain("ra_profile_pkey");
+        assertThat(detail).isEqualTo("CMP profile validation failed").doesNotContain("ra_profile_pkey");
     }
 
     @Test
     void safeCmpDetail_forwardsMessageUnchanged_forDomainException() {
         // given: a Core-shaped domain exception
-        CmpConfigurationException domain =
-                new CmpConfigurationException(PKIFailureInfo.systemFailure, "RA Profile is not enabled");
+        CmpConfigurationException domain = new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                "RA Profile is not enabled");
 
         // when
         String detail = CmpServiceImpl.safeCmpDetail(domain, "fallback");
@@ -103,17 +97,17 @@ class CmpServiceImplValidateProfileTest {
         PKIMessage response = CmpServiceImpl.safeUnprotectedError(PkiMessageError.generateHeader(), leaky);
 
         // then: the sensitive message never reaches the wire-visible PKIFreeText
-        assertThat(wireStatusText(response))
-                .isEqualTo("CMP request handling failed")
-                .doesNotContain("ra_profile_pkey");
+        assertThat(wireStatusText(response)).isEqualTo("CMP request handling failed").doesNotContain("ra_profile_pkey");
     }
 
     private static CmpBaseException invokeValidateProfile(CmpServiceImpl service, int bodyType) throws Exception {
-        Method method = CmpServiceImpl.class.getDeclaredMethod(
-                "validateProfile", ASN1OctetString.class, int.class, String.class);
+        Method method = CmpServiceImpl.class
+                .getDeclaredMethod("validateProfile", ASN1OctetString.class, int.class, String.class);
         method.setAccessible(true);
         try {
-            method.invoke(service, new DEROctetString("tid".getBytes(StandardCharsets.UTF_8)), bodyType, "missing-profile");
+            method
+                    .invoke(service, new DEROctetString("tid".getBytes(StandardCharsets.UTF_8)), bodyType,
+                            "missing-profile");
             throw new AssertionError("validateProfile was expected to throw");
         } catch (InvocationTargetException e) {
             return (CmpBaseException) e.getCause();

@@ -4,9 +4,8 @@ import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * Selects the appropriate {@link SigningProfileResolver} for a given signing profile and delegates resolution.
@@ -21,13 +20,13 @@ public class SigningProfileResolverFactory {
     }
 
     public ResolvedManagedTimestampingProfile resolve(SigningProfileModel<?, ?> profile) throws TspException {
-        return resolvers.stream()
+        return resolvers
+                .stream()
                 .filter(r -> r.supports(profile))
                 .findFirst()
-                .orElseThrow(() -> new TspException(
-                        TspFailureInfo.SYSTEM_FAILURE,
-                        "No SigningProfileResolver supports workflow '%s'".formatted(
-                                profile.workflow().getClass().getSimpleName()),
+                .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
+                        "No SigningProfileResolver supports workflow '%s'"
+                                .formatted(profile.workflow().getClass().getSimpleName()),
                         "The system is misconfigured."))
                 .resolve(profile);
     }

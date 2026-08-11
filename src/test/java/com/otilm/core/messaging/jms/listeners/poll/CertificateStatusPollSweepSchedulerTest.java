@@ -10,7 +10,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class CertificateStatusPollSweepSchedulerTest {
 
-    @Mock private CertificateStatusPollSweeper sweeper;
+    @Mock
+    private CertificateStatusPollSweeper sweeper;
 
     @Test
     void sweepScheduled_delegatesToSweeper() {

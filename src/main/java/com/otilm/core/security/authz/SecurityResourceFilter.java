@@ -2,13 +2,12 @@ package com.otilm.core.security.authz;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.model.auth.ResourceAction;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Setter
@@ -29,9 +28,9 @@ public class SecurityResourceFilter {
     private final List<UUID> forbiddenObjects;
 
     /**
-     * Specifies whether the user has access to all objects or only those explicitly allowed.
-     * When true, the user can access only objects to which access is explicitly allowed.
-     * When false, the user can access all objects except those to which access is explicitly forbidden.
+     * Specifies whether the user has access to all objects or only those explicitly allowed. When true, the user can
+     * access only objects to which access is explicitly allowed. When false, the user can access all objects except
+     * those to which access is explicitly forbidden.
      */
     private boolean areOnlySpecificObjectsAllowed;
 
@@ -39,7 +38,8 @@ public class SecurityResourceFilter {
         this(new ArrayList<>(), new ArrayList<>(), false);
     }
 
-    public SecurityResourceFilter(List<String> allowedObjects, List<String> forbiddenObjects, boolean areOnlySpecificObjectsAllowed) {
+    public SecurityResourceFilter(List<String> allowedObjects, List<String> forbiddenObjects,
+            boolean areOnlySpecificObjectsAllowed) {
         this.allowedObjects = allowedObjects.stream().map(UUID::fromString).collect(Collectors.toList());
         this.forbiddenObjects = forbiddenObjects.stream().map(UUID::fromString).collect(Collectors.toList());
         this.areOnlySpecificObjectsAllowed = areOnlySpecificObjectsAllowed;

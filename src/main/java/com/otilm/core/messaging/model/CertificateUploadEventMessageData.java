@@ -1,13 +1,9 @@
 package com.otilm.core.messaging.model;
 
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import java.util.List;
 import lombok.Builder;
 
-import java.util.List;
-
 @Builder
-public record CertificateUploadEventMessageData(
-        List<RequestAttribute> customAttributes,
-        String certificateContent
-) {
+public record CertificateUploadEventMessageData(List<RequestAttribute> customAttributes, String certificateContent) {
 }

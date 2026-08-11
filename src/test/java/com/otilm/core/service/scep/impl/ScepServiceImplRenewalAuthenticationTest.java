@@ -10,25 +10,6 @@ import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.scep.message.ScepRequest;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.ExtensionsGenerator;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cms.CMSException;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -38,6 +19,24 @@ import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.UUID;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -49,10 +48,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link ScepServiceImpl#authenticateRenewal}, the positive renewal classification that
- * decides whether a request may enroll without the profile's challenge password. The waiver requires the
- * request to prove possession of an existing certificate's key (RFC 8894 §3.3.1.2), so an unresolvable
- * or foreign signer certificate must never earn it.
+ * Unit tests for {@link ScepServiceImpl#authenticateRenewal}, the positive renewal classification that decides whether
+ * a request may enroll without the profile's challenge password. The waiver requires the request to prove possession of
+ * an existing certificate's key (RFC 8894 §3.3.1.2), so an unresolvable or foreign signer certificate must never earn
+ * it.
  */
 class ScepServiceImplRenewalAuthenticationTest {
 
@@ -123,9 +122,8 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     /**
-     * The signer certificate belongs to a different RA profile, so it is not entitled to this SCEP
-     * profile's enrollment without the shared secret: renewal policy still applies, but the challenge
-     * password waiver is withheld.
+     * The signer certificate belongs to a different RA profile, so it is not entitled to this SCEP profile's enrollment
+     * without the shared secret: renewal policy still applies, but the challenge password waiver is withheld.
      */
     @Test
     void certificateOfAnotherRaProfile_doesNotEarnTheWaiver() throws Exception {
@@ -136,9 +134,9 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     /**
-     * The waiver must never be earned by a certificate that is no longer usable. With no renewal threshold
-     * configured — the default — `checkRenewalTimeframe` skips its revoked/expired branch entirely, so the
-     * state gate has to stand on its own.
+     * The waiver must never be earned by a certificate that is no longer usable. With no renewal threshold configured —
+     * the default — `checkRenewalTimeframe` skips its revoked/expired branch entirely, so the state gate has to stand
+     * on its own.
      */
     @Test
     void revokedCertificate_isRejected_withDefaultRenewalThreshold() throws Exception {
@@ -173,9 +171,8 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     /**
-     * A nullable validation status must not crash the renewal-window check on the configured-threshold
-     * branch: the renewable-state gate lets a null status through, so the timeframe policy must not
-     * dereference it.
+     * A nullable validation status must not crash the renewal-window check on the configured-threshold branch: the
+     * renewable-state gate lets a null status through, so the timeframe policy must not dereference it.
      */
     @Test
     void certificateWithoutValidationStatus_isAnAuthenticatedRenewal() throws Exception {
@@ -187,9 +184,9 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     /**
-     * A validation status of FAILED means the platform could not reach a CRL or OCSP responder. That is not
-     * evidence against the certificate, so the renewal is not rejected — but it is not evidence for it
-     * either, so the shared secret is required instead of waived.
+     * A validation status of FAILED means the platform could not reach a CRL or OCSP responder. That is not evidence
+     * against the certificate, so the renewal is not rejected — but it is not evidence for it either, so the shared
+     * secret is required instead of waived.
      */
     @Test
     void certificateWithInconclusiveValidation_doesNotEarnTheWaiver() throws Exception {
@@ -228,9 +225,9 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     /**
-     * Pins the ordering the waiver rests on: possession of the key is proven before any state of the
-     * renewed certificate is reported, so a client replaying a certificate it does not own learns nothing
-     * beyond the signature failure.
+     * Pins the ordering the waiver rests on: possession of the key is proven before any state of the renewed
+     * certificate is reported, so a client replaying a certificate it does not own learns nothing beyond the signature
+     * failure.
      */
     @Test
     void archivedCertificateWithFailingSignature_reportsBadMessageCheck() throws Exception {
@@ -258,8 +255,8 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     /**
-     * A waived renewal must not be able to obtain names the renewed certificate does not already carry;
-     * asking for more withholds the waiver, so the shared secret is required instead.
+     * A waived renewal must not be able to obtain names the renewed certificate does not already carry; asking for more
+     * withholds the waiver, so the shared secret is required instead.
      */
     @Test
     void requestAskingForAdditionalSans_doesNotEarnTheWaiver() throws Exception {
@@ -279,9 +276,8 @@ class ScepServiceImplRenewalAuthenticationTest {
     }
 
     /**
-     * An IP address SAN must compare equal across the two sides, or the waiver is silently withheld from
-     * network devices renewing on an address they already hold — and a renewal carries no challenge password
-     * to fall back on.
+     * An IP address SAN must compare equal across the two sides, or the waiver is silently withheld from network
+     * devices renewing on an address they already hold — and a renewal carries no challenge password to fall back on.
      */
     @Test
     void requestAskingForHeldIpAddressSan_isAnAuthenticatedRenewal() throws Exception {
@@ -378,9 +374,10 @@ class ScepServiceImplRenewalAuthenticationTest {
 
     private JcaPKCS10CertificationRequest certificationRequest(String subjectDn, GeneralNames sans) throws Exception {
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(clientKeyPair.getPrivate());
-        JcaPKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), clientKeyPair.getPublic());
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(clientKeyPair.getPrivate());
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                clientKeyPair.getPublic());
         if (sans != null) {
             ExtensionsGenerator extensions = new ExtensionsGenerator();
             extensions.addExtension(Extension.subjectAlternativeName, false, sans);
@@ -407,18 +404,21 @@ class ScepServiceImplRenewalAuthenticationTest {
         return selfSignedCertificate(keyPair, subjectDn, (GeneralNames) null);
     }
 
-    private static X509Certificate selfSignedCertificate(KeyPair keyPair, String subjectDn, GeneralNames sans) throws Exception {
+    private static X509Certificate selfSignedCertificate(KeyPair keyPair, String subjectDn, GeneralNames sans)
+            throws Exception {
         X500Name dn = new X500Name(subjectDn);
         Date notBefore = new Date(System.currentTimeMillis() - 60_000L);
         Date notAfter = new Date(System.currentTimeMillis() + 3_600_000L);
-        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                dn, BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
+        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(dn,
+                BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
         if (sans != null) {
             builder.addExtension(Extension.subjectAlternativeName, false, sans);
         }
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(keyPair.getPrivate());
         return new JcaX509CertificateConverter()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).getCertificate(builder.build(signer));
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(builder.build(signer));
     }
 }

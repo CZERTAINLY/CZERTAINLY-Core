@@ -1,19 +1,17 @@
 package com.otilm.core.util;
 
+import com.otilm.api.exception.ValidationException;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-
-import org.junit.jupiter.api.Test;
-
-import com.otilm.api.exception.ValidationException;
 
 class CbomUtilTest {
 
@@ -78,9 +76,9 @@ class CbomUtilTest {
     void testMustGetVersion_WithValidInteger_ShouldReturnVersion() throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", 1);
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(1, result);
     }
 
@@ -88,9 +86,9 @@ class CbomUtilTest {
     void testMustGetVersion_WithValidIntegerZero_ShouldReturnZero() throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", 0);
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(0, result);
     }
 
@@ -98,9 +96,9 @@ class CbomUtilTest {
     void testMustGetVersion_WithNegativeInteger_ShouldReturnNegativeValue() throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", -1);
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(-1, result);
     }
 
@@ -108,39 +106,42 @@ class CbomUtilTest {
     void testMustGetVersion_WithValidStringNumber_ShouldReturnParsedInteger() throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "42");
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(42, result);
     }
 
     @Test
-    void testMustGetVersion_WithStringNumberWithLeadingWhitespace_ShouldReturnParsedInteger() throws ValidationException {
+    void testMustGetVersion_WithStringNumberWithLeadingWhitespace_ShouldReturnParsedInteger()
+            throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "  123");
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(123, result);
     }
 
     @Test
-    void testMustGetVersion_WithStringNumberWithTrailingWhitespace_ShouldReturnParsedInteger() throws ValidationException {
+    void testMustGetVersion_WithStringNumberWithTrailingWhitespace_ShouldReturnParsedInteger()
+            throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "456  ");
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(456, result);
     }
 
     @Test
-    void testMustGetVersion_WithStringNumberWithSurroundingWhitespace_ShouldReturnParsedInteger() throws ValidationException {
+    void testMustGetVersion_WithStringNumberWithSurroundingWhitespace_ShouldReturnParsedInteger()
+            throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "  789  ");
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(789, result);
     }
 
@@ -148,20 +149,20 @@ class CbomUtilTest {
     void testMustGetVersion_WithNegativeStringNumber_ShouldReturnNegativeInteger() throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "-99");
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(-99, result);
     }
 
     @Test
     void testMustGetVersion_WithMissingKey_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version is required", exception.getMessage());
     }
 
@@ -169,11 +170,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithNullValue_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", null);
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must not be null", exception.getMessage());
     }
 
@@ -181,11 +182,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithEmptyString_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must not be empty or blank", exception.getMessage());
     }
 
@@ -193,11 +194,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithBlankString_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "   ");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must not be empty or blank", exception.getMessage());
     }
 
@@ -205,11 +206,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithTabsAndSpaces_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "\t  \n  ");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must not be empty or blank", exception.getMessage());
     }
 
@@ -217,11 +218,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithInvalidStringFormat_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "abc");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be a valid integer, got: 'abc'", exception.getMessage());
     }
 
@@ -229,11 +230,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithDecimalString_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "1.5");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be a valid integer, got: '1.5'", exception.getMessage());
     }
 
@@ -241,11 +242,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithAlphanumericString_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "v1");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be a valid integer, got: 'v1'", exception.getMessage());
     }
 
@@ -253,11 +254,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithSpecialCharacters_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "1!2@3");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be a valid integer, got: '1!2@3'", exception.getMessage());
     }
 
@@ -265,11 +266,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithDoubleType_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", 1.5);
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be an integer or a numeric string, got type: Double", exception.getMessage());
     }
 
@@ -277,11 +278,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithLongType_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", 100L);
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be an integer or a numeric string, got type: Long", exception.getMessage());
     }
 
@@ -289,11 +290,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithBooleanType_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", true);
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be an integer or a numeric string, got type: Boolean", exception.getMessage());
     }
 
@@ -301,11 +302,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithArrayType_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", new int[]{1, 2, 3});
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertTrue(exception.getMessage().contains("version must be an integer or a numeric string, got type:"));
     }
 
@@ -313,11 +314,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithMapType_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", new HashMap<>());
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be an integer or a numeric string, got type: HashMap", exception.getMessage());
     }
 
@@ -325,11 +326,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithObjectType_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", new Object());
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be an integer or a numeric string, got type: Object", exception.getMessage());
     }
 
@@ -337,11 +338,11 @@ class CbomUtilTest {
     void testMustGetVersion_WithIntegerOverflow_ShouldThrowValidationException() {
         Map<String, Object> content = new HashMap<>();
         content.put("version", "9999999999999999999");
-        
+
         ValidationException exception = assertThrows(ValidationException.class, () -> {
             CbomUtil.mustGetVersion(content);
         });
-        
+
         assertEquals("version must be a valid integer, got: '9999999999999999999'", exception.getMessage());
     }
 
@@ -349,9 +350,9 @@ class CbomUtilTest {
     void testMustGetVersion_WithMaxInteger_ShouldReturnMaxValue() throws ValidationException {
         Map<String, Object> content = new HashMap<>();
         content.put("version", String.valueOf(Integer.MAX_VALUE));
-        
+
         int result = CbomUtil.mustGetVersion(content);
-        
+
         assertEquals(Integer.MAX_VALUE, result);
     }
 

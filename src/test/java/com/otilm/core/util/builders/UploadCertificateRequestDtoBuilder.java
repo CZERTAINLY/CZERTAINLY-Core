@@ -9,10 +9,10 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * Builds an {@link UploadCertificateRequestDto}; tests override only the fields whose values drive the
- * assertion under test. {@link #withCertificate(X509Certificate)} base64-encodes the certificate's DER
- * encoding, while {@link #withCertificate(String)} takes an already-encoded value verbatim.
- * {@code customAttributes} defaults to an empty list, never {@code null}.
+ * Builds an {@link UploadCertificateRequestDto}; tests override only the fields whose values drive the assertion under
+ * test. {@link #withCertificate(X509Certificate)} base64-encodes the certificate's DER encoding, while
+ * {@link #withCertificate(String)} takes an already-encoded value verbatim. {@code customAttributes} defaults to an
+ * empty list, never {@code null}.
  */
 public class UploadCertificateRequestDtoBuilder {
 
@@ -28,7 +28,8 @@ public class UploadCertificateRequestDtoBuilder {
         return this;
     }
 
-    public UploadCertificateRequestDtoBuilder withCertificate(X509Certificate certificate) throws CertificateEncodingException {
+    public UploadCertificateRequestDtoBuilder withCertificate(X509Certificate certificate)
+            throws CertificateEncodingException {
         this.certificate = Base64.getEncoder().encodeToString(certificate.getEncoded());
         return this;
     }

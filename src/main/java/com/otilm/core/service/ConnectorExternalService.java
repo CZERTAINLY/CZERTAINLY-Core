@@ -1,6 +1,10 @@
 package com.otilm.core.service;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.connector.ConnectDto;
 import com.otilm.api.model.client.connector.ConnectRequestDto;
@@ -14,22 +18,25 @@ import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public interface ConnectorExternalService {
 
-    Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid)
+            throws ConnectorException, NotFoundException;
 
-    List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) throws NotFoundException;
+    List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup,
+            Optional<String> kind, Optional<ConnectorStatus> status) throws NotFoundException;
 
     ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    ConnectorDto createConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
+    ConnectorDto createConnector(ConnectorRequestDto request)
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
-    ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
+    ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException;
 
     void deleteConnector(SecuredUUID uuid) throws NotFoundException;
 
@@ -45,11 +52,15 @@ public interface ConnectorExternalService {
 
     HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType)
+            throws ConnectorException, NotFoundException;
 
-    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException;
+    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> attributes,
+            String functionGroupType) throws ValidationException, ConnectorException, NotFoundException;
 
-    List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids)
+            throws ValidationException, NotFoundException;
 
-    List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids)
+            throws ValidationException, NotFoundException;
 }

@@ -8,9 +8,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Listener for the per-instance proxy response queue.
- * Handles only request-reply correlation -- matches responses to pending
- * CompletableFutures by correlation ID.
+ * Listener for the per-instance proxy response queue. Handles only request-reply correlation -- matches responses to
+ * pending CompletableFutures by correlation ID.
  */
 @Slf4j
 @Component("instanceProxyMessageListener")

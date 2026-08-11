@@ -1,6 +1,6 @@
 package com.otilm.core.api;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AcmeProblemDocumentException;
 import com.otilm.api.model.core.acme.Problem;
 import com.otilm.api.model.core.acme.ProblemDocument;
 import org.slf4j.Logger;
@@ -24,7 +24,9 @@ public class AcmeExceptionHandlingAdvice {
     @ExceptionHandler(AcmeProblemDocumentException.class)
     public ResponseEntity<ProblemDocument> handleAcmeProblemDocumentException(AcmeProblemDocumentException ex) {
         LOG.warn("ACME Error: {}", ex.getProblemDocument());
-        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
+        ResponseEntity.BodyBuilder response = ResponseEntity
+                .status(ex.getHttpStatusCode())
+                .contentType(MediaType.valueOf("application/problem+json"));
         if (ex.getAdditionalHeaders() != null) {
             for (String entry : ex.getAdditionalHeaders().keySet()) {
                 response.header(entry, ex.getAdditionalHeaders().get(entry));
@@ -36,7 +38,8 @@ public class AcmeExceptionHandlingAdvice {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDocument> handleOtherException(Exception ex) {
         LOG.error(ex.getMessage(), ex);
-        AcmeProblemDocumentException acmeException = new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
+        AcmeProblemDocumentException acmeException = new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                Problem.SERVER_INTERNAL);
         return handleAcmeProblemDocumentException(acmeException);
     }
 }

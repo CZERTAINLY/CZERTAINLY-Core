@@ -1,12 +1,11 @@
 package com.otilm.core.security.authn.client;
 
 import com.otilm.api.model.core.logging.enums.AuthMethod;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Getter
 public class AuthenticationInfo {
@@ -23,7 +22,8 @@ public class AuthenticationInfo {
         return this.username.equals(ANONYMOUS_USERNAME);
     }
 
-    public AuthenticationInfo(AuthMethod authMethod, String userUuid, String username, List<GrantedAuthority> authorities, String rawData) {
+    public AuthenticationInfo(AuthMethod authMethod, String userUuid, String username,
+            List<GrantedAuthority> authorities, String rawData) {
         this.authMethod = authMethod;
         this.userUuid = userUuid;
         this.username = username;
@@ -31,20 +31,20 @@ public class AuthenticationInfo {
         this.rawData = rawData;
     }
 
-    public AuthenticationInfo(AuthMethod authMethod, String userUuid, String username, List<GrantedAuthority> authorities) {
+    public AuthenticationInfo(AuthMethod authMethod, String userUuid, String username,
+            List<GrantedAuthority> authorities) {
         this.authMethod = authMethod;
         this.userUuid = userUuid;
         this.username = username;
         this.authorities = authorities;
         List<String> roles = authorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList());
 
-        this.rawData = "{" +
-                " \"user\": {\"username\":\"" + this.username + "\"}," +
-                " \"roles\": [" + roles.stream().map(a -> "\"" + a +"\"").collect(Collectors.joining(",")) + "]" +
-                "}";
+        this.rawData = "{" + " \"user\": {\"username\":\"" + this.username + "\"}," + " \"roles\": ["
+                + roles.stream().map(a -> "\"" + a + "\"").collect(Collectors.joining(",")) + "]" + "}";
     }
 
     public static AuthenticationInfo getAnonymousAuthenticationInfo() {
-        return new AuthenticationInfo(AuthMethod.NONE, null, ANONYMOUS_USERNAME, List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
+        return new AuthenticationInfo(AuthMethod.NONE, null, ANONYMOUS_USERNAME,
+                List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
     }
 }

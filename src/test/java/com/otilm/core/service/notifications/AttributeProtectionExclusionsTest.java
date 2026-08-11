@@ -5,14 +5,13 @@ import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeP
 import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.dao.repository.AttributeDefinitionRepository;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,7 +47,9 @@ class AttributeProtectionExclusionsTest {
     @Test
     void entityColumnProtectionExcludes() {
         when(repository.findByAttributeUuidIn(anyCollection()))
-                .thenReturn(List.of(definition(PROTECTED_COLUMN, ProtectionLevel.ENCRYPTED, declaredMetadata(ProtectionLevel.NONE))));
+                .thenReturn(List
+                        .of(definition(PROTECTED_COLUMN, ProtectionLevel.ENCRYPTED,
+                                declaredMetadata(ProtectionLevel.NONE))));
 
         assertEquals(Set.of(PROTECTED_COLUMN), exclusions().excludedFrom(List.of(PROTECTED_COLUMN)));
     }
@@ -97,7 +98,8 @@ class AttributeProtectionExclusionsTest {
         assertTrue(exclusions().excludedFrom(List.of()).isEmpty());
     }
 
-    private static AttributeDefinition definition(UUID attributeUuid, ProtectionLevel columnLevel, MetadataAttributeV3 document) {
+    private static AttributeDefinition definition(UUID attributeUuid, ProtectionLevel columnLevel,
+            MetadataAttributeV3 document) {
         AttributeDefinition definition = new AttributeDefinition();
         definition.setAttributeUuid(attributeUuid);
         definition.setProtectionLevel(columnLevel);

@@ -1,17 +1,15 @@
 package com.otilm.core.integration.config;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.core.config.CookieConfig;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.util.BaseSpringBootTestNoAuth;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-
 import java.util.UUID;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,10 +33,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Verifies the dedicated {@code @Order(1)} TSP {@link org.springframework.security.web.SecurityFilterChain}:
  * <ul>
- *   <li>a TSP request with no credentials is rejected with {@code 401} by the TSP chain;</li>
- *   <li>the {@code /v1/tspProfiles} management API is served by the catch-all {@code @Order(2)} chain and is
- *       unaffected by the TSP chain's {@code 401} backstop;</li>
- *   <li>a TSP request establishes no session cookie (the JDBC session filter sets no {@code SESSION} cookie).</li>
+ * <li>a TSP request with no credentials is rejected with {@code 401} by the TSP chain;</li>
+ * <li>the {@code /v1/tspProfiles} management API is served by the catch-all {@code @Order(2)} chain and is unaffected
+ * by the TSP chain's {@code 401} backstop;</li>
+ * <li>a TSP request establishes no session cookie (the JDBC session filter sets no {@code SESSION} cookie).</li>
  * </ul>
  */
 @AutoConfigureMockMvc
@@ -94,24 +92,30 @@ class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void addAuthPostStub(String requestBody, String userUuid, String username) {
-        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth"))
-                .withRequestBody(WireMock.containing(requestBody))
-                .willReturn(WireMock.okJson(String.format("""
-                        {
-                          "authenticated": true,
-                          "data": {
-                            "user": { "uuid": "%s", "username": "%s" },
-                            "roles": [ { "name": "superadmin" } ],
-                            "permissions": { "allowAllResources": true, "resources": [] }
-                          }
-                        }
-                        """, userUuid, username))));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/auth"))
+                        .withRequestBody(WireMock.containing(requestBody))
+                        .willReturn(WireMock.okJson(String.format("""
+                                {
+                                  "authenticated": true,
+                                  "data": {
+                                    "user": { "uuid": "%s", "username": "%s" },
+                                    "roles": [ { "name": "superadmin" } ],
+                                    "permissions": { "allowAllResources": true, "resources": [] }
+                                  }
+                                }
+                                """, userUuid, username))));
     }
 
     private void addAuthGetSub(String userUuid, String username) {
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/" + userUuid)).willReturn(
-                WireMock.okJson(String.format("{ \"username\": \"%s\", \"roles\": [{\"name\": \"superadmin\"}]}", username))
-        ));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/auth/users/" + userUuid))
+                        .willReturn(WireMock
+                                .okJson(String
+                                        .format("{ \"username\": \"%s\", \"roles\": [{\"name\": \"superadmin\"}]}",
+                                                username))));
     }
 
     private String path(String suffix) {
@@ -121,7 +125,8 @@ class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
     @Test
     void returnsUnauthorized_whenTspRequestHasNoCredentials() throws Exception {
         // when
-        MvcResult result = mvc.perform(post(path("/v1/protocols/tsp/Unknown Profile/sign")))
+        MvcResult result = mvc
+                .perform(post(path("/v1/protocols/tsp/Unknown Profile/sign")))
                 .andExpect(status().isUnauthorized())
                 .andReturn();
 
@@ -136,8 +141,9 @@ class TspSecurityChainITest extends BaseSpringBootTestNoAuth {
         // given — a valid certificate header so the @Order(2) catch-all chain authenticates the caller
 
         // when — the /v1/tspProfiles management endpoint is served by the catch-all chain
-        MvcResult result = mvc.perform(get(path("/v1/tspProfiles"))
-                .header("X-APP-CERTIFICATE", CERTIFICATE_HEADER_VALUE)).andReturn();
+        MvcResult result = mvc
+                .perform(get(path("/v1/tspProfiles")).header("X-APP-CERTIFICATE", CERTIFICATE_HEADER_VALUE))
+                .andReturn();
 
         // then — the request must not be short-circuited as unauthenticated by the TSP chain
         assertThat(result.getResponse().getStatus())

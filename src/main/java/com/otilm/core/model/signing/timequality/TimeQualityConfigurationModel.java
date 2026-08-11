@@ -7,7 +7,10 @@ import java.util.UUID;
 /**
  * Sealed interface for all time-quality configuration model objects.
  *
- * <p>Use pattern matching to access variant-specific fields:</p>
+ * <p>
+ * Use pattern matching to access variant-specific fields:
+ * </p>
+ *
  * <pre>{@code
  * switch (model) {
  *     case ExplicitTimeQualityConfiguration e -> e.ntpServers();

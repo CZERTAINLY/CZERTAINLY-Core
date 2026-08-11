@@ -12,7 +12,8 @@ import java.util.UUID;
 
 public interface TspProfileInternalService extends ResourceExtensionService {
 
-    SecuredList<TspProfile> listTspProfilesUsingSigningProfileAsDefault(SecuredUUID signingProfileUuid, SecurityFilter filter);
+    SecuredList<TspProfile> listTspProfilesUsingSigningProfileAsDefault(SecuredUUID signingProfileUuid,
+            SecurityFilter filter);
 
     TspProfile getTspProfileEntity(SecuredUUID uuid) throws NotFoundException;
 
@@ -23,7 +24,8 @@ public interface TspProfileInternalService extends ResourceExtensionService {
     /**
      * Loads the TSP profile model by name without any authorization check.
      *
-     * <p>Intended for use by {@code TspAuthenticationFilter}, which runs before a {@code SecurityContext} exists.
+     * <p>
+     * Intended for use by {@code TspAuthenticationFilter}, which runs before a {@code SecurityContext} exists.
      */
     TspProfileModel resolveTspProfileForAuthentication(String name) throws NotFoundException;
 

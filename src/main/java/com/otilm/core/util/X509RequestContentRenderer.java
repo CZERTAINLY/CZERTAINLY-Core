@@ -1,12 +1,19 @@
 package com.otilm.core.util;
 
 import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
-import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
+import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.core.oid.OidHandler;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import javax.security.auth.x500.X500Principal;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -16,22 +23,17 @@ import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
-import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.OtherName;
-
-import javax.security.auth.x500.X500Principal;
 import org.bouncycastle.util.encoders.Base64;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 /**
- * Pure-kernel renderer: maps {@link X509RequestContent} into BouncyCastle structures.
- * No Spring context required; all methods are static.
+ * Pure-kernel renderer: maps {@link X509RequestContent} into BouncyCastle structures. No Spring context required; all
+ * methods are static.
  */
 public final class X509RequestContentRenderer {
 
@@ -39,16 +41,15 @@ public final class X509RequestContentRenderer {
      * RFC 5280 extensions that MUST stay critical regardless of criticalOverridable or registry defaults.
      * BasicConstraints (§4.2.1.9) and KeyUsage (§4.2.1.3).
      */
-    static final Set<String> CRITICALITY_FORCED_OIDS = Set.of(
-            Extension.basicConstraints.getId(),
-            Extension.keyUsage.getId()
-    );
+    static final Set<String> CRITICALITY_FORCED_OIDS = Set
+            .of(Extension.basicConstraints.getId(), Extension.keyUsage.getId());
 
-    private X509RequestContentRenderer() {}
+    private X509RequestContentRenderer() {
+    }
 
     /**
-     * Builds a subject DN from the ordered {@link RdnEntry} list.
-     * RDN types are resolved via the OID registry cache, then as dotted-decimal OIDs directly.
+     * Builds a subject DN from the ordered {@link RdnEntry} list. RDN types are resolved via the OID registry cache,
+     * then as dotted-decimal OIDs directly.
      */
     public static X500Principal toX500Principal(X509RequestContent x509) throws IOException {
         // One registry snapshot for the whole subject, so all RDNs resolve against the same state.
@@ -62,14 +63,14 @@ public final class X509RequestContentRenderer {
     }
 
     /**
-     * Builds the SAN extension and any requested extensions into a BC {@link Extensions}.
-     * RFC 5280 must-stay-critical OIDs are forced critical regardless of the supplied flag.
-     * Returns null if no extensions are present in the request.
+     * Builds the SAN extension and any requested extensions into a BC {@link Extensions}. RFC 5280 must-stay-critical
+     * OIDs are forced critical regardless of the supplied flag. Returns null if no extensions are present in the
+     * request.
      * <p>
      * The duplicate-OID guard here is defense-in-depth: the sole production caller runs
      * {@code CertificateRequestAttributeProjector.project()} first, which already rejects duplicate OIDs and
-     * SAN/explicit collisions upstream. This kernel method is public, so it enforces the invariant itself
-     * rather than trusting every caller to have deduped.
+     * SAN/explicit collisions upstream. This kernel method is public, so it enforces the invariant itself rather than
+     * trusting every caller to have deduped.
      */
     public static Extensions toExtensions(X509RequestContent x509) throws IOException {
         ExtensionsGenerator gen = new ExtensionsGenerator();
@@ -94,7 +95,9 @@ public final class X509RequestContentRenderer {
             gen.addExtension(oid, critical, derValue);
         }
 
-        if (gen.isEmpty()) return null;
+        if (gen.isEmpty()) {
+            return null;
+        }
 
         return gen.generate();
     }
@@ -114,7 +117,8 @@ public final class X509RequestContentRenderer {
     }
 
     /**
-     * Parses a connector-supplied extension/otherName OID, rejecting null or malformed values with a controlled {@link IOException}.
+     * Parses a connector-supplied extension/otherName OID, rejecting null or malformed values with a controlled
+     * {@link IOException}.
      */
     private static ASN1ObjectIdentifier parseOid(String oid) throws IOException {
         if (!OidHandler.isOid(oid)) {
@@ -124,10 +128,10 @@ public final class X509RequestContentRenderer {
     }
 
     /**
-     * Encodes a requested extension's value into the DER bytes expected by {@code addExtension}.
-     * The {@link ExtensionValueEncoding} declares how the supplied string is to be interpreted;
-     * {@code null} and {@code DER} both mean the value already carries a base64-encoded DER blob
-     * (backward-compatible default), other encodings wrap the string in the matching ASN.1 type.
+     * Encodes a requested extension's value into the DER bytes expected by {@code addExtension}. The
+     * {@link ExtensionValueEncoding} declares how the supplied string is to be interpreted; {@code null} and
+     * {@code DER} both mean the value already carries a base64-encoded DER blob (backward-compatible default), other
+     * encodings wrap the string in the matching ASN.1 type.
      */
     private static byte[] encodeExtensionValue(String value, ExtensionValueEncoding encoding) throws IOException {
         if (value == null) {
@@ -139,16 +143,17 @@ public final class X509RequestContentRenderer {
             case UTF8_STRING -> new DERUTF8String(value).getEncoded(ASN1Encoding.DER);
             case IA5_STRING -> new DERIA5String(value).getEncoded(ASN1Encoding.DER);
             case PRINTABLE_STRING -> new DERPrintableString(value).getEncoded(ASN1Encoding.DER);
-            case OCTET_STRING -> new DEROctetString(value.getBytes(StandardCharsets.UTF_8)).getEncoded(ASN1Encoding.DER);
+            case OCTET_STRING ->
+                new DEROctetString(value.getBytes(StandardCharsets.UTF_8)).getEncoded(ASN1Encoding.DER);
             case BIT_STRING -> throw new IOException(
                     "BIT_STRING extension value encoding is not supported; supply a DER-encoded value instead");
         };
     }
 
     /**
-     * Decodes a base64-encoded DER blob, translating BouncyCastle's runtime decode failure into a
-     * controlled {@link IOException} so malformed values surface through {@code toExtensions}' declared
-     * checked boundary instead of escaping as an unhandled runtime error.
+     * Decodes a base64-encoded DER blob, translating BouncyCastle's runtime decode failure into a controlled
+     * {@link IOException} so malformed values surface through {@code toExtensions}' declared checked boundary instead
+     * of escaping as an unhandled runtime error.
      */
     private static byte[] decodeBase64Der(String value) throws IOException {
         try {
@@ -168,8 +173,7 @@ public final class X509RequestContentRenderer {
     private static GeneralName toGeneralName(GeneralNameEntry e) throws IOException {
         if (e.getType() == GeneralNameType.OTHER_NAME) {
             ASN1Encodable asn1Value = encodeOtherNameValue(e.getValue(), e.getValueEncoding());
-            return new GeneralName(GeneralName.otherName,
-                    new OtherName(parseOid(e.getOtherNameOid()), asn1Value));
+            return new GeneralName(GeneralName.otherName, new OtherName(parseOid(e.getOtherNameOid()), asn1Value));
         }
         return new GeneralName(e.getType().getBcTag(), e.getValue());
     }
@@ -188,9 +192,9 @@ public final class X509RequestContentRenderer {
     }
 
     /**
-     * Parses a base64-encoded DER object back into its ASN.1 representation, preserving the original
-     * type rather than re-wrapping the bytes. Falls back to a UTF-8 string when the value is not valid
-     * base64 or not a parseable DER object (e.g. an empty value).
+     * Parses a base64-encoded DER object back into its ASN.1 representation, preserving the original type rather than
+     * re-wrapping the bytes. Falls back to a UTF-8 string when the value is not valid base64 or not a parseable DER
+     * object (e.g. an empty value).
      */
     private static ASN1Encodable decodeDerOrFallback(String value) {
         try {

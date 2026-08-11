@@ -9,11 +9,10 @@ import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.core.service.CredentialInternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ConnectorRequestAttributesBuilder {
@@ -37,8 +36,9 @@ public class ConnectorRequestAttributesBuilder {
         this.credentialService = credentialService;
     }
 
-
-    public List<RequestAttribute> prepareRequestAttributesForConnectorRequest(UUID connectorUuid, List<BaseAttribute> attributeDefinitions, List<RequestAttribute> requestAttributes) throws AttributeException, NotFoundException, ConnectorException {
+    public List<RequestAttribute> prepareRequestAttributesForConnectorRequest(UUID connectorUuid,
+            List<BaseAttribute> attributeDefinitions, List<RequestAttribute> requestAttributes)
+            throws AttributeException, NotFoundException, ConnectorException {
         attributeEngine.validateUpdateDataAttributes(connectorUuid, null, attributeDefinitions, requestAttributes);
         return resolveContent(connectorUuid, requestAttributes);
     }
@@ -61,14 +61,19 @@ public class ConnectorRequestAttributesBuilder {
      * {@code meta} bag those and pollStatus return) are deliberately not scanned — see
      * {@code AuthorityProviderV3Adapter#contained} for the rationale.
      */
-    public List<RequestAttribute> dereferenceForConnectorRequest(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws AttributeException, NotFoundException, ConnectorException {
+    public List<RequestAttribute> dereferenceForConnectorRequest(UUID connectorUuid,
+            List<RequestAttribute> requestAttributes) throws AttributeException, NotFoundException, ConnectorException {
         return resolveContent(connectorUuid, requestAttributes);
     }
 
-    /** Shared skeleton: resolve request-attribute content against the connector's definitions, dereferencing
-     * CREDENTIAL + RESOURCE (incl. SECRET) references in place, then map back to client attributes. */
-    private List<RequestAttribute> resolveContent(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws AttributeException, NotFoundException, ConnectorException {
-        List<DataAttribute> dataAttributes = attributeEngine.getDataAttributesByContent(connectorUuid, requestAttributes);
+    /**
+     * Shared skeleton: resolve request-attribute content against the connector's definitions, dereferencing CREDENTIAL
+     * + RESOURCE (incl. SECRET) references in place, then map back to client attributes.
+     */
+    private List<RequestAttribute> resolveContent(UUID connectorUuid, List<RequestAttribute> requestAttributes)
+            throws AttributeException, NotFoundException, ConnectorException {
+        List<DataAttribute> dataAttributes = attributeEngine
+                .getDataAttributesByContent(connectorUuid, requestAttributes);
         credentialService.loadFullCredentialData(dataAttributes);
         resourceService.loadResourceObjectContentData(dataAttributes);
         return AttributeDefinitionUtils.getClientAttributes(dataAttributes);

@@ -1,12 +1,11 @@
 package com.otilm.core.architecture;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -175,8 +174,7 @@ class ContextSignatureTest {
                 @TypeExcludeFilters(BMocks.ExcludeFilter.class)
                 class BModuleITest {}
                 """);
-        assertThat(TestClassTaxonomy.annotationTokens(a).typeExcludeFilters())
-                .containsExactly("AMocks.ExcludeFilter");
+        assertThat(TestClassTaxonomy.annotationTokens(a).typeExcludeFilters()).containsExactly("AMocks.ExcludeFilter");
 
         Map<String, String> graph = TestClassTaxonomy.parseExtends(dir);
         Map<String, Path> byName = ContextSignature.filesBySimpleName(dir);
@@ -237,7 +235,8 @@ class ContextSignatureTest {
     }
 
     @Test
-    void ownDynamicPropertySourceMethodsForkEvenWhenTheyRegisterIdenticalProperties(@TempDir Path dir) throws IOException {
+    void ownDynamicPropertySourceMethodsForkEvenWhenTheyRegisterIdenticalProperties(@TempDir Path dir)
+            throws IOException {
         // DynamicPropertiesContextCustomizer keys on the Set<Method>, so what a method registers is irrelevant:
         // two classes each declaring their own can never share a context, and one declaring none is distinct again.
         write(dir, "BaseSpringBootTest.java", """
@@ -343,8 +342,7 @@ class ContextSignatureTest {
                     }
                 }
                 """);
-        assertThat(TestClassTaxonomy.annotationTokens(f).dynamicPropertySources())
-                .containsExactly("extraProperties");
+        assertThat(TestClassTaxonomy.annotationTokens(f).dynamicPropertySources()).containsExactly("extraProperties");
     }
 
     @Test

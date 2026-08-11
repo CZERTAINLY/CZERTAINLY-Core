@@ -6,8 +6,8 @@ import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.api.model.core.v2.ClientCertificateDataResponseDto;
-import com.otilm.api.model.core.v2.ClientCertificateRegistrationDto;
 import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
+import com.otilm.api.model.core.v2.ClientCertificateRegistrationDto;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
@@ -17,8 +17,8 @@ import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.FunctionGroupRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
-import com.otilm.core.messaging.model.ActionMessage;
 import com.otilm.core.messaging.jms.producers.ActionProducer;
+import com.otilm.core.messaging.model.ActionMessage;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.service.acme.AcmeTestUtil;
@@ -27,6 +27,12 @@ import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.builders.AuthorityFixtures;
 import com.otilm.core.util.builders.V3ConnectorStubs;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -36,31 +42,25 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
-
 /**
  * End-to-end integration tests for the v3 authority register lifecycle.
  *
- * <p>Exercises the real service → adapter → state-machine stack against a WireMock connector:
+ * <p>
+ * Exercises the real service → adapter → state-machine stack against a WireMock connector:
  * <ol>
- *   <li>Sync register (HTTP 200) → {@code REGISTERED} + optional meta persisted.</li>
- *   <li>Async register (HTTP 202) + both flags → {@code PENDING_REGISTRATION} + a
- *       {@code certificate_status_poll} row is written.</li>
- *   <li>Async register (HTTP 202) + only {@code CERTIFICATE_REGISTRATION} (no polling flag) →
- *       {@code PENDING_REGISTRATION} but <em>zero</em> poll rows (negative gate).</li>
- *   <li>Register sync → {@code REGISTERED}; supply CSR; {@code issueExistingCertificate} →
- *       ActionProducer spy forwards the ISSUE action → v2 issue stub 200 → {@code ISSUED};
- *       registration subject identity is preserved on the row.</li>
+ * <li>Sync register (HTTP 200) → {@code REGISTERED} + optional meta persisted.</li>
+ * <li>Async register (HTTP 202) + both flags → {@code PENDING_REGISTRATION} + a {@code certificate_status_poll} row is
+ * written.</li>
+ * <li>Async register (HTTP 202) + only {@code CERTIFICATE_REGISTRATION} (no polling flag) →
+ * {@code PENDING_REGISTRATION} but <em>zero</em> poll rows (negative gate).</li>
+ * <li>Register sync → {@code REGISTERED}; supply CSR; {@code issueExistingCertificate} → ActionProducer spy forwards
+ * the ISSUE action → v2 issue stub 200 → {@code ISSUED}; registration subject identity is preserved on the row.</li>
  * </ol>
  *
- * <p>The {@link ActionProducer} spy is wired using the same pattern as
- * {@link com.otilm.core.integration.service.acme.AcmeProtocolFlowITest}, forwarding ISSUE actions
- * synchronously to avoid a RabbitMQ dependency.
+ * <p>
+ * The {@link ActionProducer} spy is wired using the same pattern as
+ * {@link com.otilm.core.integration.service.acme.AcmeProtocolFlowITest}, forwarding ISSUE actions synchronously to
+ * avoid a RabbitMQ dependency.
  */
 public class V3RegisterLifecycleITest extends BaseSpringBootTest {
 
@@ -128,10 +128,11 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
     /**
      * Scenario 1: sync register (HTTP 200) → certificate reaches {@code REGISTERED}.
      *
-     * <p>Asserts:
+     * <p>
+     * Asserts:
      * <ul>
-     *   <li>State is {@code REGISTERED}.</li>
-     *   <li>The registration subject DN from the request is recorded on the certificate row.</li>
+     * <li>State is {@code REGISTERED}.</li>
+     * <li>The registration subject DN from the request is recorded on the certificate row.</li>
      * </ul>
      */
     @Test
@@ -143,24 +144,26 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
         ClientCertificateDataResponseDto response = registerCertificate(fixture, "CN=sync-device,O=Acme");
 
         Certificate cert = reloadCert(response.getUuid());
-        Assertions.assertEquals(CertificateState.REGISTERED, cert.getState(),
-                "Synchronous register must transition the certificate to REGISTERED");
+        Assertions
+                .assertEquals(CertificateState.REGISTERED, cert.getState(),
+                        "Synchronous register must transition the certificate to REGISTERED");
         // The subject DN is stored in X.500 canonical (reversed) order by CertificateUtil.applyRegistrationSubject.
         // "CN=sync-device,O=Acme" → stored as "O=Acme, CN=sync-device".
         Assertions.assertNotNull(cert.getSubjectDn(), "Registration subject DN must be persisted on the placeholder");
-        Assertions.assertTrue(cert.getSubjectDn().contains("CN=sync-device") && cert.getSubjectDn().contains("O=Acme"),
-                "Registration subject DN must contain the requested CN and O values; was: " + cert.getSubjectDn());
+        Assertions
+                .assertTrue(cert.getSubjectDn().contains("CN=sync-device") && cert.getSubjectDn().contains("O=Acme"),
+                        "Registration subject DN must contain the requested CN and O values; was: "
+                                + cert.getSubjectDn());
     }
 
     /**
      * Scenario 2: async register (HTTP 202) with both {@code CERTIFICATE_REGISTRATION} and
-     * {@code CERTIFICATE_STATUS_POLLING} flags → {@code PENDING_REGISTRATION} AND a
-     * {@code certificate_status_poll} row exists.
+     * {@code CERTIFICATE_STATUS_POLLING} flags → {@code PENDING_REGISTRATION} AND a {@code certificate_status_poll} row
+     * exists.
      */
     @Test
     public void registerAsync_parksPendingAndSchedulesPoll() throws Exception {
-        AuthorityFixtures.Fixture fixture = buildV3Fixture(
-                FeatureFlag.CERTIFICATE_REGISTRATION,
+        AuthorityFixtures.Fixture fixture = buildV3Fixture(FeatureFlag.CERTIFICATE_REGISTRATION,
                 FeatureFlag.CERTIFICATE_STATUS_POLLING);
 
         V3ConnectorStubs.stubRegisterAsync(wireMockServer, null);
@@ -170,24 +173,26 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
         UUID certUuid = UUID.fromString(response.getUuid());
         Certificate cert = reloadCert(response.getUuid());
 
-        Assertions.assertEquals(CertificateState.PENDING_REGISTRATION, cert.getState(),
-                "Async register must park the certificate in PENDING_REGISTRATION");
+        Assertions
+                .assertEquals(CertificateState.PENDING_REGISTRATION, cert.getState(),
+                        "Async register must park the certificate in PENDING_REGISTRATION");
 
-        long pollRows = pollRepository.findAll().stream()
-                .filter(p -> certUuid.equals(p.getCertificateUuid()))
-                .count();
-        Assertions.assertEquals(1L, pollRows,
-                "Async register with both flags must write exactly one certificate_status_poll row");
+        long pollRows = pollRepository.findAll().stream().filter(p -> certUuid.equals(p.getCertificateUuid())).count();
+        Assertions
+                .assertEquals(1L, pollRows,
+                        "Async register with both flags must write exactly one certificate_status_poll row");
     }
 
     /**
-     * Scenario 3 (negative gate): async register (HTTP 202) with only {@code CERTIFICATE_REGISTRATION}
-     * (no {@code CERTIFICATE_STATUS_POLLING}) → {@code PENDING_REGISTRATION} but zero poll rows.
+     * Scenario 3 (negative gate): async register (HTTP 202) with only {@code CERTIFICATE_REGISTRATION} (no
+     * {@code CERTIFICATE_STATUS_POLLING}) → {@code PENDING_REGISTRATION} but zero poll rows.
      *
-     * <p>The gate in {@code ClientOperationServiceImpl.scheduleStatusPoll} requires both conditions:
+     * <p>
+     * The gate in {@code ClientOperationServiceImpl.scheduleStatusPoll} requires both conditions:
      * {@code adapter instanceof AsyncOperationCapability} AND
-     * {@code capabilityService.supports(authority, CERTIFICATE_STATUS_POLLING)}.
-     * Omitting the polling flag from the connector interface means the second condition is false.</p>
+     * {@code capabilityService.supports(authority, CERTIFICATE_STATUS_POLLING)}. Omitting the polling flag from the
+     * connector interface means the second condition is false.
+     * </p>
      */
     @Test
     public void registerAsync_withoutPollingFlag_parksPendingWithNoPollRow() throws Exception {
@@ -200,20 +205,20 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
         UUID certUuid = UUID.fromString(response.getUuid());
         Certificate cert = reloadCert(response.getUuid());
 
-        Assertions.assertEquals(CertificateState.PENDING_REGISTRATION, cert.getState(),
-                "Async register without polling flag must still park the certificate in PENDING_REGISTRATION");
+        Assertions
+                .assertEquals(CertificateState.PENDING_REGISTRATION, cert.getState(),
+                        "Async register without polling flag must still park the certificate in PENDING_REGISTRATION");
 
-        long pollRows = pollRepository.findAll().stream()
-                .filter(p -> certUuid.equals(p.getCertificateUuid()))
-                .count();
-        Assertions.assertEquals(0L, pollRows,
-                "Async register without CERTIFICATE_STATUS_POLLING must NOT write a poll row");
+        long pollRows = pollRepository.findAll().stream().filter(p -> certUuid.equals(p.getCertificateUuid())).count();
+        Assertions
+                .assertEquals(0L, pollRows,
+                        "Async register without CERTIFICATE_STATUS_POLLING must NOT write a poll row");
     }
 
     /**
-     * Scenario 4: register sync → {@code REGISTERED}; supply a CSR; {@code issueExistingCertificate}
-     * → ActionProducer spy forwards ISSUE → v2 issue stub 200 → {@code ISSUED};
-     * registration subject identity is preserved on the certificate row.
+     * Scenario 4: register sync → {@code REGISTERED}; supply a CSR; {@code issueExistingCertificate} → ActionProducer
+     * spy forwards ISSUE → v2 issue stub 200 → {@code ISSUED}; registration subject identity is preserved on the
+     * certificate row.
      */
     @Test
     public void registerThenIssue_roundTrip() throws Exception {
@@ -224,13 +229,17 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
         ClientCertificateDataResponseDto registerResponse = registerCertificate(fixture, "CN=round-trip,O=Acme");
 
         Certificate certAfterRegister = reloadCert(registerResponse.getUuid());
-        Assertions.assertEquals(CertificateState.REGISTERED, certAfterRegister.getState(),
-                "Pre-condition: certificate must be REGISTERED before issue");
+        Assertions
+                .assertEquals(CertificateState.REGISTERED, certAfterRegister.getState(),
+                        "Pre-condition: certificate must be REGISTERED before issue");
         // Subject DN is stored in canonical (reversed) order by CertificateUtil.applyRegistrationSubject.
-        Assertions.assertNotNull(certAfterRegister.getSubjectDn(),
-                "Pre-condition: registration subject DN must be stored");
-        Assertions.assertTrue(certAfterRegister.getSubjectDn().contains("CN=round-trip"),
-                "Pre-condition: subject DN must contain the requested CN; was: " + certAfterRegister.getSubjectDn());
+        Assertions
+                .assertNotNull(certAfterRegister.getSubjectDn(),
+                        "Pre-condition: registration subject DN must be stored");
+        Assertions
+                .assertTrue(certAfterRegister.getSubjectDn().contains("CN=round-trip"),
+                        "Pre-condition: subject DN must contain the requested CN; was: "
+                                + certAfterRegister.getSubjectDn());
 
         // Step 2: generate a CSR and stub the v2 issue endpoint
         KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
@@ -252,24 +261,24 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
         issueRequest.setAttributes(List.of());
         issueRequest.setCustomAttributes(List.of());
 
-        clientOperationService.issueExistingCertificate(
-                SecuredParentUUID.fromUUID(fixture.authority().getUuid()),
-                fixture.raProfile().getSecuredUuid(),
-                registerResponse.getUuid(),
-                issueRequest);
+        clientOperationService
+                .issueExistingCertificate(SecuredParentUUID.fromUUID(fixture.authority().getUuid()),
+                        fixture.raProfile().getSecuredUuid(), registerResponse.getUuid(), issueRequest);
 
         // Step 4: assert final state
         Certificate certAfterIssue = reloadCert(registerResponse.getUuid());
-        Assertions.assertEquals(CertificateState.ISSUED, certAfterIssue.getState(),
-                "issueExistingCertificate → ISSUE action → register-bound v3 issue 200 must transition cert to ISSUED");
+        Assertions
+                .assertEquals(CertificateState.ISSUED, certAfterIssue.getState(),
+                        "issueExistingCertificate → ISSUE action → register-bound v3 issue 200 must transition cert to ISSUED");
 
         // Registration identity preserved: the subject DN from the registration step is still on the row
         // (the issued certificate's identity is written from the CA response at issuance time, but the
         // registration placeholder subject is always kept for traceability).
-        Assertions.assertNotNull(certAfterIssue.getSubjectDn(),
-                "Subject DN must not be null after issuance");
-        Assertions.assertTrue(certAfterIssue.getSubjectDn().contains("CN=round-trip"),
-                "Registration subject DN must be preserved through issuance; was: " + certAfterIssue.getSubjectDn());
+        Assertions.assertNotNull(certAfterIssue.getSubjectDn(), "Subject DN must not be null after issuance");
+        Assertions
+                .assertTrue(certAfterIssue.getSubjectDn().contains("CN=round-trip"),
+                        "Registration subject DN must be preserved through issuance; was: "
+                                + certAfterIssue.getSubjectDn());
     }
 
     /**
@@ -279,16 +288,16 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
      */
     @Test
     public void registerThenIssueAsync_parksPendingIssueAndSchedulesPoll() throws Exception {
-        AuthorityFixtures.Fixture fixture = buildV3Fixture(
-                FeatureFlag.CERTIFICATE_REGISTRATION,
+        AuthorityFixtures.Fixture fixture = buildV3Fixture(FeatureFlag.CERTIFICATE_REGISTRATION,
                 FeatureFlag.CERTIFICATE_STATUS_POLLING);
 
         // Step 1: register sync → REGISTERED
         V3ConnectorStubs.stubRegisterSync(wireMockServer, null);
         ClientCertificateDataResponseDto registerResponse = registerCertificate(fixture, "CN=async-issue,O=Acme");
         UUID certUuid = UUID.fromString(registerResponse.getUuid());
-        Assertions.assertEquals(CertificateState.REGISTERED, reloadCert(registerResponse.getUuid()).getState(),
-                "Pre-condition: certificate must be REGISTERED before issue");
+        Assertions
+                .assertEquals(CertificateState.REGISTERED, reloadCert(registerResponse.getUuid()).getState(),
+                        "Pre-condition: certificate must be REGISTERED before issue");
 
         // Step 2: CSR + async (202) v3 issue stub
         KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
@@ -305,31 +314,23 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
         issueRequest.setCustomAttributes(List.of());
 
         // Step 3: issue → the register-bound v3 issue returns 202 (async)
-        clientOperationService.issueExistingCertificate(
-                SecuredParentUUID.fromUUID(fixture.authority().getUuid()),
-                fixture.raProfile().getSecuredUuid(),
-                registerResponse.getUuid(),
-                issueRequest);
+        clientOperationService
+                .issueExistingCertificate(SecuredParentUUID.fromUUID(fixture.authority().getUuid()),
+                        fixture.raProfile().getSecuredUuid(), registerResponse.getUuid(), issueRequest);
 
         // Step 4: accepted-but-async → PENDING_ISSUE + exactly one ISSUE status-poll row scheduled
-        Assertions.assertEquals(CertificateState.PENDING_ISSUE, reloadCert(registerResponse.getUuid()).getState(),
-                "register-bound v3 issue 202 must park the certificate in PENDING_ISSUE");
-        long pollRows = pollRepository.findAll().stream()
-                .filter(p -> certUuid.equals(p.getCertificateUuid()))
-                .count();
-        Assertions.assertEquals(1L, pollRows,
-                "async register-bound issue must schedule exactly one status-poll row");
+        Assertions
+                .assertEquals(CertificateState.PENDING_ISSUE, reloadCert(registerResponse.getUuid()).getState(),
+                        "register-bound v3 issue 202 must park the certificate in PENDING_ISSUE");
+        long pollRows = pollRepository.findAll().stream().filter(p -> certUuid.equals(p.getCertificateUuid())).count();
+        Assertions.assertEquals(1L, pollRows, "async register-bound issue must schedule exactly one status-poll row");
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private AuthorityFixtures.Repos repos() {
-        return new AuthorityFixtures.Repos(
-                connectorRepository,
-                functionGroupRepository,
-                connector2FunctionGroupRepository,
-                authorityInstanceReferenceRepository,
-                raProfileRepository,
+        return new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
+                connector2FunctionGroupRepository, authorityInstanceReferenceRepository, raProfileRepository,
                 connectorInterfaceRepository);
     }
 
@@ -342,14 +343,14 @@ public class V3RegisterLifecycleITest extends BaseSpringBootTest {
         ClientCertificateRegistrationDto request = new ClientCertificateRegistrationDto();
         request.setSubjectDn(subjectDn);
 
-        return clientOperationService.registerCertificate(
-                SecuredParentUUID.fromUUID(fixture.authority().getUuid()),
-                fixture.raProfile().getSecuredUuid(),
-                request);
+        return clientOperationService
+                .registerCertificate(SecuredParentUUID.fromUUID(fixture.authority().getUuid()),
+                        fixture.raProfile().getSecuredUuid(), request);
     }
 
     private Certificate reloadCert(String uuidStr) {
-        return certificateRepository.findByUuid(UUID.fromString(uuidStr))
+        return certificateRepository
+                .findByUuid(UUID.fromString(uuidStr))
                 .orElseThrow(() -> new AssertionError("Certificate not found: " + uuidStr));
     }
 }

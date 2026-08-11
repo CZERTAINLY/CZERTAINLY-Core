@@ -13,6 +13,10 @@ import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.AuthenticationSettingsSnapshot;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.OAuth2Util;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,14 +29,21 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PlatformJwtAuthenticationConverterTest {
@@ -97,13 +108,15 @@ class PlatformJwtAuthenticationConverterTest {
         when(authenticationClient.authenticateByToken(claims, 1L)).thenReturn(authenticatedInfo());
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
-             MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
+            settingsMock
+                    .when(SettingsCache::getAuthenticationSnapshot)
                     .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 1L));
             oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
-            oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(
-                            argThat(p -> p != null && ISSUER_URL.equals(p.getIssuerUrl())),
-                            eq(TOKEN_VALUE), isNull()))
+            oauth2Mock
+                    .when(() -> OAuth2Util
+                            .getAllClaimsAvailable(argThat(p -> p != null && ISSUER_URL.equals(p.getIssuerUrl())),
+                                    eq(TOKEN_VALUE), isNull()))
                     .thenReturn(claims);
 
             // when
@@ -122,18 +135,20 @@ class PlatformJwtAuthenticationConverterTest {
         PlatformAuthenticationException cause = new PlatformAuthenticationException("claims extraction failed");
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
-             MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
+            settingsMock
+                    .when(SettingsCache::getAuthenticationSnapshot)
                     .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 1L));
             oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
-            oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(any(), anyString(), isNull()))
-                    .thenThrow(cause);
+            oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(any(), anyString(), isNull())).thenThrow(cause);
 
             // when / then
-            PlatformAuthenticationException thrown = assertThrows(
-                    PlatformAuthenticationException.class, () -> converter.convert(jwt));
+            PlatformAuthenticationException thrown = assertThrows(PlatformAuthenticationException.class,
+                    () -> converter.convert(jwt));
             assertSame(cause, thrown);
-            verify(auditLogService).logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, cause.getMessage(), TOKEN_VALUE);
+            verify(auditLogService)
+                    .logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, cause.getMessage(),
+                            TOKEN_VALUE);
         }
     }
 
@@ -145,11 +160,13 @@ class PlatformJwtAuthenticationConverterTest {
         when(authenticationClient.authenticateByToken(any(), anyLong())).thenReturn(authenticatedInfo());
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
-             MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
+            settingsMock
+                    .when(SettingsCache::getAuthenticationSnapshot)
                     .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 1L));
             oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
-            oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(isNull(), eq(TOKEN_VALUE), isNull()))
+            oauth2Mock
+                    .when(() -> OAuth2Util.getAllClaimsAvailable(isNull(), eq(TOKEN_VALUE), isNull()))
                     .thenReturn(claims);
 
             // when
@@ -170,9 +187,11 @@ class PlatformJwtAuthenticationConverterTest {
         when(authenticationClient.authenticateByToken(any(), anyLong())).thenReturn(authenticatedInfo());
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
-             MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
-                    .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider("https://rotated-issuer.example.com"), 8L));
+                MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
+            settingsMock
+                    .when(SettingsCache::getAuthenticationSnapshot)
+                    .thenReturn(new AuthenticationSettingsSnapshot(
+                            authSettingsWithProvider("https://rotated-issuer.example.com"), 8L));
             oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
             oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(any(), anyString(), isNull())).thenReturn(claims);
 
@@ -193,8 +212,9 @@ class PlatformJwtAuthenticationConverterTest {
         when(authenticationClient.authenticateByToken(any(), anyLong())).thenReturn(authenticatedInfo());
 
         try (MockedStatic<SettingsCache> settingsMock = mockStatic(SettingsCache.class);
-             MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
-            settingsMock.when(SettingsCache::getAuthenticationSnapshot)
+                MockedStatic<OAuth2Util> oauth2Mock = mockStatic(OAuth2Util.class)) {
+            settingsMock
+                    .when(SettingsCache::getAuthenticationSnapshot)
                     .thenReturn(new AuthenticationSettingsSnapshot(authSettingsWithProvider(ISSUER_URL), 5L));
             oauth2Mock.when(() -> OAuth2Util.findProviderByIssuer(any(), anyString())).thenCallRealMethod();
             oauth2Mock.when(() -> OAuth2Util.getAllClaimsAvailable(any(), anyString(), isNull())).thenReturn(claims);

@@ -6,17 +6,22 @@ import com.otilm.api.interfaces.core.web.RuleController;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.ConditionDto;
+import com.otilm.api.model.core.workflows.ConditionRequestDto;
+import com.otilm.api.model.core.workflows.RuleDetailDto;
+import com.otilm.api.model.core.workflows.RuleDto;
+import com.otilm.api.model.core.workflows.RuleRequestDto;
+import com.otilm.api.model.core.workflows.UpdateConditionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateRuleRequestDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.RuleExternalService;
 import com.otilm.core.util.converter.ResourceCodeConverter;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 public class RuleControllerImpl implements RuleController {
@@ -53,7 +58,8 @@ public class RuleControllerImpl implements RuleController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.CONDITION, operation = Operation.UPDATE)
-    public ConditionDto updateCondition(@LogResource(uuid = true) String conditionUuid, UpdateConditionRequestDto request) throws NotFoundException, AlreadyExistException {
+    public ConditionDto updateCondition(@LogResource(uuid = true) String conditionUuid,
+            UpdateConditionRequestDto request) throws NotFoundException, AlreadyExistException {
         return ruleService.updateCondition(conditionUuid, request);
     }
 
@@ -83,7 +89,8 @@ public class RuleControllerImpl implements RuleController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RULE, operation = Operation.UPDATE)
-    public RuleDetailDto updateRule(@LogResource(uuid = true) String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException, AlreadyExistException {
+    public RuleDetailDto updateRule(@LogResource(uuid = true) String ruleUuid, UpdateRuleRequestDto request)
+            throws NotFoundException, AlreadyExistException {
         return ruleService.updateRule(ruleUuid, request);
     }
 

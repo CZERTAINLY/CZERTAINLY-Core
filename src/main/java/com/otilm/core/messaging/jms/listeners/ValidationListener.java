@@ -5,12 +5,11 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.messaging.model.ValidationMessage;
 import com.otilm.core.service.handler.CertificateHandler;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 public class ValidationListener implements MessageProcessor<ValidationMessage> {
@@ -31,15 +30,22 @@ public class ValidationListener implements MessageProcessor<ValidationMessage> {
             int certificatesValidated = 0;
             for (Certificate certificate : certificates) {
                 certificateHandler.validate(certificate);
-                if (certificate.getValidationStatus() != CertificateValidationStatus.FAILED && certificate.getValidationStatus() != CertificateValidationStatus.NOT_CHECKED) certificatesValidated++;
+                if (certificate.getValidationStatus() != CertificateValidationStatus.FAILED
+                        && certificate.getValidationStatus() != CertificateValidationStatus.NOT_CHECKED) {
+                    certificatesValidated++;
+                }
             }
             logger.debug("Validated {}/{} certificates", certificatesValidated, certificates.size());
         }
 
         if (validationMessage.getDiscoveryUuid() != null) {
-            certificates = certificateRepository.findByValidationStatusAndCertificateContentDiscoveryCertificatesDiscoveryUuid(CertificateValidationStatus.NOT_CHECKED, validationMessage.getDiscoveryUuid());
+            certificates = certificateRepository
+                    .findByValidationStatusAndCertificateContentDiscoveryCertificatesDiscoveryUuid(
+                            CertificateValidationStatus.NOT_CHECKED, validationMessage.getDiscoveryUuid());
 
-            logger.debug("Validating {} certificates from discovery {}", certificates.size(), validationMessage.getDiscoveryName());
+            logger
+                    .debug("Validating {} certificates from discovery {}", certificates.size(),
+                            validationMessage.getDiscoveryName());
             for (Certificate certificate : certificates) {
                 certificateHandler.validate(certificate);
             }
@@ -47,9 +53,13 @@ public class ValidationListener implements MessageProcessor<ValidationMessage> {
         }
 
         if (validationMessage.getLocationUuid() != null) {
-            certificates = certificateRepository.findByValidationStatusAndLocationsLocationUuid(CertificateValidationStatus.NOT_CHECKED, validationMessage.getLocationUuid());
+            certificates = certificateRepository
+                    .findByValidationStatusAndLocationsLocationUuid(CertificateValidationStatus.NOT_CHECKED,
+                            validationMessage.getLocationUuid());
 
-            logger.debug("Validating {} certificates from location {}", certificates.size(), validationMessage.getLocationName());
+            logger
+                    .debug("Validating {} certificates from location {}", certificates.size(),
+                            validationMessage.getLocationName());
             for (Certificate certificate : certificates) {
                 certificateHandler.validate(certificate);
             }

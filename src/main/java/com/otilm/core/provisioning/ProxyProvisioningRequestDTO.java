@@ -7,8 +7,5 @@ import jakarta.validation.constraints.NotBlank;
  *
  * @param proxyCode unique proxy identifier
  */
-public record ProxyProvisioningRequestDTO(
-        @NotBlank
-        String proxyCode
-) {
+public record ProxyProvisioningRequestDTO(@NotBlank String proxyCode) {
 }

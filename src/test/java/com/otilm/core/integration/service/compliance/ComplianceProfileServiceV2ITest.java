@@ -1,7 +1,17 @@
 package com.otilm.core.integration.service.compliance;
 
-import com.otilm.api.exception.*;
-import com.otilm.api.model.client.compliance.v2.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.compliance.v2.ComplianceInternalRuleRequestDto;
+import com.otilm.api.model.client.compliance.v2.ComplianceProfileGroupsPatchRequestDto;
+import com.otilm.api.model.client.compliance.v2.ComplianceProfileRequestDto;
+import com.otilm.api.model.client.compliance.v2.ComplianceProfileRulesPatchRequestDto;
+import com.otilm.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
+import com.otilm.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.connector.compliance.v2.ComplianceRuleRequestDto;
 import com.otilm.api.model.core.auth.Resource;
@@ -14,22 +24,27 @@ import com.otilm.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.otilm.api.model.core.compliance.v2.ProviderComplianceRulesDto;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
-import com.otilm.api.model.core.workflows.*;
-import com.otilm.core.dao.entity.*;
+import com.otilm.api.model.core.workflows.ConditionItemRequestDto;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.ComplianceInternalRule;
+import com.otilm.core.dao.entity.ComplianceProfile;
+import com.otilm.core.dao.entity.ComplianceProfileAssociation;
+import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.repository.ComplianceProfileRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.compliance.BaseComplianceTest;
-import org.junit.jupiter.api.*;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
-
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
 
@@ -64,24 +79,46 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
 
     @Test
     void testGetComplianceProfile() throws NotFoundException, ConnectorException {
-        ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        ComplianceProfileDto complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertNotNull(complianceProfileDto);
         Assertions.assertEquals(complianceProfileDto.getName(), complianceProfile.getName());
         Assertions.assertEquals(complianceProfileDto.getUuid(), complianceProfile.getUuid());
         Assertions.assertEquals(complianceProfileDto.getDescription(), complianceProfile.getDescription());
-        Assertions.assertEquals(complianceProfileDto.getInternalRules().size(), complianceProfile.getComplianceRules().stream().filter(r -> r.getInternalRuleUuid() != null).count());
+        Assertions
+                .assertEquals(complianceProfileDto.getInternalRules().size(),
+                        complianceProfile
+                                .getComplianceRules()
+                                .stream()
+                                .filter(r -> r.getInternalRuleUuid() != null)
+                                .count());
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
-        Assertions.assertEquals(complianceProfileDto.getProviderRules().getFirst().getRules().size(), complianceProfile.getComplianceRules().stream().filter(r -> r.getComplianceRuleUuid() != null).count());
-        Assertions.assertEquals(complianceProfileDto.getProviderRules().getFirst().getGroups().size(), complianceProfile.getComplianceRules().stream().filter(r -> r.getComplianceGroupUuid() != null).count());
+        Assertions
+                .assertEquals(complianceProfileDto.getProviderRules().getFirst().getRules().size(),
+                        complianceProfile
+                                .getComplianceRules()
+                                .stream()
+                                .filter(r -> r.getComplianceRuleUuid() != null)
+                                .count());
+        Assertions
+                .assertEquals(complianceProfileDto.getProviderRules().getFirst().getGroups().size(),
+                        complianceProfile
+                                .getComplianceRules()
+                                .stream()
+                                .filter(r -> r.getComplianceGroupUuid() != null)
+                                .count());
     }
 
     @Test
     void testGetComplianceProfileNotFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> complianceProfileService
+                        .getComplianceProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    void createComplianceProfileTest() throws AlreadyExistException, AttributeException, NotFoundException, ConnectorException {
+    void createComplianceProfileTest()
+            throws AlreadyExistException, AttributeException, NotFoundException, ConnectorException {
         ComplianceProfileRequestDto requestDto = new ComplianceProfileRequestDto();
         requestDto.setName("sample2");
         requestDto.setDescription("sampleDescription");
@@ -100,7 +137,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         requestDto.setName("TestProfile");
         requestDto.setDescription("description");
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> complianceProfileService.createComplianceProfile(requestDto));
+        Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> complianceProfileService.createComplianceProfile(requestDto));
     }
 
     @Test
@@ -132,14 +171,25 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         providerRequestV2Dto.setGroups(Set.of(complianceV2GroupUuid, complianceV2Group2Uuid));
         requestDto.getProviderRules().add(providerRequestV2Dto);
 
-        ComplianceProfileDto dto = complianceProfileService.updateComplianceProfile(complianceProfile.getSecuredUuid(), requestDto);
+        ComplianceProfileDto dto = complianceProfileService
+                .updateComplianceProfile(complianceProfile.getSecuredUuid(), requestDto);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals("sampleDescription2", dto.getDescription());
         Assertions.assertEquals(2, dto.getInternalRules().size());
         Assertions.assertEquals(2, dto.getProviderRules().size());
 
-        ProviderComplianceRulesDto providerRulesDtoV1 = dto.getProviderRules().stream().filter(p -> p.getKind().equals(KIND_V1)).findFirst().orElseThrow();
-        ProviderComplianceRulesDto providerRulesDtoV2 = dto.getProviderRules().stream().filter(p -> p.getKind().equals(KIND_V2)).findFirst().orElseThrow();
+        ProviderComplianceRulesDto providerRulesDtoV1 = dto
+                .getProviderRules()
+                .stream()
+                .filter(p -> p.getKind().equals(KIND_V1))
+                .findFirst()
+                .orElseThrow();
+        ProviderComplianceRulesDto providerRulesDtoV2 = dto
+                .getProviderRules()
+                .stream()
+                .filter(p -> p.getKind().equals(KIND_V2))
+                .findFirst()
+                .orElseThrow();
         Assertions.assertEquals(2, providerRulesDtoV1.getRules().size());
         Assertions.assertEquals(1, providerRulesDtoV1.getGroups().size());
         Assertions.assertEquals(2, providerRulesDtoV2.getRules().size());
@@ -151,15 +201,55 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto = complianceProfileService.getComplianceProfile(complianceProfile.getSecuredUuid());
         Assertions.assertEquals(2, dto.getProviderRules().size());
 
-        var providerRules = dto.getProviderRules().stream().filter(p -> p.getKind().equals(KIND_V2)).findFirst().orElseThrow();
+        var providerRules = dto
+                .getProviderRules()
+                .stream()
+                .filter(p -> p.getKind().equals(KIND_V2))
+                .findFirst()
+                .orElseThrow();
         Assertions.assertEquals(2, providerRules.getRules().size());
         Assertions.assertEquals(2, providerRules.getGroups().size());
-        Assertions.assertTrue(providerRules.getRules().stream().anyMatch(r -> r.getUuid().equals(complianceV2RuleUuid)));
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceV2RuleUuid)).findFirst().orElseThrow().getAvailabilityStatus());
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceV2Rule2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
-        Assertions.assertTrue(providerRules.getGroups().stream().anyMatch(r -> r.getUuid().equals(complianceV2GroupUuid)));
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceV2GroupUuid)).findFirst().orElseThrow().getAvailabilityStatus());
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceV2Group2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions
+                .assertTrue(providerRules.getRules().stream().anyMatch(r -> r.getUuid().equals(complianceV2RuleUuid)));
+        Assertions
+                .assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE,
+                        providerRules
+                                .getRules()
+                                .stream()
+                                .filter(r -> r.getUuid().equals(complianceV2RuleUuid))
+                                .findFirst()
+                                .orElseThrow()
+                                .getAvailabilityStatus());
+        Assertions
+                .assertEquals(ComplianceRuleAvailabilityStatus.UPDATED,
+                        providerRules
+                                .getRules()
+                                .stream()
+                                .filter(r -> r.getUuid().equals(complianceV2Rule2Uuid))
+                                .findFirst()
+                                .orElseThrow()
+                                .getAvailabilityStatus());
+        Assertions
+                .assertTrue(
+                        providerRules.getGroups().stream().anyMatch(r -> r.getUuid().equals(complianceV2GroupUuid)));
+        Assertions
+                .assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE,
+                        providerRules
+                                .getGroups()
+                                .stream()
+                                .filter(r -> r.getUuid().equals(complianceV2GroupUuid))
+                                .findFirst()
+                                .orElseThrow()
+                                .getAvailabilityStatus());
+        Assertions
+                .assertEquals(ComplianceRuleAvailabilityStatus.UPDATED,
+                        providerRules
+                                .getGroups()
+                                .stream()
+                                .filter(r -> r.getUuid().equals(complianceV2Group2Uuid))
+                                .findFirst()
+                                .orElseThrow()
+                                .getAvailabilityStatus());
     }
 
     @Test
@@ -175,7 +265,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         req.setDescription("Description create");
         req.setResource(Resource.CERTIFICATE);
         req.setConditionItems(List.of(conditionItemRequestDto)); // no condition items
-        Assertions.assertThrows(AlreadyExistException.class, () -> complianceProfileService.createComplianceInternalRule(req));
+        Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> complianceProfileService.createComplianceInternalRule(req));
 
         req.setName("TestInternalRule_Create");
         ComplianceRuleListDto created = complianceProfileService.createComplianceInternalRule(req);
@@ -188,7 +280,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         Assertions.assertEquals("Description create", entity.getDescription());
         Assertions.assertEquals(Resource.CERTIFICATE, entity.getResource());
         Assertions.assertEquals(1, entity.getConditionItems().size());
-        Assertions.assertEquals(FilterField.SUBJECT_TYPE.name(), entity.getConditionItems().stream().findFirst().orElseThrow().getFieldIdentifier());
+        Assertions
+                .assertEquals(FilterField.SUBJECT_TYPE.name(),
+                        entity.getConditionItems().stream().findFirst().orElseThrow().getFieldIdentifier());
     }
 
     @Test
@@ -232,13 +326,17 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         Assertions.assertEquals("TestInternalRule_UpdatedName", entity.getName());
         Assertions.assertEquals("Updated description", entity.getDescription());
         Assertions.assertEquals(2, entity.getConditionItems().size());
-        Assertions.assertEquals(FilterField.SUBJECT_TYPE.name(), entity.getConditionItems().stream().findFirst().orElseThrow().getFieldIdentifier());
+        Assertions
+                .assertEquals(FilterField.SUBJECT_TYPE.name(),
+                        entity.getConditionItems().stream().findFirst().orElseThrow().getFieldIdentifier());
     }
 
     @Test
     void testDeleteInternalRule() throws Exception {
         // delete associated internal rule
-        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceInternalRule(internalCertificateRuleUuid));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceProfileService.deleteComplianceInternalRule(internalCertificateRuleUuid));
 
         // create rule to delete
         ComplianceInternalRuleRequestDto createReq = new ComplianceInternalRuleRequestDto();
@@ -267,7 +365,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setKind(KIND_V2);
 
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
-        ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        ComplianceProfileDto complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().getFirst().getRules().size());
 
@@ -275,7 +374,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setRuleUuid(complianceV2Rule2Uuid);
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
 
-        complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
         Assertions.assertEquals(2, complianceProfileDto.getProviderRules().getFirst().getRules().size());
 
@@ -285,9 +385,19 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setKind(KIND_V1);
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
 
-        complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(2, complianceProfileDto.getProviderRules().size());
-        Assertions.assertEquals(1, complianceProfileDto.getProviderRules().stream().filter(r -> r.getKind().equals(KIND_V1)).findFirst().orElseThrow().getRules().size());
+        Assertions
+                .assertEquals(1,
+                        complianceProfileDto
+                                .getProviderRules()
+                                .stream()
+                                .filter(r -> r.getKind().equals(KIND_V1))
+                                .findFirst()
+                                .orElseThrow()
+                                .getRules()
+                                .size());
     }
 
     @Test
@@ -298,7 +408,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setConnectorUuid(connectorV2.getUuid());
         dto.setKind(KIND_V2);
 
-        Assertions.assertThrows(ConnectorEntityNotFoundException.class, () -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions
+                .assertThrows(ConnectorEntityNotFoundException.class, () -> complianceProfileService
+                        .patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
     }
 
     @Test
@@ -308,9 +420,14 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setRuleUuid(internalCertificateRuleUuid);
 
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
-        ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        ComplianceProfileDto complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getInternalRules().size());
-        Assertions.assertTrue(complianceProfileDto.getInternalRules().stream().noneMatch(r -> r.getUuid().equals(internalCertificateRuleUuid)));
+        Assertions
+                .assertTrue(complianceProfileDto
+                        .getInternalRules()
+                        .stream()
+                        .noneMatch(r -> r.getUuid().equals(internalCertificateRuleUuid)));
     }
 
     @Test
@@ -319,7 +436,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setRemoval(true);
         dto.setRuleUuid(UUID.randomUUID());
 
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> complianceProfileService
+                        .patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
     }
 
     @Test
@@ -332,7 +451,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setKind(KIND_V2);
 
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
-        ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        ComplianceProfileDto complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().getFirst().getGroups().size());
 
@@ -340,7 +460,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setGroupUuid(complianceV2Group2Uuid);
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
 
-        complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
         Assertions.assertEquals(2, complianceProfileDto.getProviderRules().getFirst().getGroups().size());
 
@@ -350,9 +471,19 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setKind(KIND_V1);
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
 
-        complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(2, complianceProfileDto.getProviderRules().size());
-        Assertions.assertEquals(1, complianceProfileDto.getProviderRules().stream().filter(r -> r.getKind().equals(KIND_V1)).findFirst().orElseThrow().getGroups().size());
+        Assertions
+                .assertEquals(1,
+                        complianceProfileDto
+                                .getProviderRules()
+                                .stream()
+                                .filter(r -> r.getKind().equals(KIND_V1))
+                                .findFirst()
+                                .orElseThrow()
+                                .getGroups()
+                                .size());
     }
 
     @Test
@@ -363,7 +494,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setConnectorUuid(connectorV2.getUuid());
         dto.setKind(KIND_V2);
 
-        Assertions.assertThrows(ConnectorEntityNotFoundException.class, () -> complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions
+                .assertThrows(ConnectorEntityNotFoundException.class, () -> complianceProfileService
+                        .patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
     }
 
     @Test
@@ -375,7 +508,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setKind(KIND_V2);
 
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
-        ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        ComplianceProfileDto complianceProfileDto = complianceProfileService
+                .getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
         Assertions.assertEquals(0, complianceProfileDto.getProviderRules().getFirst().getGroups().size());
     }
@@ -388,13 +522,17 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         dto.setConnectorUuid(connectorV2.getUuid());
         dto.setKind(KIND_V2);
 
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> complianceProfileService
+                        .patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
     }
 
     @Test
     void removeComplianceProfileTest() {
         SecuredUUID complianceProfileUuid = complianceProfile.getSecuredUuid();
-        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceProfile(complianceProfileUuid));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceProfileService.deleteComplianceProfile(complianceProfileUuid));
     }
 
     @Test
@@ -418,29 +556,41 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         complianceProfileAssociationRepository.save(assoc);
 
         // perform bulk delete
-        List<SecuredUUID> uuids = List.of(SecuredUUID.fromUUID(profile1.getUuid()), SecuredUUID.fromUUID(profile2.getUuid()));
+        List<SecuredUUID> uuids = List
+                .of(SecuredUUID.fromUUID(profile1.getUuid()), SecuredUUID.fromUUID(profile2.getUuid()));
         List<BulkActionMessageDto> messages = complianceProfileService.bulkDeleteComplianceProfiles(uuids);
 
         // profile1 should be removed
-        Assertions.assertFalse(complianceProfileRepository.findById(profile1.getUuid()).isPresent(), "Profile without associations should be deleted");
+        Assertions
+                .assertFalse(complianceProfileRepository.findById(profile1.getUuid()).isPresent(),
+                        "Profile without associations should be deleted");
 
         // profile2 should remain and produce one failure message
-        Assertions.assertTrue(complianceProfileRepository.findById(profile2.getUuid()).isPresent(), "Profile with association should not be deleted");
-        Assertions.assertEquals(1, messages.size(), "One failure message expected for the profile that could not be deleted");
-        Assertions.assertEquals(profile2.getUuid().toString(), messages.getFirst().getUuid(), "Failure message should reference the failing profile UUID");
+        Assertions
+                .assertTrue(complianceProfileRepository.findById(profile2.getUuid()).isPresent(),
+                        "Profile with association should not be deleted");
+        Assertions
+                .assertEquals(1, messages.size(),
+                        "One failure message expected for the profile that could not be deleted");
+        Assertions
+                .assertEquals(profile2.getUuid().toString(), messages.getFirst().getUuid(),
+                        "Failure message should reference the failing profile UUID");
         Assertions.assertNotNull(messages.getFirst().getMessage());
         Assertions.assertFalse(messages.getFirst().getMessage().isBlank());
     }
 
     @Test
     void forceRemoveComplianceProfileTest() {
-        complianceProfileService.forceDeleteComplianceProfiles(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())));
+        complianceProfileService
+                .forceDeleteComplianceProfiles(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())));
         Assertions.assertDoesNotThrow(() -> complianceProfileRepository.findAll().size());
     }
 
     @Test
     void removeComplianceProfile_NotFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.deleteComplianceProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> complianceProfileService
+                        .deleteComplianceProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -452,13 +602,15 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         Assertions.assertEquals(Resource.VAULT_PROFILE, associations.get(1).getResource());
         Assertions.assertEquals(vaultProfileUuid, associations.get(1).getObjectUuid());
 
-        var complianceProfiles = complianceProfileService.getAssociatedComplianceProfiles(Resource.RA_PROFILE, associatedRaProfileUuid);
+        var complianceProfiles = complianceProfileService
+                .getAssociatedComplianceProfiles(Resource.RA_PROFILE, associatedRaProfileUuid);
         Assertions.assertEquals(1, complianceProfiles.size());
         Assertions.assertEquals(complianceProfile.getUuid(), complianceProfiles.getFirst().getUuid());
     }
 
     @Test
-    void associateComplianceProfileRaProfileWithoutAuthorityRefSucceeds() throws AlreadyExistException, AttributeException, NotFoundException, ConnectorException {
+    void associateComplianceProfileRaProfileWithoutAuthorityRefSucceeds()
+            throws AlreadyExistException, AttributeException, NotFoundException, ConnectorException {
         // External Authority "without CA" scenario: the RA Profile has no authorityInstanceReference.
         RaProfile externalRaProfile = new RaProfile();
         externalRaProfile.setName("ExternalWithoutCaRaProfile");
@@ -470,7 +622,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         SecuredUUID profileUuid = SecuredUUID.fromUUID(profileDto.getUuid());
 
         UUID externalRaProfileUuid = externalRaProfile.getUuid();
-        Assertions.assertDoesNotThrow(() -> complianceProfileService.associateComplianceProfile(profileUuid, Resource.RA_PROFILE, externalRaProfileUuid));
+        Assertions
+                .assertDoesNotThrow(() -> complianceProfileService
+                        .associateComplianceProfile(profileUuid, Resource.RA_PROFILE, externalRaProfileUuid));
 
         var associations = complianceProfileService.getAssociations(profileUuid);
         Assertions.assertEquals(1, associations.size());
@@ -480,12 +634,22 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
 
     @Test
     void associateRaProfile() throws NotFoundException, AlreadyExistException {
-        Assertions.assertThrows(AlreadyExistException.class, () -> complianceProfileService.associateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE, associatedRaProfileUuid));
-        complianceProfileService.associateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE, unassociatedRaProfileUuid);
+        Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> complianceProfileService
+                                .associateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()),
+                                        Resource.RA_PROFILE, associatedRaProfileUuid));
+        complianceProfileService
+                .associateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE,
+                        unassociatedRaProfileUuid);
 
         var associations = complianceProfileService.getAssociations(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(3, associations.size());
-        Assertions.assertTrue(associations.stream().anyMatch(a -> a.getResource() == Resource.RA_PROFILE && a.getObjectUuid().equals(unassociatedRaProfileUuid)));
+        Assertions
+                .assertTrue(associations
+                        .stream()
+                        .anyMatch(a -> a.getResource() == Resource.RA_PROFILE
+                                && a.getObjectUuid().equals(unassociatedRaProfileUuid)));
     }
 
     @Test
@@ -508,19 +672,31 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         notArchivedCertificate.setCertificateContent(certificateContent2);
         certificateRepository.save(notArchivedCertificate);
 
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.disassociateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE, unassociatedRaProfileUuid));
-        complianceProfileService.disassociateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE, associatedRaProfileUuid);
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> complianceProfileService
+                                .disassociateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()),
+                                        Resource.RA_PROFILE, unassociatedRaProfileUuid));
+        complianceProfileService
+                .disassociateComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), Resource.RA_PROFILE,
+                        associatedRaProfileUuid);
 
         var associations = complianceProfileService.getAssociations(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, associations.size());
-        Assertions.assertTrue(associations.stream().noneMatch(a -> a.getResource() == Resource.RA_PROFILE && a.getObjectUuid().equals(associatedRaProfileUuid)));
+        Assertions
+                .assertTrue(associations
+                        .stream()
+                        .noneMatch(a -> a.getResource() == Resource.RA_PROFILE
+                                && a.getObjectUuid().equals(associatedRaProfileUuid)));
 
         // later when compliance check is redone, the status will be set to NOT_CHECKED and assertion will pass
     }
 
     @Test
     void getComplianceRulesTest_Invalid() {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceRules(UUID.randomUUID(), "random", null, null, null));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> complianceProfileService
+                        .getComplianceRules(UUID.randomUUID(), "random", null, null, null));
     }
 
     @Test
@@ -540,7 +716,9 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
 
     @Test
     void getComplianceGroupsTest_Invalid() {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceGroups(UUID.randomUUID(), null, null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> complianceProfileService.getComplianceGroups(UUID.randomUUID(), null, null));
     }
 
     @Test
@@ -554,7 +732,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
 
     @Test
     void getComplianceGroupRulesTest() throws ConnectorException, NotFoundException {
-        var groups = complianceProfileService.getComplianceGroupRules(complianceV2Group2Uuid, connectorV2.getUuid(), KIND_V2);
+        var groups = complianceProfileService
+                .getComplianceGroupRules(complianceV2Group2Uuid, connectorV2.getUuid(), KIND_V2);
         Assertions.assertEquals(1, groups.size());
     }
 
@@ -562,7 +741,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
     void testForceDeleteComplianceProfiles_nonExistentUuid_returnsErrorMessage() {
         SecuredUUID nonExistent = SecuredUUID.fromUUID(UUID.fromString("00000000-0000-0000-0000-000000000001"));
 
-        List<BulkActionMessageDto> messages = complianceProfileService.forceDeleteComplianceProfiles(List.of(nonExistent));
+        List<BulkActionMessageDto> messages = complianceProfileService
+                .forceDeleteComplianceProfiles(List.of(nonExistent));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals("00000000-0000-0000-0000-000000000001", messages.getFirst().getUuid());
@@ -581,8 +761,8 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         assoc.setObjectUuid(UUID.randomUUID());
         complianceProfileAssociationRepository.save(assoc);
 
-        List<BulkActionMessageDto> messages = complianceProfileService.bulkDeleteComplianceProfiles(
-                List.of(profile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = complianceProfileService
+                .bulkDeleteComplianceProfiles(List.of(profile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(profile.getUuid().toString(), messages.getFirst().getUuid());
@@ -596,11 +776,10 @@ class ComplianceProfileServiceV2ITest extends BaseComplianceTest {
         profile.setName("forceDeleteProfile");
         complianceProfileRepository.save(profile);
 
-        doThrow(new RuntimeException("DB delete error"))
-                .when(complianceProfileRepositorySpy).delete(any());
+        doThrow(new RuntimeException("DB delete error")).when(complianceProfileRepositorySpy).delete(any());
 
-        List<BulkActionMessageDto> messages = complianceProfileService.forceDeleteComplianceProfiles(
-                List.of(profile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = complianceProfileService
+                .forceDeleteComplianceProfiles(List.of(profile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(profile.getUuid().toString(), messages.getFirst().getUuid());

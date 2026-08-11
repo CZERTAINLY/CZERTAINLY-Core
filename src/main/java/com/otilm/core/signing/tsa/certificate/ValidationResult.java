@@ -6,7 +6,9 @@ import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 /**
  * Result of {@link SigningCertificateValidator#validate(ResolvedManagedScheme, boolean)}.
  *
- * <p>Use pattern matching to handle each case:
+ * <p>
+ * Use pattern matching to handle each case:
+ *
  * <pre>{@code
  * if (result instanceof ValidationResult.Nok nok) {
  *     return TspResponse.rejected(nok.failureInfo(), nok.clientMessage());
@@ -15,9 +17,11 @@ import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
  */
 public sealed interface ValidationResult {
 
-    record Ok() implements ValidationResult {}
+    record Ok() implements ValidationResult {
+    }
 
-    record Nok(TspFailureInfo failureInfo, String logMessage, String clientMessage) implements ValidationResult {}
+    record Nok(TspFailureInfo failureInfo, String logMessage, String clientMessage) implements ValidationResult {
+    }
 
     static ValidationResult ok() {
         return new Ok();

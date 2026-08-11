@@ -1,13 +1,5 @@
 package com.otilm.core.architecture;
 
-import org.junit.jupiter.api.Test;
-import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
-
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,41 +8,47 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
+import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Guards the four-way CI test split defined in pom.xml and used by the {@code .github/workflows/build_pr.yml} test matrix.
+ * Guards the four-way CI test split defined in pom.xml and used by the {@code .github/workflows/build_pr.yml} test
+ * matrix.
  * <p>
- * The core invariant: the four profiles must partition the runnable test classes — every class
- * surefire would run must be claimed by <em>exactly one</em> profile. A class claimed by none
- * silently never runs (coverage gap); a class claimed by two runs twice (double coverage, wasted
- * CI time). {@link #everyRunnableTestIsRunByExactlyOneCiProfile} proves the partition by replaying
- * surefire's include/exclude matching over the real test tree, so it catches drift in any pattern.
+ * The core invariant: the four profiles must partition the runnable test classes — every class surefire would run must
+ * be claimed by <em>exactly one</em> profile. A class claimed by none silently never runs (coverage gap); a class
+ * claimed by two runs twice (double coverage, wasted CI time). {@link #everyRunnableTestIsRunByExactlyOneCiProfile}
+ * proves the partition by replaying surefire's include/exclude matching over the real test tree, so it catches drift in
+ * any pattern.
  * <p>
- * The heavy {@code integration.service} package is split by leading class letter (A-C vs D-Z) via a
- * shared {@code %regex} boundary — excluded from {@code test-integration-service-1}, included by
- * {@code test-integration-service-2}. {@link #flatServiceSplitBoundaryMustBeConsistent} keeps the two
- * sides identical so the flat classes cannot silently gap or double-run.
+ * The heavy {@code integration.service} package is split by leading class letter (A-C vs D-Z) via a shared
+ * {@code %regex} boundary — excluded from {@code test-integration-service-1}, included by
+ * {@code test-integration-service-2}. {@link #flatServiceSplitBoundaryMustBeConsistent} keeps the two sides identical
+ * so the flat classes cannot silently gap or double-run.
  * <p>
- * Additionally, every concrete test class in the service package must follow the naming convention
- * surefire matches (*Test, *Tests, *ITest); classes that don't are never picked up at all.
+ * Additionally, every concrete test class in the service package must follow the naming convention surefire matches
+ * (*Test, *Tests, *ITest); classes that don't are never picked up at all.
  */
 class CiTestSplitTest {
 
     /** The profile ids the CI matrix runs, one per worker. Must partition the runnable test classes. */
-    private static final List<String> CI_PROFILES = List.of(
-            "test-non-integration",
-            "test-integration-core",
-            "test-integration-service-1",
-            "test-integration-service-2");
+    private static final List<String> CI_PROFILES = List
+            .of("test-non-integration", "test-integration-core", "test-integration-service-1",
+                    "test-integration-service-2");
 
     /**
-     * Surefire's built-in default {@code <includes>}, applied to any profile that declares no
-     * {@code <includes>} of its own (here: {@code test-non-integration}).
+     * Surefire's built-in default {@code <includes>}, applied to any profile that declares no {@code <includes>} of its
+     * own (here: {@code test-non-integration}).
      */
-    private static final List<String> SUREFIRE_DEFAULT_INCLUDES = List.of(
-            "**/Test*.java", "**/*Test.java", "**/*Tests.java", "**/*TestCase.java");
+    private static final List<String> SUREFIRE_DEFAULT_INCLUDES = List
+            .of("**/Test*.java", "**/*Test.java", "**/*Tests.java", "**/*TestCase.java");
 
     @Test
     void everyRunnableTestIsRunByExactlyOneCiProfile() throws Exception {
@@ -71,7 +69,8 @@ class CiTestSplitTest {
                     .toList();
             for (Path p : runnable) {
                 String rel = TEST_ROOT.relativize(p).toString().replace('\\', '/');
-                List<String> claimedBy = CI_PROFILES.stream()
+                List<String> claimedBy = CI_PROFILES
+                        .stream()
                         .filter(profile -> matchesAny(includes.get(profile), rel)
                                 && !matchesAny(excludes.get(profile), rel))
                         .toList();
@@ -83,19 +82,15 @@ class CiTestSplitTest {
             }
         }
 
-        assertThat(neverRun)
-                .describedAs("""
-                        Runnable test classes claimed by no CI profile in pom.xml — surefire never runs them,
-                        so their code is silently uncovered. Either the class name matches no profile <include>
-                        (rename it to *Test/*Tests/*ITest, or under integration to *ITest), or the split patterns
-                        have a gap. Fix the profiles in pom.xml so every runnable test is claimed exactly once.""")
-                .isEmpty();
-        assertThat(multiRun)
-                .describedAs("""
-                        Runnable test classes claimed by more than one CI profile in pom.xml — they run twice,
-                        wasting CI time and double-counting coverage. The profile <includes>/<excludes> overlap.
-                        Fix the profiles in pom.xml so every runnable test is claimed exactly once.""")
-                .isEmpty();
+        assertThat(neverRun).describedAs("""
+                Runnable test classes claimed by no CI profile in pom.xml — surefire never runs them,
+                so their code is silently uncovered. Either the class name matches no profile <include>
+                (rename it to *Test/*Tests/*ITest, or under integration to *ITest), or the split patterns
+                have a gap. Fix the profiles in pom.xml so every runnable test is claimed exactly once.""").isEmpty();
+        assertThat(multiRun).describedAs("""
+                Runnable test classes claimed by more than one CI profile in pom.xml — they run twice,
+                wasting CI time and double-counting coverage. The profile <includes>/<excludes> overlap.
+                Fix the profiles in pom.xml so every runnable test is claimed exactly once.""").isEmpty();
     }
 
     @Test
@@ -123,27 +118,27 @@ class CiTestSplitTest {
         try (Stream<Path> stream = Files.walk(serviceDir)) {
             violations = stream
                     .filter(p -> p.toString().endsWith(".java"))
-                    .filter(p -> splitSuffixes.stream().noneMatch(suffix -> p.getFileName().toString().endsWith(suffix)))
+                    .filter(p -> splitSuffixes
+                            .stream()
+                            .noneMatch(suffix -> p.getFileName().toString().endsWith(suffix)))
                     .filter(TestClassTaxonomy::isRunnableTest)
                     .map(p -> serviceDir.relativize(p).toString())
                     .sorted()
                     .toList();
         }
 
-        assertThat(violations)
-                .describedAs("""
-                        Test classes in service/ whose names don't end with Test, Tests, or ITest.
-                        Surefire's include patterns key on those suffixes, so a differently-named class is never
-                        run by any CI profile. Rename it to match the convention.""")
-                .isEmpty();
+        assertThat(violations).describedAs("""
+                Test classes in service/ whose names don't end with Test, Tests, or ITest.
+                Surefire's include patterns key on those suffixes, so a differently-named class is never
+                run by any CI profile. Rename it to match the convention.""").isEmpty();
     }
 
     /**
-     * The {@code <include>}/{@code <exclude>} pattern texts declared under the given Maven profile's
-     * surefire plugin in pom.xml. Parses pom.xml fresh on each call — these guards are not perf-sensitive.
+     * The {@code <include>}/{@code <exclude>} pattern texts declared under the given Maven profile's surefire plugin in
+     * pom.xml. Parses pom.xml fresh on each call — these guards are not perf-sensitive.
      *
      * @param profileId the {@code <profile>} id, e.g. {@code test-integration-core}
-     * @param tag       {@code include} or {@code exclude}
+     * @param tag {@code include} or {@code exclude}
      */
     private static List<String> profilePatterns(String profileId, String tag) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -151,8 +146,7 @@ class CiTestSplitTest {
         Document pom = dbf.newDocumentBuilder().parse(Path.of("pom.xml").toFile());
         XPath xpath = XPathFactory.newDefaultInstance().newXPath();
 
-        String expression = "//profile[id='" + profileId
-                + "']//plugin[artifactId='maven-surefire-plugin']//" + tag;
+        String expression = "//profile[id='" + profileId + "']//plugin[artifactId='maven-surefire-plugin']//" + tag;
         NodeList nodes = (NodeList) xpath.evaluate(expression, pom, XPathConstants.NODESET);
         List<String> result = new ArrayList<>(nodes.getLength());
         for (int i = 0; i < nodes.getLength(); i++) {
@@ -167,9 +161,9 @@ class CiTestSplitTest {
     }
 
     /**
-     * Replays surefire's include/exclude matching for a single pattern against a test class path.
-     * Supports both surefire pattern forms: {@code %regex[...]} (a Java regex over the path) and Ant
-     * globs ({@code **}, {@code *}, {@code ?}). Anchored: the pattern must match the whole path.
+     * Replays surefire's include/exclude matching for a single pattern against a test class path. Supports both
+     * surefire pattern forms: {@code %regex[...]} (a Java regex over the path) and Ant globs ({@code **}, {@code *},
+     * {@code ?}). Anchored: the pattern must match the whole path.
      */
     private static boolean matches(String pattern, String relPath) {
         if (pattern.startsWith("%regex[") && pattern.endsWith("]")) {
@@ -180,9 +174,9 @@ class CiTestSplitTest {
 
     private static String antGlobToRegex(String glob) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < glob.length(); ) {
+        for (int i = 0; i < glob.length();) {
             if (glob.startsWith("**/", i)) {
-                sb.append("(?:.*/)?");   // any number of directories, including none
+                sb.append("(?:.*/)?"); // any number of directories, including none
                 i += 3;
             } else if (glob.startsWith("**", i)) {
                 sb.append(".*");
@@ -190,9 +184,9 @@ class CiTestSplitTest {
             } else {
                 char c = glob.charAt(i++);
                 if (c == '*') {
-                    sb.append("[^/]*");  // within a single path segment
+                    sb.append("[^/]*"); // within a single path segment
                 } else if (c == '?') {
-                    sb.append("[^/]");  // a single character within a segment, never the separator
+                    sb.append("[^/]"); // a single character within a segment, never the separator
                 } else if ("\\.[]{}()+-^$|".indexOf(c) >= 0) {
                     sb.append('\\').append(c);
                 } else {
@@ -208,7 +202,7 @@ class CiTestSplitTest {
 
     @Test
     void noContextTestOutsideIntegrationRoot() throws IOException {
-        Map<String,String> graph = TestClassTaxonomy.parseExtends(TEST_ROOT);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(TEST_ROOT);
         List<String> violations;
         try (Stream<Path> stream = Files.walk(TEST_ROOT)) {
             violations = stream
@@ -217,7 +211,8 @@ class CiTestSplitTest {
                     .filter(TestClassTaxonomy::isRunnableTest)
                     .filter(p -> TestClassTaxonomy.loadsContext(p, graph))
                     .map(p -> TEST_ROOT.relativize(p).toString())
-                    .sorted().toList();
+                    .sorted()
+                    .toList();
         }
         assertThat(violations)
                 .describedAs("Context-loading test classes found outside com.otilm.core.integration. "
@@ -228,10 +223,12 @@ class CiTestSplitTest {
     @Test
     void integrationRootContainsOnlyContextTests() throws IOException {
         assertThat(Files.exists(INTEGRATION_ROOT))
-                .describedAs("Integration root %s must exist. A missing root means the guard would "
-                        + "otherwise pass vacuously — the very mis-organisation it exists to catch.", INTEGRATION_ROOT)
+                .describedAs(
+                        "Integration root %s must exist. A missing root means the guard would "
+                                + "otherwise pass vacuously — the very mis-organisation it exists to catch.",
+                        INTEGRATION_ROOT)
                 .isTrue();
-        Map<String,String> graph = TestClassTaxonomy.parseExtends(TEST_ROOT);
+        Map<String, String> graph = TestClassTaxonomy.parseExtends(TEST_ROOT);
         List<String> violations;
         try (Stream<Path> stream = Files.walk(INTEGRATION_ROOT)) {
             violations = stream
@@ -239,7 +236,8 @@ class CiTestSplitTest {
                     .filter(TestClassTaxonomy::isRunnableTest)
                     .filter(p -> !TestClassTaxonomy.loadsContext(p, graph))
                     .map(p -> INTEGRATION_ROOT.relativize(p).toString())
-                    .sorted().toList();
+                    .sorted()
+                    .toList();
         }
         assertThat(violations)
                 .describedAs("Non-context (pure unit) test classes found in the integration root. "
@@ -249,9 +247,9 @@ class CiTestSplitTest {
 
     /**
      * The integration CI profiles key their includes on the {@code *ITest.java} suffix, but
-     * {@link #integrationRootContainsOnlyContextTests} only enforces context-loading. A runnable test
-     * in the integration root not named {@code *ITest} would pass that guard yet be picked up by the {@code test-non-integration}.
-     * This guard keeps the integration profile includes and the taxonomy guard aligned.
+     * {@link #integrationRootContainsOnlyContextTests} only enforces context-loading. A runnable test in the
+     * integration root not named {@code *ITest} would pass that guard yet be picked up by the
+     * {@code test-non-integration}. This guard keeps the integration profile includes and the taxonomy guard aligned.
      */
     @Test
     void integrationRootRunnableTestsMustBeNamedITest() throws IOException {
@@ -265,7 +263,8 @@ class CiTestSplitTest {
                     .filter(TestClassTaxonomy::isRunnableTest)
                     .filter(p -> !p.getFileName().toString().endsWith("ITest.java"))
                     .map(p -> INTEGRATION_ROOT.relativize(p).toString())
-                    .sorted().toList();
+                    .sorted()
+                    .toList();
         }
         assertThat(violations)
                 .describedAs("Runnable test classes in the integration root whose names don't end with ITest. "

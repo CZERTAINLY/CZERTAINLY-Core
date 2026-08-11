@@ -5,8 +5,38 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.MessageType;
 import com.otilm.core.provider.key.PlatformPrivateKey;
-import org.bouncycastle.asn1.*;
-import org.bouncycastle.asn1.cms.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.security.PublicKey;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Enumeration;
+import java.util.Iterator;
+import java.util.List;
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1OutputStream;
+import org.bouncycastle.asn1.ASN1PrintableString;
+import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.ASN1Set;
+import org.bouncycastle.asn1.ASN1String;
+import org.bouncycastle.asn1.DERIA5String;
+import org.bouncycastle.asn1.cms.Attribute;
+import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
+import org.bouncycastle.asn1.cms.ContentInfo;
+import org.bouncycastle.asn1.cms.EnvelopedData;
+import org.bouncycastle.asn1.cms.SignedData;
+import org.bouncycastle.asn1.cms.SignerInfo;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.smime.SMIMECapability;
 import org.bouncycastle.asn1.x500.DirectoryString;
@@ -14,7 +44,13 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cms.*;
+import org.bouncycastle.cms.CMSEnvelopedData;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.RecipientInformation;
+import org.bouncycastle.cms.RecipientInformationStore;
+import org.bouncycastle.cms.SignerInformation;
+import org.bouncycastle.cms.SignerInformationStore;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.cms.jcajce.JcePasswordEnvelopedRecipient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -26,14 +62,6 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.Store;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.*;
-import java.security.cert.X509Certificate;
-import java.util.*;
 
 public class ScepRequest {
 
@@ -52,10 +80,9 @@ public class ScepRequest {
     private X509Certificate signerCertificate;
 
     /**
-     * Content encryption algorithm
-     * This value should be set based on the data from the SCEP request message
-     * If there is a problem identifying the encryption algorithm, the error will be thrown out
-     * but to be on the safer side, the default value is added
+     * Content encryption algorithm This value should be set based on the data from the SCEP request message If there is
+     * a problem identifying the encryption algorithm, the error will be thrown out but to be on the safer side, the
+     * default value is added
      */
     private ASN1ObjectIdentifier contentEncryptionAlgorithm = SMIMECapability.dES_EDE3_CBC;
 
@@ -168,7 +195,9 @@ public class ScepRequest {
                 logger.error(e.getMessage());
             }
         }
-        if(certificates.isEmpty()) throw new ScepException("No Signer Information available on the request");
+        if (certificates.isEmpty()) {
+            throw new ScepException("No Signer Information available on the request");
+        }
         this.signerCertificate = certificates.get(0);
     }
 
@@ -210,13 +239,15 @@ public class ScepRequest {
                 // the enum
                 if (attributeOid.equals(ScepConstants.id_messageType)) {
                     Enumeration<?> attributeValues = attribute.getAttrValues().getObjects();
-                    ASN1PrintableString asn1PrintableString = ASN1PrintableString.getInstance(attributeValues.nextElement());
+                    ASN1PrintableString asn1PrintableString = ASN1PrintableString
+                            .getInstance(attributeValues.nextElement());
                     messageType = MessageType.resolve(Integer.parseInt(asn1PrintableString.getString()));
                 }
 
                 if (attributeOid.equals(ScepConstants.id_transactionId)) {
                     Enumeration<?> attributeValues = attribute.getAttrValues().getObjects();
-                    ASN1PrintableString asn1PrintableString = ASN1PrintableString.getInstance(attributeValues.nextElement());
+                    ASN1PrintableString asn1PrintableString = ASN1PrintableString
+                            .getInstance(attributeValues.nextElement());
                     transactionId = asn1PrintableString.getString();
                 }
 
@@ -236,7 +267,8 @@ public class ScepRequest {
             ASN1Encodable asn1Certificate = certificates.getObjectAt(0);
             if (asn1Certificate != null) {
                 final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                final ASN1OutputStream asn1OutputStream = ASN1OutputStream.create(byteArrayOutputStream, ASN1Encoding.DER);
+                final ASN1OutputStream asn1OutputStream = ASN1OutputStream
+                        .create(byteArrayOutputStream, ASN1Encoding.DER);
                 asn1OutputStream.writeObject(asn1Certificate);
                 if (byteArrayOutputStream.size() > 0) {
                     requestKeyInfo = byteArrayOutputStream.toByteArray();
@@ -246,7 +278,8 @@ public class ScepRequest {
     }
 
     private void readRequest() throws ScepException, IOException {
-        if (!messageType.equals(MessageType.PKCS_REQ) && !messageType.equals(MessageType.RENEWAL_REQ) && !messageType.equals(MessageType.CERT_POLL)) {
+        if (!messageType.equals(MessageType.PKCS_REQ) && !messageType.equals(MessageType.RENEWAL_REQ)
+                && !messageType.equals(MessageType.CERT_POLL)) {
             throw new ScepException("Wrong type of message: " + messageType, FailInfo.BAD_REQUEST);
         }
 
@@ -256,13 +289,15 @@ public class ScepRequest {
         if (!contentTypeOid.equals(CMSObjectIdentifiers.data.getId())) {
             throw new ScepException("EncapsulatedContentInfo does not contain data content type", FailInfo.BAD_REQUEST);
         } else {
-            final ASN1OctetString asn1EncapsulatedContent = ASN1OctetString.getInstance(encapsulatedContentInfo.getContent());
+            final ASN1OctetString asn1EncapsulatedContent = ASN1OctetString
+                    .getInstance(encapsulatedContentInfo.getContent());
             encapsulatedContent = readContentInfo(new ByteArrayInputStream(asn1EncapsulatedContent.getOctets()));
 
             String encapsulatedContentInfoOid = encapsulatedContent.getContentType().getId();
 
             if (!encapsulatedContentInfoOid.equals(CMSObjectIdentifiers.envelopedData.getId())) {
-                throw new ScepException("EncapsulatedContentInfo does not contain PKCS7 envelopedData", FailInfo.BAD_REQUEST);
+                throw new ScepException("EncapsulatedContentInfo does not contain PKCS7 envelopedData",
+                        FailInfo.BAD_REQUEST);
             } else {
                 envelopedData = EnvelopedData.getInstance(ASN1Sequence.getInstance(encapsulatedContent.getContent()));
             }
@@ -280,7 +315,8 @@ public class ScepRequest {
         return ContentInfo.getInstance(asn1Sequence);
     }
 
-    public void decryptData(PlatformPrivateKey privateKey, Provider provider, KeyAlgorithm keyAlgorithm, String challengePassword) throws ScepException, CMSException {
+    public void decryptData(PlatformPrivateKey privateKey, Provider provider, KeyAlgorithm keyAlgorithm,
+            String challengePassword) throws ScepException, CMSException {
         CMSEnvelopedData cmsEnvelopedData;
         try {
             cmsEnvelopedData = new CMSEnvelopedData(encapsulatedContent.getEncoded());
@@ -296,11 +332,12 @@ public class ScepRequest {
 
         if (recipientInformationIterator.hasNext()) {
             RecipientInformation recipient = recipientInformationIterator.next();
-            if(keyAlgorithm.equals(KeyAlgorithm.RSA)) {
+            if (keyAlgorithm.equals(KeyAlgorithm.RSA)) {
                 if (privateKey == null || provider == null) {
                     throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
                 }
-                JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey);
+                JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(
+                        privateKey);
                 jceKeyTransEnvelopedRecipient.setProvider(provider);
                 jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
                 jceKeyTransEnvelopedRecipient.setMustProduceEncodableUnwrappedKey(true);
@@ -319,7 +356,8 @@ public class ScepRequest {
                     throw new ScepException("A challenge password must be configured on the SCEP profile to decrypt "
                             + "requests enveloped to a non-RSA CA key", FailInfo.BAD_ALG);
                 }
-                JcePasswordEnvelopedRecipient jcePasswordEnvelopedRecipient = new JcePasswordEnvelopedRecipient(challengePassword.toCharArray());
+                JcePasswordEnvelopedRecipient jcePasswordEnvelopedRecipient = new JcePasswordEnvelopedRecipient(
+                        challengePassword.toCharArray());
                 jcePasswordEnvelopedRecipient.setProvider(BouncyCastleProvider.PROVIDER_NAME);
                 decryptedData = recipient.getContent(jcePasswordEnvelopedRecipient);
             }
@@ -327,7 +365,8 @@ public class ScepRequest {
         // A bare assert is a no-op in production: an EnvelopedData carrying no recipientInfo would skip the
         // block above and reach the PKCS#10 parse with no content.
         if (decryptedData == null) {
-            throw new ScepException("The SCEP request contains no recipient information to decrypt", FailInfo.BAD_REQUEST);
+            throw new ScepException("The SCEP request contains no recipient information to decrypt",
+                    FailInfo.BAD_REQUEST);
         }
         try {
             if (messageType.equals(MessageType.PKCS_REQ) || messageType.equals(MessageType.RENEWAL_REQ)) {
@@ -340,22 +379,30 @@ public class ScepRequest {
         }
     }
 
-    // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not only SCEP
+    // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not
+    // only SCEP
     public String getChallengePassword() {
         // Try to get the challenge password using the direct challenge password extemsion
-        org.bouncycastle.asn1.pkcs.Attribute[] attributes = this.pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
+        org.bouncycastle.asn1.pkcs.Attribute[] attributes = this.pkcs10Request
+                .getAttributes(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
         // If there are no values, there is a possibility that its inside the CSR extensions.
         // Iterate and gather the value from the CSR extension
         if (attributes.length == 0) {
             attributes = this.getPkcs10Request().getAttributes(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest);
-            if (attributes.length == 0) return null;
+            if (attributes.length == 0) {
+                return null;
+            }
 
             ASN1Set asn1Encodables = attributes[0].getAttrValues();
-            if (asn1Encodables.size() == 0) return null;
+            if (asn1Encodables.size() == 0) {
+                return null;
+            }
 
             Extensions exts = Extensions.getInstance(asn1Encodables.getObjectAt(0));
             Extension ext = exts.getExtension(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
-            if (ext == null) return null;
+            if (ext == null) {
+                return null;
+            }
             return extractPasswordFromAsn1(ext.getExtnValue());
         } else {
             return extractPasswordFromAsn1(attributes[0].getAttrValues().getObjectAt(0));
@@ -363,24 +410,32 @@ public class ScepRequest {
     }
 
     private String extractPasswordFromAsn1(Object extnValue) {
-        if(extnValue == null) { return null; }
+        if (extnValue == null) {
+            return null;
+        }
         Object challengePassword;
         try {
             challengePassword = DirectoryString.getInstance(extnValue);
         } catch (IllegalArgumentException e) {
             challengePassword = DERIA5String.getInstance(extnValue);
         }
-        if (challengePassword != null) return ((ASN1String) challengePassword).getString();
+        if (challengePassword != null) {
+            return ((ASN1String) challengePassword).getString();
+        }
         return "";
     }
 
-    // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not only SCEP
-    public boolean verifyRequest() throws NoSuchAlgorithmException, InvalidKeyException, PKCSException, OperatorCreationException {
+    // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not
+    // only SCEP
+    public boolean verifyRequest()
+            throws NoSuchAlgorithmException, InvalidKeyException, PKCSException, OperatorCreationException {
         if (pkcs10Request == null) {
             return false;
         }
         PublicKey publicKey = pkcs10Request.getPublicKey();
-        ContentVerifierProvider contentVerifierProvider = new JcaContentVerifierProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME).build(publicKey);
+        ContentVerifierProvider contentVerifierProvider = new JcaContentVerifierProviderBuilder()
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(publicKey);
         return pkcs10Request.isSignatureValid(contentVerifierProvider);
     }
 

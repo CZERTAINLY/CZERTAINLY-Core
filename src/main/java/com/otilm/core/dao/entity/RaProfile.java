@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
 import com.otilm.api.model.client.raprofile.RaProfileCmpDetailResponseDto;
 import com.otilm.api.model.client.raprofile.RaProfileScepDetailResponseDto;
@@ -20,14 +21,25 @@ import com.otilm.core.service.scep.impl.ScepServiceImpl;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.proxy.HibernateProxy;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.io.Serializable;
-import java.util.*;
 
 @Getter
 @Setter
@@ -35,7 +47,12 @@ import java.util.*;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "ra_profile")
-public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto>, Securable, ObjectAccessControlMapper<NameAndUuidDto> {
+public class RaProfile extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<RaProfileDto>,
+            Securable,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "name")
     private String name;
@@ -112,8 +129,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "expiring_threshold")
     private Integer expiringThreshold;
 
-
-
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
         if (acmeProfile == null) {
@@ -122,10 +137,19 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setName(acmeProfile.getName());
         dto.setUuid(acmeProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), BaseAttribute.class)));
-        dto.setRevokeCertificateAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), BaseAttribute.class)));
-        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
+        dto
+                .setIssueCertificateAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils
+                                .deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(),
+                                        BaseAttribute.class)));
+        dto
+                .setRevokeCertificateAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils
+                                .deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(),
+                                        BaseAttribute.class)));
+        dto
+                .setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                        + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
         dto.setAcmeAvailable(true);
         return dto;
     }
@@ -137,11 +161,16 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             return dto;
         }
         dto.setScepAvailable(true);
-        dto.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + ScepServiceImpl.SCEP_URL_PREFIX + "/raProfile/" + name + "/pkiclient.exe");
+        dto
+                .setUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                        + ScepServiceImpl.SCEP_URL_PREFIX + "/raProfile/" + name + "/pkiclient.exe");
         dto.setName(scepProfile.getName());
         dto.setUuid(scepProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), BaseAttribute.class)));
+        dto
+                .setIssueCertificateAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils
+                                .deserialize(protocolAttribute.getScepIssueCertificateAttributes(),
+                                        BaseAttribute.class)));
         return dto;
     }
 
@@ -153,22 +182,19 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setName(cmpProfile.getName());
         dto.setUuid(cmpProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(
-                AttributeEngine.getResponseAttributesFromBaseAttributes(
-                        AttributeDefinitionUtils.deserialize(
-                                protocolAttribute.getCmpIssueCertificateAttributes(),
-                                BaseAttribute.class)
-                )
-        );
-        dto.setRevokeCertificateAttributes(
-                AttributeEngine.getResponseAttributesFromBaseAttributes(
-                        AttributeDefinitionUtils.deserialize(
-                                protocolAttribute.getCmpRevokeCertificateAttributes(),
-                                BaseAttribute.class)
-                )
-        );
-        dto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + CmpConstants.CMP_BASE_CONTEXT + "/raProfile/" + name);
+        dto
+                .setIssueCertificateAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils
+                                .deserialize(protocolAttribute.getCmpIssueCertificateAttributes(),
+                                        BaseAttribute.class)));
+        dto
+                .setRevokeCertificateAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils
+                                .deserialize(protocolAttribute.getCmpRevokeCertificateAttributes(),
+                                        BaseAttribute.class)));
+        dto
+                .setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                        + CmpConstants.CMP_BASE_CONTEXT + "/raProfile/" + name);
         dto.setCmpAvailable(true);
         return dto;
     }
@@ -225,8 +251,17 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         if (authorityInstanceReference != null) {
             dto.setAuthorityInstanceUuid(authorityInstanceReference.getUuid().toString());
             dto.setAuthorityInstanceName(this.authorityInstanceName);
-            dto.setLegacyAuthority(authorityInstanceReference.getConnector() == null ? null
-                    : authorityInstanceReference.getConnector().getFunctionGroups().stream().anyMatch(fg -> fg.getFunctionGroup().getCode().equals(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER)));
+            dto
+                    .setLegacyAuthority(authorityInstanceReference.getConnector() == null
+                            ? null
+                            : authorityInstanceReference
+                                    .getConnector()
+                                    .getFunctionGroups()
+                                    .stream()
+                                    .anyMatch(fg -> fg
+                                            .getFunctionGroup()
+                                            .getCode()
+                                            .equals(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER)));
         }
 
         RaProfileCertificateValidationSettingsDto validationSettingsDto = new RaProfileCertificateValidationSettingsDto();
@@ -245,27 +280,38 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setAuthorityInstanceReference(AuthorityInstanceReference authorityInstanceReference) {
         this.authorityInstanceReference = authorityInstanceReference;
-        if (authorityInstanceReference != null)
+        if (authorityInstanceReference != null) {
             this.authorityInstanceReferenceUuid = authorityInstanceReference.getUuid();
-        else this.authorityInstanceReferenceUuid = null;
+        } else {
+            this.authorityInstanceReferenceUuid = null;
+        }
     }
 
     public void setAcmeProfile(AcmeProfile acmeProfile) {
         this.acmeProfile = acmeProfile;
-        if (acmeProfile != null) this.acmeProfileUuid = acmeProfile.getUuid();
-        else this.acmeProfileUuid = null;
+        if (acmeProfile != null) {
+            this.acmeProfileUuid = acmeProfile.getUuid();
+        } else {
+            this.acmeProfileUuid = null;
+        }
     }
 
     public void setScepProfile(ScepProfile scepProfile) {
         this.scepProfile = scepProfile;
-        if (scepProfile != null) this.scepProfileUuid = scepProfile.getUuid();
-        else this.scepProfileUuid = null;
+        if (scepProfile != null) {
+            this.scepProfileUuid = scepProfile.getUuid();
+        } else {
+            this.scepProfileUuid = null;
+        }
     }
 
     public void setCmpProfile(CmpProfile cmpProfile) {
         this.cmpProfile = cmpProfile;
-        if (cmpProfile != null) this.cmpProfileUuid = cmpProfile.getUuid();
-        else this.cmpProfileUuid = null;
+        if (cmpProfile != null) {
+            this.cmpProfileUuid = cmpProfile.getUuid();
+        } else {
+            this.cmpProfileUuid = null;
+        }
     }
 
     public RaProfileProtocolAttribute getProtocolAttribute() {
@@ -284,17 +330,31 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof RaProfile that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof RaProfile that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

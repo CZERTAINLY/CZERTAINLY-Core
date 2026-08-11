@@ -1,5 +1,9 @@
 package com.otilm.core.integration.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
@@ -24,17 +28,15 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.*;
 
 class ConnectorServiceComplexITest extends BaseSpringBootTest {
 
@@ -67,7 +69,8 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
 
     @Test
     void testListConnectors_Empty() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
@@ -79,7 +82,8 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
         connector.setVersion(ConnectorVersion.V1);
         connectorRepository.save(connector);
 
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -103,7 +107,8 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateConnector() throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException, JsonProcessingException {
+    void testCreateConnector() throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException,
+            JsonProcessingException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -125,8 +130,7 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
         infoResponse.setEndPoints(Collections.emptyList());
         infoResponse.setKinds(Collections.singletonList(kindName));
         String jsonBody = objectMapper.writeValueAsString(Collections.singletonList(infoResponse));
-        mockServer.stubFor(WireMock.get("/v1")
-                .willReturn(WireMock.okJson(jsonBody)));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson(jsonBody)));
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -144,14 +148,16 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
         Assertions.assertEquals(kindName, loaded.getKinds().getFirst());
 
         // check database
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
     }
 
     @Test
-    void testSimpleCreateConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testSimpleCreateConnector()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -174,7 +180,8 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto.getUuid());
 
         // check database
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -215,7 +222,8 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto.getUuid());
 
         // check database
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -264,13 +272,14 @@ class ConnectorServiceComplexITest extends BaseSpringBootTest {
         infoResponse.setFunctionGroupCode(FunctionGroupCode.CREDENTIAL_PROVIDER);
         infoResponse.setEndPoints(Collections.emptyList());
         String jsonBody = objectMapper.writeValueAsString(Collections.singletonList(infoResponse));
-        mockServer.stubFor(WireMock.get("/v1")
-                .willReturn(WireMock.okJson(jsonBody)));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson(jsonBody)));
 
         List<ConnectDto> dtos = connectorService.reconnect(connector.getSecuredUuid());
         Assertions.assertNotNull(dtos);
         Assertions.assertFalse(dtos.isEmpty());
         Assertions.assertEquals(1, dtos.size());
-        Assertions.assertEquals(FunctionGroupCode.CREDENTIAL_PROVIDER, dtos.get(0).getFunctionGroup().getFunctionGroupCode());
+        Assertions
+                .assertEquals(FunctionGroupCode.CREDENTIAL_PROVIDER,
+                        dtos.get(0).getFunctionGroup().getFunctionGroupCode());
     }
 }

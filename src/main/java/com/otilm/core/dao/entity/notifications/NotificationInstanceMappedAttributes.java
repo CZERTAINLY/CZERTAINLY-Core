@@ -4,11 +4,18 @@ import com.otilm.api.model.core.notification.AttributeMappingDto;
 import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.dao.entity.UniquelyIdentified;
 import com.otilm.core.util.DtoMapper;
-import jakarta.persistence.*;
-import lombok.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
@@ -16,7 +23,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "notification_instance_mapped_attributes")
-public class NotificationInstanceMappedAttributes extends UniquelyIdentified implements Serializable, DtoMapper<AttributeMappingDto> {
+public class NotificationInstanceMappedAttributes extends UniquelyIdentified
+        implements
+            Serializable,
+            DtoMapper<AttributeMappingDto> {
 
     @Column(name = "notification_instance_ref_uuid")
     private UUID notificationInstanceRefUuid;

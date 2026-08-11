@@ -6,8 +6,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 /**
- * The scheduler holds no logic of its own: each scheduled tick must delegate to {@link SigningRecordOutboxDrainer}.
- * The drain behaviour itself is covered in {@link SigningRecordOutboxDrainerUnitTest}.
+ * The scheduler holds no logic of its own: each scheduled tick must delegate to {@link SigningRecordOutboxDrainer}. The
+ * drain behaviour itself is covered in {@link SigningRecordOutboxDrainerUnitTest}.
  */
 class SigningRecordOutboxDrainSchedulerTest {
 

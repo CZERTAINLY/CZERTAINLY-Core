@@ -1,12 +1,11 @@
 package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.RaProfile;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface RaProfileRepository extends SecurityFilterRepository<RaProfile, Long> {
@@ -14,17 +13,13 @@ public interface RaProfileRepository extends SecurityFilterRepository<RaProfile,
     Optional<RaProfile> findByUuid(UUID uuid);
 
     /**
-     * Loads an RA profile with its authority, connector, connector interface and the connector's
-     * function groups eagerly. The function groups are fetched so callers that traverse the connector
-     * outside an active transaction (e.g. request-attribute resolution under
-     * {@code Propagation.NOT_SUPPORTED}) do not depend on open-session-in-view for the lazy collection.
+     * Loads an RA profile with its authority, connector, connector interface and the connector's function groups
+     * eagerly. The function groups are fetched so callers that traverse the connector outside an active transaction
+     * (e.g. request-attribute resolution under {@code Propagation.NOT_SUPPORTED}) do not depend on open-session-in-view
+     * for the lazy collection.
      */
-    @EntityGraph(attributePaths = {
-            "authorityInstanceReference",
-            "authorityInstanceReference.connectorInterface",
-            "authorityInstanceReference.connector",
-            "authorityInstanceReference.connector.functionGroups"
-    })
+    @EntityGraph(attributePaths = {"authorityInstanceReference", "authorityInstanceReference.connectorInterface",
+            "authorityInstanceReference.connector", "authorityInstanceReference.connector.functionGroups"})
     Optional<RaProfile> findWithAuthorityByUuid(UUID uuid);
 
     Optional<RaProfile> findByName(String name);
@@ -39,5 +34,5 @@ public interface RaProfileRepository extends SecurityFilterRepository<RaProfile,
 
     List<RaProfile> findAllByCmpProfileUuid(UUID cmpProfileUuid);
 
-    List<RaProfile> findAllByUuidIn(List<UUID>uuids);
+    List<RaProfile> findAllByUuidIn(List<UUID> uuids);
 }

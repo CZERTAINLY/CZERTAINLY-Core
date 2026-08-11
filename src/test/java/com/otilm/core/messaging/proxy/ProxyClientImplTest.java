@@ -1,14 +1,27 @@
 package com.otilm.core.messaging.proxy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.clients.mq.model.ConnectorAuth;
 import com.otilm.api.clients.mq.model.ConnectorResponse;
 import com.otilm.api.clients.mq.model.CoreMessage;
 import com.otilm.api.clients.mq.model.ProxyMessage;
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.ConnectorClientException;
+import com.otilm.api.exception.ConnectorCommunicationException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.ConnectorServerException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.connector.AuthType;
 import com.otilm.api.model.core.connector.ConnectorDto;
 import com.otilm.api.model.core.proxy.ProxyDto;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -19,23 +32,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link ProxyClientImpl}.
- * Tests request sending, response handling, and error mapping.
+ * Unit tests for {@link ProxyClientImpl}. Tests request sending, response handling, and error mapping.
  */
 @ExtendWith(MockitoExtension.class)
 class ProxyClientImplTest {
@@ -56,19 +65,13 @@ class ProxyClientImplTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        proxyProperties = new ProxyProperties(
-                "test-exchange",
-                "test-queue",
-                "test-instance",
-                Duration.ofSeconds(30),
-                1000,
-                null
-        );
+        proxyProperties = new ProxyProperties("test-exchange", "test-queue", "test-instance", Duration.ofSeconds(30),
+                1000, null);
 
         // Default auth converter behavior
-        lenient().when(authConverter.convert(any())).thenReturn(
-                ConnectorAuth.builder().type("NONE").attributes(Map.of()).build()
-        );
+        lenient()
+                .when(authConverter.convert(any()))
+                .thenReturn(ConnectorAuth.builder().type("NONE").attributes(Map.of()).build());
 
         proxyClient = new ProxyClientImpl(producer, correlator, authConverter, objectMapper, proxyProperties);
     }
@@ -83,18 +86,17 @@ class ProxyClientImplTest {
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
         // Complete the future with a successful response
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body(Map.of("result", "success"))
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(
+                                ConnectorResponse.builder().statusCode(200).body(Map.of("result", "success")).build())
+                        .build());
 
-        Map<String, Object> result = proxyClient.sendRequest(
-                connector, "/v1/test", "GET", null, Map.class);
+        Map<String, Object> result = proxyClient.sendRequest(connector, "/v1/test", "GET", null, Map.class);
 
         assertThat(result).isNotNull();
         assertThat(result.get("result")).isEqualTo("success");
@@ -108,17 +110,16 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(204)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(204).build())
+                        .build());
 
-        Void result = proxyClient.sendRequest(
-                connector, "/v1/test", "DELETE", null, Void.class);
+        Void result = proxyClient.sendRequest(connector, "/v1/test", "DELETE", null, Void.class);
 
         assertThat(result).isNull();
     }
@@ -130,18 +131,16 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body(null)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(200).body(null).build())
+                        .build());
 
-        String result = proxyClient.sendRequest(
-                connector, "/v1/test", "GET", null, String.class);
+        String result = proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class);
 
         assertThat(result).isNull();
     }
@@ -153,19 +152,18 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body("ok")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(200).body("ok").build())
+                        .build());
 
         Map<String, String> pathVars = Map.of("id", "123", "action", "activate");
-        String result = proxyClient.sendRequest(
-                connector, "/v1/items/{id}/{action}", "POST", pathVars, null, String.class);
+        String result = proxyClient
+                .sendRequest(connector, "/v1/items/{id}/{action}", "POST", pathVars, null, String.class);
 
         assertThat(result).isNotNull();
 
@@ -182,15 +180,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), eq(Duration.ofSeconds(30)))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body("ok")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(200).body("ok").build())
+                        .build());
 
         proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class);
 
@@ -243,16 +240,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Invalid input data")
-                        .errorCategory("validation")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Invalid input data")
+                                .errorCategory("validation")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "POST", null, String.class))
                 .isInstanceOf(ValidationException.class)
@@ -266,16 +266,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Invalid credentials")
-                        .errorCategory("authentication")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Invalid credentials")
+                                .errorCategory("authentication")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorClientException.class);
@@ -288,16 +291,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Access denied")
-                        .errorCategory("authorization")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Access denied")
+                                .errorCategory("authorization")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorClientException.class);
@@ -310,16 +316,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Resource not found")
-                        .errorCategory("not_found")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Resource not found")
+                                .errorCategory("not_found")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorEntityNotFoundException.class);
@@ -332,16 +341,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Request timed out")
-                        .errorCategory("timeout")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Request timed out")
+                                .errorCategory("timeout")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorCommunicationException.class);
@@ -354,16 +366,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Connection refused")
-                        .errorCategory("connection")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Connection refused")
+                                .errorCategory("connection")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorCommunicationException.class);
@@ -376,16 +391,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(500)
-                        .error("Internal server error")
-                        .errorCategory("server_error")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(500)
+                                .error("Internal server error")
+                                .errorCategory("server_error")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorServerException.class);
@@ -398,16 +416,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Unknown error occurred")
-                        .errorCategory("unknown_category")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Unknown error occurred")
+                                .errorCategory("unknown_category")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorException.class);
@@ -420,16 +441,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Some error")
-                        .errorCategory(null)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Some error")
+                                .errorCategory(null)
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorException.class);
@@ -444,14 +468,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(404)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(404).build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorEntityNotFoundException.class);
@@ -464,14 +488,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(422)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(422).build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "POST", null, String.class))
                 .isInstanceOf(ValidationException.class);
@@ -484,14 +508,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(400)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(400).build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "POST", null, String.class))
                 .isInstanceOf(ConnectorClientException.class);
@@ -504,14 +528,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(503)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(503).build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorServerException.class);
@@ -524,15 +548,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(500)
-                        .error("")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(500).error("").build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorServerException.class)
@@ -601,15 +624,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), eq(customTimeout))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body("ok")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(200).body("ok").build())
+                        .build());
 
         proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class, customTimeout);
 
@@ -720,7 +742,8 @@ class ProxyClientImplTest {
         ConnectorDto connector = createConnector("proxy-001");
         connector.setAuthType(AuthType.BASIC);
 
-        ConnectorAuth expectedAuth = ConnectorAuth.builder()
+        ConnectorAuth expectedAuth = ConnectorAuth
+                .builder()
                 .type("BASIC")
                 .attributes(Map.of("username", "admin"))
                 .build();
@@ -798,13 +821,15 @@ class ProxyClientImplTest {
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
         // Health-check messages legitimately arrive with no connectorResponse.
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .messageType("health.check")
-                .timestamp(Instant.now())
-                .connectorResponse(null)
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .messageType("health.check")
+                        .timestamp(Instant.now())
+                        .connectorResponse(null)
+                        .build());
 
         String result = proxyClient.sendRequest(connector, "/v1/health", "GET", null, String.class);
 
@@ -819,13 +844,15 @@ class ProxyClientImplTest {
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
         // Non-health-check message with no connectorResponse is a protocol violation.
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .messageType("GET.v1.test")
-                .timestamp(Instant.now())
-                .connectorResponse(null)
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .messageType("GET.v1.test")
+                        .timestamp(Instant.now())
+                        .connectorResponse(null)
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, String.class))
                 .isInstanceOf(ConnectorCommunicationException.class)
@@ -841,15 +868,15 @@ class ProxyClientImplTest {
 
         // Body is a Map; caller asks for Integer → ObjectMapper.convertValue throws,
         // which the impl re-wraps as ConnectorCommunicationException via sneakyThrow.
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body(Map.of("nested", "object"))
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(
+                                ConnectorResponse.builder().statusCode(200).body(Map.of("nested", "object")).build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequest(connector, "/v1/test", "GET", null, Integer.class))
                 .isInstanceOf(ConnectorCommunicationException.class)
@@ -865,18 +892,20 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body(Map.of("certificateData", "BASE64="))
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(200)
+                                .body(Map.of("certificateData", "BASE64="))
+                                .build())
+                        .build());
 
-        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(
-                connector, "/v1/test", "POST", null, Map.class);
+        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).containsEntry("certificateData", "BASE64=");
@@ -891,18 +920,17 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(202)
-                        .body(Map.of("meta", List.of()))
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(
+                                ConnectorResponse.builder().statusCode(202).body(Map.of("meta", List.of())).build())
+                        .build());
 
-        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(
-                connector, "/v1/test", "POST", null, Map.class);
+        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         assertThat(result.getBody()).isNotNull();
@@ -915,18 +943,16 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(204)
-                        .body(null)
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(204).body(null).build())
+                        .build());
 
-        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(
-                connector, "/v1/test", "POST", null, Map.class);
+        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(result.getBody()).isNull();
@@ -940,16 +966,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Validation failed")
-                        .errorCategory("validation")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Validation failed")
+                                .errorCategory("validation")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class))
                 .isInstanceOf(ValidationException.class);
@@ -962,16 +991,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Connection refused")
-                        .errorCategory("connection")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Connection refused")
+                                .errorCategory("connection")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class))
                 .isInstanceOf(ConnectorCommunicationException.class);
@@ -984,16 +1016,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(503)
-                        .error("Service unavailable")
-                        .errorCategory("server_error")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(503)
+                                .error("Service unavailable")
+                                .errorCategory("server_error")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class))
                 .isInstanceOf(ConnectorServerException.class);
@@ -1008,12 +1043,14 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(null)
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(null)
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class))
                 .isInstanceOf(ConnectorCommunicationException.class)
@@ -1027,16 +1064,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Bad credentials")
-                        .errorCategory("authentication")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Bad credentials")
+                                .errorCategory("authentication")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class))
                 .isInstanceOf(ConnectorClientException.class);
@@ -1049,16 +1089,19 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(0)
-                        .error("Not tracked")
-                        .errorCategory("not_found")
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(0)
+                                .error("Not tracked")
+                                .errorCategory("not_found")
+                                .build())
+                        .build());
 
         assertThatThrownBy(() -> proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class))
                 .isInstanceOf(ConnectorEntityNotFoundException.class);
@@ -1099,18 +1142,21 @@ class ProxyClientImplTest {
 
         // Body is a map, but we ask for a String — Jackson will attempt convertValue(map, String.class)
         // and fail. NotASimpleType causes IllegalArgumentException from convertValue.
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .body(Map.of("nested", Map.of("deeper", List.of("a", "b"))))
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(200)
+                                .body(Map.of("nested", Map.of("deeper", List.of("a", "b"))))
+                                .build())
+                        .build());
 
-        assertThatThrownBy(() -> proxyClient.sendRequestForEntity(
-                connector, "/v1/test", "POST", null, java.net.URL.class))
+        assertThatThrownBy(
+                () -> proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, java.net.URL.class))
                 .isInstanceOf(ConnectorCommunicationException.class)
                 .hasMessageContaining("deserialize");
     }
@@ -1169,18 +1215,20 @@ class ProxyClientImplTest {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
         when(correlator.registerRequest(anyString(), any(Duration.class))).thenReturn(future);
 
-        future.complete(ProxyMessage.builder()
-                .correlationId("test-corr")
-                .proxyId("proxy-001")
-                .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(299) // unrecognised 2xx
-                        .body(Map.of("ok", true))
-                        .build())
-                .build());
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse
+                                .builder()
+                                .statusCode(299) // unrecognised 2xx
+                                .body(Map.of("ok", true))
+                                .build())
+                        .build());
 
-        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(
-                connector, "/v1/test", "POST", null, Map.class);
+        ResponseEntity<Map> result = proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class);
 
         // HttpStatus.resolve(299) is null → normalised to OK.
         assertThat(result.getStatusCode().value()).isEqualTo(200);

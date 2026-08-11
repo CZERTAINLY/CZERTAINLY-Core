@@ -1,18 +1,17 @@
 package com.otilm.core.signing.record;
 
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * Owns the periodic trigger that drives {@link SigningRecordRetentionSweeper}. The sweeper holds all
- * advisory-lock/batch-delete orchestration; this class holds only the schedule and the
- * {@code scheduled-tasks.enabled} gate. Keeping them apart mirrors {@link SigningRecordOutboxDrainScheduler}
- * and lets the sweeper be unit- and integration-tested without standing up the scheduling machinery (which
- * would also activate {@code SystemScheduledJobs.registerJobs} and its external scheduler call).
+ * advisory-lock/batch-delete orchestration; this class holds only the schedule and the {@code scheduled-tasks.enabled}
+ * gate. Keeping them apart mirrors {@link SigningRecordOutboxDrainScheduler} and lets the sweeper be unit- and
+ * integration-tested without standing up the scheduling machinery (which would also activate
+ * {@code SystemScheduledJobs.registerJobs} and its external scheduler call).
  */
 @Slf4j
 @Component
@@ -25,8 +24,7 @@ public class SigningRecordRetentionScheduler {
         this.sweeper = sweeper;
     }
 
-    @Scheduled(fixedDelayString = "${signing-record.retention.sweep-interval-minutes}",
-            timeUnit = TimeUnit.MINUTES)
+    @Scheduled(fixedDelayString = "${signing-record.retention.sweep-interval-minutes}", timeUnit = TimeUnit.MINUTES)
     public void sweepScheduled() {
         sweeper.sweep();
     }

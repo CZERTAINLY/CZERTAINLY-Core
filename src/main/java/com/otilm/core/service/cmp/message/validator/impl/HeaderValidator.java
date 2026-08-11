@@ -4,13 +4,14 @@ import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.validator.Validator;
+import java.util.Objects;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIHeader;
+import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Objects;
 
 /**
  * <pre>
@@ -41,12 +42,10 @@ public class HeaderValidator extends BaseValidator implements Validator<PKIMessa
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
         if (Objects.isNull(message)) {
-            throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
-                    "message cannot be null");
+            throw new CmpProcessingException(PKIFailureInfo.badDataFormat, "message cannot be null");
         }
         if (Objects.isNull(message.getHeader())) {
-            throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
-                    "header cannot be null");
+            throw new CmpProcessingException(PKIFailureInfo.badDataFormat, "header cannot be null");
         }
         ASN1OctetString tid = message.getHeader().getTransactionID();
         try {
@@ -65,22 +64,21 @@ public class HeaderValidator extends BaseValidator implements Validator<PKIMessa
             checkMinimalLength(tid, header.getSenderNonce(), 16, "senderNonce");
 
             /*
-             * The protectionAlg field specifies the algorithm used to protect the
-             * message.  If no protection bits are supplied (note that PKIProtection
-             * is OPTIONAL) then this field MUST be omitted; if protection bits are
+             * The protectionAlg field specifies the algorithm used to protect the message. If no protection bits are
+             * supplied (note that PKIProtection is OPTIONAL) then this field MUST be omitted; if protection bits are
              * supplied, then this field MUST be supplied.
              *
              * @see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1
              *
              * if not null, it will in form defined in:
+             *
              * @see https://www.rfc-editor.org/rfc/rfc4210#appendix-D.2
              */
             if (message.getProtection() != null) {
-                checkValueNotNull(tid, header.getProtectionAlg(),
-                        PKIFailureInfo.badDataFormat, "protectionAlg");
+                checkValueNotNull(tid, header.getProtectionAlg(), PKIFailureInfo.badDataFormat, "protectionAlg");
             }
 
-            return null;//header is ok
+            return null;// header is ok
         } catch (CmpProcessingException ex) {
             throw remapException(tid, message.getBody().getType(), ex);
         } catch (Throwable thr) {

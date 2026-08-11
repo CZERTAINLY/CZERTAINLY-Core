@@ -18,9 +18,9 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
- * Derives the permission set of a role that may read everything and change nothing, so a newly annotated resource
- * or action lands on the right side of the boundary without anyone remembering this role. Kept free of Spring and
- * of the auth client, because this is the half where a mistake silently grants write access.
+ * Derives the permission set of a role that may read everything and change nothing, so a newly annotated resource or
+ * action lands on the right side of the boundary without anyone remembering this role. Kept free of Spring and of the
+ * auth client, because this is the half where a mistake silently grants write access.
  */
 public final class ReadOnlyRolePermissions {
 
@@ -28,7 +28,8 @@ public final class ReadOnlyRolePermissions {
      * Taken from {@link ResourceAction#isGrantableToReadOnlyRole()}, so classifying a new action on the enum is the
      * only step needed. A code absent here is a write, a sensitive read, a sentinel, or unknown to this version.
      */
-    private static final Set<String> READ_ONLY_ACTION_CODES = Arrays.stream(ResourceAction.values())
+    private static final Set<String> READ_ONLY_ACTION_CODES = Arrays
+            .stream(ResourceAction.values())
             .filter(ResourceAction::isGrantableToReadOnlyRole)
             .map(ResourceAction::getCode)
             .collect(Collectors.toUnmodifiableSet());
@@ -40,21 +41,22 @@ public final class ReadOnlyRolePermissions {
     public static RolePermissionsRequestDto deriveFrom(List<ResourceSyncRequestDto> catalogue) {
         Map<String, List<String>> actionCodesByResource = new LinkedHashMap<>();
         for (ResourceSyncRequestDto scanned : catalogue) {
-            actionCodesByResource.put(scanned.getName().getCode(),
-                    scanned.getActions() == null ? List.of() : scanned.getActions());
+            actionCodesByResource
+                    .put(scanned.getName().getCode(), scanned.getActions() == null ? List.of() : scanned.getActions());
         }
         return derive(actionCodesByResource);
     }
 
     /**
-     * A resource left with no grantable action is dropped, not emitted with an empty action list: an empty list
-     * reads as every action on that resource, the exact inverse of a read-only grant. Actions are deduplicated and
-     * sorted so an unchanged catalogue yields an identical payload whatever order it arrived in.
+     * A resource left with no grantable action is dropped, not emitted with an empty action list: an empty list reads
+     * as every action on that resource, the exact inverse of a read-only grant. Actions are deduplicated and sorted so
+     * an unchanged catalogue yields an identical payload whatever order it arrived in.
      */
     private static RolePermissionsRequestDto derive(Map<String, List<String>> actionCodesByResource) {
         List<ResourcePermissionsRequestDto> resources = new ArrayList<>();
         actionCodesByResource.forEach((resourceCode, actionCodes) -> {
-            List<String> granted = actionCodes.stream()
+            List<String> granted = actionCodes
+                    .stream()
                     .filter(READ_ONLY_ACTION_CODES::contains)
                     .distinct()
                     .sorted(Comparator.naturalOrder())
@@ -84,14 +86,18 @@ public final class ReadOnlyRolePermissions {
 
         Map<String, String> derivedGrants = new TreeMap<>();
         for (ResourcePermissionsRequestDto resource : derived.getResources()) {
-            derivedGrants.put(resource.getName(),
-                    grantSignature(resource.getAllowAllActions(), resource.getActions(), resource.getObjects()));
+            derivedGrants
+                    .put(resource.getName(), grantSignature(resource.getAllowAllActions(), resource.getActions(),
+                            resource.getObjects()));
         }
         Map<String, String> storedGrants = new TreeMap<>();
         // A remote DTO can arrive with the list absent rather than empty, which is the same thing: no grants.
-        for (ResourcePermissionsDto resource : stored.getResources() == null ? List.<ResourcePermissionsDto>of() : stored.getResources()) {
-            storedGrants.put(resource.getName(),
-                    grantSignature(resource.getAllowAllActions(), resource.getActions(), resource.getObjects()));
+        for (ResourcePermissionsDto resource : stored.getResources() == null
+                ? List.<ResourcePermissionsDto>of()
+                : stored.getResources()) {
+            storedGrants
+                    .put(resource.getName(), grantSignature(resource.getAllowAllActions(), resource.getActions(),
+                            resource.getObjects()));
         }
         return derivedGrants.equals(storedGrants);
     }

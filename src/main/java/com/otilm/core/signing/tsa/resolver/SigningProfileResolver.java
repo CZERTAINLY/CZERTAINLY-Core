@@ -8,8 +8,10 @@ import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
  * Resolves a cached, UUID-only {@link SigningProfileModel} into the transient
  * {@link ResolvedManagedTimestampingProfile} consumed by the timestamping pipeline.
  *
- * <p>Each implementation handles one workflow type and declares support via {@link #supports}.
- * {@link SigningProfileResolverFactory} selects the matching implementation at request time.</p>
+ * <p>
+ * Each implementation handles one workflow type and declares support via {@link #supports}.
+ * {@link SigningProfileResolverFactory} selects the matching implementation at request time.
+ * </p>
  */
 public interface SigningProfileResolver {
 

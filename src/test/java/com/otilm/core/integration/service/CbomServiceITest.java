@@ -1,43 +1,17 @@
 package com.otilm.core.integration.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import com.otilm.api.model.common.NameAndUuidDto;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.google.gson.Gson;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.CbomRepositoryException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cbom.CbomDetailDto;
@@ -69,39 +43,62 @@ import com.otilm.core.service.CbomInternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.tasks.CbomSyncTask;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.google.gson.Gson;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class CbomServiceITest extends BaseSpringBootTest {
 
     private static final String CONTENT_TYPE = "application/vnd.cyclonedx+json";
 
     private static final String BOM_ENTRY_JSON = """
-{
-  "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
-  "version": 42,
-  "cryptoStats": {
-    "cryptoAssets": {
-      "algorithms": {
-        "total": 5
-      },
-      "certificates": {
-        "total": 3
-      },
-      "protocols": {
-        "total": 2
-      },
-      "relatedCryptoMaterials": {
-        "total": 4
-      },
-      "total": 14
-    }
-  }
-}
-    """;
+            {
+              "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+              "version": 42,
+              "cryptoStats": {
+                "cryptoAssets": {
+                  "algorithms": {
+                    "total": 5
+                  },
+                  "certificates": {
+                    "total": 3
+                  },
+                  "protocols": {
+                    "total": 2
+                  },
+                  "relatedCryptoMaterials": {
+                    "total": 4
+                  },
+                  "total": 14
+                }
+              }
+            }
+                """;
 
     @Autowired
     private CbomExternalService cbomService;
@@ -198,23 +195,26 @@ class CbomServiceITest extends BaseSpringBootTest {
         cbomRepository.save(cbom);
 
         String responseBody = """
-        {
-        "$schema": "https://cyclonedx.org/schema/bom-1.6.schema.json",
-        "bomFormat": "CycloneDX",
-        "specVersion": "1.6",
-        "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
-        "version": 1,
-        "metadata": {},
-        "components": []
-        }
-        """;
+                {
+                "$schema": "https://cyclonedx.org/schema/bom-1.6.schema.json",
+                "bomFormat": "CycloneDX",
+                "specVersion": "1.6",
+                "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+                "version": 1,
+                "metadata": {},
+                "components": []
+                }
+                """;
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/api/v1/bom/.*"))
-            .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
-            .willReturn(WireMock.aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(responseBody)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/api/v1/bom/.*"))
+                        .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(responseBody)));
 
         // When
         CbomDetailDto result = cbomService.getCbomDetail(uuid);
@@ -227,9 +227,10 @@ class CbomServiceITest extends BaseSpringBootTest {
         assertEquals("CycloneDX", result.getContent().get("bomFormat"));
 
         // Verify WireMock was called
-        mockServer.verify(WireMock.getRequestedFor(
-            WireMock.urlPathMatching("/api/v1/bom/.*"))
-            .withQueryParam("version", WireMock.equalTo(Integer.toString(version))));
+        mockServer
+                .verify(WireMock
+                        .getRequestedFor(WireMock.urlPathMatching("/api/v1/bom/.*"))
+                        .withQueryParam("version", WireMock.equalTo(Integer.toString(version))));
     }
 
     @Test
@@ -249,11 +250,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         cbomRepository.save(cbom);
 
         // Mock WireMock to return 404 for the requested BOM
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom/" + serialNumber))
-            .willReturn(WireMock.aResponse()
-                .withStatus(404)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("{\"status\": 404, \"title\": \"Not Found\"}")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/api/v1/bom/" + serialNumber))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(404)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("{\"status\": 404, \"title\": \"Not Found\"}")));
 
         // When/Then
         assertThrows(NotFoundException.class, () -> cbomService.getCbomDetail(uuid));
@@ -276,24 +280,27 @@ class CbomServiceITest extends BaseSpringBootTest {
         cbomRepository.save(cbom);
 
         // Mock WireMock to return 500 error for the CBOM repository endpoint
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/api/v1/bom/.*"))
-            .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
-            .willReturn(WireMock.aResponse()
-                .withStatus(500)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                        "type": "about:blank",
-                        "title": "Internal Server Error",
-                        "status": 500,
-                        "detail": "Server error occurred"
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/api/v1/bom/.*"))
+                        .withQueryParam("version", WireMock.equalTo(Integer.toString(version)))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(500)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {
+                                            "type": "about:blank",
+                                            "title": "Internal Server Error",
+                                            "status": 500,
+                                            "detail": "Server error occurred"
+                                        }
+                                        """)));
 
         // When/Then - Use assertThrows with Throwable cast
         Exception exception = assertThrows(Exception.class, () -> cbomService.getCbomDetail(uuid));
         assertTrue(exception instanceof CbomRepositoryException,
-        "Expected CbomRepositoryException but got: " + exception.getClass().getName());
+                "Expected CbomRepositoryException but got: " + exception.getClass().getName());
         CbomRepositoryException cbomException = (CbomRepositoryException) exception;
         assertNotNull(cbomException.getProblemDetail());
         assertEquals(500, cbomException.getProblemDetail().getStatus());
@@ -314,33 +321,36 @@ class CbomServiceITest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Mock WireMock to return successful response
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                    "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
-                    "version": 1,
-                    "cryptoStats": {
-                    "cryptoAssets": {
-                    "algorithms": {
-                    "total": 5
-                    },
-                    "certificates": {
-                    "total": 3
-                    },
-                    "protocols": {
-                    "total": 2
-                    },
-                    "relatedCryptoMaterials": {
-                    "total": 4
-                    },
-                    "total": 14
-                    }
-                    }
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {
+                                        "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+                                        "version": 1,
+                                        "cryptoStats": {
+                                        "cryptoAssets": {
+                                        "algorithms": {
+                                        "total": 5
+                                        },
+                                        "certificates": {
+                                        "total": 3
+                                        },
+                                        "protocols": {
+                                        "total": 2
+                                        },
+                                        "relatedCryptoMaterials": {
+                                        "total": 4
+                                        },
+                                        "total": 14
+                                        }
+                                        }
+                                        }
+                                        """)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -363,8 +373,7 @@ class CbomServiceITest extends BaseSpringBootTest {
         assertNull(savedCboms.getFirst().getSource());
 
         // Assert
-        mockServer.verify(WireMock.postRequestedFor(
-            WireMock.urlEqualTo("/api/v1/bom")));
+        mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
     }
 
     @Test
@@ -393,12 +402,9 @@ class CbomServiceITest extends BaseSpringBootTest {
         cbom3.setSpecVersion("1.6");
         cbom3 = cbomRepository.save(cbom3);
 
-        List<UUID> uuids = List.of(cbom1, cbom2, cbom3)
-            .stream()
-            .map(Cbom::getUuid)
-            .toList();
+        List<UUID> uuids = List.of(cbom1, cbom2, cbom3).stream().map(Cbom::getUuid).toList();
 
-        for (UUID uuid: uuids) {
+        for (UUID uuid : uuids) {
             // When
             List<CbomDto> versions = cbomService.getCbomVersions(SecuredUUID.fromUUID(uuid));
 
@@ -481,9 +487,7 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
 
         // When / Then
-        assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
+        assertThrows(ValidationException.class, () -> cbomService.createCbom(request));
     }
 
     @Test
@@ -498,11 +502,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -524,11 +531,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -551,9 +561,7 @@ class CbomServiceITest extends BaseSpringBootTest {
         request.setContent(content);
 
         // When / Then
-        assertThrows(ValidationException.class, () ->
-            cbomService.createCbom(request)
-        );
+        assertThrows(ValidationException.class, () -> cbomService.createCbom(request));
     }
 
     @Test
@@ -569,11 +577,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -595,11 +606,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -624,11 +638,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -653,11 +670,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -682,11 +702,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         CbomUploadRequestDto request = new CbomUploadRequestDto();
         request.setContent(content);
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(BOM_ENTRY_JSON)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(BOM_ENTRY_JSON)));
 
         // When
         CbomDto result = cbomService.createCbom(request);
@@ -696,7 +719,8 @@ class CbomServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateCbom_AlreadyExists_409Response() throws AlreadyExistException, CbomRepositoryException, JsonProcessingException {
+    void testCreateCbom_AlreadyExists_409Response()
+            throws AlreadyExistException, CbomRepositoryException, JsonProcessingException {
         // Given
         String serialNumber = "urn:uuid:test-123";
         Integer version = 1;
@@ -718,11 +742,14 @@ class CbomServiceITest extends BaseSpringBootTest {
         BomEntryDto e = entry(serialNumber, String.valueOf(version), OffsetDateTime.now());
         versionDto.setCryptoStats(e.getCryptoStats());
         // Mock WireMock to return versions list
-        mockServer.stubFor(WireMock.get(WireMock.urlMatching("/api/v1/bom/.*/versions"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(objectMapper.writeValueAsString(List.of(versionDto)))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlMatching("/api/v1/bom/.*/versions"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(List.of(versionDto)))));
 
         // When / Then
         cbomService.createCbom(request);
@@ -750,23 +777,24 @@ class CbomServiceITest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Mock WireMock to return 500 Server Error
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(500)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                    "type": "about:blank",
-                    "title": "Internal Server Error",
-                    "status": 500,
-                    "detail": "Server error occurred"
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(500)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {
+                                        "type": "about:blank",
+                                        "title": "Internal Server Error",
+                                        "status": 500,
+                                        "detail": "Server error occurred"
+                                        }
+                                        """)));
 
         // When / Then
-        assertThrows(CbomRepositoryException.class, () ->
-            cbomService.createCbom(request)
-        );
+        assertThrows(CbomRepositoryException.class, () -> cbomService.createCbom(request));
 
         // Verify entity was NOT saved to database
         List<Cbom> savedCboms = cbomRepository.findAll();
@@ -790,23 +818,24 @@ class CbomServiceITest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Mock WireMock to return 400 Bad Request
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(400)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                    "type": "about:blank",
-                    "title": "Bad Request",
-                    "status": 400,
-                    "detail": "Unsupported spec version 1.5"
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(400)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {
+                                        "type": "about:blank",
+                                        "title": "Bad Request",
+                                        "status": 400,
+                                        "detail": "Unsupported spec version 1.5"
+                                        }
+                                        """)));
 
         // When / Then
-        assertThrows(CbomRepositoryException.class, () ->
-            cbomService.createCbom(request)
-        );
+        assertThrows(CbomRepositoryException.class, () -> cbomService.createCbom(request));
 
         mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
     }
@@ -816,35 +845,37 @@ class CbomServiceITest extends BaseSpringBootTest {
         // Given
         CbomUploadRequestDto request1 = new CbomUploadRequestDto();
 
-        request1.setContent(new LinkedHashMap<>(Map.of(
-            "serialNumber", "urn:uuid:first",
-            "version", 1,
-            "specVersion", "1.6"
-        )));
+        request1
+                .setContent(new LinkedHashMap<>(
+                        Map.of("serialNumber", "urn:uuid:first", "version", 1, "specVersion", "1.6")));
 
         CbomUploadRequestDto request2 = new CbomUploadRequestDto();
-        request2.setContent(new LinkedHashMap<>(Map.of(
-            "serialNumber", "urn:uuid:second",
-            "version", 1,
-            "specVersion", "1.6"
-        )));
+        request2
+                .setContent(new LinkedHashMap<>(
+                        Map.of("serialNumber", "urn:uuid:second", "version", 1, "specVersion", "1.6")));
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .inScenario("multipleCreations")
-            .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(bomEntryJson()))
-            .willSetStateTo("second"));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .inScenario("multipleCreations")
+                        .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(bomEntryJson()))
+                        .willSetStateTo("second"));
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .inScenario("multipleCreations")
-            .whenScenarioStateIs("second")
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(bomEntryJson())));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .inScenario("multipleCreations")
+                        .whenScenarioStateIs("second")
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(bomEntryJson())));
 
         // When
         CbomDto result1 = cbomService.createCbom(request1);
@@ -979,8 +1010,7 @@ class CbomServiceITest extends BaseSpringBootTest {
     void testGetSearchableFieldInformationByGroup() {
         // given
         List<SearchFieldDataByGroupDto> attributeFields = new ArrayList<>();
-        when(attributeEngine.getResourceSearchableFields(Resource.CBOM, false))
-                .thenReturn(attributeFields);
+        when(attributeEngine.getResourceSearchableFields(Resource.CBOM, false)).thenReturn(attributeFields);
 
         // when
         List<SearchFieldDataByGroupDto> result = cbomService.getSearchableFieldInformationByGroup();
@@ -999,7 +1029,9 @@ class CbomServiceITest extends BaseSpringBootTest {
         assertEquals(9, propertyGroup.getSearchFieldData().size());
 
         // Verify all expected fields are present
-        List<String> fieldNames = propertyGroup.getSearchFieldData().stream()
+        List<String> fieldNames = propertyGroup
+                .getSearchFieldData()
+                .stream()
                 .map(SearchFieldDataDto::getFieldIdentifier)
                 .toList();
 
@@ -1036,16 +1068,11 @@ class CbomServiceITest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(3, savedCboms.size());
 
-        List<String> serialNumbers = savedCboms.stream()
-                .map(Cbom::getSerialNumber)
-                .sorted()
-                .toList();
+        List<String> serialNumbers = savedCboms.stream().map(Cbom::getSerialNumber).sorted().toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
 
-        List<OffsetDateTime> timestamps = savedCboms.stream()
-                .map(Cbom::getTimestamp)
-                .toList();
+        List<OffsetDateTime> timestamps = savedCboms.stream().map(Cbom::getTimestamp).toList();
 
         assertTrue(timestamps.stream().allMatch(timestamp::equals));
     }
@@ -1077,16 +1104,11 @@ class CbomServiceITest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(3, savedCboms.size());
 
-        List<String> serialNumbers = savedCboms.stream()
-                .map(Cbom::getSerialNumber)
-                .sorted()
-                .toList();
+        List<String> serialNumbers = savedCboms.stream().map(Cbom::getSerialNumber).sorted().toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
 
-        long nullTimestamps = savedCboms.stream()
-                .map(Cbom::getTimestamp)
-                .count();
+        long nullTimestamps = savedCboms.stream().map(Cbom::getTimestamp).count();
         assertEquals(3, nullTimestamps);
     }
 
@@ -1111,10 +1133,7 @@ class CbomServiceITest extends BaseSpringBootTest {
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(3, savedCboms.size());
 
-        List<String> serialNumbers = savedCboms.stream()
-                .map(Cbom::getSerialNumber)
-                .sorted()
-                .toList();
+        List<String> serialNumbers = savedCboms.stream().map(Cbom::getSerialNumber).sorted().toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1", "serial-2", "serial-3")));
 
@@ -1147,44 +1166,54 @@ class CbomServiceITest extends BaseSpringBootTest {
         long baseTimestamp = oneHourAgo.getTime() / 1000;
         long expectedAfter = Math.max(0L, baseTimestamp - safetyOverlapSeconds);
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter)))
-            .willReturn(WireMock.aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter)))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[]")));
 
         // When
         cbomInternalService.sync();
 
         // Then: WireMock verification ensures the 'after' param matched the DB timestamp
-        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter))));
+        mockServer
+                .verify(WireMock
+                        .getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .withQueryParam("after", WireMock.equalTo(String.valueOf(expectedAfter))));
     }
 
     @Test
     void sync_ThrowsCbomRepositoryExceptionOn500Error() {
         // Given: cbom-repository does not work
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(500)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                    "type": "about:blank",
-                    "title": "Internal Server Error",
-                    "status": 500,
-                    "detail": "Server error occurred"
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(500)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {
+                                        "type": "about:blank",
+                                        "title": "Internal Server Error",
+                                        "status": 500,
+                                        "detail": "Server error occurred"
+                                        }
+                                        """)));
 
         // Then sync should throw an exception
         assertThrows(CbomRepositoryException.class, () -> {
             cbomInternalService.sync();
         });
 
-        mockServer.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .withQueryParam("after", WireMock.equalTo("0")));
+        mockServer
+                .verify(WireMock
+                        .getRequestedFor(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .withQueryParam("after", WireMock.equalTo("0")));
     }
 
     @Test
@@ -1217,19 +1246,22 @@ class CbomServiceITest extends BaseSpringBootTest {
 
         // ... serial-1 exists and serial-2 gets not found
         mockEntrySpecVersionSource(entry1, "1.6", "name-1");
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/api/v1/bom/serial-2"))
-            .withQueryParam("version", WireMock.equalTo("2"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(404)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                        "type": "about:blank",
-                        "title": "Not Found",
-                        "status": 404,
-                        "detail": "Requested CBOM not found"
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/api/v1/bom/serial-2"))
+                        .withQueryParam("version", WireMock.equalTo("2"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(404)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {
+                                            "type": "about:blank",
+                                            "title": "Not Found",
+                                            "status": 404,
+                                            "detail": "Requested CBOM not found"
+                                        }
+                                        """)));
 
         // When
         cbomInternalService.sync();
@@ -1237,10 +1269,7 @@ class CbomServiceITest extends BaseSpringBootTest {
         // Then no boms were stored
         List<Cbom> savedCboms = cbomRepository.findAll();
         assertEquals(1, savedCboms.size());
-        List<String> serialNumbers = savedCboms.stream()
-                .map(Cbom::getSerialNumber)
-                .sorted()
-                .toList();
+        List<String> serialNumbers = savedCboms.stream().map(Cbom::getSerialNumber).sorted().toList();
 
         assertTrue(serialNumbers.containsAll(List.of("serial-1")));
     }
@@ -1293,19 +1322,24 @@ class CbomServiceITest extends BaseSpringBootTest {
         versionDto2.setCryptoStats(new CryptoStatsDto());
 
         // Version 5 is NOT in this list - should trigger the exception
-        mockServer.stubFor(WireMock.get(WireMock.urlMatching("/api/v1/bom/.*/versions"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(objectMapper.writeValueAsString(List.of(versionDto1, versionDto2)))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlMatching("/api/v1/bom/.*/versions"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(objectMapper.writeValueAsString(List.of(versionDto1, versionDto2)))));
 
         // When / Then
-        CbomRepositoryException exception = assertThrows(CbomRepositoryException.class, 
-        () -> cbomService.createCbom(request));
+        CbomRepositoryException exception = assertThrows(CbomRepositoryException.class,
+                () -> cbomService.createCbom(request));
 
         assertNotNull(exception.getProblemDetail());
         assertEquals(500, exception.getProblemDetail().getStatus());
-        assertEquals("CBOM serialNumber and version is reported as existing but was not found in the repository. Please try to upload it again to synchronize state.", exception.getProblemDetail().getDetail());
+        assertEquals(
+                "CBOM serialNumber and version is reported as existing but was not found in the repository. Please try to upload it again to synchronize state.",
+                exception.getProblemDetail().getDetail());
 
         mockServer.verify(WireMock.postRequestedFor(WireMock.urlEqualTo("/api/v1/bom")));
         mockServer.verify(WireMock.getRequestedFor(WireMock.urlMatching("/api/v1/bom/.*/versions")));
@@ -1333,25 +1367,28 @@ class CbomServiceITest extends BaseSpringBootTest {
         request.setContent(content);
 
         // Repository accepts the upload (201) with the same serialNumber/version
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                      "serialNumber": "urn:uuid:already-local",
-                      "version": 1,
-                      "cryptoStats": {
-                        "cryptoAssets": {
-                          "algorithms": { "total": 1 },
-                          "certificates": { "total": 1 },
-                          "protocols": { "total": 1 },
-                          "relatedCryptoMaterials": { "total": 1 },
-                          "total": 4
-                        }
-                      }
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {
+                                          "serialNumber": "urn:uuid:already-local",
+                                          "version": 1,
+                                          "cryptoStats": {
+                                            "cryptoAssets": {
+                                              "algorithms": { "total": 1 },
+                                              "certificates": { "total": 1 },
+                                              "protocols": { "total": 1 },
+                                              "relatedCryptoMaterials": { "total": 1 },
+                                              "total": 4
+                                            }
+                                          }
+                                        }
+                                        """)));
 
         // When / Then - local DB pre-check fires (line 252)
         assertThrows(AlreadyExistException.class, () -> cbomService.createCbom(request));
@@ -1369,9 +1406,10 @@ class CbomServiceITest extends BaseSpringBootTest {
         mockSearchResponse(List.of(entry));
         mockEntrySpecVersionSource(entry, "1.6", "source");
 
-        doReturn(false)  // validateSyncedCbomEntry: passes
-               .doReturn(true)   // createCbomEntry: already exists
-               .when(cbomRepositorySpy).existsBySerialNumberAndVersion(serialNumber, version);
+        doReturn(false) // validateSyncedCbomEntry: passes
+                .doReturn(true) // createCbomEntry: already exists
+                .when(cbomRepositorySpy)
+                .existsBySerialNumberAndVersion(serialNumber, version);
 
         // When
         String result = cbomInternalService.sync();
@@ -1392,10 +1430,10 @@ class CbomServiceITest extends BaseSpringBootTest {
         mockSearchResponse(List.of(entry));
         mockEntrySpecVersionSource(entry, "1.6", "source");
 
-        doReturn(false)
-               .when(cbomRepositorySpy).existsBySerialNumberAndVersion(serialNumber, version);
+        doReturn(false).when(cbomRepositorySpy).existsBySerialNumberAndVersion(serialNumber, version);
         doThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"))
-               .when(cbomRepositorySpy).save(any(Cbom.class));
+                .when(cbomRepositorySpy)
+                .save(any(Cbom.class));
 
         // When
         String result = cbomInternalService.sync();
@@ -1436,51 +1474,58 @@ class CbomServiceITest extends BaseSpringBootTest {
         mockEntrySpecVersionSource(entry, specVersion, source, null);
     }
 
-    private void mockEntrySpecVersionSource(BomEntryDto entry, String specVersion, String source, OffsetDateTime timestamp) {
+    private void mockEntrySpecVersionSource(BomEntryDto entry, String specVersion, String source,
+            OffsetDateTime timestamp) {
         Map<String, Object> metadata = new HashMap<>();
         if (timestamp != null) {
             metadata.put("timestamp", timestamp.toString());
         }
         metadata.put("component", Map.of("name", source));
 
-        Map<String, Object> response = Map.of(
-            "specVersion", specVersion,
-            "metadata", metadata
-        );
+        Map<String, Object> response = Map.of("specVersion", specVersion, "metadata", metadata);
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom/" + entry.getSerialNumber()))
-            .withQueryParam("version", WireMock.equalTo(entry.getVersion()))
-            .willReturn(WireMock.aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", CONTENT_TYPE)
-                .withBody(new Gson().toJson(response))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/api/v1/bom/" + entry.getSerialNumber()))
+                        .withQueryParam("version", WireMock.equalTo(entry.getVersion()))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", CONTENT_TYPE)
+                                .withBody(new Gson().toJson(response))));
     }
 
-    private void mockSearchResponse(List<BomEntryDto>  response) throws JsonProcessingException {
+    private void mockSearchResponse(List<BomEntryDto> response) throws JsonProcessingException {
         String jsonBody = objectMapper.writeValueAsString(response);
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .withQueryParam("after", WireMock.matching("\\d+"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(jsonBody)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .withQueryParam("after", WireMock.matching("\\d+"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(jsonBody)));
     }
 
     private void mockConflictResponse() {
         // Mock WireMock to return 409 Conflict
-        mockServer.stubFor(WireMock.post(WireMock.urlPathEqualTo("/api/v1/bom"))
-            .willReturn(WireMock.aResponse()
-                .withStatus(409)
-                .withHeader("Content-Type", "application/problem+json")
-                .withBody("""
-                    {
-                    "type": "about:blank",
-                    "title": "Conflict",
-                    "status": 409,
-                    "detail": "CBOM with this serial number and version already exists"
-                    }
-                    """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/api/v1/bom"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(409)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {
+                                        "type": "about:blank",
+                                        "title": "Conflict",
+                                        "status": 409,
+                                        "detail": "CBOM with this serial number and version already exists"
+                                        }
+                                        """)));
     }
 
     @Test
@@ -1493,8 +1538,7 @@ class CbomServiceITest extends BaseSpringBootTest {
         cbom = cbomRepository.save(cbom);
         final UUID savedUuid = cbom.getUuid();
 
-        doThrow(new RuntimeException("DB delete error"))
-                .when(cbomRepositorySpy).deleteById(savedUuid);
+        doThrow(new RuntimeException("DB delete error")).when(cbomRepositorySpy).deleteById(savedUuid);
 
         List<BulkActionMessageDto> messages = cbomService.bulkDeleteCbom(List.of(savedUuid));
 

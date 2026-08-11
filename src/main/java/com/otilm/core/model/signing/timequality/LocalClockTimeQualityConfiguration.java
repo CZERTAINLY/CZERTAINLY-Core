@@ -5,8 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Time-quality configuration variant representing the absence of any user-provided
- * configuration — the local system clock is used as-is.
+ * Time-quality configuration variant representing the absence of any user-provided configuration — the local system
+ * clock is used as-is.
  */
 public enum LocalClockTimeQualityConfiguration implements TimeQualityConfigurationModel {
 

@@ -11,8 +11,24 @@ import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Connector2FunctionGroup;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.FunctionGroup;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.FunctionGroupRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.cmp.CmpEntityUtil;
@@ -22,31 +38,39 @@ import com.otilm.core.util.CertificateTestData;
 import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.MetaDefinitions;
+import java.security.cert.X509Certificate;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.security.cert.X509Certificate;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
-    @Autowired private CertificateRepository certificateRepository;
-    @Autowired private CertificateContentRepository certificateContentRepository;
-    @Autowired private CryptographicKeyRepository cryptographicKeyRepository;
-    @Autowired private CryptographicKeyItemRepository cryptographicKeyItemRepository;
-    @Autowired private TokenProfileRepository tokenProfileRepository;
-    @Autowired private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
-    @Autowired private ConnectorRepository connectorRepository;
-    @Autowired private FunctionGroupRepository functionGroupRepository;
-    @Autowired private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+    @Autowired
+    private CertificateRepository certificateRepository;
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
+    @Autowired
+    private CryptographicKeyRepository cryptographicKeyRepository;
+    @Autowired
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+    @Autowired
+    private TokenProfileRepository tokenProfileRepository;
+    @Autowired
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    @Autowired
+    private ConnectorRepository connectorRepository;
+    @Autowired
+    private FunctionGroupRepository functionGroupRepository;
+    @Autowired
+    private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
     private TokenProfile tokenProfile;
 
@@ -90,9 +114,9 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
     @Test
     void contentSigning_returnsIssuedCertsWithActiveSigningKeyRegardlessOfEku() throws Exception {
-        Certificate noEku     = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
-        Certificate tsaCrit   = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
-        Certificate archived  = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
+        Certificate noEku = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
+        Certificate tsaCrit = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
+        Certificate archived = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
         archived.setArchived(true);
         certificateRepository.save(archived);
         Certificate revoked = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
@@ -107,25 +131,23 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
     @Test
     void timestamping_nonQualified_requiresExclusiveCriticalTsaEku() throws Exception {
         // Only a cert with exclusively id-kp-timeStamping AND a critical EKU extension matches RFC 3161.
-        Certificate tsaOnlyCritical    = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
-        Certificate tsaOnlyNonCritical = saveCert(CertificateTestUtil.createTimestampingCertificate(false), createKey());
-        Certificate tsaPlusOtherEku    = saveCert(CertificateTestUtil.createTimestampingCertificateWithExtraEku(), createKey());
-        Certificate noEku              = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
+        Certificate tsaOnlyCritical = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
+        Certificate tsaOnlyNonCritical = saveCert(CertificateTestUtil.createTimestampingCertificate(false),
+                createKey());
+        Certificate tsaPlusOtherEku = saveCert(CertificateTestUtil.createTimestampingCertificateWithExtraEku(),
+                createKey());
+        Certificate noEku = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
 
         List<UUID> found = queryUuids(SigningWorkflowType.TIMESTAMPING, false);
 
         assertThat(found).containsExactly(tsaOnlyCritical.getUuid());
-        assertThat(found).doesNotContain(
-                tsaOnlyNonCritical.getUuid(),
-                tsaPlusOtherEku.getUuid(),
-                noEku.getUuid()
-        );
+        assertThat(found).doesNotContain(tsaOnlyNonCritical.getUuid(), tsaPlusOtherEku.getUuid(), noEku.getUuid());
     }
 
     @Test
     void timestamping_qualified_additionallyRequiresQcCompliance() throws Exception {
         // ETSI EN 319 421 §6.2: qualified TSA certificate must carry id-etsi-qcs-QcCompliance.
-        Certificate qualified    = saveCert(CertificateTestUtil.createQualifiedTimestampingCertificate(), createKey());
+        Certificate qualified = saveCert(CertificateTestUtil.createQualifiedTimestampingCertificate(), createKey());
         Certificate nonQualified = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
 
         List<UUID> found = queryUuids(SigningWorkflowType.TIMESTAMPING, true);
@@ -140,13 +162,17 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         Certificate certNoPrivKey = saveCert(CertificateTestUtil.createTimestampingCertificate(), keyWithNoPrivKey);
 
         CryptographicKey keyWithDestroyedPrivKey = createKey();
-        cryptographicKeyItemRepository.findAll().stream()
-                .filter(i -> i.getKeyUuid().equals(keyWithDestroyedPrivKey.getUuid()) && i.getType() == KeyType.PRIVATE_KEY)
+        cryptographicKeyItemRepository
+                .findAll()
+                .stream()
+                .filter(i -> i.getKeyUuid().equals(keyWithDestroyedPrivKey.getUuid())
+                        && i.getType() == KeyType.PRIVATE_KEY)
                 .forEach(i -> {
                     i.setState(KeyState.DESTROYED);
                     cryptographicKeyItemRepository.save(i);
                 });
-        Certificate certDestroyedKey = saveCert(CertificateTestUtil.createTimestampingCertificate(), keyWithDestroyedPrivKey);
+        Certificate certDestroyedKey = saveCert(CertificateTestUtil.createTimestampingCertificate(),
+                keyWithDestroyedPrivKey);
 
         Certificate certGoodKey = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
 
@@ -162,7 +188,9 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         return certificateRepository
                 .findUsingSecurityFilter(SecurityFilter.create(), List.of(),
                         CertificateEligibilityUtil.constructQueryDigitalSigningCertAcceptable(workflowType, qualified))
-                .stream().map(Certificate::getUuid).toList();
+                .stream()
+                .map(Certificate::getUuid)
+                .toList();
     }
 
     private CryptographicKey createKey() throws Exception {
@@ -170,8 +198,8 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
         var keyPair = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
 
-        CryptographicKeyItem privKey = CmpEntityUtil.createCryptographicKeyItem(
-                key, UUID.randomUUID(), KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, null);
+        CryptographicKeyItem privKey = CmpEntityUtil
+                .createCryptographicKeyItem(key, UUID.randomUUID(), KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, null);
         privKey.setKeyUuid(key.getUuid());
         privKey.setKeyData(java.util.Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded()));
         privKey.setFormat(KeyFormat.PRKI);
@@ -181,8 +209,8 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         privKey.setKeyReferenceUuid(privKey.getUuid());
         cryptographicKeyItemRepository.save(privKey);
 
-        CryptographicKeyItem pubKey = CmpEntityUtil.createCryptographicKeyItem(
-                key, UUID.randomUUID(), KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, null);
+        CryptographicKeyItem pubKey = CmpEntityUtil
+                .createCryptographicKeyItem(key, UUID.randomUUID(), KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, null);
         pubKey.setKeyUuid(key.getUuid());
         pubKey.setKeyData(java.util.Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded()));
         pubKey.setFormat(KeyFormat.SPKI);
@@ -204,8 +232,8 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
     }
 
     private Certificate saveCert(X509Certificate x509, CryptographicKey key) throws Exception {
-        String pem = CertificateUtil.normalizeCertificateContent(
-                java.util.Base64.getEncoder().encodeToString(x509.getEncoded()));
+        String pem = CertificateUtil
+                .normalizeCertificateContent(java.util.Base64.getEncoder().encodeToString(x509.getEncoded()));
         CertificateContent content = CmpEntityUtil.createCertContent(CertificateUtil.getThumbprint(x509), pem);
         certificateContentRepository.save(content);
 
@@ -221,36 +249,32 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
     @ParameterizedTest(name = "[{index}] {0}")
     @MethodSource("com.otilm.core.util.CertificateTestData#provideDigitalSigningAcceptableTestData")
-    void jpaQuery_matchesInMemoryEligibilityRule(
-            String testCaseName,
-            List<CertificateTestData.KeyItemData> publicKeys,
-            List<CertificateTestData.KeyItemData> privateKeys,
-            CertificateState certState, CertificateValidationStatus validationStatus, boolean archived,
-            boolean withTokenProfile, boolean withTokenInstanceReference,
-            List<String> extendedKeyUsages, boolean extendedKeyUsageCritical,
-            SigningWorkflowType workflowType, boolean qualifiedTimestamp, Boolean qcCompliance,
-            boolean expectedResult
-    ) throws Exception {
+    void jpaQuery_matchesInMemoryEligibilityRule(String testCaseName, List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys, CertificateState certState,
+            CertificateValidationStatus validationStatus, boolean archived, boolean withTokenProfile,
+            boolean withTokenInstanceReference, List<String> extendedKeyUsages, boolean extendedKeyUsageCritical,
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp, Boolean qcCompliance, boolean expectedResult)
+            throws Exception {
         CryptographicKey key = buildAndSaveKey(publicKeys, privateKeys, withTokenProfile, withTokenInstanceReference);
-        Certificate cert = buildAndSaveCert(key, certState, validationStatus, archived,
-                extendedKeyUsages, extendedKeyUsageCritical, qcCompliance);
+        Certificate cert = buildAndSaveCert(key, certState, validationStatus, archived, extendedKeyUsages,
+                extendedKeyUsageCritical, qcCompliance);
 
         List<UUID> found = queryUuids(workflowType, qualifiedTimestamp);
 
         if (expectedResult) {
-            assertThat(found).as("Test case '%s': certificate should be included", testCaseName)
+            assertThat(found)
+                    .as("Test case '%s': certificate should be included", testCaseName)
                     .contains(cert.getUuid());
         } else {
-            assertThat(found).as("Test case '%s': certificate should be excluded", testCaseName)
+            assertThat(found)
+                    .as("Test case '%s': certificate should be excluded", testCaseName)
                     .doesNotContain(cert.getUuid());
         }
     }
 
-    private CryptographicKey buildAndSaveKey(
-            List<CertificateTestData.KeyItemData> publicKeys,
-            List<CertificateTestData.KeyItemData> privateKeys,
-            boolean withTokenProfile, boolean withTokenInstanceReference
-    ) {
+    private CryptographicKey buildAndSaveKey(List<CertificateTestData.KeyItemData> publicKeys,
+            List<CertificateTestData.KeyItemData> privateKeys, boolean withTokenProfile,
+            boolean withTokenInstanceReference) {
         CryptographicKey key = CmpEntityUtil.createCryptographicKey();
         if (withTokenProfile) {
             key.setTokenProfile(tokenProfile);
@@ -272,8 +296,8 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
     }
 
     private CryptographicKeyItem buildAndSaveKeyItem(CryptographicKey key, CertificateTestData.KeyItemData kd) {
-        CryptographicKeyItem item = CmpEntityUtil.createCryptographicKeyItem(
-                key, UUID.randomUUID(), kd.type(), kd.algorithm(), null);
+        CryptographicKeyItem item = CmpEntityUtil
+                .createCryptographicKeyItem(key, UUID.randomUUID(), kd.type(), kd.algorithm(), null);
         item.setKeyUuid(key.getUuid());
         item.setKeyData("placeholder");
         item.setFormat(kd.type() == KeyType.PUBLIC_KEY ? KeyFormat.SPKI : KeyFormat.PRKI);
@@ -285,14 +309,12 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         return cryptographicKeyItemRepository.save(saved);
     }
 
-    private Certificate buildAndSaveCert(
-            CryptographicKey key,
-            CertificateState state, CertificateValidationStatus validationStatus, boolean archived,
-            List<String> extendedKeyUsages, boolean extendedKeyUsageCritical, Boolean qcCompliance
-    ) throws Exception {
+    private Certificate buildAndSaveCert(CryptographicKey key, CertificateState state,
+            CertificateValidationStatus validationStatus, boolean archived, List<String> extendedKeyUsages,
+            boolean extendedKeyUsageCritical, Boolean qcCompliance) throws Exception {
         X509Certificate x509 = CertificateTestUtil.createCertificateWithoutEku();
-        String pem = CertificateUtil.normalizeCertificateContent(
-                java.util.Base64.getEncoder().encodeToString(x509.getEncoded()));
+        String pem = CertificateUtil
+                .normalizeCertificateContent(java.util.Base64.getEncoder().encodeToString(x509.getEncoded()));
         CertificateContent content = CmpEntityUtil.createCertContent(CertificateUtil.getThumbprint(x509), pem);
         certificateContentRepository.save(content);
 
@@ -303,7 +325,9 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         cert.setState(state);
         cert.setValidationStatus(validationStatus);
         cert.setArchived(archived);
-        cert.setExtendedKeyUsage(extendedKeyUsages.isEmpty() ? null : MetaDefinitions.serializeArrayString(extendedKeyUsages));
+        cert
+                .setExtendedKeyUsage(
+                        extendedKeyUsages.isEmpty() ? null : MetaDefinitions.serializeArrayString(extendedKeyUsages));
         cert.setExtendedKeyUsageCritical(extendedKeyUsageCritical);
         if (qcCompliance != null) {
             cert.setQcCompliance(qcCompliance);
