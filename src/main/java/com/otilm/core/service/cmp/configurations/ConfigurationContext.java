@@ -5,10 +5,12 @@ import com.otilm.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.core.cmp.ProtectionMethod;
+import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
 import com.otilm.core.service.cmp.message.protection.ProtectionStrategy;
 import java.util.List;
+import java.util.function.Predicate;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.x509.GeneralName;
@@ -58,4 +60,24 @@ public interface ConfigurationContext {
 
     // to scan extra cert field
     boolean dumpSigning();
+
+    /** Whether the profile authenticates MAC-protected requests against certificate registrations. */
+    boolean isRegistrationMode();
+
+    /**
+     * Registration mode: resolve {@code senderKID} to a pre-registration, verify the request MAC via the challenge gate
+     * (counting/lockout), and stash the matched certificate and its challenge for the handler and response keying.
+     * Throws the single generic rejection on any failure.
+     *
+     * @param macMatches given a candidate challenge key's bytes, whether the request MAC verifies under it
+     */
+    void verifyRegistrationMacProtection(PKIMessage message, Predicate<byte[]> macMatches) throws CmpBaseException;
+
+    /**
+     * The pre-registration matched during protection validation, or {@code null} (not registration mode / unresolved).
+     */
+    Certificate getMatchedRegistration();
+
+    /** The matched registration's challenge plaintext — the {@code authorizationSecret} for completion. */
+    String getMatchedChallenge();
 }
