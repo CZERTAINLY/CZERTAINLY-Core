@@ -49,6 +49,12 @@ final class TestClassTaxonomy {
     private static final Pattern CLASS_DECL = Pattern
             .compile("(abstract\\s+)?class\\s+(\\w+)(?:<[^>]*>)?(?:\\s+extends\\s+(\\w+))?");
 
+    // Nested class declaration: an indented `class` keyword (the primary type is at column 0), preceded by any run of
+    // annotations and modifiers, which may span lines — `@Nested` typically sits on its own line above the keyword.
+    private static final Pattern NESTED_CLASS_DECL = Pattern
+            .compile("(?m)^[ \\t]+((?:(?:@\\w+(?:\\([^)]*\\))?|public|protected|private|static|final|abstract|sealed"
+                    + "|non-sealed)\\s+)*)class\\s+(\\w+)");
+
     // Annotation checks are:
     // (a) line-anchored — a real annotation begins its line (after indentation)
     // (b) token-anchored with `\b` so `@Test` does not match `@TestConfiguration`/`@Testcontainers`/`@TestInstance`.
@@ -162,6 +168,27 @@ final class TestClassTaxonomy {
         Matcher m = CLASS_DECL.matcher(src);
         boolean primaryIsAbstract = m.find() && m.group(1) != null;
         return !primaryIsAbstract;
+    }
+
+    /**
+     * A class declared inside another class in the same file.
+     *
+     * @param name the nested class simple name
+     * @param junitNested whether the declaration carries {@code @Nested}
+     */
+    record NestedClass(String name, boolean junitNested) {
+    }
+
+    /**
+     * Every class declared inside the file's primary type, in declaration order.
+     */
+    static List<NestedClass> nestedClasses(Path javaFile) {
+        List<NestedClass> nested = new ArrayList<>();
+        Matcher m = NESTED_CLASS_DECL.matcher(code(javaFile));
+        while (m.find()) {
+            nested.add(new NestedClass(m.group(2), m.group(1).contains("@Nested")));
+        }
+        return nested;
     }
 
     /**
