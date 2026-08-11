@@ -168,7 +168,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         dto.setEnabled(enabled);
         dto.setVersion(AttributeVersion.fromIntVersion(attribute.getVersion()));
         dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
-        dto.setRequired(required);
+        dto.setRequired(Boolean.TRUE.equals(required));
         return dto;
     }
 
