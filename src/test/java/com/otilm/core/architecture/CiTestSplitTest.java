@@ -43,21 +43,19 @@ class CiTestSplitTest {
             .of("test-non-integration", "test-integration-core", "test-integration-service-1",
                     "test-integration-service-2");
 
-    private static final String SERVICE_SPLIT_BOUNDARY =
-            "%regex[.*/integration/service/[D-Z][^/]*ITest.*]";
+    private static final String SERVICE_SPLIT_BOUNDARY = "%regex[.*/integration/service/[D-Z][^/]*ITest.*]";
 
-    private static final String SERVICE_PACKAGE =
-            "com/otilm/core/integration/service/**/*ITest.java";
+    private static final String SERVICE_PACKAGE = "com/otilm/core/integration/service/**/*ITest.java";
 
-    private static final List<String> SERVICE_SHARD_TRANSFERS = List.of(
-            "com/otilm/core/integration/service/AcmeProfileServiceITest.java",
-            "com/otilm/core/integration/service/AcmeServiceITest.java",
-            "com/otilm/core/integration/service/CertificateServiceITest.java",
-            "com/otilm/core/integration/service/CryptographicKeyServiceITest.java");
+    private static final List<String> SERVICE_SHARD_TRANSFERS = List
+            .of("com/otilm/core/integration/service/AcmeProfileServiceITest.java",
+                    "com/otilm/core/integration/service/AcmeServiceITest.java",
+                    "com/otilm/core/integration/service/CertificateServiceITest.java",
+                    "com/otilm/core/integration/service/CryptographicKeyServiceITest.java");
 
-    private static final List<String> CORE_SHARD_TRANSFERS = List.of(
-            "com/otilm/core/integration/cryptography/PQCITest.java",
-            "com/otilm/core/integration/search/TimeQualityConfigurationSearchITest.java");
+    private static final List<String> CORE_SHARD_TRANSFERS = List
+            .of("com/otilm/core/integration/cryptography/PQCITest.java",
+                    "com/otilm/core/integration/search/TimeQualityConfigurationSearchITest.java");
 
     /**
      * Surefire's built-in default {@code <includes>}, applied to any profile that declares no {@code <includes>} of its
@@ -148,19 +146,15 @@ class CiTestSplitTest {
         String outerClass = "com/otilm/core/integration/service/SampleITest.java";
         String nestedClass = "com/otilm/core/integration/service/SampleITest$SomethingTest.java";
 
-        assertThat(matchesAny(SUREFIRE_DEFAULT_INCLUDES, nestedClass))
-                .describedAs("""
-                        The nested class this guard uses must be one surefire's default <includes> actually
-                        claim — otherwise the exclusion assertion below passes vacuously and the guard proves
-                        nothing about the duplicate-execution regression it exists to catch.""")
-                .isTrue();
+        assertThat(matchesAny(SUREFIRE_DEFAULT_INCLUDES, nestedClass)).describedAs("""
+                The nested class this guard uses must be one surefire's default <includes> actually
+                claim — otherwise the exclusion assertion below passes vacuously and the guard proves
+                nothing about the duplicate-execution regression it exists to catch.""").isTrue();
         assertThat(matchesAny(excludes, outerClass)).isTrue();
-        assertThat(matchesAny(excludes, nestedClass))
-                .describedAs("""
-                        A nested class inside an integration *ITest whose name matches surefire's default
-                        <includes> must still be excluded from test-non-integration, or it runs both there
-                        and on the integration worker that owns its enclosing class.""")
-                .isTrue();
+        assertThat(matchesAny(excludes, nestedClass)).describedAs("""
+                A nested class inside an integration *ITest whose name matches surefire's default
+                <includes> must still be excluded from test-non-integration, or it runs both there
+                and on the integration worker that owns its enclosing class.""").isTrue();
     }
 
     @Test
