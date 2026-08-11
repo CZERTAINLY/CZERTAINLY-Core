@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -31,6 +32,9 @@ import java.util.UUID;
  * NULL: the identity match skips such rows, and a NULL normalized subject keeps the SQL prefilter equally
  * unable to return them.
  */
+// Flyway requires the V<timestamp>__Name class name to resolve the migration version; it cannot match S101's
+// class-name pattern.
+@SuppressWarnings("java:S101")
 public class V202608071000__RegistrationSubjectDnNormalizedMigration extends BaseJavaMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(V202608071000__RegistrationSubjectDnNormalizedMigration.class);
@@ -41,7 +45,7 @@ public class V202608071000__RegistrationSubjectDnNormalizedMigration extends Bas
     }
 
     @Override
-    public void migrate(Context context) throws Exception {
+    public void migrate(Context context) throws SQLException {
         seedRdnOidRegistry(context);
         backfillNormalizedSubjects(context);
     }
@@ -54,7 +58,7 @@ public class V202608071000__RegistrationSubjectDnNormalizedMigration extends Bas
      * merged map is published in a single call: publishing marks the category as loaded, which
      * PlatformX500NameStyle's construction requires even when no custom entries exist.
      */
-    private void seedRdnOidRegistry(Context context) throws Exception {
+    private void seedRdnOidRegistry(Context context) throws SQLException {
         Map<String, OidRecord> records = new HashMap<>();
         try (Statement select = context.getConnection().createStatement();
              ResultSet rows = select.executeQuery(
@@ -81,7 +85,7 @@ public class V202608071000__RegistrationSubjectDnNormalizedMigration extends Bas
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, records);
     }
 
-    private void backfillNormalizedSubjects(Context context) throws Exception {
+    private void backfillNormalizedSubjects(Context context) throws SQLException {
         int backfilled = 0;
         int skipped = 0;
         try (Statement select = context.getConnection().createStatement();
@@ -105,9 +109,10 @@ public class V202608071000__RegistrationSubjectDnNormalizedMigration extends Bas
                 }
                 update.setString(1, normalized);
                 update.setObject(2, UUID.fromString(certificateUuid));
-                update.executeUpdate();
+                update.addBatch();
                 backfilled++;
             }
+            update.executeBatch();
         }
         logger.info("Normalized subject backfill finished: {} rows backfilled, {} rows skipped.", backfilled, skipped);
     }

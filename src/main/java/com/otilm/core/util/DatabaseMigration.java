@@ -90,7 +90,7 @@ public class DatabaseMigration {
                                                                                                                                                                                                 true), V202607031200__CreateAttributeContentResolverUserAndPermissions(
                                                                                                                                                                                                         1703465896,
                                                                                                                                                                                                         false), V202608071000__RegistrationSubjectDnNormalizedMigration(
-                                                                                                                                                                                                                -549160225);
+                                                                                                                                                                                                                1108119154);
 
         private final int checksum;
 

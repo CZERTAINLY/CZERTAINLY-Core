@@ -20,11 +20,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,10 +84,10 @@ class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
                 .isEqualTo(CertificateUtil.normalizeStoredSubjectDn("CN=device-approval"));
         assertThat(reload(registeredNullDn).getSubjectDnNormalized())
                 .as("a null subject DN normalizes to the empty name")
-                .isEqualTo("");
+                .isEmpty();
         assertThat(reload(registeredBlankDn).getSubjectDnNormalized())
                 .as("a blank subject DN normalizes to the empty name")
-                .isEqualTo("");
+                .isEmpty();
         assertThat(reload(registeredUnparseable).getSubjectDnNormalized())
                 .as("an unparseable stored DN stays NULL, matching the identity match's own skip")
                 .isNull();
@@ -167,7 +167,7 @@ class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
 
     private void runMigration() throws Exception {
         try (Connection conn = dataSource.getConnection()) {
-            Context context = Mockito.mock(Context.class);
+            Context context = mock(Context.class);
             when(context.getConnection()).thenReturn(conn);
             new V202608071000__RegistrationSubjectDnNormalizedMigration().migrate(context);
         }
