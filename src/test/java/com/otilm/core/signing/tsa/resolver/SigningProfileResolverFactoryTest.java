@@ -8,10 +8,9 @@ import com.otilm.core.model.signing.SigningRecordPolicyModelBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
 import com.otilm.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,12 +23,10 @@ class SigningProfileResolverFactoryTest {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static SigningProfileModel<?, ?> anyProfile() {
-        ManagedTimestampingWorkflow workflow = new ManagedTimestampingWorkflow(
-                UUID.randomUUID(), List.of(), Boolean.TRUE, null,
-                "1.2.3", List.of(), List.of(), Boolean.FALSE);
-        return new SigningProfileModel<>(
-                UUID.randomUUID(), "test-profile", null, 1, true,
-                List.of(SigningProtocol.TSP), UUID.randomUUID(), workflow, new StaticKeyManagedSigning(UUID.randomUUID(), List.of()),
+        ManagedTimestampingWorkflow workflow = new ManagedTimestampingWorkflow(UUID.randomUUID(), List.of(),
+                Boolean.TRUE, null, "1.2.3", List.of(), List.of(), Boolean.FALSE);
+        return new SigningProfileModel<>(UUID.randomUUID(), "test-profile", null, 1, true, List.of(SigningProtocol.TSP),
+                UUID.randomUUID(), workflow, new StaticKeyManagedSigning(UUID.randomUUID(), List.of()),
                 SigningRecordPolicyModelBuilder.notRecording().build());
     }
 

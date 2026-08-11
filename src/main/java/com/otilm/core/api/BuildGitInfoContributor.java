@@ -1,5 +1,8 @@
 package com.otilm.core.api;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.info.Info;
@@ -8,10 +11,6 @@ import org.springframework.boot.info.GitProperties;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-
 @Component
 @Profile("!test")
 public class BuildGitInfoContributor implements InfoContributor {
@@ -19,8 +18,7 @@ public class BuildGitInfoContributor implements InfoContributor {
     private final GitProperties gitProperties;
     private final String version;
 
-    public BuildGitInfoContributor(
-            @Value("${app.version}") String version,
+    public BuildGitInfoContributor(@Value("${app.version}") String version,
             @Autowired(required = false) GitProperties gitProperties) {
         this.version = version;
         this.gitProperties = gitProperties;

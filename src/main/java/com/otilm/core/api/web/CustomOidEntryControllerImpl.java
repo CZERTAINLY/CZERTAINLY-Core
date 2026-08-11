@@ -6,14 +6,17 @@ import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
-import com.otilm.api.model.core.oid.*;
+import com.otilm.api.model.core.oid.CustomOidEntryDetailResponseDto;
+import com.otilm.api.model.core.oid.CustomOidEntryListResponseDto;
+import com.otilm.api.model.core.oid.CustomOidEntryRequestDto;
+import com.otilm.api.model.core.oid.CustomOidEntryUpdateRequestDto;
+import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.service.CustomOidEntryExternalService;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-
-import java.util.List;
 
 @Controller
 public class CustomOidEntryControllerImpl implements CustomOidEntryController {
@@ -39,7 +42,8 @@ public class CustomOidEntryControllerImpl implements CustomOidEntryController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.OID, operation = Operation.UPDATE)
-    public CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto updateDto) throws NotFoundException {
+    public CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto updateDto)
+            throws NotFoundException {
         return customOidEntryService.editCustomOidEntry(oid, updateDto);
     }
 

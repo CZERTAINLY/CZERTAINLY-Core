@@ -7,17 +7,16 @@ import com.otilm.core.messaging.jms.configuration.StatusPollProperties;
 import com.otilm.core.messaging.model.CertificateStatusPollMessage;
 import com.otilm.core.service.handler.authority.CertificateOperation;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
-
-import java.time.Duration;
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,10 +30,14 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CertificateStatusPollClaimerTest {
 
-    @Mock private ClusterOperationSynchronizer clusterSynchronizer;
-    @Mock private CertificateStatusPollRepository pollRepository;
-    @Mock private CertificateStatusPollWriter pollWriter;
-    @Mock private StatusPollProperties statusPollProperties;
+    @Mock
+    private ClusterOperationSynchronizer clusterSynchronizer;
+    @Mock
+    private CertificateStatusPollRepository pollRepository;
+    @Mock
+    private CertificateStatusPollWriter pollWriter;
+    @Mock
+    private StatusPollProperties statusPollProperties;
 
     private static final int BATCH_SIZE = 200;
 
@@ -42,7 +45,8 @@ class CertificateStatusPollClaimerTest {
 
     @BeforeEach
     void setUp() {
-        claimer = new CertificateStatusPollClaimer(clusterSynchronizer, pollRepository, pollWriter, statusPollProperties);
+        claimer = new CertificateStatusPollClaimer(clusterSynchronizer, pollRepository, pollWriter,
+                statusPollProperties);
 
         StatusPollProperties.PollSchedule schedule = new StatusPollProperties.PollSchedule(
                 List.of(Duration.ofSeconds(5), Duration.ofSeconds(30)), 100);
@@ -63,7 +67,8 @@ class CertificateStatusPollClaimerTest {
     @Test
     void noDueRows_returnsEmptyAndDoesNotReschedule() {
         when(clusterSynchronizer.tryLock(any())).thenReturn(true);
-        when(pollRepository.findByNextPollAtLessThanEqualOrderByNextPollAt(any(OffsetDateTime.class), any(Pageable.class)))
+        when(pollRepository
+                .findByNextPollAtLessThanEqualOrderByNextPollAt(any(OffsetDateTime.class), any(Pageable.class)))
                 .thenReturn(List.of());
 
         assertThat(claimer.claimDueBatch(BATCH_SIZE)).isEmpty();
@@ -75,7 +80,8 @@ class CertificateStatusPollClaimerTest {
     void dueRow_buildsMessageAndAdvancesSchedule() {
         when(clusterSynchronizer.tryLock(any())).thenReturn(true);
         UUID certUuid = UUID.randomUUID();
-        when(pollRepository.findByNextPollAtLessThanEqualOrderByNextPollAt(any(OffsetDateTime.class), any(Pageable.class)))
+        when(pollRepository
+                .findByNextPollAtLessThanEqualOrderByNextPollAt(any(OffsetDateTime.class), any(Pageable.class)))
                 .thenReturn(List.of(pollRow(certUuid, CertificateOperation.ISSUE, 2)));
 
         List<CertificateStatusPollMessage> messages = claimer.claimDueBatch(BATCH_SIZE);

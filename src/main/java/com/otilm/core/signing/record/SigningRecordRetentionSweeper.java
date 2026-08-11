@@ -17,10 +17,8 @@ public class SigningRecordRetentionSweeper {
     private final int batchSize;
     private final int maxBatchesPerSweep;
 
-    public SigningRecordRetentionSweeper(SigningRecordWriter writer,
-                                         SigningRecordMetrics metrics,
-                                         ClusterOperationSynchronizer clusterSynchronizer,
-                                         SigningRecordRetentionProperties properties) {
+    public SigningRecordRetentionSweeper(SigningRecordWriter writer, SigningRecordMetrics metrics,
+            ClusterOperationSynchronizer clusterSynchronizer, SigningRecordRetentionProperties properties) {
         this.writer = writer;
         this.metrics = metrics;
         this.clusterSynchronizer = clusterSynchronizer;
@@ -29,15 +27,13 @@ public class SigningRecordRetentionSweeper {
     }
 
     /**
-     * Holds the cluster-wide advisory lock for the sweep via this transaction (the lock is
-     * transaction-scoped). Each batch deletes and commits in its own transaction through
-     * {@link SigningRecordWriter}, so row locks and WAL release incrementally while this
-     * outer transaction keeps the single-node guarantee.
+     * Holds the cluster-wide advisory lock for the sweep via this transaction (the lock is transaction-scoped). Each
+     * batch deletes and commits in its own transaction through {@link SigningRecordWriter}, so row locks and WAL
+     * release incrementally while this outer transaction keeps the single-node guarantee.
      * <p>
-     * The sweep deletes at most {@code maxBatchesPerSweep} batches per run. The cap bounds how long this
-     * outer transaction stays open — a long hold would keep a connection idle-in-transaction and pin the
-     * vacuum horizon — so a large expired backlog is cleared across several scheduled sweeps rather than one
-     * long-running transaction.
+     * The sweep deletes at most {@code maxBatchesPerSweep} batches per run. The cap bounds how long this outer
+     * transaction stays open — a long hold would keep a connection idle-in-transaction and pin the vacuum horizon — so
+     * a large expired backlog is cleared across several scheduled sweeps rather than one long-running transaction.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sweep() {
@@ -60,8 +56,9 @@ public class SigningRecordRetentionSweeper {
                 batchesRun++;
             } while (deleted == batchSize && batchesRun < maxBatchesPerSweep);
             if (deleted == batchSize) {
-                log.debug("Retention sweep stopped at the per-sweep cap of {} batch(es); any rows still expired clear on the next sweep",
-                        maxBatchesPerSweep);
+                log
+                        .debug("Retention sweep stopped at the per-sweep cap of {} batch(es); any rows still expired clear on the next sweep",
+                                maxBatchesPerSweep);
             }
         } catch (RuntimeException e) {
             metrics.sweepFailed(SigningRecordMetrics.DELETE_TYPE_EXPIRED).increment();

@@ -23,29 +23,28 @@ import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.builders.AuthorityFixtures;
 import com.otilm.core.util.builders.V3ConnectorStubs;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.UUID;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.UUID;
-
-import static com.otilm.core.util.builders.CertificateBuilder.aCertificate;
-import static com.otilm.core.util.builders.CertificateContentBuilder.aCertificateContent;
-import static com.otilm.core.util.builders.CertificateRequestEntityBuilder.aCertificateRequest;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
+import static com.otilm.core.util.builders.CertificateBuilder.aCertificate;
+import static com.otilm.core.util.builders.CertificateContentBuilder.aCertificateContent;
+import static com.otilm.core.util.builders.CertificateRequestEntityBuilder.aCertificateRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * End-to-end integration tests for the v3 "plain issue" path: a {@code REQUESTED} certificate
- * with a real CSR and <em>no</em> {@link com.otilm.core.dao.entity.CertificateRegistration} binding.
+ * End-to-end integration tests for the v3 "plain issue" path: a {@code REQUESTED} certificate with a real CSR and
+ * <em>no</em> {@link com.otilm.core.dao.entity.CertificateRegistration} binding.
  */
 class V3PlainIssueITest extends BaseSpringBootTest {
 
@@ -101,8 +100,8 @@ class V3PlainIssueITest extends BaseSpringBootTest {
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     /**
-     * Scenario 1: sync v3 issue (HTTP 200) on a {@code REQUESTED} certificate with no registration binding
-     * → certificate reaches {@code ISSUED}, and the request landed on the v3 issue endpoint.
+     * Scenario 1: sync v3 issue (HTTP 200) on a {@code REQUESTED} certificate with no registration binding →
+     * certificate reaches {@code ISSUED}, and the request landed on the v3 issue endpoint.
      */
     @Test
     void reachesIssued_whenSyncV3IssueSucceeds() throws Exception {
@@ -127,9 +126,9 @@ class V3PlainIssueITest extends BaseSpringBootTest {
     }
 
     /**
-     * Scenario 2: async v3 issue (HTTP 202) on a {@code REQUESTED} certificate with no registration binding
-     * and {@code CERTIFICATE_STATUS_POLLING} advertised → certificate parks in {@code PENDING_ISSUE}
-     * and exactly one {@code certificate_status_poll} row is scheduled.
+     * Scenario 2: async v3 issue (HTTP 202) on a {@code REQUESTED} certificate with no registration binding and
+     * {@code CERTIFICATE_STATUS_POLLING} advertised → certificate parks in {@code PENDING_ISSUE} and exactly one
+     * {@code certificate_status_poll} row is scheduled.
      */
     @Test
     void parksPendingIssueAndSchedulesPoll_whenAsyncV3IssueIsAccepted() throws Exception {
@@ -150,9 +149,7 @@ class V3PlainIssueITest extends BaseSpringBootTest {
                 .isEqualTo(CertificateState.PENDING_ISSUE);
         wireMockServer.verify(1, postRequestedFor(urlEqualTo(V3_ISSUE_PATH)));
 
-        long pollRows = pollRepository.findAll().stream()
-                .filter(p -> certUuid.equals(p.getCertificateUuid()))
-                .count();
+        long pollRows = pollRepository.findAll().stream().filter(p -> certUuid.equals(p.getCertificateUuid())).count();
         assertThat(pollRows)
                 .as("Async plain issue with CERTIFICATE_STATUS_POLLING must schedule exactly one status-poll row")
                 .isEqualTo(1L);
@@ -161,12 +158,8 @@ class V3PlainIssueITest extends BaseSpringBootTest {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private AuthorityFixtures.Repos repos() {
-        return new AuthorityFixtures.Repos(
-                connectorRepository,
-                functionGroupRepository,
-                connector2FunctionGroupRepository,
-                authorityInstanceReferenceRepository,
-                raProfileRepository,
+        return new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
+                connector2FunctionGroupRepository, authorityInstanceReferenceRepository, raProfileRepository,
                 connectorInterfaceRepository);
     }
 
@@ -181,16 +174,16 @@ class V3PlainIssueITest extends BaseSpringBootTest {
     }
 
     /**
-     * Seeds a {@code REQUESTED} certificate with a real PKCS#10 CSR and <em>no</em> {@code CertificateRegistration} binding,
-     * associated with the fixture's RA profile.
+     * Seeds a {@code REQUESTED} certificate with a real PKCS#10 CSR and <em>no</em> {@code CertificateRegistration}
+     * binding, associated with the fixture's RA profile.
      */
     private Certificate seedRequestedCertWithCsr(AuthorityFixtures.Fixture fixture, KeyPair kp, String commonName)
             throws Exception {
         PKCS10CertificationRequest csr = AcmeTestUtil.createCsr(kp, commonName);
         String csrBase64 = Base64.getEncoder().encodeToString(csr.getEncoded());
 
-        CertificateRequestEntity csrEntity = certificateRequestRepository.save(
-                aCertificateRequest()
+        CertificateRequestEntity csrEntity = certificateRequestRepository
+                .save(aCertificateRequest()
                         .withContent(csrBase64)
                         .withSubjectDn("CN=" + commonName)
                         .withPublicKeyAlgorithm("RSA")
@@ -199,8 +192,8 @@ class V3PlainIssueITest extends BaseSpringBootTest {
 
         CertificateContent content = certificateContentRepository.save(aCertificateContent().build());
 
-        return certificateRepository.save(
-                aCertificate()
+        return certificateRepository
+                .save(aCertificate()
                         .withSubjectDn("CN=" + commonName)
                         .withCertificateContent(content)
                         .withCertificateContentId(content.getId())
@@ -213,7 +206,8 @@ class V3PlainIssueITest extends BaseSpringBootTest {
     }
 
     private Certificate reloadCert(UUID uuid) {
-        return certificateRepository.findByUuid(uuid)
+        return certificateRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new AssertionError("Certificate not found: " + uuid));
     }
 }

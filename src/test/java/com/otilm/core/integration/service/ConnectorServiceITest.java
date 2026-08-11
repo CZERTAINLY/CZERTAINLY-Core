@@ -1,8 +1,20 @@
 package com.otilm.core.integration.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.clients.mq.ProxyClient;
-import com.otilm.api.exception.*;
-import com.otilm.api.model.client.connector.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.connector.ConnectDto;
+import com.otilm.api.model.client.connector.ConnectRequestDto;
+import com.otilm.api.model.client.connector.ConnectorRequestDto;
+import com.otilm.api.model.client.connector.ConnectorUpdateRequestDto;
+import com.otilm.api.model.client.connector.InfoResponse;
 import com.otilm.api.model.client.connector.v2.ConnectorInfo;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.ConnectorInterfaceInfo;
@@ -37,18 +49,17 @@ import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.util.*;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -133,7 +144,8 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListConnectors() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -142,10 +154,9 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListConnectorsByFunctionGroup() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(
-                SecurityFilter.create(),
-                Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER), Optional.empty(), Optional.empty()
-        );
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER),
+                        Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -154,22 +165,18 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListConnectorsByFunctionGroup_notFound() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(
-                SecurityFilter.create(),
-                Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
-                Optional.empty(), Optional.empty()
-        );
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
+                        Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
 
     @Test
     void testListConnectorsByFunctionGroupAndKind() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(
-                SecurityFilter.create(),
-                Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER), Optional.of("ApiKey"),
-                Optional.empty()
-        );
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER),
+                        Optional.of("ApiKey"), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -178,33 +185,34 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListConnectorsByFunctionGroupAndKind_notFound() throws NotFoundException {
-        Assertions.assertEquals(0,
-                connectorService.listConnectors(
-                        SecurityFilter.create(),
-                        Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
-                        Optional.of("wrong-kind"), Optional.empty()).size()
-        );
+        Assertions
+                .assertEquals(0,
+                        connectorService
+                                .listConnectors(SecurityFilter.create(),
+                                        Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
+                                        Optional.of("wrong-kind"), Optional.empty())
+                                .size());
 
     }
 
     @Test
     void testListConnectorsByFunctionGroupAndKind_noConnectorOfKind() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(
-                SecurityFilter.create(),
-                Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
-                Optional.of("wrong-kind"), Optional.empty()
-        );
+        List<ConnectorDto> connectors = connectorService
+                .listConnectors(SecurityFilter.create(), Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
+                        Optional.of("wrong-kind"), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
 
     @Test
     void testGetAllAttributesOfConnector() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
-        Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> result = connectorService.getAllAttributesOfConnector(connector.getSecuredUuid());
+        Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> result = connectorService
+                .getAllAttributesOfConnector(connector.getSecuredUuid());
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1, result.size());
         Assertions.assertNotNull(result.get(FunctionGroupCode.CREDENTIAL_PROVIDER));
@@ -212,14 +220,14 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetAllAttributesOfConnector_notFund() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getAllAttributesOfConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorService
+                        .getAllAttributesOfConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testGetConnector() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
 
         ConnectorDto dto = connectorService.getConnector(connector.getSecuredUuid());
         Assertions.assertNotNull(dto);
@@ -229,7 +237,9 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorService
+                        .getConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -242,13 +252,18 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetConnectorEntity_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorInternalService.getConnectorEntity(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorInternalService
+                        .getConnectorEntity(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    void testAddConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException, JsonProcessingException {
+    void testAddConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException,
+            JsonProcessingException {
         List<ConnectorInterfaceInfo> connectorInterfaceInfos = new ArrayList<>();
-        List<ConnectorInterface> connectorInterfaces = List.of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.HEALTH, ConnectorInterface.METRICS, ConnectorInterface.AUTHORITY);
+        List<ConnectorInterface> connectorInterfaces = List
+                .of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.HEALTH,
+                        ConnectorInterface.METRICS, ConnectorInterface.AUTHORITY);
         for (ConnectorInterface connectorInterface : connectorInterfaces) {
             ConnectorInterfaceInfo info = new ConnectorInterfaceInfo();
             info.setCode(connectorInterface);
@@ -261,9 +276,7 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         infoResponse.setConnector(new ConnectorInfo());
         infoResponse.setInterfaces(connectorInterfaceInfos);
         String jsonBody = objectMapper.writeValueAsString(infoResponse);
-        mockServer.stubFor(WireMock
-                .get("/v2/info")
-                .willReturn(WireMock.okJson(jsonBody)));
+        mockServer.stubFor(WireMock.get("/v2/info").willReturn(WireMock.okJson(jsonBody)));
 
         var request = new com.otilm.api.model.core.connector.v2.ConnectorRequestDto();
         request.setName("testConnector2");
@@ -296,14 +309,13 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         mockServer.stop();
         mockServer = new WireMockServer(0);
         mockServer.start();
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson(jsonBody)));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson(jsonBody)));
 
         // Mock V2 info endpoint to return 404 (no V2 support)
-        mockServer.stubFor(WireMock
-                .get("/v2/info")
-                .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
+        mockServer
+                .stubFor(WireMock
+                        .get("/v2/info")
+                        .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
 
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("duplicateConnector");
@@ -318,7 +330,8 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         connectRequest.setAuthType(AuthType.NONE);
         connectRequest.setUuid(connector.getUuid().toString());
 
-        // Even though the function group and kind are duplicate, it should not throw exception on connect as the connector is already created and connected successfully
+        // Even though the function group and kind are duplicate, it should not throw exception on connect as the
+        // connector is already created and connected successfully
         Assertions.assertDoesNotThrow(() -> connectorService.connect(connectRequest));
     }
 
@@ -331,9 +344,7 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditConnector() throws ConnectorException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
 
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setUrl("http://localhost:" + mockServer.port());
@@ -344,18 +355,25 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.editConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), new ConnectorUpdateRequestDto()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> connectorService
+                                .editConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
+                                        new ConnectorUpdateRequestDto()));
     }
 
     @Test
     void testRemoveConnector() throws NotFoundException {
         connectorService.deleteConnector(connector.getSecuredUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 
     @Test
     void testRemoveConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.deleteConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorService
+                        .deleteConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -365,7 +383,8 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         notificationInstance.setConnectorUuid(connector.getUuid());
         notificationInstanceReferenceRepository.save(notificationInstance);
         SecuredUUID connectorSecuredUuid = connector.getSecuredUuid();
-        ValidationException exception = Assertions.assertThrows(ValidationException.class, () -> connectorService.deleteConnector(connectorSecuredUuid));
+        ValidationException exception = Assertions
+                .assertThrows(ValidationException.class, () -> connectorService.deleteConnector(connectorSecuredUuid));
         Assertions.assertTrue(exception.getMessage().contains(notificationInstance.getName()));
     }
 
@@ -388,7 +407,9 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         notificationInstanceReferenceRepository.save(notificationInstance);
         SecuredUUID connectorSecuredUuid = connector.getSecuredUuid();
         connectorService.forceDeleteConnector(List.of(connectorSecuredUuid));
-        notificationInstance = notificationInstanceReferenceRepository.findByUuid(notificationInstance.getUuid()).orElse(null);
+        notificationInstance = notificationInstanceReferenceRepository
+                .findByUuid(notificationInstance.getUuid())
+                .orElse(null);
         Assertions.assertNotNull(notificationInstance);
         Assertions.assertNull(notificationInstance.getConnectorUuid());
     }
@@ -404,16 +425,20 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         groupAttribute.setAttributeCallback(callback);
         attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), null, List.of(groupAttribute));
 
-        List<BulkActionMessageDto> messages = connectorServiceV2.forceDeleteConnector(List.of(connector.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = connectorServiceV2
+                .forceDeleteConnector(List.of(connector.getSecuredUuid()));
 
-        Assertions.assertTrue(messages.isEmpty(), "Force delete must not fail on dependent attribute_definition rows: " + messages);
+        Assertions
+                .assertTrue(messages.isEmpty(),
+                        "Force delete must not fail on dependent attribute_definition rows: " + messages);
         Assertions.assertTrue(connectorRepository.findByUuid(connector.getUuid()).isEmpty());
     }
 
     @Test
     void testBulkRemove() throws NotFoundException {
         connectorService.bulkDeleteConnector(List.of(connector.getSecuredUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 
     @Test
@@ -426,14 +451,13 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
         String jsonBody = objectMapper.writeValueAsString(infoResponses);
 
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson(jsonBody)));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson(jsonBody)));
 
         // Mock v2 info endpoint to return 404 (no v2 support)
-        mockServer.stubFor(WireMock
-                .get("/v2/info")
-                .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
+        mockServer
+                .stubFor(WireMock
+                        .get("/v2/info")
+                        .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
 
         ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost:" + mockServer.port());
@@ -467,11 +491,11 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
         connectorService.approve(waitingConnector.getSecuredUuid());
 
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
 
-        Assertions.assertEquals(ConnectorStatus.CONNECTED, connectorService.getConnector(connector.getSecuredUuid()).getStatus());
+        Assertions
+                .assertEquals(ConnectorStatus.CONNECTED,
+                        connectorService.getConnector(connector.getSecuredUuid()).getStatus());
     }
 
     @Test
@@ -482,17 +506,14 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testApproveConnector_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> connectorService.approve(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> connectorService.approve(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testCheckHealth() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get("/v1/health")
-                .willReturn(WireMock.okJson("{ \"status\": \"ok\" }")));
+        mockServer.stubFor(WireMock.get("/v1/health").willReturn(WireMock.okJson("{ \"status\": \"ok\" }")));
 
         HealthDto health = connectorService.checkHealth(connector.getSecuredUuid());
         Assertions.assertNotNull(health);
@@ -502,10 +523,9 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testCheckHealth_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> connectorService.checkHealth(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorService
+                        .checkHealth(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -513,9 +533,10 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
         List<BaseAttribute> attributes = connectorService.getAttributes(connector.getSecuredUuid(), code, kind);
         Assertions.assertNotNull(attributes);
@@ -524,25 +545,16 @@ class ConnectorServiceITest extends BaseSpringBootTest {
     @Test
     void testGetAttributes_validationFail() {
         var securedUuid = connector.getSecuredUuid();
-        Assertions.assertThrows(
-                ValidationException.class,
-                () -> connectorService.getAttributes(
-                        securedUuid,
-                        FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER,
-                        null
-                )
-        );
+        Assertions
+                .assertThrows(ValidationException.class, () -> connectorService
+                        .getAttributes(securedUuid, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null));
     }
 
     @Test
     void testGetAttributes_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> connectorService.getAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
-                        null,
-                        null
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> connectorService
+                        .getAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null, null));
     }
 
     @Test
@@ -550,9 +562,10 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         connectorService.validateAttributes(connector.getSecuredUuid(), code, List.of(), kind);
 
@@ -561,14 +574,9 @@ class ConnectorServiceITest extends BaseSpringBootTest {
     @Test
     void testValidateAttributes_validationFail() {
         var securedUuid = connector.getSecuredUuid();
-        Assertions.assertThrows(ValidationException.class,
-                () -> connectorService.validateAttributes(
-                        securedUuid,
-                        FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER,
-                        null,
-                        null
-                )
-        );
+        Assertions
+                .assertThrows(ValidationException.class, () -> connectorService
+                        .validateAttributes(securedUuid, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null, null));
     }
 
     @Test
@@ -576,11 +584,10 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
-                .willReturn(WireMock.okJson("false")
-                )
-        );
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
+                        .willReturn(WireMock.okJson("false")));
 
         connectorService.validateAttributes(connector.getSecuredUuid(), code, List.of(), kind);
     }
@@ -590,30 +597,28 @@ class ConnectorServiceITest extends BaseSpringBootTest {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(422)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("[ \"Validation failed\" ]")
-                )
-        );
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(422)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[ \"Validation failed\" ]")));
 
         SecuredUUID connectorUuid = connector.getSecuredUuid();
-        Assertions.assertThrows(ValidationException.class,
-                () -> connectorService.validateAttributes(connectorUuid, code, List.of(), kind));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> connectorService.validateAttributes(connectorUuid, code, List.of(), kind));
     }
 
     @Test
     void testValidateAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class,
-                () -> connectorService.validateAttributes(
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
-                        null,
-                        null,
-                        null
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> connectorService
+                                .validateAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
+                                        null, null, null));
     }
 
     @Test
@@ -625,10 +630,10 @@ class ConnectorServiceITest extends BaseSpringBootTest {
     // Proxy tests
 
     @Test
-    void testAddConnector_withProxy() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testAddConnector_withProxy()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         // Mock proxy communication - validation now uses MQ client when proxy is set
-        when(proxyClient.sendRequest(any(), any(), any(), any(), any()))
-                .thenReturn(new InfoResponse[0]);
+        when(proxyClient.sendRequest(any(), any(), any(), any(), any())).thenReturn(new InfoResponse[0]);
 
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnectorWithProxy");
@@ -655,8 +660,7 @@ class ConnectorServiceITest extends BaseSpringBootTest {
     @Test
     void testEditConnector_setProxy() throws ConnectorException, AttributeException, NotFoundException {
         // Mock proxy communication
-        when(proxyClient.sendRequest(any(), any(), any(), any(), any()))
-                .thenReturn(new InfoResponse[0]);
+        when(proxyClient.sendRequest(any(), any(), any(), any(), any())).thenReturn(new InfoResponse[0]);
 
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setUrl("http://localhost:8080");
@@ -670,23 +674,21 @@ class ConnectorServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditConnector_withNonExistentProxy() {
-        mockServer.stubFor(WireMock
-                .get("/v1")
-                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
 
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setUrl("http://localhost:" + mockServer.port());
         request.setProxyUuid("abfbc322-29e1-11ed-a261-0242ac120099");
 
-        Assertions.assertThrows(NotFoundException.class,
-                () -> connectorService.editConnector(connector.getSecuredUuid(), request));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> connectorService.editConnector(connector.getSecuredUuid(), request));
     }
 
     @Test
     void testGetConnector_withProxy() throws ConnectorException, NotFoundException {
         // Mock proxy communication
-        when(proxyClient.sendRequest(any(), any(), any(), any(), any()))
-            .thenReturn(new InfoResponse[0]);
+        when(proxyClient.sendRequest(any(), any(), any(), any(), any())).thenReturn(new InfoResponse[0]);
 
         // Set proxy on connector
         connector.setProxy(proxy);

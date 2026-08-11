@@ -6,6 +6,7 @@ public interface GroupInternalService extends ResourceExtensionService {
 
     /**
      * Get the number of groups per user for dashboard
+     *
      * @return Number of groups
      */
     Long statisticsGroupCount(SecurityFilter filter);

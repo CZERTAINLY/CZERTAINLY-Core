@@ -6,6 +6,7 @@ import com.otilm.core.service.AuditLogInternalService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,12 +15,9 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 
-import java.io.IOException;
-
 public class PlatformLogoutSuccessHandler extends OidcClientInitiatedLogoutSuccessHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PlatformLogoutSuccessHandler.class);
-
 
     private PlatformClientRegistrationRepository clientRegistrationRepository;
 
@@ -35,10 +33,18 @@ public class PlatformLogoutSuccessHandler extends OidcClientInitiatedLogoutSucce
     }
 
     @Override
-    public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        if (authentication == null) return;
+    public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response,
+            Authentication authentication) {
+        if (authentication == null) {
+            return;
+        }
         OAuth2AuthenticationToken oauth2Token = (OAuth2AuthenticationToken) authentication;
-        String redirectUri = clientRegistrationRepository.findByRegistrationId(oauth2Token.getAuthorizedClientRegistrationId()).getProviderDetails().getConfigurationMetadata().get("post_logout_uri").toString();
+        String redirectUri = clientRegistrationRepository
+                .findByRegistrationId(oauth2Token.getAuthorizedClientRegistrationId())
+                .getProviderDetails()
+                .getConfigurationMetadata()
+                .get("post_logout_uri")
+                .toString();
 
         // Set the post logout redirect URI dynamically
         this.setPostLogoutRedirectUri(redirectUri);
@@ -49,10 +55,13 @@ public class PlatformLogoutSuccessHandler extends OidcClientInitiatedLogoutSucce
         try {
             super.onLogoutSuccess(request, response, authentication);
         } catch (IOException | ServletException e) {
-            LOGGER.error("Error occurred when logging out user {} from OAuth2 Provider {}: {}", username, oauth2Token.getAuthorizedClientRegistrationId(), e.getMessage());
+            LOGGER
+                    .error("Error occurred when logging out user {} from OAuth2 Provider {}: {}", username,
+                            oauth2Token.getAuthorizedClientRegistrationId(), e.getMessage());
         }
 
-        String message = "Logout of user '%s' from OAuth2 Provider %s successful".formatted(username, oauth2Token.getAuthorizedClientRegistrationId());
+        String message = "Logout of user '%s' from OAuth2 Provider %s successful"
+                .formatted(username, oauth2Token.getAuthorizedClientRegistrationId());
         auditLogService.logAuthentication(Operation.LOGOUT, OperationResult.SUCCESS, message, null);
         LOGGER.debug("{}, redirecting to {}", message, redirectUri);
     }
@@ -61,6 +70,5 @@ public class PlatformLogoutSuccessHandler extends OidcClientInitiatedLogoutSucce
     public void setClientRegistrationRepository(PlatformClientRegistrationRepository clientRegistrationRepository) {
         this.clientRegistrationRepository = clientRegistrationRepository;
     }
-
 
 }

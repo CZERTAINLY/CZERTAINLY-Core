@@ -7,19 +7,18 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.List;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Both approval events publish an {@code UpdateCertificateHistoryEvent}, so the certificate's history gains a row
- * for the request and for the close. Those rows are written on a JMS listener thread, so the acting user has to
- * travel in the event message or the row ends up attributed to the system user.
+ * Both approval events publish an {@code UpdateCertificateHistoryEvent}, so the certificate's history gains a row for
+ * the request and for the close. Those rows are written on a JMS listener thread, so the acting user has to travel in
+ * the event message or the row ends up attributed to the system user.
  */
 class ApprovalEventMessageTest {
 
@@ -37,8 +36,8 @@ class ApprovalEventMessageTest {
         UUID requester = UUID.randomUUID();
         SecurityContextHolder.clearContext();
 
-        EventMessage message = ApprovalRequestedEventHandler.constructEventMessage(
-                UUID.randomUUID(), new ApprovalStepDto(), requester);
+        EventMessage message = ApprovalRequestedEventHandler
+                .constructEventMessage(UUID.randomUUID(), new ApprovalStepDto(), requester);
 
         assertThat(message.getUserUuid()).isEqualTo(requester);
     }
@@ -48,8 +47,8 @@ class ApprovalEventMessageTest {
         UUID requester = UUID.randomUUID();
         authenticateAs(requester);
 
-        EventMessage message =
-                ApprovalRequestedEventHandler.constructEventMessage(UUID.randomUUID(), new ApprovalStepDto());
+        EventMessage message = ApprovalRequestedEventHandler
+                .constructEventMessage(UUID.randomUUID(), new ApprovalStepDto());
 
         assertThat(message.getUserUuid()).isEqualTo(requester);
     }
@@ -59,8 +58,8 @@ class ApprovalEventMessageTest {
         UUID approver = UUID.randomUUID();
         authenticateAs(approver);
 
-        EventMessage message = ApprovalClosedEventHandler.constructEventMessage(
-                UUID.randomUUID(), ApprovalStatusEnum.APPROVED);
+        EventMessage message = ApprovalClosedEventHandler
+                .constructEventMessage(UUID.randomUUID(), ApprovalStatusEnum.APPROVED);
 
         assertThat(message.getUserUuid()).isEqualTo(approver);
     }
@@ -70,8 +69,8 @@ class ApprovalEventMessageTest {
         UUID rejecter = UUID.randomUUID();
         authenticateAs(rejecter);
 
-        EventMessage message = ApprovalClosedEventHandler.constructEventMessage(
-                UUID.randomUUID(), ApprovalStatusEnum.REJECTED);
+        EventMessage message = ApprovalClosedEventHandler
+                .constructEventMessage(UUID.randomUUID(), ApprovalStatusEnum.REJECTED);
 
         assertThat(message.getUserUuid()).isEqualTo(rejecter);
     }
@@ -81,8 +80,8 @@ class ApprovalEventMessageTest {
     void expiredEventCarriesNoUserEvenWhenTheSweepIsAuthenticated() {
         authenticateAs(UUID.randomUUID());
 
-        EventMessage message = ApprovalClosedEventHandler.constructEventMessage(
-                UUID.randomUUID(), ApprovalStatusEnum.EXPIRED);
+        EventMessage message = ApprovalClosedEventHandler
+                .constructEventMessage(UUID.randomUUID(), ApprovalStatusEnum.EXPIRED);
 
         assertThat(message.getUserUuid()).isNull();
     }
@@ -90,15 +89,18 @@ class ApprovalEventMessageTest {
     @Test
     void eventsCarryNoUserWhenNobodyIsAuthenticated() {
         assertThat(ApprovalRequestedEventHandler
-                .constructEventMessage(UUID.randomUUID(), new ApprovalStepDto()).getUserUuid()).isNull();
+                .constructEventMessage(UUID.randomUUID(), new ApprovalStepDto())
+                .getUserUuid()).isNull();
         assertThat(ApprovalClosedEventHandler
-                .constructEventMessage(UUID.randomUUID(), ApprovalStatusEnum.APPROVED).getUserUuid()).isNull();
+                .constructEventMessage(UUID.randomUUID(), ApprovalStatusEnum.APPROVED)
+                .getUserUuid()).isNull();
     }
 
     private void authenticateAs(UUID userUuid) {
-        AuthenticationInfo info =
-                new AuthenticationInfo(AuthMethod.USER_PROXY, userUuid.toString(), "actor", List.of());
-        SecurityContextHolder.getContext()
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, userUuid.toString(), "actor",
+                List.of());
+        SecurityContextHolder
+                .getContext()
                 .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
     }
 }

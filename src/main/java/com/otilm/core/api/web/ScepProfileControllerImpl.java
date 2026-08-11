@@ -1,29 +1,32 @@
 package com.otilm.core.api.web;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.ScepProfileController;
 import com.otilm.api.model.client.scep.ScepProfileEditRequestDto;
 import com.otilm.api.model.client.scep.ScepProfileRequestDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
-import com.otilm.api.model.core.scep.ScepProfileDto;
-import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
+import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.auth.AuthEndpoint;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ScepProfileExternalService;
+import java.net.URI;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
 
 @RestController
 public class ScepProfileControllerImpl implements ScepProfileController {
@@ -50,16 +53,22 @@ public class ScepProfileControllerImpl implements ScepProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<ScepProfileDetailDto> createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public ResponseEntity<ScepProfileDetailDto> createScepProfile(ScepProfileRequestDto request)
+            throws AlreadyExistException, ValidationException, ConnectorException, AttributeException,
+            NotFoundException {
         ScepProfileDetailDto scepProfile = scepProfileService.createScepProfile(request);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
-                .buildAndExpand(scepProfile.getUuid()).toUri();
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{uuid}")
+                .buildAndExpand(scepProfile.getUuid())
+                .toUri();
         return ResponseEntity.created(location).body(scepProfile);
     }
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.UPDATE)
-    public ScepProfileDetailDto editScepProfile(@LogResource(uuid = true) String uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public ScepProfileDetailDto editScepProfile(@LogResource(uuid = true) String uuid,
+            ScepProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return scepProfileService.editScepProfile(SecuredUUID.fromString(uuid), request);
     }
 
@@ -107,7 +116,8 @@ public class ScepProfileControllerImpl implements ScepProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
-    public void updateRaProfile(@LogResource(uuid = true) String uuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
+    public void updateRaProfile(@LogResource(uuid = true) String uuid,
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
         scepProfileService.updateRaProfile(SecuredUUID.fromString(uuid), raProfileUuid);
     }
 

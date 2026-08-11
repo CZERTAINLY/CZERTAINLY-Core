@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface AttributeResourceService {
 
-    ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException, ConnectorException;
+    ResourceObjectContentData getResourceObjectContent(UUID uuid)
+            throws NotFoundException, AttributeException, ConnectorException;
 
 }

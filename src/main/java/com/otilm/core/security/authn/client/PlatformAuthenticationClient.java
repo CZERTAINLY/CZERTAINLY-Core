@@ -1,6 +1,9 @@
 package com.otilm.core.security.authn.client;
 
-import com.otilm.api.model.core.logging.enums.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.api.model.core.logging.enums.ActorType;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.core.logging.LoggingHelper;
@@ -13,8 +16,11 @@ import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.CertificateUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,12 +34,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Component
 public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClient {
@@ -49,10 +49,8 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
 
     private final AuditLogInternalService auditLogService;
 
-    public PlatformAuthenticationClient(
-            @Autowired AuditLogInternalService auditLogService,
-            @Autowired ObjectMapper objectMapper,
-            @Autowired AuthenticationCache authenticationCache,
+    public PlatformAuthenticationClient(@Autowired AuditLogInternalService auditLogService,
+            @Autowired ObjectMapper objectMapper, @Autowired AuthenticationCache authenticationCache,
             @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
         this.objectMapper = objectMapper;
         this.auditLogService = auditLogService;
@@ -61,30 +59,32 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
     }
 
     public AuthenticationInfo authenticateSystemUser(String username) {
-        return restoreActorMdc(authenticationCache.getOrAuthenticateSystemUser(
-                username, () -> authenticate(AuthMethod.USER_PROXY, username, false)));
+        return restoreActorMdc(authenticationCache
+                .getOrAuthenticateSystemUser(username, () -> authenticate(AuthMethod.USER_PROXY, username, false)));
     }
 
     public AuthenticationInfo authenticateByUserUuid(UUID userUuid) {
-        return restoreActorMdc(authenticationCache.getOrAuthenticateByUserUuid(
-                userUuid, () -> authenticate(AuthMethod.USER_PROXY, userUuid, false)));
+        return restoreActorMdc(authenticationCache
+                .getOrAuthenticateByUserUuid(userUuid, () -> authenticate(AuthMethod.USER_PROXY, userUuid, false)));
     }
 
     public AuthenticationInfo authenticateByCertificate(String rawCertHeader, String certificateThumbprint) {
-        return restoreActorMdc(authenticationCache.getOrAuthenticateByCertificate(
-                certificateThumbprint, () -> authenticate(AuthMethod.CERTIFICATE, rawCertHeader, false)));
+        return restoreActorMdc(authenticationCache
+                .getOrAuthenticateByCertificate(certificateThumbprint,
+                        () -> authenticate(AuthMethod.CERTIFICATE, rawCertHeader, false)));
     }
 
     public AuthenticationInfo authenticateByToken(Map<String, Object> claims, long settingsGeneration) {
-        return restoreActorMdc(authenticationCache.getOrAuthenticateByToken(
-                stringClaim(claims, JwtClaimNames.ISS), stringClaim(claims, JwtClaimNames.JTI),
-                settingsGeneration, () -> authenticate(AuthMethod.TOKEN, claims, false)));
+        return restoreActorMdc(authenticationCache
+                .getOrAuthenticateByToken(stringClaim(claims, JwtClaimNames.ISS),
+                        stringClaim(claims, JwtClaimNames.JTI), settingsGeneration,
+                        () -> authenticate(AuthMethod.TOKEN, claims, false)));
     }
 
     /**
-     * Returns the claim value when it is a string, {@code null} otherwise. The token cache is keyed on the
-     * issuer and the {@code jti}; a claim of any other shape leaves the key incomplete, and an incomplete key
-     * must skip the cache rather than let one token share an entry with another.
+     * Returns the claim value when it is a string, {@code null} otherwise. The token cache is keyed on the issuer and
+     * the {@code jti}; a claim of any other shape leaves the key incomplete, and an incomplete key must skip the cache
+     * rather than let one token share an entry with another.
      */
     private static String stringClaim(Map<String, Object> claims, String claimName) {
         Object value = claims.get(claimName);
@@ -92,9 +92,8 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
     }
 
     /**
-     * Replays the actor MDC side effects of {@link #authenticate} so that a cache hit leaves the MDC in the same
-     * state as a cache miss.
-     * Anonymous results are never cached, so the loader's anonymous MDC path is unaffected.
+     * Replays the actor MDC side effects of {@link #authenticate} so that a cache hit leaves the MDC in the same state
+     * as a cache miss. Anonymous results are never cached, so the loader's anonymous MDC path is unaffected.
      */
     private static AuthenticationInfo restoreActorMdc(AuthenticationInfo authInfo) {
         if (!authInfo.isAnonymous()) {
@@ -104,12 +103,16 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
         return authInfo;
     }
 
-    public AuthenticationInfo authenticate(AuthMethod authMethod, Object authData, boolean isLocalhostRequest) throws AuthenticationException {
+    public AuthenticationInfo authenticate(AuthMethod authMethod, Object authData, boolean isLocalhostRequest)
+            throws AuthenticationException {
 
         AuthenticationRequestDto authRequest = getAuthPayload(authMethod, authData, isLocalhostRequest);
         if (logger.isDebugEnabled()) {
             ActorType actorType = LoggingHelper.getActorType();
-            logger.debug("Going to authenticate {}user with {} auth method. {}", actorType == null || actorType == ActorType.USER ? "" : actorType.getLabel() + " ", authRequest.getAuthMethod().getLabel(), authRequest.getAuthData(true));
+            logger
+                    .debug("Going to authenticate {}user with {} auth method. {}",
+                            actorType == null || actorType == ActorType.USER ? "" : actorType.getLabel() + " ",
+                            authRequest.getAuthMethod().getLabel(), authRequest.getAuthData(true));
         }
 
         try {
@@ -120,10 +123,7 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
                     .body(Mono.just(authRequest), AuthenticationRequestDto.class)
                     .accept(MediaType.APPLICATION_JSON);
 
-            AuthenticationResponseDto response = request
-                    .retrieve()
-                    .bodyToMono(AuthenticationResponseDto.class)
-                    .block();
+            AuthenticationResponseDto response = request.retrieve().bodyToMono(AuthenticationResponseDto.class).block();
 
             if (response == null) {
                 String message = "Empty response received from authentication service";
@@ -136,12 +136,15 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, authRequest.getAuthData(false));
             throw new PlatformAuthenticationException(message, e);
         } catch (AuthenticationServiceException e) {
-            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, e.getException().getMessage(), authRequest.getAuthData(false));
+            AuthHelper
+                    .logAndAuditAuthFailure(logger, auditLogService, e.getException().getMessage(),
+                            authRequest.getAuthData(false));
             throw new PlatformAuthenticationException(e.getException().getMessage(), e);
         }
     }
 
-    private AuthenticationRequestDto getAuthPayload(AuthMethod authMethod, Object authData, boolean isLocalhostRequest) {
+    private AuthenticationRequestDto getAuthPayload(AuthMethod authMethod, Object authData,
+            boolean isLocalhostRequest) {
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
         requestDto.setAuthMethod(authMethod);
         switch (authMethod) {
@@ -159,8 +162,11 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
             }
             case TOKEN -> requestDto.setAuthenticationTokenUserClaims((Map<String, Object>) authData);
             case USER_PROXY -> {
-                if (authData instanceof UUID) requestDto.setUserUuid(authData.toString());
-                else requestDto.setSystemUsername((String) authData);
+                if (authData instanceof UUID) {
+                    requestDto.setUserUuid(authData.toString());
+                } else {
+                    requestDto.setSystemUsername((String) authData);
+                }
             }
             default -> {
                 // No action required for other authentication methods
@@ -175,7 +181,8 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
 
     private void checkLocalhostUser(AuthenticationRequestDto requestDto, boolean isLocalhostRequest) {
         if (isLocalhostRequest) {
-            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+            AuthenticationSettingsDto authenticationSettings = SettingsCache
+                    .getSettings(SettingsSection.AUTHENTICATION);
             if (!authenticationSettings.isDisableLocalhostUser()) {
                 requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
                 requestDto.setAuthMethod(AuthMethod.USER_PROXY);
@@ -197,17 +204,21 @@ public class PlatformAuthenticationClient extends PlatformBaseAuthenticationClie
             UserDetailsDto userDetails = objectMapper.readValue(response.getData(), UserDetailsDto.class);
 
             // update MDC for actor logging after successful authentication
-            LoggingHelper.putActorInfoWhenNull(ActorType.USER, userDetails.getUser().getUuid(), userDetails.getUser().getUsername());
+            LoggingHelper
+                    .putActorInfoWhenNull(ActorType.USER, userDetails.getUser().getUuid(),
+                            userDetails.getUser().getUsername());
 
-            return new AuthenticationInfo(
-                    authMethod,
-                    userDetails.getUser().getUuid(),
+            return new AuthenticationInfo(authMethod, userDetails.getUser().getUuid(),
                     userDetails.getUser().getUsername(),
-                    userDetails.getRoles().stream().map(role -> new SimpleGrantedAuthority(role.getName())).collect(Collectors.toList()),
-                    response.getData()
-            );
+                    userDetails
+                            .getRoles()
+                            .stream()
+                            .map(role -> new SimpleGrantedAuthority(role.getName()))
+                            .collect(Collectors.toList()),
+                    response.getData());
         } catch (JsonProcessingException e) {
-            throw new PlatformAuthenticationException("The response from the authentication service could not be parsed.", e);
+            throw new PlatformAuthenticationException(
+                    "The response from the authentication service could not be parsed.", e);
         }
     }
 

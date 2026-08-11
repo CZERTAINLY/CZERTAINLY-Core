@@ -1,10 +1,10 @@
 package com.otilm.core.security.exception;
 
-import com.otilm.api.exception.PlatformException;
-import com.otilm.api.model.common.AuthenticationServiceExceptionDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.api.exception.PlatformException;
+import com.otilm.api.model.common.AuthenticationServiceExceptionDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
@@ -22,7 +22,8 @@ public class AuthenticationServiceException extends AuthenticationException impl
         try {
             this.exception = mapper.readValue(message, AuthenticationServiceExceptionDto.class);
         } catch (JsonProcessingException e) {
-            this.exception = new AuthenticationServiceExceptionDto(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Failed parsing error from Authentication Service");
+            this.exception = new AuthenticationServiceExceptionDto(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Failed parsing error from Authentication Service");
         }
     }
 
@@ -42,4 +43,3 @@ public class AuthenticationServiceException extends AuthenticationException impl
         this.exception = exception;
     }
 }
-

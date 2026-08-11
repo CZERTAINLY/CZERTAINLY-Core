@@ -1,6 +1,10 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
@@ -19,15 +23,14 @@ import com.otilm.core.service.GroupExternalService;
 import com.otilm.core.service.GroupInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import jakarta.transaction.Transactional;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service(Resource.Codes.GROUP)
 @Transactional
@@ -58,7 +61,8 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
     @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public List<GroupDto> listGroups(SecurityFilter filter) {
-        return groupRepository.findUsingSecurityFilter(filter)
+        return groupRepository
+                .findUsingSecurityFilter(filter)
                 .stream()
                 .map(Group::mapToDto)
                 .collect(Collectors.toList());
@@ -74,11 +78,10 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.CREATE)
-    public GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
+    public GroupDto createGroup(GroupRequestDto request)
+            throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
         if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException(
-                    ValidationError.create("Name must not be empty")
-            );
+            throw new ValidationException(ValidationError.create("Name must not be empty"));
         }
 
         if (groupRepository.findByName(request.getName()).isPresent()) {
@@ -93,7 +96,10 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
         groupRepository.save(group);
 
         GroupDto dto = group.mapToDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.GROUP, group.getUuid(), request.getCustomAttributes()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.GROUP, group.getUuid(),
+                                request.getCustomAttributes()));
         return dto;
     }
 
@@ -108,7 +114,10 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
         groupRepository.save(group);
 
         GroupDto dto = group.mapToDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.GROUP, group.getUuid(), request.getCustomAttributes()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.GROUP, group.getUuid(),
+                                request.getCustomAttributes()));
         return dto;
     }
 
@@ -153,7 +162,8 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return groupRepository.listResourceObjects(filter, Group_.name);
     }
 

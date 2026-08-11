@@ -6,12 +6,11 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
+import java.lang.reflect.Method;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-
-import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -20,9 +19,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * The aspect records every traced method parameter's value into a span attribute, so a parameter carrying a
- * secret must be masked. This locks in that a {@link Sensitive} parameter is recorded as {@code ***} while an
- * ordinary parameter keeps its value.
+ * The aspect records every traced method parameter's value into a span attribute, so a parameter carrying a secret must
+ * be masked. This locks in that a {@link Sensitive} parameter is recorded as {@code ***} while an ordinary parameter
+ * keeps its value.
  */
 class TracingAspectTest {
 

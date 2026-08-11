@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Test builder for {@link SearchRequestDto} with convenience methods for the common cases:
- * an unfiltered "give me everything" request and incremental filter accumulation.
+ * Test builder for {@link SearchRequestDto} with convenience methods for the common cases: an unfiltered "give me
+ * everything" request and incremental filter accumulation.
  */
 public final class SearchRequestDtoBuilder {
 
@@ -53,7 +53,8 @@ public final class SearchRequestDtoBuilder {
     /**
      * Adds a single property filter; the most common filter shape in tests.
      */
-    public SearchRequestDtoBuilder withPropertyFilter(String fieldIdentifier, FilterConditionOperator condition, Serializable value) {
+    public SearchRequestDtoBuilder withPropertyFilter(String fieldIdentifier, FilterConditionOperator condition,
+            Serializable value) {
         return withFilter(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, fieldIdentifier, condition, value));
     }
 

@@ -13,17 +13,16 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TrustedCertificateExternalService;
 import jakarta.transaction.Transactional;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 
-import java.util.List;
-
 /**
- * Implementation of {@link TrustedCertificateExternalService} for managing trusted certificates
- * via the external provisioning API.
+ * Implementation of {@link TrustedCertificateExternalService} for managing trusted certificates via the external
+ * provisioning API.
  */
 @Service(Resource.Codes.TRUSTED_CERTIFICATE)
 @Transactional
@@ -39,10 +38,9 @@ public class TrustedCertificateServiceImpl implements TrustedCertificateExternal
     public List<TrustedCertificateDto> listTrustedCertificates() {
         logger.debug("Listing trusted certificates");
         try {
-            List<TrustedCertificateProvisioningDTO> provisioningDtos = trustedCertificateProvisioningApiClient.listTrustedCertificates();
-            List<TrustedCertificateDto> result = provisioningDtos.stream()
-                    .map(this::mapToDto)
-                    .toList();
+            List<TrustedCertificateProvisioningDTO> provisioningDtos = trustedCertificateProvisioningApiClient
+                    .listTrustedCertificates();
+            List<TrustedCertificateDto> result = provisioningDtos.stream().map(this::mapToDto).toList();
             logger.debug("Found {} trusted certificates", result.size());
             return result;
         } catch (Exception e) {
@@ -55,7 +53,8 @@ public class TrustedCertificateServiceImpl implements TrustedCertificateExternal
     public TrustedCertificateDto getTrustedCertificate(SecuredUUID uuid) throws NotFoundException {
         logger.debug("Getting trusted certificate with UUID: {}", uuid);
         try {
-            TrustedCertificateProvisioningDTO provisioningDto = trustedCertificateProvisioningApiClient.getTrustedCertificate(uuid.toString());
+            TrustedCertificateProvisioningDTO provisioningDto = trustedCertificateProvisioningApiClient
+                    .getTrustedCertificate(uuid.toString());
             return mapToDto(provisioningDto);
         } catch (HttpClientErrorException.NotFound e) {
             throw new NotFoundException("Trusted certificate", uuid.toString());
@@ -69,8 +68,10 @@ public class TrustedCertificateServiceImpl implements TrustedCertificateExternal
     public TrustedCertificateDto createTrustedCertificate(TrustedCertificateRequestDto request) {
         logger.info("Creating trusted certificate");
         try {
-            TrustedCertificateProvisioningRequestDTO provisioningRequest = new TrustedCertificateProvisioningRequestDTO(request.getCertificateContent());
-            TrustedCertificateProvisioningDTO provisioningDto = trustedCertificateProvisioningApiClient.createTrustedCertificate(provisioningRequest);
+            TrustedCertificateProvisioningRequestDTO provisioningRequest = new TrustedCertificateProvisioningRequestDTO(
+                    request.getCertificateContent());
+            TrustedCertificateProvisioningDTO provisioningDto = trustedCertificateProvisioningApiClient
+                    .createTrustedCertificate(provisioningRequest);
             logger.info("Trusted certificate created successfully: {}", provisioningDto.uuid());
             return mapToDto(provisioningDto);
         } catch (Exception e) {

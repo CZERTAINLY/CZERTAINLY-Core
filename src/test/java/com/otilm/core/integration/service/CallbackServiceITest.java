@@ -1,5 +1,9 @@
 package com.otilm.core.integration.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
@@ -27,18 +31,18 @@ import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.service.CallbackExternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.io.Serializable;
-import java.util.*;
 
 class CallbackServiceITest extends BaseSpringBootTest {
 
@@ -60,14 +64,16 @@ class CallbackServiceITest extends BaseSpringBootTest {
     private WireMockServer mockServer;
     private Connector connector;
 
-
     @BeforeEach
     void setUp() {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/callback")).willReturn(WireMock.okJson("{\"property\": \"value\"}")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/callback"))
+                        .willReturn(WireMock.okJson("{\"property\": \"value\"}")));
 
         connector = new Connector();
         connector.setUrl(mockServer.baseUrl());
@@ -80,7 +86,6 @@ class CallbackServiceITest extends BaseSpringBootTest {
     void stop() {
         mockServer.stop();
     }
-
 
     @Test
     void testCallback() throws ConnectorException, NotFoundException, AttributeException {
@@ -98,19 +103,30 @@ class CallbackServiceITest extends BaseSpringBootTest {
         extraAttribute.setName("extra");
         extraAttribute.setAttributeCallback(callback);
         extraAttribute.setProperties(new DataAttributeProperties());
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/[^/]+/[^/]+/attributes")).willReturn(WireMock.okJson(AttributeDefinitionUtils.serialize(List.of(groupAttributeV2, extraAttribute, groupAttributeV3)))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/[^/]+/[^/]+/attributes"))
+                        .willReturn(WireMock
+                                .okJson(AttributeDefinitionUtils
+                                        .serialize(List.of(groupAttributeV2, extraAttribute, groupAttributeV3)))));
 
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
         requestAttributeCallback.setName(groupAttributeV2.getName());
-        Object callbackObject = callbackService.callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind", requestAttributeCallback);
+        Object callbackObject = callbackService
+                .callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind",
+                        requestAttributeCallback);
         Assertions.assertEquals("value", ((LinkedHashMap<String, String>) callbackObject).get("property"));
 
         requestAttributeCallback.setName(extraAttribute.getName());
-        callbackObject = callbackService.callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind", requestAttributeCallback);
+        callbackObject = callbackService
+                .callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind",
+                        requestAttributeCallback);
         Assertions.assertEquals("value", ((LinkedHashMap<String, String>) callbackObject).get("property"));
 
         requestAttributeCallback.setName(groupAttributeV3.getName());
-        callbackObject = callbackService.callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind", requestAttributeCallback);
+        callbackObject = callbackService
+                .callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind",
+                        requestAttributeCallback);
         Assertions.assertEquals("value", ((LinkedHashMap<String, String>) callbackObject).get("property"));
 
     }
@@ -132,20 +148,28 @@ class CallbackServiceITest extends BaseSpringBootTest {
         groupAttributeV3.setName("groupName");
         groupAttributeV3.setUuid(UUID.randomUUID().toString());
         groupAttributeV3.setAttributeCallback(callback);
-        attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), null, List.of(dataAttributeV2, groupAttributeV3));
+        attributeEngine
+                .updateDataAttributeDefinitions(connector.getUuid(), null, List.of(dataAttributeV2, groupAttributeV3));
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
         requestAttributeCallback.setName("randomName");
-        Assertions.assertThrows(NotFoundException.class, () -> callbackService.callback(connector.getUuid(), requestAttributeCallback));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> callbackService.callback(connector.getUuid(), requestAttributeCallback));
 
         requestAttributeCallback.setName(dataAttributeV2.getName());
         Object callbackObject = callbackService.callback(connector.getUuid(), requestAttributeCallback);
         Assertions.assertEquals("value", ((LinkedHashMap<String, String>) callbackObject).get("property"));
 
         ObjectMapper objectMapper = new ObjectMapper();
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/callback")).willReturn(WireMock.okJson(objectMapper.writeValueAsString(List.of(dataAttributeV2)))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/callback"))
+                        .willReturn(WireMock.okJson(objectMapper.writeValueAsString(List.of(dataAttributeV2)))));
         requestAttributeCallback.setName(groupAttributeV3.getName());
         callbackObject = callbackService.callback(connector.getUuid(), requestAttributeCallback);
-        List<DataAttributeV2> callbackList = objectMapper.convertValue(callbackObject, objectMapper.getTypeFactory().constructCollectionType(List.class, DataAttributeV2.class));
+        List<DataAttributeV2> callbackList = objectMapper
+                .convertValue(callbackObject,
+                        objectMapper.getTypeFactory().constructCollectionType(List.class, DataAttributeV2.class));
         Assertions.assertEquals(1, callbackList.size());
         Assertions.assertEquals(dataAttributeV2.getName(), callbackList.getFirst().getName());
     }
@@ -176,7 +200,8 @@ class CallbackServiceITest extends BaseSpringBootTest {
         AttributeCallback callback = new AttributeCallback();
         callback.setCallbackMethod("POST");
         callback.setCallbackContext("/callback");
-        AttributeCallbackMapping callbackMapping = new AttributeCallbackMapping(dataAttributeToLoadFrom.getName(), "to", AttributeValueTarget.BODY);
+        AttributeCallbackMapping callbackMapping = new AttributeCallbackMapping(dataAttributeToLoadFrom.getName(), "to",
+                AttributeValueTarget.BODY);
         callbackMapping.setAttributeContentType(AttributeContentType.RESOURCE);
         callback.setMappings(Set.of(callbackMapping));
         dataAttributeWithCallback.setAttributeCallback(callback);
@@ -184,7 +209,12 @@ class CallbackServiceITest extends BaseSpringBootTest {
         properties2.setLabel("label2");
         dataAttributeWithCallback.setProperties(properties2);
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/[^/]+/[^/]+/attributes")).willReturn(WireMock.okJson(AttributeDefinitionUtils.serialize(List.of(dataAttributeWithCallback, dataAttributeToLoadFrom)))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/[^/]+/[^/]+/attributes"))
+                        .willReturn(WireMock
+                                .okJson(AttributeDefinitionUtils
+                                        .serialize(List.of(dataAttributeWithCallback, dataAttributeToLoadFrom)))));
 
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
         requestAttributeCallback.setName(dataAttributeWithCallback.getName());
@@ -193,14 +223,21 @@ class CallbackServiceITest extends BaseSpringBootTest {
         bodyMap.put("to", certificate.getUuid().toString());
         requestAttributeCallback.setBody(bodyMap);
 
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/callback"))
+                        .withRequestBody(WireMock.containing(certificateContent.getContent()))
+                        .willReturn(WireMock.okJson("{\"property\": \"value2\"}")));
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/callback")).withRequestBody(WireMock.containing(certificateContent.getContent())).willReturn(WireMock.okJson("{\"property\": \"value2\"}")));
-
-        Object callbackObject = callbackService.callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind", requestAttributeCallback);
+        Object callbackObject = callbackService
+                .callback(connector.getUuid().toString(), FunctionGroupCode.AUTHORITY_PROVIDER, "kind",
+                        requestAttributeCallback);
         Assertions.assertEquals("value2", ((LinkedHashMap<String, String>) callbackObject).get("property"));
 
         bodyMap.put("to", certificate.getUuid().toString());
-        attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), null, List.of(dataAttributeWithCallback, dataAttributeToLoadFrom));
+        attributeEngine
+                .updateDataAttributeDefinitions(connector.getUuid(), null,
+                        List.of(dataAttributeWithCallback, dataAttributeToLoadFrom));
         callbackObject = callbackService.callback(connector.getUuid(), requestAttributeCallback);
         Assertions.assertEquals("value2", ((LinkedHashMap<String, String>) callbackObject).get("property"));
 

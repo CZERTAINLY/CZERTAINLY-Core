@@ -3,14 +3,13 @@ package com.otilm.core.messaging.jms.configuration;
 import com.azure.core.credential.AccessToken;
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.credential.TokenRequestContext;
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
-
-import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,14 +61,9 @@ class AadTokenProviderTest {
     void getToken_whenExpiryIsInsideRefreshBuffer_triggersRefresh() {
         // expiry is "now + (buffer - 1)" — production code's `now + buffer` will land past expiry,
         // forcing shouldRefreshToken() to return true on the second call.
-        AccessToken nearExpiry = new AccessToken(
-                "old-token",
-                OffsetDateTime.now().plusSeconds(REFRESH_BUFFER_SECONDS - 1)
-        );
-        AccessToken fresh = new AccessToken(
-                "new-token",
-                OffsetDateTime.now().plusHours(1)
-        );
+        AccessToken nearExpiry = new AccessToken("old-token",
+                OffsetDateTime.now().plusSeconds(REFRESH_BUFFER_SECONDS - 1));
+        AccessToken fresh = new AccessToken("new-token", OffsetDateTime.now().plusHours(1));
         when(credential.getToken(any(TokenRequestContext.class)))
                 .thenReturn(Mono.just(nearExpiry))
                 .thenReturn(Mono.just(fresh));

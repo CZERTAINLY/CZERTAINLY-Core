@@ -6,19 +6,18 @@ import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationReposit
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import static com.otilm.core.util.builders.CertificateBuilder.aCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration coverage for the successor copy on {@link CertificateRegistrationAuthorizationWriter}: the
- * challenge credential follows the certificate lineage on renew/rekey without ever being decrypted.
+ * Integration coverage for the successor copy on {@link CertificateRegistrationAuthorizationWriter}: the challenge
+ * credential follows the certificate lineage on renew/rekey without ever being decrypted.
  */
 class CertificateRegistrationAuthorizationWriterITest extends BaseSpringBootTest {
 
@@ -41,8 +40,7 @@ class CertificateRegistrationAuthorizationWriterITest extends BaseSpringBootTest
     }
 
     private CertificateRegistrationAuthorization persistPredecessorAuthorization(RegistrationState state,
-                                                                                 int failedAttempts,
-                                                                                 OffsetDateTime expiresAt) {
+            int failedAttempts, OffsetDateTime expiresAt) {
         CertificateRegistrationAuthorization authorization = new CertificateRegistrationAuthorization();
         authorization.setCertificateUuid(predecessorUuid);
         authorization.setChallenge(CIPHERTEXT);
@@ -59,15 +57,17 @@ class CertificateRegistrationAuthorizationWriterITest extends BaseSpringBootTest
 
         authorizationWriter.copyToSuccessor(predecessorUuid, successorUuid);
 
-        CertificateRegistrationAuthorization copied =
-                authorizationRepository.findByCertificateUuid(successorUuid).orElseThrow();
+        CertificateRegistrationAuthorization copied = authorizationRepository
+                .findByCertificateUuid(successorUuid)
+                .orElseThrow();
         assertThat(copied.getChallenge()).isEqualTo(CIPHERTEXT);
         assertThat(copied.getState()).isEqualTo(RegistrationState.ACTIVE);
         assertThat(copied.getFailedAttempts()).isZero();
         assertThat(copied.getExpiresAt()).isNull();
 
-        CertificateRegistrationAuthorization predecessor =
-                authorizationRepository.findByCertificateUuid(predecessorUuid).orElseThrow();
+        CertificateRegistrationAuthorization predecessor = authorizationRepository
+                .findByCertificateUuid(predecessorUuid)
+                .orElseThrow();
         assertThat(predecessor.getFailedAttempts())
                 .as("the predecessor's own authorization is left untouched by the copy")
                 .isEqualTo(3);
@@ -80,8 +80,7 @@ class CertificateRegistrationAuthorizationWriterITest extends BaseSpringBootTest
 
         authorizationWriter.copyToSuccessor(predecessorUuid, successorUuid);
 
-        assertThat(authorizationRepository.findByCertificateUuid(successorUuid).orElseThrow().getExpiresAt())
-                .isNull();
+        assertThat(authorizationRepository.findByCertificateUuid(successorUuid).orElseThrow().getExpiresAt()).isNull();
     }
 
     @Test

@@ -4,16 +4,15 @@ import com.otilm.api.model.messaging.timequality.TimeQualityConfig;
 import com.otilm.api.model.messaging.timequality.TimeQualityConfigSnapshot;
 import com.otilm.core.dao.entity.signing.TimeQualityConfiguration;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 @Component
 @ConditionalOnProperty(name = "messaging.time-quality.enabled", havingValue = "true")
@@ -33,13 +32,10 @@ public class TimeQualityConfigurationProducer {
         log.debug("Publishing time quality config snapshot with {} configurations", message.getConfigurations().size());
 
         producerRetryTemplate.execute(context -> {
-            jmsTemplate.convertAndSend(
-                    messagingProperties.produceDestinationTimeQualityConfig(),
-                    message,
-                    msg -> {
-                        msg.setJMSType(messagingProperties.routingKey().timeQualityConfig());
-                        return msg;
-                    });
+            jmsTemplate.convertAndSend(messagingProperties.produceDestinationTimeQualityConfig(), message, msg -> {
+                msg.setJMSType(messagingProperties.routingKey().timeQualityConfig());
+                return msg;
+            });
             return null;
         });
     }

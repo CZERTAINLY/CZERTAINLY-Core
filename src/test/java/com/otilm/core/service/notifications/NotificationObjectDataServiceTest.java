@@ -1,5 +1,6 @@
 package com.otilm.core.service.notifications;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.ResponseAttributeV3;
 import com.otilm.api.model.common.attribute.common.AttributeType;
@@ -17,7 +18,10 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,11 +29,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,8 +92,9 @@ class NotificationObjectDataServiceTest {
                 .thenReturn(new ResourceObjectDto(Resource.CERTIFICATE, certificateUuid, "shop.acme.example"));
         when(certificateExporter.export(certificateUuid)).thenReturn(Optional.of("MIIBder"));
 
-        NotificationEventObjectDataDto objectData = assertDoesNotThrow(() -> service.getObjectData(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null, ALL_CATEGORIES));
+        NotificationEventObjectDataDto objectData = assertDoesNotThrow(() -> service
+                .getObjectData(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                        ALL_CATEGORIES));
 
         assertNull(objectData.getCustomAttributes(), "the failed category is absent");
         assertNotNull(objectData.getContent(), "other categories still load");
@@ -106,8 +106,9 @@ class NotificationObjectDataServiceTest {
     void capabilityFlagsGateTheLoaders() {
         UUID discoveryUuid = UUID.randomUUID();
 
-        NotificationEventObjectDataDto objectData = service.getObjectData(
-                ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discoveryUuid, null, ALL_CATEGORIES);
+        NotificationEventObjectDataDto objectData = service
+                .getObjectData(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discoveryUuid, null,
+                        ALL_CATEGORIES);
 
         // DISCOVERY declares neither owner nor groups; the association loaders are never consulted.
         verify(resourceObjectAssociationService, never()).getOwner(any(), any());
@@ -120,8 +121,9 @@ class NotificationObjectDataServiceTest {
     void subjectWithoutCapabilitiesYieldsSubjectOnly() {
         UUID jobUuid = UUID.randomUUID();
 
-        NotificationEventObjectDataDto objectData = service.getObjectData(
-                ResourceEvent.SCHEDULED_JOB_FINISHED, Resource.SCHEDULED_JOB, jobUuid, null, ALL_CATEGORIES);
+        NotificationEventObjectDataDto objectData = service
+                .getObjectData(ResourceEvent.SCHEDULED_JOB_FINISHED, Resource.SCHEDULED_JOB, jobUuid, null,
+                        ALL_CATEGORIES);
 
         verify(attributeEngine, never()).getObjectCustomAttributesContentForSystemContext(any(), any());
         assertNotNull(objectData.getSubject());
@@ -141,8 +143,9 @@ class NotificationObjectDataServiceTest {
         when(resourceInternalService.getResourceObjectInternal(any(), any()))
                 .thenThrow(new NotFoundException("Certificate", deletedTargetUuid.toString()));
 
-        NotificationEventObjectDataDto objectData = assertDoesNotThrow(() -> service.getObjectData(
-                ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid, approval, ALL_CATEGORIES));
+        NotificationEventObjectDataDto objectData = assertDoesNotThrow(() -> service
+                .getObjectData(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid, approval,
+                        ALL_CATEGORIES));
 
         assertEquals(Resource.CERTIFICATE, objectData.getSubject().getResource());
         assertEquals(deletedTargetUuid.toString(), objectData.getSubject().getUuid());
@@ -157,11 +160,15 @@ class NotificationObjectDataServiceTest {
         approval.setResource(Resource.CERTIFICATE);
         approval.setObjectUuid(targetCertificateUuid);
 
-        service.getObjectData(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid, approval, ALL_CATEGORIES);
+        service
+                .getObjectData(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid, approval,
+                        ALL_CATEGORIES);
 
-        verify(attributeEngine).getObjectCustomAttributesContentForSystemContext(Resource.CERTIFICATE, targetCertificateUuid);
+        verify(attributeEngine)
+                .getObjectCustomAttributesContentForSystemContext(Resource.CERTIFICATE, targetCertificateUuid);
         verify(certificateExporter).export(targetCertificateUuid);
-        verify(attributeEngine, never()).getObjectCustomAttributesContentForSystemContext(Resource.APPROVAL, approvalUuid);
+        verify(attributeEngine, never())
+                .getObjectCustomAttributesContentForSystemContext(Resource.APPROVAL, approvalUuid);
     }
 
     @Test
@@ -171,14 +178,13 @@ class NotificationObjectDataServiceTest {
         UUID plainUuid = UUID.fromString("00000000-0000-0000-0000-00000000000c");
 
         when(attributeEngine.getObjectCustomAttributesContentForSystemContext(Resource.CERTIFICATE, certificateUuid))
-                .thenReturn(List.of(
-                        attribute(protectedUuid, "protected", "hidden"),
-                        attribute(plainUuid, "plain", "visible")));
+                .thenReturn(List
+                        .of(attribute(protectedUuid, "protected", "hidden"), attribute(plainUuid, "plain", "visible")));
         when(attributeProtectionExclusions.excludedFrom(anyCollection())).thenReturn(Set.of(protectedUuid));
 
-        NotificationEventObjectDataDto objectData = service.getObjectData(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
-                Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
+        NotificationEventObjectDataDto objectData = service
+                .getObjectData(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                        Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
 
         assertEquals(Set.of("plain"), objectData.getCustomAttributes().keySet(),
                 "protected attributes never reach the wire");
@@ -193,9 +199,9 @@ class NotificationObjectDataServiceTest {
         when(attributeContent2ObjectRepository.summarizeContentFootprint(Resource.CERTIFICATE.name(), certificateUuid))
                 .thenReturn(List.of(oversized));
 
-        NotificationEventObjectDataDto objectData = service.getObjectData(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
-                Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES, NotificationDataCategory.METADATA));
+        NotificationEventObjectDataDto objectData = service
+                .getObjectData(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                        Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES, NotificationDataCategory.METADATA));
 
         assertNull(objectData.getCustomAttributes(), "an oversized row skips the category load");
         // The engine must never materialize (and decrypt) the oversized row.
@@ -215,23 +221,25 @@ class NotificationObjectDataServiceTest {
                 .thenReturn(footprints);
 
         UUID firstUuid = UUID.fromString("00000000-0000-0000-0000-%012d".formatted(1));
-        UUID overflowUuid = UUID.fromString("00000000-0000-0000-0000-%012d".formatted(NotificationObjectDataService.MAX_ATTRIBUTES_PER_CATEGORY + 1));
+        UUID overflowUuid = UUID
+                .fromString("00000000-0000-0000-0000-%012d"
+                        .formatted(NotificationObjectDataService.MAX_ATTRIBUTES_PER_CATEGORY + 1));
         when(attributeEngine.getObjectCustomAttributesContentForSystemContext(Resource.CERTIFICATE, certificateUuid))
-                .thenReturn(List.of(
-                        attribute(firstUuid, "first", "kept"),
-                        attribute(overflowUuid, "overflow", "dropped")));
+                .thenReturn(
+                        List.of(attribute(firstUuid, "first", "kept"), attribute(overflowUuid, "overflow", "dropped")));
 
-        NotificationEventObjectDataDto objectData = service.getObjectData(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
-                Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
+        NotificationEventObjectDataDto objectData = service
+                .getObjectData(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                        Set.of(NotificationDataCategory.CUSTOM_ATTRIBUTES));
 
         assertEquals(Set.of("first"), objectData.getCustomAttributes().keySet(),
                 "the attribute beyond the cap loads but never reaches the wire");
     }
 
-    private static AttributeContent2ObjectRepository.AttributeContentFootprint footprint(UUID attributeUuid, String type, long maxBytes) {
-        AttributeContent2ObjectRepository.AttributeContentFootprint footprint =
-                mock(AttributeContent2ObjectRepository.AttributeContentFootprint.class);
+    private static AttributeContent2ObjectRepository.AttributeContentFootprint footprint(UUID attributeUuid,
+            String type, long maxBytes) {
+        AttributeContent2ObjectRepository.AttributeContentFootprint footprint = mock(
+                AttributeContent2ObjectRepository.AttributeContentFootprint.class);
         when(footprint.getAttributeUuid()).thenReturn(attributeUuid);
         when(footprint.getAttributeType()).thenReturn(type);
         when(footprint.getMaxBytes()).thenReturn(maxBytes);
@@ -248,9 +256,9 @@ class NotificationObjectDataServiceTest {
         when(certificate.getRaProfile()).thenReturn(raProfile);
         when(certificateRepository.findWithRaProfileByUuid(certificateUuid)).thenReturn(Optional.of(certificate));
 
-        NotificationEventObjectDataDto objectData = service.getObjectData(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
-                Set.of(NotificationDataCategory.ASSOCIATIONS));
+        NotificationEventObjectDataDto objectData = service
+                .getObjectData(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                        Set.of(NotificationDataCategory.ASSOCIATIONS));
 
         assertNotNull(objectData.getAssociations());
         assertEquals(Resource.RA_PROFILE, objectData.getAssociations().getFirst().getResource());
@@ -261,8 +269,9 @@ class NotificationObjectDataServiceTest {
     void emptyCategorySetYieldsSubjectOnly() {
         UUID certificateUuid = UUID.randomUUID();
 
-        NotificationEventObjectDataDto objectData = service.getObjectData(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null, Set.of());
+        NotificationEventObjectDataDto objectData = service
+                .getObjectData(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificateUuid, null,
+                        Set.of());
 
         assertNotNull(objectData.getSubject());
         assertNull(objectData.getCustomAttributes());

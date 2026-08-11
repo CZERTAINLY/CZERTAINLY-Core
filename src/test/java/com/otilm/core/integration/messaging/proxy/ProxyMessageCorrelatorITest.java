@@ -5,6 +5,16 @@ import com.otilm.api.clients.mq.model.ProxyMessage;
 import com.otilm.core.messaging.proxy.ProxyMessageCorrelator;
 import com.otilm.core.messaging.proxy.ProxyProperties;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,18 +22,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.*;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Integration tests for {@link ProxyMessageCorrelator}.
- * Tests real timeout behavior, threading, and capacity enforcement with Spring context.
+ * Integration tests for {@link ProxyMessageCorrelator}. Tests real timeout behavior, threading, and capacity
+ * enforcement with Spring context.
  */
 class ProxyMessageCorrelatorITest extends BaseSpringBootTest {
 
@@ -35,14 +40,10 @@ class ProxyMessageCorrelatorITest extends BaseSpringBootTest {
     @BeforeEach
     void setUpCorrelator() {
         // Create a fresh correlator for each test with shorter timeout for testing
-        ProxyProperties testProps = new ProxyProperties(
-                proxyProperties.exchange(),
-                proxyProperties.responseQueue(),
-                proxyProperties.instanceId(),
-                Duration.ofMillis(500), // Short timeout for testing
+        ProxyProperties testProps = new ProxyProperties(proxyProperties.exchange(), proxyProperties.responseQueue(),
+                proxyProperties.instanceId(), Duration.ofMillis(500), // Short timeout for testing
                 100, // Low capacity for testing
-                null
-        );
+                null);
         correlator = new ProxyMessageCorrelator(testProps);
     }
 
@@ -145,8 +146,8 @@ class ProxyMessageCorrelatorITest extends BaseSpringBootTest {
                         String correlationId = "thread-" + threadId + "-req-" + i;
                         allCorrelationIds.add(correlationId);
 
-                        CompletableFuture<ProxyMessage> future = correlator.registerRequest(
-                                correlationId, Duration.ofSeconds(10));
+                        CompletableFuture<ProxyMessage> future = correlator
+                                .registerRequest(correlationId, Duration.ofSeconds(10));
                         allFutures.add(future);
 
                         // Complete half immediately
@@ -232,14 +233,12 @@ class ProxyMessageCorrelatorITest extends BaseSpringBootTest {
     // ==================== Helper Methods ====================
 
     private ProxyMessage createMessage(String correlationId, int statusCode, Object body) {
-        return ProxyMessage.builder()
+        return ProxyMessage
+                .builder()
                 .correlationId(correlationId)
                 .proxyId("test-proxy")
                 .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(statusCode)
-                        .body(body)
-                        .build())
+                .connectorResponse(ConnectorResponse.builder().statusCode(statusCode).body(body).build())
                 .build();
     }
 }

@@ -1,7 +1,13 @@
 package com.otilm.core.dao.entity.oid;
 
 import com.otilm.api.model.core.oid.OidCategory;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.DiscriminatorColumn;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Inheritance;
 import lombok.Getter;
 import lombok.Setter;
 

@@ -9,14 +9,13 @@ import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.service.scep.impl.ScepServiceImpl;
 import com.otilm.core.service.scep.message.ScepRequest;
 import com.otilm.core.service.v2.ClientOperationInternalService;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -25,8 +24,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 /**
- * Verifies that both SCEP {@code PKCSReq} seams in {@link ScepServiceImpl} shape a {@link RequestAttributePolicyViolationException}
- * into a {@link ScepException} carrying {@link FailInfo#BAD_REQUEST}.
+ * Verifies that both SCEP {@code PKCSReq} seams in {@link ScepServiceImpl} shape a
+ * {@link RequestAttributePolicyViolationException} into a {@link ScepException} carrying {@link FailInfo#BAD_REQUEST}.
  */
 class ScepPkcsReqRequestAttributeValidationTest {
 
@@ -40,10 +39,12 @@ class ScepPkcsReqRequestAttributeValidationTest {
                 + "of RA profile 'X': missing required RDN: CN";
         ClientOperationInternalService clientOperationService = mock(ClientOperationInternalService.class);
         given(clientOperationService.issueCertificate(any(), any(), any(), any()))
-                .willThrow(new RequestAttributePolicyViolationException(policyMessage, List.of("missing required RDN: CN")));
+                .willThrow(new RequestAttributePolicyViolationException(policyMessage,
+                        List.of("missing required RDN: CN")));
         ScepServiceImpl service = seededScepService(clientOperationService);
         ScepRequest scepRequest = mock(ScepRequest.class);
-        given(scepRequest.getPkcs10Request()).willReturn(new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(PKCS10_BASE64)));
+        given(scepRequest.getPkcs10Request())
+                .willReturn(new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(PKCS10_BASE64)));
 
         // when / then — the seam shapes the policy violation into a ScepException carrying the safe,
         // platform-authored message and FailInfo.BAD_REQUEST.
@@ -71,10 +72,12 @@ class ScepPkcsReqRequestAttributeValidationTest {
                 + "of RA profile 'X': missing required RDN: CN";
         ClientOperationInternalService clientOperationService = mock(ClientOperationInternalService.class);
         given(clientOperationService.submitCertificateRequest(any(), any()))
-                .willThrow(new RequestAttributePolicyViolationException(policyMessage, List.of("missing required RDN: CN")));
+                .willThrow(new RequestAttributePolicyViolationException(policyMessage,
+                        List.of("missing required RDN: CN")));
         ScepServiceImpl service = seededScepService(clientOperationService);
         ScepRequest scepRequest = mock(ScepRequest.class);
-        given(scepRequest.getPkcs10Request()).willReturn(new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(PKCS10_BASE64)));
+        given(scepRequest.getPkcs10Request())
+                .willReturn(new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(PKCS10_BASE64)));
 
         // when / then — the manual-approval seam shapes the policy violation into a ScepException carrying the
         // safe, platform-authored message and FailInfo.BAD_REQUEST, not the generic "Unable to submit" mapping.
@@ -97,8 +100,8 @@ class ScepPkcsReqRequestAttributeValidationTest {
 
     /**
      * Builds a {@link ScepServiceImpl} with the mock issuer wired and the fields normally populated by
-     * {@code init(...)} seeded via reflection, so the private {@code issueCertificate} kernel can be driven
-     * directly (matching {@code ScepServiceImplPollUnitTest}'s precedent — see class Javadoc for why).
+     * {@code init(...)} seeded via reflection, so the private {@code issueCertificate} kernel can be driven directly
+     * (matching {@code ScepServiceImplPollUnitTest}'s precedent — see class Javadoc for why).
      */
     private static ScepServiceImpl seededScepService(ClientOperationInternalService clientOperationService) {
         ScepServiceImpl service = new ScepServiceImpl();

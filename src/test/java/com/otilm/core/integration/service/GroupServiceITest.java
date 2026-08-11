@@ -14,12 +14,11 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
 import com.otilm.core.service.GroupInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
 
 public class GroupServiceITest extends BaseSpringBootTest {
 
@@ -62,11 +61,14 @@ public class GroupServiceITest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificateGroup_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> groupService.getGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddCertificateGroup() throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
+    public void testAddCertificateGroup()
+            throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
         GroupRequestDto request = new GroupRequestDto();
         request.setName("test");
 
@@ -103,36 +105,28 @@ public class GroupServiceITest extends BaseSpringBootTest {
     @Test
     public void testEditCertificateGroup_notFound() {
         GroupRequestDto request = new GroupRequestDto();
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> groupService.editGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request)
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> groupService
+                        .editGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
     public void testRemoveCertificateGroup() throws NotFoundException {
         groupService.deleteGroup(group.getSecuredUuid());
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> groupService.getGroup(group.getSecuredUuid())
-        );
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(group.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveCertificateGroup_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> groupService.deleteGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> groupService.deleteGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testBulkRemove() {
         groupService.bulkDeleteGroup(List.of(group.getSecuredUuid()));
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> groupService.getGroup(group.getSecuredUuid())
-        );
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(group.getSecuredUuid()));
     }
 
     @Test

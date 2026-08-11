@@ -4,15 +4,14 @@ import com.otilm.api.model.messaging.timequality.TimeQualityConfigRequest;
 import com.otilm.core.dao.entity.signing.TimeQualityConfiguration;
 import com.otilm.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.otilm.core.messaging.jms.producers.TimeQualityConfigurationProducer;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,10 +19,13 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TimeQualityConfigRequestListenerTest {
 
-    @Mock TimeQualityConfigurationRepository repository;
-    @Mock TimeQualityConfigurationProducer producer;
+    @Mock
+    TimeQualityConfigurationRepository repository;
+    @Mock
+    TimeQualityConfigurationProducer producer;
 
-    @InjectMocks TimeQualityConfigRequestListener listener;
+    @InjectMocks
+    TimeQualityConfigRequestListener listener;
 
     @Test
     void processMessage_publishesSnapshotOfAllStoredConfigs() {

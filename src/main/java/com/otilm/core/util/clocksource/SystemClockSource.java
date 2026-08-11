@@ -1,8 +1,7 @@
 package com.otilm.core.util.clocksource;
 
-import org.springframework.stereotype.Component;
-
 import java.time.Instant;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SystemClockSource implements ClockSource {

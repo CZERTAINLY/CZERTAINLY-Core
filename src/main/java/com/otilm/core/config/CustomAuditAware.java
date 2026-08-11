@@ -1,13 +1,12 @@
 package com.otilm.core.config;
 
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
-
-import java.util.Optional;
 
 public class CustomAuditAware implements AuditorAware<String> {
 
@@ -19,7 +18,8 @@ public class CustomAuditAware implements AuditorAware<String> {
         if (authentication == null) {
             // Normal for system-originated work, but also what a lost identity looks like. Debug rather than warn:
             // unauthenticated audited writes are frequent, so a warning here would be noise.
-            logger.debug("No authentication in context while resolving auditor; audited records will be attributed to the system user.");
+            logger
+                    .debug("No authentication in context while resolving auditor; audited records will be attributed to the system user.");
             return Optional.of("system");
         }
 

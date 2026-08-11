@@ -8,7 +8,8 @@ import java.security.cert.CertificateException;
 
 public interface UserManagementInternalService extends ResourceExtensionService {
 
-    UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerPrint) throws NotFoundException, CertificateException;
+    UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid,
+            String certificateFingerPrint) throws NotFoundException, CertificateException;
 
     /**
      * Assigns a role without consulting {@link com.otilm.core.security.authz.RoleAssignmentGuard}. Reserved for the

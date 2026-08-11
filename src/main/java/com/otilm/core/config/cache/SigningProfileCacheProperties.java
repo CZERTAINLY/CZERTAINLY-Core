@@ -6,8 +6,5 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "caching.signing-profiles")
-public record SigningProfileCacheProperties(
-        @Min(1) int ttlMinutes,
-        @Min(1) int maxSize
-) {
+public record SigningProfileCacheProperties(@Min(1) int ttlMinutes, @Min(1) int maxSize) {
 }

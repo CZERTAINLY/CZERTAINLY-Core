@@ -9,9 +9,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /**
- * Builds an in-memory {@link SigningRecord} with valid, unremarkable defaults; tests override only the fields
- * whose values drive the assertion under test. Persistence goes through {@code SigningRecordWriter}, not this
- * builder — the builder never touches the database.
+ * Builds an in-memory {@link SigningRecord} with valid, unremarkable defaults; tests override only the fields whose
+ * values drive the assertion under test. Persistence goes through {@code SigningRecordWriter}, not this builder — the
+ * builder never touches the database.
  */
 public class SigningRecordEntityBuilder {
 

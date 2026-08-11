@@ -6,6 +6,8 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,9 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -53,7 +52,8 @@ class AuthorizationEnforcerImplTest {
         when(core.decide(any(), any())).thenReturn(new AuthorizationDecision(true));
 
         // when + then
-        assertThatCode(() -> enforcer.enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL, SecuredUUID.fromUUID(UUID.randomUUID())))
+        assertThatCode(() -> enforcer
+                .enforce(Resource.TOKEN_PROFILE, ResourceAction.DETAIL, SecuredUUID.fromUUID(UUID.randomUUID())))
                 .doesNotThrowAnyException();
     }
 
@@ -78,15 +78,14 @@ class AuthorizationEnforcerImplTest {
         enforcer.enforce(Resource.CERTIFICATE, ResourceAction.DETAIL, uuid);
 
         // then
-        verify(core).decide(any(), argThat(req ->
-                req.properties().get("name").equals(Resource.CERTIFICATE.getCode())
-                        && req.properties().get("action").equals(ResourceAction.DETAIL.getCode())
-                        && req.properties().get("parentName").equals(Resource.NONE.getCode())
-                        && req.properties().get("parentAction").equals(ResourceAction.NONE.getCode())
-                        && req.objectUuids().equals(List.of(uuid))
-                        && req.parentUuids().isEmpty()
-                        && !req.hasSecurityFilter()
-                        && req.parentUuidGetterClass().isEmpty()));
+        verify(core)
+                .decide(any(),
+                        argThat(req -> req.properties().get("name").equals(Resource.CERTIFICATE.getCode())
+                                && req.properties().get("action").equals(ResourceAction.DETAIL.getCode())
+                                && req.properties().get("parentName").equals(Resource.NONE.getCode())
+                                && req.properties().get("parentAction").equals(ResourceAction.NONE.getCode())
+                                && req.objectUuids().equals(List.of(uuid)) && req.parentUuids().isEmpty()
+                                && !req.hasSecurityFilter() && req.parentUuidGetterClass().isEmpty()));
     }
 
     @Test
@@ -132,7 +131,7 @@ class AuthorizationEnforcerImplTest {
     }
 
     private PlatformAuthenticationToken platformAuth() {
-        return new PlatformAuthenticationToken(new PlatformUserDetails(
-                new AuthenticationInfo(AuthMethod.USER_PROXY, null, "TestUser", List.of())));
+        return new PlatformAuthenticationToken(
+                new PlatformUserDetails(new AuthenticationInfo(AuthMethod.USER_PROXY, null, "TestUser", List.of())));
     }
 }

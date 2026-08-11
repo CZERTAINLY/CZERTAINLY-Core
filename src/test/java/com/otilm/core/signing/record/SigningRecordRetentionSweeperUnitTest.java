@@ -8,13 +8,17 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Pure unit test for {@link SigningRecordRetentionSweeper} over a mocked per-batch writer and cluster
- * synchronizer. Covers the lock gate, the per-sweep batch cap (which bounds how long the advisory lock and
- * its enclosing transaction stay open), the empty backlog, and the failure path with its metrics. The actual
- * retention SQL is covered against a real database in {@link com.otilm.core.integration.signing.record.SigningRecordRetentionSweeperITest}.
+ * Pure unit test for {@link SigningRecordRetentionSweeper} over a mocked per-batch writer and cluster synchronizer.
+ * Covers the lock gate, the per-sweep batch cap (which bounds how long the advisory lock and its enclosing transaction
+ * stay open), the empty backlog, and the failure path with its metrics. The actual retention SQL is covered against a
+ * real database in {@link com.otilm.core.integration.signing.record.SigningRecordRetentionSweeperITest}.
  */
 class SigningRecordRetentionSweeperUnitTest {
 

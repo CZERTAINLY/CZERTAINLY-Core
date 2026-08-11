@@ -1,6 +1,15 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.SecretOperationException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.approval.ApprovalStatusEnum;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
@@ -26,14 +35,34 @@ import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
-import com.otilm.api.model.core.secret.*;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.api.model.core.secret.SecretDetailDto;
+import com.otilm.api.model.core.secret.SecretDto;
+import com.otilm.api.model.core.secret.SecretRequestDto;
+import com.otilm.api.model.core.secret.SecretState;
+import com.otilm.api.model.core.secret.SecretUpdateObjectsDto;
+import com.otilm.api.model.core.secret.SecretUpdateRequestDto;
+import com.otilm.api.model.core.secret.SecretVersionDto;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.Secret;
+import com.otilm.core.dao.entity.Secret2SyncVaultProfile;
+import com.otilm.core.dao.entity.Secret2SyncVaultProfileId;
+import com.otilm.core.dao.entity.SecretVersion;
+import com.otilm.core.dao.entity.VaultInstance;
+import com.otilm.core.dao.entity.VaultProfile;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.dao.repository.Secret2SyncVaultProfileRepository;
+import com.otilm.core.dao.repository.SecretRepository;
+import com.otilm.core.dao.repository.SecretVersionRepository;
+import com.otilm.core.dao.repository.VaultInstanceRepository;
+import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.events.SecretContentUpdatedEvent;
 import com.otilm.core.messaging.jms.listeners.ActionsListener;
+import com.otilm.core.messaging.jms.producers.ActionProducer;
 import com.otilm.core.messaging.model.ActionMessage;
 import com.otilm.core.messaging.model.SecretActionData;
-import com.otilm.core.messaging.jms.producers.ActionProducer;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -41,16 +70,17 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.SecretExternalService;
 import com.otilm.core.service.SecretInternalService;
-import com.otilm.core.util.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
 import com.otilm.core.util.WireMockPorts;
+import java.io.Serializable;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,14 +94,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
-import com.otilm.core.events.SecretContentUpdatedEvent;
-
-import java.io.Serializable;
-import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -122,23 +144,25 @@ class SecretServiceITest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException, JsonProcessingException {
 
-        // Process message instead of sending it to the queue and set approval status to approved to bypass approval in tests
+        // Process message instead of sending it to the queue and set approval status to approved to bypass approval in
+        // tests
         Mockito.doAnswer(invocation -> {
-                    ActionMessage msg = invocation.getArgument(0);
-                    msg.setApprovalStatus(ApprovalStatusEnum.APPROVED);
-                    msg.setApprovalUuid(UUID.randomUUID());
-                    actionListener.processMessage(msg);
-                    return null; // because produceMessage returns void
-                }
-        ).when(actionProducer).produceMessage(any());
+            ActionMessage msg = invocation.getArgument(0);
+            msg.setApprovalStatus(ApprovalStatusEnum.APPROVED);
+            msg.setApprovalUuid(UUID.randomUUID());
+            actionListener.processMessage(msg);
+            return null; // because produceMessage returns void
+        }).when(actionProducer).produceMessage(any());
         Mockito.doNothing().when(authHelper).authenticateAsUser(any());
 
         mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
-        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/secrets/basicAuth/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/secretProvider/secrets/basicAuth/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
         SecretResponseDto secretResponseDto = new SecretResponseDto();
         secretResponseDto.setName("testSecret");
         secretResponseDto.setVersion("1.2");
@@ -151,23 +175,35 @@ class SecretServiceITest extends BaseSpringBootTest {
         properties.setLabel("label");
         metadataAttributeV3.setProperties(properties);
         secretResponseDto.setMetadata(List.of(metadataAttributeV3));
-        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretResponseDto))));
-        WireMock.stubFor(WireMock.put(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretResponseDto))));
-        WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.ok()));
-        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                        .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretResponseDto))));
+        WireMock
+                .stubFor(WireMock
+                        .put(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                        .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretResponseDto))));
+        WireMock
+                .stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                        .willReturn(WireMock.ok()));
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
         SecretContentResponseDto secretContentResponseDto = new SecretContentResponseDto();
         BasicAuthSecretContent basicAuthSecretContent = new BasicAuthSecretContent();
         basicAuthSecretContent.setPassword("testPassword");
         basicAuthSecretContent.setUsername("testUsername");
         secretContentResponseDto.setContent(basicAuthSecretContent);
-        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets/content"))
-                .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretContentResponseDto))));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/secrets/content"))
+                        .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(secretContentResponseDto))));
 
         connector = new Connector();
         connector.setName("testConnector");
@@ -194,7 +230,6 @@ class SecretServiceITest extends BaseSpringBootTest {
         secret.setSourceVaultProfile(vaultProfile);
         secret.setEnabled(true);
         secret.setSourceVaultProfileUuid(vaultProfile.getUuid());
-
 
         SecretVersion secretVersion = new SecretVersion();
         secretVersion.setVersion(1);
@@ -228,12 +263,20 @@ class SecretServiceITest extends BaseSpringBootTest {
     void testCreateSecret() throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
         SecretRequestDto request = new SecretRequestDto();
         request.setName(secret.getName());
-        Assertions.assertThrows(AlreadyExistException.class, () -> secretService.createSecret(request, vaultInstance.getSecuredParentUuid(), vaultProfile.getSecuredUuid()));
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> secretService
+                        .createSecret(request, vaultInstance.getSecuredParentUuid(), vaultProfile.getSecuredUuid()));
         request.setName("newSecret");
-        Assertions.assertThrows(NotFoundException.class, () -> secretService.createSecret(request, SecuredParentUUID.fromUUID(UUID.randomUUID()), vaultInstance.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> secretService
+                                .createSecret(request, SecuredParentUUID.fromUUID(UUID.randomUUID()),
+                                        vaultInstance.getSecuredUuid()));
         SecuredUUID securedUUID = SecuredUUID.fromUUID(UUID.randomUUID());
         SecuredParentUUID vaultProfileSecuredParentUuid = vaultProfile.getSecuredParentUuid();
-        Assertions.assertThrows(ValidationException.class, () -> secretService.createSecret(request, vaultProfileSecuredParentUuid, securedUUID));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> secretService.createSecret(request, vaultProfileSecuredParentUuid, securedUUID));
 
         request.setDescription("Test secret description");
         BasicAuthSecretContent secretContent = new BasicAuthSecretContent();
@@ -245,7 +288,8 @@ class SecretServiceITest extends BaseSpringBootTest {
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         request.setCustomAttributes(List.of(attribute));
 
-        SecretDetailDto secretDetailDto = secretService.createSecret(request, vaultProfileSecuredParentUuid, vaultInstance.getSecuredUuid());
+        SecretDetailDto secretDetailDto = secretService
+                .createSecret(request, vaultProfileSecuredParentUuid, vaultInstance.getSecuredUuid());
         Assertions.assertNotNull(secretDetailDto);
         Assertions.assertEquals(request.getName(), secretDetailDto.getName());
         Assertions.assertNotNull(secretDetailDto.getUuid());
@@ -254,7 +298,11 @@ class SecretServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(secretDetailDto.getCustomAttributes());
         Assertions.assertEquals(1, secretDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), secretDetailDto.getCustomAttributes().getFirst().getName());
-        Assertions.assertEquals("data", ((List<AttributeContent>) secretDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+        Assertions
+                .assertEquals("data",
+                        ((List<AttributeContent>) secretDetailDto.getCustomAttributes().getFirst().getContent())
+                                .getFirst()
+                                .getData());
         Assertions.assertEquals(1, secretDetailDto.getVersion());
 
         // Reload secret details since it was created separately
@@ -264,11 +312,21 @@ class SecretServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(secretDetailDto.getMetadata());
         Assertions.assertEquals(1, secretDetailDto.getMetadata().size());
         Assertions.assertEquals("label", secretDetailDto.getMetadata().getFirst().getItems().getFirst().getLabel());
-        Assertions.assertEquals(vaultProfile.getName(), secretDetailDto.getMetadata().getFirst().getItems().getFirst().getSourceObjects().getFirst().getName());
+        Assertions
+                .assertEquals(vaultProfile.getName(),
+                        secretDetailDto
+                                .getMetadata()
+                                .getFirst()
+                                .getItems()
+                                .getFirst()
+                                .getSourceObjects()
+                                .getFirst()
+                                .getName());
     }
 
     @Test
-    void testSecretOperationFailed() throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException, JsonProcessingException {
+    void testSecretOperationFailed() throws ConnectorException, NotFoundException, AlreadyExistException,
+            AttributeException, JsonProcessingException {
         // Remove stubbing to cause failure in secret operations
         mockServer.resetAll();
         Mockito.doNothing().when(actionProducer).produceMessage(any());
@@ -284,19 +342,29 @@ class SecretServiceITest extends BaseSpringBootTest {
         SecretRequestDto request = new SecretRequestDto();
         request.setName("newSecret");
         request.setSecret(new BasicAuthSecretContent());
-        SecretDetailDto secretDetailDto = secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), vaultInstance.getSecuredUuid());
+        SecretDetailDto secretDetailDto = secretService
+                .createSecret(request, vaultProfile.getSecuredParentUuid(), vaultInstance.getSecuredUuid());
         ActionMessage actionMessage = new ActionMessage();
         actionMessage.setResourceUuid(UUID.fromString(secretDetailDto.getUuid()));
         actionMessage.setResourceAction(ResourceAction.CREATE);
-        actionMessage.setData(SecretActionData.builder()
-                .name(request.getName())
-                .originalState(SecretState.ACTIVE)
-                .updatedSourceVaultProfileUuid(newVaultProfileWithNewInstance.getUuid())
-                .encryptedContent(SecretsUtil.encryptAndEncodeSecretString(new ObjectMapper().writeValueAsString(request.getSecret()), SecretEncodingVersion.V1))
-                .deleteInVault(Boolean.TRUE)
-                .build());
-        Assertions.assertThrows(SecretOperationException.class, () -> secretInternalService.processSecretAction(actionMessage, true, true));
-        Secret newSecret = secretRepository.findWithAssociationsByUuid(UUID.fromString(secretDetailDto.getUuid())).orElseThrow();
+        actionMessage
+                .setData(SecretActionData
+                        .builder()
+                        .name(request.getName())
+                        .originalState(SecretState.ACTIVE)
+                        .updatedSourceVaultProfileUuid(newVaultProfileWithNewInstance.getUuid())
+                        .encryptedContent(SecretsUtil
+                                .encryptAndEncodeSecretString(
+                                        new ObjectMapper().writeValueAsString(request.getSecret()),
+                                        SecretEncodingVersion.V1))
+                        .deleteInVault(Boolean.TRUE)
+                        .build());
+        Assertions
+                .assertThrows(SecretOperationException.class,
+                        () -> secretInternalService.processSecretAction(actionMessage, true, true));
+        Secret newSecret = secretRepository
+                .findWithAssociationsByUuid(UUID.fromString(secretDetailDto.getUuid()))
+                .orElseThrow();
         Assertions.assertEquals(SecretState.FAILED, newSecret.getState());
 
         SecretUpdateRequestDto updateRequest = new SecretUpdateRequestDto();
@@ -304,30 +372,43 @@ class SecretServiceITest extends BaseSpringBootTest {
         SecretState originalState = secret.getState();
         actionMessage.setResourceAction(ResourceAction.UPDATE);
         actionMessage.setResourceUuid(secret.getUuid());
-        Assertions.assertThrows(SecretOperationException.class, () -> secretInternalService.processSecretAction(actionMessage, true, true));
+        Assertions
+                .assertThrows(SecretOperationException.class,
+                        () -> secretInternalService.processSecretAction(actionMessage, true, true));
         Secret secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
         Assertions.assertEquals(originalState, secretReloaded.getState());
 
         actionMessage.setResourceAction(ResourceAction.DELETE);
-        Assertions.assertThrows(SecretOperationException.class, () -> secretInternalService.processSecretAction(actionMessage, true, true));
+        Assertions
+                .assertThrows(SecretOperationException.class,
+                        () -> secretInternalService.processSecretAction(actionMessage, true, true));
         secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
         Assertions.assertEquals(originalState, secretReloaded.getState());
 
         actionMessage.setResourceAction(ResourceAction.UPDATE_SOURCE_VAULT_PROFILE);
-        Assertions.assertThrows(SecretOperationException.class, () -> secretInternalService.processSecretAction(actionMessage, true, true));
+        Assertions
+                .assertThrows(SecretOperationException.class,
+                        () -> secretInternalService.processSecretAction(actionMessage, true, true));
         secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
         Assertions.assertEquals(originalState, secretReloaded.getState());
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets/content"))
-                .willReturn(WireMock.okJson(new ObjectMapper().writeValueAsString(new BasicAuthSecretContent()))));
-        Assertions.assertThrows(SecretOperationException.class, () -> secretInternalService.processSecretAction(actionMessage, true, true));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/secrets/content"))
+                        .willReturn(
+                                WireMock.okJson(new ObjectMapper().writeValueAsString(new BasicAuthSecretContent()))));
+        Assertions
+                .assertThrows(SecretOperationException.class,
+                        () -> secretInternalService.processSecretAction(actionMessage, true, true));
         secretReloaded = secretRepository.findWithAssociationsByUuid(secret.getUuid()).orElseThrow();
         Assertions.assertEquals(originalState, secretReloaded.getState());
     }
 
     @Test
     void testUpdateSecret() throws NotFoundException, AttributeException, ConnectorException {
-        Assertions.assertThrows(NotFoundException.class, () -> secretService.updateSecret(UUID.randomUUID(), new SecretUpdateRequestDto()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> secretService.updateSecret(UUID.randomUUID(), new SecretUpdateRequestDto()));
         addSyncVaultProfile(secret);
         SecretUpdateRequestDto request = new SecretUpdateRequestDto();
         request.setDescription("Test secret new description");
@@ -347,14 +428,20 @@ class SecretServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(secretDetailDto.getCustomAttributes());
         Assertions.assertEquals(1, secretDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), secretDetailDto.getCustomAttributes().getFirst().getName());
-        Assertions.assertEquals("data2", ((List<AttributeContent>) secretDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+        Assertions
+                .assertEquals("data2",
+                        ((List<AttributeContent>) secretDetailDto.getCustomAttributes().getFirst().getContent())
+                                .getFirst()
+                                .getData());
 
         secretDetailDto = secretService.getSecretDetails(secret.getUuid());
         Assertions.assertEquals(2, secretDetailDto.getVersion());
 
         Assertions.assertNotNull(secretDetailDto.getMetadata());
         Assertions.assertEquals(1, secretDetailDto.getMetadata().size());
-        Assertions.assertEquals(2, secretDetailDto.getMetadata().getFirst().getItems().getFirst().getSourceObjects().size());
+        Assertions
+                .assertEquals(2,
+                        secretDetailDto.getMetadata().getFirst().getItems().getFirst().getSourceObjects().size());
 
         // Check that the version has not changed with the same content
         secretDetailDto = secretService.updateSecret(secret.getUuid(), request);
@@ -366,7 +453,8 @@ class SecretServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void updateSecret_publishesSecretContentUpdatedEvent_whenContentChanges() throws NotFoundException, AttributeException, ConnectorException {
+    void updateSecret_publishesSecretContentUpdatedEvent_whenContentChanges()
+            throws NotFoundException, AttributeException, ConnectorException {
         // given — an update whose secret content differs from the current version (a password rotation)
         SecretUpdateRequestDto rotate = new SecretUpdateRequestDto();
         BasicAuthSecretContent rotatedContent = new BasicAuthSecretContent();
@@ -415,9 +503,15 @@ class SecretServiceITest extends BaseSpringBootTest {
         secret.setLatestVersion(latestVersion);
         secretRepository.save(secret);
         addSyncVaultProfile(secret);
-        WireMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_NOT_FOUND, "", null, null), HttpStatus.NOT_FOUND.value())
-                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        WireMock
+                .stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                        .willReturn(WireMock
+                                .jsonResponse(
+                                        ProblemDetailExtended
+                                                .fromErrorCode(ErrorCode.RESOURCE_NOT_FOUND, "", null, null),
+                                        HttpStatus.NOT_FOUND.value())
+                                .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
         Assertions.assertDoesNotThrow(() -> secretService.deleteSecret(secret.getUuid(), true));
         var served = mockServer.findAll(WireMock.deleteRequestedFor(WireMock.anyUrl()));
         Assertions.assertEquals(2, served.size());
@@ -453,11 +547,15 @@ class SecretServiceITest extends BaseSpringBootTest {
         UUID secretUuid = secret.getUuid();
         UUID sourceVaultProfileUuid = vaultProfile.getUuid();
         List<RequestAttribute> createSecretAttributes = List.of();
-        Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, sourceVaultProfileUuid, createSecretAttributes));
+        Assertions
+                .assertThrows(ValidationException.class, () -> secretService
+                        .addVaultProfileToSecret(secretUuid, sourceVaultProfileUuid, createSecretAttributes));
 
         secret.setState(SecretState.PENDING_APPROVAL);
         secretRepository.save(secret);
-        Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, sourceVaultProfileUuid, createSecretAttributes));
+        Assertions
+                .assertThrows(ValidationException.class, () -> secretService
+                        .addVaultProfileToSecret(secretUuid, sourceVaultProfileUuid, createSecretAttributes));
         secret.setState(SecretState.ACTIVE);
         secretRepository.save(secret);
 
@@ -473,7 +571,9 @@ class SecretServiceITest extends BaseSpringBootTest {
         secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
 
         UUID newVaultProfileUuid = newVaultProfile.getUuid();
-        Assertions.assertThrows(ValidationException.class, () -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, createSecretAttributes));
+        Assertions
+                .assertThrows(ValidationException.class, () -> secretService
+                        .addVaultProfileToSecret(secretUuid, newVaultProfileUuid, createSecretAttributes));
 
         secret2SyncVaultProfileRepository.delete(secret2SyncVaultProfile);
         secretService.addVaultProfileToSecret(secretUuid, newVaultProfileUuid, createSecretAttributes);
@@ -486,15 +586,30 @@ class SecretServiceITest extends BaseSpringBootTest {
         newVaultProfileWithNewInstance.setName("newVaultProfileNewInstance");
         newVaultProfileWithNewInstance.setVaultInstance(newVaultInstance);
         vaultProfileRepository.save(newVaultProfileWithNewInstance);
-        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.CONFLICT.value())
-                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
-        Assertions.assertDoesNotThrow(() -> secretService.addVaultProfileToSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), createSecretAttributes));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                        .willReturn(WireMock
+                                .jsonResponse(
+                                        ProblemDetailExtended
+                                                .fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null),
+                                        HttpStatus.CONFLICT.value())
+                                .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        Assertions
+                .assertDoesNotThrow(() -> secretService
+                        .addVaultProfileToSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(),
+                                createSecretAttributes));
 
         Secret reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
-        Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().anyMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileUuid)));
+        Assertions
+                .assertTrue(reloadedSecret
+                        .getSyncVaultProfiles()
+                        .stream()
+                        .anyMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileUuid)));
 
-        Assertions.assertThrows(ValidationException.class, () -> secretService.removeVaultProfileFromSecret(secretUuid, sourceVaultProfileUuid, false));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> secretService.removeVaultProfileFromSecret(secretUuid, sourceVaultProfileUuid, false));
         secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileUuid, false);
 
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
@@ -503,10 +618,14 @@ class SecretServiceITest extends BaseSpringBootTest {
         // Test removing vault profile with delete in vault set to true
         secretService.removeVaultProfileFromSecret(secretUuid, newVaultProfileWithNewInstance.getUuid(), true);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
-        Assertions.assertTrue(reloadedSecret.getSyncVaultProfiles().stream().noneMatch(s -> s.getVaultProfile().getUuid().equals(newVaultProfileWithNewInstance.getUuid())));
+        Assertions
+                .assertTrue(reloadedSecret
+                        .getSyncVaultProfiles()
+                        .stream()
+                        .noneMatch(
+                                s -> s.getVaultProfile().getUuid().equals(newVaultProfileWithNewInstance.getUuid())));
 
     }
-
 
     @Test
     void testGetSecretDetails() throws NotFoundException {
@@ -537,7 +656,9 @@ class SecretServiceITest extends BaseSpringBootTest {
 
         secret.setState(SecretState.REJECTED);
         secretRepository.save(secret);
-        Assertions.assertThrows(ValidationException.class, () -> secretService.updateSecretObjects(secretUuid, updateObjectsDto));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> secretService.updateSecretObjects(secretUuid, updateObjectsDto));
         secret.setState(SecretState.ACTIVE);
         secretRepository.save(secret);
 
@@ -565,13 +686,22 @@ class SecretServiceITest extends BaseSpringBootTest {
 
         // Set vault profile in sync profiles as source
         updateObjectsDto.setSourceVaultProfileUuid(newVaultProfile.getUuid());
-        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
-                .willReturn(WireMock.jsonResponse(ProblemDetailExtended.fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null), HttpStatus.CONFLICT.value())
-                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/secrets"))
+                        .willReturn(WireMock
+                                .jsonResponse(
+                                        ProblemDetailExtended
+                                                .fromErrorCode(ErrorCode.RESOURCE_ALREADY_EXISTS, "", null, null),
+                                        HttpStatus.CONFLICT.value())
+                                .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
         secretService.updateSecretObjects(secretUuid, updateObjectsDto);
         reloadedSecret = secretRepository.findWithAssociationsByUuid(secretUuid).orElseThrow();
         Assertions.assertEquals(newVaultProfile.getUuid(), reloadedSecret.getSourceVaultProfileUuid());
-        Assertions.assertFalse(secret2SyncVaultProfileRepository.findById(new Secret2SyncVaultProfileId(secretUuid, newVaultProfile.getUuid())).isPresent());
+        Assertions
+                .assertFalse(secret2SyncVaultProfileRepository
+                        .findById(new Secret2SyncVaultProfileId(secretUuid, newVaultProfile.getUuid()))
+                        .isPresent());
     }
 
     @Test
@@ -595,9 +725,10 @@ class SecretServiceITest extends BaseSpringBootTest {
         WireMockServer mockServerUpdateUser = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         mockServerUpdateUser.start();
         WireMock.configureFor("localhost", mockServerUpdateUser.port());
-        mockServerUpdateUser.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson("{ \"username\": \"newOwner\"}")
-        ));
+        mockServerUpdateUser
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/auth/users/[^/]+"))
+                        .willReturn(WireMock.okJson("{ \"username\": \"newOwner\"}")));
 
         try {
             SecretUpdateObjectsDto updateObjectsDto = new SecretUpdateObjectsDto();
@@ -613,14 +744,26 @@ class SecretServiceITest extends BaseSpringBootTest {
     @Test
     void testListSecrets() {
         SearchRequestDto searchRequest = new SearchRequestDto();
-        searchRequest.setFilters(List.of(
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_NAME.name(), FilterConditionOperator.CONTAINS, secret.getName()),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_TYPE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getType().getCode())),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getState().getCode())),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_ENABLED.name(), FilterConditionOperator.EQUALS, secret.isEnabled()),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_SOURCE_VAULT_PROFILE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(secret.getSourceVaultProfile().getName())),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_SYNC_VAULT_PROFILE.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of(secret.getSourceVaultProfile().getName()))
-        ));
+        searchRequest
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_NAME.name(),
+                                FilterConditionOperator.CONTAINS, secret.getName()),
+                                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_TYPE.name(),
+                                        FilterConditionOperator.EQUALS,
+                                        (Serializable) List.of(secret.getType().getCode())),
+                                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SECRET_STATE.name(),
+                                        FilterConditionOperator.EQUALS,
+                                        (Serializable) List.of(secret.getState().getCode())),
+                                new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                        FilterField.SECRET_ENABLED.name(), FilterConditionOperator.EQUALS,
+                                        secret.isEnabled()),
+                                new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                        FilterField.SECRET_SOURCE_VAULT_PROFILE.name(), FilterConditionOperator.EQUALS,
+                                        (Serializable) List.of(secret.getSourceVaultProfile().getName())),
+                                new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                        FilterField.SECRET_SYNC_VAULT_PROFILE.name(),
+                                        FilterConditionOperator.NOT_EQUALS,
+                                        (Serializable) List.of(secret.getSourceVaultProfile().getName()))));
         PaginationResponseDto<SecretDto> secrets = secretService.listSecrets(searchRequest, SecurityFilter.create());
         Assertions.assertEquals(1, secrets.getTotalItems());
         Assertions.assertEquals(secret.getName(), secrets.getItems().getFirst().getName());
@@ -629,7 +772,8 @@ class SecretServiceITest extends BaseSpringBootTest {
     @Test
     void getSecretContent_whenFingerprintCalcThrows_shouldThrowValidationException() {
         try (MockedStatic<SecretsUtil> mocked = mockStatic(SecretsUtil.class)) {
-            mocked.when(() -> SecretsUtil.calculateSecretContentFingerprint(any()))
+            mocked
+                    .when(() -> SecretsUtil.calculateSecretContentFingerprint(any()))
                     .thenThrow(new JsonProcessingException("boom") {
                     });
 
@@ -679,7 +823,8 @@ class SecretServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testHandlingRejectedSecret() throws SecretOperationException, ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
+    void testHandlingRejectedSecret() throws SecretOperationException, ConnectorException, NotFoundException,
+            AttributeException, JsonProcessingException {
         ActionMessage actionMessage = new ActionMessage();
         actionMessage.setResourceUuid(secret.getUuid());
         actionMessage.setResourceAction(ResourceAction.CREATE);
@@ -699,8 +844,10 @@ class SecretServiceITest extends BaseSpringBootTest {
         WireMockServer authServiceMock = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         authServiceMock.start();
         WireMock.configureFor("localhost", authServiceMock.port());
-        authServiceMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/auth/users"))
-                .willReturn(WireMock.okJson("{ \"data\": [{\"username\": \"testOwner\"}] }")));
+        authServiceMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/auth/users"))
+                        .willReturn(WireMock.okJson("{ \"data\": [{\"username\": \"testOwner\"}] }")));
 
         try {
             // Act
@@ -711,13 +858,19 @@ class SecretServiceITest extends BaseSpringBootTest {
             Assertions.assertFalse(result.isEmpty());
 
             // One PROPERTY group and one CUSTOM group (custom attribute was created in setUp)
-            Assertions.assertEquals(1, result.stream()
-                    .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY).count());
-            Assertions.assertEquals(1, result.stream()
-                    .filter(g -> g.getFilterFieldSource() == FilterFieldSource.CUSTOM).count());
+            Assertions
+                    .assertEquals(1,
+                            result
+                                    .stream()
+                                    .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY)
+                                    .count());
+            Assertions
+                    .assertEquals(1,
+                            result.stream().filter(g -> g.getFilterFieldSource() == FilterFieldSource.CUSTOM).count());
 
             // Collect all SearchFieldDataDtos from the PROPERTY group
-            List<SearchFieldDataDto> propertyFields = result.stream()
+            List<SearchFieldDataDto> propertyFields = result
+                    .stream()
                     .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY)
                     .map(SearchFieldDataByGroupDto::getSearchFieldData)
                     .flatMap(List::stream)
@@ -726,40 +879,44 @@ class SecretServiceITest extends BaseSpringBootTest {
             Assertions.assertEquals(FilterField.getEnumsForResource(Resource.SECRET).size(), propertyFields.size());
 
             // SECRET_TYPE values contain all SecretType codes
-            SearchFieldDataDto secretTypeField = propertyFields.stream()
+            SearchFieldDataDto secretTypeField = propertyFields
+                    .stream()
                     .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_TYPE.name()))
                     .findFirst()
                     .orElseThrow();
-            List<String> secretTypeCodes = Arrays.stream(com.otilm.api.model.connector.secrets.SecretType.values())
+            List<String> secretTypeCodes = Arrays
+                    .stream(com.otilm.api.model.connector.secrets.SecretType.values())
                     .map(com.otilm.api.model.connector.secrets.SecretType::getCode)
                     .toList();
             Assertions.assertTrue(((List<?>) secretTypeField.getValue()).containsAll(secretTypeCodes));
 
             // SECRET_STATE values contain all SecretState codes
-            SearchFieldDataDto secretStateField = propertyFields.stream()
+            SearchFieldDataDto secretStateField = propertyFields
+                    .stream()
                     .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_STATE.name()))
                     .findFirst()
                     .orElseThrow();
-            List<String> secretStateCodes = Arrays.stream(SecretState.values())
-                    .map(SecretState::getCode)
-                    .toList();
+            List<String> secretStateCodes = Arrays.stream(SecretState.values()).map(SecretState::getCode).toList();
             Assertions.assertTrue(((List<?>) secretStateField.getValue()).containsAll(secretStateCodes));
 
             // SECRET_SOURCE_VAULT_PROFILE and SECRET_SYNC_VAULT_PROFILE contain the existing vault profile name
-            SearchFieldDataDto sourceVaultProfileField = propertyFields.stream()
+            SearchFieldDataDto sourceVaultProfileField = propertyFields
+                    .stream()
                     .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_SOURCE_VAULT_PROFILE.name()))
                     .findFirst()
                     .orElseThrow();
             Assertions.assertTrue(((List<?>) sourceVaultProfileField.getValue()).contains(vaultProfile.getName()));
 
-            SearchFieldDataDto syncVaultProfileField = propertyFields.stream()
+            SearchFieldDataDto syncVaultProfileField = propertyFields
+                    .stream()
                     .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_SYNC_VAULT_PROFILE.name()))
                     .findFirst()
                     .orElseThrow();
             Assertions.assertTrue(((List<?>) syncVaultProfileField.getValue()).contains(vaultProfile.getName()));
 
             // SECRET_OWNER values contain the stubbed username
-            SearchFieldDataDto ownerField = propertyFields.stream()
+            SearchFieldDataDto ownerField = propertyFields
+                    .stream()
                     .filter(f -> f.getFieldIdentifier().equals(FilterField.SECRET_OWNER.name()))
                     .findFirst()
                     .orElseThrow();

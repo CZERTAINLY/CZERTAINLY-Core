@@ -6,6 +6,8 @@ import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.core.aop.AuditResultOverride;
 import com.otilm.core.signing.tsa.TsaExternalService;
 import com.otilm.core.signing.tsa.messages.TspResponse;
+import java.math.BigInteger;
+import java.security.MessageDigest;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIStatus;
@@ -18,9 +20,6 @@ import org.bouncycastle.tsp.TimeStampResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
-
-import java.math.BigInteger;
-import java.security.MessageDigest;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -156,7 +155,8 @@ class TspSigningProfileControllerImplTest {
         verify(auditResultOverride).setFailure();
     }
 
-    private static void assertRejection(ResponseEntity<byte[]> response, int expectedFailInfo, String expectedStatusString) {
+    private static void assertRejection(ResponseEntity<byte[]> response, int expectedFailInfo,
+            String expectedStatusString) {
         assertEquals(200, response.getStatusCode().value());
         byte[] body = response.getBody();
         assertNotNull(body);
@@ -176,9 +176,9 @@ class TspSigningProfileControllerImplTest {
     }
 
     /**
-     * Minimal well-formed CMS {@link ContentInfo} standing in for a timestamp token. The controller's granted
-     * branch only re-wraps these bytes — it never inspects the token content — so a real signed SignedData/TSTInfo
-     * (exercised end-to-end by {@code TspProtocolFlowITest}) is unnecessary here.
+     * Minimal well-formed CMS {@link ContentInfo} standing in for a timestamp token. The controller's granted branch
+     * only re-wraps these bytes — it never inspects the token content — so a real signed SignedData/TSTInfo (exercised
+     * end-to-end by {@code TspProtocolFlowITest}) is unnecessary here.
      */
     private static byte[] contentInfoBytes() throws Exception {
         var content = new DEROctetString(new byte[]{1, 2, 3});

@@ -1,15 +1,19 @@
 package com.otilm.core.dao.entity;
 
 import com.otilm.api.model.core.secret.SecretVersionDto;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.proxy.HibernateProxy;
-
-import java.time.OffsetDateTime;
-import java.util.Objects;
-import java.util.UUID;
 
 @Entity
 @Table(name = "secret_version")
@@ -54,14 +58,20 @@ public class SecretVersion extends UniquelyIdentified {
 
     @Override
     public final boolean equals(final Object o) {
-        if (this == o) return true;
-        if (!(o instanceof SecretVersion that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof SecretVersion that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 
     public void setSecret(Secret secret) {

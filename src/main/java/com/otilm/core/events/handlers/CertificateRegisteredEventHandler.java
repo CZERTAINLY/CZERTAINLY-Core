@@ -13,11 +13,10 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.service.registration.RegistrationChallengeStore;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 @Component(ResourceEvent.Codes.CERTIFICATE_REGISTERED)
@@ -26,9 +25,9 @@ public class CertificateRegisteredEventHandler extends CertificateEventsHandler 
     private final RegistrationChallengeStore registrationChallengeStore;
     private final CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository;
 
-    protected CertificateRegisteredEventHandler(CertificateRepository repository, CertificateTriggerEvaluator ruleEvaluator,
-                                                RegistrationChallengeStore registrationChallengeStore,
-                                                CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository) {
+    protected CertificateRegisteredEventHandler(CertificateRepository repository,
+            CertificateTriggerEvaluator ruleEvaluator, RegistrationChallengeStore registrationChallengeStore,
+            CertificateRegistrationAuthorizationRepository registrationAuthorizationRepository) {
         super(repository, ruleEvaluator);
         this.registrationChallengeStore = registrationChallengeStore;
         this.registrationAuthorizationRepository = registrationAuthorizationRepository;
@@ -63,9 +62,11 @@ public class CertificateRegisteredEventHandler extends CertificateEventsHandler 
             internalData.setCompletionDeadline(full.getCompletionDeadline());
         }
         // Default recipient is the owner only (no groups) — a notification profile can override.
-        List<NotificationRecipient> recipients = NotificationRecipient.buildUsersAndGroupsNotificationRecipients(
-                certificate.getOwner() == null ? null : List.of(certificate.getOwner().getUuid()), null);
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.CERTIFICATE, certificate.getUuid(), null, recipients, internalData);
+        List<NotificationRecipient> recipients = NotificationRecipient
+                .buildUsersAndGroupsNotificationRecipients(
+                        certificate.getOwner() == null ? null : List.of(certificate.getOwner().getUuid()), null);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.CERTIFICATE,
+                certificate.getUuid(), null, recipients, internalData);
         applicationEventPublisher.publishEvent(notificationMessage);
     }
 

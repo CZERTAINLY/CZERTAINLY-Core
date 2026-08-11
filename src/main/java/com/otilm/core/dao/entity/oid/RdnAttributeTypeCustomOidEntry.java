@@ -3,13 +3,12 @@ package com.otilm.core.dao.entity.oid;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Getter
@@ -23,6 +22,5 @@ public class RdnAttributeTypeCustomOidEntry extends CustomOidEntry {
     @Column(name = "alt_codes")
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> altCodes = new ArrayList<>();
-
 
 }

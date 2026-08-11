@@ -12,16 +12,15 @@ import com.otilm.core.messaging.model.CertificateUploadEventMessageData;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.service.CertificateUploadService;
 import com.otilm.core.util.CertificateUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CertificateUploadServiceImpl implements CertificateUploadService {
@@ -53,7 +52,8 @@ public class CertificateUploadServiceImpl implements CertificateUploadService {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public String upload(String certificateData, List<RequestAttribute> customAttributes, boolean sync) throws AlreadyExistException, CertificateException {
+    public String upload(String certificateData, List<RequestAttribute> customAttributes, boolean sync)
+            throws AlreadyExistException, CertificateException {
         X509Certificate certificate = CertificateUtil.parseUploadedCertificateContent(certificateData);
         String fingerprint;
         try {
@@ -69,7 +69,8 @@ public class CertificateUploadServiceImpl implements CertificateUploadService {
             attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, customAttributes);
         }
 
-        CertificateUploadEventMessageData eventMessageData = CertificateUploadEventMessageData.builder()
+        CertificateUploadEventMessageData eventMessageData = CertificateUploadEventMessageData
+                .builder()
                 .customAttributes(customAttributes)
                 .certificateContent(certificateData)
                 .build();
@@ -81,7 +82,8 @@ public class CertificateUploadServiceImpl implements CertificateUploadService {
                 throw new CertificateException("Failed to produce certificate upload event: " + e.getMessage());
             }
             if (certificateRepository.findByFingerprint(fingerprint).isEmpty()) {
-                throw new CertificateException("Certificate was not uploaded. See Certificate Uploaded Event History for more details.");
+                throw new CertificateException(
+                        "Certificate was not uploaded. See Certificate Uploaded Event History for more details.");
             }
         } else {
             eventProducer.produceMessage(eventMessage);

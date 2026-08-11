@@ -1,7 +1,10 @@
 package com.otilm.core.integration.service;
 
-
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.otilm.api.model.client.cmp.CmpProfileRequestDto;
@@ -37,6 +40,9 @@ import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.CmpProfileExternalService;
 import com.otilm.core.service.CmpProfileInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,10 +51,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
@@ -142,9 +144,15 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(cmpProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificateAssociations());
-        Assertions.assertEquals(cmpProfile.getCertificateAssociations().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
-        Assertions.assertEquals(cmpProfile.getCertificateAssociations().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
-        Assertions.assertEquals(cmpProfile.getCertificateAssociations().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
+        Assertions
+                .assertEquals(cmpProfile.getCertificateAssociations().getOwnerUuid(),
+                        dto.getCertificateAssociations().getOwnerUuid());
+        Assertions
+                .assertEquals(cmpProfile.getCertificateAssociations().getGroupUuids(),
+                        dto.getCertificateAssociations().getGroupUuids());
+        Assertions
+                .assertEquals(cmpProfile.getCertificateAssociations().getCustomAttributes().size(),
+                        dto.getCertificateAssociations().getCustomAttributes().size());
 
         certificateService.deleteCertificate(certificate.getSecuredUuid());
         Assertions.assertDoesNotThrow(() -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
@@ -297,7 +305,6 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         request.setResponseProtectionMethod(ProtectionMethod.SHARED_SECRET);
         request.setSharedSecret("secret");
 
-
         CmpProfileDetailDto dto = cmpProfileService.editCmpProfile(cmpProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
@@ -312,13 +319,14 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     }
 
     static Stream<Arguments> sharedSecretEditCases() {
-        return Stream.of(
-                //         stored,            requestValue,  expectedStored
-                arguments("originalSecret", "newSecret", "newSecret"),      // value provided -> replace
-                arguments("originalSecret", null, "originalSecret"),        // omitted -> keep
-                arguments("originalSecret", "", "originalSecret"),          // blank -> keep
-                arguments("originalSecret", "   ", "originalSecret")        // whitespace -> keep
-        );
+        return Stream
+                .of(
+                        // stored, requestValue, expectedStored
+                        arguments("originalSecret", "newSecret", "newSecret"), // value provided -> replace
+                        arguments("originalSecret", null, "originalSecret"), // omitted -> keep
+                        arguments("originalSecret", "", "originalSecret"), // blank -> keep
+                        arguments("originalSecret", "   ", "originalSecret") // whitespace -> keep
+                );
     }
 
     @ParameterizedTest
@@ -349,8 +357,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         // no shared secret in the request and none stored -> reject
 
         SecuredUUID uuid = cmpProfile.getSecuredUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> cmpProfileService.editCmpProfile(uuid, request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> cmpProfileService.editCmpProfile(uuid, request));
         Assertions.assertTrue(ex.getMessage().contains("Shared secret is required"), ex.getMessage());
     }
 
@@ -363,8 +371,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         request.setResponseProtectionMethod(ProtectionMethod.SHARED_SECRET);
         request.setSharedSecret("   ");
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> cmpProfileService.createCmpProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> cmpProfileService.createCmpProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Shared secret is required"), ex.getMessage());
     }
 
@@ -372,8 +380,13 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     void testRemoveCmpProfile() throws NotFoundException {
         UUID certificateAssociationsUuid = cmpProfile.getCertificateAssociationsUuid();
         cmpProfileService.deleteCmpProfile(cmpProfile.getSecuredUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
-        Assertions.assertTrue(protocolCertificateAssociationsRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
+        Assertions
+                .assertTrue(protocolCertificateAssociationsRepository
+                        .findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid))
+                        .isEmpty());
     }
 
     @Test
@@ -399,7 +412,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testBulkForceRemoveCmpProfiles_nonExistentUuid_returnsErrorMessage() throws NotFoundException, ValidationException {
+    void testBulkForceRemoveCmpProfiles_nonExistentUuid_returnsErrorMessage()
+            throws NotFoundException, ValidationException {
         SecuredUUID nonExistent = SecuredUUID.fromUUID(UUID.fromString("00000000-0000-0000-0000-000000000001"));
 
         List<BulkActionMessageDto> messages = cmpProfileService.bulkForceRemoveCmpProfiles(List.of(nonExistent));
@@ -416,8 +430,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         raProfile.setCmpProfile(cmpProfile);
         raProfileRepository.save(raProfile);
 
-        List<BulkActionMessageDto> messages = cmpProfileService.bulkDeleteCmpProfile(
-                List.of(cmpProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = cmpProfileService
+                .bulkDeleteCmpProfile(List.of(cmpProfile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(cmpProfile.getUuid().toString(), messages.getFirst().getUuid());
@@ -426,12 +440,12 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testBulkForceRemoveCmpProfiles_deleteFailure_returnsErrorWithEntityName() throws NotFoundException, ValidationException {
-        doThrow(new RuntimeException("DB delete error"))
-                .when(cmpProfileRepositorySpy).delete(any());
+    void testBulkForceRemoveCmpProfiles_deleteFailure_returnsErrorWithEntityName()
+            throws NotFoundException, ValidationException {
+        doThrow(new RuntimeException("DB delete error")).when(cmpProfileRepositorySpy).delete(any());
 
-        List<BulkActionMessageDto> messages = cmpProfileService.bulkForceRemoveCmpProfiles(
-                List.of(cmpProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = cmpProfileService
+                .bulkForceRemoveCmpProfiles(List.of(cmpProfile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(cmpProfile.getUuid().toString(), messages.getFirst().getUuid());

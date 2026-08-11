@@ -11,6 +11,8 @@ import com.otilm.core.dao.repository.FunctionGroupRepository;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.util.BaseMessagingIntTest;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,11 +22,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -80,17 +81,11 @@ class DiscoveryServiceMessagingITest extends BaseMessagingIntTest {
         // Note: We verify the producer was called because the full messaging flow
         // (producer -> broker -> listener -> database) is complex to test end-to-end
         verify(notificationProducer, timeout(5000).atLeastOnce())
-                .produceInternalNotificationMessage(
-                        eq(Resource.DISCOVERY),
-                        isNull(),
-                        anyList(),
-                        eq("Discovery histories have been deleted."),
-                        isNull()
-                );
+                .produceInternalNotificationMessage(eq(Resource.DISCOVERY), isNull(), anyList(),
+                        eq("Discovery histories have been deleted."), isNull());
 
         // The @Async bulkRemoveDiscovery may not have committed by the time the
         // notification producer was invoked, so poll for the deletion to become visible.
-        await().atMost(5, TimeUnit.SECONDS)
-                .until(() -> discoveryRepository.findByUuid(discovery.getUuid()).isEmpty());
+        await().atMost(5, TimeUnit.SECONDS).until(() -> discoveryRepository.findByUuid(discovery.getUuid()).isEmpty());
     }
 }

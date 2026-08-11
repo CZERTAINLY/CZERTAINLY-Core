@@ -1,7 +1,15 @@
 package com.otilm.core.security.authz.opa;
 
-import com.otilm.core.security.authz.opa.dto.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.core.security.authz.opa.dto.OpaInput;
+import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
+import com.otilm.core.security.authz.opa.dto.OpaRequestDetails;
+import com.otilm.core.security.authz.opa.dto.OpaRequestWrapper;
+import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
+import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
+import com.otilm.core.security.authz.opa.dto.OpaResultWrapper;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +19,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 
 @Component
 public class OpaClient {
@@ -31,23 +36,26 @@ public class OpaClient {
         this.opaBaseUrl = opaBaseUrl;
     }
 
-    public OpaResourceAccessResult checkResourceAccess(String policyName, OpaRequestedResource resource, String principal, OpaRequestDetails details) throws AccessDeniedException {
-        return sendRequest(policyName, resource, principal, details, OpaReturnType.fromInner(OpaResourceAccessResult.class));
+    public OpaResourceAccessResult checkResourceAccess(String policyName, OpaRequestedResource resource,
+            String principal, OpaRequestDetails details) throws AccessDeniedException {
+        return sendRequest(policyName, resource, principal, details,
+                OpaReturnType.fromInner(OpaResourceAccessResult.class));
     }
 
-    public OpaObjectAccessResult checkObjectAccess(String policyName, OpaRequestedResource resource, String principal, OpaRequestDetails details) throws AccessDeniedException {
-        return sendRequest(policyName, resource, principal, details, OpaReturnType.fromInner(OpaObjectAccessResult.class));
+    public OpaObjectAccessResult checkObjectAccess(String policyName, OpaRequestedResource resource, String principal,
+            OpaRequestDetails details) throws AccessDeniedException {
+        return sendRequest(policyName, resource, principal, details,
+                OpaReturnType.fromInner(OpaObjectAccessResult.class));
     }
 
-    private <T> T sendRequest(String policyName, OpaRequestedResource resource, String principal, OpaRequestDetails details, ParameterizedType type) throws AccessDeniedException {
-        logger.trace(
-                
-                        "Going to call OPA policy '%s' with %s and %s.".formatted(
-                        policyName,
-                        resource.toString(),
-                        details != null ? details.toString() : "no additional details"
-                )
-        );
+    private <T> T sendRequest(String policyName, OpaRequestedResource resource, String principal,
+            OpaRequestDetails details, ParameterizedType type) throws AccessDeniedException {
+        logger
+                .trace(
+
+                        "Going to call OPA policy '%s' with %s and %s."
+                                .formatted(policyName, resource.toString(),
+                                        details != null ? details.toString() : "no additional details"));
 
         try {
             ParameterizedTypeReference<OpaResultWrapper<T>> typeReference = ParameterizedTypeReference.forType(type);
@@ -63,7 +71,9 @@ public class OpaClient {
                     .bodyToMono(typeReference)
                     .block();
 
-            if (wrapper == null) throw new RuntimeException("Empty response received from OPA.");
+            if (wrapper == null) {
+                throw new RuntimeException("Empty response received from OPA.");
+            }
             return wrapper.getResult();
         } catch (Exception e) {
             throw new AccessDeniedException("An error occurred when calling OPA.", e);

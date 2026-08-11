@@ -21,7 +21,8 @@ public class ContentSigningWorkflowRequestDtoBuilder {
         return this;
     }
 
-    public ContentSigningWorkflowRequestDtoBuilder withSignatureFormattingConnectorAttributes(List<RequestAttribute> attrs) {
+    public ContentSigningWorkflowRequestDtoBuilder withSignatureFormattingConnectorAttributes(
+            List<RequestAttribute> attrs) {
         this.signatureFormattingConnectorAttributes = attrs;
         return this;
     }

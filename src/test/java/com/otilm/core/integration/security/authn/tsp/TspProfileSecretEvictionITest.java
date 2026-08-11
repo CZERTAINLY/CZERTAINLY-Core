@@ -9,6 +9,7 @@ import com.otilm.core.events.SecretContentUpdatedEvent;
 import com.otilm.core.security.authn.client.CredentialVerificationCache;
 import com.otilm.core.security.authn.tsp.TspProfileSecretEvictionListener;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
@@ -17,16 +18,14 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * End-to-end proof of the rotation-invalidation wiring that the unit tests can only cover link-by-link:
- * a committed {@link SecretContentUpdatedEvent} must flow through {@link TspProfileSecretEvictionListener}
- * (AFTER_COMMIT) into {@code TspProfileBasicCredentialInternalService.evictCachesForSecret} and clear the real
- * caches. This is the path a password rotation relies on, since {@code update()} intentionally does not
- * evict the verification cache eagerly on rotation.
+ * End-to-end proof of the rotation-invalidation wiring that the unit tests can only cover link-by-link: a committed
+ * {@link SecretContentUpdatedEvent} must flow through {@link TspProfileSecretEvictionListener} (AFTER_COMMIT) into
+ * {@code TspProfileBasicCredentialInternalService.evictCachesForSecret} and clear the real caches. This is the path a
+ * password rotation relies on, since {@code update()} intentionally does not evict the verification cache eagerly on
+ * rotation.
  */
 class TspProfileSecretEvictionITest extends BaseSpringBootTest {
 

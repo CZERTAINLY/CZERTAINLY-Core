@@ -7,15 +7,14 @@ import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.service.writer.signingrecord.SigningRecordWriter;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Instant;
-import java.util.UUID;
 
 @Slf4j
 @Component
@@ -30,11 +29,9 @@ public class SigningRecordRetrievalHook {
     private final int maxBatchesPerSweep;
 
     public SigningRecordRetrievalHook(SigningRecordRepository repository,
-                                      SigningProfileVersionRepository versionRepository,
-                                      SigningRecordWriter deletionWriter,
-                                      SigningRecordMetrics metrics,
-                                      ClusterOperationSynchronizer clusterSynchronizer,
-                                      SigningRecordDeleteAfterRetrievalProperties properties) {
+            SigningProfileVersionRepository versionRepository, SigningRecordWriter deletionWriter,
+            SigningRecordMetrics metrics, ClusterOperationSynchronizer clusterSynchronizer,
+            SigningRecordDeleteAfterRetrievalProperties properties) {
         this.repository = repository;
         this.versionRepository = versionRepository;
         this.deletionWriter = deletionWriter;
@@ -46,7 +43,8 @@ public class SigningRecordRetrievalHook {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void onSignedDocumentServed(UUID signingRecordUuid) throws NotFoundException {
-        SigningRecord signingRecord = repository.findById(signingRecordUuid)
+        SigningRecord signingRecord = repository
+                .findById(signingRecordUuid)
                 .orElseThrow(() -> new NotFoundException(SigningRecord.class, signingRecordUuid));
 
         signingRecord.setSignedDocumentRetrievedAt(Instant.now());
@@ -86,21 +84,23 @@ public class SigningRecordRetrievalHook {
     }
 
     /**
-     * Holds the cluster-wide advisory lock for the sweep via this transaction (the lock is
-     * transaction-scoped). Each batch deletes and commits in its own {@code REQUIRES_NEW}
-     * transaction through {@link SigningRecordWriter}, so row locks and WAL release
-     * incrementally — {@code signing_record} rows carry signed-document/signature/dtbs blobs, so a
-     * single large delete would otherwise pin locks and the vacuum horizon while WAL accumulates.
-     * The sweep deletes at most {@code maxBatchesPerSweep} batches per run; a large backlog clears
-     * across several scheduled sweeps rather than one long-running transaction.
+     * Holds the cluster-wide advisory lock for the sweep via this transaction (the lock is transaction-scoped). Each
+     * batch deletes and commits in its own {@code REQUIRES_NEW} transaction through {@link SigningRecordWriter}, so row
+     * locks and WAL release incrementally — {@code signing_record} rows carry signed-document/signature/dtbs blobs, so
+     * a single large delete would otherwise pin locks and the vacuum horizon while WAL accumulates. The sweep deletes
+     * at most {@code maxBatchesPerSweep} batches per run; a large backlog clears across several scheduled sweeps rather
+     * than one long-running transaction.
      */
     @Transactional
     public void runFallbackSweep() {
         if (maxBatchesPerSweep <= 0) {
-            log.debug("Delete-after-retrieval fallback sweep disabled: max-batches-per-sweep is {}", maxBatchesPerSweep);
+            log
+                    .debug("Delete-after-retrieval fallback sweep disabled: max-batches-per-sweep is {}",
+                            maxBatchesPerSweep);
             return;
         }
-        if (!clusterSynchronizer.tryLock(ClusterOperationSynchronizer.Operation.SIGNING_RECORD_DELETE_AFTER_RETRIEVAL)) {
+        if (!clusterSynchronizer
+                .tryLock(ClusterOperationSynchronizer.Operation.SIGNING_RECORD_DELETE_AFTER_RETRIEVAL)) {
             log.debug("Delete-after-retrieval fallback sweep skipped; another instance is already running it");
             return;
         }
@@ -115,12 +115,15 @@ public class SigningRecordRetrievalHook {
                 batchesRun++;
             } while (deleted == batchSize && batchesRun < maxBatchesPerSweep);
             if (deleted == batchSize) {
-                log.debug("Delete-after-retrieval fallback sweep stopped at the per-sweep cap of {} batch(es); remaining flagged records clear on the next sweep",
-                        maxBatchesPerSweep);
+                log
+                        .debug("Delete-after-retrieval fallback sweep stopped at the per-sweep cap of {} batch(es); remaining flagged records clear on the next sweep",
+                                maxBatchesPerSweep);
             }
         } catch (RuntimeException e) {
             metrics.sweepFailed(SigningRecordMetrics.DELETE_TYPE_AFTER_RETRIEVAL_FALLBACK).increment();
-            log.warn("Delete-after-retrieval fallback sweep aborted after deleting {} record(s); will retry next interval", total, e);
+            log
+                    .warn("Delete-after-retrieval fallback sweep aborted after deleting {} record(s); will retry next interval",
+                            total, e);
         }
         if (total > 0) {
             metrics.deleted(SigningRecordMetrics.DELETE_TYPE_AFTER_RETRIEVAL_FALLBACK).increment(total);

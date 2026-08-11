@@ -1,14 +1,13 @@
 package com.otilm.core.util;
 
+import java.io.IOException;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.utility.MountableFile;
 
-import java.io.IOException;
-
 /**
- * Factory for creating RabbitMQContainer instances with unified configuration.
- * Supports both standalone and networked containers for different test scenarios.
+ * Factory for creating RabbitMQContainer instances with unified configuration. Supports both standalone and networked
+ * containers for different test scenarios.
  */
 public class RabbitMQContainerFactory {
 
@@ -22,28 +21,28 @@ public class RabbitMQContainerFactory {
     }
 
     /**
-     * Creates a RabbitMQContainer with standard configuration and optional network.
-     * The container is configured to load queue/exchange definitions from rabbitMQ-definitions.json.
+     * Creates a RabbitMQContainer with standard configuration and optional network. The container is configured to load
+     * queue/exchange definitions from rabbitMQ-definitions.json.
      *
-     * @param network Optional Docker network for container communication (e.g., with Toxiproxy).
-     *                If null, the container runs standalone.
+     * @param network Optional Docker network for container communication (e.g., with Toxiproxy). If null, the container
+     * runs standalone.
      * @return Configured but not started RabbitMQContainer
      */
     public static RabbitMQContainer create(Network network) {
         RabbitMQContainer container = new RabbitMQContainer(RABBITMQ_IMAGE)
-                .withCopyFileToContainer(MountableFile.forClasspathResource(DEFINITIONS_FILE), CONTAINER_DEFINITIONS_PATH);
+                .withCopyFileToContainer(MountableFile.forClasspathResource(DEFINITIONS_FILE),
+                        CONTAINER_DEFINITIONS_PATH);
 
         if (network != null) {
-            container.withNetwork(network)
-                    .withNetworkAliases(NETWORK_ALIAS);
+            container.withNetwork(network).withNetworkAliases(NETWORK_ALIAS);
         }
 
         return container;
     }
 
     /**
-     * Creates a standalone RabbitMQContainer without a network.
-     * Useful for simple integration tests that don't need inter-container communication.
+     * Creates a standalone RabbitMQContainer without a network. Useful for simple integration tests that don't need
+     * inter-container communication.
      *
      * @return Configured but not started RabbitMQContainer
      */
@@ -52,8 +51,7 @@ public class RabbitMQContainerFactory {
     }
 
     /**
-     * Imports RabbitMQ definitions into a running container.
-     * This must be called after the container has started.
+     * Imports RabbitMQ definitions into a running container. This must be called after the container has started.
      *
      * @param container Running a RabbitMQContainer instance
      * @throws IOException If the import command fails

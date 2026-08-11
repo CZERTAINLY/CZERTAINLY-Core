@@ -1,5 +1,7 @@
 package com.otilm.core.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.auth.UserProfileDto;
@@ -13,8 +15,11 @@ import com.otilm.core.security.authz.opa.OpaClient;
 import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
 import com.otilm.core.service.SettingInternalService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
 import org.slf4j.MDC;
@@ -30,18 +35,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.mockito.Mockito.when;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 @SpringBootTest
-@TestPropertySource(properties = {
-        WireMockPorts.AUTH_SERVICE_URL_PROPERTY,
-        WireMockPorts.SCHEDULER_URL_PROPERTY,
-        WireMockPorts.PROVISIONING_API_URL_PROPERTY
-})
+@TestPropertySource(properties = {WireMockPorts.AUTH_SERVICE_URL_PROPERTY, WireMockPorts.SCHEDULER_URL_PROPERTY,
+        WireMockPorts.PROVISIONING_API_URL_PROPERTY})
 @TestExecutionListeners(value = MockBeanResetListener.class, mergeMode = MergeMode.MERGE_WITH_DEFAULTS)
 public class BaseSpringBootTest {
 
@@ -78,12 +74,9 @@ public class BaseSpringBootTest {
 
         try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
             List<String> tableNames = new ArrayList<>();
-            try (var tables = connection.getMetaData().getTables(
-                    connection.getCatalog(),
-                    "core",
-                    null,
-                    new String[]{"TABLE"}
-            )) {
+            try (var tables = connection
+                    .getMetaData()
+                    .getTables(connection.getCatalog(), "core", null, new String[]{"TABLE"})) {
                 while (tables.next()) {
                     tableNames.add("core.\"%s\"".formatted(tables.getString("TABLE_NAME")));
                 }
@@ -102,9 +95,8 @@ public class BaseSpringBootTest {
         accessAllowed.setAuthorized(true);
         accessAllowed.setAllow(List.of());
 
-        when(
-                opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
-        ).thenReturn(accessAllowed);
+        when(opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(accessAllowed);
     }
 
     protected void mockSuccessfulCheckObjectAccess() {
@@ -113,56 +105,55 @@ public class BaseSpringBootTest {
         objectAccessAllowed.setAllowedObjects(List.of());
         objectAccessAllowed.setForbiddenObjects(List.of());
 
-        when(
-                opaClient.checkObjectAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
-        ).thenReturn(objectAccessAllowed);
+        when(opaClient.checkObjectAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(objectAccessAllowed);
     }
 
     protected void denyResourceAccess(Resource resource, ResourceAction action) {
         OpaResourceAccessResult denied = new OpaResourceAccessResult();
         denied.setAuthorized(false);
-        when(opaClient.checkResourceAccess(
-                Mockito.any(),
-                Mockito.argThat(req -> req != null
-                        && req.getProperties() != null
-                        && resource.getCode().equals(req.getProperties().get("name"))
-                        && action.getCode().equals(req.getProperties().get("action"))),
-                Mockito.any(), Mockito.any())
-        ).thenReturn(denied);
+        when(opaClient
+                .checkResourceAccess(Mockito.any(),
+                        Mockito
+                                .argThat(req -> req != null && req.getProperties() != null
+                                        && resource.getCode().equals(req.getProperties().get("name"))
+                                        && action.getCode().equals(req.getProperties().get("action"))),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(denied);
     }
 
     /**
      * Restricts object-level access for one (resource, action) pair to an allow-list, so
-     * {@code AuthHelper.loadObjectPermissions} reports the user as restricted. Everything else
-     * keeps the default allow-all stub.
+     * {@code AuthHelper.loadObjectPermissions} reports the user as restricted. Everything else keeps the default
+     * allow-all stub.
      */
     protected void restrictObjectAccess(Resource resource, ResourceAction action) {
         OpaObjectAccessResult restricted = new OpaObjectAccessResult();
         restricted.setActionAllowedForGroupOfObjects(false);
         restricted.setAllowedObjects(List.of(UUID.randomUUID().toString()));
         restricted.setForbiddenObjects(List.of());
-        when(opaClient.checkObjectAccess(
-                Mockito.any(),
-                Mockito.argThat(req -> req != null
-                        && req.getProperties() != null
-                        && resource.getCode().equals(req.getProperties().get("name"))
-                        && action.getCode().equals(req.getProperties().get("action"))),
-                Mockito.any(), Mockito.any())
-        ).thenReturn(restricted);
+        when(opaClient
+                .checkObjectAccess(Mockito.any(),
+                        Mockito
+                                .argThat(req -> req != null && req.getProperties() != null
+                                        && resource.getCode().equals(req.getProperties().get("name"))
+                                        && action.getCode().equals(req.getProperties().get("action"))),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(restricted);
     }
 
     protected void allowResourceAccess(Resource resource, ResourceAction action) {
         OpaResourceAccessResult allowed = new OpaResourceAccessResult();
         allowed.setAuthorized(true);
         allowed.setAllow(List.of());
-        when(opaClient.checkResourceAccess(
-                Mockito.any(),
-                Mockito.argThat(req -> req != null
-                        && req.getProperties() != null
-                        && resource.getCode().equals(req.getProperties().get("name"))
-                        && action.getCode().equals(req.getProperties().get("action"))),
-                Mockito.any(), Mockito.any())
-        ).thenReturn(allowed);
+        when(opaClient
+                .checkResourceAccess(Mockito.any(),
+                        Mockito
+                                .argThat(req -> req != null && req.getProperties() != null
+                                        && resource.getCode().equals(req.getProperties().get("name"))
+                                        && action.getCode().equals(req.getProperties().get("action"))),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(allowed);
     }
 
     protected void injectAuthentication() {
@@ -184,10 +175,12 @@ public class BaseSpringBootTest {
         try {
             rawData = objectMapper.writeValueAsString(userProfileDto);
         } catch (JsonProcessingException e) {
-            rawData = String.format("{\"user\":{\"uuid\":\"%s\", \"uuid\":\"%s\"}}", userDto.getUuid(), userDto.getUsername());
+            rawData = String
+                    .format("{\"user\":{\"uuid\":\"%s\", \"uuid\":\"%s\"}}", userDto.getUuid(), userDto.getUsername());
         }
 
-        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, userDto.getUuid(), userDto.getUsername(), List.of(), rawData);
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, userDto.getUuid(),
+                userDto.getUsername(), List.of(), rawData);
         return new PlatformAuthenticationToken(new PlatformUserDetails(info));
     }
 }

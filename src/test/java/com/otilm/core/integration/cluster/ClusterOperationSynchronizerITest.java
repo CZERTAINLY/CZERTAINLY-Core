@@ -1,13 +1,8 @@
 package com.otilm.core.integration.cluster;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.cluster.ClusterOperationSynchronizer.Operation;
 import com.otilm.core.util.BaseSpringBootTest;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
@@ -20,7 +15,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,12 +22,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Integration test backed by the real PostgreSQL (Testcontainers) container, since the contract of
- * {@link ClusterOperationSynchronizer} is the behaviour of {@code pg_try_advisory_xact_lock}: a
- * transaction-scoped, connection-bound advisory lock. The {@link Cluster} fixture simulates cluster
- * nodes, each on its own thread (its own pooled connection) holding its transaction open, so the
- * nodes genuinely compete for the lock.
+ * {@link ClusterOperationSynchronizer} is the behaviour of {@code pg_try_advisory_xact_lock}: a transaction-scoped,
+ * connection-bound advisory lock. The {@link Cluster} fixture simulates cluster nodes, each on its own thread (its own
+ * pooled connection) holding its transaction open, so the nodes genuinely compete for the lock.
  */
 class ClusterOperationSynchronizerITest extends BaseSpringBootTest {
 
@@ -126,8 +123,8 @@ class ClusterOperationSynchronizerITest extends BaseSpringBootTest {
     }
 
     /**
-     * Simulates a multi-node cluster against the shared database. Hands out {@link Node}s — each on its
-     * own thread, and therefore its own pooled connection — and tears them all down on {@link #shutdown()}.
+     * Simulates a multi-node cluster against the shared database. Hands out {@link Node}s — each on its own thread, and
+     * therefore its own pooled connection — and tears them all down on {@link #shutdown()}.
      */
     private static final class Cluster {
 
@@ -151,9 +148,8 @@ class ClusterOperationSynchronizerITest extends BaseSpringBootTest {
         }
 
         /**
-         * Starts {@code nodeCount} nodes that all attempt the same lock at the same instant — released
-         * together from a shared barrier so every node has attempted before any commits — and returns
-         * how many won it.
+         * Starts {@code nodeCount} nodes that all attempt the same lock at the same instant — released together from a
+         * shared barrier so every node has attempted before any commits — and returns how many won it.
          */
         long acquireConcurrently(Operation operation, int nodeCount) {
             var allNodesAttempted = new CyclicBarrier(nodeCount);
@@ -165,8 +161,8 @@ class ClusterOperationSynchronizerITest extends BaseSpringBootTest {
         }
 
         /**
-         * Submits one node that grabs the lock and then waits at {@code allNodesAttempted} — so it keeps
-         * the lock held until every node has attempted, then commits. Returns whether this node won.
+         * Submits one node that grabs the lock and then waits at {@code allNodesAttempted} — so it keeps the lock held
+         * until every node has attempted, then commits. Returns whether this node won.
          */
         private Future<Boolean> attemptLockOnceAllCompete(Operation operation, CyclicBarrier allNodesAttempted) {
             return nodeThreads.submit(() -> new TransactionTemplate(transactionManager).execute(status -> {
@@ -188,8 +184,8 @@ class ClusterOperationSynchronizerITest extends BaseSpringBootTest {
 
     /**
      * A single simulated cluster node. Runs on its own thread (its own pooled connection) inside one
-     * {@link TransactionTemplate}, and — win or lose — keeps that transaction open after attempting, so
-     * a lock it holds stays held against other nodes until {@link #release()} or {@link #releaseAndAwaitTransactionEnd()}.
+     * {@link TransactionTemplate}, and — win or lose — keeps that transaction open after attempting, so a lock it holds
+     * stays held against other nodes until {@link #release()} or {@link #releaseAndAwaitTransactionEnd()}.
      */
     private static final class Node {
 
@@ -199,7 +195,8 @@ class ClusterOperationSynchronizerITest extends BaseSpringBootTest {
         private final CountDownLatch release = new CountDownLatch(1);
         private Future<?> heldTransaction;
 
-        Node(ClusterOperationSynchronizer synchronizer, PlatformTransactionManager transactionManager, ExecutorService thread) {
+        Node(ClusterOperationSynchronizer synchronizer, PlatformTransactionManager transactionManager,
+                ExecutorService thread) {
             this.synchronizer = synchronizer;
             this.transactionManager = transactionManager;
             this.thread = thread;

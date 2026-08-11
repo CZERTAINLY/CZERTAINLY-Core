@@ -6,8 +6,5 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "caching.signing-certs")
-public record SigningCertificateCacheProperties(
-        @Min(1) int ttlMinutes,
-        @Min(1) int maxSize
-) {
+public record SigningCertificateCacheProperties(@Min(1) int ttlMinutes, @Min(1) int maxSize) {
 }

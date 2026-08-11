@@ -21,7 +21,8 @@ public class SearchFilterRequestDtoBuilder {
         return new SearchFilterRequestDtoBuilder();
     }
 
-    public static SearchFilterRequestDto aPropertyFilter(FilterField field, FilterConditionOperator operator, Serializable value) {
+    public static SearchFilterRequestDto aPropertyFilter(FilterField field, FilterConditionOperator operator,
+            Serializable value) {
         return aSearchFilter().withField(field).withCondition(operator).withValue(value).build();
     }
 
@@ -41,15 +42,23 @@ public class SearchFilterRequestDtoBuilder {
         return aPropertyFilter(field, FilterConditionOperator.NOT_EMPTY, null);
     }
 
-    private static SearchFilterRequestDto anAttributeFilter(FilterFieldSource source, String name, AttributeContentType type, FilterConditionOperator operator, Serializable value) {
-        return aSearchFilter().withFieldSource(source).withAttribute(name, type).withCondition(operator).withValue(value).build();
+    private static SearchFilterRequestDto anAttributeFilter(FilterFieldSource source, String name,
+            AttributeContentType type, FilterConditionOperator operator, Serializable value) {
+        return aSearchFilter()
+                .withFieldSource(source)
+                .withAttribute(name, type)
+                .withCondition(operator)
+                .withValue(value)
+                .build();
     }
 
-    public static SearchFilterRequestDto aCustomAttributeFilter(String name, AttributeContentType type, FilterConditionOperator operator, Serializable value) {
+    public static SearchFilterRequestDto aCustomAttributeFilter(String name, AttributeContentType type,
+            FilterConditionOperator operator, Serializable value) {
         return anAttributeFilter(FilterFieldSource.CUSTOM, name, type, operator, value);
     }
 
-    public static SearchFilterRequestDto aMetaAttributeFilter(String name, AttributeContentType type, FilterConditionOperator operator, Serializable value) {
+    public static SearchFilterRequestDto aMetaAttributeFilter(String name, AttributeContentType type,
+            FilterConditionOperator operator, Serializable value) {
         return anAttributeFilter(FilterFieldSource.META, name, type, operator, value);
     }
 
@@ -86,7 +95,8 @@ public class SearchFilterRequestDtoBuilder {
 
     public SearchFilterRequestDto build() {
         if (field == null && attributeName == null) {
-            throw new IllegalStateException("Either a FilterField or an attribute name must be set before calling build()");
+            throw new IllegalStateException(
+                    "Either a FilterField or an attribute name must be set before calling build()");
         }
         return new SearchFilterRequestDto(fieldSource, fieldIdentifier(), condition, value);
     }
@@ -95,8 +105,6 @@ public class SearchFilterRequestDtoBuilder {
         if (attributeName != null) {
             return attributeName + "|" + attributeContentType.name();
         }
-        return attributeContentType == null
-                ? field.name()
-                : field.name() + "|" + attributeContentType.name();
+        return attributeContentType == null ? field.name() : field.name() + "|" + attributeContentType.name();
     }
 }

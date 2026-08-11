@@ -1,5 +1,8 @@
 package com.otilm.core.attribute.engine;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.ResponseAttribute;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
@@ -13,34 +16,29 @@ import com.otilm.api.model.common.attribute.v3.content.data.ResourceObjectConten
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
 import com.otilm.api.model.connector.secrets.content.SecretContent;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-
 /**
  * Bounded outbound containment for callback responses.
  * <p>
- * Two complementary checks ensure stored secret material the expander materialized server-side never echoes back
- * to the FE through a connector's callback response:
+ * Two complementary checks ensure stored secret material the expander materialized server-side never echoes back to the
+ * FE through a connector's callback response:
  * <ol>
- *   <li><b>Value-echo:</b> reject if any leaf in the response equals a secret value this call expanded
- *       ({@code expandedSecrets}).</li>
- *   <li><b>Structural:</b> reject if the response carries a populated {@link ResourceSecretContentData#getContent()}
- *       or a {@link CredentialAttributeContentV2} — secret-bearing shapes that must never appear in an FE-bound
- *       response regardless of value. This closes the v3-inline-secret blind spot the (false) "v3 has no SECRET
- *       content class" premise hid; {@code ResourceSecretContentData} demonstrably exists and carries inline
- *       {@link SecretContent}.</li>
+ * <li><b>Value-echo:</b> reject if any leaf in the response equals a secret value this call expanded
+ * ({@code expandedSecrets}).</li>
+ * <li><b>Structural:</b> reject if the response carries a populated {@link ResourceSecretContentData#getContent()} or a
+ * {@link CredentialAttributeContentV2} — secret-bearing shapes that must never appear in an FE-bound response
+ * regardless of value. This closes the v3-inline-secret blind spot the (false) "v3 has no SECRET content class" premise
+ * hid; {@code ResourceSecretContentData} demonstrably exists and carries inline {@link SecretContent}.</li>
  * </ol>
- * Refuse (do not strip) is the fail-closed default: a connector that returns expanded secret content is violating
- * the contract, and silently stripping would mask the violation.
+ * Refuse (do not strip) is the fail-closed default: a connector that returns expanded secret content is violating the
+ * contract, and silently stripping would mask the violation.
  */
 @Component
 public class OutboundSecretContainment {
@@ -50,9 +48,9 @@ public class OutboundSecretContainment {
     private static final int MAX_WALK_DEPTH = 12;
 
     /**
-     * The application's wire ObjectMapper. Using the managed bean (not a bespoke {@code new ObjectMapper()}) keeps
-     * the value-echo serialization byte-identical to what actually goes on the wire — a private mapper could
-     * serialize a secret differently (and miss an echo) or fail to serialize a type the wire mapper handles.
+     * The application's wire ObjectMapper. Using the managed bean (not a bespoke {@code new ObjectMapper()}) keeps the
+     * value-echo serialization byte-identical to what actually goes on the wire — a private mapper could serialize a
+     * secret differently (and miss an echo) or fail to serialize a type the wire mapper handles.
      */
     private final ObjectMapper objectMapper;
 
@@ -61,14 +59,14 @@ public class OutboundSecretContainment {
     }
 
     /**
-     * Record the secret leaf values materialized by expanding {@code blob}, so a later echo of them in the
-     * connector's response can be detected. Records ONLY genuinely secret-typed leaves — a
-     * {@link ResourceSecretContentData}'s inline {@link SecretContent} and a {@link SecretAttributeContentData}'s
-     * {@code secret} — never benign metadata, so the value-echo check cannot false-positive on a public value.
+     * Record the secret leaf values materialized by expanding {@code blob}, so a later echo of them in the connector's
+     * response can be detected. Records ONLY genuinely secret-typed leaves — a {@link ResourceSecretContentData}'s
+     * inline {@link SecretContent} and a {@link SecretAttributeContentData}'s {@code secret} — never benign metadata,
+     * so the value-echo check cannot false-positive on a public value.
      * <p>
-     * A credential/authority blob is a {@link ResourceSimpleContentData}, not a {@link ResourceSecretContentData}:
-     * its secret material surfaces as a {@link SecretAttributeContentV2} nested in its attributes. Walking the
-     * blob with the same traversal the structural check uses records those too (O1).
+     * A credential/authority blob is a {@link ResourceSimpleContentData}, not a {@link ResourceSecretContentData}: its
+     * secret material surfaces as a {@link SecretAttributeContentV2} nested in its attributes. Walking the blob with
+     * the same traversal the structural check uses records those too (O1).
      */
     void recordExpandedSecrets(ResourceObjectContentData blob, Set<String> expandedSecrets) {
         if (expandedSecrets == null) {
@@ -79,8 +77,8 @@ public class OutboundSecretContainment {
     }
 
     /**
-     * Record the secret leaf values materialized into resolved request attributes about to be sent to a connector, so
-     * a later echo of them in the connector's response can be caught by {@link #assertNoExpandedSecretOutbound}. The
+     * Record the secret leaf values materialized into resolved request attributes about to be sent to a connector, so a
+     * later echo of them in the connector's response can be caught by {@link #assertNoExpandedSecretOutbound}. The
      * operation path (v3 attribute-list endpoints) resolves an authority's own infrastructure references into these
      * request attributes; the callback path records from a content blob instead
      * ({@link #recordExpandedSecrets(ResourceObjectContentData, Set)}).
@@ -126,10 +124,10 @@ public class OutboundSecretContainment {
     }
 
     /**
-     * Assert that an FE-bound callback response neither echoes a secret expanded on this call nor structurally
-     * carries a secret-bearing content shape. Throws {@link OutboundSecretLeakException} (fail-closed) on a match.
+     * Assert that an FE-bound callback response neither echoes a secret expanded on this call nor structurally carries
+     * a secret-bearing content shape. Throws {@link OutboundSecretLeakException} (fail-closed) on a match.
      *
-     * @param response        the connector's callback response payload (any content/attributes structure)
+     * @param response the connector's callback response payload (any content/attributes structure)
      * @param expandedSecrets the secret values this call materialized server-side
      */
     public void assertNoExpandedSecretOutbound(Object response, Set<String> expandedSecrets) {
@@ -154,8 +152,7 @@ public class OutboundSecretContainment {
         }
         if (containsAnyScalar(tree, expandedSecrets)) {
             logger.warn("Callback response echoes a server-expanded secret value; refusing to forward to FE");
-            throw new OutboundSecretLeakException(
-                    "Callback response echoes a secret value expanded by Core this call");
+            throw new OutboundSecretLeakException("Callback response echoes a secret value expanded by Core this call");
         }
     }
 
@@ -187,14 +184,14 @@ public class OutboundSecretContainment {
     }
 
     /**
-     * Walk the secret-relevant object graph of a content payload, invoking {@code visitor} on every node, and
-     * descend the wrappers that can nest secret content: collections AND the typed DTO wrappers
-     * (AttributeCallbackResponseDto / ResponseAttribute / DataAttribute / ResourceObjectContent /
-     * ResourceSimpleContentData / Credential + Secret content) that a Jackson value-tree walk cannot type-detect.
-     * Both the value-recording and structural-rejection checks share this traversal so they cannot diverge.
+     * Walk the secret-relevant object graph of a content payload, invoking {@code visitor} on every node, and descend
+     * the wrappers that can nest secret content: collections AND the typed DTO wrappers (AttributeCallbackResponseDto /
+     * ResponseAttribute / DataAttribute / ResourceObjectContent / ResourceSimpleContentData / Credential + Secret
+     * content) that a Jackson value-tree walk cannot type-detect. Both the value-recording and structural-rejection
+     * checks share this traversal so they cannot diverge.
      */
     private void walkSecretGraph(Object node, int depth, java.util.function.Consumer<Object> visitor,
-                                 boolean failClosedOnDepth) {
+            boolean failClosedOnDepth) {
         if (node == null) {
             return;
         }
@@ -203,7 +200,9 @@ public class OutboundSecretContainment {
             // matching ReferenceExpansionException.depthExceeded. The record path passes false (best-effort; the
             // unbounded value-echo scan is its safety net) so a deep legitimate expansion is never spuriously aborted.
             if (failClosedOnDepth) {
-                logger.warn("Callback response nests deeper than {} wrappers; too deep to verify, refusing", MAX_WALK_DEPTH);
+                logger
+                        .warn("Callback response nests deeper than {} wrappers; too deep to verify, refusing",
+                                MAX_WALK_DEPTH);
                 throw new OutboundSecretLeakException(
                         "Callback response too deeply nested to verify for secret containment");
             }
@@ -248,7 +247,7 @@ public class OutboundSecretContainment {
         if (node.isValueNode()) {
             return needles.contains(node.asText());
         }
-        for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
+        for (Iterator<JsonNode> it = node.elements(); it.hasNext();) {
             if (containsAnyScalar(it.next(), needles)) {
                 return true;
             }

@@ -1,9 +1,14 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.otilm.api.model.client.acme.AcmeProfileRequestDto;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
@@ -17,28 +22,30 @@ import com.otilm.api.model.core.acme.AcmeProfileListDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
-import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.ProtocolCertificateAssociations;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.acme.AcmeAccount;
 import com.otilm.core.dao.entity.acme.AcmeProfile;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.repository.AcmeProfileRepository;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.ProtocolCertificateAssociationsRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.acme.AcmeAccountRepository;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.AcmeProfileExternalService;
 import com.otilm.core.service.AcmeProfileInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -92,7 +99,6 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
         domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV3("test")));
 
-
         acmeProfile = new AcmeProfile();
         acmeProfile.setWebsite("sample website");
         acmeProfile.setTermsOfServiceUrl("sample terms");
@@ -132,14 +138,22 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificateAssociations());
-        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
-        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
-        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
+        Assertions
+                .assertEquals(acmeProfile.getCertificateAssociations().getOwnerUuid(),
+                        dto.getCertificateAssociations().getOwnerUuid());
+        Assertions
+                .assertEquals(acmeProfile.getCertificateAssociations().getGroupUuids(),
+                        dto.getCertificateAssociations().getGroupUuids());
+        Assertions
+                .assertEquals(acmeProfile.getCertificateAssociations().getCustomAttributes().size(),
+                        dto.getCertificateAssociations().getCustomAttributes().size());
     }
 
     @Test
     void testGetAcmeProfileByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> acmeProfileService
+                        .getAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -226,20 +240,29 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
     @Test
     void testEditAcmeProfile_validationFail() {
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.editAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> acmeProfileService
+                        .editAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
     void testRemoveAcmeProfile() throws NotFoundException {
         UUID certificateAssociationsUuid = acmeProfile.getCertificateAssociationsUuid();
         acmeProfileService.deleteAcmeProfile(acmeProfile.getSecuredUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
-        Assertions.assertTrue(protocolCertificateAssociationsRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
+        Assertions
+                .assertTrue(protocolCertificateAssociationsRepository
+                        .findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid))
+                        .isEmpty());
     }
 
     @Test
     void testRemoveAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> acmeProfileService
+                        .getAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -250,7 +273,9 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEnableAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.enableAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> acmeProfileService
+                        .enableAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -263,13 +288,17 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testDisableAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.disableAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> acmeProfileService
+                        .disableAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testBulkRemove() {
         acmeProfileService.bulkDeleteAcmeProfile(List.of(acmeProfile.getSecuredUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
     }
 
     @Test
@@ -318,11 +347,14 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
         raProfileRepository.save(raProfile);
 
         // Act
-        List<BulkActionMessageDto> messages = acmeProfileService.bulkForceRemoveACMEProfiles(List.of(acmeProfile2.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = acmeProfileService
+                .bulkForceRemoveACMEProfiles(List.of(acmeProfile2.getSecuredUuid()));
 
         // Verify
         Assertions.assertTrue(messages.isEmpty());
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile2.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> acmeProfileService.getAcmeProfile(acmeProfile2.getSecuredUuid()));
         RaProfile updatedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElseThrow();
         Assertions.assertNull(updatedRaProfile.getAcmeProfile());
     }
@@ -348,9 +380,9 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
         request.setRaProfileUuid(null);
         SecuredUUID acmeProfileUuid = acmeProfile.getSecuredUuid();
-        ValidationException exception = Assertions.assertThrows(ValidationException.class,
-                () -> acmeProfileService.editAcmeProfile(acmeProfileUuid, request)
-        );
+        ValidationException exception = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> acmeProfileService.editAcmeProfile(acmeProfileUuid, request));
 
         // Verify the error message
         Assertions.assertTrue(exception.getMessage().contains("Cannot remove the RA Profile"));
@@ -386,8 +418,8 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
         raProfile.setAcmeProfile(acmeProfile);
         raProfileRepository.save(raProfile);
 
-        List<BulkActionMessageDto> messages = acmeProfileService.bulkDeleteAcmeProfile(
-                List.of(acmeProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = acmeProfileService
+                .bulkDeleteAcmeProfile(List.of(acmeProfile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(acmeProfile.getUuid().toString(), messages.getFirst().getUuid());
@@ -397,11 +429,10 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testBulkForceRemoveACMEProfiles_deleteFailure_returnsErrorWithEntityName() {
-        doThrow(new RuntimeException("DB delete error"))
-                .when(acmeProfileRepositorySpy).delete(any());
+        doThrow(new RuntimeException("DB delete error")).when(acmeProfileRepositorySpy).delete(any());
 
-        List<BulkActionMessageDto> messages = acmeProfileService.bulkForceRemoveACMEProfiles(
-                List.of(acmeProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = acmeProfileService
+                .bulkForceRemoveACMEProfiles(List.of(acmeProfile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(acmeProfile.getUuid().toString(), messages.getFirst().getUuid());

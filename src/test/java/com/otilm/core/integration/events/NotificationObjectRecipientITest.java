@@ -1,5 +1,8 @@
 package com.otilm.core.integration.events;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
@@ -38,36 +41,44 @@ import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.verification.LoggedRequest;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
-
 class NotificationObjectRecipientITest extends BaseSpringBootTest {
 
     private static final String MAPPING_ATTRIBUTE_UUID = "1e5657af-423b-4b4b-a9f7-b1150c584a4a";
     private static final String CONTACT_VALUE = "alice@example.com";
 
-    @Autowired private NotificationListener notificationListener;
-    @Autowired private NotificationProfileExternalService notificationProfileService;
-    @Autowired private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
-    @Autowired private NotificationInstanceMappedAttributeRepository notificationInstanceMappedAttributeRepository;
-    @Autowired private AttributeExternalService attributeService;
-    @Autowired private AttributeEngine attributeEngine;
-    @Autowired private ConnectorRepository connectorRepository;
-    @Autowired private TriggerRepository triggerRepository;
-    @Autowired private TriggerHistoryRepository triggerHistoryRepository;
-    @Autowired private PendingNotificationRepository pendingNotificationRepository;
-    @Autowired private OwnerAssociationRepository ownerAssociationRepository;
-    @Autowired private NotificationRepository notificationRepository;
+    @Autowired
+    private NotificationListener notificationListener;
+    @Autowired
+    private NotificationProfileExternalService notificationProfileService;
+    @Autowired
+    private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
+    @Autowired
+    private NotificationInstanceMappedAttributeRepository notificationInstanceMappedAttributeRepository;
+    @Autowired
+    private AttributeExternalService attributeService;
+    @Autowired
+    private AttributeEngine attributeEngine;
+    @Autowired
+    private ConnectorRepository connectorRepository;
+    @Autowired
+    private TriggerRepository triggerRepository;
+    @Autowired
+    private TriggerHistoryRepository triggerHistoryRepository;
+    @Autowired
+    private PendingNotificationRepository pendingNotificationRepository;
+    @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     private WireMockServer mockServer;
     private CustomAttributeDefinitionDetailDto customAttr;
@@ -81,14 +92,18 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         // Connector declares one string mapping attribute
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping"))
-                .willReturn(WireMock.okJson("""
-                        [{"uuid": "%s", "name": "recipientContact", "type": "data", "version": 3,
-                          "contentType": "string", "properties": {"required": false}}]
-                        """.formatted(MAPPING_ATTRIBUTE_UUID))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping"))
+                        .willReturn(WireMock.okJson("""
+                                [{"uuid": "%s", "name": "recipientContact", "type": "data", "version": 3,
+                                  "contentType": "string", "properties": {"required": false}}]
+                                """.formatted(MAPPING_ATTRIBUTE_UUID))));
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
+                        .willReturn(WireMock.ok()));
 
         // Custom attribute on the CERTIFICATE resource
         CustomAttributeCreateRequestDto customAttrRequest = new CustomAttributeCreateRequestDto();
@@ -137,23 +152,23 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testObjectRecipient_mappedAttributeFromCertificateSentToConnector() throws AttributeException, NotFoundException {
+    void testObjectRecipient_mappedAttributeFromCertificateSentToConnector()
+            throws AttributeException, NotFoundException {
         UUID certificateUuid = UUID.randomUUID();
-        attributeEngine.updateObjectCustomAttributeContent(
-                Resource.CERTIFICATE, certificateUuid,
-                UUID.fromString(customAttr.getUuid()), customAttr.getName(),
-                List.of(new StringAttributeContentV3(CONTACT_VALUE)));
+        attributeEngine
+                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                        UUID.fromString(customAttr.getUuid()), customAttr.getName(),
+                        List.of(new StringAttributeContentV3(CONTACT_VALUE)));
 
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
-                certificateUuid,
-                List.of(UUID.fromString(profile.getUuid())),
-                List.of(), null);
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                Resource.CERTIFICATE, certificateUuid, List.of(UUID.fromString(profile.getUuid())), List.of(), null);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        mockServer.verify(WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
-                .withRequestBody(WireMock.containing(CONTACT_VALUE)));
+        mockServer
+                .verify(WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
+                        .withRequestBody(WireMock.containing(CONTACT_VALUE)));
     }
 
     @Test
@@ -161,10 +176,8 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         // No updateObjectCustomAttributeContent call — this certificate has no attribute value set
         UUID certificateWithoutAttribute = UUID.randomUUID();
 
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
-                certificateWithoutAttribute,
-                List.of(UUID.fromString(profile.getUuid())),
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                Resource.CERTIFICATE, certificateWithoutAttribute, List.of(UUID.fromString(profile.getUuid())),
                 List.of(), null);
 
         // Processing must not throw — missing attribute is handled gracefully
@@ -172,27 +185,29 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
 
         // Still handed to the connector: whether an empty recipient list can be delivered is the provider's call.
         // One needing addresses rejects it and says so; one posting to its own URL delivers regardless.
-        mockServer.verify(1, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+        mockServer
+                .verify(1, WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
     }
 
     @Test
     void testObjectRecipient_requiredMappingAttributeMissingOnCertificate_connectorCalledWithEmptyRecipients() {
         // Override the @BeforeEach stub: the connector now declares the attribute as required.
         // WireMock matches stubs in reverse registration order, so this takes precedence.
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping"))
-                .willReturn(WireMock.okJson("""
-                        [{"uuid": "%s", "name": "recipientContact", "type": "data", "version": 3,
-                          "contentType": "string", "properties": {"required": true}}]
-                        """.formatted(MAPPING_ATTRIBUTE_UUID))));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping"))
+                        .willReturn(WireMock.okJson("""
+                                [{"uuid": "%s", "name": "recipientContact", "type": "data", "version": 3,
+                                  "contentType": "string", "properties": {"required": true}}]
+                                """.formatted(MAPPING_ATTRIBUTE_UUID))));
 
         // No attribute set on this certificate — getMappedAttributes() will throw ValidationException
         UUID certificateWithoutAttribute = UUID.randomUUID();
 
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
-                certificateWithoutAttribute,
-                List.of(UUID.fromString(profile.getUuid())),
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                Resource.CERTIFICATE, certificateWithoutAttribute, List.of(UUID.fromString(profile.getUuid())),
                 List.of(), null);
 
         // Processing must not throw — the ValidationException raised while resolving mapped
@@ -200,29 +215,32 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
         // Same outcome as the required: false case, reached via the exception path rather than the empty result
-        mockServer.verify(1, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+        mockServer
+                .verify(1, WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
     }
 
     /**
-     * A NONE profile is recipient-less by design: a webhook instance posts to the URL configured on the instance,
-     * so there is nothing to resolve and an empty recipient list is the contract, not a failure to deliver.
+     * A NONE profile is recipient-less by design: a webhook instance posts to the URL configured on the instance, so
+     * there is nothing to resolve and an empty recipient list is the contract, not a failure to deliver.
      */
     @Test
-    void testNoneRecipient_onNonEmailInstance_connectorCalledWithoutRecipients() throws AlreadyExistException, NotFoundException {
+    void testNoneRecipient_onNonEmailInstance_connectorCalledWithoutRecipients()
+            throws AlreadyExistException, NotFoundException {
         NotificationProfileDetailDto noneProfile = webhookProfile("noneRecipientProfile", RecipientType.NONE);
 
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
-                UUID.randomUUID(),
-                List.of(UUID.fromString(noneProfile.getUuid())),
-                List.of(), null);
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                Resource.CERTIFICATE, UUID.randomUUID(), List.of(UUID.fromString(noneProfile.getUuid())), List.of(),
+                null);
 
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        mockServer.verify(1, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
-                .withRequestBody(WireMock.matchingJsonPath("$.recipients", WireMock.equalToJson("[]"))));
+        mockServer
+                .verify(1, WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
+                        .withRequestBody(WireMock.matchingJsonPath("$.recipients", WireMock.equalToJson("[]"))));
     }
 
     /**
@@ -232,27 +250,29 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
      */
     @Test
     void testObjectRecipient_onNonEmailInstance_connectorStillCalled() throws AlreadyExistException, NotFoundException {
-        NotificationProfileDetailDto objectProfileOnWebhook = webhookProfile("objectRecipientWebhookProfile", RecipientType.OBJECT);
+        NotificationProfileDetailDto objectProfileOnWebhook = webhookProfile("objectRecipientWebhookProfile",
+                RecipientType.OBJECT);
 
         // No custom attribute value on this certificate, so nothing resolves for the OBJECT recipient
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
-                UUID.randomUUID(),
-                List.of(UUID.fromString(objectProfileOnWebhook.getUuid())),
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                Resource.CERTIFICATE, UUID.randomUUID(), List.of(UUID.fromString(objectProfileOnWebhook.getUuid())),
                 List.of(), null);
 
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        mockServer.verify(1, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+        mockServer
+                .verify(1, WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
     }
 
     /**
-     * A NONE profile may persist its recipient UUIDs as an explicit empty list rather than null;
-     * both representations must deliver identically (empty recipients, request still sent).
+     * A NONE profile may persist its recipient UUIDs as an explicit empty list rather than null; both representations
+     * must deliver identically (empty recipients, request still sent).
      */
     @Test
-    void testNoneRecipient_withEmptyRecipientUuidList_connectorCalledWithoutRecipients() throws AlreadyExistException, NotFoundException {
+    void testNoneRecipient_withEmptyRecipientUuidList_connectorCalledWithoutRecipients()
+            throws AlreadyExistException, NotFoundException {
         NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
         webhookInstance.setName("testWebhookInstance-noneEmptyList");
         webhookInstance.setKind("WEBHOOK");
@@ -268,22 +288,22 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         profileRequest.setNotificationInstanceUuid(webhookInstance.getUuid());
         NotificationProfileDetailDto noneProfile = notificationProfileService.createNotificationProfile(profileRequest);
 
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
-                UUID.randomUUID(),
-                List.of(UUID.fromString(noneProfile.getUuid())),
-                List.of(), null);
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                Resource.CERTIFICATE, UUID.randomUUID(), List.of(UUID.fromString(noneProfile.getUuid())), List.of(),
+                null);
 
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
-        mockServer.verify(1, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
-                .withRequestBody(WireMock.matchingJsonPath("$.recipients", WireMock.equalToJson("[]"))));
+        mockServer
+                .verify(1, WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
+                        .withRequestBody(WireMock.matchingJsonPath("$.recipients", WireMock.equalToJson("[]"))));
     }
 
     /**
-     * The repetition limit is enforced through the suppression-row upsert: sends below the limit
-     * each reach the connector and bump the counter, the send at the limit is suppressed.
+     * The repetition limit is enforced through the suppression-row upsert: sends below the limit each reach the
+     * connector and bump the counter, the send at the limit is suppressed.
      */
     @Test
     void testMonitoringEvent_repetitionLimitEnforcedThroughUpsert() throws AlreadyExistException, NotFoundException {
@@ -300,58 +320,64 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         profileRequest.setInternalNotification(false);
         profileRequest.setNotificationInstanceUuid(webhookInstance.getUuid());
         profileRequest.setRepetitions(2);
-        NotificationProfileDetailDto limitedProfile = notificationProfileService.createNotificationProfile(profileRequest);
+        NotificationProfileDetailDto limitedProfile = notificationProfileService
+                .createNotificationProfile(profileRequest);
 
         UUID certificateUuid = UUID.randomUUID();
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE,
-                certificateUuid,
-                List.of(UUID.fromString(limitedProfile.getUuid())),
-                List.of(), null);
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE,
+                certificateUuid, List.of(UUID.fromString(limitedProfile.getUuid())), List.of(), null);
 
         for (int occurrence = 0; occurrence < 3; occurrence++) {
             Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
         }
 
         // Two sends reach the connector, the third occurrence is suppressed by the counter.
-        mockServer.verify(2, WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+        mockServer
+                .verify(2, WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
 
         PendingNotification suppressionRow = pendingNotificationRepository
                 .findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(
-                        UUID.fromString(limitedProfile.getUuid()), Resource.CERTIFICATE, certificateUuid, ResourceEvent.CERTIFICATE_EXPIRING);
+                        UUID.fromString(limitedProfile.getUuid()), Resource.CERTIFICATE, certificateUuid,
+                        ResourceEvent.CERTIFICATE_EXPIRING);
         Assertions.assertNotNull(suppressionRow, "the suppression row must exist after the first send");
         Assertions.assertEquals(2, suppressionRow.getRepetitions());
-        Assertions.assertEquals(1, suppressionRow.getVersion(), "the row pins the profile version current at the first send");
+        Assertions
+                .assertEquals(1, suppressionRow.getVersion(),
+                        "the row pins the profile version current at the first send");
     }
 
     /**
-     * OWNER and OBJECT recipients resolve against the notification subject: for approval events
-     * the approval's target object, for every other event the event object itself. OBJECT
-     * redirection is whitelisted to certificate subjects; other approval targets are skipped
-     * because no attribute content is resolved for them.
+     * OWNER and OBJECT recipients resolve against the notification subject: for approval events the approval's target
+     * object, for every other event the event object itself. OBJECT redirection is whitelisted to certificate subjects;
+     * other approval targets are skipped because no attribute content is resolved for them.
      */
     @Test
-    void testOwnerRecipient_approvalEvent_resolvesTargetOwnerExternally() throws AlreadyExistException, NotFoundException {
+    void testOwnerRecipient_approvalEvent_resolvesTargetOwnerExternally()
+            throws AlreadyExistException, NotFoundException {
         UUID certificateUuid = UUID.randomUUID();
         UUID ownerUuid = ownerOf(certificateUuid);
         WireMockServer authServer = authServerWithUserDetail(ownerUuid);
         try {
             NotificationProfileDetailDto ownerProfile = webhookProfile("approvalOwnerProfile", RecipientType.OWNER);
 
-            Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
-                    approvalMessage(ownerProfile, Resource.CERTIFICATE, certificateUuid)));
+            Assertions
+                    .assertDoesNotThrow(() -> notificationListener
+                            .processMessage(approvalMessage(ownerProfile, Resource.CERTIFICATE, certificateUuid)));
 
             String body = onlyNotifyBody();
-            Assertions.assertTrue(body.contains("cert.owner@example.com"),
-                    "the approval target's owner is the recipient: " + body);
+            Assertions
+                    .assertTrue(body.contains("cert.owner@example.com"),
+                            "the approval target's owner is the recipient: " + body);
         } finally {
             authServer.stop();
         }
     }
 
     @Test
-    void testOwnerRecipient_approvalEvent_deliversInternallyToTargetOwner() throws AlreadyExistException, NotFoundException {
+    void testOwnerRecipient_approvalEvent_deliversInternallyToTargetOwner()
+            throws AlreadyExistException, NotFoundException {
         UUID certificateUuid = UUID.randomUUID();
         ownerOf(certificateUuid);
 
@@ -361,31 +387,37 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         request.setInternalNotification(true);
         NotificationProfileDetailDto internalProfile = notificationProfileService.createNotificationProfile(request);
 
-        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
-                approvalMessage(internalProfile, Resource.CERTIFICATE, certificateUuid)));
+        Assertions
+                .assertDoesNotThrow(() -> notificationListener
+                        .processMessage(approvalMessage(internalProfile, Resource.CERTIFICATE, certificateUuid)));
 
-        Assertions.assertEquals(1, notificationRepository.findAll().size(),
-                "the target's owner receives an in-app notification for the approval event");
+        Assertions
+                .assertEquals(1, notificationRepository.findAll().size(),
+                        "the target's owner receives an in-app notification for the approval event");
     }
 
     @Test
-    void testObjectRecipient_approvalEvent_certificateTargetResolvesMappedAttributes() throws AttributeException, NotFoundException {
+    void testObjectRecipient_approvalEvent_certificateTargetResolvesMappedAttributes()
+            throws AttributeException, NotFoundException {
         UUID certificateUuid = UUID.randomUUID();
-        attributeEngine.updateObjectCustomAttributeContent(
-                Resource.CERTIFICATE, certificateUuid,
-                UUID.fromString(customAttr.getUuid()), customAttr.getName(),
-                List.of(new StringAttributeContentV3(CONTACT_VALUE)));
+        attributeEngine
+                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                        UUID.fromString(customAttr.getUuid()), customAttr.getName(),
+                        List.of(new StringAttributeContentV3(CONTACT_VALUE)));
 
-        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
-                approvalMessage(profile, Resource.CERTIFICATE, certificateUuid)));
+        Assertions
+                .assertDoesNotThrow(() -> notificationListener
+                        .processMessage(approvalMessage(profile, Resource.CERTIFICATE, certificateUuid)));
 
         String body = onlyNotifyBody();
-        Assertions.assertTrue(body.contains(CONTACT_VALUE),
-                "mapped attributes resolve from the approval's certificate target: " + body);
+        Assertions
+                .assertTrue(body.contains(CONTACT_VALUE),
+                        "mapped attributes resolve from the approval's certificate target: " + body);
     }
 
     @Test
-    void testObjectRecipient_approvalEvent_nonWhitelistedTargetResolvesNoAttributeContent() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testObjectRecipient_approvalEvent_nonWhitelistedTargetResolvesNoAttributeContent()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         // The secret target carries a mapped attribute value; a whitelist regression that starts
         // resolving mapped attributes from non-whitelisted subjects would put it on the wire.
         CustomAttributeCreateRequestDto secretAttrRequest = new CustomAttributeCreateRequestDto();
@@ -397,24 +429,30 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
 
         UUID secretTargetUuid = UUID.randomUUID();
         String secretMarker = "secret-target-contact@example.com";
-        attributeEngine.updateObjectCustomAttributeContent(Resource.SECRET, secretTargetUuid,
-                UUID.fromString(secretAttr.getUuid()), secretAttr.getName(),
-                List.of(new StringAttributeContentV3(secretMarker)));
+        attributeEngine
+                .updateObjectCustomAttributeContent(Resource.SECRET, secretTargetUuid,
+                        UUID.fromString(secretAttr.getUuid()), secretAttr.getName(),
+                        List.of(new StringAttributeContentV3(secretMarker)));
 
         NotificationInstanceMappedAttributes secretMapping = new NotificationInstanceMappedAttributes();
         secretMapping.setAttributeDefinitionUuid(UUID.fromString(secretAttr.getUuid()));
         secretMapping.setMappingAttributeUuid(UUID.fromString(MAPPING_ATTRIBUTE_UUID));
-        secretMapping.setNotificationInstanceRefUuid(notificationInstanceReferenceRepository.findAll().getFirst().getUuid());
+        secretMapping
+                .setNotificationInstanceRefUuid(notificationInstanceReferenceRepository.findAll().getFirst().getUuid());
         notificationInstanceMappedAttributeRepository.save(secretMapping);
 
-        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(
-                approvalMessage(profile, Resource.SECRET, secretTargetUuid)));
+        Assertions
+                .assertDoesNotThrow(() -> notificationListener
+                        .processMessage(approvalMessage(profile, Resource.SECRET, secretTargetUuid)));
 
         String body = onlyNotifyBody();
-        Assertions.assertTrue(body.contains("\"recipients\":[]"),
-                "a non-whitelisted target resolves no attribute content and the recipient is skipped: " + body);
-        Assertions.assertFalse(body.contains(secretMarker),
-                "the secret target's attribute content must never reach the wire through recipient resolution: " + body);
+        Assertions
+                .assertTrue(body.contains("\"recipients\":[]"),
+                        "a non-whitelisted target resolves no attribute content and the recipient is skipped: " + body);
+        Assertions
+                .assertFalse(body.contains(secretMarker),
+                        "the secret target's attribute content must never reach the wire through recipient resolution: "
+                                + body);
     }
 
     @Test
@@ -425,14 +463,15 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         try {
             NotificationProfileDetailDto ownerProfile = webhookProfile("certificateOwnerProfile", RecipientType.OWNER);
 
-            NotificationMessage message = new NotificationMessage(
-                    ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificateUuid,
-                    List.of(UUID.fromString(ownerProfile.getUuid())), List.of(), null);
+            NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                    Resource.CERTIFICATE, certificateUuid, List.of(UUID.fromString(ownerProfile.getUuid())), List.of(),
+                    null);
             Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));
 
             String body = onlyNotifyBody();
-            Assertions.assertTrue(body.contains("cert.owner@example.com"),
-                    "for ordinary events the subject is the event object, exactly as before: " + body);
+            Assertions
+                    .assertTrue(body.contains("cert.owner@example.com"),
+                            "for ordinary events the subject is the event object, exactly as before: " + body);
         } finally {
             authServer.stop();
         }
@@ -452,21 +491,23 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     private WireMockServer authServerWithUserDetail(UUID userUuid) {
         WireMockServer authServer = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         authServer.start();
-        authServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/" + userUuid))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "uuid": "%s",
-                            "username": "cert-owner",
-                            "email": "cert.owner@example.com",
-                            "enabled": true,
-                            "systemUser": false,
-                            "groups": []
-                        }
-                        """.formatted(userUuid))));
+        authServer
+                .stubFor(
+                        WireMock.get(WireMock.urlPathMatching("/auth/users/" + userUuid)).willReturn(WireMock.okJson("""
+                                {
+                                    "uuid": "%s",
+                                    "username": "cert-owner",
+                                    "email": "cert.owner@example.com",
+                                    "enabled": true,
+                                    "systemUser": false,
+                                    "groups": []
+                                }
+                                """.formatted(userUuid))));
         return authServer;
     }
 
-    private NotificationMessage approvalMessage(NotificationProfileDetailDto notificationProfile, Resource targetResource, UUID targetUuid) {
+    private NotificationMessage approvalMessage(NotificationProfileDetailDto notificationProfile,
+            Resource targetResource, UUID targetUuid) {
         ApprovalEventData approval = new ApprovalEventData();
         approval.setApprovalUuid(UUID.randomUUID());
         approval.setApprovalProfileName("prod-approvals");
@@ -474,18 +515,21 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         approval.setResourceAction("issue");
         approval.setObjectUuid(targetUuid);
         approval.setCreatorUsername("jane.operator");
-        return new NotificationMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL,
-                UUID.randomUUID(), List.of(UUID.fromString(notificationProfile.getUuid())), List.of(), approval);
+        return new NotificationMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, UUID.randomUUID(),
+                List.of(UUID.fromString(notificationProfile.getUuid())), List.of(), approval);
     }
 
     private String onlyNotifyBody() {
-        List<LoggedRequest> requests = mockServer.findAll(WireMock.postRequestedFor(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
+        List<LoggedRequest> requests = mockServer
+                .findAll(WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")));
         Assertions.assertEquals(1, requests.size(), "exactly one notify call expected");
         return requests.getFirst().getBodyAsString();
     }
 
-    private NotificationProfileDetailDto webhookProfile(String name, RecipientType recipientType) throws AlreadyExistException, NotFoundException {
+    private NotificationProfileDetailDto webhookProfile(String name, RecipientType recipientType)
+            throws AlreadyExistException, NotFoundException {
         NotificationInstanceReference webhookInstance = new NotificationInstanceReference();
         webhookInstance.setName("testWebhookInstance-" + name);
         webhookInstance.setKind("WEBHOOK");
@@ -502,19 +546,22 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testNotificationError_setsActionsPerformedFalseOnTriggerHistory() throws AttributeException, NotFoundException {
+    void testNotificationError_setsActionsPerformedFalseOnTriggerHistory()
+            throws AttributeException, NotFoundException {
         // Notify endpoint returns 500 → sendNotification throws ConnectorException →
         // handleNotificationErrorWithErrorLog → setTriggerHistoryActionsPerformedFalse.
         // The custom attribute must be set so getMappedAttributes() succeeds and produces a
         // non-empty recipientsDto — only then is the notify call made and the 500 reached.
-        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
-                .willReturn(WireMock.serverError().withBody("Internal Server Error")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify"))
+                        .willReturn(WireMock.serverError().withBody("Internal Server Error")));
 
         UUID certificateUuid = UUID.randomUUID();
-        attributeEngine.updateObjectCustomAttributeContent(
-                Resource.CERTIFICATE, certificateUuid,
-                UUID.fromString(customAttr.getUuid()), customAttr.getName(),
-                List.of(new StringAttributeContentV3(CONTACT_VALUE)));
+        attributeEngine
+                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                        UUID.fromString(customAttr.getUuid()), customAttr.getName(),
+                        List.of(new StringAttributeContentV3(CONTACT_VALUE)));
 
         Trigger trigger = new Trigger();
         trigger.setName("testActionsTrigger");
@@ -531,11 +578,8 @@ class NotificationObjectRecipientITest extends BaseSpringBootTest {
         triggerHistory.setTriggeredAt(OffsetDateTime.parse("2024-01-01T00:00:00Z"));
         triggerHistory = triggerHistoryRepository.save(triggerHistory);
 
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE,
-                certificateUuid,
-                List.of(UUID.fromString(profile.getUuid())),
-                List.of(), null,
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                Resource.CERTIFICATE, certificateUuid, List.of(UUID.fromString(profile.getUuid())), List.of(), null,
                 triggerHistory.getUuid(), null);
 
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(message));

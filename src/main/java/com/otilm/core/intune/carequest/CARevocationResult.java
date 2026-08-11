@@ -32,43 +32,42 @@ The important modification are marked with the comment "MODIFICATION"
 package com.otilm.core.intune.carequest;
 
 /**
-* CARevocationRequest - Class defining a Certificate Authority Request.
-*/
-public class CARevocationResult 
-{
-	public String requestContext;
-	public boolean succeeded;
-	public String errorCode;
-	public String errorMessage;
-	
-	/**
-	 * CARevocationResult Constructor
-	 * @param requestContext Context for the request
-	 * @param succeeded Whether the revocation on the CA was successful
-	 * @param errorCode Error Code in the case of a failure
-	 * @param errorMessage Error message in the case of a failure
-	 * @throws IllegalArgumentException
-	 */
-	public CARevocationResult(String requestContext, boolean succeeded, CARequestErrorCodes errorCode, String errorMessage)
-	{
-		if (requestContext == null || requestContext.isEmpty())
-		{
-		    throw new IllegalArgumentException("The argument 'requestContext' may not be null or empty"); 
-		}
-		
-		if (succeeded && errorCode != CARequestErrorCodes.None)
-		{
-		    throw new IllegalArgumentException("The argument 'errorCode' must be set to 0 ('None') if succeeded is set to true"); 
-		}
-		
-		if (!succeeded && errorCode == CARequestErrorCodes.None)
-		{
-		    throw new IllegalArgumentException("The argument 'errorCode' may not be set to 0 ('None') if succeeded is set to true"); 
-		}
-			
-		this.requestContext = requestContext;
-		this.succeeded = succeeded;
-		this.errorCode = errorCode.Value;
-		this.errorMessage = errorMessage;
-	}
+ * CARevocationRequest - Class defining a Certificate Authority Request.
+ */
+public class CARevocationResult {
+    public String requestContext;
+    public boolean succeeded;
+    public String errorCode;
+    public String errorMessage;
+
+    /**
+     * CARevocationResult Constructor
+     *
+     * @param requestContext Context for the request
+     * @param succeeded Whether the revocation on the CA was successful
+     * @param errorCode Error Code in the case of a failure
+     * @param errorMessage Error message in the case of a failure
+     * @throws IllegalArgumentException
+     */
+    public CARevocationResult(String requestContext, boolean succeeded, CARequestErrorCodes errorCode,
+            String errorMessage) {
+        if (requestContext == null || requestContext.isEmpty()) {
+            throw new IllegalArgumentException("The argument 'requestContext' may not be null or empty");
+        }
+
+        if (succeeded && errorCode != CARequestErrorCodes.None) {
+            throw new IllegalArgumentException(
+                    "The argument 'errorCode' must be set to 0 ('None') if succeeded is set to true");
+        }
+
+        if (!succeeded && errorCode == CARequestErrorCodes.None) {
+            throw new IllegalArgumentException(
+                    "The argument 'errorCode' may not be set to 0 ('None') if succeeded is set to true");
+        }
+
+        this.requestContext = requestContext;
+        this.succeeded = succeeded;
+        this.errorCode = errorCode.Value;
+        this.errorMessage = errorMessage;
+    }
 }

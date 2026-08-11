@@ -5,14 +5,13 @@ import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
 import com.otilm.core.model.signing.timequality.ExplicitTimeQualityConfigurationBuilder;
 import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
 import com.otilm.core.util.clocksource.TestClockSource;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 import static com.otilm.core.model.signing.timequality.ExplicitTimeQualityConfigurationBuilder.anExplicitTimeQualityConfiguration;
 import static com.otilm.core.signing.tsa.timequality.builders.TimeQualityResultBuilder.aTimeQualityResult;
@@ -46,7 +45,13 @@ class TimeQualityRegisterImplTest {
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
             var register = new TimeQualityRegisterImpl(clock);
             var profile = ExplicitTimeQualityConfigurationBuilder.valid("profile1");
-            register.update(aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.OK).timestamp(FIXED_NOW.minus(Duration.ofMinutes(3))).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .configurationId(profile.uuid())
+                            .status(TimeQualityStatus.OK)
+                            .timestamp(FIXED_NOW.minus(Duration.ofMinutes(3)))
+                            .build());
 
             // when
             var status = register.getStatus(profile);
@@ -61,7 +66,13 @@ class TimeQualityRegisterImplTest {
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
             var register = new TimeQualityRegisterImpl(clock);
             var profile = ExplicitTimeQualityConfigurationBuilder.valid("profile1");
-            register.update(aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.DEGRADED).timestamp(FIXED_NOW.minus(Duration.ofMinutes(3))).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .configurationId(profile.uuid())
+                            .status(TimeQualityStatus.DEGRADED)
+                            .timestamp(FIXED_NOW.minus(Duration.ofMinutes(3)))
+                            .build());
 
             // when
             var status = register.getStatus(profile);
@@ -76,7 +87,13 @@ class TimeQualityRegisterImplTest {
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
             var register = new TimeQualityRegisterImpl(clock);
             var profile = ExplicitTimeQualityConfigurationBuilder.valid("profile1");
-            register.update(aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.OK).timestamp(FIXED_NOW.minus(Duration.ofMinutes(6))).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .configurationId(profile.uuid())
+                            .status(TimeQualityStatus.OK)
+                            .timestamp(FIXED_NOW.minus(Duration.ofMinutes(6)))
+                            .build());
 
             // when
             var status = register.getStatus(profile);
@@ -89,10 +106,19 @@ class TimeQualityRegisterImplTest {
         void returnsDegraded_whenClockDriftsAboveThreshold() {
             // given — OK result received, then wall clock jumps forward beyond maxClockDrift
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
-            var profile = anExplicitTimeQualityConfiguration().withDefaults().name("rfc3161").maxClockDrift(MAX_DRIFT_500MS).build();
+            var profile = anExplicitTimeQualityConfiguration()
+                    .withDefaults()
+                    .name("rfc3161")
+                    .maxClockDrift(MAX_DRIFT_500MS)
+                    .build();
             var register = new TimeQualityRegisterImpl(clock);
 
-            register.update(aTimeQualityResult().withDefaults().status(TimeQualityStatus.OK).timestamp(FIXED_NOW).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .status(TimeQualityStatus.OK)
+                            .timestamp(FIXED_NOW)
+                            .build());
 
             // mono: +1s, wall: +2s → drift = 1000ms > 500ms
             clock.advanceMonoNanos(1_000_000_000L).advanceWallMillis(2_000);
@@ -108,10 +134,19 @@ class TimeQualityRegisterImplTest {
         void returnsOk_whenClockDriftWithinThreshold() {
             // given — small drift within threshold
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
-            var profile = anExplicitTimeQualityConfiguration().withDefaults().name("rfc3161").maxClockDrift(MAX_DRIFT_500MS).build();
+            var profile = anExplicitTimeQualityConfiguration()
+                    .withDefaults()
+                    .name("rfc3161")
+                    .maxClockDrift(MAX_DRIFT_500MS)
+                    .build();
             var register = new TimeQualityRegisterImpl(clock);
 
-            register.update(aTimeQualityResult().withDefaults().status(TimeQualityStatus.OK).timestamp(FIXED_NOW).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .status(TimeQualityStatus.OK)
+                            .timestamp(FIXED_NOW)
+                            .build());
 
             // mono: +5s, wall: +5.4s → drift = 400ms < 500ms
             clock.advanceMonoNanos(5_000_000_000L);
@@ -129,10 +164,20 @@ class TimeQualityRegisterImplTest {
             // given — wall clock at 23:59:59 UTC, leap indicator POSITIVE, guard enabled
             var midnight = Instant.parse("2026-06-30T23:59:59Z");
             var clock = TestClockSource.ofWallTimeMillis(midnight.toEpochMilli());
-            var profile = anExplicitTimeQualityConfiguration().withDefaults().name("rfc3161").leapSecondGuard(true).build();
+            var profile = anExplicitTimeQualityConfiguration()
+                    .withDefaults()
+                    .name("rfc3161")
+                    .leapSecondGuard(true)
+                    .build();
             var register = new TimeQualityRegisterImpl(clock);
 
-            register.update(aTimeQualityResult().withDefaults().status(TimeQualityStatus.OK).leapSecondWarning(LeapSecondWarning.POSITIVE).timestamp(midnight).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .status(TimeQualityStatus.OK)
+                            .leapSecondWarning(LeapSecondWarning.POSITIVE)
+                            .timestamp(midnight)
+                            .build());
 
             // when
             var status = register.getStatus(profile);
@@ -146,10 +191,20 @@ class TimeQualityRegisterImplTest {
             // given — in guard window with POSITIVE indicator, but guard disabled
             var midnight = Instant.parse("2026-06-30T23:59:59Z");
             var clock = TestClockSource.ofWallTimeMillis(midnight.toEpochMilli());
-            var profile = anExplicitTimeQualityConfiguration().withDefaults().name("rfc3161").leapSecondGuard(false).build();
+            var profile = anExplicitTimeQualityConfiguration()
+                    .withDefaults()
+                    .name("rfc3161")
+                    .leapSecondGuard(false)
+                    .build();
             var register = new TimeQualityRegisterImpl(clock);
 
-            register.update(aTimeQualityResult().withDefaults().status(TimeQualityStatus.OK).leapSecondWarning(LeapSecondWarning.POSITIVE).timestamp(midnight).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .status(TimeQualityStatus.OK)
+                            .leapSecondWarning(LeapSecondWarning.POSITIVE)
+                            .timestamp(midnight)
+                            .build());
 
             // when
             var status = register.getStatus(profile);
@@ -164,7 +219,12 @@ class TimeQualityRegisterImplTest {
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
             var register = new TimeQualityRegisterImpl(clock);
             // inject a DEGRADED result — LocalClock profile ignores stored results and always returns OK
-            register.update(aTimeQualityResult().withDefaults().status(TimeQualityStatus.DEGRADED).timestamp(FIXED_NOW.minus(Duration.ofMinutes(3))).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .status(TimeQualityStatus.DEGRADED)
+                            .timestamp(FIXED_NOW.minus(Duration.ofMinutes(3)))
+                            .build());
 
             // when
             var status = register.getStatus(LocalClockTimeQualityConfiguration.INSTANCE);
@@ -185,7 +245,11 @@ class TimeQualityRegisterImplTest {
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
             var register = new TimeQualityRegisterImpl(clock);
             var profile = ExplicitTimeQualityConfigurationBuilder.valid("profile1");
-            var result = aTimeQualityResult().withDefaults().configurationId(profile.uuid()).timestamp(FIXED_NOW.minus(Duration.ofMinutes(1))).build();
+            var result = aTimeQualityResult()
+                    .withDefaults()
+                    .configurationId(profile.uuid())
+                    .timestamp(FIXED_NOW.minus(Duration.ofMinutes(1)))
+                    .build();
 
             // when
             register.update(result);
@@ -200,8 +264,18 @@ class TimeQualityRegisterImplTest {
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
             var register = new TimeQualityRegisterImpl(clock);
             var profile = ExplicitTimeQualityConfigurationBuilder.valid("profile1");
-            var first = aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.DEGRADED).timestamp(FIXED_NOW.minus(Duration.ofMinutes(1))).build();
-            var second = aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.OK).timestamp(FIXED_NOW.minus(Duration.ofMinutes(1))).build();
+            var first = aTimeQualityResult()
+                    .withDefaults()
+                    .configurationId(profile.uuid())
+                    .status(TimeQualityStatus.DEGRADED)
+                    .timestamp(FIXED_NOW.minus(Duration.ofMinutes(1)))
+                    .build();
+            var second = aTimeQualityResult()
+                    .withDefaults()
+                    .configurationId(profile.uuid())
+                    .status(TimeQualityStatus.OK)
+                    .timestamp(FIXED_NOW.minus(Duration.ofMinutes(1)))
+                    .build();
 
             // when
             register.update(first);
@@ -218,8 +292,20 @@ class TimeQualityRegisterImplTest {
             var register = new TimeQualityRegisterImpl(clock);
             var profile = ExplicitTimeQualityConfigurationBuilder.valid("profile1");
 
-            register.update(aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.OK).timestamp(FIXED_NOW).build());
-            register.update(aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.DEGRADED).timestamp(FIXED_NOW).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .configurationId(profile.uuid())
+                            .status(TimeQualityStatus.OK)
+                            .timestamp(FIXED_NOW)
+                            .build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .configurationId(profile.uuid())
+                            .status(TimeQualityStatus.DEGRADED)
+                            .timestamp(FIXED_NOW)
+                            .build());
 
             // when — DEGRADED result stored, so getStatus returns DEGRADED
             var status = register.getStatus(profile);
@@ -234,7 +320,13 @@ class TimeQualityRegisterImplTest {
             var clock = TestClockSource.ofWallTime(FIXED_NOW);
             var register = new TimeQualityRegisterImpl(clock);
             var profile = ExplicitTimeQualityConfigurationBuilder.valid("profile1");
-            register.update(aTimeQualityResult().withDefaults().configurationId(profile.uuid()).status(TimeQualityStatus.OK).timestamp(FIXED_NOW).build());
+            register
+                    .update(aTimeQualityResult()
+                            .withDefaults()
+                            .configurationId(profile.uuid())
+                            .status(TimeQualityStatus.OK)
+                            .timestamp(FIXED_NOW)
+                            .build());
             // status read also populates lastLoggedStatus
             register.getStatus(profile);
 
@@ -259,7 +351,13 @@ class TimeQualityRegisterImplTest {
                 for (int i = 0; i < threadCount; i++) {
                     var drift = (double) i;
                     executor.submit(() -> {
-                        register.update(aTimeQualityResult().withDefaults().configurationId(profile.uuid()).measuredDriftMs(drift).timestamp(FIXED_NOW.minus(Duration.ofMinutes(1))).build());
+                        register
+                                .update(aTimeQualityResult()
+                                        .withDefaults()
+                                        .configurationId(profile.uuid())
+                                        .measuredDriftMs(drift)
+                                        .timestamp(FIXED_NOW.minus(Duration.ofMinutes(1)))
+                                        .build());
                         latch.countDown();
                     });
                 }

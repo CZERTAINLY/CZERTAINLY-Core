@@ -6,9 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Owns the background thread that periodically drives {@link BestEffortSigningRecordStrategy} to drain its
- * in-memory queue and persist batched signing records. The strategy holds all queue/DB logic; this class
- * holds only the scheduling and thread lifecycle.
+ * Owns the background thread that periodically drives {@link BestEffortSigningRecordStrategy} to drain its in-memory
+ * queue and persist batched signing records. The strategy holds all queue/DB logic; this class holds only the
+ * scheduling and thread lifecycle.
  */
 @Slf4j
 @Component
@@ -20,8 +20,7 @@ public class SigningRecordBestEffortFlusher {
     private Thread flusher;
     private volatile boolean running = true;
 
-    public SigningRecordBestEffortFlusher(
-            BestEffortSigningRecordStrategy strategy,
+    public SigningRecordBestEffortFlusher(BestEffortSigningRecordStrategy strategy,
             SigningRecordBestEffortProperties properties) {
         this.strategy = strategy;
         this.flushIntervalMs = properties.flushIntervalMs();

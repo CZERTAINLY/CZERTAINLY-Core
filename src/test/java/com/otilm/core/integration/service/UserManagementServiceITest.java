@@ -27,25 +27,29 @@ import com.otilm.core.service.UserManagementExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.SessionTableHelper;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.TestInstance;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.session.FindByIndexNameSessionRepository;
-import org.springframework.session.Session;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UserManagementServiceITest extends BaseSpringBootTest {
@@ -101,13 +105,14 @@ class UserManagementServiceITest extends BaseSpringBootTest {
 
     @Test
     void testCreateUserForwardsCertificateCustomAttributesToUpload() throws Exception {
-        X509Certificate x509Certificate = CertificateGeneratorHelper.generateCACertificate(null, "CN=uploaded-user-cert");
+        X509Certificate x509Certificate = CertificateGeneratorHelper
+                .generateCACertificate(null, "CN=uploaded-user-cert");
         String certificateData = Base64.getEncoder().encodeToString(x509Certificate.getEncoded());
 
         // A fingerprint different from the submitted certificate's thumbprint, so the initial inventory
         // lookup misses and the upload path is taken; the mocked upload then "produces" this row.
         Certificate uploadedCertificate = saveCertificate("uploaded-fingerprint");
-       when(certificateUploadService.upload(anyString(), anyList(), anyBoolean()))
+        when(certificateUploadService.upload(anyString(), anyList(), anyBoolean()))
                 .thenReturn(uploadedCertificate.getFingerprint());
         when(userManagementApiClient.createUser(any())).thenReturn(userDetailDto());
 
@@ -134,13 +139,17 @@ class UserManagementServiceITest extends BaseSpringBootTest {
 
         userManagementService.createUser(request);
 
-        verify(certificateUploadService, never()).upload(any(),any(), anyBoolean());
-        Assertions.assertTrue(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, existingCertificate.getUuid()).isEmpty());
+        verify(certificateUploadService, never()).upload(any(), any(), anyBoolean());
+        Assertions
+                .assertTrue(attributeEngine
+                        .getObjectCustomAttributesContent(Resource.CERTIFICATE, existingCertificate.getUuid())
+                        .isEmpty());
     }
 
     @Test
     void testCertificateCustomAttributesIgnoredForExistingCertificateMatchedByFingerprint() throws Exception {
-        X509Certificate x509Certificate = CertificateGeneratorHelper.generateCACertificate(null, "CN=existing-user-cert");
+        X509Certificate x509Certificate = CertificateGeneratorHelper
+                .generateCACertificate(null, "CN=existing-user-cert");
         Certificate existingCertificate = saveCertificate(CertificateUtil.getThumbprint(x509Certificate));
         when(userManagementApiClient.createUser(any())).thenReturn(userDetailDto());
 
@@ -152,7 +161,10 @@ class UserManagementServiceITest extends BaseSpringBootTest {
         userManagementService.createUser(request);
 
         verify(certificateUploadService, never()).upload(any(), any(), anyBoolean());
-        Assertions.assertTrue(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, existingCertificate.getUuid()).isEmpty());
+        Assertions
+                .assertTrue(attributeEngine
+                        .getObjectCustomAttributesContent(Resource.CERTIFICATE, existingCertificate.getUuid())
+                        .isEmpty());
     }
 
     @Test
@@ -172,7 +184,8 @@ class UserManagementServiceITest extends BaseSpringBootTest {
 
     @Test
     void testUploadValidationErrorPropagatesAsValidationException() throws Exception {
-        X509Certificate x509Certificate = CertificateGeneratorHelper.generateCACertificate(null, "CN=rejected-user-cert");
+        X509Certificate x509Certificate = CertificateGeneratorHelper
+                .generateCACertificate(null, "CN=rejected-user-cert");
         when(certificateUploadService.upload(anyString(), anyList(), anyBoolean()))
                 .thenThrow(new ValidationException("Certificate custom attributes are not valid."));
 
@@ -197,8 +210,11 @@ class UserManagementServiceITest extends BaseSpringBootTest {
 
         ArgumentCaptor<UserUpdateRequestDto> requestCaptor = ArgumentCaptor.forClass(UserUpdateRequestDto.class);
         verify(userManagementApiClient).updateUser(eq(userUuid), requestCaptor.capture());
-        Assertions.assertEquals(existingCertificate.getUuid().toString(), requestCaptor.getValue().getCertificateUuid());
-        Assertions.assertEquals(existingCertificate.getFingerprint(), requestCaptor.getValue().getCertificateFingerprint());
+        Assertions
+                .assertEquals(existingCertificate.getUuid().toString(), requestCaptor.getValue().getCertificateUuid());
+        Assertions
+                .assertEquals(existingCertificate.getFingerprint(),
+                        requestCaptor.getValue().getCertificateFingerprint());
     }
 
     @Test
@@ -215,9 +231,12 @@ class UserManagementServiceITest extends BaseSpringBootTest {
 
         ArgumentCaptor<UserUpdateRequestDto> requestCaptor = ArgumentCaptor.forClass(UserUpdateRequestDto.class);
         verify(userManagementApiClient).updateUser(eq(userUuid), requestCaptor.capture());
-        Assertions.assertEquals(
-                List.of(new NameAndUuidDto(firstGroup.getUuid(), firstGroup.getName()), new NameAndUuidDto(secondGroup.getUuid(), secondGroup.getName())),
-                requestCaptor.getValue().getGroups());
+        Assertions
+                .assertEquals(
+                        List
+                                .of(new NameAndUuidDto(firstGroup.getUuid(), firstGroup.getName()),
+                                        new NameAndUuidDto(secondGroup.getUuid(), secondGroup.getName())),
+                        requestCaptor.getValue().getGroups());
     }
 
     private Group saveGroup(String name) {
@@ -272,10 +291,7 @@ class UserManagementServiceITest extends BaseSpringBootTest {
 
     private void createSession(UUID userUuid) {
         Session s = sessionRepository.createSession();
-        s.setAttribute(
-                FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME,
-                userUuid.toString()
-        );
+        s.setAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME, userUuid.toString());
         sessionRepository.save(s);
     }
 }

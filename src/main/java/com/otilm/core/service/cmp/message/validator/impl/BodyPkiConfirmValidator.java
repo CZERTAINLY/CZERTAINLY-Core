@@ -8,10 +8,14 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
 
 /**
  * Validator for PKI Conformation message (pkiConf)
- * <pre>PKIConfirmContent ::= NULL</pre>
+ *
+ * <pre>
+ * PKIConfirmContent ::= NULL
+ * </pre>
  *
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.17">PKI Confirmation Content</a>
- * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
+ * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F. Compilable ASN.1 Definitions
+ * (rfc4210)</a>
  */
 public class BodyPkiConfirmValidator extends BaseValidator implements Validator<PKIMessage, Void> {
 

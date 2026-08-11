@@ -28,7 +28,8 @@ public class TimestampingWorkflowRequestDtoBuilder {
         return this;
     }
 
-    public TimestampingWorkflowRequestDtoBuilder withSignatureFormattingConnectorAttributes(List<RequestAttribute> attrs) {
+    public TimestampingWorkflowRequestDtoBuilder withSignatureFormattingConnectorAttributes(
+            List<RequestAttribute> attrs) {
         this.signatureFormattingConnectorAttributes = attrs;
         return this;
     }

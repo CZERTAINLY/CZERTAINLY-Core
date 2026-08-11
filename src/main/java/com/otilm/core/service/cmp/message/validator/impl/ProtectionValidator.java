@@ -1,10 +1,10 @@
 package com.otilm.core.service.cmp.message.validator.impl;
 
-import com.otilm.api.interfaces.core.cmp.error.CmpConfigurationException;
-import com.otilm.api.model.core.cmp.ProtectionMethod;
 import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
+import com.otilm.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.otilm.api.model.core.cmp.ProtectionMethod;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
 import com.otilm.core.service.cmp.message.protection.ProtectionStrategy;
@@ -25,7 +25,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * <pre>[1]
+ * <pre>
+ * [1]
  *       PKIMessage ::= SEQUENCE {
  *          header           PKIHeader,
  *          body             PKIBody,
@@ -34,22 +35,27 @@ import org.springframework.transaction.annotation.Transactional;
  *                           OPTIONAL
  *      }
  * </pre>
- * <p>[2] The protectionAlg field specifies the algorithm used to protect the
- * message.  If no protection bits are supplied (note that PKIProtection
- * is OPTIONAL) then this field MUST be omitted; if protection bits are
- * supplied, then this field MUST be supplied.</p>
+ * <p>
+ * [2] The protectionAlg field specifies the algorithm used to protect the message. If no protection bits are supplied
+ * (note that PKIProtection is OPTIONAL) then this field MUST be omitted; if protection bits are supplied, then this
+ * field MUST be supplied.
+ * </p>
  *
- * <p>When protection is applied, the following structure is used:
+ * <p>
+ * When protection is applied, the following structure is used:
+ *
  * <pre>
  *         PKIProtection ::= BIT STRING
- *    </pre>
- * The input to the calculation of PKIProtection is the DER encoding of
- * the following data structure:
+ * </pre>
+ *
+ * The input to the calculation of PKIProtection is the DER encoding of the following data structure:
+ *
  * <pre>
  *         ProtectedPart ::= SEQUENCE {
  *             header    PKIHeader,
  *             body      PKIBody
- *    }</pre>
+ *    }
+ * </pre>
  * </p>
  *
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall PKI Message</a>
@@ -71,9 +77,8 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
         ASN1OctetString tid = request.getHeader().getTransactionID();
 
         /*
-         * The protectionAlg field specifies the algorithm used to protect the
-         * message.  If no protection bits are supplied (note that PKIProtection
-         * is OPTIONAL) then this field MUST be omitted; if protection bits are
+         * The protectionAlg field specifies the algorithm used to protect the message. If no protection bits are
+         * supplied (note that PKIProtection is OPTIONAL) then this field MUST be omitted; if protection bits are
          * supplied, then this field MUST be supplied.
          */
         if (protection == null && request.getHeader().getProtectionAlg() == null) {
@@ -81,14 +86,12 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
         }
 
         if (protection == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized,
-                    ImplFailureInfo.CMPVALPRO530);
+            throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized, ImplFailureInfo.CMPVALPRO530);
         }
 
         final AlgorithmIdentifier protectionAlg = request.getHeader().getProtectionAlg();
         if (protectionAlg == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized,
-                    ImplFailureInfo.CMPVALPRO532);
+            throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized, ImplFailureInfo.CMPVALPRO532);
         }
 
         assertMessageProtectionMatchesProfile(tid, protectionAlg, configuration.getProtectionMethod());
@@ -109,9 +112,8 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
         ASN1OctetString tid = response.getHeader().getTransactionID();
 
         /*
-         * The protectionAlg field specifies the algorithm used to protect the
-         * message.  If no protection bits are supplied (note that PKIProtection
-         * is OPTIONAL) then this field MUST be omitted; if protection bits are
+         * The protectionAlg field specifies the algorithm used to protect the message. If no protection bits are
+         * supplied (note that PKIProtection is OPTIONAL) then this field MUST be omitted; if protection bits are
          * supplied, then this field MUST be supplied.
          */
         if (protection == null && response.getHeader().getProtectionAlg() == null) {
@@ -121,18 +123,19 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
         if (protection == null) {
             return switch (response.getBody().getType()) {
                 case PKIBody.TYPE_ERROR, PKIBody.TYPE_CONFIRM, PKIBody.TYPE_REVOCATION_REP -> {
-                    LOG.warn("TID={} | ignore protection for type={}", tid, PkiMessageDumper.msgTypeAsString(response.getBody()));
+                    LOG
+                            .warn("TID={} | ignore protection for type={}", tid,
+                                    PkiMessageDumper.msgTypeAsString(response.getBody()));
                     yield null;
                 }
-                default -> throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized,
-                        ImplFailureInfo.CMPVALPRO531);
+                default ->
+                    throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized, ImplFailureInfo.CMPVALPRO531);
             };
         }
 
         final AlgorithmIdentifier protectionAlg = response.getHeader().getProtectionAlg();
         if (protectionAlg == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized,
-                    ImplFailureInfo.CMPVALPRO533);
+            throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized, ImplFailureInfo.CMPVALPRO533);
         }
 
         ProtectionStrategy czrtProtectionStrategy = configuration.getProtectionStrategy();
@@ -150,20 +153,20 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
 
     /**
      * Rejects a request whose actual protection type contradicts the profile's configured
-     * {@code Requested Protection Method}. A sharedSecret profile must receive PBM-protected
-     * messages ({@code passwordBasedMac} / {@code id_PBMAC1}); a signature profile must receive
-     * signature-protected messages. On mismatch a {@link PKIFailureInfo#badMessageCheck} rejection
-     * is raised (RFC 4210 §5.2.7) so the client gets a parseable CMP error instead of the platform
-     * dereferencing PBM-specific fields on a non-PBM message.
+     * {@code Requested Protection Method}. A sharedSecret profile must receive PBM-protected messages
+     * ({@code passwordBasedMac} / {@code id_PBMAC1}); a signature profile must receive signature-protected messages. On
+     * mismatch a {@link PKIFailureInfo#badMessageCheck} rejection is raised (RFC 4210 §5.2.7) so the client gets a
+     * parseable CMP error instead of the platform dereferencing PBM-specific fields on a non-PBM message.
      *
-     * <p>When the profile does not constrain the request method ({@code expectedRequestMethod == null})
-     * no check is applied.</p>
+     * <p>
+     * When the profile does not constrain the request method ({@code expectedRequestMethod == null}) no check is
+     * applied.
+     * </p>
      *
      * @throws CmpProcessingException if the message protection type is not accepted by the profile
      */
     static void assertMessageProtectionMatchesProfile(ASN1OctetString tid, AlgorithmIdentifier protectionAlg,
-                                                      ProtectionMethod expectedRequestMethod)
-            throws CmpProcessingException {
+            ProtectionMethod expectedRequestMethod) throws CmpProcessingException {
         if (expectedRequestMethod == null) {
             return;
         }
@@ -181,13 +184,13 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
 
     /**
      * <p>
-     * Check if protection is set up correctly: client and server can handle
-     * protection only if the below given scheme is used. The scheme is based on:
+     * Check if protection is set up correctly: client and server can handle protection only if the below given scheme
+     * is used. The scheme is based on:
      * </p>
      * <ol>
-     *     <li>if server uses SHARED_SECRET, client must use SHARED_SECRET also</li>
-     *     <li>if client uses SIGNATURE, server must use SIGNATURE also</li>
-     *     <li>if client uses SHARED_SECRET, server can use SHARED_SECRET or SIGNATURE</li>
+     * <li>if server uses SHARED_SECRET, client must use SHARED_SECRET also</li>
+     * <li>if client uses SIGNATURE, server must use SIGNATURE also</li>
+     * <li>if client uses SHARED_SECRET, server can use SHARED_SECRET or SIGNATURE</li>
      * </ol>
      *
      * @throws CmpBaseException if protection matrix is not allowed
@@ -199,7 +202,8 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
         // -- (1) server use SHARED_SECRET, client must use SHARED_SECRET also
         if (serverProtection instanceof PasswordBasedMacProtectionStrategy) {// is SHARED_SECRET
             if (ProtectionMethod.SIGNATURE.equals(clientProtection)) {
-                throw new CmpConfigurationException(request.getHeader().getTransactionID(), PKIFailureInfo.systemFailure,
+                throw new CmpConfigurationException(request.getHeader().getTransactionID(),
+                        PKIFailureInfo.systemFailure,
                         "wrong client configuration: server uses SHARED_SECRET and client uses SIGNATURE");
             }
             // ok state
@@ -207,7 +211,8 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
         // -- (2) client uses SIGNATURE, server must use SIGNATURE also
         else if (ProtectionMethod.SIGNATURE.equals(clientProtection)) {
             if (!(serverProtection instanceof SingatureBaseProtectionStrategy)) {
-                throw new CmpConfigurationException(request.getHeader().getTransactionID(), PKIFailureInfo.systemFailure,
+                throw new CmpConfigurationException(request.getHeader().getTransactionID(),
+                        PKIFailureInfo.systemFailure,
                         "wrong server configuration: client uses SIGNATURE and server uses different type of protection");
             }
             // ok state

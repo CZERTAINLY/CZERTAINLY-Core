@@ -5,20 +5,19 @@ import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.entity.signing.SigningRecordOutbox;
 import com.otilm.core.dao.repository.signing.SigningRecordOutboxRepository;
 import com.otilm.core.service.writer.signingrecord.SigningRecordWriter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.hibernate.exception.ConstraintViolationException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
-
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,16 +35,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Pure unit test for {@link SigningRecordOutboxDrainer} over a mocked repository, writer, and cluster
- * synchronizer. The drainer's job is narrow: acquire the cluster-wide drain lock (or skip if another node holds
- * it), read successive drainable batches, bulk-load and map the claimed outbox rows, and hand all mapped records
- * to {@link SigningRecordWriter#persistBatchAndDeleteOutbox} in one transaction (the fast path). When that batch
+ * Pure unit test for {@link SigningRecordOutboxDrainer} over a mocked repository, writer, and cluster synchronizer. The
+ * drainer's job is narrow: acquire the cluster-wide drain lock (or skip if another node holds it), read successive
+ * drainable batches, bulk-load and map the claimed outbox rows, and hand all mapped records to
+ * {@link SigningRecordWriter#persistBatchAndDeleteOutbox} in one transaction (the fast path). When that batch
  * transaction fails (crash-recovery duplicate), each row is retried individually via
  * {@link SigningRecordWriter#saveRecordAndDeleteOutbox}, and failed per-row attempts are recorded via
- * {@link SigningRecordWriter#recordFailure(java.util.UUID, String)} while healthy rows are still drained. A batch
- * whose bulk load returns empty (all rows already gone) is skipped without touching the writer. Poison exclusion
- * lives in the claim query; per-row transaction isolation, idempotent copy, and field fidelity are covered
- * against a real database in {@link com.otilm.core.integration.signing.record.SigningRecordOutboxDrainerITest}.
+ * {@link SigningRecordWriter#recordFailure(java.util.UUID, String)} while healthy rows are still drained. A batch whose
+ * bulk load returns empty (all rows already gone) is skipped without touching the writer. Poison exclusion lives in the
+ * claim query; per-row transaction isolation, idempotent copy, and field fidelity are covered against a real database
+ * in {@link com.otilm.core.integration.signing.record.SigningRecordOutboxDrainerITest}.
  */
 class SigningRecordOutboxDrainerUnitTest {
 
@@ -124,7 +123,9 @@ class SigningRecordOutboxDrainerUnitTest {
         when(outboxRepo.findDrainableBatch(anyInt(), anyInt())).thenReturn(List.of(failingUuid));
         aClaimableRow(failingUuid);
         doThrow(aConstraintViolation("batch failed")).when(writer).persistBatchAndDeleteOutbox(anyList());
-        doThrow(new RuntimeException("constraint violation")).when(writer).saveRecordAndDeleteOutbox(recordFor(failingUuid));
+        doThrow(new RuntimeException("constraint violation"))
+                .when(writer)
+                .saveRecordAndDeleteOutbox(recordFor(failingUuid));
 
         // when
         createDrainer().drainOnce();
@@ -162,7 +163,9 @@ class SigningRecordOutboxDrainerUnitTest {
         aClaimableRow(healthyUuid);
         aClaimableRow(failingUuid);
         doThrow(aConstraintViolation("batch failed")).when(writer).persistBatchAndDeleteOutbox(anyList());
-        doThrow(new RuntimeException("FK violation on signing_profile_uuid")).when(writer).saveRecordAndDeleteOutbox(recordFor(failingUuid));
+        doThrow(new RuntimeException("FK violation on signing_profile_uuid"))
+                .when(writer)
+                .saveRecordAndDeleteOutbox(recordFor(failingUuid));
 
         // when
         createDrainer().drainOnce();
@@ -196,8 +199,7 @@ class SigningRecordOutboxDrainerUnitTest {
     void drainOnce_keepsDrainingWhileBatchesAreFull_andStopsOnAShortBatch() {
         // given a full batch followed by a short one (batch size 2)
         var batchSize = 2;
-        when(outboxRepo.findDrainableBatch(anyInt(), anyInt()))
-                .thenReturn(List.of(aUuid(), aUuid()), List.of(aUuid()));
+        when(outboxRepo.findDrainableBatch(anyInt(), anyInt())).thenReturn(List.of(aUuid(), aUuid()), List.of(aUuid()));
         anyClaimedRowIsPresent();
 
         // when
@@ -215,8 +217,7 @@ class SigningRecordOutboxDrainerUnitTest {
         // given every claim returns a full batch that drains completely, so work is always available
         var batchSize = 2;
         var maxBatchesPerRun = 3;
-        when(outboxRepo.findDrainableBatch(anyInt(), anyInt()))
-                .thenReturn(List.of(aUuid(), aUuid()));
+        when(outboxRepo.findDrainableBatch(anyInt(), anyInt())).thenReturn(List.of(aUuid(), aUuid()));
         anyClaimedRowIsPresent();
 
         // when
@@ -264,8 +265,7 @@ class SigningRecordOutboxDrainerUnitTest {
         when(outboxRepo.findDrainableBatch(anyInt(), anyInt())).thenReturn(List.of(uuid1, uuid2));
         aClaimableRow(uuid1);
         aClaimableRow(uuid2);
-        doThrow(aConstraintViolation("could not execute batch")).when(writer)
-                .persistBatchAndDeleteOutbox(anyList());
+        doThrow(aConstraintViolation("could not execute batch")).when(writer).persistBatchAndDeleteOutbox(anyList());
 
         // when
         createDrainer().drainOnce();
@@ -299,8 +299,8 @@ class SigningRecordOutboxDrainerUnitTest {
     }
 
     /**
-     * Matches the {@link SigningRecord} the drainer maps from the outbox row with the given UUID — the record
-     * shares its originating outbox row's UUID, so this discriminates the per-row writer call by identity.
+     * Matches the {@link SigningRecord} the drainer maps from the outbox row with the given UUID — the record shares
+     * its originating outbox row's UUID, so this discriminates the per-row writer call by identity.
      */
     private static SigningRecord recordFor(UUID uuid) {
         return argThat(signingRecord -> signingRecord != null && uuid.equals(signingRecord.getUuid()));
@@ -315,8 +315,9 @@ class SigningRecordOutboxDrainerUnitTest {
             List<SigningRecordOutbox> result = new ArrayList<>();
             for (UUID id : ids) {
                 SigningRecordOutbox r = claimableRows.get(id);
-                if (r != null)
+                if (r != null) {
                     result.add(r);
+                }
             }
             return result;
         });

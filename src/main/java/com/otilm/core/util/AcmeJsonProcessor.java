@@ -5,8 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JWSObject;
 
 /**
- * Class contains the static method for processing the JSON entities from
- * ACME request.
+ * Class contains the static method for processing the JSON entities from ACME request.
  */
 public class AcmeJsonProcessor {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -15,7 +14,7 @@ public class AcmeJsonProcessor {
      * Class to parse the information from source JSON to the requested format
      *
      * @param sourceJson Source JSON
-     * @param <T>        Generic Type
+     * @param <T> Generic Type
      * @return JSON Objected mapped to the class required
      */
     public static <T> T generalBodyJsonParser(String sourceJson, Class<T> tClass) throws JsonProcessingException {
@@ -27,6 +26,5 @@ public class AcmeJsonProcessor {
         String serializedData = SerializationUtil.serialize(jwsObject.getPayload().toJSONObject());
         return (T) SerializationUtil.deserialize(serializedData, returnType);
     }
-
 
 }

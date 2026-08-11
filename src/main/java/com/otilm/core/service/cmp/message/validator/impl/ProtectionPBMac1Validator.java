@@ -6,8 +6,9 @@ import com.otilm.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 
 /**
- * @see <a href="https://www.rfc-editor.org/rfc/rfc8018">PKCS #5: Password-Based Cryptography Specification Version 2.1</a>
- * @see <a href="https://www.rfc-editor.org/rfc/rfc8018#section-7.1">7.1.1.  PBMAC1 Generation Operation</a>
+ * @see <a href="https://www.rfc-editor.org/rfc/rfc8018">PKCS #5: Password-Based Cryptography Specification Version
+ * 2.1</a>
+ * @see <a href="https://www.rfc-editor.org/rfc/rfc8018#section-7.1">7.1.1. PBMAC1 Generation Operation</a>
  */
 public class ProtectionPBMac1Validator implements Validator<PKIMessage, Void> {
 

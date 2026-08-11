@@ -1,51 +1,41 @@
 package com.otilm.core.provisioning;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Objects;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 /**
  * Response DTO for trusted certificate from provisioning service.
  *
- * @param uuid               UUID of the trusted certificate
+ * @param uuid UUID of the trusted certificate
  * @param certificateContent Raw certificate content serialized as Base64 String in JSON
- * @param issuer             Certificate issuer DN
- * @param san                Subject alternative names
- * @param serialNumber       Certificate serial number
- * @param subject            Certificate subject DN
- * @param thumbprint         Certificate thumbprint (fingerprint)
- * @param notBefore          Certificate validity start date
- * @param notAfter           Certificate expiration date
+ * @param issuer Certificate issuer DN
+ * @param san Subject alternative names
+ * @param serialNumber Certificate serial number
+ * @param subject Certificate subject DN
+ * @param thumbprint Certificate thumbprint (fingerprint)
+ * @param notBefore Certificate validity start date
+ * @param notAfter Certificate expiration date
  */
-public record TrustedCertificateProvisioningDTO(
-        String uuid,
-        byte[] certificateContent,
-        String issuer,
-        String san,
-        String serialNumber,
-        String subject,
-        String thumbprint,
-        LocalDateTime notBefore,
-        LocalDateTime notAfter
-) {
+public record TrustedCertificateProvisioningDTO(String uuid, byte[] certificateContent, String issuer, String san,
+        String serialNumber, String subject, String thumbprint, LocalDateTime notBefore, LocalDateTime notAfter) {
     // Overridden so byte[] is compared by content, not by reference (the default record
     // implementation falls back to Object.equals() / identity hashCode for arrays).
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof TrustedCertificateProvisioningDTO that)) return false;
-        return Objects.equals(uuid, that.uuid)
-                && Arrays.equals(certificateContent, that.certificateContent)
-                && Objects.equals(issuer, that.issuer)
-                && Objects.equals(san, that.san)
-                && Objects.equals(serialNumber, that.serialNumber)
-                && Objects.equals(subject, that.subject)
-                && Objects.equals(thumbprint, that.thumbprint)
-                && Objects.equals(notBefore, that.notBefore)
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof TrustedCertificateProvisioningDTO that)) {
+            return false;
+        }
+        return Objects.equals(uuid, that.uuid) && Arrays.equals(certificateContent, that.certificateContent)
+                && Objects.equals(issuer, that.issuer) && Objects.equals(san, that.san)
+                && Objects.equals(serialNumber, that.serialNumber) && Objects.equals(subject, that.subject)
+                && Objects.equals(thumbprint, that.thumbprint) && Objects.equals(notBefore, that.notBefore)
                 && Objects.equals(notAfter, that.notAfter);
     }
 
@@ -62,7 +52,8 @@ public record TrustedCertificateProvisioningDTO(
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("uuid", uuid)
-                .append("certificateContent", certificateContent == null ? "null" : "byte[" + certificateContent.length + "]")
+                .append("certificateContent",
+                        certificateContent == null ? "null" : "byte[" + certificateContent.length + "]")
                 .append("issuer", issuer)
                 .append("san", san)
                 .append("serialNumber", serialNumber)

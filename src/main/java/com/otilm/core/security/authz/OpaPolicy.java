@@ -1,8 +1,7 @@
 package com.otilm.core.security.authz;
 
 public enum OpaPolicy {
-    METHOD("method"),
-    OBJECTS("objects");
+    METHOD("method"), OBJECTS("objects");
 
     public final String policyName;
 

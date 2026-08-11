@@ -1,6 +1,5 @@
 package com.otilm.core.util.clocksource;
 
-
 import java.time.Instant;
 
 public final class TestClockSource implements ClockSource {

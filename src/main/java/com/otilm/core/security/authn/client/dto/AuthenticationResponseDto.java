@@ -1,8 +1,8 @@
 package com.otilm.core.security.authn.client.dto;
 
-import com.otilm.core.util.RawJsonDeserializer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.otilm.core.util.RawJsonDeserializer;
 
 public class AuthenticationResponseDto {
 

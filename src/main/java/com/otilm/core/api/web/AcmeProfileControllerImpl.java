@@ -1,6 +1,10 @@
 package com.otilm.core.api.web;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.AcmeProfileController;
 import com.otilm.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.otilm.api.model.client.acme.AcmeProfileRequestDto;
@@ -17,13 +21,12 @@ import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.AcmeProfileExternalService;
+import java.net.URI;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
 
 @RestController
 public class AcmeProfileControllerImpl implements AcmeProfileController {
@@ -50,10 +53,14 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<UuidDto> createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public ResponseEntity<UuidDto> createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException,
+            ValidationException, ConnectorException, AttributeException, NotFoundException {
         AcmeProfileDto acmeProfile = acmeProfileService.createAcmeProfile(request);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
-                .buildAndExpand(acmeProfile.getUuid()).toUri();
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{uuid}")
+                .buildAndExpand(acmeProfile.getUuid())
+                .toUri();
 
         UuidDto dto = new UuidDto();
         dto.setUuid(acmeProfile.getUuid());
@@ -62,7 +69,8 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, operation = Operation.UPDATE)
-    public AcmeProfileDto editAcmeProfile(@LogResource(uuid = true) String uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public AcmeProfileDto editAcmeProfile(@LogResource(uuid = true) String uuid, AcmeProfileEditRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException {
         return acmeProfileService.editAcmeProfile(SecuredUUID.fromString(uuid), request);
     }
 
@@ -104,13 +112,15 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, operation = Operation.FORCE_DELETE)
-    public List<BulkActionMessageDto> forceDeleteACMEProfiles(@LogResource(uuid = true) List<String> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> forceDeleteACMEProfiles(@LogResource(uuid = true) List<String> uuids)
+            throws ValidationException {
         return acmeProfileService.bulkForceRemoveACMEProfiles(SecuredUUID.fromList(uuids));
     }
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
-    public void updateRaProfile(@LogResource(uuid = true) String uuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
+    public void updateRaProfile(@LogResource(uuid = true) String uuid,
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
         acmeProfileService.updateRaProfile(SecuredUUID.fromString(uuid), raProfileUuid);
     }
 }

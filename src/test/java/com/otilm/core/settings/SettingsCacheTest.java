@@ -3,12 +3,11 @@ package com.otilm.core.settings;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import org.junit.jupiter.api.Test;
-
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SettingsCacheTest {
 

@@ -12,48 +12,21 @@ import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.annotation.PostExchange;
 
 /**
- * Client for the Proxy Provisioning API.
- * Authentication is done via X-API-Key header configured in the HTTP client.
+ * Client for the Proxy Provisioning API. Authentication is done via X-API-Key header configured in the HTTP client.
  */
 @HttpExchange("/api/v1/proxies")
 public interface ProxyProvisioningApiClient {
 
     @PostExchange
-    @Retryable(
-            retryFor = RestClientException.class,
-            maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
-            backoff = @Backoff(
-                    delayExpression = "${provisioning.api.retry.delay}",
-                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
-                    multiplierExpression = "${provisioning.api.retry.multiplier}"
-            )
-    )
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
     void provisionProxy(@RequestBody ProxyProvisioningRequestDTO request);
 
     @GetExchange("/{proxyCode}/installation")
-    @Retryable(
-            retryFor = RestClientException.class,
-            maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
-            backoff = @Backoff(
-                    delayExpression = "${provisioning.api.retry.delay}",
-                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
-                    multiplierExpression = "${provisioning.api.retry.multiplier}"
-            )
-    )
-    InstallationInstructionsDTO getInstallationInstructions(
-            @PathVariable String proxyCode,
-            @RequestParam String format
-    );
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    InstallationInstructionsDTO getInstallationInstructions(@PathVariable String proxyCode,
+            @RequestParam String format);
 
     @DeleteExchange("/{proxyCode}")
-    @Retryable(
-            retryFor = RestClientException.class,
-            maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
-            backoff = @Backoff(
-                    delayExpression = "${provisioning.api.retry.delay}",
-                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
-                    multiplierExpression = "${provisioning.api.retry.multiplier}"
-            )
-    )
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
     void decommissionProxy(@PathVariable String proxyCode);
 }

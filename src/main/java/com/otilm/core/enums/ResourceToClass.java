@@ -4,7 +4,25 @@ import com.otilm.api.model.common.attribute.v2.BaseAttributeV2;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.RoleDto;
 import com.otilm.api.model.core.auth.UserDto;
-import com.otilm.core.dao.entity.*;
+import com.otilm.core.dao.entity.Approval;
+import com.otilm.core.dao.entity.ApprovalProfile;
+import com.otilm.core.dao.entity.AuditLog;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRequestEntity;
+import com.otilm.core.dao.entity.ComplianceProfile;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Credential;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.EntityInstanceReference;
+import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.Location;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.ScheduledJob;
+import com.otilm.core.dao.entity.Setting;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.acme.AcmeAccount;
 import com.otilm.core.dao.entity.acme.AcmeProfile;
 import com.otilm.core.dao.entity.notifications.Notification;
@@ -19,54 +37,42 @@ public enum ResourceToClass {
     NONE(Resource.NONE, null),
 
     // GENERAL
-    DASHBOARD(Resource.DASHBOARD, null),
-    SETTINGS(Resource.SETTINGS, Setting.class),
-    AUDIT_LOG(Resource.AUDIT_LOG, AuditLog.class),
-    CREDENTIAL(Resource.CREDENTIAL, Credential.class),
-    CONNECTOR(Resource.CONNECTOR, Connector.class),
-    ATTRIBUTE(Resource.ATTRIBUTE, BaseAttributeV2.class),
-    SCHEDULED_JOB(Resource.SCHEDULED_JOB, ScheduledJob.class),
-    NOTIFICATION_INSTANCE(Resource.NOTIFICATION_INSTANCE, Notification.class),
+    DASHBOARD(Resource.DASHBOARD, null), SETTINGS(Resource.SETTINGS, Setting.class), AUDIT_LOG(Resource.AUDIT_LOG,
+            AuditLog.class), CREDENTIAL(Resource.CREDENTIAL, Credential.class), CONNECTOR(Resource.CONNECTOR,
+                    Connector.class), ATTRIBUTE(Resource.ATTRIBUTE, BaseAttributeV2.class), SCHEDULED_JOB(
+                            Resource.SCHEDULED_JOB, ScheduledJob.class), NOTIFICATION_INSTANCE(
+                                    Resource.NOTIFICATION_INSTANCE, Notification.class),
 
     // AUTH
-    USER(Resource.USER, UserDto.class),
-    ROLE(Resource.ROLE, RoleDto.class),
+    USER(Resource.USER, UserDto.class), ROLE(Resource.ROLE, RoleDto.class),
 
     // ACME
-    ACME_ACCOUNT(Resource.ACME_ACCOUNT, AcmeAccount.class),
-    ACME_PROFILE(Resource.ACME_PROFILE, AcmeProfile.class),
+    ACME_ACCOUNT(Resource.ACME_ACCOUNT, AcmeAccount.class), ACME_PROFILE(Resource.ACME_PROFILE, AcmeProfile.class),
 
-    //SCEP
+    // SCEP
     SCEP_PROFILE(Resource.SCEP_PROFILE, ScepProfile.class),
 
     // CERTIFICATES
-    AUTHORITY(Resource.AUTHORITY, AuthorityInstanceReference.class),
-    RA_PROFILE(Resource.RA_PROFILE, RaProfile.class),
-    CERTIFICATE(Resource.CERTIFICATE, Certificate.class),
-    CERTIFICATE_REQUEST(Resource.CERTIFICATE_REQUEST, CertificateRequestEntity.class),
-    GROUP(Resource.GROUP, Group.class),
-    COMPLIANCE_PROFILE(Resource.COMPLIANCE_PROFILE, ComplianceProfile.class),
-    DISCOVERY(Resource.DISCOVERY, DiscoveryHistory.class),
+    AUTHORITY(Resource.AUTHORITY, AuthorityInstanceReference.class), RA_PROFILE(Resource.RA_PROFILE,
+            RaProfile.class), CERTIFICATE(Resource.CERTIFICATE, Certificate.class), CERTIFICATE_REQUEST(
+                    Resource.CERTIFICATE_REQUEST, CertificateRequestEntity.class), GROUP(Resource.GROUP,
+                            Group.class), COMPLIANCE_PROFILE(Resource.COMPLIANCE_PROFILE,
+                                    ComplianceProfile.class), DISCOVERY(Resource.DISCOVERY, DiscoveryHistory.class),
 
     // ENTITIES
-    ENTITY(Resource.ENTITY, EntityInstanceReference.class),
-    LOCATION(Resource.LOCATION, Location.class),
+    ENTITY(Resource.ENTITY, EntityInstanceReference.class), LOCATION(Resource.LOCATION, Location.class),
 
-    //CRYPTOGRAPHY
-    TOKEN_PROFILE(Resource.TOKEN_PROFILE, TokenProfile.class),
-    TOKEN(Resource.TOKEN, TokenInstanceReference.class),
-    CRYPTOGRAPHIC_KEY(Resource.CRYPTOGRAPHIC_KEY, CryptographicKey.class),
+    // CRYPTOGRAPHY
+    TOKEN_PROFILE(Resource.TOKEN_PROFILE, TokenProfile.class), TOKEN(Resource.TOKEN,
+            TokenInstanceReference.class), CRYPTOGRAPHIC_KEY(Resource.CRYPTOGRAPHIC_KEY, CryptographicKey.class),
 
     // APPROVALS
-    APPROVAL_PROFILE(Resource.APPROVAL_PROFILE, ApprovalProfile.class),
-    APPROVAL(Resource.APPROVAL, Approval.class),
+    APPROVAL_PROFILE(Resource.APPROVAL_PROFILE, ApprovalProfile.class), APPROVAL(Resource.APPROVAL, Approval.class),
 
     // SIGNING
-    SIGNING_PROFILE(Resource.SIGNING_PROFILE, SigningProfile.class),
-    SIGNING_RECORD(Resource.SIGNING_RECORD, SigningRecord.class),
-    TSP_PROFILE(Resource.TSP_PROFILE, TspProfile.class),
-    TIME_QUALITY_CONFIGURATION(Resource.TIME_QUALITY_CONFIGURATION, TimeQualityConfiguration.class),
-    ;
+    SIGNING_PROFILE(Resource.SIGNING_PROFILE, SigningProfile.class), SIGNING_RECORD(Resource.SIGNING_RECORD,
+            SigningRecord.class), TSP_PROFILE(Resource.TSP_PROFILE, TspProfile.class), TIME_QUALITY_CONFIGURATION(
+                    Resource.TIME_QUALITY_CONFIGURATION, TimeQualityConfiguration.class),;
 
     private static final ResourceToClass[] VALUES;
 

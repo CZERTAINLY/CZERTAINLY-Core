@@ -4,14 +4,13 @@ import com.otilm.core.config.cache.CacheConfig;
 import com.otilm.core.security.authn.client.CredentialVerificationCache;
 import com.otilm.core.security.authn.client.SecretRefIndex;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,7 +59,8 @@ class CredentialVerificationCacheITest extends BaseSpringBootTest {
 
     @Test
     void clearsEveryPasswordKeyedEntryForSecret_andLeavesUnrelatedSecretsUntouched() {
-        // given — two distinct passwords for one secret, both registered under the same secretUuid in the secondary index.
+        // given — two distinct passwords for one secret, both registered under the same secretUuid in the secondary
+        // index.
         var secret = UUID.randomUUID();
         var otherSecret = UUID.randomUUID();
         var userA = UUID.randomUUID();

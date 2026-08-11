@@ -11,13 +11,13 @@ import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.service.AuditLogExternalService;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
-import java.util.List;
 
 @RestController
 public class AuditLogControllerImpl implements AuditLogController {
@@ -37,10 +37,12 @@ public class AuditLogControllerImpl implements AuditLogController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.AUDIT_LOG, operation = Operation.EXPORT)
-    public ResponseEntity<org.springframework.core.io.Resource> exportAuditLogs(final List<SearchFilterRequestDto> filters) {
+    public ResponseEntity<org.springframework.core.io.Resource> exportAuditLogs(
+            final List<SearchFilterRequestDto> filters) {
         ExportResultDto export = auditLogService.exportAuditLogs(filters);
 
-        return ResponseEntity.ok()
+        return ResponseEntity
+                .ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .contentLength(export.getFileContent().length)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + export.getFileName())

@@ -22,29 +22,29 @@ public interface CryptographicKeyInternalService extends ResourceExtensionServic
     /**
      * Get the key item of specified type based on the cryptographic key
      *
-     * @param key     Cryptographic Key wrapper object
+     * @param key Cryptographic Key wrapper object
      * @param keyType Key type
      * @return Key Item
      */
     CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType);
 
     /**
-     * Returns the cached model for a key item including its full connector chain.
-     * The result is cached by key item UUID; cache is invalidated whenever the key item is mutated.
+     * Returns the cached model for a key item including its full connector chain. The result is cached by key item
+     * UUID; cache is invalidated whenever the key item is mutated.
      */
     CryptographicKeyItemModel getKeyItemModel(UUID keyItemUuid) throws NotFoundException;
 
     /**
      * Upload public key of existing certificate
      *
-     * @param name         Name of the cryptographic key
-     * @param publicKey    Public Key to be uploaded
-     * @param keyLength    Length of the Public Key
-     * @param fingerprint  Unique fingerprint of the Public Key
+     * @param name Name of the cryptographic key
+     * @param publicKey Public Key to be uploaded
+     * @param keyLength Length of the Public Key
+     * @param fingerprint Unique fingerprint of the Public Key
      * @return UUID of the Cryptographic Key holding this public key — the one created by this call, or, when a
-     * concurrent caller committed the same fingerprint first, that pre-existing key. In the latter case the key
-     * created by this call is discarded, so no key is left without a key item. Callers must therefore not
-     * assume exclusive ownership of the returned key.
+     * concurrent caller committed the same fingerprint first, that pre-existing key. In the latter case the key created
+     * by this call is discarded, so no key is left without a key item. Callers must therefore not assume exclusive
+     * ownership of the returned key.
      */
     UUID uploadCertificatePublicKey(String name, PublicKey publicKey, int keyLength, String fingerprint);
 }

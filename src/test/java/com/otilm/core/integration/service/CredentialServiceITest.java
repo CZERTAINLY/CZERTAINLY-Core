@@ -1,23 +1,29 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.credential.CredentialRequestDto;
 import com.otilm.api.model.client.credential.CredentialUpdateRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
-import com.otilm.api.model.common.attribute.common.AttributeType;
-import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallback;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallbackMapping;
 import com.otilm.api.model.common.attribute.common.callback.AttributeValueTarget;
 import com.otilm.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
 import com.otilm.api.model.common.attribute.common.content.data.CredentialAttributeContentData;
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.credential.CredentialDto;
@@ -36,16 +42,18 @@ import com.otilm.core.service.CredentialInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.io.Serializable;
-import java.util.*;
 
 class CredentialServiceITest extends BaseSpringBootTest {
 
@@ -80,7 +88,7 @@ class CredentialServiceITest extends BaseSpringBootTest {
 
         connector = new Connector();
         connector.setName("credentialProviderConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
@@ -131,17 +139,21 @@ class CredentialServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> credentialService
+                        .getCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testAddCredential() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         CredentialRequestDto request = new CredentialRequestDto();
         request.setName("testCredential2");
@@ -172,12 +184,14 @@ class CredentialServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditCredential() throws ConnectorException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         CredentialUpdateRequestDto request = new CredentialUpdateRequestDto();
         request.setAttributes(List.of());
@@ -190,18 +204,24 @@ class CredentialServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.editCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> credentialService
+                        .editCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
     void testRemoveCredential() throws NotFoundException {
         credentialService.deleteCredential(credential.getSecuredUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 
     @Test
     void testRemoveCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.deleteCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> credentialService
+                        .deleteCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -212,7 +232,9 @@ class CredentialServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEnableCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.enableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> credentialService
+                        .enableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -223,13 +245,17 @@ class CredentialServiceITest extends BaseSpringBootTest {
 
     @Test
     void testDisableCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.disableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> credentialService
+                        .disableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testBulkRemove() throws NotFoundException {
         credentialService.bulkDeleteCredential(List.of(credential.getSecuredUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 
     @Test
@@ -241,21 +267,25 @@ class CredentialServiceITest extends BaseSpringBootTest {
         nameAndUuidMap.setReference(credential.getUuid().toString());
         nameAndUuidMap.setData(dto);
 
-
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "testCredentialAttribute", AttributeContentType.CREDENTIAL,List.of(nameAndUuidMap)));
+        requestAttributes
+                .add(new RequestAttributeV2(UUID.randomUUID(), "testCredentialAttribute",
+                        AttributeContentType.CREDENTIAL, List.of(nameAndUuidMap)));
 
         List<BaseAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(requestAttributes);
         DataAttributeV2 dataAttributeV2 = (DataAttributeV2) attrs.getFirst();
         dataAttributeV2.setType(AttributeType.DATA);
         dataAttributeV2.setContentType(AttributeContentType.CREDENTIAL);
 
-
         credentialInternalService.loadFullCredentialData(attrs.stream().map(DataAttribute.class::cast).toList());
 
-        Assertions.assertInstanceOf(CredentialAttributeContentData.class, dataAttributeV2.getContent().getFirst().getData());
+        Assertions
+                .assertInstanceOf(CredentialAttributeContentData.class,
+                        dataAttributeV2.getContent().getFirst().getData());
 
-        CredentialAttributeContentData credentialDto = ((CredentialAttributeContentV2) dataAttributeV2.getContent().getFirst()).getData();
+        CredentialAttributeContentData credentialDto = ((CredentialAttributeContentV2) dataAttributeV2
+                .getContent()
+                .getFirst()).getData();
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -270,7 +300,9 @@ class CredentialServiceITest extends BaseSpringBootTest {
         nameAndUuidMap.setData(dto);
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "testCredentialAttribute", AttributeContentType.CREDENTIAL, List.of(nameAndUuidMap)));
+        requestAttributes
+                .add(new RequestAttributeV2(UUID.randomUUID(), "testCredentialAttribute",
+                        AttributeContentType.CREDENTIAL, List.of(nameAndUuidMap)));
 
         List<BaseAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(requestAttributes);
         DataAttributeV2 dataAttributeV2 = (DataAttributeV2) attrs.getFirst();
@@ -278,15 +310,24 @@ class CredentialServiceITest extends BaseSpringBootTest {
         dataAttributeV2.setType(AttributeType.DATA);
         dataAttributeV2.setContentType(AttributeContentType.CREDENTIAL);
 
-        Assertions.assertThrows(NotFoundException.class, () -> credentialInternalService.loadFullCredentialData(attrs.stream().map(DataAttribute.class::cast).toList()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> credentialInternalService
+                        .loadFullCredentialData(attrs.stream().map(DataAttribute.class::cast).toList()));
     }
-
 
     @Test
     void testLoadFullData_attributesNonCredential() {
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "dummyAttributes", AttributeContentType.CREDENTIAL, null));
-        Assertions.assertDoesNotThrow(() -> credentialInternalService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(requestAttributes).stream().map(DataAttribute.class::cast).toList())); // this should not throw exception
+        requestAttributes
+                .add(new RequestAttributeV2(UUID.randomUUID(), "dummyAttributes", AttributeContentType.CREDENTIAL,
+                        null));
+        Assertions
+                .assertDoesNotThrow(() -> credentialInternalService
+                        .loadFullCredentialData(AttributeDefinitionUtils
+                                .clientAttributeConverter(requestAttributes)
+                                .stream()
+                                .map(DataAttribute.class::cast)
+                                .toList())); // this should not throw exception
     }
 
     @Test
@@ -300,12 +341,8 @@ class CredentialServiceITest extends BaseSpringBootTest {
         nameAndUuidMap.setReference(credential.getUuid().toString());
         nameAndUuidMap.setData(dto);
 
-        AttributeCallbackMapping mapping = new AttributeCallbackMapping(
-                "from",
-                AttributeType.DATA,
-                AttributeContentType.CREDENTIAL,
-                credentialBodyKey,
-                Collections.singleton(AttributeValueTarget.BODY));
+        AttributeCallbackMapping mapping = new AttributeCallbackMapping("from", AttributeType.DATA,
+                AttributeContentType.CREDENTIAL, credentialBodyKey, Collections.singleton(AttributeValueTarget.BODY));
         ArrayList<CredentialAttributeContentV2> cont = new ArrayList<>();
         cont.add(nameAndUuidMap);
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
@@ -319,9 +356,14 @@ class CredentialServiceITest extends BaseSpringBootTest {
 
         credentialInternalService.loadFullCredentialData(callback, requestAttributeCallback);
 
-        Assertions.assertTrue(requestAttributeCallback.getBody().get(credentialBodyKey) instanceof CredentialAttributeContentData);
+        Assertions
+                .assertTrue(requestAttributeCallback
+                        .getBody()
+                        .get(credentialBodyKey) instanceof CredentialAttributeContentData);
 
-        CredentialAttributeContentData credentialDto = (CredentialAttributeContentData) requestAttributeCallback.getBody().get(credentialBodyKey);
+        CredentialAttributeContentData credentialDto = (CredentialAttributeContentData) requestAttributeCallback
+                .getBody()
+                .get(credentialBodyKey);
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -337,12 +379,8 @@ class CredentialServiceITest extends BaseSpringBootTest {
         nameAndUuidMap.setReference("wrong-name");
         nameAndUuidMap.setData(dto);
 
-        AttributeCallbackMapping mapping = new AttributeCallbackMapping(
-                "from",
-                AttributeType.DATA,
-                AttributeContentType.CREDENTIAL,
-                credentialBodyKey,
-                Collections.singleton(AttributeValueTarget.BODY));
+        AttributeCallbackMapping mapping = new AttributeCallbackMapping("from", AttributeType.DATA,
+                AttributeContentType.CREDENTIAL, credentialBodyKey, Collections.singleton(AttributeValueTarget.BODY));
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
 
@@ -352,19 +390,17 @@ class CredentialServiceITest extends BaseSpringBootTest {
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
         requestAttributeCallback.setBody(requestBodyMap);
 
-        Assertions.assertThrows(ValidationException.class, () -> credentialInternalService.loadFullCredentialData(callback, requestAttributeCallback));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> credentialInternalService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 
     @Test
     void testLoadFullData_callbackValidationFailWrongValue() {
         String credentialBodyKey = "testCredential";
 
-        AttributeCallbackMapping mapping = new AttributeCallbackMapping(
-                "from",
-                AttributeType.DATA,
-                AttributeContentType.CREDENTIAL,
-                credentialBodyKey,
-                Collections.singleton(AttributeValueTarget.BODY));
+        AttributeCallbackMapping mapping = new AttributeCallbackMapping("from", AttributeType.DATA,
+                AttributeContentType.CREDENTIAL, credentialBodyKey, Collections.singleton(AttributeValueTarget.BODY));
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
         requestBodyMap.put(credentialBodyKey, "wrong-value");
@@ -375,7 +411,9 @@ class CredentialServiceITest extends BaseSpringBootTest {
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
         requestAttributeCallback.setBody(requestBodyMap);
 
-        Assertions.assertThrows(ValidationException.class, () -> credentialInternalService.loadFullCredentialData(callback, requestAttributeCallback));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> credentialInternalService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 
     @Test

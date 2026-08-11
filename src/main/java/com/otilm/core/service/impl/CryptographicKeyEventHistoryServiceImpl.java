@@ -10,17 +10,16 @@ import com.otilm.core.dao.repository.CryptographicKeyEventHistoryRepository;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.service.CryptographicKeyEventHistoryService;
 import com.otilm.core.util.MetaDefinitions;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -38,13 +37,7 @@ public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKey
     public List<KeyEventHistoryDto> getKeyEventHistory(UUID uuid) throws NotFoundException {
         CryptographicKeyItem key = keyItemRepository
                 .findByUuid(uuid)
-                .orElseThrow(
-                        () ->
-                                new NotFoundException(
-                                        CryptographicKeyItem.class,
-                                        uuid
-                                )
-                );
+                .orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, uuid));
         return keyEventHistoryRepository
                 .findByKeyOrderByCreatedDesc(key)
                 .stream()
@@ -53,7 +46,8 @@ public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKey
     }
 
     @Override
-    public CryptographicKeyEventHistory getEventHistory(KeyEvent event, KeyEventStatus status, String message, String additionalInformation, CryptographicKeyItem key) {
+    public CryptographicKeyEventHistory getEventHistory(KeyEvent event, KeyEventStatus status, String message,
+            String additionalInformation, CryptographicKeyItem key) {
         CryptographicKeyEventHistory history = new CryptographicKeyEventHistory();
         history.setEvent(event);
         history.setKey(key);
@@ -63,9 +57,9 @@ public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKey
         return history;
     }
 
-
     @Override
-    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, CryptographicKeyItem key) {
+    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message,
+            Map<String, Object> additionalInformation, CryptographicKeyItem key) {
         CryptographicKeyEventHistory history = new CryptographicKeyEventHistory();
         history.setEvent(event);
         history.setKey(key);
@@ -76,7 +70,8 @@ public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKey
     }
 
     @Override
-    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, UUID keyUuid) {
+    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message,
+            Map<String, Object> additionalInformation, UUID keyUuid) {
         CryptographicKeyEventHistory history = new CryptographicKeyEventHistory();
         history.setEvent(event);
         history.setKeyUuid(keyUuid);

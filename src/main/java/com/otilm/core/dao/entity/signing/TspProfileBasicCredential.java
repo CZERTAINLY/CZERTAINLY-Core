@@ -9,21 +9,19 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-
-import java.util.UUID;
 
 @Getter
 @Setter
 @ToString
 @Entity
-@Table(name = "tsp_profile_basic_credential",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "tsp_profile_basic_credential_username", columnNames = {"tsp_profile_uuid", "username"}),
-                @UniqueConstraint(name = "tsp_profile_basic_credential_secret_uuid", columnNames = {"secret_uuid"})
-        })
+@Table(name = "tsp_profile_basic_credential", uniqueConstraints = {
+        @UniqueConstraint(name = "tsp_profile_basic_credential_username", columnNames = {"tsp_profile_uuid",
+                "username"}),
+        @UniqueConstraint(name = "tsp_profile_basic_credential_secret_uuid", columnNames = {"secret_uuid"})})
 public class TspProfileBasicCredential extends UniquelyIdentified {
 
     @ManyToOne(fetch = FetchType.LAZY)

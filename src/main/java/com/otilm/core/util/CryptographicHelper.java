@@ -1,27 +1,33 @@
 package com.otilm.core.util;
 
-import com.otilm.api.exception.ValidationError;
-import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.common.enums.cryptography.KeyFormat;
-import com.otilm.api.model.connector.cryptography.key.value.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.common.enums.cryptography.KeyFormat;
+import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.EprkiKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.PrkiKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.RawKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import java.util.Map;
 
 public class CryptographicHelper {
 
-    private CryptographicHelper() {}
+    private CryptographicHelper() {
+    }
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
 
-
     public static String serializeKeyValue(KeyFormat keyFormat, KeyValue value) {
-        if (value == null || keyFormat == null) return null;
+        if (value == null || keyFormat == null) {
+            return null;
+        }
         switch (keyFormat) {
             case RAW:
                 return OBJECT_MAPPER.convertValue(value, RawKeyValue.class).getValue();
@@ -35,18 +41,10 @@ public class CryptographicHelper {
                 try {
                     return serializeCustomKeyValue(OBJECT_MAPPER.convertValue(value, CustomKeyValue.class).getValues());
                 } catch (JsonProcessingException e) {
-                    throw new ValidationException(
-                            ValidationError.create(
-                                    "Unable to read the json"
-                            )
-                    );
+                    throw new ValidationException(ValidationError.create("Unable to read the json"));
                 }
             default:
-                throw new ValidationException(
-                        ValidationError.create(
-                                "Unrecognized Key Format"
-                        )
-                );
+                throw new ValidationException(ValidationError.create("Unrecognized Key Format"));
         }
     }
 

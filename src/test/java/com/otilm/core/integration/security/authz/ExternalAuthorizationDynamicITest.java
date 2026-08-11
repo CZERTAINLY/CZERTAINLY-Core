@@ -30,23 +30,21 @@ import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
 import com.otilm.core.service.ComplianceExternalService;
 import com.otilm.core.service.ResourceExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authorization.AuthorizationDeniedException;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
 /**
- * End-to-end tests for the {@link com.otilm.core.security.authz.ExternalAuthorizationDynamic} annotation
- * exercised through the real Spring AOP stack: the {@code dynamicAuthorizationManagerBeforeMethodInterception}
- * advisor wired in {@code MethodSecurityConfig}, the
- * {@link com.otilm.core.security.authz.ExternalMethodAuthorizationManager}, and
+ * End-to-end tests for the {@link com.otilm.core.security.authz.ExternalAuthorizationDynamic} annotation exercised
+ * through the real Spring AOP stack: the {@code dynamicAuthorizationManagerBeforeMethodInterception} advisor wired in
+ * {@code MethodSecurityConfig}, the {@link com.otilm.core.security.authz.ExternalMethodAuthorizationManager}, and
  * {@link OpaSecuredAnnotationMetadataExtractor}.
  */
 class ExternalAuthorizationDynamicITest extends BaseSpringBootTest {
@@ -77,8 +75,9 @@ class ExternalAuthorizationDynamicITest extends BaseSpringBootTest {
         SecuredResource securedResource = SecuredResource.fromResource(Resource.CERTIFICATE);
         SecuredUUID objectUuid = SecuredUUID.fromUUID(UUID.randomUUID());
         UUID attributeUuid = UUID.randomUUID();
-        Assertions.assertThrows(AuthorizationDeniedException.class, () -> resourceService.updateAttributeContentForObject(
-                securedResource, objectUuid, attributeUuid, content));
+        Assertions
+                .assertThrows(AuthorizationDeniedException.class, () -> resourceService
+                        .updateAttributeContentForObject(securedResource, objectUuid, attributeUuid, content));
     }
 
     @Test
@@ -88,15 +87,13 @@ class ExternalAuthorizationDynamicITest extends BaseSpringBootTest {
         denyResourceAction(Resource.ATTRIBUTE, ResourceAction.UPDATE);
 
         List<BaseAttributeContentV3<?>> content = List.of(new StringAttributeContentV3("value"));
-        List<ResponseAttribute> updated = resourceService.updateAttributeContentForObject(
-                SecuredResource.fromResource(Resource.CERTIFICATE),
-                SecuredUUID.fromUUID(certificate.getUuid()),
-                attributeUuid,
-                content);
+        List<ResponseAttribute> updated = resourceService
+                .updateAttributeContentForObject(SecuredResource.fromResource(Resource.CERTIFICATE),
+                        SecuredUUID.fromUUID(certificate.getUuid()), attributeUuid, content);
 
-        Assertions.assertEquals("value",
-                ((ResponseAttributeV3) updated.getFirst()).getContent().getFirst().getData(),
-                "CERTIFICATE update must run to completion, proving the resolved resource was authorized");
+        Assertions
+                .assertEquals("value", ((ResponseAttributeV3) updated.getFirst()).getContent().getFirst().getData(),
+                        "CERTIFICATE update must run to completion, proving the resolved resource was authorized");
     }
 
     /**
@@ -109,17 +106,18 @@ class ExternalAuthorizationDynamicITest extends BaseSpringBootTest {
 
         SecuredResource securedResource = SecuredResource.fromResource(Resource.SECRET);
         UUID objectUuid = UUID.randomUUID();
-        Assertions.assertThrows(AuthorizationDeniedException.class, () -> complianceService.getComplianceCheckResult(
-                securedResource, null, Resource.CERTIFICATE, objectUuid));
+        Assertions
+                .assertThrows(AuthorizationDeniedException.class, () -> complianceService
+                        .getComplianceCheckResult(securedResource, null, Resource.CERTIFICATE, objectUuid));
     }
 
     private void denyResourceAction(Resource resource, ResourceAction action) {
-        when(opaClient.checkResourceAccess(any(),
-                        argThat(req -> isRequestFor(req, resource, action)), any(), any()))
+        when(opaClient.checkResourceAccess(any(), argThat(req -> isRequestFor(req, resource, action)), any(), any()))
                 .thenReturn(OpaResourceAccessResult.unauthorized());
     }
 
-    private static boolean isRequestFor(OpaRequestedResource requestedResource, Resource resource, ResourceAction action) {
+    private static boolean isRequestFor(OpaRequestedResource requestedResource, Resource resource,
+            ResourceAction action) {
         return requestedResource != null && requestedResource.getProperties() != null
                 && resource.getCode().equals(requestedResource.getProperties().get("name"))
                 && action.getCode().equals(requestedResource.getProperties().get("action"));

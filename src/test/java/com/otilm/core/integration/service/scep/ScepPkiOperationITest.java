@@ -35,6 +35,14 @@ import com.otilm.core.service.scep.message.ScepConstants;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.seeders.CryptographicKeySeeder;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.Security;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Date;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1String;
@@ -52,15 +60,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.Security;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Date;
-import java.util.UUID;
-
 import static com.otilm.core.util.seeders.CryptographicKeySeeder.KeyItemSpec.signingPrivateKey;
 import static com.otilm.core.util.seeders.CryptographicKeySeeder.KeyItemSpec.verifyingPublicKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,16 +67,17 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * End-to-end PKIOperation tests: a real signed CMS PKCSReq goes in, and the assertion is on what a SCEP
- * client actually receives. Issue #1887 was a renewal request answered with an {@code application/json}
- * HTTP 500 the client cannot parse, so the contract under test is that the endpoint always replies in
- * {@code application/x-pki-message}.
+ * End-to-end PKIOperation tests: a real signed CMS PKCSReq goes in, and the assertion is on what a SCEP client actually
+ * receives. Issue #1887 was a renewal request answered with an {@code application/json} HTTP 500 the client cannot
+ * parse, so the contract under test is that the endpoint always replies in {@code application/x-pki-message}.
  *
- * <p>The profile's CA key is EC, so the request's password recipient is opened with the challenge password
- * and no connector decrypt call is needed. Signing the response does go through the token connector, which
- * WireMock stubs — the returned signature is not independently verified, so a well-formed value suffices to
- * exercise the real response-building path. Issuance is deliberately left unstubbed: these tests are about
- * the protocol envelope, not about the authority.</p>
+ * <p>
+ * The profile's CA key is EC, so the request's password recipient is opened with the challenge password and no
+ * connector decrypt call is needed. Signing the response does go through the token connector, which WireMock stubs —
+ * the returned signature is not independently verified, so a well-formed value suffices to exercise the real
+ * response-building path. Issuance is deliberately left unstubbed: these tests are about the protocol envelope, not
+ * about the authority.
+ * </p>
  */
 class ScepPkiOperationITest extends BaseSpringBootTest {
 
@@ -149,10 +149,12 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
         tokenInstance = tokenInstanceReferenceRepository.save(tokenInstance);
 
         KeyPair caKeyPair = KeyPairGenerator.getInstance("EC").generateKeyPair();
-        CryptographicKey caKey = cryptographicKeySeeder.seedKey("scepCaKey", null, tokenInstance,
-                signingPrivateKey(KeyAlgorithm.ECDSA).withMaterial(KeyFormat.PRKI, "placeholder"),
-                verifyingPublicKey(KeyAlgorithm.ECDSA)
-                        .withMaterial(KeyFormat.SPKI, Base64.getEncoder().encodeToString(caKeyPair.getPublic().getEncoded())));
+        CryptographicKey caKey = cryptographicKeySeeder
+                .seedKey("scepCaKey", null, tokenInstance,
+                        signingPrivateKey(KeyAlgorithm.ECDSA).withMaterial(KeyFormat.PRKI, "placeholder"),
+                        verifyingPublicKey(KeyAlgorithm.ECDSA)
+                                .withMaterial(KeyFormat.SPKI,
+                                        Base64.getEncoder().encodeToString(caKeyPair.getPublic().getEncoded())));
 
         Certificate caCertificate = storeCertificate(selfSignedEcCertificate(caKeyPair), caKey, null);
 
@@ -176,52 +178,55 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
     }
 
     /**
-     * The reported defect (#1887) at the entry point: a renewal PKCSReq signed with an existing certificate
-     * and carrying no challengePassword must not be rejected for a missing shared secret, and must be
-     * answered in the SCEP format rather than as a JSON error.
+     * The reported defect (#1887) at the entry point: a renewal PKCSReq signed with an existing certificate and
+     * carrying no challengePassword must not be rejected for a missing shared secret, and must be answered in the SCEP
+     * format rather than as a JSON error.
      */
     @Test
     void renewalWithoutChallengePassword_isNotRejectedForAMissingSecret() throws Exception {
         registerSignerCertificate();
 
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.passwordEnvelopedPkcsReq(null));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                        ScepMessageTestData.passwordEnvelopedPkcsReq(null));
 
         assertScepFormatted(response);
         // Issuance is unstubbed, so the outcome is a failure — but it must not be the challenge password one.
-        assertNotEquals(FailInfo.BAD_MESSAGE_CHECK.getValue(), Integer.parseInt(attribute(response, ScepConstants.id_failInfo)),
+        assertNotEquals(FailInfo.BAD_MESSAGE_CHECK.getValue(),
+                Integer.parseInt(attribute(response, ScepConstants.id_failInfo)),
                 "the renewal must get past the challenge password gate");
     }
 
     /** An initial enrollment with no challenge password is still rejected — with a SCEP failure, not a crash. */
     @Test
     void initialEnrollmentWithoutChallengePassword_isRejectedWithBadMessageCheck() throws Exception {
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.passwordEnvelopedPkcsReq(null));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                        ScepMessageTestData.passwordEnvelopedPkcsReq(null));
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.FAILURE.getValue()), attribute(response, ScepConstants.id_pkiStatus));
-        assertEquals(String.valueOf(FailInfo.BAD_MESSAGE_CHECK.getValue()), attribute(response, ScepConstants.id_failInfo));
+        assertEquals(String.valueOf(FailInfo.BAD_MESSAGE_CHECK.getValue()),
+                attribute(response, ScepConstants.id_failInfo));
     }
 
     /** A matching challenge password gets past the gate and is answered in the SCEP format. */
     @Test
     void initialEnrollmentWithChallengePassword_isNotRejectedForAMissingSecret() throws Exception {
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.passwordEnvelopedPkcsReq(ScepMessageTestData.CHALLENGE_PASSWORD));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                        ScepMessageTestData.passwordEnvelopedPkcsReq(ScepMessageTestData.CHALLENGE_PASSWORD));
 
         assertScepFormatted(response);
-        assertNotEquals(FailInfo.BAD_MESSAGE_CHECK.getValue(), Integer.parseInt(attribute(response, ScepConstants.id_failInfo)),
+        assertNotEquals(FailInfo.BAD_MESSAGE_CHECK.getValue(),
+                Integer.parseInt(attribute(response, ScepConstants.id_failInfo)),
                 "a matching challenge password must not be reported as an integrity failure");
     }
 
     /**
-     * A request whose transaction is already known is answered from that transaction rather than enrolled
-     * again. PENDING is the discriminator: only the transaction branch can produce it for this profile,
-     * which has manual approval disabled.
+     * A request whose transaction is already known is answered from that transaction rather than enrolled again.
+     * PENDING is the discriminator: only the transaction branch can produce it for this profile, which has manual
+     * approval disabled.
      */
     @Test
     void knownTransaction_isAnsweredFromTheTransaction() throws Exception {
@@ -232,23 +237,23 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
         certificateRepository.save(pending);
         storeTransaction(pending.getUuid());
 
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.passwordEnvelopedPkcsReq(ScepMessageTestData.CHALLENGE_PASSWORD));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                        ScepMessageTestData.passwordEnvelopedPkcsReq(ScepMessageTestData.CHALLENGE_PASSWORD));
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
     }
 
     /**
-     * A request the platform cannot decrypt — enveloped to a password the profile does not hold — is
-     * answered as a SCEP failure rather than escaping as a checked exception to the JSON error handler.
+     * A request the platform cannot decrypt — enveloped to a password the profile does not hold — is answered as a SCEP
+     * failure rather than escaping as a checked exception to the JSON error handler.
      */
     @Test
     void undecryptableRequest_isAnsweredAsAScepFailure() throws Exception {
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.pkcsReqEnvelopedWith("someOtherPassword"));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                        ScepMessageTestData.pkcsReqEnvelopedWith("someOtherPassword"));
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.FAILURE.getValue()), attribute(response, ScepConstants.id_pkiStatus));
@@ -258,22 +263,22 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
     /** A CertPoll message is dispatched to polling rather than treated as an enrollment. */
     @Test
     void certPoll_isAnsweredInScepFormat() throws Exception {
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.passwordEnvelopedMessage(MessageType.CERT_POLL, null));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                        ScepMessageTestData.passwordEnvelopedMessage(MessageType.CERT_POLL, null));
 
         assertScepFormatted(response);
     }
 
     /**
-     * RENEWAL_REQ (message type 17) is validated but has no issuance branch, so it is reported as an
-     * unsupported operation — tracked for implementation in #1901.
+     * RENEWAL_REQ (message type 17) is validated but has no issuance branch, so it is reported as an unsupported
+     * operation — tracked for implementation in #1901.
      */
     @Test
     void renewalReqMessageType_isReportedUnsupported() throws Exception {
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.passwordEnvelopedMessage(MessageType.RENEWAL_REQ, ScepMessageTestData.CHALLENGE_PASSWORD));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION, ScepMessageTestData
+                        .passwordEnvelopedMessage(MessageType.RENEWAL_REQ, ScepMessageTestData.CHALLENGE_PASSWORD));
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(FailInfo.BAD_REQUEST.getValue()), attribute(response, ScepConstants.id_failInfo));
@@ -298,14 +303,18 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
     private String attribute(ResponseEntity<Object> response, String oid) throws Exception {
         CMSSignedData signedData = new CMSSignedData((byte[]) response.getBody());
         SignerInformation signer = signedData.getSignerInfos().getSigners().iterator().next();
-        ASN1Primitive value = signer.getSignedAttributes()
-                .get(new ASN1ObjectIdentifier(oid)).getAttrValues().getObjectAt(0).toASN1Primitive();
+        ASN1Primitive value = signer
+                .getSignedAttributes()
+                .get(new ASN1ObjectIdentifier(oid))
+                .getAttrValues()
+                .getObjectAt(0)
+                .toASN1Primitive();
         return ((ASN1String) value).getString();
     }
 
     /**
-     * Registers the request's signer certificate as an issued certificate of this RA profile, with the
-     * subject the request asks for and a validity inside the default half-life renewal window.
+     * Registers the request's signer certificate as an issued certificate of this RA profile, with the subject the
+     * request asks for and a validity inside the default half-life renewal window.
      */
     private void registerSignerCertificate() throws Exception {
         X509Certificate signerCertificate = ScepMessageTestData.signerCertificate();
@@ -316,7 +325,8 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
         certificateRepository.save(certificate);
     }
 
-    private Certificate storeCertificate(X509Certificate x509Certificate, CryptographicKey key, RaProfile owner) throws Exception {
+    private Certificate storeCertificate(X509Certificate x509Certificate, CryptographicKey key, RaProfile owner)
+            throws Exception {
         String encoded = Base64.getEncoder().encodeToString(x509Certificate.getEncoded());
         String fingerprint = CertificateUtil.getThumbprint(x509Certificate);
 
@@ -349,17 +359,19 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
         X500Name dn = new X500Name(CA_DN);
         Date notBefore = new Date(System.currentTimeMillis() - 3_600_000L);
         Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 3600 * 1000);
-        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                dn, BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
+        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(dn,
+                BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withECDSA")
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(keyPair.getPrivate());
         return new JcaX509CertificateConverter()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).getCertificate(builder.build(signer));
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(builder.build(signer));
     }
 
     /**
-     * The token connector signs the response. The value is passed through without verification here, so a
-     * fixed well-formed signature is enough to exercise the real response-building path.
+     * The token connector signs the response. The value is passed through without verification here, so a fixed
+     * well-formed signature is enough to exercise the real response-building path.
      */
     private void stubTokenSigning() throws Exception {
         KeyPair throwaway = KeyPairGenerator.getInstance("EC").generateKeyPair();
@@ -368,15 +380,17 @@ class ScepPkiOperationITest extends BaseSpringBootTest {
         signature.update("scep".getBytes());
         String signed = Base64.getEncoder().encodeToString(signature.sign());
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
-                .willReturn(WireMock.okJson("""
-                        {"signatures": [{"data": "%s"}]}
-                        """.formatted(signed))));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
-                .willReturn(WireMock.okJson("""
-                        {"verifications": [{"result": true}]}
-                        """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
+                        .willReturn(WireMock.okJson("""
+                                {"signatures": [{"data": "%s"}]}
+                                """.formatted(signed))));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
+                        .willReturn(WireMock.okJson("""
+                                {"verifications": [{"result": true}]}
+                                """)));
     }
 }

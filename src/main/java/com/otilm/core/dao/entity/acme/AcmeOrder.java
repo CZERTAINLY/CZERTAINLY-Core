@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity.acme;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.core.acme.Order;
 import com.otilm.api.model.core.acme.OrderStatus;
 import com.otilm.core.dao.entity.Certificate;
@@ -8,15 +9,29 @@ import com.otilm.core.service.acme.AcmeConstants;
 import com.otilm.core.util.AcmeCommonHelper;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.SerializationUtil;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import java.io.Serializable;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.proxy.HibernateProxy;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.io.Serializable;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -26,7 +41,7 @@ import java.util.stream.Collectors;
 @Table(name = "acme_order")
 public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Order> {
 
-    @Column(name="order_id")
+    @Column(name = "order_id")
     private String orderId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -45,22 +60,22 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "certificate_ref")
     private UUID certificateReferenceUuid;
 
-    @Column(name="certificate_id")
+    @Column(name = "certificate_id")
     private String certificateId;
 
-    @Column(name="not_before")
+    @Column(name = "not_before")
     private Date notBefore;
 
-    @Column(name="not_after")
+    @Column(name = "not_after")
     private Date notAfter;
 
-    @Column(name="expires")
+    @Column(name = "expires")
     private Date expires;
 
-    @Column(name="identifiers")
+    @Column(name = "identifiers")
     private String identifiers;
 
-    @Column(name="status")
+    @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
@@ -70,7 +85,7 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     private Set<AcmeAuthorization> authorizations = new HashSet<>();
 
     @Override
-    public Order mapToDto(){
+    public Order mapToDto() {
         Order order = new Order();
         order.setAuthorizations(authorizations.stream().map(AcmeAuthorization::getUrl).collect(Collectors.toList()));
         order.setFinalize(getFinalizeUrl());
@@ -92,19 +107,19 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setCertificateReference(Certificate certificateReference) {
         this.certificateReference = certificateReference;
-        if(certificateReference != null) this.certificateReferenceUuid = certificateReference.getUuid();
+        if (certificateReference != null) {
+            this.certificateReferenceUuid = certificateReference.getUuid();
+        }
     }
 
     // Custom Getter for Order
     private String getBaseUrl() {
-        if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
+        if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
             return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + AcmeConstants.ACME_URI_HEADER + "/raProfile/"
-                    + acmeAccount.getRaProfile().getName();
+                    + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + acmeAccount.getRaProfile().getName();
         }
         return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + AcmeConstants.ACME_URI_HEADER + "/"
-                + acmeAccount.getAcmeProfile().getName();
+                + AcmeConstants.ACME_URI_HEADER + "/" + acmeAccount.getAcmeProfile().getName();
     }
 
     public String getUrl() {
@@ -123,17 +138,29 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         AcmeOrder acmeOrder = (AcmeOrder) o;
         return getUuid() != null && Objects.equals(getUuid(), acmeOrder.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

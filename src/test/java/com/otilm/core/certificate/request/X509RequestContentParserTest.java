@@ -10,23 +10,28 @@ import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.cmp.CmpTestUtil;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.Security;
+import java.util.HashMap;
+import java.util.Map;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
-import org.bouncycastle.asn1.x509.OtherName;
 import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.bouncycastle.asn1.x509.OtherName;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
@@ -35,12 +40,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.Security;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,16 +59,19 @@ class X509RequestContentParserTest {
 
         // Seed the OidHandler with standard RDN attribute types for PlatformX500NameStyle
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
-                OidRecord.builder().displayName("Organization").code("O").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
+                        OidRecord.builder().displayName("Organization").code("O").build());
     }
 
     @AfterAll
     static void restoreRdnCache() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnCache != null ? savedRdnCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnCache != null ? savedRdnCache : new HashMap<>());
     }
 
     @Nested
@@ -132,7 +134,8 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then — decoded from the ASN.1 objects directly, so the values survive verbatim
-            assertThat(content.getSubject()).hasSize(2)
+            assertThat(content.getSubject())
+                    .hasSize(2)
                     .anySatisfy(e -> assertThat(e.getValue()).isEqualTo("Acme, Inc. + Co"))
                     .anySatisfy(e -> assertThat(e.getValue()).isEqualTo("key=value"));
         }
@@ -162,15 +165,13 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then
-            assertThat(content.getSubjectAltNames())
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.DNS);
-                        assertThat(s.getValue()).isEqualTo("host.example.com");
-                    })
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.EMAIL);
-                        assertThat(s.getValue()).isEqualTo("admin@example.com");
-                    });
+            assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.DNS);
+                assertThat(s.getValue()).isEqualTo("host.example.com");
+            }).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.EMAIL);
+                assertThat(s.getValue()).isEqualTo("admin@example.com");
+            });
         }
 
         @Test
@@ -182,11 +183,10 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then
-            assertThat(content.getSubjectAltNames())
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.REGISTERED_ID);
-                        assertThat(s.getValue()).isEqualTo("1.2.3.4.5");
-                    });
+            assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.REGISTERED_ID);
+                assertThat(s.getValue()).isEqualTo("1.2.3.4.5");
+            });
         }
 
         @Test
@@ -198,11 +198,10 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then
-            assertThat(content.getSubjectAltNames())
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.IP);
-                        assertThat(s.getValue()).isEqualTo("10.0.0.1");
-                    });
+            assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.IP);
+                assertThat(s.getValue()).isEqualTo("10.0.0.1");
+            });
         }
 
         @Test
@@ -214,11 +213,10 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then — canonical Java textual form of the 16-octet address
-            assertThat(content.getSubjectAltNames())
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.IP);
-                        assertThat(s.getValue()).isEqualTo("2001:db8:0:0:0:0:0:1");
-                    });
+            assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.IP);
+                assertThat(s.getValue()).isEqualTo("2001:db8:0:0:0:0:0:1");
+            });
         }
 
         @Test
@@ -230,17 +228,17 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then
-            assertThat(content.getSubjectAltNames())
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.DIRECTORY_NAME);
-                        assertThat(s.getValue()).contains("dir.example.com");
-                    });
+            assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.DIRECTORY_NAME);
+                assertThat(s.getValue()).contains("dir.example.com");
+            });
         }
 
         @Test
         void reportsUndecodableIpAddressSan_insteadOfSilentlyDropping() throws Exception {
             // given — a 3-octet iPAddress is neither IPv4 nor IPv6
-            var request = pkcs10WithSan(new GeneralName(GeneralName.iPAddress, new DEROctetString(new byte[]{1, 2, 3})));
+            var request = pkcs10WithSan(
+                    new GeneralName(GeneralName.iPAddress, new DEROctetString(new byte[]{1, 2, 3})));
 
             // when
             ParsedRequestContent parsed = X509RequestContentParser.parse(request);
@@ -266,8 +264,7 @@ class X509RequestContentParserTest {
         @Test
         void parsesOtherNameSan_asOtherNameType_soWhitelistCanSeeIt() throws Exception {
             // given — a UPN otherName SAN
-            var otherName = new OtherName(
-                    new ASN1ObjectIdentifier("1.3.6.1.4.1.311.20.2.3"),
+            var otherName = new OtherName(new ASN1ObjectIdentifier("1.3.6.1.4.1.311.20.2.3"),
                     new DERUTF8String("user@example.com"));
             var request = pkcs10WithSan(new GeneralName(GeneralName.otherName, otherName.toASN1Primitive()));
 
@@ -275,12 +272,11 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then — represented as OTHER_NAME carrying its OID, so a strict whitelist can reject it
-            assertThat(content.getSubjectAltNames())
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.OTHER_NAME);
-                        assertThat(s.getOtherNameOid()).isEqualTo("1.3.6.1.4.1.311.20.2.3");
-                        assertThat(s.getValue()).isEqualTo("user@example.com");
-                    });
+            assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.OTHER_NAME);
+                assertThat(s.getOtherNameOid()).isEqualTo("1.3.6.1.4.1.311.20.2.3");
+                assertThat(s.getValue()).isEqualTo("user@example.com");
+            });
         }
     }
 
@@ -296,7 +292,8 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then
-            assertThat(content.getExtensions()).extracting("oid")
+            assertThat(content.getExtensions())
+                    .extracting("oid")
                     .contains(Extension.extendedKeyUsage.getId())
                     .doesNotContain(Extension.subjectAlternativeName.getId());
         }
@@ -316,7 +313,7 @@ class X509RequestContentParserTest {
         @Test
         void skipsExtension_whenValueIsEmptyOctets() throws Exception {
             // given — a zero-length-octet extension value would base64 to "" and violate RequestedExtension's
-            //         @NotBlank REQUIRED contract, so the parser must not emit it
+            // @NotBlank REQUIRED contract, so the parser must not emit it
             var request = pkcs10WithRawExtension(new ASN1ObjectIdentifier("1.3.6.1.4.1.99999.1"), new byte[0]);
 
             // when
@@ -334,10 +331,7 @@ class X509RequestContentParserTest {
         @Test
         void skipsRdn_whenValueIsBlank() throws Exception {
             // given — an empty CN RDN alongside a populated O; the empty CN violates RdnEntry's @NotBlank
-            X500Name subject = new X500NameBuilder()
-                    .addRDN(BCStyle.CN, "")
-                    .addRDN(BCStyle.O, "Example")
-                    .build();
+            X500Name subject = new X500NameBuilder().addRDN(BCStyle.CN, "").addRDN(BCStyle.O, "Example").build();
             var request = pkcs10(subject);
 
             // when
@@ -345,8 +339,7 @@ class X509RequestContentParserTest {
 
             // then — no blank-valued RDN is emitted, and the populated O survives
             assertThat(content.getSubject()).noneMatch(e -> e.getValue() == null || e.getValue().isBlank());
-            assertThat(content.getSubject())
-                    .anySatisfy(e -> assertThat(e.getValue()).isEqualTo("Example"));
+            assertThat(content.getSubject()).anySatisfy(e -> assertThat(e.getValue()).isEqualTo("Example"));
         }
     }
 
@@ -371,10 +364,12 @@ class X509RequestContentParserTest {
         void parsesSansAndExtensions_fromCertTemplate() throws Exception {
             // given — a CRMF request whose CertTemplate carries a SAN and an EKU extension
             var builder = CmpTestUtil.createCrmf(new X500Name("CN=issuer"), new X500Name("CN=host.example.com"));
-            builder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(new GeneralName[]{
-                    new GeneralName(GeneralName.dNSName, "host.example.com")}));
-            builder.addExtension(Extension.extendedKeyUsage, false,
-                    new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+            builder
+                    .addExtension(Extension.subjectAlternativeName, false, new GeneralNames(
+                            new GeneralName[]{new GeneralName(GeneralName.dNSName, "host.example.com")}));
+            builder
+                    .addExtension(Extension.extendedKeyUsage, false,
+                            new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
             CertReqMessages certReqMessages = new CertReqMessages(builder.build().toASN1Structure());
             var request = new CrmfCertificateRequest(certReqMessages.getEncoded());
 
@@ -382,12 +377,12 @@ class X509RequestContentParserTest {
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
             // then — SAN typed, EKU in extensions, SAN not duplicated into extensions
-            assertThat(content.getSubjectAltNames())
-                    .anySatisfy(s -> {
-                        assertThat(s.getType()).isEqualTo(GeneralNameType.DNS);
-                        assertThat(s.getValue()).isEqualTo("host.example.com");
-                    });
-            assertThat(content.getExtensions()).extracting("oid")
+            assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.DNS);
+                assertThat(s.getValue()).isEqualTo("host.example.com");
+            });
+            assertThat(content.getExtensions())
+                    .extracting("oid")
                     .contains(Extension.extendedKeyUsage.getId())
                     .doesNotContain(Extension.subjectAlternativeName.getId());
         }
@@ -405,8 +400,7 @@ class X509RequestContentParserTest {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
         kpg.initialize(2048);
         KeyPair kp = kpg.generateKeyPair();
-        PKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(subject, kp.getPublic());
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(subject, kp.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
         return new Pkcs10CertificateRequest(builder.build(signer).getEncoded());
     }
@@ -415,8 +409,8 @@ class X509RequestContentParserTest {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
         kpg.initialize(2048);
         KeyPair kp = kpg.generateKeyPair();
-        PKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name("CN=host.example.com"), kp.getPublic());
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(
+                new X500Name("CN=host.example.com"), kp.getPublic());
         ExtensionsGenerator extGen = new ExtensionsGenerator();
         extGen.addExtension(oid, false, value);
         builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
@@ -429,16 +423,15 @@ class X509RequestContentParserTest {
         kpg.initialize(2048);
         KeyPair kp = kpg.generateKeyPair();
 
-        PKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name(dn), kp.getPublic());
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(dn),
+                kp.getPublic());
         if (withSanAndEku) {
             ExtensionsGenerator extGen = new ExtensionsGenerator();
-            extGen.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(new GeneralName[]{
-                    new GeneralName(GeneralName.dNSName, "host.example.com"),
-                    new GeneralName(GeneralName.rfc822Name, "admin@example.com")
-            }));
-            extGen.addExtension(Extension.extendedKeyUsage, false,
-                    new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+            extGen
+                    .addExtension(Extension.subjectAlternativeName, false,
+                            new GeneralNames(new GeneralName[]{new GeneralName(GeneralName.dNSName, "host.example.com"),
+                                    new GeneralName(GeneralName.rfc822Name, "admin@example.com")}));
+            extGen.addExtension(Extension.extendedKeyUsage, false, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
             builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
         }
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
@@ -450,8 +443,8 @@ class X509RequestContentParserTest {
         kpg.initialize(2048);
         KeyPair kp = kpg.generateKeyPair();
 
-        PKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name("CN=host.example.com"), kp.getPublic());
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(
+                new X500Name("CN=host.example.com"), kp.getPublic());
         ExtensionsGenerator extGen = new ExtensionsGenerator();
         extGen.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(new GeneralName[]{sanEntry}));
         builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());

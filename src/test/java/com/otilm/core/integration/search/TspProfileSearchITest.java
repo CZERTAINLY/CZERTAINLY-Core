@@ -25,13 +25,12 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TspProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
-import java.util.UUID;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyEqualsFilter;
@@ -101,7 +100,8 @@ class TspProfileSearchITest extends BaseSpringBootTest {
         requestAttr.setUuid(UUID.fromString(customAttr.getUuid()));
         requestAttr.setName(CUSTOM_ATTR_NAME);
         requestAttr.setContent(List.of(new TextAttributeContentV3("ref-1", CUSTOM_ATTR_VALUE)));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.TSP_PROFILE, alpha.getUuid(), List.of(requestAttr));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.TSP_PROFILE, alpha.getUuid(), List.of(requestAttr));
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -113,7 +113,8 @@ class TspProfileSearchITest extends BaseSpringBootTest {
         List<SearchFieldDataByGroupDto> groups = tspProfileService.getSearchableFieldInformation();
 
         Assertions.assertFalse(groups.isEmpty());
-        List<String> identifiers = groups.stream()
+        List<String> identifiers = groups
+                .stream()
                 .flatMap(g -> g.getSearchFieldData().stream())
                 .map(SearchFieldDataDto::getFieldIdentifier)
                 .toList();
@@ -127,7 +128,8 @@ class TspProfileSearchITest extends BaseSpringBootTest {
     void searchableFields_defaultSigningProfileDropdownContainsExistingNames() {
         List<SearchFieldDataByGroupDto> groups = tspProfileService.getSearchableFieldInformation();
 
-        SearchFieldDataDto defaultSpField = groups.stream()
+        SearchFieldDataDto defaultSpField = groups
+                .stream()
                 .flatMap(g -> g.getSearchFieldData().stream())
                 .filter(f -> f.getFieldIdentifier().equals(FilterField.TSP_PROFILE_DEFAULT_SIGNING_PROFILE.name()))
                 .findFirst()
@@ -182,8 +184,7 @@ class TspProfileSearchITest extends BaseSpringBootTest {
 
     @Test
     void filterByEnabled_true_returnsEnabledOnly() {
-        List<TspProfileListDto> results = listWithFilters(
-                aPropertyEqualsFilter(FilterField.TSP_PROFILE_ENABLED, true));
+        List<TspProfileListDto> results = listWithFilters(aPropertyEqualsFilter(FilterField.TSP_PROFILE_ENABLED, true));
 
         Assertions.assertEquals(2, results.size());
         Assertions.assertTrue(results.stream().allMatch(TspProfileListDto::isEnabled));
@@ -218,11 +219,12 @@ class TspProfileSearchITest extends BaseSpringBootTest {
     @Test
     void filterByNameContainsAndEnabled_returnsIntersection() {
         SearchRequestDto request = new SearchRequestDto();
-        request.setFilters(List.of(
-                aPropertyFilter(FilterField.TSP_PROFILE_NAME, FilterConditionOperator.CONTAINS, "-tsp"),
-                aPropertyEqualsFilter(FilterField.TSP_PROFILE_ENABLED, true)
-        ));
-        PaginationResponseDto<TspProfileListDto> response = tspProfileService.listTspProfiles(request, SecurityFilter.create(), BASE_URL);
+        request
+                .setFilters(List
+                        .of(aPropertyFilter(FilterField.TSP_PROFILE_NAME, FilterConditionOperator.CONTAINS, "-tsp"),
+                                aPropertyEqualsFilter(FilterField.TSP_PROFILE_ENABLED, true)));
+        PaginationResponseDto<TspProfileListDto> response = tspProfileService
+                .listTspProfiles(request, SecurityFilter.create(), BASE_URL);
 
         Assertions.assertEquals(2, response.getTotalItems());
         Assertions.assertTrue(response.getItems().stream().allMatch(TspProfileListDto::isEnabled));
@@ -234,8 +236,8 @@ class TspProfileSearchITest extends BaseSpringBootTest {
 
     @Test
     void filterByCustomAttribute_exactMatch_returnsOnlyTaggedProfile() {
-        List<TspProfileListDto> results = listWithFilters(
-                aCustomAttributeFilter(CUSTOM_ATTR_NAME, AttributeContentType.TEXT, FilterConditionOperator.EQUALS, CUSTOM_ATTR_VALUE));
+        List<TspProfileListDto> results = listWithFilters(aCustomAttributeFilter(CUSTOM_ATTR_NAME,
+                AttributeContentType.TEXT, FilterConditionOperator.EQUALS, CUSTOM_ATTR_VALUE));
 
         Assertions.assertEquals(1, results.size());
         Assertions.assertEquals("alpha-tsp", results.getFirst().getName());
@@ -243,8 +245,8 @@ class TspProfileSearchITest extends BaseSpringBootTest {
 
     @Test
     void filterByCustomAttribute_notEquals_excludesTaggedProfile() {
-        List<TspProfileListDto> results = listWithFilters(
-                aCustomAttributeFilter(CUSTOM_ATTR_NAME, AttributeContentType.TEXT, FilterConditionOperator.NOT_EQUALS, CUSTOM_ATTR_VALUE));
+        List<TspProfileListDto> results = listWithFilters(aCustomAttributeFilter(CUSTOM_ATTR_NAME,
+                AttributeContentType.TEXT, FilterConditionOperator.NOT_EQUALS, CUSTOM_ATTR_VALUE));
 
         Assertions.assertTrue(results.stream().noneMatch(p -> p.getName().equals("alpha-tsp")));
     }

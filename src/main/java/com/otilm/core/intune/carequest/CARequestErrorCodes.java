@@ -34,10 +34,9 @@ package com.otilm.core.intune.carequest;
 /**
  * CARequestErrorCodes - Error Codes for CA Request Results.
  */
-public enum CARequestErrorCodes 
-{
-	// No Errors Occurred
-	None("0"),
+public enum CARequestErrorCodes {
+    // No Errors Occurred
+    None("0"),
 
     // General Non-Retryable Service error
     NonRetryableServiceException("4000"),
@@ -51,7 +50,7 @@ public enum CARequestErrorCodes
     CertificateNotFoundError("4004"),
     // Conflict processing request"), Ex. trying to revoke an already revoked certificate (non-retryable)
     ConflictError("4005"),
-    // Request  Not Supported (non-retryable).
+    // Request Not Supported (non-retryable).
     NotSupportedError("4006"),
     // Request is larger than what is allowed by the requesting service (non-retryable).
     PayloadTooLargeError("4007"),
@@ -59,16 +58,15 @@ public enum CARequestErrorCodes
     // General Retryable Service error
     RetryableServiceException("4100"),
     // Service Unavailable Exception (retryable).
-    ServiceUnavailableException("4101"),   
+    ServiceUnavailableException("4101"),
     // Service Too Busy Exception (retryable).
     ServiceTooBusyException("4102"),
     // Authentication Failure Exception (retryable).
     AuthenticationException("4103");
-	
-	public final String Value;
-	
-	private CARequestErrorCodes(String value) 
-	{
-		this.Value = value;
-	}
+
+    public final String Value;
+
+    private CARequestErrorCodes(String value) {
+        this.Value = value;
+    }
 }

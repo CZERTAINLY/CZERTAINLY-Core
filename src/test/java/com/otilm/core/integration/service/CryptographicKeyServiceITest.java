@@ -1,32 +1,53 @@
 package com.otilm.core.integration.service;
 
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.argThat;
-import static org.mockito.Mockito.contains;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.cryptography.CryptographicKeyResponseDto;
-import com.otilm.api.model.client.cryptography.key.*;
+import com.otilm.api.model.client.cryptography.key.BulkCompromiseKeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.CompromiseKeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.EditKeyItemDto;
+import com.otilm.api.model.client.cryptography.key.EditKeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.KeyCompromiseReason;
+import com.otilm.api.model.client.cryptography.key.KeyRequestDto;
+import com.otilm.api.model.client.cryptography.key.KeyRequestType;
+import com.otilm.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
-import com.otilm.api.model.core.cryptography.key.*;
+import com.otilm.api.model.core.cryptography.key.KeyDetailDto;
+import com.otilm.api.model.core.cryptography.key.KeyDto;
+import com.otilm.api.model.core.cryptography.key.KeyItemDetailDto;
+import com.otilm.api.model.core.cryptography.key.KeyState;
+import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.OwnerAssociation;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.dao.repository.OwnerAssociationRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.enums.FilterField;
-import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredParentUUID;
@@ -39,8 +60,17 @@ import com.otilm.core.service.CryptographicKeyInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.KeySizeUtil;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,11 +79,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import java.nio.charset.StandardCharsets;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.util.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.contains;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
@@ -204,9 +237,7 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetKeyByUuid() throws NotFoundException {
-        KeyDetailDto dto = cryptographicKeyService.getKey(
-                SecuredUUID.fromUUID(key.getUuid())
-        );
+        KeyDetailDto dto = cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid()));
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(key.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(2, dto.getItems().size());
@@ -214,39 +245,50 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetKeyByUuid_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> cryptographicKeyService.getKey(
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> cryptographicKeyService
+                        .getKey(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testAddKey() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
-                .willReturn(WireMock.okJson("{}")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/status"))
-                .willReturn(WireMock.okJson("{}")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes/validate"))
-                .willReturn(WireMock.ok()));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes/validate"))
-                .willReturn(WireMock.ok()));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair"))
-                .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{\"type\":\"Private\", \"algorithm\":\"RSA\", \"format\":\"Custom\", \"value\":{\"securityCategory\":\"5\"}}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\",  \"keyData\":{\"type\":\"Public\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something priv\"}}}")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret"))
-                .willReturn(WireMock.okJson("{\"name\":\"secretkeyitem\", \"uuid\":\"149db149-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{\"type\":\"Secret\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something secret\"}}")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
+                        .willReturn(WireMock.okJson("{}")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/status"))
+                        .willReturn(WireMock.okJson("{}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes/validate"))
+                        .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes/validate"))
+                        .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair"))
+                        .willReturn(WireMock
+                                .okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{\"type\":\"Private\", \"algorithm\":\"RSA\", \"format\":\"Custom\", \"value\":{\"securityCategory\":\"5\"}}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\",  \"keyData\":{\"type\":\"Public\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something priv\"}}}")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret"))
+                        .willReturn(WireMock
+                                .okJson("{\"name\":\"secretkeyitem\", \"uuid\":\"149db149-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{\"type\":\"Secret\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something secret\"}}")));
 
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testKeyPairKey");
@@ -256,12 +298,8 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
         UUID tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
         SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
-        KeyDetailDto dto = cryptographicKeyService.createKey(
-                tokenInstanceReferenceUuid,
-                tokenProfileUuid,
-                KeyRequestType.KEY_PAIR,
-                request
-        );
+        KeyDetailDto dto = cryptographicKeyService
+                .createKey(tokenInstanceReferenceUuid, tokenProfileUuid, KeyRequestType.KEY_PAIR, request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(2, dto.getItems().size());
@@ -270,22 +308,15 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
         request.setName("newName");
         // create key with same fingerprint
-        Assertions.assertThrows(ValidationException.class, () -> cryptographicKeyService.createKey(
-                tokenInstanceReferenceUuid,
-                tokenProfileUuid,
-                KeyRequestType.KEY_PAIR,
-                request
-        ));
+        Assertions
+                .assertThrows(ValidationException.class, () -> cryptographicKeyService
+                        .createKey(tokenInstanceReferenceUuid, tokenProfileUuid, KeyRequestType.KEY_PAIR, request));
 
         // create secret key type
         request.setName("testSecretKey");
         request.setGroupUuids(null);
-        dto = cryptographicKeyService.createKey(
-                tokenInstanceReferenceUuid,
-                tokenProfileUuid,
-                KeyRequestType.SECRET,
-                request
-        );
+        dto = cryptographicKeyService
+                .createKey(tokenInstanceReferenceUuid, tokenProfileUuid, KeyRequestType.SECRET, request);
 
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
@@ -303,15 +334,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
         SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
 
-        ValidationException exception = Assertions.assertThrows(
-                ValidationException.class,
-                () -> cryptographicKeyService.createKey(
-                        tokenInstanceUuid,
-                        tokenProfileUuid,
-                        KeyRequestType.SECRET,
-                        request
-                )
-        );
+        ValidationException exception = Assertions
+                .assertThrows(ValidationException.class, () -> cryptographicKeyService
+                        .createKey(tokenInstanceUuid, tokenProfileUuid, KeyRequestType.SECRET, request));
         Assertions.assertTrue(exception.getMessage().contains("Token Profile"));
         Assertions.assertTrue(exception.getMessage().contains("disabled"));
         mockServer.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()));
@@ -324,15 +349,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
         SecuredParentUUID missingTokenProfileUuid = SecuredParentUUID.fromUUID(UUID.randomUUID());
 
-        NotFoundException exception = Assertions.assertThrows(
-                NotFoundException.class,
-                () -> cryptographicKeyService.createKey(
-                        tokenInstanceUuid,
-                        missingTokenProfileUuid,
-                        KeyRequestType.SECRET,
-                        request
-                )
-        );
+        NotFoundException exception = Assertions
+                .assertThrows(NotFoundException.class, () -> cryptographicKeyService
+                        .createKey(tokenInstanceUuid, missingTokenProfileUuid, KeyRequestType.SECRET, request));
 
         Assertions.assertTrue(exception.getMessage().contains(TokenProfile.class.getSimpleName()));
     }
@@ -343,15 +362,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
         UUID tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
         SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
-        Assertions.assertThrows(
-                ValidationException.class,
-                () -> cryptographicKeyService.createKey(
-                        tokenInstanceReferenceUuid,
-                        tokenProfileUuid,
-                        KeyRequestType.KEY_PAIR,
-                        request
-                )
-        );
+        Assertions
+                .assertThrows(ValidationException.class, () -> cryptographicKeyService
+                        .createKey(tokenInstanceReferenceUuid, tokenProfileUuid, KeyRequestType.KEY_PAIR, request));
     }
 
     @Test
@@ -359,68 +372,60 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         KeyRequestDto request = new KeyRequestDto();
         request.setName(KEY_NAME); // raProfile with same username exist
 
-        Assertions.assertThrows(
-                AlreadyExistException.class,
-                () -> cryptographicKeyService.createKey(
-                        tokenInstanceReference.getUuid(),
-                        tokenProfile.getSecuredParentUuid(),
-                        KeyRequestType.KEY_PAIR,
-                        request
-                )
-        );
+        Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> cryptographicKeyService
+                                .createKey(tokenInstanceReference.getUuid(), tokenProfile.getSecuredParentUuid(),
+                                        KeyRequestType.KEY_PAIR, request));
     }
 
     @Test
     void testDestroyKey() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
+                        .willReturn(WireMock.ok()));
 
         privateKeyItem.setState(KeyState.DEACTIVATED);
         publicKeyItem.setState(KeyState.DEACTIVATED);
         cryptographicKeyItemRepository.save(privateKeyItem);
         cryptographicKeyItemRepository.save(publicKeyItem);
 
-        cryptographicKeyService.destroyKey(
-                key.getUuid(),
-                List.of(
-                        privateKeyItem.getUuid().toString(),
-                        publicKeyItem.getUuid().toString()
-                )
-        );
-        Assertions.assertEquals(
-                KeyState.DESTROYED,
-                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()).getState()
-        );
+        cryptographicKeyService
+                .destroyKey(key.getUuid(),
+                        List.of(privateKeyItem.getUuid().toString(), publicKeyItem.getUuid().toString()));
+        Assertions
+                .assertEquals(KeyState.DESTROYED,
+                        cryptographicKeyService
+                                .getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString())
+                                .getState());
     }
 
     @Test
     void testDestroyKey_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> cryptographicKeyService.getKey(
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> cryptographicKeyService
+                        .getKey(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testDestroyKey_validationError() {
-        mockServer.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
+        mockServer
+                .stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
 
         UUID keyUuid = key.getUuid();
         List<String> keyItemsUuids = List.of(privateKeyItem.getUuid().toString(), publicKeyItem.getUuid().toString());
-        Assertions.assertThrows(
-                ValidationException.class,
-                () -> cryptographicKeyService.destroyKey(keyUuid, keyItemsUuids)
-        );
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> cryptographicKeyService.destroyKey(keyUuid, keyItemsUuids));
     }
 
     @Test
     void testDestroyKey_parentKeyObject() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
+                        .willReturn(WireMock.ok()));
 
         privateKeyItem.setState(KeyState.DEACTIVATED);
         publicKeyItem.setState(KeyState.DEACTIVATED);
@@ -429,74 +434,67 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
         cryptographicKeyService.destroyKey(List.of(key.getUuid().toString()));
 
-        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString());
+        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService
+                .getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString());
         Assertions.assertEquals(KeyState.DESTROYED, keyItemDetailDto.getState());
         Assertions.assertNull(keyItemDetailDto.getKeyData());
     }
 
     @Test
     void testCompromiseKey() throws NotFoundException {
-        cryptographicKeyService.compromiseKey(
-                key.getUuid(),
-                new CompromiseKeyRequestDto(
-                        KeyCompromiseReason.UNAUTHORIZED_DISCLOSURE,
-                        List.of(
-                                privateKeyItem.getUuid(),
-                                publicKeyItem.getUuid()
-                        )
-                )
-        );
-        Assertions.assertEquals(
-                KeyState.COMPROMISED,
-                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()).getState()
-        );
-        Assertions.assertEquals(
-                KeyState.COMPROMISED,
-                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), publicKeyItem.getUuid().toString()).getState()
-        );
+        cryptographicKeyService
+                .compromiseKey(key.getUuid(), new CompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_DISCLOSURE,
+                        List.of(privateKeyItem.getUuid(), publicKeyItem.getUuid())));
+        Assertions
+                .assertEquals(KeyState.COMPROMISED,
+                        cryptographicKeyService
+                                .getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString())
+                                .getState());
+        Assertions
+                .assertEquals(KeyState.COMPROMISED,
+                        cryptographicKeyService
+                                .getKeyItem(key.getSecuredUuid(), publicKeyItem.getUuid().toString())
+                                .getState());
     }
 
     @Test
     void testCompromisedKey_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> cryptographicKeyService.getKey(
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> cryptographicKeyService
+                        .getKey(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testCompromiseKey_validationError() throws NotFoundException {
-        cryptographicKeyService.compromiseKey(
-                key.getUuid(),
-                new CompromiseKeyRequestDto(
-                        KeyCompromiseReason.UNAUTHORIZED_MODIFICATION,
-                        List.of(
-                                privateKeyItem.getUuid(),
-                                publicKeyItem.getUuid()
-                        )
-                )
-        );
+        cryptographicKeyService
+                .compromiseKey(key.getUuid(), new CompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_MODIFICATION,
+                        List.of(privateKeyItem.getUuid(), publicKeyItem.getUuid())));
 
         UUID keyUuid = key.getUuid();
         List<UUID> keyItemsUuids = List.of(privateKeyItem.getUuid(), publicKeyItem.getUuid());
-        CompromiseKeyRequestDto keyRequestDto = new CompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_MODIFICATION, keyItemsUuids);
-        Assertions.assertThrows(
-                ValidationException.class,
-                () -> cryptographicKeyService.compromiseKey(
-                        keyUuid,
-                        keyRequestDto
-                )
-        );
+        CompromiseKeyRequestDto keyRequestDto = new CompromiseKeyRequestDto(
+                KeyCompromiseReason.UNAUTHORIZED_MODIFICATION, keyItemsUuids);
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> cryptographicKeyService.compromiseKey(keyUuid, keyRequestDto));
     }
 
     @Test
     void testCompromisedKey_parentKeyObject() throws NotFoundException {
-        cryptographicKeyService.compromiseKey(new BulkCompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_SUBSTITUTION, List.of(key.getUuid())));
-        Assertions.assertEquals(KeyState.COMPROMISED, cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()).getState());
+        cryptographicKeyService
+                .compromiseKey(new BulkCompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_SUBSTITUTION,
+                        List.of(key.getUuid())));
+        Assertions
+                .assertEquals(KeyState.COMPROMISED,
+                        cryptographicKeyService
+                                .getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString())
+                                .getState());
         Assertions.assertNotEquals(null, privateKeyItem.getKeyData());
-        Assertions.assertEquals(KeyState.COMPROMISED, cryptographicKeyService.getKeyItem(key.getSecuredUuid(), publicKeyItem.getUuid().toString()).getState());
+        Assertions
+                .assertEquals(KeyState.COMPROMISED,
+                        cryptographicKeyService
+                                .getKeyItem(key.getSecuredUuid(), publicKeyItem.getUuid().toString())
+                                .getState());
         Assertions.assertNotEquals(null, publicKeyItem.getKeyData());
     }
 
@@ -506,10 +504,12 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         request.setUuids(List.of(privateKeyItem.getUuid()));
         request.setUsage(List.of(KeyUsage.DECRYPT));
         cryptographicKeyService.updateKeyUsages(key.getUuid(), request);
-        Assertions.assertEquals(
-                1,
-                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()).getUsage().size()
-        );
+        Assertions
+                .assertEquals(1,
+                        cryptographicKeyService
+                                .getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString())
+                                .getUsage()
+                                .size());
     }
 
     @Test
@@ -553,10 +553,8 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         request.setTokenProfileUuid(UUID.randomUUID().toString());
         SecuredUUID keyUuid = key.getSecuredUuid();
 
-        NotFoundException exception = Assertions.assertThrows(
-                NotFoundException.class,
-                () -> cryptographicKeyService.editKey(keyUuid, request)
-        );
+        NotFoundException exception = Assertions
+                .assertThrows(NotFoundException.class, () -> cryptographicKeyService.editKey(keyUuid, request));
 
         Assertions.assertTrue(exception.getMessage().contains(TokenProfile.class.getSimpleName()));
     }
@@ -574,10 +572,7 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         request.setTokenProfileUuid(tokenProfile2.getUuid().toString());
         SecuredUUID keyUuid = key.getSecuredUuid();
 
-        Assertions.assertThrows(
-                ValidationException.class,
-                () -> cryptographicKeyService.editKey(keyUuid, request)
-        );
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicKeyService.editKey(keyUuid, request));
 
         CryptographicKey persistedKey = cryptographicKeyRepository.findByUuid(key.getUuid()).orElseThrow();
         Assertions.assertEquals(originalTokenProfileUuid, persistedKey.getTokenProfileUuid());
@@ -592,87 +587,81 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         UUID tokenInstanceUuid = tokenInstanceReference.getUuid();
         SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
 
-        Assertions.assertThrows(
-                ValidationException.class,
-                () -> cryptographicKeyService.listCreateKeyAttributes(
-                        tokenInstanceUuid,
-                        tokenProfileUuid,
-                        KeyRequestType.SECRET
-                )
-        );
+        Assertions
+                .assertThrows(ValidationException.class, () -> cryptographicKeyService
+                        .listCreateKeyAttributes(tokenInstanceUuid, tokenProfileUuid, KeyRequestType.SECRET));
 
         mockServer.verify(0, WireMock.anyRequestedFor(WireMock.anyUrl()));
     }
 
     @Test
     void testSync_allNewObject() throws ConnectorException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
-                .willReturn(WireMock.okJson("""
-                        [
-                            {
-                                "name":"key1",
-                                "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120002",
-                                "association":"",
-                                "keyData":{
-                                    "type":"Secret",
-                                    "algorithm":"RSA",
-                                    "format":"Raw",
-                                    "value":{"value":"sampleKeyValue1"},
-                                    "length":1024
-                                }
-                            },
-                        \t{
-                                "name":"key2",
-                                "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120003",
-                                "association":"",
-                                "keyData":{
-                                    "type":"Private",
-                                    "algorithm":"RSA",
-                                    "format":"Raw",
-                                    "value":{"value":"sampleKeyValue2"},
-                                    "length":1024
-                                }
-                            },
-                        \t{
-                                "name":"key3",
-                                "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120004",
-                                "association":"",
-                                "keyData":{
-                                    "type":"Public",
-                                    "algorithm":"RSA",
-                                    "format":"Raw",
-                                    "value":{"value":"sampleKeyValue3"},
-                                    "length":1024
-                                }
-                            },
-                        \t{
-                                "name":"key4",
-                                "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120005",
-                                "association":"sampleKeyPair",
-                                "keyData":{
-                                    "type":"Private",
-                                    "algorithm":"RSA",
-                                    "format":"Raw",
-                                    "value":{"value":"sampleKeyValue4"},
-                                    "length":1024
-                                }
-                            },
-                        \t{
-                                "name":"keySPrivate4",
-                                "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120006",
-                                "association":"sampleKeyPair",
-                                "keyData":{
-                                    "type":"Public",
-                                    "algorithm":"RSA",
-                                    "format":"Raw",
-                                    "value":{"value":"sampleKeyValue5"},
-                                    "length":1024
-                                }
-                            }
-                        ]"""
-                ))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
+                        .willReturn(WireMock.okJson("""
+                                [
+                                    {
+                                        "name":"key1",
+                                        "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120002",
+                                        "association":"",
+                                        "keyData":{
+                                            "type":"Secret",
+                                            "algorithm":"RSA",
+                                            "format":"Raw",
+                                            "value":{"value":"sampleKeyValue1"},
+                                            "length":1024
+                                        }
+                                    },
+                                \t{
+                                        "name":"key2",
+                                        "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120003",
+                                        "association":"",
+                                        "keyData":{
+                                            "type":"Private",
+                                            "algorithm":"RSA",
+                                            "format":"Raw",
+                                            "value":{"value":"sampleKeyValue2"},
+                                            "length":1024
+                                        }
+                                    },
+                                \t{
+                                        "name":"key3",
+                                        "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120004",
+                                        "association":"",
+                                        "keyData":{
+                                            "type":"Public",
+                                            "algorithm":"RSA",
+                                            "format":"Raw",
+                                            "value":{"value":"sampleKeyValue3"},
+                                            "length":1024
+                                        }
+                                    },
+                                \t{
+                                        "name":"key4",
+                                        "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120005",
+                                        "association":"sampleKeyPair",
+                                        "keyData":{
+                                            "type":"Private",
+                                            "algorithm":"RSA",
+                                            "format":"Raw",
+                                            "value":{"value":"sampleKeyValue4"},
+                                            "length":1024
+                                        }
+                                    },
+                                \t{
+                                        "name":"keySPrivate4",
+                                        "uuid":"e7426f1e-8ccc-11ed-a1eb-0242ac120006",
+                                        "association":"sampleKeyPair",
+                                        "keyData":{
+                                            "type":"Public",
+                                            "algorithm":"RSA",
+                                            "format":"Raw",
+                                            "value":{"value":"sampleKeyValue5"},
+                                            "length":1024
+                                        }
+                                    }
+                                ]""")));
         cryptographicKeyService.syncKeys(tokenInstanceReference.getSecuredParentUuid());
 
         Assertions.assertEquals(8, cryptographicKeyItemRepository.count());
@@ -680,72 +669,45 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
 
     @Test
     void testSync_existingObject() throws ConnectorException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
-                .willReturn(WireMock.okJson("[\n" +
-                        "    {\n" +
-                        "        \"name\":\"key1\",\n" +
-                        "        \"uuid\":\"" + privateKeyItem.getUuid().toString() + "\",\n" +
-                        "        \"association\":\"\",\n" +
-                        "        \"keyData\":{\n" +
-                        "            \"type\":\"Secret\",\n" +
-                        "            \"algorithm\":\"RSA\",\n" +
-                        "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue1\"},\n" +
-                        "            \"length\":1024\n" +
-                        "        }\n" +
-                        "    },\n" +
-                        "\t{\n" +
-                        "        \"name\":\"key2\",\n" +
-                        "        \"uuid\":\"" + publicKeyItem.getUuid().toString() + "\",\n" +
-                        "        \"association\":\"\",\n" +
-                        "        \"keyData\":{\n" +
-                        "            \"type\":\"Private\",\n" +
-                        "            \"algorithm\":\"RSA\",\n" +
-                        "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue2\"},\n" +
-                        "            \"length\":1024\n" +
-                        "        }\n" +
-                        "    },\n" +
-                        "\t{\n" +
-                        "        \"name\":\"key3\",\n" +
-                        "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120004\",\n" +
-                        "        \"association\":\"\",\n" +
-                        "        \"keyData\":{\n" +
-                        "            \"type\":\"Public\",\n" +
-                        "            \"algorithm\":\"RSA\",\n" +
-                        "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue3\"},\n" +
-                        "            \"length\":1024\n" +
-                        "        }\n" +
-                        "    },\n" +
-                        "\t{\n" +
-                        "        \"name\":\"key4\",\n" +
-                        "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120005\",\n" +
-                        "        \"association\":\"sampleKeyPair\",\n" +
-                        "        \"keyData\":{\n" +
-                        "            \"type\":\"Private\",\n" +
-                        "            \"algorithm\":\"RSA\",\n" +
-                        "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue4\"},\n" +
-                        "            \"length\":1024\n" +
-                        "        }\n" +
-                        "    },\n" +
-                        "\t{\n" +
-                        "        \"name\":\"keySPrivate4\",\n" +
-                        "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120006\",\n" +
-                        "        \"association\":\"sampleKeyPair\",\n" +
-                        "        \"keyData\":{\n" +
-                        "            \"type\":\"Public\",\n" +
-                        "            \"algorithm\":\"RSA\",\n" +
-                        "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue5\"},\n" +
-                        "            \"length\":1024\n" +
-                        "        }\n" +
-                        "    }\n" +
-                        "]"
-                ))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
+                        .willReturn(WireMock
+                                .okJson("[\n" + "    {\n" + "        \"name\":\"key1\",\n" + "        \"uuid\":\""
+                                        + privateKeyItem.getUuid().toString() + "\",\n"
+                                        + "        \"association\":\"\",\n" + "        \"keyData\":{\n"
+                                        + "            \"type\":\"Secret\",\n" + "            \"algorithm\":\"RSA\",\n"
+                                        + "            \"format\":\"Raw\",\n"
+                                        + "            \"value\":{\"value\":\"sampleKeyValue1\"},\n"
+                                        + "            \"length\":1024\n" + "        }\n" + "    },\n" + "\t{\n"
+                                        + "        \"name\":\"key2\",\n" + "        \"uuid\":\""
+                                        + publicKeyItem.getUuid().toString() + "\",\n"
+                                        + "        \"association\":\"\",\n" + "        \"keyData\":{\n"
+                                        + "            \"type\":\"Private\",\n" + "            \"algorithm\":\"RSA\",\n"
+                                        + "            \"format\":\"Raw\",\n"
+                                        + "            \"value\":{\"value\":\"sampleKeyValue2\"},\n"
+                                        + "            \"length\":1024\n" + "        }\n" + "    },\n" + "\t{\n"
+                                        + "        \"name\":\"key3\",\n"
+                                        + "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120004\",\n"
+                                        + "        \"association\":\"\",\n" + "        \"keyData\":{\n"
+                                        + "            \"type\":\"Public\",\n" + "            \"algorithm\":\"RSA\",\n"
+                                        + "            \"format\":\"Raw\",\n"
+                                        + "            \"value\":{\"value\":\"sampleKeyValue3\"},\n"
+                                        + "            \"length\":1024\n" + "        }\n" + "    },\n" + "\t{\n"
+                                        + "        \"name\":\"key4\",\n"
+                                        + "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120005\",\n"
+                                        + "        \"association\":\"sampleKeyPair\",\n" + "        \"keyData\":{\n"
+                                        + "            \"type\":\"Private\",\n" + "            \"algorithm\":\"RSA\",\n"
+                                        + "            \"format\":\"Raw\",\n"
+                                        + "            \"value\":{\"value\":\"sampleKeyValue4\"},\n"
+                                        + "            \"length\":1024\n" + "        }\n" + "    },\n" + "\t{\n"
+                                        + "        \"name\":\"keySPrivate4\",\n"
+                                        + "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120006\",\n"
+                                        + "        \"association\":\"sampleKeyPair\",\n" + "        \"keyData\":{\n"
+                                        + "            \"type\":\"Public\",\n" + "            \"algorithm\":\"RSA\",\n"
+                                        + "            \"format\":\"Raw\",\n"
+                                        + "            \"value\":{\"value\":\"sampleKeyValue5\"},\n"
+                                        + "            \"length\":1024\n" + "        }\n" + "    }\n" + "]")));
         cryptographicKeyService.syncKeys(tokenInstanceReference.getSecuredParentUuid());
 
         Assertions.assertEquals(6, cryptographicKeyItemRepository.count());
@@ -771,10 +733,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         SecuredUUID keyUuid = SecuredUUID.fromUUID(key.getUuid());
         UUID keyItemUuid = privateKeyItem.getUuid();
 
-        Assertions.assertThrows(
-                AccessDeniedException.class,
-                () -> cryptographicKeyService.editKeyItem(keyUuid, keyItemUuid, request)
-        );
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> cryptographicKeyService.editKeyItem(keyUuid, keyItemUuid, request));
     }
 
     @Test
@@ -782,15 +743,24 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setItemsPerPage(10);
         searchRequestDto.setPageNumber(1);
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CKI_CRYPTOGRAPHIC_ALGORITHM.toString(), FilterConditionOperator.EQUALS, "RSA")));
-        CryptographicKeyResponseDto response = cryptographicKeyService.listCryptographicKeys(SecurityFilter.create(), searchRequestDto);
+        searchRequestDto
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                FilterField.CKI_CRYPTOGRAPHIC_ALGORITHM.toString(), FilterConditionOperator.EQUALS,
+                                "RSA")));
+        CryptographicKeyResponseDto response = cryptographicKeyService
+                .listCryptographicKeys(SecurityFilter.create(), searchRequestDto);
         Assertions.assertEquals(2, response.getTotalItems());
 
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CKI_TYPE.toString(), FilterConditionOperator.EQUALS, KeyType.PUBLIC_KEY.getCode())));
+        searchRequestDto
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CKI_TYPE.toString(),
+                                FilterConditionOperator.EQUALS, KeyType.PUBLIC_KEY.getCode())));
         response = cryptographicKeyService.listCryptographicKeys(SecurityFilter.create(), searchRequestDto);
         Assertions.assertEquals(2, response.getTotalItems());
 
-        List<KeyDto> keyPairs = cryptographicKeyService.listKeyPairs(Optional.ofNullable(tokenProfile.getUuid().toString()), SecurityFilter.create());
+        List<KeyDto> keyPairs = cryptographicKeyService
+                .listKeyPairs(Optional.ofNullable(tokenProfile.getUuid().toString()), SecurityFilter.create());
         Assertions.assertEquals(1, keyPairs.size());
 
         publicKeyItem.setState(KeyState.DEACTIVATED);
@@ -808,7 +778,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(privateKeyItem.getUuid().toString(), keyDetailDto.getItems().getFirst().getUuid());
 
         cryptographicKeyService.deleteKey(key.getUuid(), List.of());
-        Assertions.assertThrows(NotFoundException.class, () -> cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid())));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid())));
     }
 
     @Test
@@ -856,7 +828,8 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         CompromiseKeyRequestDto compromiseKeyRequestDto = new CompromiseKeyRequestDto();
         compromiseKeyRequestDto.setReason(KeyCompromiseReason.UNAUTHORIZED_MODIFICATION);
         cryptographicKeyService.compromiseKey(keyWithoutToken.getUuid(), compromiseKeyRequestDto);
-        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
+        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService
+                .getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
         Assertions.assertEquals(KeyState.COMPROMISED, keyItemDetailDto.getState());
         Assertions.assertEquals(KeyCompromiseReason.UNAUTHORIZED_MODIFICATION, keyItemDetailDto.getReason());
 
@@ -865,7 +838,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(KeyState.DESTROYED_COMPROMISED, keyItemDetailDto.getState());
 
         cryptographicKeyService.deleteKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
-        Assertions.assertThrows(NotFoundException.class, () -> cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid));
     }
 
     @Test
@@ -903,7 +878,8 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         // Assertions
         // 1. 'key' should still exist but only with privateKeyItem
         Assertions.assertTrue(cryptographicKeyRepository.findById(key.getUuid()).isPresent());
-        List<CryptographicKeyItem> remainingItems = cryptographicKeyItemRepository.findByKeyUuidIn(List.of(key.getUuid()));
+        List<CryptographicKeyItem> remainingItems = cryptographicKeyItemRepository
+                .findByKeyUuidIn(List.of(key.getUuid()));
         Assertions.assertEquals(1, remainingItems.size());
         Assertions.assertEquals(privateKeyItem.getUuid(), remainingItems.getFirst().getUuid());
 
@@ -915,13 +891,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         Assertions.assertTrue(cryptographicKeyRepository.findById(keyNoToken.getUuid()).isEmpty());
         Assertions.assertTrue(cryptographicKeyItemRepository.findById(itemNoToken.getUuid()).isEmpty());
 
-        verify(notificationProducer, times(1)).produceInternalNotificationMessage(
-                eq(Resource.CRYPTOGRAPHIC_KEY_ITEM),
-                eq(nonExistingUuid),
-                any(),
-                contains("Unable to delete cryptographic key item"),
-                anyString()
-        );
+        verify(notificationProducer, times(1))
+                .produceInternalNotificationMessage(eq(Resource.CRYPTOGRAPHIC_KEY_ITEM), eq(nonExistingUuid), any(),
+                        contains("Unable to delete cryptographic key item"), anyString());
     }
 
     @Test
@@ -942,7 +914,8 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         mockConnectorDeleteKey();
 
         // Perform deletion
-        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), uuidsToDelete.stream().map(UUID::toString).toList());
+        cryptographicKeyService
+                .deleteKeyItems(SecurityFilter.create(), uuidsToDelete.stream().map(UUID::toString).toList());
 
         // Assertions
         Assertions.assertTrue(cryptographicKeyItemRepository.findByUuidIn(uuidsToDelete).isEmpty());
@@ -966,46 +939,52 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         mockConnectorDeleteKey();
 
         // Reject key item deletion for the forbidden key.
-        mockOpaAccess(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.DELETE, List.of(key.getUuid().toString()), List.of(forbiddenKeyUuid.toString()));
+        mockOpaAccess(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.DELETE, List.of(key.getUuid().toString()),
+                List.of(forbiddenKeyUuid.toString()));
 
         // Should not throw exception, but log error for the forbidden UUID
-        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
-                List.of(publicKeyItem.getUuid().toString(), forbiddenKeyItem.getUuid().toString()));
+        cryptographicKeyService
+                .deleteKeyItems(SecurityFilter.create(),
+                        List.of(publicKeyItem.getUuid().toString(), forbiddenKeyItem.getUuid().toString()));
 
-        Assertions.assertThrows(NotFoundException.class,
-                () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), publicKeyItem.getUuid().toString()));
-        Assertions.assertDoesNotThrow(
-                () -> cryptographicKeyService.getKeyItem(SecuredUUID.fromUUID(forbiddenKeyUuid), forbiddenKeyItemUuid.toString()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> cryptographicKeyService
+                        .getKeyItem(key.getSecuredUuid(), publicKeyItem.getUuid().toString()));
+        Assertions
+                .assertDoesNotThrow(() -> cryptographicKeyService
+                        .getKeyItem(SecuredUUID.fromUUID(forbiddenKeyUuid), forbiddenKeyItemUuid.toString()));
     }
 
     @Test
     void testDeleteKeyItems_evaluatePermissionsWithTokenInstanceParent() throws ConnectorException {
         // Reject key item deletion for the parent token instance.
-        mockOpaAccess(Resource.TOKEN, ResourceAction.MEMBERS, List.of(), List.of(tokenInstanceReference.getUuid().toString()));
+        mockOpaAccess(Resource.TOKEN, ResourceAction.MEMBERS, List.of(),
+                List.of(tokenInstanceReference.getUuid().toString()));
 
         mockConnectorDeleteKey();
 
         // Should not throw exception, but log error for the forbidden UUID
-        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
-                List.of(privateKeyItem.getUuid().toString()));
+        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), List.of(privateKeyItem.getUuid().toString()));
 
-        Assertions.assertDoesNotThrow(
-                () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
+        Assertions
+                .assertDoesNotThrow(() -> cryptographicKeyService
+                        .getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
     }
 
     @Test
     void testDeleteKeyItems_evaluatePermissionsWithTokenProfileParent() throws ConnectorException {
         // Reject key item deletion for the parent token profile.
-        mockOpaAccess(Resource.TOKEN_PROFILE, ResourceAction.MEMBERS, List.of(), List.of(tokenProfile.getUuid().toString()));
+        mockOpaAccess(Resource.TOKEN_PROFILE, ResourceAction.MEMBERS, List.of(),
+                List.of(tokenProfile.getUuid().toString()));
 
         mockConnectorDeleteKey();
 
         // Should not throw exception, but log error for the forbidden UUID
-        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(),
-                List.of(privateKeyItem.getUuid().toString()));
+        cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), List.of(privateKeyItem.getUuid().toString()));
 
-        Assertions.assertDoesNotThrow(
-                () -> cryptographicKeyService.getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
+        Assertions
+                .assertDoesNotThrow(() -> cryptographicKeyService
+                        .getKeyItem(key.getSecuredUuid(), privateKeyItem.getUuid().toString()));
     }
 
     @Test
@@ -1025,19 +1004,20 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         denyResourceAccess(Resource.CRYPTOGRAPHIC_KEY, ResourceAction.LIST);
 
         // when / then - @ExternalAuthorization rejects before the method body runs
-        Assertions.assertThrows(
-                AccessDeniedException.class,
-                () -> cryptographicKeyService.getSearchableFieldInformation()
-        );
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> cryptographicKeyService.getSearchableFieldInformation());
     }
 
     private void mockConnectorDeleteKey() {
-        mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
+                        .willReturn(WireMock.ok()));
     }
 
-    private CryptographicKey createKey(String name, TokenProfile tokenProfile, TokenInstanceReference tokenInstanceReference) {
+    private CryptographicKey createKey(String name, TokenProfile tokenProfile,
+            TokenInstanceReference tokenInstanceReference) {
         CryptographicKey newKey = new CryptographicKey();
         newKey.setName(name);
         newKey.setTokenProfile(tokenProfile);
@@ -1061,29 +1041,26 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         OpaObjectAccessResult objectAccessResult = new OpaObjectAccessResult();
         objectAccessResult.setAllowedObjects(allowed);
         objectAccessResult.setForbiddenObjects(forbidden);
-        when(
-                opaClient.checkObjectAccess(
-                        any(),
-                        argThat(requestedResource ->
-                                isObjectAccessRequestForResource(requestedResource, resource.getCode(), action.getCode())
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(objectAccessResult);
+        when(opaClient
+                .checkObjectAccess(any(),
+                        argThat(requestedResource -> isObjectAccessRequestForResource(requestedResource,
+                                resource.getCode(), action.getCode())),
+                        any(), any()))
+                .thenReturn(objectAccessResult);
     }
 
     private static boolean isObjectAccessRequestForResource(OpaRequestedResource resource, String name, String action) {
-        return resource != null && resource.getProperties() != null &&
-                (resource.getProperties().containsKey("name") && resource.getProperties().get("name").equals(name)) &&
-                (resource.getProperties().containsKey("action") && resource.getProperties().get("action").equals(action));
+        return resource != null && resource.getProperties() != null
+                && (resource.getProperties().containsKey("name") && resource.getProperties().get("name").equals(name))
+                && (resource.getProperties().containsKey("action")
+                        && resource.getProperties().get("action").equals(action));
     }
 
     /**
-     * The second upload stands in for the losing side of a concurrent race: {@code uploadCertificatePublicKey}
-     * carries no fingerprint pre-check of its own — that guard lives in its callers — so the second call always
-     * reaches the conflict-resolving insert and takes the adopt path. A two-thread version would deadlock, the
-     * holder of the open transaction waiting on a thread blocked inside its own insert.
+     * The second upload stands in for the losing side of a concurrent race: {@code uploadCertificatePublicKey} carries
+     * no fingerprint pre-check of its own — that guard lives in its callers — so the second call always reaches the
+     * conflict-resolving insert and takes the adopt path. A two-thread version would deadlock, the holder of the open
+     * transaction waiting on a thread blocked inside its own insert.
      */
     @Test
     void uploadingTheSameKeyTwiceConvergesOnOneKeyAndLeavesNoOrphan() throws NoSuchAlgorithmException {
@@ -1091,8 +1068,9 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
         generator.initialize(2048);
         PublicKey publicKey = generator.generateKeyPair().getPublic();
         int keyLength = KeySizeUtil.getKeyLength(publicKey);
-        String fingerprint = CertificateUtil.getThumbprint(
-                Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+        String fingerprint = CertificateUtil
+                .getThumbprint(
+                        Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
 
         UUID firstKeyUuid = cryptographicKeyInternalService
                 .uploadCertificatePublicKey("certKey_first", publicKey, keyLength, fingerprint);
@@ -1101,13 +1079,16 @@ class CryptographicKeyServiceITest extends BaseSpringBootTest {
                 .uploadCertificatePublicKey("certKey_second", publicKey, keyLength, fingerprint);
 
         Assertions.assertNotNull(firstKeyUuid);
-        Assertions.assertEquals(firstKeyUuid, secondKeyUuid,
-                "the second caller must adopt the surviving key, not the parent it created itself");
-        Assertions.assertEquals(firstKeyUuid,
-                cryptographicKeyItemRepository.findByFingerprint(fingerprint).orElseThrow().getKey().getUuid(),
-                "the surviving key item must belong to the adopted key");
-        Assertions.assertEquals(keysAfterFirstUpload, cryptographicKeyRepository.count(),
-                "the discarded key must not be left behind");
+        Assertions
+                .assertEquals(firstKeyUuid, secondKeyUuid,
+                        "the second caller must adopt the surviving key, not the parent it created itself");
+        Assertions
+                .assertEquals(firstKeyUuid,
+                        cryptographicKeyItemRepository.findByFingerprint(fingerprint).orElseThrow().getKey().getUuid(),
+                        "the surviving key item must belong to the adopted key");
+        Assertions
+                .assertEquals(keysAfterFirstUpload, cryptographicKeyRepository.count(),
+                        "the discarded key must not be left behind");
     }
 
 }

@@ -10,15 +10,14 @@ import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,9 +56,9 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
     }
 
     /**
-     * The writer uses {@code REQUIRED}, as the architecture rule for this package demands, so it composes with
-     * whatever transaction the caller provides. Isolation is therefore the caller's job — this documents the
-     * half that does not survive, so nobody "simplifies" the orchestrator by dropping the wrapper.
+     * The writer uses {@code REQUIRED}, as the architecture rule for this package demands, so it composes with whatever
+     * transaction the caller provides. Isolation is therefore the caller's job — this documents the half that does not
+     * survive, so nobody "simplifies" the orchestrator by dropping the wrapper.
      */
     @Test
     void markProcessedJoinsTheCallerTransactionAndIsLostWhenItRollsBack() {
@@ -68,8 +67,7 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
         assertThatThrownBy(() -> newTransaction().executeWithoutResult(status -> {
             discoveryWriter.markProcessed(List.of(row.getUuid()), "Import rolled back: database constraint violation");
             throw new IllegalStateException("caller fails after the writer ran");
-        })).isInstanceOf(IllegalStateException.class)
-                .hasMessage("caller fails after the writer ran");
+        })).isInstanceOf(IllegalStateException.class).hasMessage("caller fails after the writer ran");
 
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         assertThat(reloaded.isProcessed())
@@ -79,24 +77,24 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
     }
 
     /**
-     * The pattern the orchestrator actually uses: the bookkeeping write runs in its own transaction, opened
-     * after the import unit has returned, so it survives that unit rolling back.
+     * The pattern the orchestrator actually uses: the bookkeeping write runs in its own transaction, opened after the
+     * import unit has returned, so it survives that unit rolling back.
      */
     @Test
     void markProcessedSurvivesARollbackWhenTheCallerIsolatesIt() {
         DiscoveryCertificate row = givenDiscoveryCertificate(givenDiscovery());
 
         assertThatThrownBy(() -> newTransaction().executeWithoutResult(status -> {
-            transactionHandler.runInNewTransaction(() ->
-                    discoveryWriter.markProcessed(List.of(row.getUuid()), "Import rolled back: database constraint violation"));
+            transactionHandler
+                    .runInNewTransaction(() -> discoveryWriter
+                            .markProcessed(List.of(row.getUuid()),
+                                    "Import rolled back: database constraint violation"));
             throw new IllegalStateException("caller fails after the writer ran");
-        })).isInstanceOf(IllegalStateException.class)
-                .hasMessage("caller fails after the writer ran");
+        })).isInstanceOf(IllegalStateException.class).hasMessage("caller fails after the writer ran");
 
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         assertThat(reloaded.isProcessed()).isTrue();
-        assertThat(reloaded.getProcessedError())
-                .isEqualTo("Import rolled back: database constraint violation");
+        assertThat(reloaded.getProcessedError()).isEqualTo("Import rolled back: database constraint violation");
     }
 
     @Test
@@ -115,7 +113,9 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
         DiscoveryCertificate row = givenDiscoveryCertificate(givenDiscovery());
         discoveryWriter.markProcessed(List.of(row.getUuid()), null);
 
-        discoveryWriter.recordProcessedError(List.of(row.getUuid()), "Public key could not be associated: the primary key upload failed");
+        discoveryWriter
+                .recordProcessedError(List.of(row.getUuid()),
+                        "Public key could not be associated: the primary key upload failed");
 
         DiscoveryCertificate reloaded = discoveryCertificateRepository.findByUuid(row.getUuid()).orElseThrow();
         assertThat(reloaded.isProcessed())
@@ -130,8 +130,8 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
         DiscoveryHistory discovery = givenDiscovery();
         DiscoveryStatus statusBefore = discovery.getStatus();
 
-        discoveryWriter.updateProgressMessage(discovery.getUuid(),
-                "Processed 40 % of newly discovered certificates (4 / 10)");
+        discoveryWriter
+                .updateProgressMessage(discovery.getUuid(), "Processed 40 % of newly discovered certificates (4 / 10)");
 
         DiscoveryHistory reloaded = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         assertThat(reloaded.getMessage()).isEqualTo("Processed 40 % of newly discovered certificates (4 / 10)");

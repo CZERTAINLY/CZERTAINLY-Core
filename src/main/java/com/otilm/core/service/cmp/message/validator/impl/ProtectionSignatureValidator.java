@@ -7,24 +7,27 @@ import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
 import com.otilm.core.service.cmp.message.validator.Validator;
 import com.otilm.core.util.CertificateUtil;
-import org.bouncycastle.asn1.ASN1Encoding;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.*;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.security.KeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
 import java.security.cert.X509Certificate;
+import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.cmp.CMPCertificate;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIHeader;
+import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.cmp.ProtectedPart;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <h6>Signature validator</h6>
  * <p>
- * In this case, the sender possesses a signature key pair and simply
- * signs the PKI message.  <code>PKIProtection</code> will contain the signature
- * value and the <code>protectionAlg</code> will be an <code>AlgorithmIdentifier</code> for a
+ * In this case, the sender possesses a signature key pair and simply signs the PKI message. <code>PKIProtection</code>
+ * will contain the signature value and the <code>protectionAlg</code> will be an <code>AlgorithmIdentifier</code> for a
  * digital signature (e.g., md5WithRSAEncryption or dsaWithSha-1).
  * </p>
  *
@@ -38,12 +41,24 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
     /**
      * Signature-base protection implementation assumes:
      * <ul>
-     *     <ol>that incoming message has <code>extraCert</code> field NOT EMPTY.</ol>
-     *     <ol>try to find first certificate from <code>extraCert</code></ol>
-     *     <ol>try to get public key of first certificate from <code>extraCert</code></ol>
-     *     <ol>given public key is used for signature verification</ol>
-     *     <ol>subject of signature {@link ProtectedPart} is count from {@link PKIHeader} and {@link PKIBody} values</ol>
-     *     <ol>given counted {@link ProtectedPart} is verify against value in {@link PKIMessage#getProtection()}</ol>
+     * <ol>
+     * that incoming message has <code>extraCert</code> field NOT EMPTY.
+     * </ol>
+     * <ol>
+     * try to find first certificate from <code>extraCert</code>
+     * </ol>
+     * <ol>
+     * try to get public key of first certificate from <code>extraCert</code>
+     * </ol>
+     * <ol>
+     * given public key is used for signature verification
+     * </ol>
+     * <ol>
+     * subject of signature {@link ProtectedPart} is count from {@link PKIHeader} and {@link PKIBody} values
+     * </ol>
+     * <ol>
+     * given counted {@link ProtectedPart} is verify against value in {@link PKIMessage#getProtection()}
+     * </ol>
      * </ul>
      *
      * @param message is subject of signature-based validation
@@ -57,9 +72,10 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
         CMPCertificate[] extraCerts = message.getExtraCerts();
         // TODO: improvement, add configuration to CMP Profile to configure location of signing certificate
         if (extraCerts == null || extraCerts.length == 0 || extraCerts[0] == null) {
-            LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getCmpProfile().getName());
-            throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable,
-                    ImplFailureInfo.CRYPTOSIG541);
+            LOG
+                    .error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType,
+                            configuration.getCmpProfile().getName());
+            throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable, ImplFailureInfo.CRYPTOSIG541);
         }
 
         try {
@@ -70,24 +86,20 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
             if (configuration.dumpSigning()) {
                 PkiMessageDumper.dumpSingerCertificate("validator", singerCertificate, null);
             }
-            Signature signature = Signature.getInstance(
-                    header.getProtectionAlg().getAlgorithm().getId(),
-                    BouncyCastleProvider.PROVIDER_NAME);
+            Signature signature = Signature
+                    .getInstance(header.getProtectionAlg().getAlgorithm().getId(), BouncyCastleProvider.PROVIDER_NAME);
             signature.initVerify(singerCertificate.getPublicKey());
             signature.update(protectedBytes);
             if (!signature.verify(protectionBytes, 0, protectionBytes.length)) {
-                throw new CmpProcessingException(PKIFailureInfo.wrongIntegrity,
-                        ImplFailureInfo.CRYPTOSIG542);
+                throw new CmpProcessingException(PKIFailureInfo.wrongIntegrity, ImplFailureInfo.CRYPTOSIG542);
             }
 
         } catch (CmpProcessingException ex) {
             throw ex;
         } catch (final KeyException | NoSuchAlgorithmException ex) {
-            throw new CmpProcessingException(PKIFailureInfo.badAlg,
-                    ImplFailureInfo.CRYPTOSIG543);
+            throw new CmpProcessingException(PKIFailureInfo.badAlg, ImplFailureInfo.CRYPTOSIG543);
         } catch (Exception ex) {
-            throw new CmpProcessingException(
-                    PKIFailureInfo.notAuthorized,
+            throw new CmpProcessingException(PKIFailureInfo.notAuthorized,
                     ex.getClass().getSimpleName() + ":" + ex.getLocalizedMessage());
         }
         return null;

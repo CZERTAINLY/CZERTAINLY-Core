@@ -1,6 +1,11 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.cmp.CmpProfileEditRequestDto;
@@ -19,7 +24,10 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.otilm.core.dao.entity.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.ProtocolCertificateAssociations;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
 import com.otilm.core.dao.entity.cmp.CmpProfile_;
 import com.otilm.core.dao.repository.ProtocolCertificateAssociationsRepository;
@@ -37,15 +45,14 @@ import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.util.CertificateEligibilityUtil;
 import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service(Resource.Codes.CMP_PROFILE)
 @Transactional
@@ -67,7 +74,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
 
     @Autowired
-    public void setCertificateAssociationRepository(ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
+    public void setCertificateAssociationRepository(
+            ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
         this.certificateAssociationRepository = certificateAssociationRepository;
     }
 
@@ -106,7 +114,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.LIST)
     public List<CmpProfileDto> listCmpProfile(SecurityFilter filter) {
         logger.debug("Getting all the CMP Profiles available in the database");
-        return cmpProfileRepository.findUsingSecurityFilter(filter)
+        return cmpProfileRepository
+                .findUsingSecurityFilter(filter)
                 .stream()
                 .map(CmpProfile::mapToDto)
                 .collect(Collectors.toList());
@@ -123,7 +132,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
     @Override
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.CREATE)
-    public CmpProfileDetailDto createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public CmpProfileDetailDto createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException,
+            ValidationException, ConnectorException, AttributeException, NotFoundException {
         if (cmpProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("CMP Profile " + request.getName() + " already exists");
         }
@@ -172,22 +182,21 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
         cmpProfile = cmpProfileRepository.save(cmpProfile);
 
-        CmpProfileDetailDto dto = updateAndMapDtoAttributes(
-                cmpProfile,
-                raProfile,
-                request.getIssueCertificateAttributes(),
-                request.getRevokeCertificateAttributes(),
-                request.getCustomAttributes()
-        );
+        CmpProfileDetailDto dto = updateAndMapDtoAttributes(cmpProfile, raProfile,
+                request.getIssueCertificateAttributes(), request.getRevokeCertificateAttributes(),
+                request.getCustomAttributes());
 
         logger.info("CMP Profile created successfully: name={}, uuid={}", cmpProfile.getName(), cmpProfile.getUuid());
 
         return dto;
     }
 
-    private static ProtocolCertificateAssociations getCertificateAssociation(CmpProfileEditRequestDto request, CmpProfile cmpProfile) {
+    private static ProtocolCertificateAssociations getCertificateAssociation(CmpProfileEditRequestDto request,
+            CmpProfile cmpProfile) {
         ProtocolCertificateAssociations certificateAssociation = cmpProfile.getCertificateAssociations();
-        if (certificateAssociation == null) certificateAssociation = new ProtocolCertificateAssociations();
+        if (certificateAssociation == null) {
+            certificateAssociation = new ProtocolCertificateAssociations();
+        }
         certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
         certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
         certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
@@ -196,7 +205,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
     @Override
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.UPDATE)
-    public CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException {
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);
 
         // An absent challengeSource keeps the stored value on edit.
@@ -222,9 +232,17 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
         RaProfile raProfile = getProvidedRaProfile(request);
 
         // delete old connector data attributes content
-        UUID oldConnectorUuid = cmpProfile.getRaProfile() == null ? null : cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
+        UUID oldConnectorUuid = cmpProfile.getRaProfile() == null
+                ? null
+                : cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
         if (oldConnectorUuid != null) {
-            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(oldConnectorUuid).operation(AttributeOperation.CERTIFICATE_ISSUE).build());
+            attributeEngine
+                    .deleteOperationObjectAttributesContent(AttributeType.DATA,
+                            ObjectAttributeContentInfo
+                                    .builder(Resource.CMP_PROFILE, cmpProfile.getUuid())
+                                    .connector(oldConnectorUuid)
+                                    .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                                    .build());
         }
 
         cmpProfile.setDescription(request.getDescription());
@@ -245,13 +263,9 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
         cmpProfileRepository.save(cmpProfile);
 
-        CmpProfileDetailDto dto = updateAndMapDtoAttributes(
-                cmpProfile,
-                raProfile,
-                request.getIssueCertificateAttributes(),
-                request.getRevokeCertificateAttributes(),
-                request.getCustomAttributes()
-        );
+        CmpProfileDetailDto dto = updateAndMapDtoAttributes(cmpProfile, raProfile,
+                request.getIssueCertificateAttributes(), request.getRevokeCertificateAttributes(),
+                request.getCustomAttributes());
 
         logger.info("CMP Profile updated successfully: name={}, uuid={}", cmpProfile.getName(), cmpProfile.getUuid());
 
@@ -276,7 +290,10 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
                 deleteCmpProfile(cmpProfile);
             } catch (Exception e) {
                 logger.error(e.getMessage());
-                messages.add(BulkActionMessageDto.failure(cmpProfileUuid.toString(), cmpProfile != null ? cmpProfile.getName() : "", e, "Delete failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(cmpProfileUuid.toString(), cmpProfile != null ? cmpProfile.getName() : "", e,
+                                        "Delete failed"));
             }
         }
         return messages;
@@ -284,21 +301,31 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
     @Override
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveCmpProfiles(List<SecuredUUID> cmpProfileUuids) throws ValidationException {
+    public List<BulkActionMessageDto> bulkForceRemoveCmpProfiles(List<SecuredUUID> cmpProfileUuids)
+            throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID cmpProfileUuid : cmpProfileUuids) {
             CmpProfile cmpProfile = null;
             try {
                 cmpProfile = getCmpProfileEntity(cmpProfileUuid);
-                SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithCmpProfile(
-                        cmpProfile.getUuid().toString(), SecurityFilter.create());
-                // CMP Profile only from allowed ones, but that would make the forbidden RA Profiles point to non-existing CMP Profile.
-                raProfileService.bulkRemoveAssociatedCmpProfile(
-                        raProfiles.getAll().stream().map(UniquelyIdentifiedAndAudited::getSecuredParentUuid).collect(Collectors.toList()));
+                SecuredList<RaProfile> raProfiles = raProfileService
+                        .listRaProfilesAssociatedWithCmpProfile(cmpProfile.getUuid().toString(),
+                                SecurityFilter.create());
+                // CMP Profile only from allowed ones, but that would make the forbidden RA Profiles point to
+                // non-existing CMP Profile.
+                raProfileService
+                        .bulkRemoveAssociatedCmpProfile(raProfiles
+                                .getAll()
+                                .stream()
+                                .map(UniquelyIdentifiedAndAudited::getSecuredParentUuid)
+                                .collect(Collectors.toList()));
                 deleteCmpProfile(cmpProfile);
             } catch (Exception e) {
                 logger.warn(e.getMessage());
-                messages.add(BulkActionMessageDto.failure(cmpProfileUuid.toString(), cmpProfile != null ? cmpProfile.getName() : "", e, "Delete failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(cmpProfileUuid.toString(), cmpProfile != null ? cmpProfile.getName() : "", e,
+                                        "Delete failed"));
             }
         }
         return messages;
@@ -367,7 +394,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
     @Override
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return cmpProfileRepository.listResourceObjects(filter, CmpProfile_.name);
     }
 
@@ -386,60 +414,64 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
 
     /**
      * Validate the variant configuration for the CMP Profile
+     *
      * @param cmpProfile CMP Profile entity
      * @param request CMP Profile request DTO
      * @throws ValidationException When the variant configuration is not valid
      */
-    private void validateAndSetVariantConfiguration(CmpProfile cmpProfile, CmpProfileRequestDto request) throws ValidationException {
+    private void validateAndSetVariantConfiguration(CmpProfile cmpProfile, CmpProfileRequestDto request)
+            throws ValidationException {
         switch (request.getVariant()) {
             case V2 -> {
                 // when the response protection method is shared secret, the request protection method must be shared
                 // secret, because they share the same secret and the client must know the secret to decrypt
                 // the response
-                if (request.getResponseProtectionMethod() == ProtectionMethod.SHARED_SECRET &&
-                        request.getRequestProtectionMethod() != ProtectionMethod.SHARED_SECRET) {
-                    throw new ValidationException(ValidationError.create(
-                            "Request protection method for the CMPv2 must be " +
-                                    ProtectionMethod.SHARED_SECRET.getCode()) +
-                            " when response protection method is " + ProtectionMethod.SHARED_SECRET.getCode());
+                if (request.getResponseProtectionMethod() == ProtectionMethod.SHARED_SECRET
+                        && request.getRequestProtectionMethod() != ProtectionMethod.SHARED_SECRET) {
+                    throw new ValidationException(ValidationError
+                            .create("Request protection method for the CMPv2 must be "
+                                    + ProtectionMethod.SHARED_SECRET.getCode())
+                            + " when response protection method is " + ProtectionMethod.SHARED_SECRET.getCode());
                 }
                 // when the request protection method is signature, the response protection method must be signature
                 // because the client does not have knowledge of the shared secret
-                if (request.getRequestProtectionMethod() == ProtectionMethod.SIGNATURE &&
-                        request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
-                    throw new ValidationException(ValidationError.create(
-                            "Response protection method for the CMPv2 must be " +
-                                    ProtectionMethod.SIGNATURE.getCode()) +
-                            " when request protection method is " + ProtectionMethod.SIGNATURE.getCode());
+                if (request.getRequestProtectionMethod() == ProtectionMethod.SIGNATURE
+                        && request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError
+                            .create("Response protection method for the CMPv2 must be "
+                                    + ProtectionMethod.SIGNATURE.getCode())
+                            + " when request protection method is " + ProtectionMethod.SIGNATURE.getCode());
                 }
                 cmpProfile.setVariant(CmpProfileVariant.V2);
             }
             case V2_3GPP -> {
                 if (request.getRequestProtectionMethod() != ProtectionMethod.SIGNATURE) {
-                    throw new ValidationException(ValidationError.create(
-                            "Request protection method for the 3GPP CMP request must be " +
-                                    ProtectionMethod.SIGNATURE.getCode()));
+                    throw new ValidationException(ValidationError
+                            .create("Request protection method for the 3GPP CMP request must be "
+                                    + ProtectionMethod.SIGNATURE.getCode()));
                 }
                 if (request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
-                    throw new ValidationException(ValidationError.create(
-                            "Response protection method for the 3GPP CMP response must be " +
-                                    ProtectionMethod.SIGNATURE.getCode()));
+                    throw new ValidationException(ValidationError
+                            .create("Response protection method for the 3GPP CMP response must be "
+                                    + ProtectionMethod.SIGNATURE.getCode()));
                 }
                 cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
             }
             case V3 -> throw new ValidationException(ValidationError.create("CMPv3 is not supported yet"));
             default ->
-                    throw new ValidationException(ValidationError.create("Variant for the CMP Profile not supported"));
+                throw new ValidationException(ValidationError.create("Variant for the CMP Profile not supported"));
         }
     }
 
     /**
      * Validate and set the protection methods for the CMP Profile
+     *
      * @param cmpProfile CMP Profile entity
      * @param request CMP Profile request DTO
      * @throws NotFoundException When the certificate for signature response protection is not found
      */
-    private void validateAndSetProtectionMethods(CmpProfile cmpProfile, CmpProfileRequestDto request) throws NotFoundException {
+    private void validateAndSetProtectionMethods(CmpProfile cmpProfile, CmpProfileRequestDto request)
+            throws NotFoundException {
         // Registration rules were validated ahead of variant validation; here only the secret is cleared.
         boolean registrationMode = cmpProfile.getChallengeSource() == ProtocolChallengeSource.CERTIFICATE_REGISTRATION;
 
@@ -455,8 +487,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
                 }
             }
             case SIGNATURE -> cmpProfile.setSharedSecret(null);
-            default ->
-                    throw new ValidationException(ValidationError.create("Protection method for the CMP request not supported"));
+            default -> throw new ValidationException(
+                    ValidationError.create("Protection method for the CMP request not supported"));
         }
 
         // validate and set response protection method
@@ -466,14 +498,16 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
                 if (request.getSigningCertificateUuid() == null || request.getSigningCertificateUuid().isEmpty()) {
                     throw new ValidationException(ValidationError.create("Signing certificate cannot be empty"));
                 }
-                Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getSigningCertificateUuid()));
+                Certificate certificate = certificateService
+                        .getCertificateEntity(SecuredUUID.fromString(request.getSigningCertificateUuid()));
                 if (!CertificateEligibilityUtil.isCertificateCmpAcceptable(certificate)) {
-                    throw new ValidationException(ValidationError.create("Signing certificate cannot be used for CMP Profile"));
+                    throw new ValidationException(
+                            ValidationError.create("Signing certificate cannot be used for CMP Profile"));
                 }
                 cmpProfile.setSigningCertificateUuid(UUID.fromString(request.getSigningCertificateUuid()));
             }
-            default ->
-                    throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
+            default -> throw new ValidationException(
+                    ValidationError.create("Protection method for the CMP response not supported"));
         }
     }
 
@@ -499,8 +533,8 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     }
 
     /**
-     * Applies the write-only shared secret when the request protection method is shared secret. The edit form does
-     * not prefill the stored secret, so a blank or omitted value keeps the stored one; a non-blank value replaces it.
+     * Applies the write-only shared secret when the request protection method is shared secret. The edit form does not
+     * prefill the stored secret, so a blank or omitted value keeps the stored one; a non-blank value replaces it.
      * Rejected only when there is nothing to keep — on create, or on edit of a profile without a stored secret.
      */
     private static void applySharedSecret(CmpProfile cmpProfile, CmpProfileRequestDto request) {
@@ -508,88 +542,113 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
         if (valueProvided) {
             cmpProfile.setSharedSecret(request.getSharedSecret());
         } else if (cmpProfile.getSharedSecret() == null || cmpProfile.getSharedSecret().isBlank()) {
-            throw new ValidationException(ValidationError.create(
-                    "Shared secret is required when request protection method is " + ProtectionMethod.SHARED_SECRET.getCode()));
+            throw new ValidationException(ValidationError
+                    .create("Shared secret is required when request protection method is "
+                            + ProtectionMethod.SHARED_SECRET.getCode()));
         }
     }
 
     /**
      * Get the RA Profile entity from the provided RA Profile UUID, if available
+     *
      * @param request CMP Profile request DTO
      * @return RA Profile entity
      * @throws ConnectorException When the RA Profile is not found, or connector is not available
      * @throws AttributeException When the attributes are not valid
      */
-    private RaProfile getProvidedRaProfile(CmpProfileRequestDto request) throws AttributeException, ConnectorException, NotFoundException {
+    private RaProfile getProvidedRaProfile(CmpProfileRequestDto request)
+            throws AttributeException, ConnectorException, NotFoundException {
         // check if RA Profile is provided
         RaProfile raProfile = null;
         if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
             raProfile = getRaProfile(request.getRaProfileUuid());
-            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
-            extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
+            extendedAttributeService
+                    .mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+            extendedAttributeService
+                    .mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
         }
         return raProfile;
     }
 
     private CmpProfileDetailDto mapToDetailDto(CmpProfile cmpProfile) {
         CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CMP_PROFILE, cmpProfile.getUuid()));
+        dto
+                .setCustomAttributes(
+                        attributeEngine.getObjectCustomAttributesContent(Resource.CMP_PROFILE, cmpProfile.getUuid()));
         if (cmpProfile.getRaProfile() != null) {
-            dto.setIssueCertificateAttributes(
-                    attributeEngine.getObjectDataAttributesContent(
-                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build()
-                    )
-            );
-            dto.setRevokeCertificateAttributes(
-                    attributeEngine.getObjectDataAttributesContent(
-                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build()
-                    )
-            );
+            dto
+                    .setIssueCertificateAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CMP_PROFILE, cmpProfile.getUuid())
+                                    .connector(cmpProfile
+                                            .getRaProfile()
+                                            .getAuthorityInstanceReference()
+                                            .getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                                    .build()));
+            dto
+                    .setRevokeCertificateAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CMP_PROFILE, cmpProfile.getUuid())
+                                    .connector(cmpProfile
+                                            .getRaProfile()
+                                            .getAuthorityInstanceReference()
+                                            .getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_REVOKE)
+                                    .build()));
         }
 
         if (cmpProfile.getCertificateAssociations() != null) {
-            dto.setCertificateAssociations(cmpProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
+            dto
+                    .setCertificateAssociations(cmpProfile
+                            .getCertificateAssociations()
+                            .mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine
+                                    .loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
         }
 
         return dto;
     }
 
     private CmpProfileDetailDto updateAndMapDtoAttributes(CmpProfile cmpProfile, RaProfile raProfile,
-                                     List<RequestAttribute> issueCertificateAttributes,
-                                     List<RequestAttribute> revokeCertificateAttributes,
-                                     List<RequestAttribute> customAttributes) throws NotFoundException, AttributeException {
+            List<RequestAttribute> issueCertificateAttributes, List<RequestAttribute> revokeCertificateAttributes,
+            List<RequestAttribute> customAttributes) throws NotFoundException, AttributeException {
         CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
-        dto.setCustomAttributes(
-                attributeEngine.updateObjectCustomAttributesContent(
-                        Resource.CMP_PROFILE,
-                        cmpProfile.getUuid(),
-                        customAttributes
-                )
-        );
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.CMP_PROFILE, cmpProfile.getUuid(),
+                                customAttributes));
         if (raProfile != null) {
-            dto.setIssueCertificateAttributes(
-                    attributeEngine.updateObjectDataAttributesContent(
-                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_ISSUE).build(),
-                            issueCertificateAttributes
-                    )
-            );
-            dto.setRevokeCertificateAttributes(
-                    attributeEngine.updateObjectDataAttributesContent(
-                            ObjectAttributeContentInfo.builder(Resource.CMP_PROFILE, cmpProfile.getUuid()).connector(raProfile.getAuthorityInstanceReference().getConnectorUuid()).operation(AttributeOperation.CERTIFICATE_REVOKE).build(),
-                            revokeCertificateAttributes
-                    )
-            );
+            dto
+                    .setIssueCertificateAttributes(attributeEngine
+                            .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CMP_PROFILE, cmpProfile.getUuid())
+                                    .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                                    .build(), issueCertificateAttributes));
+            dto
+                    .setRevokeCertificateAttributes(attributeEngine
+                            .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CMP_PROFILE, cmpProfile.getUuid())
+                                    .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_REVOKE)
+                                    .build(), revokeCertificateAttributes));
         }
 
         if (cmpProfile.getCertificateAssociations() != null) {
-            dto.setCertificateAssociations(cmpProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
+            dto
+                    .setCertificateAssociations(cmpProfile
+                            .getCertificateAssociations()
+                            .mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine
+                                    .loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
         }
 
         return dto;
     }
 
     private CmpProfile getCmpProfileEntity(SecuredUUID cmpProfileUuid) throws NotFoundException {
-        return cmpProfileRepository.findByUuid(cmpProfileUuid).orElseThrow(() -> new NotFoundException(CmpProfile.class, cmpProfileUuid));
+        return cmpProfileRepository
+                .findByUuid(cmpProfileUuid)
+                .orElseThrow(() -> new NotFoundException(CmpProfile.class, cmpProfileUuid));
     }
 
     private RaProfile getRaProfile(String raProfileUuid) throws NotFoundException {
@@ -597,18 +656,17 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     }
 
     private void deleteCmpProfile(CmpProfile cmpProfile) {
-        SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithCmpProfile(
-                cmpProfile.getUuid().toString(), SecurityFilter.create());
+        SecuredList<RaProfile> raProfiles = raProfileService
+                .listRaProfilesAssociatedWithCmpProfile(cmpProfile.getUuid().toString(), SecurityFilter.create());
         if (!raProfiles.isEmpty()) {
-            throw new ValidationException(
-                    ValidationError.create(
-                            String.format(
-                                    "Cannot remove as there are associated RA Profiles (%d): %s",
-                                    raProfiles.size(),
-                                    raProfiles.getAllowed().stream().map(RaProfile::getName).collect(Collectors.joining(","))
-                            )
-                    )
-            );
+            throw new ValidationException(ValidationError
+                    .create(String
+                            .format("Cannot remove as there are associated RA Profiles (%d): %s", raProfiles.size(),
+                                    raProfiles
+                                            .getAllowed()
+                                            .stream()
+                                            .map(RaProfile::getName)
+                                            .collect(Collectors.joining(",")))));
         } else {
             attributeEngine.deleteObjectAttributeContent(Resource.CMP_PROFILE, cmpProfile.getUuid());
             cmpProfileRepository.delete(cmpProfile);

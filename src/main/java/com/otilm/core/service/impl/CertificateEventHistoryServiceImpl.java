@@ -1,6 +1,7 @@
 package com.otilm.core.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventHistoryDto;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
@@ -8,13 +9,15 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateEventHistory;
 import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
-import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.service.CertificateEventHistoryExternalService;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.util.MetaDefinitions;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,13 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
-
 @Service
 @Transactional
-public class CertificateEventHistoryServiceImpl implements CertificateEventHistoryExternalService, CertificateEventHistoryInternalService {
+public class CertificateEventHistoryServiceImpl
+        implements
+            CertificateEventHistoryExternalService,
+            CertificateEventHistoryInternalService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateEventHistoryServiceImpl.class);
 
@@ -44,17 +46,20 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     }
 
     @Autowired
-    public void setCertificateEventHistoryRepository(CertificateEventHistoryRepository certificateEventHistoryRepository) {
+    public void setCertificateEventHistoryRepository(
+            CertificateEventHistoryRepository certificateEventHistoryRepository) {
         this.certificateEventHistoryRepository = certificateEventHistoryRepository;
     }
 
     @Override
-    public void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation) {
+    public void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status,
+            String message, HashMap<String, Object> additionalInformation) {
         addEventHistory(certificateUuid, event, status, message, MetaDefinitions.serialize(additionalInformation));
     }
 
     @Override
-    public void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation) {
+    public void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status,
+            String message, String additionalInformation) {
         CertificateEventHistory history = new CertificateEventHistory();
         history.setEvent(event);
         history.setCertificateUuid(certificateUuid);
@@ -66,22 +71,30 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void addEventHistorySurvivingRollback(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation) {
+    public void addEventHistorySurvivingRollback(UUID certificateUuid, CertificateEvent event,
+            CertificateEventStatus status, String message, String additionalInformation) {
         addEventHistory(certificateUuid, event, status, message, additionalInformation);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public List<CertificateEventHistoryDto> getCertificateEventHistory(UUID uuid) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        return certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateEventHistory::mapToDto).toList();
+        Certificate certificate = certificateRepository
+                .findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        return certificateEventHistoryRepository
+                .findByCertificateOrderByCreatedDesc(certificate)
+                .stream()
+                .map(CertificateEventHistory::mapToDto)
+                .toList();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleUpdateCertificateHistoryEvent(UpdateCertificateHistoryEvent event) {
         logger.debug("UpdateCertificateHistoryEvent event handled. Certificate UUID: {}", event.certificateUuid());
-        addEventHistory(event.certificateUuid(), event.certificateEvent(), event.eventStatus(), event.message(), event.detail());
+        addEventHistory(event.certificateUuid(), event.certificateEvent(), event.eventStatus(), event.message(),
+                event.detail());
     }
 
 }

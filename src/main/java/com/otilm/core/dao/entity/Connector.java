@@ -1,5 +1,7 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -16,17 +18,27 @@ import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -34,9 +46,12 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "connector", uniqueConstraints = {
-        @UniqueConstraint(name = "uq_connector_url_version", columnNames = {"url", "version"})
-})
-public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<com.otilm.api.model.core.connector.ConnectorDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+        @UniqueConstraint(name = "uq_connector_url_version", columnNames = {"url", "version"})})
+public class Connector extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<com.otilm.api.model.core.connector.ConnectorDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Serial
     private static final long serialVersionUID = -4057975339123024975L;
@@ -116,7 +131,10 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         setCommonFields(dto);
 
         dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        dto
+                .setAuthAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(
+                                AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
         return dto;
     }
 
@@ -144,7 +162,10 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUrl(this.url);
         dto.setStatus(this.status);
         dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        dto
+                .setAuthAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(
+                                AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
         if (this.proxy != null) {
             dto.setProxy(this.proxy.mapToDtoSimple());
         }
@@ -179,8 +200,10 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUrl(this.url);
         dto.setStatus(this.status);
         dto.setAuthType(this.authType);
-        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(
-                AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        dto
+                .setAuthAttributes(AttributeEngine
+                        .getResponseAttributesFromBaseAttributes(
+                                AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
         if (this.proxy != null) {
             dto.setProxy(this.proxy.mapToDtoSimple());
         }
@@ -193,17 +216,29 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         Connector connector = (Connector) o;
         return getUuid() != null && Objects.equals(getUuid(), connector.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

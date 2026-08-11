@@ -2,13 +2,28 @@ package com.otilm.core.dao.entity;
 
 import com.otilm.api.model.core.audit.AuditLogDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.logging.enums.*;
+import com.otilm.api.model.core.logging.enums.ActorType;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.logging.enums.Module;
+import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.logging.enums.OperationResult;
 import com.otilm.api.model.core.logging.records.LogRecord;
 import com.otilm.core.logging.AuditLogExportDto;
 import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.util.DtoMapper;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
+import java.io.Serializable;
+import java.time.OffsetDateTime;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -17,11 +32,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
-
-import java.io.Serializable;
-import java.time.OffsetDateTime;
-import java.util.Objects;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -119,7 +129,9 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         builder.resourceObjects(LoggingHelper.formatResourceObjectForCsv(logRecord.resource().objects()));
         builder.affiliatedResource(affiliatedResource);
         if (logRecord.affiliatedResource() != null) {
-            builder.affiliatedObjects(LoggingHelper.formatResourceObjectForCsv(logRecord.affiliatedResource().objects()));
+            builder
+                    .affiliatedObjects(
+                            LoggingHelper.formatResourceObjectForCsv(logRecord.affiliatedResource().objects()));
         }
         builder.actorType(actorType);
         builder.actorAuthMethod(actorAuthMethod);
@@ -145,7 +157,9 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         auditLog.setActorUuid(logRecord.actor().uuid());
         auditLog.setActorName(logRecord.actor().name());
         auditLog.setResource(logRecord.resource().type());
-        auditLog.setAffiliatedResource(logRecord.affiliatedResource() != null ? logRecord.affiliatedResource().type() : null);
+        auditLog
+                .setAffiliatedResource(
+                        logRecord.affiliatedResource() != null ? logRecord.affiliatedResource().type() : null);
         auditLog.setOperation(logRecord.operation());
         auditLog.setOperationResult(logRecord.operationResult());
         auditLog.setMessage(logRecord.message());
@@ -157,17 +171,31 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof AuditLog auditLog)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy p
+                ? p.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy p
+                ? p.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof AuditLog auditLog)) {
+            return false;
+        }
         return getId() != null && Objects.equals(getId(), auditLog.getId());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy p
+                ? p.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

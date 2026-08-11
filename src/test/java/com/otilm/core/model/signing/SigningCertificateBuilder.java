@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Test builder for {@link SigningCertificate} snapshots.
- * Defaults produce a certificate valid for non-qualified timestamping (mirrors {@code CertificateBuilder}).
+ * Test builder for {@link SigningCertificate} snapshots. Defaults produce a certificate valid for non-qualified
+ * timestamping (mirrors {@code CertificateBuilder}).
  */
 public final class SigningCertificateBuilder {
 
@@ -105,19 +105,8 @@ public final class SigningCertificateBuilder {
     }
 
     public SigningCertificate build() {
-        return new SigningCertificate(
-                uuid,
-                commonName,
-                archived,
-                state,
-                validationStatus,
-                List.copyOf(extendedKeyUsageOids),
-                extendedKeyUsageCritical,
-                qcCompliance,
-                keyUuid,
-                tokenInstanceReferenceUuid,
-                tokenProfileUuid,
-                List.copyOf(keyItemUuids)
-        );
+        return new SigningCertificate(uuid, commonName, archived, state, validationStatus,
+                List.copyOf(extendedKeyUsageOids), extendedKeyUsageCritical, qcCompliance, keyUuid,
+                tokenInstanceReferenceUuid, tokenProfileUuid, List.copyOf(keyItemUuids));
     }
 }

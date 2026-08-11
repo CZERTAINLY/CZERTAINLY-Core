@@ -8,10 +8,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Writes the {@code 401 Unauthorized} response for a TSP request, advertising via {@code WWW-Authenticate}
- * only the HTTP-level authentication schemes the client can actually retry with — {@code Basic} / {@code Bearer}.
+ * Writes the {@code 401 Unauthorized} response for a TSP request, advertising via {@code WWW-Authenticate} only the
+ * HTTP-level authentication schemes the client can actually retry with — {@code Basic} / {@code Bearer}.
  *
- * <p>When the TSP Profile accepts only a client certificate or cannot be resolved, there is no honest, client-actionable
+ * <p>
+ * When the TSP Profile accepts only a client certificate or cannot be resolved, there is no honest, client-actionable
  * HTTP challenge: the response is still 401, but the {@code WWW-Authenticate} header is omitted.
  */
 public class TspChallengeWriter {

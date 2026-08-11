@@ -4,6 +4,8 @@ import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import java.util.List;
+import java.util.UUID;
 import lombok.Setter;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -12,10 +14,7 @@ import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class AbstractExternalAuthorizationManagerTest {
 
@@ -72,19 +71,13 @@ class AbstractExternalAuthorizationManagerTest {
     }
 
     Authentication createPlatformAuthentication() {
-        return new PlatformAuthenticationToken(
-                new PlatformUserDetails(
-                        new AuthenticationInfo(AuthMethod.USER_PROXY, null, "FrantisekJednicka", List.of())
-                )
-        );
+        return new PlatformAuthenticationToken(new PlatformUserDetails(
+                new AuthenticationInfo(AuthMethod.USER_PROXY, null, "FrantisekJednicka", List.of())));
     }
 
     AnonymousAuthenticationToken getAnonymousToken() {
-        return new AnonymousAuthenticationToken(
-                UUID.randomUUID().toString(),
-                new Object(),
-                List.of(new SimpleGrantedAuthority("ANONYMOUS"))
-        );
+        return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new Object(),
+                List.of(new SimpleGrantedAuthority("ANONYMOUS")));
     }
 
     @Setter

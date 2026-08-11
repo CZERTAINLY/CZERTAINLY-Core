@@ -4,5 +4,5 @@ import com.otilm.core.dao.entity.SecretVersion;
 
 import java.util.UUID;
 
-public interface SecretVersionRepository extends SecurityFilterRepository<SecretVersion, UUID>{
+public interface SecretVersionRepository extends SecurityFilterRepository<SecretVersion, UUID> {
 }

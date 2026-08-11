@@ -7,11 +7,10 @@ import com.otilm.core.certificate.request.CsrAttrsEncoder;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
-import org.springframework.stereotype.Service;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class EstCsrAttrsServiceImpl implements EstCsrAttrsService {

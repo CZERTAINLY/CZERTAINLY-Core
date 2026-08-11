@@ -6,6 +6,7 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.model.client.connector.ConnectorRequestDto;
 import com.otilm.api.model.common.UuidDto;
 import com.otilm.core.service.ConnectorRegistrationExternalService;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,11 +14,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ConnectorRegistrationHandlerTest {
@@ -43,14 +45,16 @@ class ConnectorRegistrationHandlerTest {
         result.setUuid("test-uuid-123");
         when(connectorRegistrationService.registerConnector(any())).thenReturn(result);
 
-        ConnectorRegistrationRequest regReq = ConnectorRegistrationRequest.builder()
+        ConnectorRegistrationRequest regReq = ConnectorRegistrationRequest
+                .builder()
                 .name("test-connector")
                 .url("https://connector.example.com")
                 .authType("none")
                 .proxyCode("proxy-001")
                 .build();
 
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId("proxy-001")
                 .messageType("connector.register")
                 .timestamp(Instant.now())
@@ -70,7 +74,8 @@ class ConnectorRegistrationHandlerTest {
 
     @Test
     void handleResponse_withNullRegistrationRequest_handlesGracefully() throws Exception {
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId("proxy-001")
                 .messageType("connector.register")
                 .timestamp(Instant.now())
@@ -83,16 +88,19 @@ class ConnectorRegistrationHandlerTest {
 
     @Test
     void handleResponse_serviceThrowsException_doesNotPropagate() throws Exception {
-        when(connectorRegistrationService.registerConnector(any()))
-                .thenAnswer(invocation -> { throw new AlreadyExistException("Connector already exists"); });
+        when(connectorRegistrationService.registerConnector(any())).thenAnswer(invocation -> {
+            throw new AlreadyExistException("Connector already exists");
+        });
 
-        ConnectorRegistrationRequest regReq = ConnectorRegistrationRequest.builder()
+        ConnectorRegistrationRequest regReq = ConnectorRegistrationRequest
+                .builder()
                 .name("duplicate-connector")
                 .url("https://connector.example.com")
                 .authType("none")
                 .build();
 
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId("proxy-001")
                 .messageType("connector.register")
                 .timestamp(Instant.now())

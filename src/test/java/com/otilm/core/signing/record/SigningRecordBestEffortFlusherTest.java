@@ -1,10 +1,8 @@
 package com.otilm.core.signing.record;
 
-
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -16,11 +14,11 @@ import static org.mockito.Mockito.verify;
 
 /**
  * Tests the thread lifecycle of {@link SigningRecordBestEffortFlusher}: {@code start()} must drive the strategy
- * repeatedly with the configured interval, and {@code stop()} must halt the loop. The strategy itself is mocked —
- * all queue/DB logic lives in {@link BestEffortSigningRecordStrategy} and is covered by its own tests.
+ * repeatedly with the configured interval, and {@code stop()} must halt the loop. The strategy itself is mocked — all
+ * queue/DB logic lives in {@link BestEffortSigningRecordStrategy} and is covered by its own tests.
  * <p>
- * These are inherently timing-based (a real background thread). The mock emulates the real strategy by blocking
- * for the poll timeout it is handed, so the loop paces itself instead of busy-spinning.
+ * These are inherently timing-based (a real background thread). The mock emulates the real strategy by blocking for the
+ * poll timeout it is handed, so the loop paces itself instead of busy-spinning.
  */
 class SigningRecordBestEffortFlusherTest {
 

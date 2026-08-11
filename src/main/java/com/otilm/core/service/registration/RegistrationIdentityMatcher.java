@@ -2,12 +2,6 @@ package com.otilm.core.service.registration;
 
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.PlatformX500NameStyle;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.x500.RDN;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.util.encoders.Hex;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -15,18 +9,24 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.x500.RDN;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.util.encoders.Hex;
 
 /**
  * Pure matching kernel binding a protocol enrolment to a pre-registered certificate. Subjects compare by their
- * {@link PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and
- * spacing but deliberately preserves attribute-value case — the enrolment must present the identity exactly
- * as registered. SAN sets compare as maps of value lists canonicalized per type — IP addresses reduced to
- * their octets (so the CSR's hex rendering equals a registration's decoded text and equivalent forms agree),
- * DNS names lowercased (they are case-insensitive), duplicates dropped, order removed, and empty buckets
- * dropped — so representation differences that do not change the identity do not defeat the match.
+ * {@link PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and spacing but
+ * deliberately preserves attribute-value case — the enrolment must present the identity exactly as registered. SAN sets
+ * compare as maps of value lists canonicalized per type — IP addresses reduced to their octets (so the CSR's hex
+ * rendering equals a registration's decoded text and equivalent forms agree), DNS names lowercased (they are
+ * case-insensitive), duplicates dropped, order removed, and empty buckets dropped — so representation differences that
+ * do not change the identity do not defeat the match.
  *
- * <p>The kernel never checks the challenge — the caller verifies it against the single matched
- * registration, keeping failed-attempt accounting attributable to exactly one authorization.
+ * <p>
+ * The kernel never checks the challenge — the caller verifies it against the single matched registration, keeping
+ * failed-attempt accounting attributable to exactly one authorization.
  */
 public final class RegistrationIdentityMatcher {
 
@@ -42,8 +42,8 @@ public final class RegistrationIdentityMatcher {
         /** Several registrations match the subject and the SAN tiebreak does not single one out. */
         AMBIGUOUS,
         /**
-         * Exactly one registration matches the subject but its SANs differ from the CSR's; the result
-         * carries its UUID so the caller can record the failure against it.
+         * Exactly one registration matches the subject but its SANs differ from the CSR's; the result carries its UUID
+         * so the caller can record the failure against it.
          */
         SAN_MISMATCH
     }
@@ -75,13 +75,14 @@ public final class RegistrationIdentityMatcher {
     }
 
     /**
-     * Matches the CSR identity against the candidates: candidates are filtered by normalized subject; a
-     * unique subject match must then carry SANs equal to the CSR's; several subject matches narrow to the
-     * single candidate with SAN equality. An absent (null or blank) subject on either side normalizes to the
-     * empty name, so a SAN-only registration matches a SAN-only enrolment through SAN equality. A candidate
-     * whose stored DN is present but does not parse is skipped — one malformed row must not block the others.
+     * Matches the CSR identity against the candidates: candidates are filtered by normalized subject; a unique subject
+     * match must then carry SANs equal to the CSR's; several subject matches narrow to the single candidate with SAN
+     * equality. An absent (null or blank) subject on either side normalizes to the empty name, so a SAN-only
+     * registration matches a SAN-only enrolment through SAN equality. A candidate whose stored DN is present but does
+     * not parse is skipped — one malformed row must not block the others.
      */
-    public static MatchResult match(X500Name csrSubject, Map<String, List<String>> csrSans, List<Candidate> candidates) {
+    public static MatchResult match(X500Name csrSubject, Map<String, List<String>> csrSans,
+            List<Candidate> candidates) {
         String normalizedCsrSubject = normalize(csrSubject == null ? EMPTY_SUBJECT : csrSubject);
         Map<String, List<String>> normalizedCsrSans = normalizeSans(csrSans);
 
@@ -107,7 +108,8 @@ public final class RegistrationIdentityMatcher {
                     ? MatchResult.matched(single.certificateUuid())
                     : MatchResult.sanMismatch(single.certificateUuid());
         }
-        List<Candidate> sanMatches = subjectMatches.stream()
+        List<Candidate> sanMatches = subjectMatches
+                .stream()
                 .filter(candidate -> sansEqual(normalizedCsrSans, candidate))
                 .toList();
         return sanMatches.size() == 1
@@ -119,7 +121,9 @@ public final class RegistrationIdentityMatcher {
         return X500Name.getInstance(PlatformX500NameStyle.NORMALIZED, subject).toString();
     }
 
-    /** A blank or absent stored subject is the empty name; a present one is parsed (and may throw, skipping the row). */
+    /**
+     * A blank or absent stored subject is the empty name; a present one is parsed (and may throw, skipping the row).
+     */
     private static String normalizeCandidateSubject(String subjectDn) {
         if (subjectDn == null || subjectDn.isBlank()) {
             return normalize(EMPTY_SUBJECT);
@@ -136,8 +140,8 @@ public final class RegistrationIdentityMatcher {
     private static final String IP_ADDRESS = "iPAddress";
 
     /**
-     * Canonicalizes each value per type (see the class Javadoc), drops duplicates, sorts, and drops empty
-     * buckets, so bucket presence, value order, duplicates and per-type representation carry no meaning.
+     * Canonicalizes each value per type (see the class Javadoc), drops duplicates, sorts, and drops empty buckets, so
+     * bucket presence, value order, duplicates and per-type representation carry no meaning.
      */
     private static Map<String, List<String>> normalizeSans(Map<String, List<String>> sans) {
         Map<String, List<String>> normalized = new TreeMap<>();
@@ -148,7 +152,8 @@ public final class RegistrationIdentityMatcher {
             if (values == null || values.isEmpty()) {
                 return;
             }
-            List<String> canonical = values.stream()
+            List<String> canonical = values
+                    .stream()
                     .filter(Objects::nonNull)
                     .map(value -> canonicalizeSanValue(type, value))
                     .distinct()
@@ -171,8 +176,8 @@ public final class RegistrationIdentityMatcher {
 
     /**
      * Reduces an IP SAN to its octet hex, the form {@link CertificateUtil#getSAN} renders from a CSR, so a
-     * registration's decoded text ({@code 192.168.1.1}) and equivalent forms collapse to the same value. An
-     * unparseable value is left untouched, so a genuine mismatch still mismatches rather than throwing.
+     * registration's decoded text ({@code 192.168.1.1}) and equivalent forms collapse to the same value. An unparseable
+     * value is left untouched, so a genuine mismatch still mismatches rather than throwing.
      */
     private static String canonicalizeIp(String value) {
         try {

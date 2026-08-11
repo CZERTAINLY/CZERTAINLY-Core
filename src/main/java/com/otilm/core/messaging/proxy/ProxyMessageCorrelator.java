@@ -3,24 +3,30 @@ package com.otilm.core.messaging.proxy;
 import com.otilm.api.clients.mq.model.ConnectorResponse;
 import com.otilm.api.clients.mq.model.ProxyMessage;
 import jakarta.annotation.PreDestroy;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.*;
-
 /**
- * Manages correlation between proxy requests and responses.
- * Uses CompletableFuture to allow callers to wait for responses.
+ * Manages correlation between proxy requests and responses. Uses CompletableFuture to allow callers to wait for
+ * responses.
  *
- * <p>When a request is sent, a pending request is registered with a correlation ID.
- * When the response arrives, the correlation ID is used to find and complete
- * the appropriate CompletableFuture.</p>
+ * <p>
+ * When a request is sent, a pending request is registered with a correlation ID. When the response arrives, the
+ * correlation ID is used to find and complete the appropriate CompletableFuture.
+ * </p>
  *
- * <p>Timeout handling is performed by a scheduled executor that cancels
- * pending requests after their timeout expires.</p>
+ * <p>
+ * Timeout handling is performed by a scheduled executor that cancels pending requests after their timeout expires.
+ * </p>
  */
 @Slf4j
 @Component
@@ -35,27 +41,23 @@ public class ProxyMessageCorrelator {
     /**
      * Internal class representing a pending request awaiting response.
      */
-    private record PendingRequest(
-            CompletableFuture<ProxyMessage> future,
-            Instant createdAt,
-            ScheduledFuture<?> timeoutTask
-    ) {}
+    private record PendingRequest(CompletableFuture<ProxyMessage> future, Instant createdAt,
+            ScheduledFuture<?> timeoutTask) {
+    }
 
     public ProxyMessageCorrelator(ProxyProperties proxyProperties) {
         this.proxyProperties = proxyProperties;
         // Use virtual threads for the timeout scheduler
-        this.timeoutScheduler = Executors.newSingleThreadScheduledExecutor(
-                Thread.ofVirtual().name("proxy-timeout-", 0).factory()
-        );
+        this.timeoutScheduler = Executors
+                .newSingleThreadScheduledExecutor(Thread.ofVirtual().name("proxy-timeout-", 0).factory());
         log.info("ProxyMessageCorrelator initialized with timeout scheduler");
     }
 
     /**
-     * Register a pending request for correlation.
-     * Must be called BEFORE sending the request to avoid race conditions.
+     * Register a pending request for correlation. Must be called BEFORE sending the request to avoid race conditions.
      *
      * @param correlationId Unique ID for this request
-     * @param timeout       How long to wait for response
+     * @param timeout How long to wait for response
      * @return CompletableFuture that will complete with the response
      * @throws IllegalStateException if too many pending requests
      */
@@ -75,24 +77,21 @@ public class ProxyMessageCorrelator {
         CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
 
         // Schedule timeout
-        ScheduledFuture<?> timeoutTask = timeoutScheduler.schedule(
-                () -> handleTimeout(correlationId),
-                timeout.toMillis(),
-                TimeUnit.MILLISECONDS
-        );
+        ScheduledFuture<?> timeoutTask = timeoutScheduler
+                .schedule(() -> handleTimeout(correlationId), timeout.toMillis(), TimeUnit.MILLISECONDS);
 
         PendingRequest pending = new PendingRequest(future, Instant.now(), timeoutTask);
         pendingRequests.put(correlationId, pending);
 
-        log.debug("Registered pending request correlationId={} timeout={}ms pendingCount={}",
-                correlationId, timeout.toMillis(), pendingRequests.size());
+        log
+                .debug("Registered pending request correlationId={} timeout={}ms pendingCount={}", correlationId,
+                        timeout.toMillis(), pendingRequests.size());
 
         return future;
     }
 
     /**
-     * Complete a pending request with a response.
-     * Called by the response listener when a response message arrives.
+     * Complete a pending request with a response. Called by the response listener when a response message arrives.
      *
      * @param message The message received from the proxy
      */
@@ -118,16 +117,19 @@ public class ProxyMessageCorrelator {
 
         int statusCode = message.hasConnectorResponse() ? message.getConnectorResponse().getStatusCode() : 0;
         long latencyMs = Duration.between(pending.createdAt(), Instant.now()).toMillis();
-        log.debug("Completed request correlationId={} statusCode={} latency={}ms pendingCount={}",
-                correlationId, statusCode, latencyMs, pendingRequests.size());
+        log
+                .debug("Completed request correlationId={} statusCode={} latency={}ms pendingCount={}", correlationId,
+                        statusCode, latencyMs, pendingRequests.size());
     }
 
     /**
-     * Try to complete a pending request if the correlation ID exists locally.
-     * Used by JMS listener to check if this instance owns the request.
+     * Try to complete a pending request if the correlation ID exists locally. Used by JMS listener to check if this
+     * instance owns the request.
      *
-     * <p>This method is safe to call from any instance - it only completes the request
-     * if this instance has a pending request with the matching correlation ID.</p>
+     * <p>
+     * This method is safe to call from any instance - it only completes the request if this instance has a pending
+     * request with the matching correlation ID.
+     * </p>
      *
      * @param message The message received from the proxy
      * @return true if a pending request was found and completed, false otherwise
@@ -153,8 +155,9 @@ public class ProxyMessageCorrelator {
 
         int statusCode = message.hasConnectorResponse() ? message.getConnectorResponse().getStatusCode() : 0;
         long latencyMs = Duration.between(pending.createdAt(), Instant.now()).toMillis();
-        log.debug("Completed request (tryComplete) correlationId={} statusCode={} latency={}ms pendingCount={}",
-                correlationId, statusCode, latencyMs, pendingRequests.size());
+        log
+                .debug("Completed request (tryComplete) correlationId={} statusCode={} latency={}ms pendingCount={}",
+                        correlationId, statusCode, latencyMs, pendingRequests.size());
         return true;
     }
 
@@ -165,10 +168,12 @@ public class ProxyMessageCorrelator {
         PendingRequest pending = pendingRequests.remove(correlationId);
         if (pending != null) {
             // Create a timeout response
-            ProxyMessage timeoutMessage = ProxyMessage.builder()
+            ProxyMessage timeoutMessage = ProxyMessage
+                    .builder()
                     .correlationId(correlationId)
                     .timestamp(Instant.now())
-                    .connectorResponse(ConnectorResponse.builder()
+                    .connectorResponse(ConnectorResponse
+                            .builder()
                             .statusCode(0)
                             .error("Request timed out waiting for proxy response")
                             .errorCategory("timeout")
@@ -179,8 +184,9 @@ public class ProxyMessageCorrelator {
             pending.future().complete(timeoutMessage);
 
             long elapsedMs = Duration.between(pending.createdAt(), Instant.now()).toMillis();
-            log.warn("Request timed out correlationId={} elapsed={}ms pendingCount={}",
-                    correlationId, elapsedMs, pendingRequests.size());
+            log
+                    .warn("Request timed out correlationId={} elapsed={}ms pendingCount={}", correlationId, elapsedMs,
+                            pendingRequests.size());
         }
     }
 
@@ -202,16 +208,15 @@ public class ProxyMessageCorrelator {
     }
 
     /**
-     * Get the current number of pending requests.
-     * Useful for monitoring.
+     * Get the current number of pending requests. Useful for monitoring.
      */
     public int getPendingCount() {
         return pendingRequests.size();
     }
 
     /**
-     * Clear all pending requests by cancelling their futures.
-     * Primarily intended for testing to ensure clean state between tests.
+     * Clear all pending requests by cancelling their futures. Primarily intended for testing to ensure clean state
+     * between tests.
      */
     public void clearPendingRequests() {
         pendingRequests.forEach((id, pending) -> {
@@ -223,8 +228,7 @@ public class ProxyMessageCorrelator {
     }
 
     /**
-     * Cleanup on shutdown.
-     * Cancels all pending requests and shuts down the timeout scheduler.
+     * Cleanup on shutdown. Cancels all pending requests and shuts down the timeout scheduler.
      */
     @PreDestroy
     public void shutdown() {
@@ -245,10 +249,12 @@ public class ProxyMessageCorrelator {
         // Complete all pending requests with shutdown error
         pendingRequests.forEach((id, pending) -> {
             pending.timeoutTask().cancel(false);
-            ProxyMessage shutdownMessage = ProxyMessage.builder()
+            ProxyMessage shutdownMessage = ProxyMessage
+                    .builder()
                     .correlationId(id)
                     .timestamp(Instant.now())
-                    .connectorResponse(ConnectorResponse.builder()
+                    .connectorResponse(ConnectorResponse
+                            .builder()
                             .statusCode(0)
                             .error("ProxyClient shutdown")
                             .errorCategory("connection")

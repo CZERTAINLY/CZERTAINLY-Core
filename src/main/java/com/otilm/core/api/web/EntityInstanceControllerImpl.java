@@ -23,13 +23,12 @@ import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.EntityInstanceExternalService;
+import java.net.URI;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
 
 @RestController
 public class EntityInstanceControllerImpl implements EntityInstanceController {
@@ -56,13 +55,15 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.DETAIL)
-    public EntityInstanceDto getEntityInstance(@LogResource(uuid = true) String entityUuid) throws ConnectorException, NotFoundException {
+    public EntityInstanceDto getEntityInstance(@LogResource(uuid = true) String entityUuid)
+            throws ConnectorException, NotFoundException {
         return entityInstanceService.getEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.CREATE)
-    public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+    public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request)
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         EntityInstanceDto entityInstance = entityInstanceService.createEntityInstance(request);
 
         URI location = ServletUriComponentsBuilder
@@ -77,25 +78,29 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.UPDATE)
-    public EntityInstanceDto editEntityInstance(@LogResource(uuid = true) String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public EntityInstanceDto editEntityInstance(@LogResource(uuid = true) String entityUuid,
+            EntityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return entityInstanceService.editEntityInstance(SecuredUUID.fromString(entityUuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.DELETE)
-    public void deleteEntityInstance(@LogResource(uuid = true) String entityUuid) throws ConnectorException, NotFoundException {
+    public void deleteEntityInstance(@LogResource(uuid = true) String entityUuid)
+            throws ConnectorException, NotFoundException {
         entityInstanceService.deleteEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid)
+            throws ConnectorException, NotFoundException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
+    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid,
+            List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);
     }
 }

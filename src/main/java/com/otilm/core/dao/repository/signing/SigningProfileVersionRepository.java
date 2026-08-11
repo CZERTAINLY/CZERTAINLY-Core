@@ -1,26 +1,22 @@
 package com.otilm.core.dao.repository.signing;
 
 import com.otilm.core.dao.entity.signing.SigningProfileVersion;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 @Repository
 public interface SigningProfileVersionRepository extends JpaRepository<SigningProfileVersion, UUID> {
 
-    @EntityGraph(attributePaths = {
-            "certificate",
-            "certificate.certificateContent",
-            "certificate.key",
-            "certificate.key.items",
-    })
-    Optional<SigningProfileVersion> findWithAssociationsBySigningProfileUuidAndVersion(UUID signingProfileUuid, int version);
+    @EntityGraph(attributePaths = {"certificate", "certificate.certificateContent", "certificate.key",
+            "certificate.key.items",})
+    Optional<SigningProfileVersion> findWithAssociationsBySigningProfileUuidAndVersion(UUID signingProfileUuid,
+            int version);
 
     Optional<SigningProfileVersion> findBySigningProfileUuidAndVersion(UUID signingProfileUuid, int version);
 

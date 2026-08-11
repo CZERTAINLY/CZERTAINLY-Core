@@ -9,16 +9,18 @@ import org.springframework.retry.RetryContext;
 import org.springframework.retry.RetryListener;
 
 /**
- * Retry listener for JMS producer operations that clears the producer connection pool
- * on connection-level failures.
+ * Retry listener for JMS producer operations that clears the producer connection pool on connection-level failures.
  *
- * <p>Backup workaround for a pooled-jms bug where {@code validateObject()} fails to detect
- * dead Qpid connections after {@code amqp:connection:forced}. Calling {@code pool.clear()}
- * between retries is an aggressive producer pool reset that forces {@code makeObject()} on
- * the next borrow to create a fresh connection.</p>
+ * <p>
+ * Backup workaround for a pooled-jms bug where {@code validateObject()} fails to detect dead Qpid connections after
+ * {@code amqp:connection:forced}. Calling {@code pool.clear()} between retries is an aggressive producer pool reset
+ * that forces {@code makeObject()} on the next borrow to create a fresh connection.
+ * </p>
  *
- * <p>This listener is registered only on the producer retry template. Listener containers
- * use a separate {@code ConnectionFactory} and must never clear the producer pool.</p>
+ * <p>
+ * This listener is registered only on the producer retry template. Listener containers use a separate
+ * {@code ConnectionFactory} and must never clear the producer pool.
+ * </p>
  *
  * @see RetryConfig#producerRetryTemplate(MessagingProperties, JmsPoolConnectionFactory)
  */
@@ -37,21 +39,24 @@ public class ProducerRetryListener implements RetryListener {
     }
 
     @Override
-    public <T, E extends Throwable> void close(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
+    public <T, E extends Throwable> void close(RetryContext context, RetryCallback<T, E> callback,
+            Throwable throwable) {
         if (throwable != null) {
-            logger.error("Producer send failed after {} attempts: {}",
-                    context.getRetryCount(), throwable.getMessage(), throwable);
+            logger
+                    .error("Producer send failed after {} attempts: {}", context.getRetryCount(),
+                            throwable.getMessage(), throwable);
         }
     }
 
     @Override
-    public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
-        logger.warn("Producer retry attempt {} failed: {}",
-                context.getRetryCount(), throwable.getMessage(), throwable);
+    public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback,
+            Throwable throwable) {
+        logger.warn("Producer retry attempt {} failed: {}", context.getRetryCount(), throwable.getMessage(), throwable);
 
         if (isConnectionFailure(throwable)) {
-            logger.warn("Detected connection-level failure. Clearing producer connection pool "
-                    + "to force fresh connection on next retry.");
+            logger
+                    .warn("Detected connection-level failure. Clearing producer connection pool "
+                            + "to force fresh connection on next retry.");
             producerConnectionFactory.clear();
         }
     }

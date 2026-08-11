@@ -4,17 +4,22 @@ import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.RevocationReasonCodec;
 import com.otilm.core.service.cmp.message.validator.BiValidator;
+import java.math.BigInteger;
+import java.util.Optional;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.cmp.PKIStatus;
+import org.bouncycastle.asn1.cmp.PKIStatusInfo;
+import org.bouncycastle.asn1.cmp.RevDetails;
+import org.bouncycastle.asn1.cmp.RevRepContent;
+import org.bouncycastle.asn1.cmp.RevReqContent;
 import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.x509.Extensions;
 
-import java.math.BigInteger;
-import java.util.Optional;
-
 /**
- * Validate of revocation based messages, {@link RevReqContent}
- * and outgoing {@link RevRepContent}.
+ * Validate of revocation based messages, {@link RevReqContent} and outgoing {@link RevRepContent}.
  *
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.9">Revocation request</a>
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.10">Revocation response</a>
@@ -22,7 +27,9 @@ import java.util.Optional;
 public class BodyRevocationValidator extends BaseValidator implements BiValidator<Void, Void> {
 
     /**
-     * <p>Validate of Revocation message (rr)</p>
+     * <p>
+     * Validate of Revocation message (rr)
+     * </p>
      *
      * <pre>
      * 		RevReqContent ::= SEQUENCE OF RevDetails
@@ -39,7 +46,8 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
      *
      * @param request of message containing {@link RevReqContent}
      * @throws CmpProcessingException if validation will fail
-     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F. Compilable ASN.1 Definitions
+     * (rfc4210)</a>
      */
     @Override
     public Void validateIn(PKIMessage request, ConfigurationContext configuration) throws CmpProcessingException {
@@ -64,8 +72,7 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
             reasonCode = RevocationReasonCodec.requestedReasonCode(crlEntryDetails);
         } catch (IllegalArgumentException e) {
             // reasonCode extension present but not a well-formed ENUMERATED.
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "reasonCode is malformed", e);
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat, "reasonCode is malformed", e);
         }
         if (reasonCode.isPresent() && RevocationReasonCodec.mapReasonCode(reasonCode.get()).isEmpty()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
@@ -76,7 +83,10 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
     }
 
     /**
-     * <p>Validation of Revocation (response) message (rp)</p>
+     * <p>
+     * Validation of Revocation (response) message (rp)
+     * </p>
+     *
      * <pre>
      * 		RevRepContent ::= SEQUENCE {
      * 			status       SEQUENCE SIZE (1..MAX) OF PKIStatusInfo,
@@ -93,7 +103,8 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
      *
      * @param response of message containing {@link RevRepContent}
      * @throws CmpProcessingException if validation will fail
-     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F. Compilable ASN.1 Definitions
+     * (rfc4210)</a>
      */
     @Override
     public Void validateOut(PKIMessage response, ConfigurationContext configuration) throws CmpProcessingException {

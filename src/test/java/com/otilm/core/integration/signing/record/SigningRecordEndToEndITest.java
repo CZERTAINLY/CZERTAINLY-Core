@@ -24,35 +24,33 @@ import com.otilm.core.signing.record.SigningRecordStrategyFactory;
 import com.otilm.core.util.BaseSpringBootTest;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
+import java.util.List;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.Duration;
-import java.util.List;
-
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingEverything;
 import static com.otilm.core.signing.record.SigningRecordInputBuilder.aSigningRecordInput;
 import static com.otilm.core.util.builders.SearchRequestDtoBuilder.aSearchRequest;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * End-to-end test of the signing-record persistence paths over a real Postgres, one per
- * {@link SigningRecordPersistenceMode}: a write goes through the {@link SigningRecordStrategyFactory}-selected
- * strategy and ends up as a {@code signing_record} row, by whichever route the mode dictates. Each strategy, the
- * outbox drainer and the best-effort flusher are pinned in isolation elsewhere
- * ({@code ImmediateSigningRecordStrategyITest}, {@code DeferredDurableSigningRecordStrategyITest},
- * {@code SigningRecordOutboxDrainerITest}, {@code BestEffortSigningRecordStrategyITest}); what these tests alone
- * prove is that the factory routes each mode to the right strategy, the mode's stages chain into one persisted
- * record, and the mode's lifecycle counters advance:
+ * {@link SigningRecordPersistenceMode}: a write goes through the {@link SigningRecordStrategyFactory}-selected strategy
+ * and ends up as a {@code signing_record} row, by whichever route the mode dictates. Each strategy, the outbox drainer
+ * and the best-effort flusher are pinned in isolation elsewhere ({@code ImmediateSigningRecordStrategyITest},
+ * {@code DeferredDurableSigningRecordStrategyITest}, {@code SigningRecordOutboxDrainerITest},
+ * {@code BestEffortSigningRecordStrategyITest}); what these tests alone prove is that the factory routes each mode to
+ * the right strategy, the mode's stages chain into one persisted record, and the mode's lifecycle counters advance:
  *
  * <ul>
- *     <li>{@code IMMEDIATE} — persisted synchronously, never staged.</li>
- *     <li>{@code DEFERRED_DURABLE} — staged in {@code signing_record_outbox}, then moved by the
- *         {@link SigningRecordOutboxDrainer}.</li>
- *     <li>{@code BEST_EFFORT} — queued in memory, then persisted by the background
- *         {@link SigningRecordBestEffortFlusher} thread.</li>
+ * <li>{@code IMMEDIATE} — persisted synchronously, never staged.</li>
+ * <li>{@code DEFERRED_DURABLE} — staged in {@code signing_record_outbox}, then moved by the
+ * {@link SigningRecordOutboxDrainer}.</li>
+ * <li>{@code BEST_EFFORT} — queued in memory, then persisted by the background {@link SigningRecordBestEffortFlusher}
+ * thread.</li>
  * </ul>
  */
 class SigningRecordEndToEndITest extends BaseSpringBootTest {
@@ -90,7 +88,10 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
         double persistBefore = counterValue("signing_record.persist", "mode", deferredDurable.name());
 
         // when the record is written through the factory-selected writer
-        factory.strategyFor(version.getPersistenceMode()).recordSigning(SigningRecordInputSources.of(aSigningRecordInput().signingProfile(recordingProfile).build()));
+        factory
+                .strategyFor(version.getPersistenceMode())
+                .recordSigning(
+                        SigningRecordInputSources.of(aSigningRecordInput().signingProfile(recordingProfile).build()));
 
         // then it is accepted at intake and staged in the outbox, not yet persisted into signing_record
         assertRecordInOutbox();
@@ -120,7 +121,10 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
         double persistBefore = counterValue("signing_record.persist", "mode", immediate.name());
 
         // when the record is written through the factory-selected writer
-        factory.strategyFor(version.getPersistenceMode()).recordSigning(SigningRecordInputSources.of(aSigningRecordInput().signingProfile(recordingProfile).build()));
+        factory
+                .strategyFor(version.getPersistenceMode())
+                .recordSigning(
+                        SigningRecordInputSources.of(aSigningRecordInput().signingProfile(recordingProfile).build()));
 
         // then it is selectable through the service straight away, never staged in the outbox, and the counter advanced
         assertRecordExists();
@@ -142,7 +146,10 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
         double persistBefore = counterValue("signing_record.persist", "mode", bestEffort.name());
 
         // when the record is written through the factory-selected writer
-        factory.strategyFor(version.getPersistenceMode()).recordSigning(SigningRecordInputSources.of(aSigningRecordInput().signingProfile(recordingProfile).build()));
+        factory
+                .strategyFor(version.getPersistenceMode())
+                .recordSigning(
+                        SigningRecordInputSources.of(aSigningRecordInput().signingProfile(recordingProfile).build()));
 
         // then it is admitted at intake straight away, before any persistence
         assertEquals(intakeBefore + 1, counterValue("signing_record.intake", "mode", bestEffort.name()));
@@ -156,9 +163,9 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
 
     /**
      * Asserts that exactly one signing record is reachable through {@link SigningRecordExternalService}, both in the
-     * list and when fetched by its own uuid — proving the persisted row is visible through the read path
-     * operators use, not just present in the table. With the database isolated per test, that single record is
-     * the one this test wrote.
+     * list and when fetched by its own uuid — proving the persisted row is visible through the read path operators use,
+     * not just present in the table. With the database isolated per test, that single record is the one this test
+     * wrote.
      */
     private void assertRecordExists() throws NotFoundException {
         List<SigningRecordListDto> listed = signingRecordService
@@ -171,9 +178,11 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
     }
 
     private void assertNoRecordExistsInFinalRecordTable() {
-        assertEquals(0, signingRecordService
-                .listSigningRecords(aSearchRequest().build(), SecurityFilter.create())
-                .getItems().size());
+        assertEquals(0,
+                signingRecordService
+                        .listSigningRecords(aSearchRequest().build(), SecurityFilter.create())
+                        .getItems()
+                        .size());
     }
 
     private void assertRecordInOutbox() {
@@ -187,10 +196,10 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
     }
 
     /**
-     * Persists the {@code signing_profile} the drained record's FK points at, plus its version-1 row carrying
-     * the persistence mode (now a versioned field). Only the persistence mode drives this test (it selects the
-     * writer), so the scheme and workflow columns get unremarkable valid values. Returns the version, which the
-     * factory now routes on.
+     * Persists the {@code signing_profile} the drained record's FK points at, plus its version-1 row carrying the
+     * persistence mode (now a versioned field). Only the persistence mode drives this test (it selects the writer), so
+     * the scheme and workflow columns get unremarkable valid values. Returns the version, which the factory now routes
+     * on.
      */
     private SigningProfileVersion insertSigningProfile(SigningRecordPersistenceMode persistenceMode) {
         SigningProfile profile = new SigningProfile();

@@ -1,6 +1,10 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.scep.ScepProfileEditRequestDto;
@@ -26,9 +30,24 @@ import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
 import com.otilm.api.model.core.scep.ScepProfileDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
-import com.otilm.core.dao.entity.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.ProtocolCertificateAssociations;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.ProtocolCertificateAssociationsRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
 import com.otilm.core.intune.scepvalidation.IntuneConfigProperties;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -40,6 +59,12 @@ import com.otilm.core.service.ScepProfileInternalService;
 import com.otilm.core.service.model.SecuredItem;
 import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,13 +74,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
-
-import java.util.*;
-import java.util.stream.Stream;
 
 class ScepProfileServiceITest extends BaseSpringBootTest {
     @Autowired
@@ -248,7 +270,9 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetScepProfileByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> scepProfileService
+                        .getScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -274,7 +298,6 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
         certificate.setValidationStatus(CertificateValidationStatus.VALID);
         certificateRepository.save(certificate);
-
 
         ScepProfileDetailDto dto = scepProfileService.createScepProfile(request);
         Assertions.assertNotNull(dto);
@@ -331,7 +354,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_keepsSecretsWhenOmitted() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_keepsSecretsWhenOmitted()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setChallengePassword("originalChallenge");
         scepProfile.setIntuneEnabled(true);
         scepProfile.setIntuneTenant("tenant");
@@ -354,23 +378,24 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     static Stream<Arguments> challengePasswordEditCases() {
-        return Stream.of(
-                //         stored,         toggle, requestValue,   expectedStored
-                arguments("originalPass",  null,  "newPass",       "newPass"),       // null toggle + value -> set
-                arguments("originalPass",  null,  null,            "originalPass"),  // null toggle + omitted -> keep
-                arguments("originalPass",  null,  "",              "originalPass"),  // null toggle + blank -> keep
-                arguments("originalPass",  null,  "   ",           "originalPass"),  // null toggle + whitespace -> keep
-                arguments("originalPass",  false, "ignoredValue",  null),            // false -> clear, wins over value
-                arguments(null,            true,  "newPass",       "newPass"),       // true + value, nothing stored -> set
-                arguments("originalPass",  true,  null,            "originalPass"),  // true + blank + stored -> keep
-                arguments("originalPass",  true,  "   ",           "originalPass")   // true + whitespace + stored -> keep
-        );
+        return Stream
+                .of(
+                        // stored, toggle, requestValue, expectedStored
+                        arguments("originalPass", null, "newPass", "newPass"), // null toggle + value -> set
+                        arguments("originalPass", null, null, "originalPass"), // null toggle + omitted -> keep
+                        arguments("originalPass", null, "", "originalPass"), // null toggle + blank -> keep
+                        arguments("originalPass", null, "   ", "originalPass"), // null toggle + whitespace -> keep
+                        arguments("originalPass", false, "ignoredValue", null), // false -> clear, wins over value
+                        arguments(null, true, "newPass", "newPass"), // true + value, nothing stored -> set
+                        arguments("originalPass", true, null, "originalPass"), // true + blank + stored -> keep
+                        arguments("originalPass", true, "   ", "originalPass") // true + whitespace + stored -> keep
+                );
     }
 
     @ParameterizedTest
     @MethodSource("challengePasswordEditCases")
-    void testEditScepProfile_challengePasswordMatrix(String stored, Boolean toggle, String requestValue, String expectedStored)
-            throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_challengePasswordMatrix(String stored, Boolean toggle, String requestValue,
+            String expectedStored) throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setChallengePassword(stored);
         scepProfileRepository.save(scepProfile);
 
@@ -386,7 +411,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_clearsChallengePasswordWhenToggleFalse() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_clearsChallengePasswordWhenToggleFalse()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setChallengePassword("originalChallenge");
         scepProfileRepository.save(scepProfile);
 
@@ -402,7 +428,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_setsChallengePasswordWhenToggleTrueWithValue() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_setsChallengePasswordWhenToggleTrueWithValue()
+            throws ConnectorException, AttributeException, NotFoundException {
         ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
         request.setCaCertificateUuid(certificate.getUuid().toString());
         request.setEnableChallengePassword(true);
@@ -426,13 +453,14 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         // no value and nothing stored -> reject
 
         SecuredUUID uuid = scepProfile.getSecuredUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.editScepProfile(uuid, request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.editScepProfile(uuid, request));
         Assertions.assertTrue(ex.getMessage().contains("Challenge password is required"), ex.getMessage());
     }
 
     @Test
-    void testEditScepProfile_nullToggleOnPasswordlessProfileKeepsNullWithoutError() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_nullToggleOnPasswordlessProfileKeepsNullWithoutError()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setChallengePassword(null);
         scepProfileRepository.save(scepProfile);
 
@@ -448,7 +476,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_disablingIntuneClearsStoredConfig() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_disablingIntuneClearsStoredConfig()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setIntuneEnabled(true);
         scepProfile.setIntuneTenant("tenant");
         scepProfile.setIntuneApplicationId("appId");
@@ -469,7 +498,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_omittedEnableIntuneClearsStoredConfig() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_omittedEnableIntuneClearsStoredConfig()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setIntuneEnabled(true);
         scepProfile.setIntuneTenant("tenant");
         scepProfile.setIntuneApplicationId("appId");
@@ -497,8 +527,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setEnableChallengePassword(true);
         // enabled but no password supplied -> reject
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.createScepProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Challenge password is required"), ex.getMessage());
     }
 
@@ -511,8 +541,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setEnableChallengePassword(true);
         request.setChallengePassword("secret");
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.createScepProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("challenge password cannot be configured"), ex.getMessage());
     }
 
@@ -527,8 +557,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setIntuneApplicationId("appId");
         request.setIntuneApplicationKey("appKey");
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.createScepProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Intune"), ex.getMessage());
     }
 
@@ -541,13 +571,14 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setCaCertificateUuid(ecCaCertificate.getUuid().toString());
         request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.createScepProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("RSA CA certificate"), ex.getMessage());
     }
 
     @Test
-    void testCreateScepProfile_registrationSourcePersistsWithoutPassword() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateScepProfile_registrationSourcePersistsWithoutPassword()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("RegistrationCreate");
         request.setCaCertificateUuid(certificate.getUuid().toString());
@@ -563,7 +594,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_switchingToRegistrationSourceClearsStoredPassword() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_switchingToRegistrationSourceClearsStoredPassword()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setChallengePassword("originalChallenge");
         scepProfileRepository.save(scepProfile);
 
@@ -580,7 +612,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_omittedChallengeSourceKeepsStoredSource() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_omittedChallengeSourceKeepsStoredSource()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
         scepProfile.setChallengePassword(null);
         scepProfileRepository.save(scepProfile);
@@ -613,8 +646,10 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         privateItem.setState(KeyState.ACTIVE);
         privateItem.setEnabled(true);
         privateItem.setKeyAlgorithm(keyAlgorithm);
-        privateItem.setUsage(keyAlgorithm == KeyAlgorithm.RSA
-                ? List.of(KeyUsage.DECRYPT, KeyUsage.SIGN) : List.of(KeyUsage.SIGN));
+        privateItem
+                .setUsage(keyAlgorithm == KeyAlgorithm.RSA
+                        ? List.of(KeyUsage.DECRYPT, KeyUsage.SIGN)
+                        : List.of(KeyUsage.SIGN));
         cryptographicKeyItemRepository.save(privateItem);
 
         CryptographicKeyItem publicItem = new CryptographicKeyItem();
@@ -627,8 +662,10 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         publicItem.setState(KeyState.ACTIVE);
         publicItem.setEnabled(true);
         publicItem.setKeyAlgorithm(keyAlgorithm);
-        publicItem.setUsage(keyAlgorithm == KeyAlgorithm.RSA
-                ? List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY) : List.of(KeyUsage.VERIFY));
+        publicItem
+                .setUsage(keyAlgorithm == KeyAlgorithm.RSA
+                        ? List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY)
+                        : List.of(KeyUsage.VERIFY));
         cryptographicKeyItemRepository.save(publicItem);
 
         privateItem.setKeyReferenceUuid(privateItem.getUuid());
@@ -656,7 +693,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateScepProfile_defaultsChallengeSourceToProfilePassword() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateScepProfile_defaultsChallengeSourceToProfilePassword()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("DefaultChallengeSource");
         request.setCaCertificateUuid(certificate.getUuid().toString());
@@ -669,7 +707,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateScepProfile_setsChallengePasswordWhenToggleTrue() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateScepProfile_setsChallengePasswordWhenToggleTrue()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("ToggleWithPassword");
         request.setCaCertificateUuid(certificate.getUuid().toString());
@@ -684,7 +723,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile_updatesIntuneKeyWhenProvided() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_updatesIntuneKeyWhenProvided()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setIntuneEnabled(true);
         scepProfile.setIntuneTenant("tenant");
         scepProfile.setIntuneApplicationId("appId");
@@ -718,8 +758,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         // key omitted and none stored -> reject
 
         SecuredUUID uuid = scepProfile.getSecuredUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.editScepProfile(uuid, request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.editScepProfile(uuid, request));
         Assertions.assertTrue(ex.getMessage().contains("Invalid Intune configuration"), ex.getMessage());
     }
 
@@ -733,8 +773,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setIntuneApplicationKey("key");
 
         SecuredUUID uuid = scepProfile.getSecuredUuid();
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.editScepProfile(uuid, request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.editScepProfile(uuid, request));
         Assertions.assertTrue(ex.getMessage().contains("Invalid Intune configuration"), ex.getMessage());
     }
 
@@ -746,13 +786,14 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setEnableChallengePassword(true);
         request.setChallengePassword("   "); // whitespace -> blank, nothing stored -> reject
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.createScepProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Challenge password is required"), ex.getMessage());
     }
 
     @Test
-    void testCreateScepProfile_doesNotPersistIntuneWhenDisabled() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateScepProfile_doesNotPersistIntuneWhenDisabled()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("IntuneDisabledOnCreate");
         request.setCaCertificateUuid(certificate.getUuid().toString());
@@ -771,7 +812,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateScepProfile_withIntuneEnabledStoresConfig() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testCreateScepProfile_withIntuneEnabledStoresConfig()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("IntuneEnabledCreate");
         request.setCaCertificateUuid(certificate.getUuid().toString());
@@ -799,8 +841,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setIntuneApplicationId("appId");
         // application key missing -> reject
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.createScepProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Invalid Intune configuration"), ex.getMessage());
     }
 
@@ -814,13 +856,14 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
         request.setIntuneApplicationId("   "); // blank application id -> reject
         request.setIntuneApplicationKey("appKey");
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> scepProfileService.createScepProfile(request));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
         Assertions.assertTrue(ex.getMessage().contains("Invalid Intune configuration"), ex.getMessage());
     }
 
     @Test
-    void testEditScepProfile_intuneDisableThenReEnableWithFreshKey() throws ConnectorException, AttributeException, NotFoundException {
+    void testEditScepProfile_intuneDisableThenReEnableWithFreshKey()
+            throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setIntuneEnabled(true);
         scepProfile.setIntuneTenant("tenant");
         scepProfile.setIntuneApplicationId("appId");
@@ -851,18 +894,24 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
     void testEditScepProfile_validationFail() {
         ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
         var securedUuid = SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002");
-        Assertions.assertThrows(ValidationException.class, () -> scepProfileService.editScepProfile(securedUuid, request));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> scepProfileService.editScepProfile(securedUuid, request));
     }
 
     @Test
     void testRemoveScepProfile() throws NotFoundException {
         scepProfileService.deleteScepProfile(scepProfile.getSecuredUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(scepProfile.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> scepProfileService.getScepProfile(scepProfile.getSecuredUuid()));
     }
 
     @Test
     void testRemoveScepProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> scepProfileService
+                        .getScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -873,7 +922,9 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEnableScepProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.enableScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> scepProfileService
+                        .enableScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -886,13 +937,17 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testDisableScepProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.disableScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> scepProfileService
+                        .disableScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testBulkRemove() {
         scepProfileService.bulkDeleteScepProfile(List.of(scepProfile.getSecuredUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(scepProfile.getSecuredUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> scepProfileService.getScepProfile(scepProfile.getSecuredUuid()));
     }
 
     @Test
@@ -957,8 +1012,8 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
                 .when(raProfileService)
                 .listRaProfilesAssociatedWithScepProfile(scepProfile.getUuid().toString(), SecurityFilter.create());
 
-        List<BulkActionMessageDto> messages = scepProfileService.bulkDeleteScepProfile(
-                List.of(scepProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = scepProfileService
+                .bulkDeleteScepProfile(List.of(scepProfile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(scepProfile.getUuid().toString(), messages.getFirst().getUuid());
@@ -968,11 +1023,10 @@ class ScepProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testBulkForceRemoveScepProfiles_deleteFailure_returnsErrorWithEntityName() {
-        doThrow(new RuntimeException("DB delete error"))
-                .when(scepProfileRepositorySpy).delete(any());
+        doThrow(new RuntimeException("DB delete error")).when(scepProfileRepositorySpy).delete(any());
 
-        List<BulkActionMessageDto> messages = scepProfileService.bulkForceRemoveScepProfiles(
-                List.of(scepProfile.getSecuredUuid()));
+        List<BulkActionMessageDto> messages = scepProfileService
+                .bulkForceRemoveScepProfiles(List.of(scepProfile.getSecuredUuid()));
 
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(scepProfile.getUuid().toString(), messages.getFirst().getUuid());

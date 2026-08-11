@@ -1,6 +1,11 @@
 package com.otilm.core.util.serialnumber;
 
-import java.net.*;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
@@ -9,13 +14,13 @@ import java.util.function.Supplier;
  *
  * <h2>Resolution order</h2>
  * <ol>
- *   <li>{@code PLATFORM_INSTANCE_ID} environment variable — explicit override, range {@code 0–65535}.</li>
- *   <li>Auto-derived from the last two octets (lower 16 bits) of the container's private IPv4 address.</li>
+ * <li>{@code PLATFORM_INSTANCE_ID} environment variable — explicit override, range {@code 0–65535}.</li>
+ * <li>Auto-derived from the last two octets (lower 16 bits) of the container's private IPv4 address.</li>
  * </ol>
  *
- * Auto-derivation is safe when all instances have IP addresses whose <b>last two octets are unique</b>
- * (e.g. pod CIDR ≤ /16, Docker bridge/overlay ≤ /16, or all VMs within a single /16 subnet).
- * It silently collides — and must not be used — in the following cases:
+ * Auto-derivation is safe when all instances have IP addresses whose <b>last two octets are unique</b> (e.g. pod CIDR ≤
+ * /16, Docker bridge/overlay ≤ /16, or all VMs within a single /16 subnet). It silently collides — and must not be used
+ * — in the following cases:
  *
  * <pre>
  * | Scenario                              | Risk                                                        |
@@ -28,9 +33,9 @@ import java.util.function.Supplier;
  * |                                       | octets even if each cluster is individually collision-free   |
  * </pre>
  *
- * At startup, the resolved prefix length of the selected interface is checked: a prefix wider than /16
- * triggers a warning. Cross-cluster collisions cannot be detected at runtime.
- * Set {@code PLATFORM_INSTANCE_ID} explicitly whenever the above conditions apply.
+ * At startup, the resolved prefix length of the selected interface is checked: a prefix wider than /16 triggers a
+ * warning. Cross-cluster collisions cannot be detected at runtime. Set {@code PLATFORM_INSTANCE_ID} explicitly whenever
+ * the above conditions apply.
  */
 final class InstanceIdResolver {
 
@@ -75,23 +80,19 @@ final class InstanceIdResolver {
                 }
             }
             if (usable.isEmpty()) {
-                throw new IllegalStateException(
-                        "No suitable network address found for instance ID. Set " + INSTANCE_ID_ENV_VAR + " explicitly.");
+                throw new IllegalStateException("No suitable network address found for instance ID. Set "
+                        + INSTANCE_ID_ENV_VAR + " explicitly.");
             }
-            return usable.stream()
-                    .filter(Inet4Address.class::isInstance)
-                    .findFirst()
-                    .orElse(usable.getFirst());
+            return usable.stream().filter(Inet4Address.class::isInstance).findFirst().orElse(usable.getFirst());
         } catch (SocketException e) {
             throw new IllegalStateException(
-                    "No suitable network address found for instance ID. Set " + INSTANCE_ID_ENV_VAR + " explicitly.", e);
+                    "No suitable network address found for instance ID. Set " + INSTANCE_ID_ENV_VAR + " explicitly.",
+                    e);
         }
     }
 
     static boolean isUsableAddress(InetAddress addr) {
-        return !addr.isLoopbackAddress()
-                && !addr.isLinkLocalAddress()
-                && !addr.isMulticastAddress()
+        return !addr.isLoopbackAddress() && !addr.isLinkLocalAddress() && !addr.isMulticastAddress()
                 && !addr.isAnyLocalAddress();
     }
 
@@ -105,8 +106,7 @@ final class InstanceIdResolver {
                         INSTANCE_ID_ENV_VAR + " must be a valid integer, got: '" + envValue.strip() + "'");
             }
             if (id < 0 || id > 65535) {
-                throw new IllegalArgumentException(
-                        INSTANCE_ID_ENV_VAR + " must be between 0 and 65535, got: " + id);
+                throw new IllegalArgumentException(INSTANCE_ID_ENV_VAR + " must be between 0 and 65535, got: " + id);
             }
             return id;
         }
@@ -146,7 +146,9 @@ final class InstanceIdResolver {
         return -1;
     }
 
-    enum Source {ENV_VAR, IP_ADDRESS}
+    enum Source {
+        ENV_VAR, IP_ADDRESS
+    }
 
     record Resolution(int id, Source source, short prefixLength) {
     }

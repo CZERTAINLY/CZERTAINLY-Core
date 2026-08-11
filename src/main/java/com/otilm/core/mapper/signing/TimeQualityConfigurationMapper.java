@@ -15,7 +15,8 @@ public class TimeQualityConfigurationMapper {
     private TimeQualityConfigurationMapper() {
     }
 
-    public static TimeQualityConfigurationDto toDto(TimeQualityConfiguration configuration, List<ResponseAttribute> customAttributes) {
+    public static TimeQualityConfigurationDto toDto(TimeQualityConfiguration configuration,
+            List<ResponseAttribute> customAttributes) {
         TimeQualityConfigurationDto dto = new TimeQualityConfigurationDto();
         dto.setUuid(configuration.getUuid().toString());
         dto.setName(configuration.getName());
@@ -35,18 +36,11 @@ public class TimeQualityConfigurationMapper {
         if (configuration == null) {
             return LocalClockTimeQualityConfiguration.INSTANCE;
         }
-        return new ExplicitTimeQualityConfiguration(
-                configuration.getUuid(),
-                configuration.getName(),
-                configuration.getAccuracy(),
-                List.copyOf(configuration.getNtpServers()),
-                configuration.getNtpCheckInterval(),
-                configuration.getNtpSamplesPerServer(),
-                configuration.getNtpCheckTimeout(),
-                configuration.getNtpServersMinReachable(),
-                configuration.getMaxClockDrift(),
-                configuration.isLeapSecondGuard()
-        );
+        return new ExplicitTimeQualityConfiguration(configuration.getUuid(), configuration.getName(),
+                configuration.getAccuracy(), List.copyOf(configuration.getNtpServers()),
+                configuration.getNtpCheckInterval(), configuration.getNtpSamplesPerServer(),
+                configuration.getNtpCheckTimeout(), configuration.getNtpServersMinReachable(),
+                configuration.getMaxClockDrift(), configuration.isLeapSecondGuard());
     }
 
     public static TimeQualityConfigurationListDto toListDto(TimeQualityConfiguration configuration) {

@@ -10,19 +10,19 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares that a method requires an OPA authorization check whose target {@link Resource} is not known at
- * compile time but is supplied as a method argument. Use this instead of {@link ExternalAuthorization} when the
- * protected resource is a runtime parameter.
+ * Declares that a method requires an OPA authorization check whose target {@link Resource} is not known at compile time
+ * but is supplied as a method argument. Use this instead of {@link ExternalAuthorization} when the protected resource
+ * is a runtime parameter.
  * <p>
- * The protected resource is resolved from the single {@link SecuredResource} argument present in the method
- * invocation (mirroring how {@link SecuredUUID} arguments are resolved). Object UUIDs, when applicable, are
- * resolved exactly as for {@link ExternalAuthorization}: from {@link SecuredUUID} arguments (object-level
- * checks) or, for listings, a {@link SecurityFilter} argument populated by {@link ObjectFilterAspect}.
+ * The protected resource is resolved from the single {@link SecuredResource} argument present in the method invocation
+ * (mirroring how {@link SecuredUUID} arguments are resolved). Object UUIDs, when applicable, are resolved exactly as
+ * for {@link ExternalAuthorization}: from {@link SecuredUUID} arguments (object-level checks) or, for listings, a
+ * {@link SecurityFilter} argument populated by {@link ObjectFilterAspect}.
  * <p>
  * Place this annotation on the implementation class method (not the interface) so Spring AOP can intercept it.
  *
  * <pre>{@code
- * @ExternalAuthorizationDynamic(action = ResourceAction.LIST)
+ * &#64;ExternalAuthorizationDynamic(action = ResourceAction.LIST)
  * public List<NameAndUuidDto> getResourceObjects(SecuredResource resource, SecurityFilter filter, ...) { ... }
  * }</pre>
  */

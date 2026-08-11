@@ -6,14 +6,13 @@ import com.otilm.core.security.authz.ExternalAuthorizationConfigAttribute;
 import com.otilm.core.security.authz.ExternalAuthorizationDynamic;
 import com.otilm.core.security.authz.NoOpParentUUIDGetter;
 import com.otilm.core.security.authz.ParentUUIDGetter;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class OpaSecuredAnnotationMetadataExtractor {
@@ -35,29 +34,34 @@ public class OpaSecuredAnnotationMetadataExtractor {
         attributes.add(new ExternalAuthorizationConfigAttribute("name", resource));
         attributes.add(new ExternalAuthorizationConfigAttribute("parentAction", parentAction));
         attributes.add(new ExternalAuthorizationConfigAttribute("parentName", parentResource));
-        parentUUIDGetterClass.ifPresent(value -> attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDGetter", value)));
+        parentUUIDGetterClass
+                .ifPresent(
+                        value -> attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDGetter", value)));
 
-        logger.trace(
-                "Attributes extracted from secured annotation: [%s]".formatted(
-                        attributes.stream().map(ExternalAuthorizationConfigAttribute::getAttribute).collect(Collectors.joining(","))
-                )
-        );
+        logger
+                .trace("Attributes extracted from secured annotation: [%s]"
+                        .formatted(attributes
+                                .stream()
+                                .map(ExternalAuthorizationConfigAttribute::getAttribute)
+                                .collect(Collectors.joining(","))));
 
         return attributes;
     }
 
-    public List<ExternalAuthorizationConfigAttribute> extractAttributes(ExternalAuthorizationDynamic secured, Resource resolvedResource) {
+    public List<ExternalAuthorizationConfigAttribute> extractAttributes(ExternalAuthorizationDynamic secured,
+            Resource resolvedResource) {
         List<ExternalAuthorizationConfigAttribute> attributes = new ArrayList<>(4);
         attributes.add(new ExternalAuthorizationConfigAttribute("action", secured.action().getCode()));
         attributes.add(new ExternalAuthorizationConfigAttribute("name", resolvedResource.getCode()));
         attributes.add(new ExternalAuthorizationConfigAttribute("parentAction", secured.parentAction().getCode()));
         attributes.add(new ExternalAuthorizationConfigAttribute("parentName", secured.parentResource().getCode()));
 
-        logger.trace(
-                "Attributes extracted from dynamic secured annotation: [%s]".formatted(
-                        attributes.stream().map(ExternalAuthorizationConfigAttribute::getAttribute).collect(Collectors.joining(","))
-                )
-        );
+        logger
+                .trace("Attributes extracted from dynamic secured annotation: [%s]"
+                        .formatted(attributes
+                                .stream()
+                                .map(ExternalAuthorizationConfigAttribute::getAttribute)
+                                .collect(Collectors.joining(","))));
 
         return attributes;
     }

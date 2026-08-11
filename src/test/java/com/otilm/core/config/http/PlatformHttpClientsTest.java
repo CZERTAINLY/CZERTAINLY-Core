@@ -2,15 +2,6 @@ package com.otilm.core.config.http;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClient;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +14,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
 
 /**
  * Guards the request-factory defaults every platform {@code RestClient} inherits. A bare
@@ -58,9 +57,7 @@ class PlatformHttpClientsTest {
     }
 
     private RestClient client(ClientHttpRequestFactorySettings settings) {
-        return RestClient.builder()
-                .requestFactory(PlatformHttpClients.requestFactoryBuilder().build(settings))
-                .build();
+        return RestClient.builder().requestFactory(PlatformHttpClients.requestFactoryBuilder().build(settings)).build();
     }
 
     private void respond(HttpExchange exchange, int status, String cookie) throws IOException {
@@ -98,8 +95,9 @@ class PlatformHttpClientsTest {
                 calls.add(executor.submit(() -> client.get().uri(url).retrieve().toBodilessEntity()));
             }
 
-            Assertions.assertTrue(arrived.await(5, TimeUnit.SECONDS),
-                    "connection pool held concurrency below " + CONCURRENT_REQUESTS + " simultaneous requests");
+            Assertions
+                    .assertTrue(arrived.await(5, TimeUnit.SECONDS),
+                            "connection pool held concurrency below " + CONCURRENT_REQUESTS + " simultaneous requests");
             for (Future<?> call : calls) {
                 Assertions.assertNotNull(call.get(10, TimeUnit.SECONDS));
             }
@@ -136,8 +134,9 @@ class PlatformHttpClientsTest {
             Assertions.assertThrows(ResourceAccessException.class, shedCall::toBodilessEntity);
             Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
 
-            Assertions.assertTrue(waited.toSeconds() < 60,
-                    "caller waited " + waited + " for a connection, so no lease timeout is configured");
+            Assertions
+                    .assertTrue(waited.toSeconds() < 60,
+                            "caller waited " + waited + " for a connection, so no lease timeout is configured");
         } finally {
             release.countDown();
             executor.shutdownNow();
@@ -157,7 +156,8 @@ class PlatformHttpClientsTest {
         });
         server.start();
 
-        RestClient client = client(ClientHttpRequestFactorySettings.defaults()
+        RestClient client = client(ClientHttpRequestFactorySettings
+                .defaults()
                 .withConnectTimeout(Duration.ofSeconds(5))
                 .withReadTimeout(Duration.ofMillis(300)));
         try {
@@ -166,8 +166,9 @@ class PlatformHttpClientsTest {
             Assertions.assertThrows(ResourceAccessException.class, timingOutCall::toBodilessEntity);
             Duration waited = Duration.ofNanos(System.nanoTime() - startedAt);
 
-            Assertions.assertTrue(waited.compareTo(Duration.ofSeconds(3)) < 0,
-                    "call failed only after " + waited + ", so the 300ms read timeout it was given was overwritten");
+            Assertions
+                    .assertTrue(waited.compareTo(Duration.ofSeconds(3)) < 0, "call failed only after " + waited
+                            + ", so the 300ms read timeout it was given was overwritten");
         } finally {
             release.countDown();
         }

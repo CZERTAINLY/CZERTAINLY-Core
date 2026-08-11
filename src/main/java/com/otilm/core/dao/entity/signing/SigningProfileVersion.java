@@ -4,28 +4,34 @@ import com.otilm.api.model.client.signing.profile.record.SigningRecordPersistenc
 import com.otilm.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
-import com.otilm.core.dao.entity.*;
-import jakarta.persistence.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 @Getter
 @Setter
 @Entity
-@Table(
-        name = "signing_profile_version",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uq_signing_profile_version",
-                columnNames = {"signing_profile_uuid", "version"}
-        )
-)
+@Table(name = "signing_profile_version", uniqueConstraints = @UniqueConstraint(name = "uq_signing_profile_version", columnNames = {
+        "signing_profile_uuid", "version"}))
 public class SigningProfileVersion extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "signing_profile_uuid", nullable = false)
@@ -166,12 +172,16 @@ public class SigningProfileVersion extends UniquelyIdentifiedAndAudited {
 
     public void setDelegatedSignerConnector(Connector delegatedSignerConnector) {
         this.delegatedSignerConnector = delegatedSignerConnector;
-        this.delegatedSignerConnectorUuid = delegatedSignerConnector != null ? delegatedSignerConnector.getUuid() : null;
+        this.delegatedSignerConnectorUuid = delegatedSignerConnector != null
+                ? delegatedSignerConnector.getUuid()
+                : null;
     }
 
     public void setSignatureFormattingConnector(Connector signatureFormattingConnector) {
         this.signatureFormattingConnector = signatureFormattingConnector;
-        this.signatureFormattingConnectorUuid = signatureFormattingConnector != null ? signatureFormattingConnector.getUuid() : null;
+        this.signatureFormattingConnectorUuid = signatureFormattingConnector != null
+                ? signatureFormattingConnector.getUuid()
+                : null;
     }
 
     @Override

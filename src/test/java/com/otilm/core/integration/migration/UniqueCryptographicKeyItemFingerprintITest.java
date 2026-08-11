@@ -8,6 +8,8 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.dao.repository.CryptographicKeyRepository;
 import db.migration.V202508281320__UniqueCryptographicKeyItemFingerprint;
+import java.sql.Statement;
+import javax.sql.DataSource;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -15,8 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import javax.sql.DataSource;
-import java.sql.Statement;
 
 import static org.mockito.Mockito.when;
 
@@ -86,12 +86,11 @@ class UniqueCryptographicKeyItemFingerprintITest extends BaseMigrationTest {
         secretKeyItem2.setFormat(KeyFormat.CUSTOM);
         cryptographicKeyItemRepository.save(secretKeyItem2);
 
-
         Context context = Mockito.mock(Context.class);
         when(context.getConnection()).thenReturn(dataSource.getConnection());
 
         try (Statement alterStatement = context.getConnection().createStatement();
-             Statement insertStatement = context.getConnection().createStatement()) {
+                Statement insertStatement = context.getConnection().createStatement()) {
             alterStatement.execute("""
                     ALTER TABLE cryptographic_key_item
                     DROP CONSTRAINT "cryptographic_key_item_fingerprint_key"

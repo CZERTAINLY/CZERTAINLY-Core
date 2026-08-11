@@ -1,5 +1,7 @@
 package com.otilm.core.util;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.NameAndUuidDto;
@@ -23,9 +25,12 @@ import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.otilm.core.security.authz.opa.dto.OpaRequestDetails;
 import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
 import com.otilm.core.service.AuditLogInternalService;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,8 +41,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
-
-import java.util.*;
 
 @Component
 public class AuthHelper {
@@ -70,8 +73,8 @@ public class AuthHelper {
     public static final String AUDITOR_ROLE_NAME = "auditor";
 
     public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");
-    public static final List<String> OAUTH2_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/oauth2/**", "/v?/health/**", "/v?/connector/register");
-
+    public static final List<String> OAUTH2_ENDPOINTS = List
+            .of("/login", "/oauth2/**", "/v?/oauth2/**", "/v?/health/**", "/v?/connector/register");
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
@@ -105,14 +108,16 @@ public class AuthHelper {
         PlatformUserDetails userDetails = new PlatformUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new PlatformAuthenticationToken(userDetails));
-        logger.debug("User with username '{}' has been successfully authenticated as system user proxy.", authUserInfo.getUsername());
+        logger
+                .debug("User with username '{}' has been successfully authenticated as system user proxy.",
+                        authUserInfo.getUsername());
     }
 
     /**
-     * Runs {@code action} under the given system identity, then restores the caller's context — the scoped
-     * counterpart to the fire-and-forget {@link #authenticateAsSystemUser}. Used where the platform must act as
-     * itself for one bounded step (resolving an authority's own infrastructure references) while the rest of the
-     * request stays under the original principal.
+     * Runs {@code action} under the given system identity, then restores the caller's context — the scoped counterpart
+     * to the fire-and-forget {@link #authenticateAsSystemUser}. Used where the platform must act as itself for one
+     * bounded step (resolving an authority's own infrastructure references) while the rest of the request stays under
+     * the original principal.
      * <p>
      * <b>SecurityContext:</b> a fresh empty context is installed for the elevation window; on exit the caller's
      * {@code Authentication} is restored, or the holder is cleared if the caller had none — so no system principal
@@ -156,16 +161,22 @@ public class AuthHelper {
         AuthenticationInfo authUserInfo = authenticationClient.authenticateByUserUuid(userUuid);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(authUserInfo)));
-        logger.debug("User with username '{}' has been successfully authenticated as user proxy.", authUserInfo.getUsername());
+        logger
+                .debug("User with username '{}' has been successfully authenticated as user proxy.",
+                        authUserInfo.getUsername());
     }
 
     public static boolean isLoggedProtocolUser() {
         try {
-            PlatformUserDetails userDetails = (PlatformUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            PlatformUserDetails userDetails = (PlatformUserDetails) SecurityContextHolder
+                    .getContext()
+                    .getAuthentication()
+                    .getPrincipal();
             String username = userDetails.getUsername();
             return protocolUsers.contains(username);
         } catch (Exception e) {
-            throw new ValidationException(ValidationError.create("Cannot retrieve information of logged protocol user for Unknown/Anonymous user"));
+            throw new ValidationException(ValidationError
+                    .create("Cannot retrieve information of logged protocol user for Unknown/Anonymous user"));
         }
     }
 
@@ -173,7 +184,9 @@ public class AuthHelper {
         // check first if user is not logged in now to save call
         try {
             NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
-            if (userInfo.getUuid().equals(userUuid)) return userInfo.getName();
+            if (userInfo.getUuid().equals(userUuid)) {
+                return userInfo.getName();
+            }
         } catch (ValidationException e) {
             // anonymous user, retrieve user details
         }
@@ -190,10 +203,14 @@ public class AuthHelper {
 
     public static NameAndUuidDto getUserIdentification() throws ValidationException {
         try {
-            PlatformUserDetails userDetails = (PlatformUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            PlatformUserDetails userDetails = (PlatformUserDetails) SecurityContextHolder
+                    .getContext()
+                    .getAuthentication()
+                    .getPrincipal();
             return new NameAndUuidDto(userDetails.getUserUuid(), userDetails.getUsername());
         } catch (Exception e) {
-            throw new ValidationException(ValidationError.create("Cannot retrieve user identification for Unknown/Anonymous user"));
+            throw new ValidationException(
+                    ValidationError.create("Cannot retrieve user identification for Unknown/Anonymous user"));
         }
     }
 
@@ -202,8 +219,8 @@ public class AuthHelper {
      * thread so attribution can travel with an async message, whose consumer has no SecurityContext of its own.
      * <p>
      * Absence has two shapes, neither an error: no authentication makes {@link #getUserIdentification()} throw, while
-     * an anonymous caller's principal is a real {@link PlatformUserDetails} whose userUuid is null. Protocol and
-     * system users (acme, scep, cmp, localhost) are ordinary auth-service users and are carried like any other.
+     * an anonymous caller's principal is a real {@link PlatformUserDetails} whose userUuid is null. Protocol and system
+     * users (acme, scep, cmp, localhost) are ordinary auth-service users and are carried like any other.
      */
     public static UUID getActingUserUuidOrNull() {
         try {
@@ -216,12 +233,16 @@ public class AuthHelper {
     public static UserProfileDto getUserProfile() {
         UserProfileDto userProfileDto;
         try {
-            PlatformUserDetails userDetails = (PlatformUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            PlatformUserDetails userDetails = (PlatformUserDetails) SecurityContextHolder
+                    .getContext()
+                    .getAuthentication()
+                    .getPrincipal();
             ObjectMapper objectMapper = new ObjectMapper();
             objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
         } catch (Exception e) {
-            throw new ValidationException(ValidationError.create("Cannot retrieve profile information for Unknown/Anonymous user"));
+            throw new ValidationException(
+                    ValidationError.create("Cannot retrieve profile information for Unknown/Anonymous user"));
         }
         return userProfileDto;
     }
@@ -235,7 +256,9 @@ public class AuthHelper {
 
         Map<String, String> properties = Map.of("name", resource.getCode(), "action", resourceAction.getCode());
         OpaRequestedResource resourceProps = new OpaRequestedResource(properties);
-        OpaObjectAccessResult result = opaClient.checkObjectAccess(OpaPolicy.OBJECTS.policyName, resourceProps, authenticationToken.getPrincipal().getRawData(), new OpaRequestDetails(null));
+        OpaObjectAccessResult result = opaClient
+                .checkObjectAccess(OpaPolicy.OBJECTS.policyName, resourceProps,
+                        authenticationToken.getPrincipal().getRawData(), new OpaRequestDetails(null));
 
         SecurityResourceFilter resourceFilter = SecurityResourceFilter.create();
         resourceFilter.setResource(resource);
@@ -249,7 +272,9 @@ public class AuthHelper {
     // Method to handle extracting the client IP, even if behind proxies
     public static String getClientIPAddress(HttpServletRequest request) {
         String ipAddress = null;
-        List<String> proxyHeaders = List.of("X-Forwarded-For", "X-Real-IP", "HTTP_X_FORWARDED_FOR", "Proxy-Client-IP", "WL-Proxy-Client-IP", "HTTP_CLIENT_IP");
+        List<String> proxyHeaders = List
+                .of("X-Forwarded-For", "X-Real-IP", "HTTP_X_FORWARDED_FOR", "Proxy-Client-IP", "WL-Proxy-Client-IP",
+                        "HTTP_CLIENT_IP");
 
         for (String proxyHeader : proxyHeaders) {
             ipAddress = request.getHeader(proxyHeader);
@@ -271,14 +296,18 @@ public class AuthHelper {
 
     public static String getDeniedPermissionResource() {
         RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
-        Object requestAttribute = requestAttributes == null ? null : requestAttributes.getAttribute(REQ_ATTR_RESOURCE_NAME, REQ_ATTR_ACCESS_CONTROL_SCOPE);
+        Object requestAttribute = requestAttributes == null
+                ? null
+                : requestAttributes.getAttribute(REQ_ATTR_RESOURCE_NAME, REQ_ATTR_ACCESS_CONTROL_SCOPE);
 
         return requestAttribute == null ? null : requestAttribute.toString();
     }
 
     public static String getDeniedPermissionResourceAction() {
         RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
-        Object requestAttribute = requestAttributes == null ? null : requestAttributes.getAttribute(REQ_ATTR_RESOURCE_ACTION_NAME, REQ_ATTR_ACCESS_CONTROL_SCOPE);
+        Object requestAttribute = requestAttributes == null
+                ? null
+                : requestAttributes.getAttribute(REQ_ATTR_RESOURCE_ACTION_NAME, REQ_ATTR_ACCESS_CONTROL_SCOPE);
 
         return requestAttribute == null ? null : requestAttribute.toString();
     }
@@ -287,11 +316,13 @@ public class AuthHelper {
         RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
         if (requestAttributes != null) {
             requestAttributes.setAttribute(REQ_ATTR_RESOURCE_NAME, resourceName, REQ_ATTR_ACCESS_CONTROL_SCOPE);
-            requestAttributes.setAttribute(REQ_ATTR_RESOURCE_ACTION_NAME, resourceActionName, REQ_ATTR_ACCESS_CONTROL_SCOPE);
+            requestAttributes
+                    .setAttribute(REQ_ATTR_RESOURCE_ACTION_NAME, resourceActionName, REQ_ATTR_ACCESS_CONTROL_SCOPE);
         }
     }
 
-    public static void logAndAuditAuthFailure(Logger logger, AuditLogInternalService auditLogService, String message, String authData) {
+    public static void logAndAuditAuthFailure(Logger logger, AuditLogInternalService auditLogService, String message,
+            String authData) {
         if (logger.isDebugEnabled()) {
             logger.debug("{}: {}", message, authData);
         } else {
@@ -309,14 +340,17 @@ public class AuthHelper {
     public static boolean permitAllEndpointInRequest(String requestUri, String context) {
         String requestUriWithoutContextPath = requestUri.replaceFirst(context, "");
         AntPathMatcher pathMatcher = new AntPathMatcher();
-        return PERMITTED_ENDPOINTS.stream().anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
+        return PERMITTED_ENDPOINTS
+                .stream()
+                .anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
     }
 
     public static boolean oauth2EndpointInRequest(String requestUri, String context) {
         String requestUriWithoutContextPath = requestUri.replaceFirst(context, "");
         AntPathMatcher pathMatcher = new AntPathMatcher();
-        return OAUTH2_ENDPOINTS.stream().anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
+        return OAUTH2_ENDPOINTS
+                .stream()
+                .anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
     }
-
 
 }

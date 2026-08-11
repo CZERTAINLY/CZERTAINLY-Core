@@ -8,15 +8,21 @@ import com.otilm.api.model.core.compliance.v2.ComplianceCheckRuleDto;
 import com.otilm.api.model.core.compliance.v2.ComplianceRuleDto;
 import com.otilm.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.otilm.core.dao.entity.workflows.ConditionItem;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import java.util.Objects;
+import java.util.Set;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.proxy.HibernateProxy;
-
-import java.util.Objects;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -40,7 +46,8 @@ public class ComplianceInternalRule extends UniquelyIdentified {
     @ToString.Exclude
     private Set<ConditionItem> conditionItems;
 
-    public ComplianceRuleDto mapToComplianceRuleDto(Resource resource, ComplianceRuleAvailabilityStatus availabilityStatus, String updatedReason) {
+    public ComplianceRuleDto mapToComplianceRuleDto(Resource resource,
+            ComplianceRuleAvailabilityStatus availabilityStatus, String updatedReason) {
         ComplianceRuleDto dto = new ComplianceRuleDto();
         dto.setUuid(uuid);
         dto.setName(name);
@@ -48,7 +55,9 @@ public class ComplianceInternalRule extends UniquelyIdentified {
         dto.setAvailabilityStatus(availabilityStatus);
         dto.setUpdatedReason(updatedReason);
         dto.setResource(resource);
-        if (conditionItems != null) dto.setConditionItems(conditionItems.stream().map(ConditionItem::mapToDto).toList());
+        if (conditionItems != null) {
+            dto.setConditionItems(conditionItems.stream().map(ConditionItem::mapToDto).toList());
+        }
 
         return dto;
     }
@@ -59,7 +68,9 @@ public class ComplianceInternalRule extends UniquelyIdentified {
         dto.setName(name);
         dto.setDescription(description);
         dto.setResource(resource);
-        if (conditionItems != null) dto.setConditionItems(conditionItems.stream().map(ConditionItem::mapToDto).toList());
+        if (conditionItems != null) {
+            dto.setConditionItems(conditionItems.stream().map(ConditionItem::mapToDto).toList());
+        }
 
         return dto;
     }
@@ -75,20 +86,33 @@ public class ComplianceInternalRule extends UniquelyIdentified {
         return dto;
     }
 
-
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof ComplianceInternalRule that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof ComplianceInternalRule that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

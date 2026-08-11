@@ -1,29 +1,27 @@
 package com.otilm.core.integration.tasks;
 
 import com.otilm.core.messaging.scheduler.SessionExpirationPublisher;
+import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SessionTableHelper;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInstance;
-import org.mockito.Mockito;
-import org.springframework.core.convert.support.GenericConversionService;
-import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
-import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-
-import com.otilm.core.util.BaseSpringBootTest;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.session.FindByIndexNameSessionRepository;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.session.Session;
-
+import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SessionExpirationPublisherITest extends BaseSpringBootTest {
@@ -61,7 +59,6 @@ class SessionExpirationPublisherITest extends BaseSpringBootTest {
 
         Assertions.assertNull(sessionRepository.findById(s.getId()));
 
-
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         s = sessionRepository.createSession();
         s.setMaxInactiveInterval(Duration.ZERO);
@@ -90,13 +87,14 @@ class SessionExpirationPublisherITest extends BaseSpringBootTest {
         sessionRepository.save(s);
 
         Mockito.when(dataSource.getConnection()).thenReturn(jdbcTemplate.getDataSource().getConnection());
-        Mockito.when(conversionService.convert(Mockito.any(), Mockito.eq(Object.class))).thenThrow(new RuntimeException("Conversion error"));
+        Mockito
+                .when(conversionService.convert(Mockito.any(), Mockito.eq(Object.class)))
+                .thenThrow(new RuntimeException("Conversion error"));
         publisher = new SessionExpirationPublisher(mocked, dataSource, conversionService);
         ReflectionTestUtils.setField(publisher, "dbSchema", "core");
         publisher.init();
         Assertions.assertDoesNotThrow(publisher::processExpiredSessions);
     }
-
 
     @Test
     void testInit_throwsExceptionForInvalidTableName() {

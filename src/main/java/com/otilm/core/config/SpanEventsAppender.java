@@ -5,10 +5,9 @@ import ch.qos.logback.core.AppenderBase;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
-import org.slf4j.Marker;
-
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Marker;
 
 /**
  * Logback appender which adds a log to current trace span event
@@ -19,7 +18,8 @@ public class SpanEventsAppender extends AppenderBase<LoggingEvent> {
         Span span = Span.current();
 
         AttributesBuilder attributesBuilder = Attributes.builder();
-        // copy all MDC properties, you can leave it out or take only useful information to avoid storing unnecessary data
+        // copy all MDC properties, you can leave it out or take only useful information to avoid storing unnecessary
+        // data
         event.getMDCPropertyMap().forEach(attributesBuilder::put);
 
         List<Marker> markers = event.getMarkerList();

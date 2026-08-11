@@ -3,10 +3,9 @@ package com.otilm.core.dao.repository.workflows;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TriggerRepository extends SecurityFilterRepository<Trigger, UUID> {

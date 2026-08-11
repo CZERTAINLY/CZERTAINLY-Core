@@ -31,13 +31,6 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CryptographyUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.mockbeans.ProducerMocks;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
-import org.springframework.context.annotation.Import;
-
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Security;
@@ -47,13 +40,18 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
 import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
+import org.springframework.context.annotation.Import;
 
 /**
- * Parity: the cached {@link SigningCertificate} + per-item {@link CryptographicKeyItemModel} assembly
- * reproduces the signer inputs available from the live {@code Certificate} entity graph.
+ * Parity: the cached {@link SigningCertificate} + per-item {@link CryptographicKeyItemModel} assembly reproduces the
+ * signer inputs available from the live {@code Certificate} entity graph.
  */
 @Import(ProducerMocks.class)
 @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
@@ -173,8 +171,9 @@ class SigningCertificateParityITest extends BaseSpringBootTest {
         Assertions.assertEquals(live.isArchived(), sc.archived());
         Assertions.assertEquals(live.getState(), sc.state());
         Assertions.assertEquals(live.getValidationStatus(), sc.validationStatus());
-        Assertions.assertEquals(
-                MetaDefinitions.deserializeArrayString(live.getExtendedKeyUsage()), sc.extendedKeyUsageOids());
+        Assertions
+                .assertEquals(MetaDefinitions.deserializeArrayString(live.getExtendedKeyUsage()),
+                        sc.extendedKeyUsageOids());
         Assertions.assertEquals(live.getExtendedKeyUsageCritical(), sc.extendedKeyUsageCritical());
         Assertions.assertEquals(live.getQcCompliance(), sc.qcCompliance());
         Assertions.assertEquals(live.getKey().getUuid(), sc.keyUuid());
@@ -188,8 +187,13 @@ class SigningCertificateParityITest extends BaseSpringBootTest {
 
         // per-item key-item-model parity (assembled the way the resolver will assemble it)
         for (UUID itemUuid : sc.keyItemUuids()) {
-            CryptographicKeyItem liveItem = live.getKey().getItems().stream()
-                    .filter(i -> i.getUuid().equals(itemUuid)).findFirst().orElseThrow();
+            CryptographicKeyItem liveItem = live
+                    .getKey()
+                    .getItems()
+                    .stream()
+                    .filter(i -> i.getUuid().equals(itemUuid))
+                    .findFirst()
+                    .orElseThrow();
             CryptographicKeyItemModel model = cryptographicKeyService.getKeyItemModel(itemUuid);
 
             Assertions.assertEquals(liveItem.getType(), model.keyType());

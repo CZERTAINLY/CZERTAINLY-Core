@@ -24,6 +24,7 @@ public class TimeQualityConfigRequestListener implements MessageProcessor<TimeQu
     @Override
     public void processMessage(TimeQualityConfigRequest message) {
         log.debug("Received time quality config request (requestedAt={})", message.getRequestedAt());
-        timeQualityConfigurationProducer.publishSnapshot(timeQualityConfigurationRepository.findAll(), message.getCorrelationId());
+        timeQualityConfigurationProducer
+                .publishSnapshot(timeQualityConfigurationRepository.findAll(), message.getCorrelationId());
     }
 }

@@ -3,15 +3,14 @@ package com.otilm.core.service.writer.registration;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.core.dao.repository.CertificateRegistrationRepository;
 import com.otilm.core.util.AttributeDefinitionUtils;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
-
 /**
- * Short transactional writes against {@code certificate_registration} (repositories carry no
- * {@code @Transactional}). Methods are {@code REQUIRED} so they join an ambient transaction or open their own.
+ * Short transactional writes against {@code certificate_registration} (repositories carry no {@code @Transactional}).
+ * Methods are {@code REQUIRED} so they join an ambient transaction or open their own.
  */
 @Component
 public class CertificateRegistrationWriter {
@@ -23,8 +22,8 @@ public class CertificateRegistrationWriter {
     }
 
     /**
-     * Creates the binding, or replaces its meta when one already exists. An empty/null meta still creates the
-     * row — its presence marks the certificate register-bound.
+     * Creates the binding, or replaces its meta when one already exists. An empty/null meta still creates the row — its
+     * presence marks the certificate register-bound.
      */
     @Transactional
     public void upsert(UUID certificateUuid, List<MetadataAttribute> meta) {

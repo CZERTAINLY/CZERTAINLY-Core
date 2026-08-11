@@ -1,11 +1,11 @@
 package com.otilm.core.messaging.jms.listeners.timequality;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.messaging.timequality.TimeQualityResultMessage;
 import com.otilm.core.messaging.jms.configuration.MessagingConcurrencyProperties;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.jms.listeners.AbstractJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.MessageProcessor;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jms.config.SimpleJmsListenerEndpoint;
@@ -19,25 +19,18 @@ public class TimeQualityResultsJmsEndpointConfig extends AbstractJmsEndpointConf
 
     private final MessagingConcurrencyProperties messagingConcurrencyProperties;
 
-    public TimeQualityResultsJmsEndpointConfig(
-            ObjectMapper objectMapper,
-            MessageProcessor<TimeQualityResultMessage> listenerMessageProcessor,
-            RetryTemplate jmsRetryTemplate,
-            MessagingProperties messagingProperties,
-            MessagingConcurrencyProperties messagingConcurrencyProperties) {
+    public TimeQualityResultsJmsEndpointConfig(ObjectMapper objectMapper,
+            MessageProcessor<TimeQualityResultMessage> listenerMessageProcessor, RetryTemplate jmsRetryTemplate,
+            MessagingProperties messagingProperties, MessagingConcurrencyProperties messagingConcurrencyProperties) {
         super(objectMapper, listenerMessageProcessor, jmsRetryTemplate, messagingProperties);
         this.messagingConcurrencyProperties = messagingConcurrencyProperties;
     }
 
     @Override
     public SimpleJmsListenerEndpoint listenerEndpoint() {
-        return listenerEndpointInternal(
-                "timeQualityResultsListener",
+        return listenerEndpointInternal("timeQualityResultsListener",
                 messagingProperties.consumerDestination(messagingProperties.queue().timeQualityResults()),
-                messagingProperties.queue().timeQualityResults(),
-                messagingProperties.routingKey().timeQualityResults(),
-                messagingConcurrencyProperties.timeQualityResults(),
-                TimeQualityResultMessage.class
-        );
+                messagingProperties.queue().timeQualityResults(), messagingProperties.routingKey().timeQualityResults(),
+                messagingConcurrencyProperties.timeQualityResults(), TimeQualityResultMessage.class);
     }
 }

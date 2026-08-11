@@ -10,11 +10,10 @@ import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.core.attribute.engine.AttributeOperation;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RsaSignatureAttributes {
@@ -22,7 +21,8 @@ public class RsaSignatureAttributes {
     /**
      * Private constructor to prevent instantiation of utility class.
      */
-    private RsaSignatureAttributes(){}
+    private RsaSignatureAttributes() {
+    }
 
     public static final String ATTRIBUTE_DATA_RSA_SIG_SCHEME = "data_rsaSigScheme";
     public static final String ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID = "0b13c68c-4d56-4901-baf1-af859c8f75ee";
@@ -36,10 +36,7 @@ public class RsaSignatureAttributes {
 
     @CoreAttributeDefinitions(operation = AttributeOperation.SIGN)
     public static List<BaseAttribute> getRsaSignatureAttributes() {
-        return List.of(
-                buildDataRsaSigScheme(),
-                buildDataDigest()
-        );
+        return List.of(buildDataRsaSigScheme(), buildDataDigest());
     }
 
     public static BaseAttribute buildDataRsaSigScheme() {
@@ -60,11 +57,11 @@ public class RsaSignatureAttributes {
         attributeProperties.setReadOnly(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(
-                Stream.of(RsaSignatureScheme.values())
+        attribute
+                .setContent(Stream
+                        .of(RsaSignatureScheme.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .toList()
-        );
+                        .toList());
 
         return attribute;
     }
@@ -87,15 +84,14 @@ public class RsaSignatureAttributes {
         attributeProperties.setReadOnly(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(
-                Stream.of(DigestAlgorithm.values())
+        attribute
+                .setContent(Stream
+                        .of(DigestAlgorithm.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .toList()
-        );
+                        .toList());
 
         return attribute;
     }
-
 
     public static RequestAttributeV2 buildRequestRsaSigScheme(RsaSignatureScheme value) {
         RequestAttributeV2 attribute = new RequestAttributeV2();

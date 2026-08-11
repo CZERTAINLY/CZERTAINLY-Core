@@ -5,17 +5,9 @@ import com.otilm.api.model.core.auth.Resource;
 import java.util.Objects;
 import java.util.UUID;
 
-public record ObjectAttributeContentInfo(
-        UUID connectorUuid,
-        Resource objectType,
-        UUID objectUuid,
-        Resource sourceObjectType,
-        UUID sourceObjectUuid,
-        String sourceObjectName,
-        String purpose,
-        Integer objectVersion,
-        String operation
-) {
+public record ObjectAttributeContentInfo(UUID connectorUuid, Resource objectType, UUID objectUuid,
+        Resource sourceObjectType, UUID sourceObjectUuid, String sourceObjectName, String purpose,
+        Integer objectVersion, String operation) {
     public ObjectAttributeContentInfo {
         Objects.requireNonNull(objectType);
         Objects.requireNonNull(objectUuid);
@@ -73,10 +65,8 @@ public record ObjectAttributeContentInfo(
         }
 
         public ObjectAttributeContentInfo build() {
-            return new ObjectAttributeContentInfo(
-                    connectorUuid, objectType, objectUuid,
-                    sourceObjectType, sourceObjectUuid, sourceObjectName,
-                    purpose, objectVersion, operation);
+            return new ObjectAttributeContentInfo(connectorUuid, objectType, objectUuid, sourceObjectType,
+                    sourceObjectUuid, sourceObjectName, purpose, objectVersion, operation);
         }
     }
 }

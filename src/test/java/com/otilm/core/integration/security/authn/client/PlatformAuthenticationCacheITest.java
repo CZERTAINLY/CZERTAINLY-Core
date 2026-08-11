@@ -4,18 +4,20 @@ import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
 
@@ -173,7 +175,8 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
     @Test
     void getOrAuthenticateByToken_nullJti_loaderAlwaysCalled() {
         // given - tokens without a jti cannot be uniquely identified, so they are never cached
-        Supplier<AuthenticationInfo> loader = loaderReturning(authenticatedInfo(UUID.randomUUID().toString(), "tokenUser"));
+        Supplier<AuthenticationInfo> loader = loaderReturning(
+                authenticatedInfo(UUID.randomUUID().toString(), "tokenUser"));
 
         // when - call twice with a null jti to verify that caching is always skipped
         authenticationCache.getOrAuthenticateByToken(ISSUER, null, 1L, loader);
@@ -237,10 +240,10 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
 
         authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-gen", 1L, loader);
         authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-gen", 1L, loader);
-        assertEquals(1, loaderCalls.get());      // second call under the same generation is a cache hit
+        assertEquals(1, loaderCalls.get()); // second call under the same generation is a cache hit
 
         authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-gen", 2L, loader);
-        assertEquals(2, loaderCalls.get());      // new generation misses and reloads
+        assertEquals(2, loaderCalls.get()); // new generation misses and reloads
     }
 
     @Test
@@ -253,7 +256,8 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
 
         // when - the same jti under the same generation arrives from each issuer
         AuthenticationInfo first = authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-shared", 1L, aliceLoader);
-        AuthenticationInfo second = authenticationCache.getOrAuthenticateByToken(OTHER_ISSUER, "jti-shared", 1L, bobLoader);
+        AuthenticationInfo second = authenticationCache
+                .getOrAuthenticateByToken(OTHER_ISSUER, "jti-shared", 1L, bobLoader);
 
         // then - neither token is served the other issuer's identity
         assertEquals(aliceAtOneIssuer, first);
@@ -262,8 +266,10 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
         verify(bobLoader, times(1)).get();
 
         // and - each issuer keeps its own entry, so a repeat of either is a hit
-        assertEquals(aliceAtOneIssuer, authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-shared", 1L, aliceLoader));
-        assertEquals(bobAtOtherIssuer, authenticationCache.getOrAuthenticateByToken(OTHER_ISSUER, "jti-shared", 1L, bobLoader));
+        assertEquals(aliceAtOneIssuer,
+                authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-shared", 1L, aliceLoader));
+        assertEquals(bobAtOtherIssuer,
+                authenticationCache.getOrAuthenticateByToken(OTHER_ISSUER, "jti-shared", 1L, bobLoader));
         verify(aliceLoader, times(1)).get();
         verify(bobLoader, times(1)).get();
     }
@@ -271,8 +277,10 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
     @Test
     void getOrAuthenticateByToken_missingIssuer_loaderAlwaysCalled() {
         // given - without an issuer the key cannot distinguish one issuer's jti from another's, so caching is skipped
-        Supplier<AuthenticationInfo> nullIssuerLoader = loaderReturning(authenticatedInfo(UUID.randomUUID().toString(), "tokenUser"));
-        Supplier<AuthenticationInfo> blankIssuerLoader = loaderReturning(authenticatedInfo(UUID.randomUUID().toString(), "tokenUser"));
+        Supplier<AuthenticationInfo> nullIssuerLoader = loaderReturning(
+                authenticatedInfo(UUID.randomUUID().toString(), "tokenUser"));
+        Supplier<AuthenticationInfo> blankIssuerLoader = loaderReturning(
+                authenticatedInfo(UUID.randomUUID().toString(), "tokenUser"));
 
         // when
         authenticationCache.getOrAuthenticateByToken(null, "jti-no-issuer", 1L, nullIssuerLoader);
@@ -294,8 +302,10 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
         Supplier<AuthenticationInfo> longIssuerLoader = loaderReturning(longIssuerUser);
 
         // when
-        AuthenticationInfo first = authenticationCache.getOrAuthenticateByToken("https://a", "x:y", 1L, shortIssuerLoader);
-        AuthenticationInfo second = authenticationCache.getOrAuthenticateByToken("https://a:x", "y", 1L, longIssuerLoader);
+        AuthenticationInfo first = authenticationCache
+                .getOrAuthenticateByToken("https://a", "x:y", 1L, shortIssuerLoader);
+        AuthenticationInfo second = authenticationCache
+                .getOrAuthenticateByToken("https://a:x", "y", 1L, longIssuerLoader);
 
         // then - the length-prefixed issuer keeps the two keys apart
         assertEquals(shortIssuerUser, first);
@@ -335,7 +345,8 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
         // when - evict all cache entries for this user
         authenticationCache.evictByUserUuid(userUuid);
 
-        // then - verify that both generation-keyed entries were evicted via the jti index and the loaders are called again
+        // then - verify that both generation-keyed entries were evicted via the jti index and the loaders are called
+        // again
         authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-A", 1L, loaderA);
         authenticationCache.getOrAuthenticateByToken(ISSUER, "jti-A", 2L, loaderB);
         verify(loaderA, times(2)).get();
@@ -364,7 +375,8 @@ class PlatformAuthenticationCacheITest extends BaseSpringBootTest {
         UUID userUuid = UUID.randomUUID();
         String fingerprint = "cert-fingerprint";
         // populate with a different user so the fingerprint is in the cache but not mapped to this user
-        Supplier<AuthenticationInfo> loader = loaderReturning(authenticatedInfo(UUID.randomUUID().toString(), "certUser"));
+        Supplier<AuthenticationInfo> loader = loaderReturning(
+                authenticatedInfo(UUID.randomUUID().toString(), "certUser"));
         authenticationCache.getOrAuthenticateByCertificate(fingerprint, loader);
 
         // when - evict a user who has no certificate cache entry

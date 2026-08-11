@@ -1,15 +1,22 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.otilm.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
+import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
+import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDto;
-import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
-import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.TokenInstanceReference;
@@ -28,8 +35,9 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TokenProfileExternalService;
 import com.otilm.core.service.TokenProfileInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,10 +46,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @SpringBootTest
 @Transactional
@@ -81,7 +85,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
@@ -105,10 +109,8 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListTokenProfiles() {
-        List<TokenProfileDto> tokenProfiles = tokenProfileService.listTokenProfiles(
-                Optional.of(true),
-                SecurityFilter.create()
-        );
+        List<TokenProfileDto> tokenProfiles = tokenProfileService
+                .listTokenProfiles(Optional.of(true), SecurityFilter.create());
         Assertions.assertNotNull(tokenProfiles);
         Assertions.assertFalse(tokenProfiles.isEmpty());
         Assertions.assertEquals(1, tokenProfiles.size());
@@ -117,43 +119,41 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetTokenProfileByUuid() throws NotFoundException {
-        TokenProfileDetailDto dto = tokenProfileService.getTokenProfile(
-                tokenInstanceReference.getSecuredParentUuid(),
-                tokenProfile.getSecuredUuid()
-        );
+        TokenProfileDetailDto dto = tokenProfileService
+                .getTokenProfile(tokenInstanceReference.getSecuredParentUuid(), tokenProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(tokenProfile.getUuid().toString(), dto.getUuid());
     }
 
     @Test
     void testGetTokenProfileByUuid_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> tokenProfileService.getTokenProfile(
-                        tokenInstanceReference.getSecuredParentUuid(),
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> tokenProfileService
+                                .getTokenProfile(tokenInstanceReference.getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testAddTokenProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         AddTokenProfileRequestDto request = new AddTokenProfileRequestDto();
         request.setName("testTokenProfile2");
         request.setAttributes(List.of());
         request.setDescription("sample description");
 
-        TokenProfileDetailDto dto = tokenProfileService.createTokenProfile(
-                tokenInstanceReference.getSecuredParentUuid(),
-                request
-        );
+        TokenProfileDetailDto dto = tokenProfileService
+                .createTokenProfile(tokenInstanceReference.getSecuredParentUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
@@ -163,13 +163,9 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     void testAddTokenProfile_validationFail() {
         AddTokenProfileRequestDto request = new AddTokenProfileRequestDto();
         var securedParentUuid = tokenInstanceReference.getSecuredParentUuid();
-        Assertions.assertThrows(
-                ValidationException.class,
-                () -> tokenProfileService.createTokenProfile(
-                        securedParentUuid,
-                        request
-                )
-        );
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> tokenProfileService.createTokenProfile(securedParentUuid, request));
     }
 
     @Test
@@ -177,33 +173,31 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         AddTokenProfileRequestDto request = new AddTokenProfileRequestDto();
         request.setName(TOKEN_PROFILE_NAME); // tokenProfile with same username exist
 
-        Assertions.assertThrows(
-                AlreadyExistException.class,
-                () -> tokenProfileService.createTokenProfile(
-                        tokenInstanceReference.getSecuredParentUuid(),
-                        request
-                )
-        );
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> tokenProfileService
+                        .createTokenProfile(tokenInstanceReference.getSecuredParentUuid(), request));
     }
 
     @Test
     void testEditTokenProfile() throws ConnectorException, AttributeException, NotFoundException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
         EditTokenProfileRequestDto request = new EditTokenProfileRequestDto();
         request.setDescription("updated description");
         request.setAttributes(List.of());
 
-        TokenProfileDetailDto dto = tokenProfileService.editTokenProfile(
-                tokenInstanceReference.getSecuredParentUuid(),
-                tokenProfile.getSecuredUuid(),
-                request
-        );
+        TokenProfileDetailDto dto = tokenProfileService
+                .editTokenProfile(tokenInstanceReference.getSecuredParentUuid(), tokenProfile.getSecuredUuid(),
+                        request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -211,25 +205,21 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     @Test
     void testEditTokenProfile_notFound() {
         EditTokenProfileRequestDto request = new EditTokenProfileRequestDto();
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> tokenProfileService.editTokenProfile(
-                        tokenInstanceReference.getSecuredParentUuid(),
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
-                        request)
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> tokenProfileService
+                                .editTokenProfile(tokenInstanceReference.getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
     void testRemoveTokenProfile() throws NotFoundException {
-        tokenProfileService.deleteTokenProfile(tokenProfile.getTokenInstanceReference().getSecuredParentUuid(), tokenProfile.getSecuredUuid());
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> tokenProfileService.getTokenProfile(
-                        tokenInstanceReference.getSecuredParentUuid(),
-                        tokenProfile.getSecuredUuid()
-                )
-        );
+        tokenProfileService
+                .deleteTokenProfile(tokenProfile.getTokenInstanceReference().getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid());
+        Assertions
+                .assertThrows(NotFoundException.class, () -> tokenProfileService
+                        .getTokenProfile(tokenInstanceReference.getSecuredParentUuid(), tokenProfile.getSecuredUuid()));
     }
 
     @Test
@@ -239,13 +229,15 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
         SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
         SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
-        ValidationException e = Assertions.assertThrows(
-                ValidationException.class,
-                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
-        );
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid));
 
         String errors = joinErrorDescriptions(e);
-        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 2 dependent Key(s)"), errors);
+        Assertions
+                .assertTrue(
+                        errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": 2 dependent Key(s)"),
+                        errors);
         Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfileUuid).isPresent());
         Assertions.assertEquals(2, cryptographicKeyRepository.countByTokenProfileUuid(tokenProfileUuid.getValue()));
     }
@@ -257,13 +249,16 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
         SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
         SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
-        ValidationException e = Assertions.assertThrows(
-                ValidationException.class,
-                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
-        );
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid));
 
         String errors = joinErrorDescriptions(e);
-        Assertions.assertTrue(errors.contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME + ": dependent Signing Profile(s): testSigningProfile"), errors);
+        Assertions
+                .assertTrue(errors
+                        .contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME
+                                + ": dependent Signing Profile(s): testSigningProfile"),
+                        errors);
     }
 
     @Test
@@ -274,13 +269,16 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
         SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
         SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
-        ValidationException e = Assertions.assertThrows(
-                ValidationException.class,
-                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
-        );
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid));
 
         String errors = joinErrorDescriptions(e);
-        Assertions.assertTrue(errors.contains("Signing Profile(s) referencing it only in superseded versions (released only by deleting the Signing Profile): testSigningProfile"), errors);
+        Assertions
+                .assertTrue(errors
+                        .contains(
+                                "Signing Profile(s) referencing it only in superseded versions (released only by deleting the Signing Profile): testSigningProfile"),
+                        errors);
         Assertions.assertFalse(errors.contains("dependent Signing Profile(s)"), errors);
     }
 
@@ -292,10 +290,9 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
         SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
         SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
-        ValidationException e = Assertions.assertThrows(
-                ValidationException.class,
-                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
-        );
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid));
 
         String errors = joinErrorDescriptions(e);
         Assertions.assertTrue(errors.contains("dependent Signing Profile(s): testSigningProfile"), errors);
@@ -304,70 +301,47 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testRemoveTokenProfile_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> tokenProfileService.deleteTokenProfile(
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> tokenProfileService
+                        .deleteTokenProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testEnableTokenProfile() throws NotFoundException {
-        tokenProfileService.enableTokenProfile(
-                tokenProfile.getSecuredParentUuid(),
-                tokenProfile.getSecuredUuid()
-        );
-        Assertions.assertEquals(
-                true,
-                tokenProfile.getEnabled()
-        );
+        tokenProfileService.enableTokenProfile(tokenProfile.getSecuredParentUuid(), tokenProfile.getSecuredUuid());
+        Assertions.assertEquals(true, tokenProfile.getEnabled());
     }
 
     @Test
     void testEnableTokenProfile_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> tokenProfileService.enableTokenProfile(
-                        tokenProfile.getSecuredParentUuid(),
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> tokenProfileService
+                                .enableTokenProfile(tokenProfile.getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testDisableTokenProfile() throws NotFoundException {
-        tokenProfileService.disableTokenProfile(
-                tokenProfile.getSecuredParentUuid(),
-                tokenProfile.getSecuredUuid()
-        );
-        Assertions.assertEquals(
-                false,
-                tokenProfile.getEnabled()
-        );
+        tokenProfileService.disableTokenProfile(tokenProfile.getSecuredParentUuid(), tokenProfile.getSecuredUuid());
+        Assertions.assertEquals(false, tokenProfile.getEnabled());
     }
 
     @Test
     void testDisableTokenProfile_notFound() {
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> tokenProfileService.disableTokenProfile(
-                        tokenProfile.getSecuredParentUuid(),
-                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> tokenProfileService
+                                .disableTokenProfile(tokenProfile.getSecuredParentUuid(),
+                                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
-
 
     @Test
     void testBulkRemove() {
         tokenProfileService.deleteTokenProfile(List.of(tokenProfile.getSecuredUuid()));
-        Assertions.assertThrows(NotFoundException.class,
-                () -> tokenProfileService.getTokenProfile(
-                        tokenInstanceReference.getSecuredParentUuid(),
-                        tokenProfile.getSecuredUuid()
-                )
-        );
+        Assertions
+                .assertThrows(NotFoundException.class, () -> tokenProfileService
+                        .getTokenProfile(tokenInstanceReference.getSecuredParentUuid(), tokenProfile.getSecuredUuid()));
     }
 
     @Test
@@ -379,8 +353,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         cleanProfile = tokenProfileRepository.save(cleanProfile);
         createKey("testKey1");
 
-        tokenProfileService.deleteTokenProfile(
-                List.of(cleanProfile.getSecuredUuid(), tokenProfile.getSecuredUuid()));
+        tokenProfileService.deleteTokenProfile(List.of(cleanProfile.getSecuredUuid(), tokenProfile.getSecuredUuid()));
 
         // Best-effort semantics: deletable profiles are removed, blocked ones are skipped (logged),
         // consistent with how the bulk loop treats NotFoundException. Per-item error reporting
@@ -397,15 +370,17 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
         SecuredUUID tokenProfileUuid = tokenProfile.getSecuredUuid();
         SecuredParentUUID tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
-        ValidationException e = Assertions.assertThrows(
-                ValidationException.class,
-                () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid)
-        );
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> tokenProfileService.deleteTokenProfile(tokenInstanceUuid, tokenProfileUuid));
 
         String errors = joinErrorDescriptions(e);
-        Assertions.assertTrue(errors.contains(
-                "Cannot delete Token Profile " + TOKEN_PROFILE_NAME
-                        + ": 1 dependent Key(s); dependent Signing Profile(s): testSigningProfile"), errors);
+        Assertions
+                .assertTrue(
+                        errors
+                                .contains("Cannot delete Token Profile " + TOKEN_PROFILE_NAME
+                                        + ": 1 dependent Key(s); dependent Signing Profile(s): testSigningProfile"),
+                        errors);
     }
 
     @Test
@@ -422,7 +397,8 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> response = tokenProfileInternalService.listResourceObjects(SecurityFilter.create(), null, null);
+        List<NameAndUuidDto> response = tokenProfileInternalService
+                .listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, response.size());
     }
 
@@ -446,7 +422,8 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         return signingProfileRepository.save(signingProfile);
     }
 
-    private SigningProfileVersion createSigningProfileVersion(SigningProfile signingProfile, int version, TokenProfile referencedTokenProfile) {
+    private SigningProfileVersion createSigningProfileVersion(SigningProfile signingProfile, int version,
+            TokenProfile referencedTokenProfile) {
         SigningProfileVersion profileVersion = new SigningProfileVersion();
         profileVersion.setSigningProfile(signingProfile);
         profileVersion.setVersion(version);
@@ -465,8 +442,6 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     }
 
     private static String joinErrorDescriptions(ValidationException e) {
-        return e.getErrors().stream()
-                .map(ValidationError::getErrorDescription)
-                .collect(Collectors.joining("; "));
+        return e.getErrors().stream().map(ValidationError::getErrorDescription).collect(Collectors.joining("; "));
     }
 }

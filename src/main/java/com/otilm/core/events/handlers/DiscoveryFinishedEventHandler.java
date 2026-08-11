@@ -18,11 +18,10 @@ import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.ScheduledTaskResult;
 import com.otilm.core.tasks.ScheduledJobInfo;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Date;
 import java.util.UUID;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 @Component(ResourceEvent.Codes.DISCOVERY_FINISHED)
@@ -30,14 +29,18 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
 
     private final DiscoveryRepository discoveryRepository;
 
-    protected DiscoveryFinishedEventHandler(DiscoveryRepository repository, TriggerEvaluator<DiscoveryHistory> ruleEvaluator) {
+    protected DiscoveryFinishedEventHandler(DiscoveryRepository repository,
+            TriggerEvaluator<DiscoveryHistory> ruleEvaluator) {
         super(repository, ruleEvaluator);
         discoveryRepository = repository;
     }
 
     @Override
     protected EventContext<DiscoveryHistory> prepareContext(EventMessage eventMessage) throws EventException {
-        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getObjectUuid())));
+        DiscoveryHistory discovery = discoveryRepository
+                .findByUuid(eventMessage.getObjectUuid())
+                .orElseThrow(() -> new EventException(eventMessage.getEvent(),
+                        "Discovery with UUID %s not found".formatted(eventMessage.getObjectUuid())));
         DiscoveryResult discoveryResult = objectMapper.convertValue(eventMessage.getData(), DiscoveryResult.class);
 
         // Certificate post-processing reports back once the discovered certificates have been handled, signalling
@@ -47,14 +50,17 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
         // write idempotent on redelivery; the base handler still dispatches follow-up notifications either way.
         DiscoveryStatus reportedStatus = discoveryResult.getDiscoveryStatus();
         if (!isTerminal(discovery.getStatus()) && isPostProcessingFinishSignal(reportedStatus)) {
-            DiscoveryStatus finalStatus = reportedStatus == DiscoveryStatus.PROCESSING ? DiscoveryStatus.COMPLETED : reportedStatus;
+            DiscoveryStatus finalStatus = reportedStatus == DiscoveryStatus.PROCESSING
+                    ? DiscoveryStatus.COMPLETED
+                    : reportedStatus;
             discovery.setStatus(finalStatus);
             discovery.setEndTime(new Date());
             discovery.setMessage(buildFinishedMessage(finalStatus, discoveryResult.getMessage()));
             discoveryRepository.save(discovery);
         }
 
-        EventContext<DiscoveryHistory> context = new EventContext<>(eventMessage, triggerEvaluator, discovery, getEventData(discovery, eventMessage.getData()));
+        EventContext<DiscoveryHistory> context = new EventContext<>(eventMessage, triggerEvaluator, discovery,
+                getEventData(discovery, eventMessage.getData()));
         fetchEventTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
         return context;
@@ -69,18 +75,25 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
     protected void sendFollowUpEventsNotifications(EventContext<DiscoveryHistory> eventContext) {
         DiscoveryHistory discovery = eventContext.getResourceObjects().getFirst();
         Object eventData = eventContext.getResourceObjectsEventData().getFirst();
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.DISCOVERY, discovery.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(eventContext.getUserUuid()), eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.DISCOVERY,
+                discovery.getUuid(), null,
+                NotificationRecipient.buildUserNotificationRecipient(eventContext.getUserUuid()), eventData);
         applicationEventPublisher.publishEvent(notificationMessage);
 
         // if discovery was scheduled, raise application event to notify that scheduled discovery has finished
         if (eventContext.getScheduledJobInfo() != null) {
-            ScheduledTaskResult scheduledTaskResult = new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid().toString());
-            applicationEventPublisher.publishEvent(new ScheduledJobFinishedEvent(eventContext.getScheduledJobInfo(), scheduledTaskResult));
+            ScheduledTaskResult scheduledTaskResult = new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS,
+                    discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid().toString());
+            applicationEventPublisher
+                    .publishEvent(
+                            new ScheduledJobFinishedEvent(eventContext.getScheduledJobInfo(), scheduledTaskResult));
         }
     }
 
-    public static EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo, DiscoveryResult discoveryResult) {
-        return new EventMessage(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discoveryUuid, null, null, discoveryResult, userUuid, scheduledJobInfo);
+    public static EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid,
+            ScheduledJobInfo scheduledJobInfo, DiscoveryResult discoveryResult) {
+        return new EventMessage(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discoveryUuid, null, null,
+                discoveryResult, userUuid, scheduledJobInfo);
     }
 
     private static boolean isPostProcessingFinishSignal(DiscoveryStatus reportedStatus) {
@@ -88,7 +101,8 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
     }
 
     private static boolean isTerminal(DiscoveryStatus status) {
-        return status == DiscoveryStatus.COMPLETED || status == DiscoveryStatus.WARNING || status == DiscoveryStatus.FAILED;
+        return status == DiscoveryStatus.COMPLETED || status == DiscoveryStatus.WARNING
+                || status == DiscoveryStatus.FAILED;
     }
 
     private static String buildFinishedMessage(DiscoveryStatus finalStatus, String detail) {

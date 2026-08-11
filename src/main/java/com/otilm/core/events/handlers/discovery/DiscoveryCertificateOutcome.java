@@ -3,8 +3,9 @@ package com.otilm.core.events.handlers.discovery;
 /**
  * How the platform finished handling one discovered-certificate row.
  *
- * <p>Every value except {@link #NOT_ATTEMPTED} means the row reached a verdict, whether or not that verdict was
- * a clean import.
+ * <p>
+ * Every value except {@link #NOT_ATTEMPTED} means the row reached a verdict, whether or not that verdict was a clean
+ * import.
  */
 public enum DiscoveryCertificateOutcome {
 

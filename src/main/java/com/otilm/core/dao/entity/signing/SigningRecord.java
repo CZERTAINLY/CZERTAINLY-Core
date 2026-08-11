@@ -13,14 +13,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import java.time.Instant;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -58,15 +57,9 @@ public class SigningRecord extends UniquelyIdentifiedAndAudited implements Secur
      * navigation and to declare the composite FK that guarantees the referenced version row exists.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumns(
-            value = {
-                    @JoinColumn(name = "signing_profile_uuid", referencedColumnName = "signing_profile_uuid",
-                            insertable = false, updatable = false),
-                    @JoinColumn(name = "signing_profile_version", referencedColumnName = "version",
-                            insertable = false, updatable = false)
-            },
-            foreignKey = @ForeignKey(name = "fk_signing_record_profile_version")
-    )
+    @JoinColumns(value = {
+            @JoinColumn(name = "signing_profile_uuid", referencedColumnName = "signing_profile_uuid", insertable = false, updatable = false),
+            @JoinColumn(name = "signing_profile_version", referencedColumnName = "version", insertable = false, updatable = false)}, foreignKey = @ForeignKey(name = "fk_signing_record_profile_version"))
     @ToString.Exclude
     private SigningProfileVersion signingProfileVersionEntity;
 

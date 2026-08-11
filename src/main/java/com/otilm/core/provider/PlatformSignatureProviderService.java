@@ -18,5 +18,4 @@ public class PlatformSignatureProviderService extends Provider.Service {
         return new PlatformSignatureSpi(this.signatureService);
     }
 
-
 }

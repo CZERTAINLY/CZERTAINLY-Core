@@ -8,6 +8,9 @@ import com.otilm.core.service.UserManagementExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SessionTableHelper;
 import com.otilm.core.util.mockbeans.ManagementApiMocks;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -17,16 +20,15 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.function.Supplier;
-
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Integration tests verifying that service mutations correctly invalidate the authentication cache.
- * Each test populates the real Caffeine cache, triggers a service operation, then asserts that
- * the affected entries are evicted and the loader is re-invoked on the next authentication request.
+ * Integration tests verifying that service mutations correctly invalidate the authentication cache. Each test populates
+ * the real Caffeine cache, triggers a service operation, then asserts that the affected entries are evicted and the
+ * loader is re-invoked on the next authentication request.
  */
 @Import(ManagementApiMocks.class)
 class AuthenticationCacheITest extends BaseSpringBootTest {
@@ -119,7 +121,8 @@ class AuthenticationCacheITest extends BaseSpringBootTest {
             String evictedUserUuid = UUID.randomUUID().toString();
             String survivingUserUuid = UUID.randomUUID().toString();
             Supplier<AuthenticationInfo> evictedLoader = loaderReturning(authenticatedInfo(evictedUserUuid, "evicted"));
-            Supplier<AuthenticationInfo> survivingLoader = loaderReturning(authenticatedInfo(survivingUserUuid, "surviving"));
+            Supplier<AuthenticationInfo> survivingLoader = loaderReturning(
+                    authenticatedInfo(survivingUserUuid, "surviving"));
             authenticationCache.getOrAuthenticateByUserUuid(UUID.fromString(evictedUserUuid), evictedLoader);
             authenticationCache.getOrAuthenticateByUserUuid(UUID.fromString(survivingUserUuid), survivingLoader);
 
@@ -145,7 +148,8 @@ class AuthenticationCacheITest extends BaseSpringBootTest {
             UUID userUuidA = UUID.randomUUID();
             String userUuidB = UUID.randomUUID().toString();
             String userUuidC = UUID.randomUUID().toString();
-            Supplier<AuthenticationInfo> uuidLoader = loaderReturning(authenticatedInfo(userUuidA.toString(), "uuidUser"));
+            Supplier<AuthenticationInfo> uuidLoader = loaderReturning(
+                    authenticatedInfo(userUuidA.toString(), "uuidUser"));
             Supplier<AuthenticationInfo> certLoader = loaderReturning(authenticatedInfo(userUuidB, "certUser"));
             Supplier<AuthenticationInfo> tokenLoader = loaderReturning(authenticatedInfo(userUuidC, "tokenUser"));
             authenticationCache.getOrAuthenticateByUserUuid(userUuidA, uuidLoader);

@@ -1,11 +1,33 @@
 package com.otilm.core.integration.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.jwk.Curve;
+import com.nimbusds.jose.jwk.ECKey;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.OctetKeyPair;
+import com.nimbusds.jose.jwk.OctetSequenceKey;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
+import com.nimbusds.jose.jwk.gen.OctetSequenceKeyGenerator;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
-import com.otilm.api.model.core.settings.*;
+import com.otilm.api.model.core.settings.CertificateRegistrationSettingsUpdateDto;
+import com.otilm.api.model.core.settings.CertificateRequestAttributesSettingsUpdateDto;
+import com.otilm.api.model.core.settings.CertificateSettingsUpdateDto;
+import com.otilm.api.model.core.settings.CertificateValidationSettingsUpdateDto;
+import com.otilm.api.model.core.settings.EventSettingsDto;
+import com.otilm.api.model.core.settings.EventsSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsUpdateDto;
+import com.otilm.api.model.core.settings.SettingsSection;
+import com.otilm.api.model.core.settings.SettingsSectionCategory;
+import com.otilm.api.model.core.settings.UtilsSettingsDto;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
@@ -18,24 +40,20 @@ import com.otilm.core.dao.repository.workflows.TriggerRepository;
 import com.otilm.core.service.SettingExternalService;
 import com.otilm.core.service.impl.SettingServiceImpl;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.jwk.*;
-import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
-import com.nimbusds.jose.jwk.gen.OctetSequenceKeyGenerator;
-import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
-import java.util.*;
+import java.util.Base64;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class SettingServiceITest extends BaseSpringBootTest {
 
@@ -139,8 +157,12 @@ class SettingServiceITest extends BaseSpringBootTest {
         // then: the edited set is read back, and validation settings are unaffected by a request-attributes-only update
         PlatformSettingsDto edited = settingService.getPlatformSettings();
         Assertions.assertEquals(1, edited.getCertificates().getRequestAttributes().getRequestAttributes().size());
-        Assertions.assertEquals("commonName", edited.getCertificates().getRequestAttributes().getRequestAttributes().get(0).getName());
-        Assertions.assertEquals(Boolean.TRUE, edited.getCertificates().getRequestAttributes().getExternalCsrValidationStrict());
+        Assertions
+                .assertEquals("commonName",
+                        edited.getCertificates().getRequestAttributes().getRequestAttributes().get(0).getName());
+        Assertions
+                .assertEquals(Boolean.TRUE,
+                        edited.getCertificates().getRequestAttributes().getExternalCsrValidationStrict());
         Assertions.assertNotNull(edited.getCertificates().getValidation());
     }
 
@@ -179,23 +201,24 @@ class SettingServiceITest extends BaseSpringBootTest {
     @Test
     void testRetrievingJwkSet() throws JsonProcessingException, JOSEException, ParseException {
 
-        RSAKey rsaJwk = new RSAKeyGenerator(2048)
-                .generate();
+        RSAKey rsaJwk = new RSAKeyGenerator(2048).generate();
 
-        ECKey ecJwk = new ECKeyGenerator(Curve.P_256)
-                .generate();
+        ECKey ecJwk = new ECKeyGenerator(Curve.P_256).generate();
 
-        OctetSequenceKey aesJwk = new OctetSequenceKeyGenerator(128)
-                .generate();
+        OctetSequenceKey aesJwk = new OctetSequenceKeyGenerator(128).generate();
 
-        OctetKeyPair octetKeyPairJwk = OctetKeyPair.parse("{\"kty\":\"OKP\",\"d\":\"y85lxYiKx57Dwgs2rH1b0yTVxeLJWmpt48WfivLXBbU\",\"crv\":\"Ed25519\",\"x\":\"tO6vOgx0YOVuWdevkbYzaihxcCLx8DfqRs2nvs3CBxU\", \"kid\": \"123\"}");
+        OctetKeyPair octetKeyPairJwk = OctetKeyPair
+                .parse("{\"kty\":\"OKP\",\"d\":\"y85lxYiKx57Dwgs2rH1b0yTVxeLJWmpt48WfivLXBbU\",\"crv\":\"Ed25519\",\"x\":\"tO6vOgx0YOVuWdevkbYzaihxcCLx8DfqRs2nvs3CBxU\", \"kid\": \"123\"}");
 
         JWKSet jwkSet = new JWKSet(List.of(rsaJwk, ecJwk, aesJwk, octetKeyPairJwk));
 
         OAuth2ProviderSettingsUpdateDto providerSettings = new OAuth2ProviderSettingsUpdateDto();
         ObjectMapper objectMapper = new ObjectMapper();
 
-        providerSettings.setJwkSet(Base64.getEncoder().encodeToString(objectMapper.writeValueAsString(jwkSet.toJSONObject(false)).getBytes()));
+        providerSettings
+                .setJwkSet(Base64
+                        .getEncoder()
+                        .encodeToString(objectMapper.writeValueAsString(jwkSet.toJSONObject(false)).getBytes()));
         Setting oauth2Setting = new Setting();
         oauth2Setting.setValue(objectMapper.writeValueAsString(providerSettings));
         oauth2Setting.setName("name");
@@ -203,11 +226,44 @@ class SettingServiceITest extends BaseSpringBootTest {
         oauth2Setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         settingRepository.save(oauth2Setting);
 
-        OAuth2ProviderSettingsResponseDto oAuth2ProvidersSettingsUpdateDto = settingService.getOAuth2ProviderSettings("name", false);
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(rsaJwk.toPublicKey().getEncoded()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("RSA")).findFirst().get().getPublicKey());
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(ecJwk.toPublicKey().getEncoded()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("EC")).findFirst().get().getPublicKey());
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(aesJwk.toByteArray()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("oct")).findFirst().get().getPublicKey());
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(octetKeyPairJwk.getDecodedX()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("OKP")).findFirst().get().getPublicKey());
+        OAuth2ProviderSettingsResponseDto oAuth2ProvidersSettingsUpdateDto = settingService
+                .getOAuth2ProviderSettings("name", false);
+        Assertions
+                .assertEquals(Base64.getEncoder().encodeToString(rsaJwk.toPublicKey().getEncoded()),
+                        oAuth2ProvidersSettingsUpdateDto
+                                .getJwkSetKeys()
+                                .stream()
+                                .filter(jwk -> jwk.getKeyType().equals("RSA"))
+                                .findFirst()
+                                .get()
+                                .getPublicKey());
+        Assertions
+                .assertEquals(Base64.getEncoder().encodeToString(ecJwk.toPublicKey().getEncoded()),
+                        oAuth2ProvidersSettingsUpdateDto
+                                .getJwkSetKeys()
+                                .stream()
+                                .filter(jwk -> jwk.getKeyType().equals("EC"))
+                                .findFirst()
+                                .get()
+                                .getPublicKey());
+        Assertions
+                .assertEquals(Base64.getEncoder().encodeToString(aesJwk.toByteArray()),
+                        oAuth2ProvidersSettingsUpdateDto
+                                .getJwkSetKeys()
+                                .stream()
+                                .filter(jwk -> jwk.getKeyType().equals("oct"))
+                                .findFirst()
+                                .get()
+                                .getPublicKey());
+        Assertions
+                .assertEquals(Base64.getEncoder().encodeToString(octetKeyPairJwk.getDecodedX()),
+                        oAuth2ProvidersSettingsUpdateDto
+                                .getJwkSetKeys()
+                                .stream()
+                                .filter(jwk -> jwk.getKeyType().equals("OKP"))
+                                .findFirst()
+                                .get()
+                                .getPublicKey());
     }
 
     @Test
@@ -216,7 +272,9 @@ class SettingServiceITest extends BaseSpringBootTest {
         authenticationSettingsUpdateDto.setDisableLocalhostUser(true);
         authenticationSettingsUpdateDto.setOAuth2Providers(List.of());
 
-        Assertions.assertDoesNotThrow(() -> settingService.updateAuthenticationSettings(authenticationSettingsUpdateDto), "Updating authentication settings should not throw any exception");
+        Assertions
+                .assertDoesNotThrow(() -> settingService.updateAuthenticationSettings(authenticationSettingsUpdateDto),
+                        "Updating authentication settings should not throw any exception");
     }
 
     @Test
@@ -224,20 +282,26 @@ class SettingServiceITest extends BaseSpringBootTest {
         EventsSettingsDto eventSettings = settingService.getEventsSettings();
         Assertions.assertNotNull(eventSettings);
 
-        Assertions.assertDoesNotThrow(() -> settingService.updateEventsSettings(eventSettings), "Updating event settings should not throw any exception");
+        Assertions
+                .assertDoesNotThrow(() -> settingService.updateEventsSettings(eventSettings),
+                        "Updating event settings should not throw any exception");
 
         EventSettingsDto eventSettingsDto = new EventSettingsDto();
         eventSettingsDto.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
         eventSettingsDto.setTriggerUuids(List.of(UUID.fromString(TEST_TRIGGER_UUID)));
 
-        Assertions.assertDoesNotThrow(() -> settingService.updateEventSettings(eventSettingsDto), "Updating event settings should not throw any exception");
+        Assertions
+                .assertDoesNotThrow(() -> settingService.updateEventSettings(eventSettingsDto),
+                        "Updating event settings should not throw any exception");
     }
 
     @Test
     void testUpdateNonExistingTriggerEventSettings() {
         EventsSettingsDto eventsSettings = new EventsSettingsDto();
         Map<ResourceEvent, List<UUID>> eventsMapping = new EnumMap<>(ResourceEvent.class);
-        eventsMapping.put(ResourceEvent.CERTIFICATE_DISCOVERED, List.of(UUID.fromString("3a1db3f5-f9eb-4fbf-92c9-c4c1499bfca8")));
+        eventsMapping
+                .put(ResourceEvent.CERTIFICATE_DISCOVERED,
+                        List.of(UUID.fromString("3a1db3f5-f9eb-4fbf-92c9-c4c1499bfca8")));
         eventsSettings.setEventsMapping(eventsMapping);
 
         Assertions.assertThrows(NotFoundException.class, () -> settingService.updateEventsSettings(eventsSettings));
@@ -246,7 +310,9 @@ class SettingServiceITest extends BaseSpringBootTest {
         eventSettingsDto.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
         eventSettingsDto.setTriggerUuids(List.of(UUID.fromString("3a1db3f5-f9eb-4fbf-92c9-c4c1499bfca8")));
 
-        Assertions.assertThrows(NotFoundException.class, () -> settingService.updateEventSettings(eventSettingsDto), "Updating non-existing trigger event settings should throw NotFoundException");
+        Assertions
+                .assertThrows(NotFoundException.class, () -> settingService.updateEventSettings(eventSettingsDto),
+                        "Updating non-existing trigger event settings should throw NotFoundException");
     }
 
     @Test
@@ -257,8 +323,9 @@ class SettingServiceITest extends BaseSpringBootTest {
 
         OAuth2ProviderSettingsUpdateDto second = createProviderUpdateDto();
         second.setIssuerUrl("https://shared-issuer.example.com");
-        Assertions.assertThrows(ValidationException.class,
-                () -> settingService.updateOAuth2ProviderSettings("provider-two", second));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> settingService.updateOAuth2ProviderSettings("provider-two", second));
     }
 
     @Test
@@ -280,8 +347,9 @@ class SettingServiceITest extends BaseSpringBootTest {
         settingService.updateOAuth2ProviderSettings("provider-two", second);
 
         second.setIssuerUrl("https://issuer-one.example.com");
-        Assertions.assertThrows(ValidationException.class,
-                () -> settingService.updateOAuth2ProviderSettings("provider-two", second));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> settingService.updateOAuth2ProviderSettings("provider-two", second));
     }
 
     @Test
@@ -292,8 +360,7 @@ class SettingServiceITest extends BaseSpringBootTest {
         p2.setIssuerUrl("https://dup.example.com");
         AuthenticationSettingsUpdateDto update = new AuthenticationSettingsUpdateDto();
         update.setOAuth2Providers(List.of(p1, p2));
-        Assertions.assertThrows(ValidationException.class,
-                () -> settingService.updateAuthenticationSettings(update));
+        Assertions.assertThrows(ValidationException.class, () -> settingService.updateAuthenticationSettings(update));
     }
 
     private static String encodedJwkSet() throws Exception {
@@ -301,8 +368,7 @@ class SettingServiceITest extends BaseSpringBootTest {
         generator.initialize(2048);
         KeyPair keyPair = generator.generateKeyPair();
         RSAKey rsaKey = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic()).keyID("test-key").build();
-        return Base64.getEncoder().encodeToString(
-                new JWKSet(rsaKey).toString().getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(new JWKSet(rsaKey).toString().getBytes(StandardCharsets.UTF_8));
     }
 
     private static OAuth2ProviderSettingsUpdateDto createProviderUpdateDto() throws Exception {

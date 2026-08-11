@@ -12,34 +12,29 @@ import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.core.util.PlatformX500NameStyle;
 import com.otilm.core.util.X509RequestContentRenderer;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import javax.security.auth.x500.X500Principal;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Projects the operator-supplied flat identity into typed {@link X509RequestContent} and renders the v3 register
- * wire. Structured content rides the wire only when the connector advertises {@code CERTIFICATE_REQUEST_STRUCTURED}.
+ * Projects the operator-supplied flat identity into typed {@link X509RequestContent} and renders the v3 register wire.
+ * Structured content rides the wire only when the connector advertises {@code CERTIFICATE_REQUEST_STRUCTURED}.
  */
 public final class RegisterWireBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(RegisterWireBuilder.class);
 
     /** OpenSSL-convention textual SAN type prefixes (matched case-insensitively). */
-    private static final Map<String, GeneralNameType> SAN_PREFIXES = Map.of(
-            "dns", GeneralNameType.DNS,
-            "ip", GeneralNameType.IP,
-            "email", GeneralNameType.EMAIL,
-            "uri", GeneralNameType.URI,
-            "dirname", GeneralNameType.DIRECTORY_NAME,
-            "rid", GeneralNameType.REGISTERED_ID,
-            "othername", GeneralNameType.OTHER_NAME);
+    private static final Map<String, GeneralNameType> SAN_PREFIXES = Map
+            .of("dns", GeneralNameType.DNS, "ip", GeneralNameType.IP, "email", GeneralNameType.EMAIL, "uri",
+                    GeneralNameType.URI, "dirname", GeneralNameType.DIRECTORY_NAME, "rid",
+                    GeneralNameType.REGISTERED_ID, "othername", GeneralNameType.OTHER_NAME);
 
     private static final String OTHER_NAME_UTF8_TAG = "UTF8:";
 
@@ -49,13 +44,13 @@ public final class RegisterWireBuilder {
     /**
      * Projects the operator-supplied flat registration identity into typed request content.
      *
-     * @param subjectDn      RFC 4514 subject DN, may be blank (SAN-only identity per RFC 5280 §4.1.2.6)
+     * @param subjectDn RFC 4514 subject DN, may be blank (SAN-only identity per RFC 5280 §4.1.2.6)
      * @param subjectAltName textual SAN in OpenSSL convention ({@code DNS:foo,IP:1.2.3.4,email:x@y}), may be blank
-     * @param extensions     structured extensions carrying base64 DER values, may be null
+     * @param extensions structured extensions carrying base64 DER values, may be null
      * @throws ValidationException when the DN or SAN string is malformed
      */
     public static X509RequestContent buildContent(String subjectDn, String subjectAltName,
-                                                  List<CertificateExtension> extensions) {
+            List<CertificateExtension> extensions) {
         X509RequestContent content = buildIdentityContent(subjectDn);
         content.setSubjectAltNames(parseSubjectAltName(subjectAltName));
         content.setExtensions(mapExtensions(extensions));
@@ -78,7 +73,7 @@ public final class RegisterWireBuilder {
      * {@code CERTIFICATE_REQUEST_STRUCTURED} capability.
      */
     public static CertificateRegistrationRequestDtoV3 buildRegistration(X509RequestContent content,
-                                                                        boolean connectorSupportsStructured) {
+            boolean connectorSupportsStructured) {
         CertificateRegistrationRequestDtoV3 dto = new CertificateRegistrationRequestDtoV3();
         dto.setSubjectDn(renderWireSubjectDn(content));
         dto.setSubjectAltName(renderSubjectAltName(content.getSubjectAltNames()));
@@ -186,11 +181,11 @@ public final class RegisterWireBuilder {
     // ── flat-wire rendering ─────────────────────────────────────────────────
 
     /**
-     * Renders the subject DN in the platform display form (registry codes such as {@code EMAIL}), or null
-     * when the content carries no subject. Used by the register orchestrator for the persisted placeholder
-     * DN and the UI; the connector wire uses {@link #renderWireSubjectDn(X509RequestContent)} instead, so
-     * the two strings differ in dialect while deriving from the same content. DN identity comparisons use
-     * the separate normalized form, never these display strings.
+     * Renders the subject DN in the platform display form (registry codes such as {@code EMAIL}), or null when the
+     * content carries no subject. Used by the register orchestrator for the persisted placeholder DN and the UI; the
+     * connector wire uses {@link #renderWireSubjectDn(X509RequestContent)} instead, so the two strings differ in
+     * dialect while deriving from the same content. DN identity comparisons use the separate normalized form, never
+     * these display strings.
      */
     public static String renderSubjectDn(X509RequestContent content) {
         if (content.getSubject() == null || content.getSubject().isEmpty()) {
@@ -206,11 +201,11 @@ public final class RegisterWireBuilder {
     }
 
     /**
-     * Renders the subject DN for the connector wire in strict RFC 2253/4514 form: registered short
-     * keywords (CN, L, ST, O, OU, C, STREET, DC, UID), dotted-decimal OIDs with hexstring values for
-     * every other attribute, and full value escaping. Platform registry codes (e.g. {@code EMAIL})
-     * never reach the wire — connectors parse this field with standards-strict parsers that are
-     * entitled to reject unregistered keywords. Returns null when the content carries no subject.
+     * Renders the subject DN for the connector wire in strict RFC 2253/4514 form: registered short keywords (CN, L, ST,
+     * O, OU, C, STREET, DC, UID), dotted-decimal OIDs with hexstring values for every other attribute, and full value
+     * escaping. Platform registry codes (e.g. {@code EMAIL}) never reach the wire — connectors parse this field with
+     * standards-strict parsers that are entitled to reject unregistered keywords. Returns null when the content carries
+     * no subject.
      */
     public static String renderWireSubjectDn(X509RequestContent content) {
         if (content.getSubject() == null || content.getSubject().isEmpty()) {
@@ -252,9 +247,10 @@ public final class RegisterWireBuilder {
 
     private static String renderOtherName(GeneralNameEntry entry) {
         if (entry.getValueEncoding() != null && entry.getValueEncoding() != ExtensionValueEncoding.UTF8_STRING) {
-            logger.warn("otherName SAN {} has non-textual value encoding {} and cannot ride the flat "
-                    + "subjectAltName string; it is carried only on the structured wire",
-                    entry.getOtherNameOid(), entry.getValueEncoding());
+            logger
+                    .warn("otherName SAN {} has non-textual value encoding {} and cannot ride the flat "
+                            + "subjectAltName string; it is carried only on the structured wire",
+                            entry.getOtherNameOid(), entry.getValueEncoding());
             return null;
         }
         return "otherName:" + entry.getOtherNameOid() + ";UTF8:" + entry.getValue();
@@ -263,14 +259,16 @@ public final class RegisterWireBuilder {
     /**
      * Fails closed when projected content cannot be represented on the flat register wire.
      *
-     * <p>Rejects a non-DER extension value, or an otherName SAN with a non-UTF8 encoding — throwing
-     * rather than dropping it.
+     * <p>
+     * Rejects a non-DER extension value, or an otherName SAN with a non-UTF8 encoding — throwing rather than dropping
+     * it.
      *
-     * <p><b>Only reached</b> for connectors without {@code CERTIFICATE_REQUEST_STRUCTURED}, where the
-     * flat renderers would otherwise silently drop such entries (warn-log only) and register an identity
-     * weaker than the operator asked for.
+     * <p>
+     * <b>Only reached</b> for connectors without {@code CERTIFICATE_REQUEST_STRUCTURED}, where the flat renderers would
+     * otherwise silently drop such entries (warn-log only) and register an identity weaker than the operator asked for.
      *
-     * <p>Flat operator input never trips this — {@link #buildContent} forces DER extensions and UTF8 otherNames.
+     * <p>
+     * Flat operator input never trips this — {@link #buildContent} forces DER extensions and UTF8 otherNames.
      */
     public static void assertFlatRepresentable(X509RequestContent content) {
         if (content.getExtensions() != null) {
@@ -284,8 +282,8 @@ public final class RegisterWireBuilder {
         }
         if (content.getSubjectAltNames() != null) {
             for (GeneralNameEntry san : content.getSubjectAltNames()) {
-                if (san.getType() == GeneralNameType.OTHER_NAME
-                        && san.getValueEncoding() != null && san.getValueEncoding() != ExtensionValueEncoding.UTF8_STRING) {
+                if (san.getType() == GeneralNameType.OTHER_NAME && san.getValueEncoding() != null
+                        && san.getValueEncoding() != ExtensionValueEncoding.UTF8_STRING) {
                     throw new ValidationException(("otherName SAN %s has %s value encoding, which the flat register "
                             + "wire cannot represent; the authority must advertise CERTIFICATE_REQUEST_STRUCTURED")
                             .formatted(san.getOtherNameOid(), san.getValueEncoding()));
@@ -302,8 +300,10 @@ public final class RegisterWireBuilder {
         for (RequestedExtension extension : extensions) {
             // null encoding means the value already carries base64 DER (contract default).
             if (extension.getEncoding() != null && extension.getEncoding() != ExtensionValueEncoding.DER) {
-                logger.warn("Extension {} has non-DER value encoding {} and cannot ride the flat wire; "
-                        + "it is carried only on the structured wire", extension.getOid(), extension.getEncoding());
+                logger
+                        .warn("Extension {} has non-DER value encoding {} and cannot ride the flat wire; "
+                                + "it is carried only on the structured wire", extension.getOid(),
+                                extension.getEncoding());
                 continue;
             }
             CertificateExtension flat = new CertificateExtension();

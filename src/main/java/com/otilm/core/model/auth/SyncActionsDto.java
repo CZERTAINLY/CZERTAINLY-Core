@@ -1,10 +1,9 @@
 package com.otilm.core.model.auth;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import java.util.List;
 
 public class SyncActionsDto {
     @Schema(description = "List of added Actions")

@@ -20,9 +20,6 @@ import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.util.AttributeDefinitionUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -32,6 +29,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 /**
  * Validates a parsed {@link X509RequestContent} against the resolved request-attribute definitions.
@@ -41,8 +40,8 @@ import java.util.function.Function;
 public class CertificateRequestContentValidator {
 
     /**
-     * Parse the supplied CSR, validate against the resolved definitions, and throw on a strict-policy
-     * failure. Whitelist enforcement is driven through {@link #validate(List, X509RequestContent, RequestAttributePolicy)}.
+     * Parse the supplied CSR, validate against the resolved definitions, and throw on a strict-policy failure.
+     * Whitelist enforcement is driven through {@link #validate(List, X509RequestContent, RequestAttributePolicy)}.
      */
     public void validate(CertificateRequest request, List<? extends BaseAttribute> definitions, boolean lenient)
             throws CertificateRequestValidationException {
@@ -53,13 +52,12 @@ public class CertificateRequestContentValidator {
         } catch (RuntimeException e) {
             // Malformed ASN.1 surfaces as unchecked BC exceptions whose messages may carry internals; log it only.
             log.warn("Certificate request could not be parsed for request-attribute validation", e);
-            throw new CertificateRequestValidationException(
-                    "Certificate request could not be processed for validation", null);
+            throw new CertificateRequestValidationException("Certificate request could not be processed for validation",
+                    null);
         }
         if (result.hasErrors()) {
             throw new CertificateRequestValidationException(
-                    "Uploaded certificate request does not satisfy the request-attribute policy",
-                    result.getErrors());
+                    "Uploaded certificate request does not satisfy the request-attribute policy", result.getErrors());
         }
     }
 
@@ -67,8 +65,7 @@ public class CertificateRequestContentValidator {
      * Validates a full parse result.
      */
     public static RequestAttributeValidationResult validate(List<? extends BaseAttribute> definitions,
-                                                            ParsedRequestContent parsed,
-                                                            RequestAttributePolicy policy) {
+            ParsedRequestContent parsed, RequestAttributePolicy policy) {
         RequestAttributeValidationResult result = validate(definitions, parsed.content(), policy);
         if (policy.whitelist()) {
             for (String sanKind : parsed.unsupportedSans()) {
@@ -85,18 +82,18 @@ public class CertificateRequestContentValidator {
      *
      * For every X.509-mapped definition it:
      * <ol>
-     *     <li>records a violation when a {@code required} mapped field has no matching target,</li>
-     *     <li>runs the definition's constraints against matched RDN/SAN values, and</li>
-     *     <li>when {@code policy.whitelist()} — records a violation for any RDN code / SAN type / extension OID present in the content but not mapped by the set</li>
+     * <li>records a violation when a {@code required} mapped field has no matching target,</li>
+     * <li>runs the definition's constraints against matched RDN/SAN values, and</li>
+     * <li>when {@code policy.whitelist()} — records a violation for any RDN code / SAN type / extension OID present in
+     * the content but not mapped by the set</li>
      * </ol>
      *
-     * Violations are routed by {@link RequestAttributePolicy#strict()}: errors in strict mode, warnings in lenient.
-     * As a side effect it accumulates the mapped RDN/SAN/extension identifiers used by the whitelist pass.
-     * Extension values are DER-encoded opaque blobs, so string constraints are not applied to them (see the loop).
+     * Violations are routed by {@link RequestAttributePolicy#strict()}: errors in strict mode, warnings in lenient. As
+     * a side effect it accumulates the mapped RDN/SAN/extension identifiers used by the whitelist pass. Extension
+     * values are DER-encoded opaque blobs, so string constraints are not applied to them (see the loop).
      */
     public static RequestAttributeValidationResult validate(List<? extends BaseAttribute> definitions,
-                                                            X509RequestContent content,
-                                                            RequestAttributePolicy policy) {
+            X509RequestContent content, RequestAttributePolicy policy) {
         RequestAttributeValidationResult result = new RequestAttributeValidationResult();
 
         List<RdnEntry> subject = content.getSubject() == null ? List.of() : content.getSubject();
@@ -119,8 +116,8 @@ public class CertificateRequestContentValidator {
             boolean required = v3.getProperties() != null && v3.getProperties().isRequired();
 
             for (MappedField field : v3.getFieldMapping().getFields()) {
-                List<String> matchedValues = collectMatchedValues(field, subject, sans, extensions,
-                        mappedRdnKeys, mappedSanTypes, mappedOtherNameOids, mappedExtensionOids, codeToOid);
+                List<String> matchedValues = collectMatchedValues(field, subject, sans, extensions, mappedRdnKeys,
+                        mappedSanTypes, mappedOtherNameOids, mappedExtensionOids, codeToOid);
 
                 if (required && matchedValues.isEmpty()) {
                     recordViolation(result, policy, "Missing required mapped field for attribute '%s' (%s)"
@@ -143,14 +140,12 @@ public class CertificateRequestContentValidator {
     }
 
     private static boolean isX509CertificateMapping(FieldMapping mapping) {
-        return mapping != null
-                && mapping.getObjectType() == ObjectType.X509_CERTIFICATE
-                && mapping.getFields() != null;
+        return mapping != null && mapping.getObjectType() == ObjectType.X509_CERTIFICATE && mapping.getFields() != null;
     }
 
     /**
-     * Canonicalizes an RDN identifier to its OID form for matching: a dotted OID is returned as-is,
-     * a known short code is resolved via {@code codeToOid}, and an unknown code falls back to itself.
+     * Canonicalizes an RDN identifier to its OID form for matching: a dotted OID is returned as-is, a known short code
+     * is resolved via {@code codeToOid}, and an unknown code falls back to itself.
      */
     private static String canonicalRdnKey(String rdn, Map<String, String> codeToOid) {
         if (rdn == null || rdn.isBlank()) {
@@ -163,12 +158,12 @@ public class CertificateRequestContentValidator {
     }
 
     /**
-     * Routes a violation to {@link RequestAttributeValidationResult#addError(String)} when the
-     * policy is strict, or to {@link RequestAttributeValidationResult#addWarning(String)} otherwise,
-     * so every violation honors {@link RequestAttributePolicy#strict()} uniformly.
+     * Routes a violation to {@link RequestAttributeValidationResult#addError(String)} when the policy is strict, or to
+     * {@link RequestAttributeValidationResult#addWarning(String)} otherwise, so every violation honors
+     * {@link RequestAttributePolicy#strict()} uniformly.
      */
     private static void recordViolation(RequestAttributeValidationResult result, RequestAttributePolicy policy,
-                                        String message) {
+            String message) {
         if (policy.strict()) {
             result.addError(message);
         } else {
@@ -176,40 +171,32 @@ public class CertificateRequestContentValidator {
         }
     }
 
-    private static List<String> collectMatchedValues(MappedField field,
-                                                     List<RdnEntry> subject,
-                                                     List<GeneralNameEntry> sans,
-                                                     List<RequestedExtension> extensions,
-                                                     Set<String> mappedRdnKeys,
-                                                     Set<GeneralNameType> mappedSanTypes,
-                                                     Set<String> mappedOtherNameOids,
-                                                     Set<String> mappedExtensionOids,
-                                                     Map<String, String> codeToOid) {
+    private static List<String> collectMatchedValues(MappedField field, List<RdnEntry> subject,
+            List<GeneralNameEntry> sans, List<RequestedExtension> extensions, Set<String> mappedRdnKeys,
+            Set<GeneralNameType> mappedSanTypes, Set<String> mappedOtherNameOids, Set<String> mappedExtensionOids,
+            Map<String, String> codeToOid) {
         return switch (field) {
-            case RdnMappedField rdn -> collectMatched(
-                    canonicalRdnKey(rdn.getRdn(), codeToOid), mappedRdnKeys, subject,
+            case RdnMappedField rdn -> collectMatched(canonicalRdnKey(rdn.getRdn(), codeToOid), mappedRdnKeys, subject,
                     (key, e) -> key.equalsIgnoreCase(canonicalRdnKey(e.getType(), codeToOid)), RdnEntry::getValue);
             // An otherName mapping claims only its own type-id OID, never the whole OTHER_NAME kind.
-            case SanMappedField san when san.getGeneralNameType() == GeneralNameType.OTHER_NAME -> collectMatched(
-                    san.getOtherNameOid(), mappedOtherNameOids, sans,
-                    (oid, e) -> e.getType() == GeneralNameType.OTHER_NAME && oid.equals(e.getOtherNameOid()),
-                    GeneralNameEntry::getValue);
-            case SanMappedField san -> collectMatched(
-                    san.getGeneralNameType(), mappedSanTypes, sans,
+            case SanMappedField san when san.getGeneralNameType() == GeneralNameType.OTHER_NAME ->
+                collectMatched(san.getOtherNameOid(), mappedOtherNameOids, sans,
+                        (oid, e) -> e.getType() == GeneralNameType.OTHER_NAME && oid.equals(e.getOtherNameOid()),
+                        GeneralNameEntry::getValue);
+            case SanMappedField san -> collectMatched(san.getGeneralNameType(), mappedSanTypes, sans,
                     (type, e) -> type == e.getType(), GeneralNameEntry::getValue);
-            case ExtensionMappedField ext -> collectMatched(
-                    ext.getExtensionOid(), mappedExtensionOids, extensions,
+            case ExtensionMappedField ext -> collectMatched(ext.getExtensionOid(), mappedExtensionOids, extensions,
                     (oid, e) -> oid.equals(e.getOid()), RequestedExtension::getValue);
             default -> List.of(); // non-X.509 mapped-field kinds carry no target here
         };
     }
 
     /**
-     * Registers {@code key} as a mapped identifier (for the later whitelist pass) and returns every
-     * source-entry value whose identifier matches it. A null key maps nothing and matches nothing.
+     * Registers {@code key} as a mapped identifier (for the later whitelist pass) and returns every source-entry value
+     * whose identifier matches it. A null key maps nothing and matches nothing.
      */
     private static <K, E> List<String> collectMatched(K key, Set<K> mappedKeys, List<E> entries,
-                                                      BiPredicate<K, E> matches, Function<E, String> value) {
+            BiPredicate<K, E> matches, Function<E, String> value) {
         if (key == null) {
             return List.of();
         }
@@ -223,8 +210,8 @@ public class CertificateRequestContentValidator {
         return values;
     }
 
-    private static void validateConstraints(DataAttributeV3 def, List<String> values,
-                                            RequestAttributePolicy policy, RequestAttributeValidationResult result) {
+    private static void validateConstraints(DataAttributeV3 def, List<String> values, RequestAttributePolicy policy,
+            RequestAttributeValidationResult result) {
         List<AttributeContent> contents = new ArrayList<>(values.size());
         for (String v : values) {
             contents.add(new StringAttributeContentV3(v));
@@ -234,16 +221,10 @@ public class CertificateRequestContentValidator {
         }
     }
 
-    private static void checkWhitelist(List<RdnEntry> subject,
-                                       List<GeneralNameEntry> sans,
-                                       List<RequestedExtension> extensions,
-                                       Set<String> mappedRdnKeys,
-                                       Set<GeneralNameType> mappedSanTypes,
-                                       Set<String> mappedOtherNameOids,
-                                       Set<String> mappedExtensionOids,
-                                       Map<String, String> codeToOid,
-                                       RequestAttributePolicy policy,
-                                       RequestAttributeValidationResult result) {
+    private static void checkWhitelist(List<RdnEntry> subject, List<GeneralNameEntry> sans,
+            List<RequestedExtension> extensions, Set<String> mappedRdnKeys, Set<GeneralNameType> mappedSanTypes,
+            Set<String> mappedOtherNameOids, Set<String> mappedExtensionOids, Map<String, String> codeToOid,
+            RequestAttributePolicy policy, RequestAttributeValidationResult result) {
         for (RdnEntry e : subject) {
             String key = canonicalRdnKey(e.getType(), codeToOid);
             if (key == null || !mappedRdnKeys.contains(key)) {
@@ -266,9 +247,8 @@ public class CertificateRequestContentValidator {
     }
 
     /** An otherName is allowed only when its own type-id OID is mapped; other kinds are allowed by type. */
-    private static boolean isWhitelistedSan(GeneralNameEntry entry,
-                                            Set<GeneralNameType> mappedSanTypes,
-                                            Set<String> mappedOtherNameOids) {
+    private static boolean isWhitelistedSan(GeneralNameEntry entry, Set<GeneralNameType> mappedSanTypes,
+            Set<String> mappedOtherNameOids) {
         if (entry.getType() == GeneralNameType.OTHER_NAME) {
             return entry.getOtherNameOid() != null && mappedOtherNameOids.contains(entry.getOtherNameOid());
         }
@@ -290,9 +270,9 @@ public class CertificateRequestContentValidator {
     }
 
     /**
-     * Maps a {@link GeneralNameType} to the BouncyCastle ASN.1 {@code GeneralName} field name used
-     * in error messages, mirroring {@code X509RequestContentParser}'s inverse mapping so whitelist
-     * violations are reported using the same vocabulary as the rest of the CSR-parsing pipeline.
+     * Maps a {@link GeneralNameType} to the BouncyCastle ASN.1 {@code GeneralName} field name used in error messages,
+     * mirroring {@code X509RequestContentParser}'s inverse mapping so whitelist violations are reported using the same
+     * vocabulary as the rest of the CSR-parsing pipeline.
      */
     private static String asn1FieldName(GeneralNameType type) {
         return switch (type) {
@@ -310,7 +290,7 @@ public class CertificateRequestContentValidator {
         return switch (field) {
             case RdnMappedField rdn -> "RDN " + rdn.getRdn();
             case SanMappedField san ->
-                    "SAN " + (san.getGeneralNameType() == null ? "?" : asn1FieldName(san.getGeneralNameType()));
+                "SAN " + (san.getGeneralNameType() == null ? "?" : asn1FieldName(san.getGeneralNameType()));
             case ExtensionMappedField ext -> "extension " + ext.getExtensionOid();
             default -> field.getClass().getSimpleName();
         };

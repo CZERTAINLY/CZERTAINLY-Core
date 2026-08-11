@@ -35,6 +35,11 @@ import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SecretsUtil;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,19 +48,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
 /**
- * Integration test exercising the REAL {@code @ExternalAuthorization} aspects through the expander's callback
- * path: the unit test mocks the loaders, this one proves the live per-object gates fail closed via OPA and never
- * return a blob to an unauthorized caller — for the object-config kinds (CREDENTIAL/AUTHORITY/ENTITY/LOCATION via
- * their {@code DETAIL} gate, LOCATION also via its owning-entity gate) and for SECRET via its vault-profile
- * membership gate. Also asserts the N3 invariant (the ambient principal is unchanged after expansion — no
- * setAuthentication).
+ * Integration test exercising the REAL {@code @ExternalAuthorization} aspects through the expander's callback path: the
+ * unit test mocks the loaders, this one proves the live per-object gates fail closed via OPA and never return a blob to
+ * an unauthorized caller — for the object-config kinds (CREDENTIAL/AUTHORITY/ENTITY/LOCATION via their {@code DETAIL}
+ * gate, LOCATION also via its owning-entity gate) and for SECRET via its vault-profile membership gate. Also asserts
+ * the N3 invariant (the ambient principal is unchanged after expansion — no setAuthentication).
  */
 class AttributeReferenceExpanderITest extends BaseSpringBootTest {
 
@@ -107,10 +105,12 @@ class AttributeReferenceExpanderITest extends BaseSpringBootTest {
         ResourceObjectContent element = (ResourceObjectContent) ((List<?>) attr.getContent()).getFirst();
         ResourceObjectContentData blob = element.getData();
         Assertions.assertInstanceOf(ResourceSimpleContentData.class, blob);
-        Assertions.assertEquals(credential.getUuid().toString(), blob.getUuid(),
-                "the blob loaded behind the passing DETAIL gate must be the referenced credential");
-        Assertions.assertNotNull(((ResourceSimpleContentData) blob).getAttributes(),
-                "the resolved blob must carry the credential's data attributes, not a bare ref");
+        Assertions
+                .assertEquals(credential.getUuid().toString(), blob.getUuid(),
+                        "the blob loaded behind the passing DETAIL gate must be the referenced credential");
+        Assertions
+                .assertNotNull(((ResourceSimpleContentData) blob).getAttributes(),
+                        "the resolved blob must carry the credential's data attributes, not a bare ref");
     }
 
     @Test
@@ -120,13 +120,14 @@ class AttributeReferenceExpanderITest extends BaseSpringBootTest {
         RequestAttribute attr = credentialRef(credential.getUuid());
         List<RequestAttribute> attrs = List.of(attr);
         Set<String> expandedSecrets = new HashSet<>();
-        Assertions.assertThrows(AccessDeniedException.class,
-                () -> expander.expandForCaller(attrs, expandedSecrets),
-                "the live per-object DETAIL aspect must fail closed when OPA denies");
+        Assertions
+                .assertThrows(AccessDeniedException.class, () -> expander.expandForCaller(attrs, expandedSecrets),
+                        "the live per-object DETAIL aspect must fail closed when OPA denies");
 
         ResourceObjectContent element = (ResourceObjectContent) ((List<?>) attr.getContent()).getFirst();
-        Assertions.assertNull(((ResourceSimpleContentData) element.getData()).getAttributes(),
-                "no blob may be set on the reference when the gate denies");
+        Assertions
+                .assertNull(((ResourceSimpleContentData) element.getData()).getAttributes(),
+                        "no blob may be set on the reference when the gate denies");
     }
 
     private RequestAttribute resourceRef(AttributeResource kind, UUID uuid) {
@@ -164,8 +165,9 @@ class AttributeReferenceExpanderITest extends BaseSpringBootTest {
 
         for (RequestAttribute attr : List.of(authRef, entityRef, locationRef)) {
             ResourceObjectContent element = (ResourceObjectContent) ((List<?>) attr.getContent()).getFirst();
-            Assertions.assertInstanceOf(ResourceSimpleContentData.class, element.getData(),
-                    "each authorized reference must be expanded to its blob via the real DETAIL-guarded loader");
+            Assertions
+                    .assertInstanceOf(ResourceSimpleContentData.class, element.getData(),
+                            "each authorized reference must be expanded to its blob via the real DETAIL-guarded loader");
         }
     }
 
@@ -188,13 +190,14 @@ class AttributeReferenceExpanderITest extends BaseSpringBootTest {
         RequestAttribute locationRef = resourceRef(AttributeResource.LOCATION, location.getUuid());
         List<RequestAttribute> attrs = List.of(locationRef);
         Set<String> expandedSecrets = new HashSet<>();
-        Assertions.assertThrows(AccessDeniedException.class,
-                () -> expander.expandForCaller(attrs, expandedSecrets),
-                "lacking ENTITY:DETAIL on the owning entity must fail the location expansion closed");
+        Assertions
+                .assertThrows(AccessDeniedException.class, () -> expander.expandForCaller(attrs, expandedSecrets),
+                        "lacking ENTITY:DETAIL on the owning entity must fail the location expansion closed");
 
         ResourceObjectContent element = (ResourceObjectContent) ((List<?>) locationRef.getContent()).getFirst();
-        Assertions.assertNull(((ResourceSimpleContentData) element.getData()).getAttributes(),
-                "no blob may be set on the location reference when the owning-entity gate denies");
+        Assertions
+                .assertNull(((ResourceSimpleContentData) element.getData()).getAttributes(),
+                        "no blob may be set on the location reference when the owning-entity gate denies");
     }
 
     @Test
@@ -205,14 +208,15 @@ class AttributeReferenceExpanderITest extends BaseSpringBootTest {
         expander.expandForCaller(List.of(attr), new HashSet<>());
 
         Authentication after = SecurityContextHolder.getContext().getAuthentication();
-        Assertions.assertSame(before, after,
-                "N3: expander performs no setAuthentication / principal swap — ambient principal is unchanged");
+        Assertions
+                .assertSame(before, after,
+                        "N3: expander performs no setAuthentication / principal swap — ambient principal is unchanged");
     }
 
     /**
-     * Persists the graph a stored SECRET reference needs — Connector -> VaultInstance -> VaultProfile -> Secret —
-     * so the SECRET loader reaches its in-body vault-profile-membership gate. No vault content is stubbed: the
-     * denied path throws at that gate before any connector call, so this fixture never fetches secret content.
+     * Persists the graph a stored SECRET reference needs — Connector -> VaultInstance -> VaultProfile -> Secret — so
+     * the SECRET loader reaches its in-body vault-profile-membership gate. No vault content is stubbed: the denied path
+     * throws at that gate before any connector call, so this fixture never fetches secret content.
      */
     private Secret seedStoredSecret() throws Exception {
         Connector connector = new Connector();
@@ -270,12 +274,13 @@ class AttributeReferenceExpanderITest extends BaseSpringBootTest {
         RequestAttribute secretRef = resourceRef(AttributeResource.SECRET, secret.getUuid());
         List<RequestAttribute> refs = List.of(secretRef);
         Set<String> expandedSecrets = new HashSet<>();
-        Assertions.assertThrows(AccessDeniedException.class,
-                () -> expander.expandForCaller(refs, expandedSecrets),
-                "lacking vault-profile membership on the owning profile must fail the SECRET expansion closed");
+        Assertions
+                .assertThrows(AccessDeniedException.class, () -> expander.expandForCaller(refs, expandedSecrets),
+                        "lacking vault-profile membership on the owning profile must fail the SECRET expansion closed");
 
         ResourceObjectContent element = (ResourceObjectContent) ((List<?>) secretRef.getContent()).getFirst();
-        Assertions.assertInstanceOf(ResourceSimpleContentData.class, element.getData(),
-                "no secret content may be set on the reference when the vault-profile gate denies — it stays a bare ref");
+        Assertions
+                .assertInstanceOf(ResourceSimpleContentData.class, element.getData(),
+                        "no secret content may be set on the reference when the vault-profile gate denies — it stays a bare ref");
     }
 }

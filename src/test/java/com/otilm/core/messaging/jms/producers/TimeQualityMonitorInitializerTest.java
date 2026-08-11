@@ -2,13 +2,12 @@ package com.otilm.core.messaging.jms.producers;
 
 import com.otilm.core.dao.entity.signing.TimeQualityConfiguration;
 import com.otilm.core.dao.repository.signing.TimeQualityConfigurationRepository;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,10 +15,13 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TimeQualityMonitorInitializerTest {
 
-    @Mock TimeQualityConfigurationRepository repository;
-    @Mock TimeQualityConfigurationProducer producer;
+    @Mock
+    TimeQualityConfigurationRepository repository;
+    @Mock
+    TimeQualityConfigurationProducer producer;
 
-    @InjectMocks TimeQualityMonitorInitializer initializer;
+    @InjectMocks
+    TimeQualityMonitorInitializer initializer;
 
     @Test
     void onApplicationReady_publishesSnapshotOfAllConfigs() {

@@ -12,17 +12,19 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
-import com.otilm.api.model.core.vault.*;
+import com.otilm.api.model.core.vault.VaultInstanceDetailDto;
+import com.otilm.api.model.core.vault.VaultInstanceDto;
+import com.otilm.api.model.core.vault.VaultInstanceRequestDto;
+import com.otilm.api.model.core.vault.VaultInstanceUpdateRequestDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.VaultInstanceExternalService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class VaultInstanceControllerImpl implements VaultInstanceController {
@@ -36,19 +38,22 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid) throws ConnectorException, NotFoundException, AttributeException {
+    public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid)
+            throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, name = "vaultProfile", affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listVaultProfileAttributes(@LogResource(uuid = true, affiliated = true) UUID uuid) throws ConnectorException, NotFoundException, AttributeException {
+    public List<BaseAttribute> listVaultProfileAttributes(@LogResource(uuid = true, affiliated = true) UUID uuid)
+            throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.listVaultProfileAttributes(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.DETAIL)
-    public VaultInstanceDetailDto getVaultInstanceDetails(@LogResource(uuid = true) UUID uuid) throws ConnectorException, NotFoundException, AttributeException {
+    public VaultInstanceDetailDto getVaultInstanceDetails(@LogResource(uuid = true) UUID uuid)
+            throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.getVaultInstance(uuid);
     }
 
@@ -66,13 +71,16 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.CREATE)
-    public VaultInstanceDetailDto createVaultInstance(VaultInstanceRequestDto vaultInstanceRequest) throws ConnectorException, NotFoundException, AttributeException, AlreadyExistException {
+    public VaultInstanceDetailDto createVaultInstance(VaultInstanceRequestDto vaultInstanceRequest)
+            throws ConnectorException, NotFoundException, AttributeException, AlreadyExistException {
         return vaultInstanceService.createVaultInstance(vaultInstanceRequest);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT, operation = Operation.UPDATE)
-    public VaultInstanceDetailDto updateVaultInstance(@LogResource(uuid = true) UUID uuid, VaultInstanceUpdateRequestDto vaultInstanceRequest) throws NotFoundException, AttributeException, ConnectorException {
+    public VaultInstanceDetailDto updateVaultInstance(@LogResource(uuid = true) UUID uuid,
+            VaultInstanceUpdateRequestDto vaultInstanceRequest)
+            throws NotFoundException, AttributeException, ConnectorException {
         return vaultInstanceService.updateVaultInstance(uuid, vaultInstanceRequest);
     }
 

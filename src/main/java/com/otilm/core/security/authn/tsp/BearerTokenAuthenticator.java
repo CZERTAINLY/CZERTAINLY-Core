@@ -12,13 +12,12 @@ import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.OAuth2Constants;
 import com.otilm.core.util.OAuth2Util;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jwt.Jwt;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /** Authenticates a TSP request presenting an OAuth2 bearer token in the {@code Authorization} header. */
 public class BearerTokenAuthenticator implements TspAuthenticator {
@@ -31,7 +30,7 @@ public class BearerTokenAuthenticator implements TspAuthenticator {
     private final TspSecurityContextWriter contextWriter;
 
     public BearerTokenAuthenticator(PlatformJwtDecoder jwtDecoder, PlatformAuthenticationClient authClient,
-                                    TspSecurityContextWriter contextWriter) {
+            TspSecurityContextWriter contextWriter) {
         this.jwtDecoder = jwtDecoder;
         this.authClient = authClient;
         this.contextWriter = contextWriter;
@@ -57,8 +56,9 @@ public class BearerTokenAuthenticator implements TspAuthenticator {
                 return false;
             }
             AuthenticationSettingsSnapshot snapshot = validatedSnapshot();
-            OAuth2ProviderSettingsDto provider = OAuth2Util.findProviderByIssuer(
-                    snapshot.settings(), jwt.getIssuer() == null ? null : jwt.getIssuer().toString());
+            OAuth2ProviderSettingsDto provider = OAuth2Util
+                    .findProviderByIssuer(snapshot.settings(),
+                            jwt.getIssuer() == null ? null : jwt.getIssuer().toString());
             Map<String, Object> claims = new HashMap<>(jwt.getClaims());
             claims.put(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, OAuth2Util.resolveUsername(provider, claims));
             AuthenticationInfo authInfo = authClient.authenticateByToken(claims, snapshot.generation());
@@ -70,9 +70,9 @@ public class BearerTokenAuthenticator implements TspAuthenticator {
     }
 
     /**
-     * Returns the snapshot the decoder validated the token against, so the username claim and the cache
-     * generation come from the very provider configuration that accepted the token. Falls back to the current
-     * settings only when the decoder published nothing.
+     * Returns the snapshot the decoder validated the token against, so the username claim and the cache generation come
+     * from the very provider configuration that accepted the token. Falls back to the current settings only when the
+     * decoder published nothing.
      */
     private static AuthenticationSettingsSnapshot validatedSnapshot() {
         AuthenticationSettingsSnapshot published = AuthenticationSnapshotRequestHolder.get();

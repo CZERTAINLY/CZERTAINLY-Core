@@ -4,26 +4,25 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.attribute.ResponseAttributeV2;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
+import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.CredentialAttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.SecretAttributeContentData;
-import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
-import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
-import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
 import com.otilm.api.model.connector.secrets.content.ApiKeySecretContent;
 import com.otilm.api.model.core.auth.AttributeResource;
-import org.junit.jupiter.api.Test;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,8 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** D19 (widened) outbound containment: value-echo + structural secret-shape rejection. */
 class OutboundSecretContainmentTest {
 
-    private final OutboundSecretContainment containment =
-            new OutboundSecretContainment(new com.fasterxml.jackson.databind.ObjectMapper());
+    private final OutboundSecretContainment containment = new OutboundSecretContainment(
+            new com.fasterxml.jackson.databind.ObjectMapper());
 
     @Test
     void recordsAndRejectsValueEchoOfExpandedSecret() {
@@ -76,8 +75,8 @@ class OutboundSecretContainmentTest {
         // SecretAttributeContentV2 nested in its attributes — the previous ResourceSecretContentData-only
         // recording missed it, so a connector echoing the secret as a plain scalar slipped past the value gate.
         Set<String> expandedSecrets = new HashSet<>();
-        SecretAttributeContentV2 secretContent =
-                new SecretAttributeContentV2("ref", new SecretAttributeContentData("cred-secret-xyz"));
+        SecretAttributeContentV2 secretContent = new SecretAttributeContentV2("ref",
+                new SecretAttributeContentData("cred-secret-xyz"));
         ResponseAttributeV2 secretAttr = new ResponseAttributeV2();
         secretAttr.setName("apiKey");
         secretAttr.setContent(List.of(secretContent));
@@ -99,7 +98,8 @@ class OutboundSecretContainmentTest {
     void rejectsSecretShapeNestedInMetadataAttributeOfResponse() {
         // The response 'attributes' arm is List<BaseAttribute> — a secret nested in a MetadataAttribute (NOT a
         // DataAttribute) must still be reached by the structural walk via the universal BaseAttribute.getContent().
-        SecretAttributeContentV2 secret = new SecretAttributeContentV2("ref", new SecretAttributeContentData("meta-secret"));
+        SecretAttributeContentV2 secret = new SecretAttributeContentV2("ref",
+                new SecretAttributeContentData("meta-secret"));
         MetadataAttributeV2 meta = new MetadataAttributeV2();
         meta.setName("m");
         meta.setContentType(AttributeContentType.SECRET);
@@ -116,8 +116,10 @@ class OutboundSecretContainmentTest {
         // Recording a SecretContent must capture its secret value, NOT the @JsonTypeInfo "type" discriminator
         // ("apiKey"), which would false-positive the value-echo check on benign responses containing that token.
         Set<String> expandedSecrets = new HashSet<>();
-        containment.recordExpandedSecrets(
-                new ResourceSecretContentData("u", "n", new ApiKeySecretContent("the-key-value")), expandedSecrets);
+        containment
+                .recordExpandedSecrets(
+                        new ResourceSecretContentData("u", "n", new ApiKeySecretContent("the-key-value")),
+                        expandedSecrets);
         assertEquals(Set.of("the-key-value"), expandedSecrets);
     }
 
@@ -216,8 +218,8 @@ class OutboundSecretContainmentTest {
     void nullResponseAndNullExpandedSetAreNoOps() {
         assertDoesNotThrow(() -> containment.assertNoExpandedSecretOutbound(null, new HashSet<>()));
         // null sink must short-circuit without NPE
-        assertDoesNotThrow(() -> containment.recordExpandedSecrets(
-                new ResourceSecretContentData("u", "n", new ApiKeySecretContent("x")), null));
+        assertDoesNotThrow(() -> containment
+                .recordExpandedSecrets(new ResourceSecretContentData("u", "n", new ApiKeySecretContent("x")), null));
     }
 
     @Test
@@ -232,10 +234,10 @@ class OutboundSecretContainmentTest {
         // Basic-auth: password is the secret, username is a low-entropy identifier. Recording the username as an
         // echo needle would false-positive a benign response that legitimately echoes the username.
         Set<String> expandedSecrets = new HashSet<>();
-        containment.recordExpandedSecrets(
-                new ResourceSecretContentData("u", "n",
+        containment
+                .recordExpandedSecrets(new ResourceSecretContentData("u", "n",
                         new com.otilm.api.model.connector.secrets.content.BasicAuthSecretContent("alice", "s3cr3t-pw")),
-                expandedSecrets);
+                        expandedSecrets);
         assertTrue(expandedSecrets.contains("s3cr3t-pw"), "the password is the secret and must be recorded");
         assertEquals(Set.of("s3cr3t-pw"), expandedSecrets, "the username must NOT be recorded as an echo needle");
     }

@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity.cmp;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.cmp.CmpProfileDetailDto;
 import com.otilm.api.model.core.cmp.CmpProfileDto;
@@ -16,15 +17,23 @@ import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Getter
 @Setter
@@ -32,7 +41,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "cmp_profile")
-public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CmpProfileDto>, ObjectAccessControlMapper<NameAndUuidDto>, Securable {
+public class CmpProfile extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<CmpProfileDto>,
+            ObjectAccessControlMapper<NameAndUuidDto>,
+            Securable {
 
     @Setter
     @Getter
@@ -120,7 +134,9 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         cmpProfileDto.setRequestProtectionMethod(requestProtectionMethod);
         cmpProfileDto.setResponseProtectionMethod(responseProtectionMethod);
 
-        if (signingCertificate != null) cmpProfileDto.setSigningCertificate(signingCertificate.mapToListDto());
+        if (signingCertificate != null) {
+            cmpProfileDto.setSigningCertificate(signingCertificate.mapToListDto());
+        }
 
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return cmpProfileDto;
@@ -129,8 +145,9 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     private void setCommonFields(CmpProfileDto cmpProfileDto) {
         if (raProfile != null) {
             cmpProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
-            cmpProfileDto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + CmpConstants.CMP_BASE_CONTEXT + "/" + name);
+            cmpProfileDto
+                    .setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                            + CmpConstants.CMP_BASE_CONTEXT + "/" + name);
         }
         cmpProfileDto.setDescription(description);
         cmpProfileDto.setEnabled(enabled);
@@ -147,13 +164,18 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
-        else this.raProfileUuid = null;
+        if (raProfile != null) {
+            this.raProfileUuid = raProfile.getUuid();
+        } else {
+            this.raProfileUuid = null;
+        }
     }
 
     public void setSigningCertificate(Certificate signingCertificate) {
         this.signingCertificate = signingCertificate;
-        if (signingCertificate != null) this.setSigningCertificateUuid(signingCertificate.getUuid());
+        if (signingCertificate != null) {
+            this.setSigningCertificateUuid(signingCertificate.getUuid());
+        }
     }
 
     public String getSharedSecret() {
@@ -173,17 +195,29 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         CmpProfile that = (CmpProfile) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

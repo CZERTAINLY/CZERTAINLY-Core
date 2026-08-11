@@ -2,17 +2,16 @@ package com.otilm.core.util;
 
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
-import org.bouncycastle.asn1.x500.RDN;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x500.style.BCStrictStyle;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
+import org.bouncycastle.asn1.x500.RDN;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.style.BCStrictStyle;
 
 public class PlatformX500NameStyle extends BCStrictStyle {
 
@@ -28,21 +27,19 @@ public class PlatformX500NameStyle extends BCStrictStyle {
     public PlatformX500NameStyle(boolean normalizedStyle) {
         this.normalizedStyle = normalizedStyle;
         this.delimiter = normalizedStyle ? "," : ", ";
-        this.oidToCodeMap = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().code()
-                ));
+        this.oidToCodeMap = OidHandler
+                .getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE)
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().code()));
     }
 
     /**
-     * Resolves an RDN code to its OID, consulting the platform OID registry before BouncyCastle's
-     * built-in keyword table so that every code this style renders (default and alternative codes)
-     * parses back. The registry lookup is live — unlike the {@link #oidToCodeMap} snapshot —
-     * because the shared {@link #DEFAULT}/{@link #NORMALIZED} instances outlive runtime
-     * registrations of custom OID entries. Codes match case-insensitively (RFC 4514 keywords are
-     * case-insensitive); unknown codes fall through to BouncyCastle, which also handles the
-     * dotted-decimal form.
+     * Resolves an RDN code to its OID, consulting the platform OID registry before BouncyCastle's built-in keyword
+     * table so that every code this style renders (default and alternative codes) parses back. The registry lookup is
+     * live — unlike the {@link #oidToCodeMap} snapshot — because the shared {@link #DEFAULT}/{@link #NORMALIZED}
+     * instances outlive runtime registrations of custom OID entries. Codes match case-insensitively (RFC 4514 keywords
+     * are case-insensitive); unknown codes fall through to BouncyCastle, which also handles the dotted-decimal form.
      */
     @Override
     public ASN1ObjectIdentifier attrNameToOID(String attrName) {
@@ -56,7 +53,11 @@ public class PlatformX500NameStyle extends BCStrictStyle {
         boolean isFirstRdn = true;
         RDN[] rdNs = x500Name.getRDNs();
         if (this.normalizedStyle) {
-            Arrays.sort(rdNs, Comparator.comparing((RDN obj) -> obj.getFirst().getType().getId()).thenComparing(obj -> obj.getFirst().getValue().toString()));
+            Arrays
+                    .sort(rdNs,
+                            Comparator
+                                    .comparing((RDN obj) -> obj.getFirst().getType().getId())
+                                    .thenComparing(obj -> obj.getFirst().getValue().toString()));
         } else {
             Collections.reverse(Arrays.asList(rdNs));
         }
@@ -75,9 +76,15 @@ public class PlatformX500NameStyle extends BCStrictStyle {
 
     private String getRdnCode(AttributeTypeAndValue attributeTypeAndValue) {
         ASN1ObjectIdentifier type = attributeTypeAndValue.getType();
-        if (this.normalizedStyle) return type.getId();
-        if (oidToCodeMap.get(type.getId()) != null) return  oidToCodeMap.get(type.getId());
-        if (this.defaultSymbols.get(type) != null) return (String) this.defaultSymbols.get(type);
+        if (this.normalizedStyle) {
+            return type.getId();
+        }
+        if (oidToCodeMap.get(type.getId()) != null) {
+            return oidToCodeMap.get(type.getId());
+        }
+        if (this.defaultSymbols.get(type) != null) {
+            return (String) this.defaultSymbols.get(type);
+        }
         return type.getId();
     }
 

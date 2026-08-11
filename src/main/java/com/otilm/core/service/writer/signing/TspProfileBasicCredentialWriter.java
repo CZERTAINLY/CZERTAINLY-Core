@@ -2,11 +2,10 @@ package com.otilm.core.service.writer.signing;
 
 import com.otilm.core.dao.entity.signing.TspProfileBasicCredential;
 import com.otilm.core.dao.repository.signing.TspProfileBasicCredentialRepository;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Component
 public class TspProfileBasicCredentialWriter {

@@ -1,7 +1,5 @@
 package com.otilm.core.architecture;
 
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -9,15 +7,16 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * {@code ProducerMocks} mocks the JMS producers, but {@code @Primary} only shadows them — the real
- * {@code @Component}s stay scanned and instantiated.
+ * {@code ProducerMocks} mocks the JMS producers, but {@code @Primary} only shadows them — the real {@code @Component}s
+ * stay scanned and instantiated.
  *
- * The module therefore has to be imported together with the {@code @TypeExcludeFilters} that drops those classes
- * from the component scan. This pins them together.
+ * The module therefore has to be imported together with the {@code @TypeExcludeFilters} that drops those classes from
+ * the component scan. This pins them together.
  */
 class ProducerMocksExclusionArchTest {
 
@@ -48,13 +47,17 @@ class ProducerMocksExclusionArchTest {
 
     /** Any declaration form counts: an array of filters, wrapped lines, or a fully-qualified filter reference. */
     private static boolean declaresExclusion(Path file) {
-        return TestClassTaxonomy.annotationTokens(file).typeExcludeFilters().stream()
+        return TestClassTaxonomy
+                .annotationTokens(file)
+                .typeExcludeFilters()
+                .stream()
                 .anyMatch(filter -> filter.endsWith(EXCLUSION_FILTER));
     }
 
     private static Stream<Path> testSources() {
         try (Stream<Path> files = Files.walk(TEST_ROOT)) {
-            return files.filter(Files::isRegularFile)
+            return files
+                    .filter(Files::isRegularFile)
                     .filter(file -> file.toString().endsWith(".java"))
                     .toList()
                     .stream();

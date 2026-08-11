@@ -3,9 +3,9 @@ package com.otilm.core.attribute;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
-import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
@@ -23,16 +23,15 @@ import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,19 +51,22 @@ class CertificateRequestAttributeProjectorTest {
 
     @AfterAll
     static void restoreExtensionCache() {
-        OidHandler.cacheOidCategory(OidCategory.CERTIFICATE_EXTENSION,
-                savedExtensionCache != null ? savedExtensionCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.CERTIFICATE_EXTENSION,
+                        savedExtensionCache != null ? savedExtensionCache : new HashMap<>());
     }
 
     @BeforeEach
     void seedExtensionRegistry() {
         OidHandler.cacheOidCategory(OidCategory.CERTIFICATE_EXTENSION, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.CERTIFICATE_EXTENSION, REGISTERED_EXT_OID,
-                OidRecord.builder()
-                        .displayName("Registered Extension")
-                        .defaultCritical(true)
-                        .valueEncoding(ExtensionValueEncoding.IA5_STRING)
-                        .build());
+        OidHandler
+                .cacheOid(OidCategory.CERTIFICATE_EXTENSION, REGISTERED_EXT_OID,
+                        OidRecord
+                                .builder()
+                                .displayName("Registered Extension")
+                                .defaultCritical(true)
+                                .valueEncoding(ExtensionValueEncoding.IA5_STRING)
+                                .build());
     }
 
     @Test
@@ -78,13 +80,12 @@ class CertificateRequestAttributeProjectorTest {
         X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
 
         // then — criticality and encoding are taken from the registry, not hard-coded
-        assertThat(content.getExtensions()).singleElement()
-                .satisfies(ext -> {
-                    assertThat(ext.getOid()).isEqualTo(REGISTERED_EXT_OID);
-                    assertThat(ext.getCritical()).isTrue();
-                    assertThat(ext.getEncoding()).isEqualTo(ExtensionValueEncoding.IA5_STRING);
-                    assertThat(ext.getValue()).isEqualTo("registered-value");
-                });
+        assertThat(content.getExtensions()).singleElement().satisfies(ext -> {
+            assertThat(ext.getOid()).isEqualTo(REGISTERED_EXT_OID);
+            assertThat(ext.getCritical()).isTrue();
+            assertThat(ext.getEncoding()).isEqualTo(ExtensionValueEncoding.IA5_STRING);
+            assertThat(ext.getValue()).isEqualTo("registered-value");
+        });
     }
 
     @Test
@@ -99,11 +100,10 @@ class CertificateRequestAttributeProjectorTest {
         X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
 
         // then — falls back to non-critical with no declared encoding
-        assertThat(content.getExtensions()).singleElement()
-                .satisfies(ext -> {
-                    assertThat(ext.getCritical()).isFalse();
-                    assertThat(ext.getEncoding()).isNull();
-                });
+        assertThat(content.getExtensions()).singleElement().satisfies(ext -> {
+            assertThat(ext.getCritical()).isFalse();
+            assertThat(ext.getEncoding()).isNull();
+        });
     }
 
     @Test
@@ -117,11 +117,10 @@ class CertificateRequestAttributeProjectorTest {
         X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
 
         // then
-        assertThat(content.getSubject()).singleElement()
-                .satisfies(rdn -> {
-                    assertThat(rdn.getType()).isEqualTo("CN");
-                    assertThat(rdn.getValue()).isEqualTo("host.example.com");
-                });
+        assertThat(content.getSubject()).singleElement().satisfies(rdn -> {
+            assertThat(rdn.getType()).isEqualTo("CN");
+            assertThat(rdn.getValue()).isEqualTo("host.example.com");
+        });
     }
 
     @Test
@@ -135,11 +134,10 @@ class CertificateRequestAttributeProjectorTest {
         X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
 
         // then
-        assertThat(content.getSubjectAltNames()).singleElement()
-                .satisfies(san -> {
-                    assertThat(san.getType()).isEqualTo(GeneralNameType.DNS);
-                    assertThat(san.getValue()).isEqualTo("alt.example.com");
-                });
+        assertThat(content.getSubjectAltNames()).singleElement().satisfies(san -> {
+            assertThat(san.getType()).isEqualTo(GeneralNameType.DNS);
+            assertThat(san.getValue()).isEqualTo("alt.example.com");
+        });
     }
 
     @Test
@@ -171,10 +169,8 @@ class CertificateRequestAttributeProjectorTest {
         // then — one SAN entry per value, in content order
         assertThat(content.getSubjectAltNames())
                 .extracting(GeneralNameEntry::getType, GeneralNameEntry::getValue)
-                .containsExactly(
-                        tuple(GeneralNameType.DNS, "a.example.com"),
-                        tuple(GeneralNameType.DNS, "b.example.com"),
-                        tuple(GeneralNameType.DNS, "c.example.com"));
+                .containsExactly(tuple(GeneralNameType.DNS, "a.example.com"),
+                        tuple(GeneralNameType.DNS, "b.example.com"), tuple(GeneralNameType.DNS, "c.example.com"));
     }
 
     @Test
@@ -182,18 +178,16 @@ class CertificateRequestAttributeProjectorTest {
         // given — mixed content: an integer item ahead of a string item
         var uuid = UUID.randomUUID();
         var def = dataAttribute(uuid, rdnMapping("CN"));
-        List<BaseAttributeContentV3<?>> mixed =
-                List.of(new IntegerAttributeContentV3(42), new StringAttributeContentV3("kept"));
-        var values = List.<RequestAttribute>of(
-                new RequestAttributeV3(uuid, "attr-" + uuid, AttributeContentType.STRING, mixed));
+        List<BaseAttributeContentV3<?>> mixed = List
+                .of(new IntegerAttributeContentV3(42), new StringAttributeContentV3("kept"));
+        var values = List
+                .<RequestAttribute>of(new RequestAttributeV3(uuid, "attr-" + uuid, AttributeContentType.STRING, mixed));
 
         // when
         X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
 
         // then — the string item projects; only the non-string item is skipped
-        assertThat(content.getSubject())
-                .extracting(RdnEntry::getValue)
-                .containsExactly("kept");
+        assertThat(content.getSubject()).extracting(RdnEntry::getValue).containsExactly("kept");
     }
 
     @Test
@@ -202,8 +196,9 @@ class CertificateRequestAttributeProjectorTest {
         var uuid = UUID.randomUUID();
         var def = dataAttribute(uuid, rdnMapping("CN"));
         List<BaseAttributeContentV3<?>> integers = List.of(new IntegerAttributeContentV3(7));
-        var values = List.<RequestAttribute>of(
-                new RequestAttributeV3(uuid, "attr-" + uuid, AttributeContentType.INTEGER, integers));
+        var values = List
+                .<RequestAttribute>of(
+                        new RequestAttributeV3(uuid, "attr-" + uuid, AttributeContentType.INTEGER, integers));
 
         // when
         X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
@@ -244,9 +239,8 @@ class CertificateRequestAttributeProjectorTest {
         // then — CN (order 1) precedes OU (order 2); values keep content order within each field
         assertThat(content.getSubject())
                 .extracting(RdnEntry::getType, RdnEntry::getValue)
-                .containsExactly(
-                        tuple("CN", "first"), tuple("CN", "second"),
-                        tuple("OU", "first"), tuple("OU", "second"));
+                .containsExactly(tuple("CN", "first"), tuple("CN", "second"), tuple("OU", "first"),
+                        tuple("OU", "second"));
     }
 
     @Test
@@ -300,8 +294,8 @@ class CertificateRequestAttributeProjectorTest {
     void rejectsDuplicateExtensionOidWithinSingleMapping() {
         // given — one definition whose mapping declares two extension fields sharing the same OID
         var uuid = UUID.randomUUID();
-        var def = dataAttribute(uuid, mappingOf(
-                extensionField(REGISTERED_EXT_OID, 1), extensionField(REGISTERED_EXT_OID, 2)));
+        var def = dataAttribute(uuid,
+                mappingOf(extensionField(REGISTERED_EXT_OID, 1), extensionField(REGISTERED_EXT_OID, 2)));
         var defs = List.of(def);
         var values = List.of(stringValue(uuid, "value"));
 

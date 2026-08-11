@@ -2,7 +2,14 @@ package com.otilm.core.mapper.certificate;
 
 import com.otilm.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
-import com.otilm.api.model.core.certificate.*;
+import com.otilm.api.model.core.certificate.CertificateDetailDto;
+import com.otilm.api.model.core.certificate.CertificateDto;
+import com.otilm.api.model.core.certificate.CertificateProtocolDto;
+import com.otilm.api.model.core.certificate.CertificateQcStatementsDto;
+import com.otilm.api.model.core.certificate.CertificateRelationType;
+import com.otilm.api.model.core.certificate.CertificateRequestDto;
+import com.otilm.api.model.core.certificate.CertificateSimpleDto;
+import com.otilm.api.model.core.certificate.QcType;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CryptographicKey;
@@ -12,7 +19,8 @@ import com.otilm.core.util.MetaDefinitions;
 
 public class CertificateDetailDtoMapper {
 
-    private CertificateDetailDtoMapper() {}
+    private CertificateDetailDtoMapper() {
+    }
 
     public static CertificateDetailDto toDetailDto(Certificate certificate) {
         return buildDetailDto(certificate, false);
@@ -23,8 +31,8 @@ public class CertificateDetailDtoMapper {
     }
 
     /**
-     * @param chainContext when {@code true}, key associations are mapped with {@link CryptographicKey#mapToChainDto()} (omits the {@code associations} count);
-     *                     when {@code false}, the full {@link CryptographicKey#mapToDto()} is used.
+     * @param chainContext when {@code true}, key associations are mapped with {@link CryptographicKey#mapToChainDto()}
+     * (omits the {@code associations} count); when {@code false}, the full {@link CryptographicKey#mapToDto()} is used.
      */
     private static CertificateDetailDto buildDetailDto(Certificate certificate, boolean chainContext) {
         final CertificateDetailDto dto = new CertificateDetailDto();
@@ -52,7 +60,12 @@ public class CertificateDetailDtoMapper {
                 qcDto.setQcCompliance(certificate.getQcCompliance());
                 qcDto.setQcSscd(certificate.getQcSscd());
                 if (certificate.getQcType() != null) {
-                    qcDto.setQcType(MetaDefinitions.deserializeArrayString(certificate.getQcType()).stream().map(QcType::valueOf).toList());
+                    qcDto
+                            .setQcType(MetaDefinitions
+                                    .deserializeArrayString(certificate.getQcType())
+                                    .stream()
+                                    .map(QcType::valueOf)
+                                    .toList());
                 }
                 if (certificate.getQcCcLegislation() != null) {
                     qcDto.setQcCcLegislation(MetaDefinitions.deserializeArrayString(certificate.getQcCcLegislation()));
@@ -64,7 +77,9 @@ public class CertificateDetailDtoMapper {
         dto.setPublicKeyAlgorithm(certificate.getPublicKeyAlgorithm());
         dto.setAltPublicKeyAlgorithm(certificate.getAltPublicKeyAlgorithm());
         dto.setSignatureAlgorithm(certificate.getSignatureAlgorithm());
-        if (certificate.getAltSignatureAlgorithm() != null) dto.setAltSignatureAlgorithm(certificate.getAltSignatureAlgorithm());
+        if (certificate.getAltSignatureAlgorithm() != null) {
+            dto.setAltSignatureAlgorithm(certificate.getAltSignatureAlgorithm());
+        }
         dto.setKeySize(certificate.getKeySize());
         dto.setAltKeySize(certificate.getAltKeySize());
         dto.setUuid(certificate.getUuid().toString());
@@ -75,18 +90,28 @@ public class CertificateDetailDtoMapper {
         dto.setHybridCertificate(certificate.isHybridCertificate());
         dto.setArchived(certificate.isArchived());
         if (!certificate.getPredecessorRelations().isEmpty()) {
-            dto.setSourceCertificateUuid(certificate.getPredecessorRelations().stream().toList().getFirst().getPredecessorCertificate().getUuid());
+            dto
+                    .setSourceCertificateUuid(certificate
+                            .getPredecessorRelations()
+                            .stream()
+                            .toList()
+                            .getFirst()
+                            .getPredecessorCertificate()
+                            .getUuid());
         }
-        if (certificate.getIssuerCertificateUuid() != null) dto.setIssuerCertificateUuid(certificate.getIssuerCertificateUuid().toString());
+        if (certificate.getIssuerCertificateUuid() != null) {
+            dto.setIssuerCertificateUuid(certificate.getIssuerCertificateUuid().toString());
+        }
         if (certificate.getOwner() != null) {
             dto.setOwnerUuid(certificate.getOwner().getOwnerUuid().toString());
             dto.setOwner(certificate.getOwner().getOwnerUsername());
         }
         /*
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
-         * When the details of the certificate is requested, the Service will transform the result into the user understandable
-         * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
-         * like complianceRules etc., So only the overall status of the compliance will be set in the mapToDto function
+         * When the details of the certificate is requested, the Service will transform the result into the user
+         * understandable format and send it. It is not moved into the mapToDto function, as the computation involves
+         * other repositories like complianceRules etc., So only the overall status of the compliance will be set in the
+         * mapToDto function
          */
         dto.setComplianceStatus(certificate.getComplianceStatus());
         if (certificate.getRaProfile() != null) {
@@ -104,26 +129,50 @@ public class CertificateDetailDtoMapper {
             certificateRequestDto.setUuid(certificate.getCertificateRequestEntity().getUuid());
             certificateRequestDto.setContent(certificate.getCertificateRequestEntity().getContent());
             certificateRequestDto.setCertificateType(certificate.getCertificateRequestEntity().getCertificateType());
-            certificateRequestDto.setCommonName(CertificateUtil.formatCommonName(certificate.getCertificateRequestEntity().getCommonName()));
+            certificateRequestDto
+                    .setCommonName(CertificateUtil
+                            .formatCommonName(certificate.getCertificateRequestEntity().getCommonName()));
             certificateRequestDto.setSubjectDn(certificate.getCertificateRequestEntity().getSubjectDn());
-            certificateRequestDto.setSignatureAlgorithm(certificate.getCertificateRequestEntity().getSignatureAlgorithm());
-            certificateRequestDto.setAltSignatureAlgorithm(certificate.getCertificateRequestEntity().getAltSignatureAlgorithm());
-            certificateRequestDto.setPublicKeyAlgorithm(certificate.getCertificateRequestEntity().getPublicKeyAlgorithm());
-            certificateRequestDto.setCertificateRequestFormat(certificate.getCertificateRequestEntity().getCertificateRequestFormat());
-            certificateRequestDto.setSubjectAlternativeNames(CertificateUtil.deserializeSans(certificate.getCertificateRequestEntity().getSubjectAlternativeNames()));
-            certificateRequestDto.setKeyUuid(certificate.getCertificateRequestEntity().getKeyUuid() != null ? certificate.getCertificateRequestEntity().getKeyUuid().toString() : null);
-            certificateRequestDto.setAltKeyUuid(certificate.getCertificateRequestEntity().getAltKeyUuid() != null ? certificate.getCertificateRequestEntity().getAltKeyUuid().toString() : null);
+            certificateRequestDto
+                    .setSignatureAlgorithm(certificate.getCertificateRequestEntity().getSignatureAlgorithm());
+            certificateRequestDto
+                    .setAltSignatureAlgorithm(certificate.getCertificateRequestEntity().getAltSignatureAlgorithm());
+            certificateRequestDto
+                    .setPublicKeyAlgorithm(certificate.getCertificateRequestEntity().getPublicKeyAlgorithm());
+            certificateRequestDto
+                    .setCertificateRequestFormat(
+                            certificate.getCertificateRequestEntity().getCertificateRequestFormat());
+            certificateRequestDto
+                    .setSubjectAlternativeNames(CertificateUtil
+                            .deserializeSans(certificate.getCertificateRequestEntity().getSubjectAlternativeNames()));
+            certificateRequestDto
+                    .setKeyUuid(certificate.getCertificateRequestEntity().getKeyUuid() != null
+                            ? certificate.getCertificateRequestEntity().getKeyUuid().toString()
+                            : null);
+            certificateRequestDto
+                    .setAltKeyUuid(certificate.getCertificateRequestEntity().getAltKeyUuid() != null
+                            ? certificate.getCertificateRequestEntity().getAltKeyUuid().toString()
+                            : null);
             certificateRequestDto.setComplianceStatus(certificate.getCertificateRequestEntity().getComplianceStatus());
             dto.setCertificateRequest(certificateRequestDto);
         }
-        if (certificate.getKey() != null && !certificate.getKey().getItems().isEmpty()
-                && !certificate.getKey().getItems().stream().filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE)).toList().isEmpty()) {
+        if (certificate.getKey() != null && !certificate.getKey().getItems().isEmpty() && !certificate
+                .getKey()
+                .getItems()
+                .stream()
+                .filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE))
+                .toList()
+                .isEmpty()) {
             dto.setPrivateKeyAvailability(true);
         }
 
-        if (certificate.getKey() != null) dto.setKey(chainContext ? certificate.getKey().mapToChainDto() : certificate.getKey().mapToDto());
+        if (certificate.getKey() != null) {
+            dto.setKey(chainContext ? certificate.getKey().mapToChainDto() : certificate.getKey().mapToDto());
+        }
 
-        if (certificate.getAltKey() != null) dto.setAltKey(chainContext ? certificate.getAltKey().mapToChainDto() : certificate.getAltKey().mapToDto());
+        if (certificate.getAltKey() != null) {
+            dto.setAltKey(chainContext ? certificate.getAltKey().mapToChainDto() : certificate.getAltKey().mapToDto());
+        }
 
         if (certificate.getProtocolAssociation() != null) {
             CertificateProtocolDto protocolDto = new CertificateProtocolDto();
@@ -179,7 +228,9 @@ public class CertificateDetailDtoMapper {
         dto.setTrustedCa(certificate.getTrustedCa());
         dto.setHybridCertificate(certificate.isHybridCertificate());
         dto.setArchived(certificate.isArchived());
-        if (certificate.getIssuerCertificateUuid() != null) dto.setIssuerCertificateUuid(certificate.getIssuerCertificateUuid().toString());
+        if (certificate.getIssuerCertificateUuid() != null) {
+            dto.setIssuerCertificateUuid(certificate.getIssuerCertificateUuid().toString());
+        }
         if (certificate.getOwner() != null) {
             dto.setOwnerUuid(certificate.getOwner().getOwnerUuid().toString());
             dto.setOwner(certificate.getOwner().getOwnerUsername());
@@ -188,9 +239,10 @@ public class CertificateDetailDtoMapper {
         dto.setIssuerSerialNumber(certificate.getIssuerSerialNumber());
         /*
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
-         * When the details of the certificate is requested, the Service will transform the result into the user understandable
-         * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
-         * like complianceRules etc., So only the overall status of the compliance will be set in the mapToDto function
+         * When the details of the certificate is requested, the Service will transform the result into the user
+         * understandable format and send it. It is not moved into the mapToDto function, as the computation involves
+         * other repositories like complianceRules etc., So only the overall status of the compliance will be set in the
+         * mapToDto function
          */
         dto.setComplianceStatus(certificate.getComplianceStatus());
 
@@ -203,8 +255,13 @@ public class CertificateDetailDtoMapper {
         }
 
         dto.setPrivateKeyAvailability(false);
-        if (certificate.getKey() != null && !certificate.getKey().getItems().isEmpty()
-                && !certificate.getKey().getItems().stream().filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE)).toList().isEmpty()) {
+        if (certificate.getKey() != null && !certificate.getKey().getItems().isEmpty() && !certificate
+                .getKey()
+                .getItems()
+                .stream()
+                .filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE))
+                .toList()
+                .isEmpty()) {
             dto.setPrivateKeyAvailability(true);
         }
 
@@ -226,7 +283,9 @@ public class CertificateDetailDtoMapper {
         raDto.setUuid(certificate.getRaProfile().getUuid().toString());
         raDto.setEnabled(certificate.getRaProfile().getEnabled());
         if (certificate.getRaProfile().getAuthorityInstanceReference() != null) {
-            raDto.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReference().getUuid().toString());
+            raDto
+                    .setAuthorityInstanceUuid(
+                            certificate.getRaProfile().getAuthorityInstanceReference().getUuid().toString());
         }
         return raDto;
     }

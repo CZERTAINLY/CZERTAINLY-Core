@@ -1,17 +1,18 @@
 package com.otilm.core.util;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit tests for {@link ProxyCodeHelper}.
- * Tests cover critical functionality including validation, normalization,
+ * Unit tests for {@link ProxyCodeHelper}. Tests cover critical functionality including validation, normalization,
  * diacritics removal, special character handling, and length limits.
  */
 @DisplayName("ProxyCodeHelper Unit Tests")
@@ -26,10 +27,8 @@ class ProxyCodeHelperTest {
     void testCalculateCode_BlankOrNull_ThrowsException(String name) {
         ProxyCodeHelper helper = new ProxyCodeHelper("proxy-");
 
-        IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> helper.calculateCode(name)
-        );
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> helper.calculateCode(name));
 
         assertEquals("Proxy name must not be blank", exception.getMessage());
     }
@@ -59,12 +58,8 @@ class ProxyCodeHelperTest {
     // DIACRITICS REMOVAL
 
     @ParameterizedTest
-    @CsvSource({
-        "'Příliš žluťoučký kůň', 'proxy-prilis-zlutoucky-kun'",
-        "'Müller Straße', 'proxy-muller-strae'",
-        "'Łódź Świętokrzyska', 'proxy-lodz-swietokrzyska'",
-        "'São Paulo', 'proxy-sao-paulo'"
-    })
+    @CsvSource({"'Příliš žluťoučký kůň', 'proxy-prilis-zlutoucky-kun'", "'Müller Straße', 'proxy-muller-strae'",
+            "'Łódź Świętokrzyska', 'proxy-lodz-swietokrzyska'", "'São Paulo', 'proxy-sao-paulo'"})
     @DisplayName("Should remove diacritics from various languages")
     void testCalculateCode_DiacriticsRemoval(String input, String expected) {
         ProxyCodeHelper helper = new ProxyCodeHelper("proxy-");
@@ -89,12 +84,8 @@ class ProxyCodeHelperTest {
     // SPECIAL CHARACTERS
 
     @ParameterizedTest
-    @CsvSource({
-        "'Test@Proxy#123', 'proxy-testproxy123'",
-        "'Test(Proxy)Name', 'proxy-testproxyname'",
-        "'Test/Proxy\\Name', 'proxy-testproxyname'",
-        "'Test.Proxy_Name', 'proxy-testproxyname'"
-    })
+    @CsvSource({"'Test@Proxy#123', 'proxy-testproxy123'", "'Test(Proxy)Name', 'proxy-testproxyname'",
+            "'Test/Proxy\\Name', 'proxy-testproxyname'", "'Test.Proxy_Name', 'proxy-testproxyname'"})
     @DisplayName("Should remove special characters")
     void testCalculateCode_SpecialCharactersRemoval(String input, String expected) {
         ProxyCodeHelper helper = new ProxyCodeHelper("proxy-");

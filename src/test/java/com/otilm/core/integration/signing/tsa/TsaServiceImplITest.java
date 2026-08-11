@@ -1,5 +1,6 @@
 package com.otilm.core.integration.signing.tsa;
 
+import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
@@ -37,17 +38,16 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.mocks.ConnectorMockFactory;
 import com.otilm.core.util.mocks.CryptographyProviderConnectorMock;
 import com.otilm.core.util.mocks.TimestampingFormattingConnectorMock;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
 import static com.otilm.core.util.builders.ConnectorRequestDtoBuilder.aV1ConnectorRequest;
@@ -65,12 +65,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * End-to-end test of the TSP timestamp flow over a real Spring context and Postgres: request validation,
- * signing-profile resolution, the {@link ManagedTimestampEngine}, token assembly, and signing-record
- * persistence all run for real. The only mocks are the external connectors — the cryptography provider (signs
- * the DTBS) and the timestamping signature formatting (assembles the RFC 3161 token) — served by WireMock.
+ * signing-profile resolution, the {@link ManagedTimestampEngine}, token assembly, and signing-record persistence all
+ * run for real. The only mocks are the external connectors — the cryptography provider (signs the DTBS) and the
+ * timestamping signature formatting (assembles the RFC 3161 token) — served by WireMock.
  *
- * <p>The formatting returns a pre-built, structurally valid timestamp token; the profiles disable
- * token-signature validation, so the token need not cryptographically verify against the signing certificate.
+ * <p>
+ * The formatting returns a pre-built, structurally valid timestamp token; the profiles disable token-signature
+ * validation, so the token need not cryptographically verify against the signing certificate.
  */
 class TsaServiceImplITest extends BaseSpringBootTest {
 
@@ -118,31 +119,41 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         cryptographyProviderMock = connectorMockFactory.startCryptographyProvider();
         timestampingFormattingMock = connectorMockFactory.startTimestampingFormatting();
 
-        ConnectorDetailDto cryptographyProviderConnector = connectorService.createConnector(
-                aV1ConnectorRequest().withName("soft-cryptography-provider").withUrl(cryptographyProviderMock.getUrl()).build());
-        timestampingFormattingConnector = connectorService.createConnector(
-                aV2ConnectorRequest().withName("timestamping-formatting").withUrl(timestampingFormattingMock.getUrl()).build());
+        ConnectorDetailDto cryptographyProviderConnector = connectorService
+                .createConnector(aV1ConnectorRequest()
+                        .withName("soft-cryptography-provider")
+                        .withUrl(cryptographyProviderMock.getUrl())
+                        .build());
+        timestampingFormattingConnector = connectorService
+                .createConnector(aV2ConnectorRequest()
+                        .withName("timestamping-formatting")
+                        .withUrl(timestampingFormattingMock.getUrl())
+                        .build());
 
         cryptographyProviderMock.stubTokenInstanceCreation(UUID.randomUUID());
-        TokenInstanceDetailDto tokenInstance = tokenInstanceService.createTokenInstance(
-                aTokenInstanceRequest().withName("soft-token").withConnector(cryptographyProviderConnector.getUuid()).build());
+        TokenInstanceDetailDto tokenInstance = tokenInstanceService
+                .createTokenInstance(aTokenInstanceRequest()
+                        .withName("soft-token")
+                        .withConnector(cryptographyProviderConnector.getUuid())
+                        .build());
 
         cryptographyProviderMock.stubTokenProfileCreation();
-        TokenProfileDetailDto tokenProfile = tokenProfileService.createTokenProfile(
-                SecuredParentUUID.fromString(tokenInstance.getUuid()),
-                aTokenProfileRequest().withName("soft-token-profile").build());
+        TokenProfileDetailDto tokenProfile = tokenProfileService
+                .createTokenProfile(SecuredParentUUID.fromString(tokenInstance.getUuid()),
+                        aTokenProfileRequest().withName("soft-token-profile").build());
 
         KeyPair keyPair = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
-        cryptographyProviderMock.stubKeyPairCreation(Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded()));
-        cryptographicKeyService.createKey(
-                UUID.fromString(tokenInstance.getUuid()),
-                SecuredParentUUID.fromString(tokenProfile.getUuid()),
-                KeyRequestType.KEY_PAIR,
-                aKeyPairRequest().withName("soft-key-pair").build());
+        cryptographyProviderMock
+                .stubKeyPairCreation(Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded()));
+        cryptographicKeyService
+                .createKey(UUID.fromString(tokenInstance.getUuid()),
+                        SecuredParentUUID.fromString(tokenProfile.getUuid()), KeyRequestType.KEY_PAIR,
+                        aKeyPairRequest().withName("soft-key-pair").build());
 
         // TSA leaf signed by a trusted root, built from the token-backed key pair so the static-key managed
         // signing scheme resolves to a usable signing certificate + key.
-        signingCertificate = testCertificateAuthority.createTrustedCa("CN=Test Root CA")
+        signingCertificate = testCertificateAuthority
+                .createTrustedCa("CN=Test Root CA")
                 .issueTimestampingCertificate(keyPair, "CN=Test TSA");
 
         // The connector signs the DTBS and assembles the token; the assembled token is a real RFC 3161 token.
@@ -168,18 +179,18 @@ class TsaServiceImplITest extends BaseSpringBootTest {
     }
 
     /**
-     * Creates a timestamping signing profile, then enables it and activates it against a freshly created and
-     * enabled TSP profile — the preconditions {@code TsaServiceImpl} now enforces before granting timestamps.
+     * Creates a timestamping signing profile, then enables it and activates it against a freshly created and enabled
+     * TSP profile — the preconditions {@code TsaServiceImpl} now enforces before granting timestamps.
      */
     private SigningProfileDto createTimestampingSigningProfile(String name,
-                                                              List<DigestAlgorithm> allowedDigestAlgorithms,
-                                                              List<String> allowedPolicyIds) throws Exception {
-        SigningProfileDto signingProfile = signingProfileService.createSigningProfile(
-                aSigningProfileRequest()
+            List<DigestAlgorithm> allowedDigestAlgorithms, List<String> allowedPolicyIds) throws Exception {
+        SigningProfileDto signingProfile = signingProfileService
+                .createSigningProfile(aSigningProfileRequest()
                         .withName(name)
                         .withStaticKeyManagedSigning(signingCertificate.getUuid())
                         .withTimestamping(aTimestampingWorkflow()
-                                .withSignatureFormattingConnector(UUID.fromString(timestampingFormattingConnector.getUuid()))
+                                .withSignatureFormattingConnector(
+                                        UUID.fromString(timestampingFormattingConnector.getUuid()))
                                 .withValidateTokenSignature(false)
                                 .withQualifiedTimestamp(false)
                                 .withAllowedDigestAlgorithms(allowedDigestAlgorithms)
@@ -196,8 +207,10 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         SecuredUUID signingProfileUuid = SecuredUUID.fromString(signingProfile.getUuid());
         signingProfileService.enableSigningProfile(signingProfileUuid);
 
-        SecuredUUID tspProfileUuid = SecuredUUID.fromString(tspProfileService.createTspProfile(
-                aTspProfileRequest().withName(name + "-tsp").build(), "http://localhost").getUuid());
+        SecuredUUID tspProfileUuid = SecuredUUID
+                .fromString(tspProfileService
+                        .createTspProfile(aTspProfileRequest().withName(name + "-tsp").build(), "http://localhost")
+                        .getUuid());
         tspProfileService.enableTspProfile(tspProfileUuid);
         signingProfileService.activateTsp(signingProfileUuid, tspProfileUuid, "http://localhost");
 
@@ -222,10 +235,13 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         void grantsTimestamp_viaDefaultSigningProfile_ofTspProfile() throws Exception {
             // given
             SigningProfileDto signingProfile = createTimestampingSigningProfile("sp-for-tsp");
-            SecuredUUID tspProfileUuid = SecuredUUID.fromString(tspProfileService.createTspProfile(aTspProfileRequest()
-                    .withName("my-tsp-profile")
-                    .withDefaultSigningProfile(UUID.fromString(signingProfile.getUuid()))
-                    .build(), "http://localhost").getUuid());
+            SecuredUUID tspProfileUuid = SecuredUUID
+                    .fromString(tspProfileService
+                            .createTspProfile(aTspProfileRequest()
+                                    .withName("my-tsp-profile")
+                                    .withDefaultSigningProfile(UUID.fromString(signingProfile.getUuid()))
+                                    .build(), "http://localhost")
+                            .getUuid());
             tspProfileService.enableTspProfile(tspProfileUuid);
 
             // when
@@ -246,7 +262,8 @@ class TsaServiceImplITest extends BaseSpringBootTest {
             // given — no signing profile in the database
 
             // when / then
-            assertThatThrownBy(() -> tsaService.processTspRequestForSigningProfile("nonexistent", aTspRequest().build()))
+            assertThatThrownBy(
+                    () -> tsaService.processTspRequestForSigningProfile("nonexistent", aTspRequest().build()))
                     .isInstanceOf(NotFoundException.class);
         }
 
@@ -256,7 +273,8 @@ class TsaServiceImplITest extends BaseSpringBootTest {
             SigningProfileDto profile = createTimestampingSigningProfile("unconstrained-sp");
 
             // when
-            TspResponse response = tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
+            TspResponse response = tsaService
+                    .processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
 
             // then
             assertThat(response).isInstanceOf(TspResponse.Granted.class);
@@ -276,9 +294,11 @@ class TsaServiceImplITest extends BaseSpringBootTest {
             tspProfileService.disableTspProfile(SecuredUUID.fromUUID(linkedTspProfile.getUuid()));
 
             // then — the next request observes the disabled state and is rejected
-            assertThatThrownBy(() -> tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build()))
+            assertThatThrownBy(
+                    () -> tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build()))
                     .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST))
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.BAD_REQUEST))
                     .hasMessageContaining("TSP profile")
                     .hasMessageContaining("is disabled");
         }
@@ -289,7 +309,8 @@ class TsaServiceImplITest extends BaseSpringBootTest {
             SigningProfileDto profile = createTimestampingSigningProfile("recording-sp");
 
             // when
-            TspResponse response = tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
+            TspResponse response = tsaService
+                    .processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
 
             // then — the granted token is persisted as a signing record carrying the token's bytes and metadata
             assertThat(response).isInstanceOf(TspResponse.Granted.class);
@@ -317,10 +338,8 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         @Test
         void throwsValidationException_whenHashAlgorithmNotAllowed() throws Exception {
             // given — profile only accepts SHA-256; request uses SHA-512
-            SigningProfileDto profile = createTimestampingSigningProfile(
-                    "sp-sha256-only",
-                    List.of(DigestAlgorithm.SHA_256),
-                    List.of());
+            SigningProfileDto profile = createTimestampingSigningProfile("sp-sha256-only",
+                    List.of(DigestAlgorithm.SHA_256), List.of());
             TspRequest sha512Request = aTspRequest()
                     .hashAlgorithm(DigestAlgorithm.SHA_512)
                     .hashedMessage(new byte[64])
@@ -336,33 +355,32 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         @Test
         void throwsValidationException_whenPolicyNotAllowed() throws Exception {
             // given — profile only accepts policy "1.2.3"; request uses "9.9.9"
-            SigningProfileDto profile = createTimestampingSigningProfile(
-                    "sp-restricted-policy",
-                    List.of(),
+            SigningProfileDto profile = createTimestampingSigningProfile("sp-restricted-policy", List.of(),
                     List.of("1.2.3"));
-            TspRequest wrongPolicyRequest = aTspRequest()
-                    .policy("9.9.9")
-                    .build();
+            TspRequest wrongPolicyRequest = aTspRequest().policy("9.9.9").build();
 
             // when / then
-            assertThatThrownBy(() -> tsaService.processTspRequestForSigningProfile(profile.getName(), wrongPolicyRequest))
+            assertThatThrownBy(
+                    () -> tsaService.processTspRequestForSigningProfile(profile.getName(), wrongPolicyRequest))
                     .isInstanceOf(TspRequestValidationException.class)
                     .satisfies(ex -> assertThat(((TspRequestValidationException) ex).getFailureInfo())
                             .isEqualTo(TspFailureInfo.UNACCEPTED_POLICY));
         }
 
         @Test
-        void rejectsWithSystemFailure_whenFormattingConnectorFails() throws Exception {
+        void throwsSystemFailure_whenFormattingConnectorFails() throws Exception {
             // given — the signature formatting is unavailable during token assembly
             SigningProfileDto profile = createTimestampingSigningProfile("sp-formatting-down");
             timestampingFormattingMock.stubTokenAssemblyFailure();
 
-            // when
-            TspResponse response = tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
-
-            // then
-            assertThat(response).isInstanceOf(TspResponse.Rejected.class);
-            assertThat(((TspResponse.Rejected) response).failureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+            // when / then — the controller renders this service exception as a TSP rejection
+            assertThatThrownBy(
+                    () -> tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build()))
+                    .isInstanceOf(TspException.class)
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE))
+                    .hasMessageContaining("Signature formatting connector communication failed during DTBS phase")
+                    .hasCauseInstanceOf(ConnectorServerException.class);
         }
     }
 }

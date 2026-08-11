@@ -29,20 +29,23 @@ public class MethodSecurityConfig {
 
     @Bean
     @Role(ROLE_INFRASTRUCTURE)
-    public Advisor authorizationManagerBeforeMethodInterception(AuthorizationManager<MethodInvocation> authorizationManager) {
+    public Advisor authorizationManagerBeforeMethodInterception(
+            AuthorizationManager<MethodInvocation> authorizationManager) {
         AnnotationMatchingPointcut pointcut = new AnnotationMatchingPointcut(null, ExternalAuthorization.class);
         return new AuthorizationManagerBeforeMethodInterceptor(pointcut, authorizationManager);
     }
 
     @Bean
     @Role(ROLE_INFRASTRUCTURE)
-    public Advisor dynamicAuthorizationManagerBeforeMethodInterception(AuthorizationManager<MethodInvocation> authorizationManager) {
+    public Advisor dynamicAuthorizationManagerBeforeMethodInterception(
+            AuthorizationManager<MethodInvocation> authorizationManager) {
         AnnotationMatchingPointcut pointcut = new AnnotationMatchingPointcut(null, ExternalAuthorizationDynamic.class);
         return new AuthorizationManagerBeforeMethodInterceptor(pointcut, authorizationManager);
     }
 
     @Autowired
-    public void setExternalMethodAuthorizationManager(ExternalMethodAuthorizationManager externalMethodAuthorizationManager) {
+    public void setExternalMethodAuthorizationManager(
+            ExternalMethodAuthorizationManager externalMethodAuthorizationManager) {
         this.externalMethodAuthorizationManager = externalMethodAuthorizationManager;
     }
 }

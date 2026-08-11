@@ -6,8 +6,6 @@ import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.extension.ResponseDefinitionTransformerV2;
 import com.github.tomakehurst.wiremock.http.ResponseDefinition;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.util.Base64;
@@ -16,11 +14,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
- * WireMock extension backing {@link CryptographyProviderConnectorMock#stubRealSigning()}: routes each
- * sign request to the registered private key matching the key-reference UUID in the request URL and
- * signs the request's DTBS with it, producing a <em>real</em> signature.
+ * WireMock extension backing {@link CryptographyProviderConnectorMock#stubRealSigning()}: routes each sign request to
+ * the registered private key matching the key-reference UUID in the request URL and signs the request's DTBS with it,
+ * producing a <em>real</em> signature.
  */
 class RealSignerTransformer implements ResponseDefinitionTransformerV2 {
 
@@ -45,7 +44,8 @@ class RealSignerTransformer implements ResponseDefinitionTransformerV2 {
             KeyEntry key = registeredKeyFor(serveEvent.getRequest().getUrl());
             byte[] signature = sign(key, dtbs);
 
-            return ResponseDefinitionBuilder.like(serveEvent.getResponseDefinition())
+            return ResponseDefinitionBuilder
+                    .like(serveEvent.getResponseDefinition())
                     .withBody(signResponseJson(signature))
                     .build();
         } catch (Exception e) {

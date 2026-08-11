@@ -2,7 +2,15 @@ package com.otilm.core.service.v2.impl;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.clients.BaseApiClient;
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorCommunicationException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.ConnectorServerException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.ConnectRequestDto;
@@ -14,9 +22,13 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.ConnectorApiClientDtoV1;
-import com.otilm.api.model.core.connector.v2.*;
+import com.otilm.api.model.core.connector.ConnectorStatus;
+import com.otilm.api.model.core.connector.v2.ConnectInfo;
+import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
+import com.otilm.api.model.core.connector.v2.ConnectorDto;
+import com.otilm.api.model.core.connector.v2.ConnectorRequestDto;
+import com.otilm.api.model.core.connector.v2.ConnectorUpdateRequestDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
@@ -24,9 +36,28 @@ import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.config.cache.CacheConfig;
-import com.otilm.core.dao.entity.*;
+import com.otilm.core.config.cache.CacheEvictor;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.ComplianceProfile;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Connector2FunctionGroup;
+import com.otilm.core.dao.entity.Connector_;
+import com.otilm.core.dao.entity.Credential;
+import com.otilm.core.dao.entity.EntityInstanceReference;
+import com.otilm.core.dao.entity.Proxy;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.VaultInstance;
 import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.ComplianceProfileRepository;
+import com.otilm.core.dao.repository.ComplianceProfileRuleRepository;
+import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.CredentialRepository;
+import com.otilm.core.dao.repository.EntityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.ProxyRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.VaultInstanceRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.transaction.TransactionHandler;
@@ -47,20 +78,23 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.otilm.core.config.cache.CacheEvictor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Service(Resource.Codes.CONNECTOR)
 @Transactional
@@ -90,7 +124,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
 
     @Autowired
-    public void setNotificationInstanceReferenceRepository(NotificationInstanceReferenceRepository notificationInstanceReferenceRepository) {
+    public void setNotificationInstanceReferenceRepository(
+            NotificationInstanceReferenceRepository notificationInstanceReferenceRepository) {
         this.notificationInstanceReferenceRepository = notificationInstanceReferenceRepository;
     }
 
@@ -130,12 +165,14 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     }
 
     @Autowired
-    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
+    public void setAuthorityInstanceReferenceRepository(
+            AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
         this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
     }
 
     @Autowired
-    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+    public void setEntityInstanceReferenceRepository(
+            EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
         this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
     }
 
@@ -155,7 +192,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     }
 
     @Autowired
-    public void setConnector2FunctionGroupRepository(Connector2FunctionGroupRepository connector2FunctionGroupRepository) {
+    public void setConnector2FunctionGroupRepository(
+            Connector2FunctionGroupRepository connector2FunctionGroupRepository) {
         this.connector2FunctionGroupRepository = connector2FunctionGroupRepository;
     }
 
@@ -169,17 +207,20 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         this.connectorAuthService = connectorAuthService;
     }
 
-
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public PaginationResponseDto<ConnectorDto> listConnectors(SecurityFilter filter, SearchRequestDto request) {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final TriFunction<Root<Connector>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<ConnectorDto> connectorDtos = connectorRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+        final TriFunction<Root<Connector>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,
+                cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final List<ConnectorDto> connectorDtos = connectorRepository
+                .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
+                        (root, cb) -> cb.desc(root.get("created")))
                 .stream()
-                .map(Connector::mapToListDto).toList();
+                .map(Connector::mapToListDto)
+                .toList();
         final Long maxItems = connectorRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         PaginationResponseDto<ConnectorDto> response = new PaginationResponseDto<>();
@@ -203,26 +244,30 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
-    public ConnectorDetailDto createConnector(ConnectorRequestDto request) throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException {
+    public ConnectorDetailDto createConnector(ConnectorRequestDto request)
+            throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException {
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
-    //Internal and anonymous user only - Should not use as replacement for createConnector method, as it will create connector in waiting for approval status without any authorization check
+    // Internal and anonymous user only - Should not use as replacement for createConnector method, as it will create
+    // connector in waiting for approval status without any authorization check
     @Override
-    public ConnectorDetailDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    public ConnectorDetailDto createNewWaitingConnector(ConnectorRequestDto request)
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
-    public ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
+    public ConnectorDetailDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request)
+            throws NotFoundException, ConnectorException, AttributeException {
         Connector connector = getConnectorEntity(uuid);
 
         Proxy proxy = resolveProxy(request.getProxyUuid(), null);
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
-        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
-                request.getAuthType(),
-                AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        List<BaseAttribute> authAttributes = connectorAuthService
+                .mergeAndValidateAuthAttributes(request.getAuthType(),
+                        AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
 
         connector.setUrl(request.getUrl());
         connector.setAuthType(request.getAuthType());
@@ -235,7 +280,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         connectorAdapter.updateConnectorFunctions(connector, connectInfo);
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(),
+                                request.getCustomAttributes()));
         evictConnectorCache(connector.getUuid());
         return dto;
     }
@@ -258,7 +306,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 deleteConnector(connector);
             } catch (Exception e) {
                 logger.error("Unable to delete Connector", e);
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), connector != null ? connector.getName() : "", e, "Delete failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(uuid.toString(), connector != null ? connector.getName() : "", e,
+                                        "Delete failed"));
             }
         }
         return messages;
@@ -276,7 +327,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 deleteConnector(connector);
             } catch (Exception e) {
                 logger.error("Unable to force delete Connector", e);
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), connector != null ? connector.getName() : "", e, "Force delete failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(uuid.toString(), connector != null ? connector.getName() : "", e,
+                                        "Force delete failed"));
             }
         }
         return messages;
@@ -291,7 +345,9 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         apiClientDto.setUuid(request.getUuid());
         apiClientDto.setUrl(request.getUrl());
         apiClientDto.setAuthType(request.getAuthType());
-        apiClientDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        apiClientDto
+                .setAuthAttributes(
+                        AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         apiClientDto.setProxy(request.getProxy());
         for (ConnectorAdapter connectorAdapter : connectorAdapters.values()) {
             ConnectInfo connectInfo = null;
@@ -299,15 +355,22 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 connectInfo = connectorAdapter.checkConnection(apiClientDto);
                 connectorAdapter.validateConnection(connectInfo);
             } catch (ConnectorException | ValidationException e) {
-                if (e instanceof ConnectorCommunicationException || e instanceof ConnectorEntityNotFoundException || e instanceof ConnectorServerException) {
-                    logger.debug("No connector of version {} is running on the provided URL '{}'.", connectorAdapter.getVersion().getLabel(), request.getUrl());
+                if (e instanceof ConnectorCommunicationException || e instanceof ConnectorEntityNotFoundException
+                        || e instanceof ConnectorServerException) {
+                    logger
+                            .debug("No connector of version {} is running on the provided URL '{}'.",
+                                    connectorAdapter.getVersion().getLabel(), request.getUrl());
                     continue;
                 }
 
                 if (e instanceof ValidationException) {
-                    logger.error("Validation error when connecting to connector of version {} with the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage());
+                    logger
+                            .error("Validation error when connecting to connector of version {} with the provided URL '{}': {}",
+                                    connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage());
                 } else {
-                    logger.error("Unable to connect to connector of version {} running on the provided URL '{}': {}", connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage(), e);
+                    logger
+                            .error("Unable to connect to connector of version {} running on the provided URL '{}': {}",
+                                    connectorAdapter.getVersion().getLabel(), request.getUrl(), e.getMessage(), e);
                 }
 
                 if (connectInfo == null) {
@@ -325,7 +388,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         }
 
         if (connectInfos.isEmpty()) {
-            throw new ConnectorCommunicationException("Unable to connect to any connector on the provided URL '%s' with the provided credentials.".formatted(request.getUrl()), null);
+            throw new ConnectorCommunicationException(
+                    "Unable to connect to any connector on the provided URL '%s' with the provided credentials."
+                            .formatted(request.getUrl()),
+                    null);
         }
 
         connectInfos.sort(Comparator.comparing(ConnectInfo::getVersion));
@@ -350,7 +416,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 reconnect(connector);
             } catch (Exception e) {
                 logger.error("Unable to reconnect connector", e);
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), connector != null ? connector.getName() : "", e, "Reconnect failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(uuid.toString(), connector != null ? connector.getName() : "", e,
+                                        "Reconnect failed"));
             }
         }
         return messages;
@@ -374,7 +443,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 approve(connector);
             } catch (Exception e) {
                 logger.error("Unable to approve connector", e);
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), connector != null ? connector.getName() : "", e, "Approve failed"));
+                messages
+                        .add(BulkActionMessageDto
+                                .failure(uuid.toString(), connector != null ? connector.getName() : "", e,
+                                        "Approve failed"));
             }
         }
         return messages;
@@ -399,18 +471,18 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CONNECTOR, false);
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine
+                .getResourceSearchableFields(Resource.CONNECTOR, false);
 
-        List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_NAME),
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_URL),
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_VERSION),
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_STATUS),
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_AUTH_TYPE),
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_INTERFACE),
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_FUNCTION_GROUP),
-                SearchHelper.prepareSearch(FilterField.CONNECTOR_FEATURES)
-        );
+        List<SearchFieldDataDto> fields = List
+                .of(SearchHelper.prepareSearch(FilterField.CONNECTOR_NAME),
+                        SearchHelper.prepareSearch(FilterField.CONNECTOR_URL),
+                        SearchHelper.prepareSearch(FilterField.CONNECTOR_VERSION),
+                        SearchHelper.prepareSearch(FilterField.CONNECTOR_STATUS),
+                        SearchHelper.prepareSearch(FilterField.CONNECTOR_AUTH_TYPE),
+                        SearchHelper.prepareSearch(FilterField.CONNECTOR_INTERFACE),
+                        SearchHelper.prepareSearch(FilterField.CONNECTOR_FUNCTION_GROUP),
+                        SearchHelper.prepareSearch(FilterField.CONNECTOR_FEATURES));
 
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
@@ -423,14 +495,15 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     /**
      * Cached lookup of the connector routing info used by API client calls.
      *
-     * @implNote Do not invoke this from inside {@code ConnectorServiceImpl} via {@code this.} —
-     *           Spring self-invocation bypasses the proxy and skips {@code @Cacheable},
-     *           including any cache eviction registered for the current transaction.
+     * @implNote Do not invoke this from inside {@code ConnectorServiceImpl} via {@code this.} — Spring self-invocation
+     * bypasses the proxy and skips {@code @Cacheable}, including any cache eviction registered for the current
+     * transaction.
      */
     @Override
     @Cacheable(value = CacheConfig.CONNECTOR_API_CLIENT_CACHE, key = "#connectorUuid", sync = true)
     public ApiClientConnectorInfo getConnectorForApiClient(UUID connectorUuid) throws NotFoundException {
-        Connector connector = connectorRepository.findByUuid(connectorUuid)
+        Connector connector = connectorRepository
+                .findByUuid(connectorUuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
         return ImmutableConnectorInfo.of(connector);
     }
@@ -448,7 +521,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return connectorRepository.listResourceObjects(filter, Connector_.name, null, pagination);
     }
 
@@ -459,12 +533,11 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     }
 
     private Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException {
-        return connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+        return connectorRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 
-
-    private ConnectorDetailDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    private ConnectorDetailDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus)
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("Connector name must not be empty"));
         }
@@ -472,11 +545,14 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
             throw new AlreadyExistException(Connector.class, request.getName());
         }
         if (connectorRepository.findByUrlAndVersion(request.getUrl(), request.getVersion()).isPresent()) {
-            throw new AlreadyExistException(Connector.class, "URL %s with version %s".formatted(request.getUrl(), request.getVersion().getLabel()));
+            throw new AlreadyExistException(Connector.class,
+                    "URL %s with version %s".formatted(request.getUrl(), request.getVersion().getLabel()));
         }
 
         Proxy proxy = resolveProxy(request.getProxyUuid(), request.getProxyCode());
-        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        List<BaseAttribute> authAttributes = connectorAuthService
+                .mergeAndValidateAuthAttributes(request.getAuthType(),
+                        AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
 
         Connector connector = new Connector();
@@ -513,7 +589,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         }
 
         ConnectorDetailDto dto = connector.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(),
+                                request.getCustomAttributes()));
         evictConnectorCache(connector.getUuid());
         return dto;
     }
@@ -595,7 +674,9 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
             }
             return connectInfo;
         } catch (ConnectorCommunicationException | NotFoundException e) {
-            String message = String.format("Unable to reconnect to connector %s. Error in communication or no connector of version %s is running on the provided URL '%s'.", connector.getName(), connectorAdapter.getVersion().getLabel(), connector.getUrl());
+            String message = String
+                    .format("Unable to reconnect to connector %s. Error in communication or no connector of version %s is running on the provided URL '%s'.",
+                            connector.getName(), connectorAdapter.getVersion().getLabel(), connector.getUrl());
             logger.error(message, Exceptions.unwrap(e));
             transactionHandler.runInNewTransaction(() -> {
                 connector.setStatus(ConnectorStatus.OFFLINE);
@@ -613,37 +694,85 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
             connectorRepository.save(connector);
             evictConnectorCache(connector.getUuid());
         } else {
-            throw new ValidationException(ValidationError.create("Connector '{}' has unexpected status {}", connector.getName(), connector.getStatus().getLabel()));
+            throw new ValidationException(ValidationError
+                    .create("Connector '{}' has unexpected status {}", connector.getName(),
+                            connector.getStatus().getLabel()));
         }
     }
 
     private void deleteConnector(Connector connector) {
         List<String> errors = new ArrayList<>();
         if (!connector.getCredentials().isEmpty()) {
-            errors.add("Dependent credentials: " + String.join(", ", connector.getCredentials().stream().map(Credential::getName).collect(Collectors.toSet())));
+            errors
+                    .add("Dependent credentials: " + String
+                            .join(", ",
+                                    connector
+                                            .getCredentials()
+                                            .stream()
+                                            .map(Credential::getName)
+                                            .collect(Collectors.toSet())));
         }
 
         if (!connector.getAuthorityInstanceReferences().isEmpty()) {
-            errors.add("Dependent Authority Instances: " + String.join(", ", connector.getAuthorityInstanceReferences().stream().map(AuthorityInstanceReference::getName).collect(Collectors.toSet())));
+            errors
+                    .add("Dependent Authority Instances: " + String
+                            .join(", ",
+                                    connector
+                                            .getAuthorityInstanceReferences()
+                                            .stream()
+                                            .map(AuthorityInstanceReference::getName)
+                                            .collect(Collectors.toSet())));
         }
 
         if (!connector.getEntityInstanceReferences().isEmpty()) {
-            errors.add("Dependent Entity Instances: " + String.join(", ", connector.getEntityInstanceReferences().stream().map(EntityInstanceReference::getName).collect(Collectors.toSet())));
+            errors
+                    .add("Dependent Entity Instances: " + String
+                            .join(", ",
+                                    connector
+                                            .getEntityInstanceReferences()
+                                            .stream()
+                                            .map(EntityInstanceReference::getName)
+                                            .collect(Collectors.toSet())));
         }
 
         if (!connector.getTokenInstanceReferences().isEmpty()) {
-            errors.add("Dependent Token Instances: " + String.join(", ", connector.getTokenInstanceReferences().stream().map(TokenInstanceReference::getName).collect(Collectors.toSet())));
+            errors
+                    .add("Dependent Token Instances: " + String
+                            .join(", ",
+                                    connector
+                                            .getTokenInstanceReferences()
+                                            .stream()
+                                            .map(TokenInstanceReference::getName)
+                                            .collect(Collectors.toSet())));
         }
 
         if (!connector.getVaultInstances().isEmpty()) {
-            errors.add("Dependent Vault Instances: " + String.join(", ", connector.getVaultInstances().stream().map(VaultInstance::getName).collect(Collectors.toSet())));
+            errors
+                    .add("Dependent Vault Instances: " + String
+                            .join(", ",
+                                    connector
+                                            .getVaultInstances()
+                                            .stream()
+                                            .map(VaultInstance::getName)
+                                            .collect(Collectors.toSet())));
         }
 
         if (!connector.getNotificationInstanceReferences().isEmpty()) {
-            errors.add("Dependent Notification Instances: " + String.join(", ", connector.getNotificationInstanceReferences().stream().map(NotificationInstanceReference::getName).collect(Collectors.toSet())));
+            errors
+                    .add("Dependent Notification Instances: " + String
+                            .join(", ",
+                                    connector
+                                            .getNotificationInstanceReferences()
+                                            .stream()
+                                            .map(NotificationInstanceReference::getName)
+                                            .collect(Collectors.toSet())));
         }
 
-        Set<String> complianceProfileNames = complianceProfileRepository.findDistinctByComplianceRulesConnectorUuid(connector.getUuid()).stream().map(ComplianceProfile::getName).collect(Collectors.toSet());
+        Set<String> complianceProfileNames = complianceProfileRepository
+                .findDistinctByComplianceRulesConnectorUuid(connector.getUuid())
+                .stream()
+                .map(ComplianceProfile::getName)
+                .collect(Collectors.toSet());
         if (!complianceProfileNames.isEmpty()) {
             errors.add("Dependent Compliance Profiles: " + String.join(", ", complianceProfileNames));
         }
@@ -655,7 +784,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         // remove connector attribute definitions and content if they are only dependent resources
         attributeEngine.deleteConnectorAttributeDefinitionsContent(connector.getUuid());
 
-        List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
+        List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository
+                .findAllByConnector(connector);
         connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
 
         UUID deletedUuid = connector.getUuid();
@@ -666,11 +796,13 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     private Proxy resolveProxy(String proxyUuid, String proxyCode) throws NotFoundException {
         if (proxyUuid != null && !proxyUuid.isBlank()) {
-            return proxyRepository.findByUuid(SecuredUUID.fromString(proxyUuid))
+            return proxyRepository
+                    .findByUuid(SecuredUUID.fromString(proxyUuid))
                     .orElseThrow(() -> new NotFoundException(Proxy.class, proxyUuid));
         }
         if (proxyCode != null && !proxyCode.isBlank()) {
-            return proxyRepository.findByCode(proxyCode)
+            return proxyRepository
+                    .findByCode(proxyCode)
                     .orElseThrow(() -> new NotFoundException(Proxy.class, proxyCode));
         }
         return null;

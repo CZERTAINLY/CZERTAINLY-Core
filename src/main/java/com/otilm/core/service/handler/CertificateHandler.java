@@ -9,29 +9,37 @@ import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.otilm.core.events.handlers.discovery.DiscoverySource;
-import com.otilm.core.service.writer.DiscoveryWriter;
-import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.events.handlers.discovery.DiscoverySource;
 import com.otilm.core.events.transaction.CertificateValidationEvent;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.messaging.jms.producers.ValidationProducer;
 import com.otilm.core.messaging.model.ValidationMessage;
-import com.otilm.core.service.*;
-import com.otilm.core.util.*;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.ComplianceInternalService;
 import com.otilm.core.service.CryptographicKeyInternalService;
+import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.KeySizeUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.X509ObjectToString;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,12 +50,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.cert.X509Certificate;
-import java.util.*;
 
 @Service
 public class CertificateHandler {
@@ -91,7 +93,9 @@ public class CertificateHandler {
 
     @Value("${certificate.validation.batch-size:10}")
     public void setValidationBatchSize(int validationBatchSize) {
-        if (validationBatchSize <= 0) throw new IllegalArgumentException("validationBatchSize must be positive");
+        if (validationBatchSize <= 0) {
+            throw new IllegalArgumentException("validationBatchSize must be positive");
+        }
         this.validationBatchSize = validationBatchSize;
     }
 
@@ -106,7 +110,8 @@ public class CertificateHandler {
     }
 
     @Autowired
-    public void setCertificateEventHistoryService(CertificateEventHistoryInternalService certificateEventHistoryService) {
+    public void setCertificateEventHistoryService(
+            CertificateEventHistoryInternalService certificateEventHistoryService) {
         this.certificateEventHistoryService = certificateEventHistoryService;
     }
 
@@ -136,25 +141,37 @@ public class CertificateHandler {
                 complianceService.checkResourceObjectComplianceAsSystem(Resource.CERTIFICATE, certificate.getUuid());
             }
         } catch (Exception e) {
-            logger.error("Error when checking compliance of certificate {}: {}", certificate.toStringShort(), e.getMessage());
+            logger
+                    .error("Error when checking compliance of certificate {}: {}", certificate.toStringShort(),
+                            e.getMessage());
         }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void updateMetadataDefinition(List<MetadataAttribute> metadataAttributes, Map<String, Set<AttributeContent>> metadataContentsMapping, UUID connectorUuid, String connectorName) {
-        logger.debug("Updating {} discovery certificate metadata definitions for connector {}", metadataAttributes.size(), connectorName);
+    public void updateMetadataDefinition(List<MetadataAttribute> metadataAttributes,
+            Map<String, Set<AttributeContent>> metadataContentsMapping, UUID connectorUuid, String connectorName) {
+        logger
+                .debug("Updating {} discovery certificate metadata definitions for connector {}",
+                        metadataAttributes.size(), connectorName);
         for (MetadataAttribute metadataAttribute : metadataAttributes) {
             try {
-                AttributeDefinition attributeDefinition = attributeEngine.updateMetadataAttributeDefinition(metadataAttribute, connectorUuid);
-                attributeEngine.registerAttributeContentItems(attributeDefinition.getUuid(), metadataContentsMapping.get(metadataAttribute.getUuid()));
+                AttributeDefinition attributeDefinition = attributeEngine
+                        .updateMetadataAttributeDefinition(metadataAttribute, connectorUuid);
+                attributeEngine
+                        .registerAttributeContentItems(attributeDefinition.getUuid(),
+                                metadataContentsMapping.get(metadataAttribute.getUuid()));
             } catch (AttributeException e) {
-                logger.error("Unable to update discovery certificate metadata definition with UUID {} and name {} for discovery connector {}. Message: {}", metadataAttribute.getUuid(), metadataAttribute.getName(), connectorName, e.getMessage(), e);
+                logger
+                        .error("Unable to update discovery certificate metadata definition with UUID {} and name {} for discovery connector {}. Message: {}",
+                                metadataAttribute.getUuid(), metadataAttribute.getName(), connectorName, e.getMessage(),
+                                e);
             }
         }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void createDiscoveredCertificate(String batch, DiscoveryHistory discovery, List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
+    public void createDiscoveredCertificate(String batch, DiscoveryHistory discovery,
+            List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
         for (DiscoveryProviderCertificateDataDto certificate : discoveredCertificates) {
             DiscoveryCertificate discoveryCertificate = null;
             try {
@@ -168,15 +185,23 @@ public class CertificateHandler {
                 discoveryCertificate.setMeta(certificate.getMeta());
 
                 if (existingCertificate == null) {
-                    discoveryCertificate.setCertificateContent(certificateService.checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert)));
+                    discoveryCertificate
+                            .setCertificateContent(certificateService
+                                    .checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert)));
                 } else {
-                    updateDiscoveredCertificate(DiscoverySource.of(discovery), existingCertificate, certificate.getMeta());
+                    updateDiscoveredCertificate(DiscoverySource.of(discovery), existingCertificate,
+                            certificate.getMeta());
                     discoveryCertificate.setProcessed(true);
                 }
 
                 discoveryCertificateRepository.save(discoveryCertificate);
             } catch (Exception e) {
-                logger.error("Unable to create discovery certificate {} in batch {} for discovery {}. Message: {}", discoveryCertificate == null ? certificate.getUuid() : discoveryCertificate.getCommonName(), batch, discovery.getName(), e.getMessage(), e);
+                logger
+                        .error("Unable to create discovery certificate {} in batch {} for discovery {}. Message: {}",
+                                discoveryCertificate == null
+                                        ? certificate.getUuid()
+                                        : discoveryCertificate.getCommonName(),
+                                batch, discovery.getName(), e.getMessage(), e);
             }
         }
 
@@ -192,24 +217,27 @@ public class CertificateHandler {
     public void reportDownloadProgress(DiscoveryHistory discovery) {
         try {
             Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
-            String progress = String.format(
-                    "Downloaded %d %% of discovered certificates from provider (%d / %d)",
-                    (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100),
-                    currentCount, discovery.getConnectorTotalCertificatesDiscovered());
-            transactionHandler.runInNewTransaction(() -> discoveryWriter.updateProgressMessage(discovery.getUuid(), progress));
+            String progress = String
+                    .format("Downloaded %d %% of discovered certificates from provider (%d / %d)",
+                            (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100),
+                            currentCount, discovery.getConnectorTotalCertificatesDiscovered());
+            transactionHandler
+                    .runInNewTransaction(() -> discoveryWriter.updateProgressMessage(discovery.getUuid(), progress));
         } catch (Exception e) {
-            logger.error("Unable to report download progress of discovery {}. Message: {}",
-                    discovery.getName(), e.getMessage(), e);
+            logger
+                    .error("Unable to report download progress of discovery {}. Message: {}", discovery.getName(),
+                            e.getMessage(), e);
         }
     }
 
     /**
      * @return true if the key was associated with the certificates, false if the upload was skipped because no
-     * committed certificate backs the given UUIDs (see {@link #uploadKeyInternal}). Callers use the result to keep
-     * the discovery status visible when key association could not complete.
+     * committed certificate backs the given UUIDs (see {@link #uploadKeyInternal}). Callers use the result to keep the
+     * discovery status visible when key association could not complete.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT, rollbackFor = NoSuchAlgorithmException.class)
-    public boolean uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
+    public boolean uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids)
+            throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "certKey_");
         if (keyUuid == null) {
             return false;
@@ -219,11 +247,12 @@ public class CertificateHandler {
     }
 
     /**
-     * @return true if the alternative key was associated with the certificates, false if the upload was skipped
-     * because no committed certificate backs the given UUIDs.
+     * @return true if the alternative key was associated with the certificates, false if the upload was skipped because
+     * no committed certificate backs the given UUIDs.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT, rollbackFor = NoSuchAlgorithmException.class)
-    public boolean uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
+    public boolean uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids)
+            throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "altCertKey_");
         if (keyUuid == null) {
             return false;
@@ -232,8 +261,11 @@ public class CertificateHandler {
         return true;
     }
 
-    private UUID uploadKeyInternal(PublicKey publicKey, List<UUID> certificateUuids, String namePrefix) throws NoSuchAlgorithmException {
-        String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+    private UUID uploadKeyInternal(PublicKey publicKey, List<UUID> certificateUuids, String namePrefix)
+            throws NoSuchAlgorithmException {
+        String fingerprint = CertificateUtil
+                .getThumbprint(
+                        Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
 
         // The key can only be associated with committed certificate rows. A null result means none of
         // certificateUuids resolves to a committed certificate (the per-certificate transaction that queued this
@@ -242,22 +274,34 @@ public class CertificateHandler {
         // discovery status rather than looking clean on the shared-key path.
         Certificate firstCertificate = certificateRepository.findFirstByUuidIn(certificateUuids);
         if (firstCertificate == null) {
-            logger.warn("No committed certificate found for key with fingerprint {} among UUIDs {}; skipping key upload. The certificate(s) were likely lost to a rolled-back transaction during discovery post-processing.", fingerprint, certificateUuids);
+            logger
+                    .warn("No committed certificate found for key with fingerprint {} among UUIDs {}; skipping key upload. The certificate(s) were likely lost to a rolled-back transaction during discovery post-processing.",
+                            fingerprint, certificateUuids);
             return null;
         }
 
         UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
         if (keyUuid == null) {
-            String keyName = namePrefix + Objects.requireNonNullElse(firstCertificate.getCommonName(), firstCertificate.getSerialNumber());
-            keyUuid = cryptographicKeyService.uploadCertificatePublicKey(keyName, publicKey, KeySizeUtil.getKeyLength(publicKey), fingerprint);
+            String keyName = namePrefix
+                    + Objects.requireNonNullElse(firstCertificate.getCommonName(), firstCertificate.getSerialNumber());
+            keyUuid = cryptographicKeyService
+                    .uploadCertificatePublicKey(keyName, publicKey, KeySizeUtil.getKeyLength(publicKey), fingerprint);
         }
         return keyUuid;
     }
 
     @Transactional
-    public void updateDiscoveredCertificate(DiscoverySource source, Certificate certificate, List<MetadataAttribute> metadata) {
+    public void updateDiscoveredCertificate(DiscoverySource source, Certificate certificate,
+            List<MetadataAttribute> metadata) {
         try {
-            attributeEngine.updateMetadataAttributes(metadata, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(source.connectorUuid()).source(Resource.DISCOVERY, source.discoveryUuid()).sourceName(source.discoveryName()).build());
+            attributeEngine
+                    .updateMetadataAttributes(metadata,
+                            ObjectAttributeContentInfo
+                                    .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                    .connector(source.connectorUuid())
+                                    .source(Resource.DISCOVERY, source.discoveryUuid())
+                                    .sourceName(source.discoveryName())
+                                    .build());
         } catch (AttributeException e) {
             logger.error("Could not update metadata for discovery certificate {}.", certificate.getUuid());
         }
@@ -266,13 +310,11 @@ public class CertificateHandler {
         additionalInfo.put("Discovery UUID", source.discoveryUuid());
         additionalInfo.put("Discovery Connector Name", source.connectorName());
         additionalInfo.put("Discovery Kind", source.discoveryKind());
-        certificateEventHistoryService.addEventHistory(
-                certificate.getUuid(),
-                CertificateEvent.DISCOVERY,
-                CertificateEventStatus.SUCCESS,
-                "Discovered from Connector: " + source.connectorName() + " via discovery: " + source.discoveryName(),
-                MetaDefinitions.serialize(additionalInfo)
-        );
+        certificateEventHistoryService
+                .addEventHistory(certificate.getUuid(), CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS,
+                        "Discovered from Connector: " + source.connectorName() + " via discovery: "
+                                + source.discoveryName(),
+                        MetaDefinitions.serialize(additionalInfo));
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -282,8 +324,9 @@ public class CertificateHandler {
         int size = uuids.size();
         for (int i = 0; i < size; i += validationBatchSize) {
             List<UUID> batch = uuids.subList(i, Math.min(i + validationBatchSize, size));
-            validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, batch,
-                    event.discoveryUuid(), event.discoveryName(), event.locationUuid(), event.locationName()));
+            validationProducer
+                    .produceMessage(new ValidationMessage(Resource.CERTIFICATE, batch, event.discoveryUuid(),
+                            event.discoveryName(), event.locationUuid(), event.locationName()));
         }
     }
 }

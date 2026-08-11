@@ -3,9 +3,8 @@ package com.otilm.core.certificate.request;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.core.attribute.CsrAttributes;
 import com.otilm.core.util.AttributeDefinitionUtils;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,8 +12,7 @@ class DefaultRequestAttributeSetTest {
 
     @Test
     void seedDelegatesToCsrAttributes() {
-        assertThat(DefaultRequestAttributeSet.seed())
-                .hasSize(CsrAttributes.csrAttributesAsDataAttributesV3().size());
+        assertThat(DefaultRequestAttributeSet.seed()).hasSize(CsrAttributes.csrAttributesAsDataAttributesV3().size());
     }
 
     @Test

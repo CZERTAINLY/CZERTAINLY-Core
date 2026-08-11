@@ -2,9 +2,8 @@ package com.otilm.core.service.cmp.message.validator;
 
 import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
-import org.bouncycastle.asn1.cmp.PKIBody;
-
 import java.util.List;
+import org.bouncycastle.asn1.cmp.PKIBody;
 
 /**
  * Common interface for (single-way) validation
@@ -35,12 +34,10 @@ public interface Validator<I, E> {
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI Body overall</a>
      */
-    List<Integer> CRMF_MESSAGES_TYPES = List.of(
-            PKIBody.TYPE_INIT_REQ,
-            PKIBody.TYPE_CERT_REQ,
-            PKIBody.TYPE_KEY_UPDATE_REQ,
-            PKIBody.TYPE_KEY_RECOVERY_REQ, // -- not implemented
-            PKIBody.TYPE_CROSS_CERT_REQ);  // -- not implemented
+    List<Integer> CRMF_MESSAGES_TYPES = List
+            .of(PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ, PKIBody.TYPE_KEY_UPDATE_REQ,
+                    PKIBody.TYPE_KEY_RECOVERY_REQ, // -- not implemented
+                    PKIBody.TYPE_CROSS_CERT_REQ); // -- not implemented
 
     List<Integer> SUPPORTED_CRMF_MESSAGES_TYPES = CRMF_MESSAGES_TYPES.subList(0, 3);
 

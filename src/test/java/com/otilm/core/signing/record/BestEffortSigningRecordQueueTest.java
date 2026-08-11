@@ -1,17 +1,16 @@
 package com.otilm.core.signing.record;
 
 import com.otilm.core.dao.entity.signing.SigningRecord;
-import org.awaitility.Awaitility;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -72,7 +71,6 @@ class BestEffortSigningRecordQueueTest {
         Thread blockedProducer = putRecordBlockingInNewThread(queue, "blocked");
         awaitProducerWaitingForEmptyQueue(blockedProducer);
 
-
         // when
         backing.poll();
 
@@ -107,7 +105,8 @@ class BestEffortSigningRecordQueueTest {
 
         // then
         assertProducerCompleted(blockedProducer);
-        assertTrue(interruptedExceptionThrown.get(), "enqueueBlocking must propagate InterruptedException when interrupted while waiting");
+        assertTrue(interruptedExceptionThrown.get(),
+                "enqueueBlocking must propagate InterruptedException when interrupted while waiting");
         assertQueueHoldsOnly("filler");
     }
 
@@ -188,8 +187,11 @@ class BestEffortSigningRecordQueueTest {
     }
 
     private void awaitProducerWaitingForEmptyQueue(Thread thread) {
-        Awaitility.await().atMost(Duration.ofSeconds(2))
-                .until(() -> thread.getState() == Thread.State.WAITING || thread.getState() == Thread.State.TIMED_WAITING);
+        Awaitility
+                .await()
+                .atMost(Duration.ofSeconds(2))
+                .until(() -> thread.getState() == Thread.State.WAITING
+                        || thread.getState() == Thread.State.TIMED_WAITING);
     }
 
     /**

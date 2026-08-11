@@ -1,5 +1,7 @@
 package com.otilm.core.integration.signing.record;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
@@ -17,29 +19,26 @@ import com.otilm.core.signing.record.ImmediateSigningRecordStrategy;
 import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.signing.record.SigningRecordInputSources;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.List;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.notRecording;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingDisabled;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingEverything;
 import static com.otilm.core.signing.record.SigningRecordInputBuilder.aSigningRecordInput;
 import static com.otilm.core.util.builders.SearchRequestDtoBuilder.aSearchRequest;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * Integration test for {@link ImmediateSigningRecordStrategy} over a real Postgres via {@link BaseSpringBootTest}.
- * The strategy's branch logic is pinned over mocks in {@link ImmediateSigningRecordStrategyUnitTest}; what only
- * a real database can prove lives here: a recorded input lands directly in {@code signing_record} and reads
- * back field-for-field through the jsonb and {@code byte[]} columns a mocked writer would only echo.
+ * Integration test for {@link ImmediateSigningRecordStrategy} over a real Postgres via {@link BaseSpringBootTest}. The
+ * strategy's branch logic is pinned over mocks in {@link ImmediateSigningRecordStrategyUnitTest}; what only a real
+ * database can prove lives here: a recorded input lands directly in {@code signing_record} and reads back
+ * field-for-field through the jsonb and {@code byte[]} columns a mocked writer would only echo.
  */
 class ImmediateSigningRecordStrategyITest extends BaseSpringBootTest {
 
@@ -136,9 +135,9 @@ class ImmediateSigningRecordStrategyITest extends BaseSpringBootTest {
     }
 
     /**
-     * Persists the {@code signing_profile} row referenced by a record's {@code signing_profile_uuid}.
-     * The profile's model fields are irrelevant to the strategy (it reads only uuid, version and record policy),
-     * so this fills the NOT NULL columns with unremarkable values.
+     * Persists the {@code signing_profile} row referenced by a record's {@code signing_profile_uuid}. The profile's
+     * model fields are irrelevant to the strategy (it reads only uuid, version and record policy), so this fills the
+     * NOT NULL columns with unremarkable values.
      */
     private SigningProfile insertSigningProfile(String name) {
         SigningProfile profile = new SigningProfile();

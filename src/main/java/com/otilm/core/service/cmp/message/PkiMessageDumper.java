@@ -1,5 +1,18 @@
 package com.otilm.core.service.cmp.message;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.security.cert.X509Certificate;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.ASN1Object;
@@ -7,7 +20,12 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.anssi.ANSSIObjectIdentifiers;
 import org.bouncycastle.asn1.bc.BCObjectIdentifiers;
 import org.bouncycastle.asn1.bsi.BSIObjectIdentifiers;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.CMPCertificate;
+import org.bouncycastle.asn1.cmp.CMPObjectIdentifiers;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFreeText;
+import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.cmp.PollRepContent;
 import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
 import org.bouncycastle.asn1.crmf.CRMFObjectIdentifiers;
 import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
@@ -43,20 +61,12 @@ import org.bouncycastle.pqc.asn1.PQCObjectIdentifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.security.cert.X509Certificate;
-import java.text.ParseException;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * A utility class providing functions for dumping messages.
  *
  * @author Andreas Kretschmer (cmp-ra-component/Apache 2.0 Licence)
- * @see <a href="https://github.com/siemens/cmp-ra-component/blob/main/src/main/java/com/siemens/pki/cmpracomponent/util/MessageDumper.java">...</a>
+ * @see <a href=
+ * "https://github.com/siemens/cmp-ra-component/blob/main/src/main/java/com/siemens/pki/cmpracomponent/util/MessageDumper.java">...</a>
  */
 public class PkiMessageDumper {
 
@@ -67,8 +77,7 @@ public class PkiMessageDumper {
     static {
         // load symbolic names defined in PKIBody
         for (final Field aktField : PKIBody.class.getFields()) {
-            if (aktField.getType().equals(Integer.TYPE)
-                    && (aktField.getModifiers() & Modifier.STATIC) != 0
+            if (aktField.getType().equals(Integer.TYPE) && (aktField.getModifiers() & Modifier.STATIC) != 0
                     && aktField.getName().startsWith("TYPE_")) {
                 try {
                     TYPES.put(aktField.getInt(null), aktField.getName().substring(5));
@@ -79,43 +88,38 @@ public class PkiMessageDumper {
         }
     }
 
-    public static void dumpSingerCertificate(String location,
-                                             X509Certificate singerCertificate,
-                                             CMPCertificate[] extraCerts) {
+    public static void dumpSingerCertificate(String location, X509Certificate singerCertificate,
+            CMPCertificate[] extraCerts) {
         if ("builder".equals(location)) {
             if (extraCerts != null && extraCerts.length > 0) {
                 for (var i = 0; i < extraCerts.length; i++) {
                     org.bouncycastle.asn1.x509.Certificate cert = extraCerts[i].getX509v3PKCert();
-                    LOG.info("{}", String.format("%s - [%s]\nsubject=%s, \nsn=%s, \nissuer=%s",
-                            location.toUpperCase(),
-                            i,
-                            cert.getSubject(),
-                            cert.getSerialNumber(),
-                            cert.getIssuer()));
+                    LOG
+                            .info("{}", String
+                                    .format("%s - [%s]\nsubject=%s, \nsn=%s, \nissuer=%s", location.toUpperCase(), i,
+                                            cert.getSubject(), cert.getSerialNumber(), cert.getIssuer()));
                 }
             } else {
                 LOG.info("extraCerts are empty");
             }
         } else {
-            LOG.info("{}", String.format("%s - [%s]\nsubject=%s, \nsn=%s, \nissuer=%s",
-                    location.toUpperCase(),
-                    0,
-                    singerCertificate.getSubjectX500Principal(),
-                    singerCertificate.getSerialNumber(),
-                    singerCertificate.getIssuerX500Principal()));
+            LOG
+                    .info("{}", String
+                            .format("%s - [%s]\nsubject=%s, \nsn=%s, \nissuer=%s", location.toUpperCase(), 0,
+                                    singerCertificate.getSubjectX500Principal(), singerCertificate.getSerialNumber(),
+                                    singerCertificate.getIssuerX500Principal()));
         }
     }
 
     /**
-     * @param msg         source of data for log prefix
+     * @param msg source of data for log prefix
      * @param profileName next data for log prefix
      * @return short version of pki message (type, tid, profileName)
      */
     public static String logPrefix(PKIMessage msg, String profileName) {
-        return String.format("%s TID=%s, PN=%s",
-                PkiMessageDumper.msgTypeAsShortCut(true, msg),
-                msg.getHeader().getTransactionID(),
-                profileName);
+        return String
+                .format("%s TID=%s, PN=%s", PkiMessageDumper.msgTypeAsShortCut(true, msg),
+                        msg.getHeader().getTransactionID(), profileName);
     }
 
     /**
@@ -128,85 +132,85 @@ public class PkiMessageDumper {
         int type = msg.getBody().getType();
         switch (type) {
             case PKIBody.TYPE_INIT_REQ -> {
-                return String.format(format, "ir", type/* 0*/);
+                return String.format(format, "ir", type/* 0 */);
             }
             case PKIBody.TYPE_INIT_REP -> {
-                return String.format(format, "ip", type/* 1*/);
+                return String.format(format, "ip", type/* 1 */);
             }
             case PKIBody.TYPE_CERT_REQ -> {
-                return String.format(format, "cr", type/* 2*/);
+                return String.format(format, "cr", type/* 2 */);
             }
             case PKIBody.TYPE_CERT_REP -> {
-                return String.format(format, "ip", type/* 3*/);
+                return String.format(format, "ip", type/* 3 */);
             }
             case PKIBody.TYPE_P10_CERT_REQ -> {
-                return String.format(format, "p10cr", type/* 4*/);
+                return String.format(format, "p10cr", type/* 4 */);
             }
             case PKIBody.TYPE_POPO_CHALL -> {
-                return String.format(format, "popdecc", type/* 5*/);
+                return String.format(format, "popdecc", type/* 5 */);
             }
             case PKIBody.TYPE_POPO_REP -> {
-                return String.format(format, "popdecr", type/* 6*/);
+                return String.format(format, "popdecr", type/* 6 */);
             }
             case PKIBody.TYPE_KEY_UPDATE_REQ -> {
-                return String.format(format, "kur", type/* 7*/);
+                return String.format(format, "kur", type/* 7 */);
             }
             case PKIBody.TYPE_KEY_UPDATE_REP -> {
-                return String.format(format, "kup", type/* 8*/);
+                return String.format(format, "kup", type/* 8 */);
             }
             case PKIBody.TYPE_KEY_RECOVERY_REQ -> {
-                return String.format(format, "krr", type/* 9*/);
+                return String.format(format, "krr", type/* 9 */);
             }
             case PKIBody.TYPE_KEY_RECOVERY_REP -> {
-                return String.format(format, "krp", type/*10*/);
+                return String.format(format, "krp", type/* 10 */);
             }
             case PKIBody.TYPE_REVOCATION_REQ -> {
-                return String.format(format, "rr", type/*11*/);
+                return String.format(format, "rr", type/* 11 */);
             }
             case PKIBody.TYPE_REVOCATION_REP -> {
-                return String.format(format, "rp", type/*12*/);
+                return String.format(format, "rp", type/* 12 */);
             }
             case PKIBody.TYPE_CROSS_CERT_REQ -> {
-                return String.format(format, "ccr", type/*13*/);
+                return String.format(format, "ccr", type/* 13 */);
             }
             case PKIBody.TYPE_CROSS_CERT_REP -> {
-                return String.format(format, "ccp", type/*14*/);
+                return String.format(format, "ccp", type/* 14 */);
             }
             case PKIBody.TYPE_CA_KEY_UPDATE_ANN -> {
-                return String.format(format, "ckuann", type/*15*/);
+                return String.format(format, "ckuann", type/* 15 */);
             }
             case PKIBody.TYPE_CERT_ANN -> {
-                return String.format(format, "cann", type/*16*/);
+                return String.format(format, "cann", type/* 16 */);
             }
             case PKIBody.TYPE_REVOCATION_ANN -> {
-                return String.format(format, "rann", type/*17*/);
+                return String.format(format, "rann", type/* 17 */);
             }
             case PKIBody.TYPE_CRL_ANN -> {
-                return String.format(format, "crlann", type/*18*/);
+                return String.format(format, "crlann", type/* 18 */);
             }
             case PKIBody.TYPE_CONFIRM -> {
-                return String.format(format, "pkiconf", type/*19*/);
+                return String.format(format, "pkiconf", type/* 19 */);
             }
             case PKIBody.TYPE_NESTED -> {
-                return String.format(format, "nested", type/*20*/);
+                return String.format(format, "nested", type/* 20 */);
             }
             case PKIBody.TYPE_GEN_MSG -> {
-                return String.format(format, "genm", type/*21*/);
+                return String.format(format, "genm", type/* 21 */);
             }
             case PKIBody.TYPE_GEN_REP -> {
-                return String.format(format, "genp", type/*22*/);
+                return String.format(format, "genp", type/* 22 */);
             }
             case PKIBody.TYPE_ERROR -> {
-                return String.format(format, "error", type/*23*/);
+                return String.format(format, "error", type/* 23 */);
             }
             case PKIBody.TYPE_CERT_CONFIRM -> {
-                return String.format(format, "certConf", type/*24*/);
+                return String.format(format, "certConf", type/* 24 */);
             }
             case PKIBody.TYPE_POLL_REQ -> {
-                return String.format(format, "pollReq", type/*25*/);
+                return String.format(format, "pollReq", type/* 25 */);
             }
             case PKIBody.TYPE_POLL_REP -> {
-                return String.format(format, "pollRep", type/*26*/);
+                return String.format(format, "pollRep", type/* 26 */);
             }
         }
         return "<unknown-type>";
@@ -214,11 +218,13 @@ public class PkiMessageDumper {
 
     /**
      * @param verbose if true (=long version) otherwise short version of {@link PKIMessage}
-     * @param msg     message for dump
+     * @param msg message for dump
      * @return return log version (short/long by given <code>verbose</code> flag) of {@link PKIMessage}
      */
     public static String dumpPkiMessage(boolean verbose, PKIMessage msg) {
-        if (verbose) return dumpPkiMessage(msg);
+        if (verbose) {
+            return dumpPkiMessage(msg);
+        }
         return " [" + msg.getHeader().getSender() + " => " + msg.getHeader().getRecipient() + "]";
     }
 
@@ -287,7 +293,11 @@ public class PkiMessageDumper {
             return;
         }
         if (callRet instanceof ASN1ObjectIdentifier) {
-            ret.append(indent).append(": ").append(getOidDescriptionForOid((ASN1ObjectIdentifier) callRet)).append("\n");
+            ret
+                    .append(indent)
+                    .append(": ")
+                    .append(getOidDescriptionForOid((ASN1ObjectIdentifier) callRet))
+                    .append("\n");
             return;
         }
         if (callRet instanceof PKIFreeText val) {
@@ -326,8 +336,8 @@ public class PkiMessageDumper {
             }
             for (int i = 0; i < size; i++) {
                 final Extension ext = val.getExtension(extensionOIDs[i]);
-                dumpSingleValue(
-                        indent + "[" + i + "]/Id" + (ext.isCritical() ? "(critical)" : ""), ext.getExtnId(), ret);
+                dumpSingleValue(indent + "[" + i + "]/Id" + (ext.isCritical() ? "(critical)" : ""), ext.getExtnId(),
+                        ret);
                 dumpSingleValue(indent + "[" + i + "]/Value", ext.getParsedValue(), ret);
             }
             return;
@@ -336,11 +346,8 @@ public class PkiMessageDumper {
             ret.append(indent).append(": ").append(((ASN1Enumerated) callRet).getValue()).append("\n");
             return;
         }
-        if (callRet instanceof org.bouncycastle.asn1.ASN1Primitive
-                || callRet instanceof GeneralName
-                || callRet instanceof Number
-                || callRet instanceof CharSequence
-                || callRet instanceof X500Name
+        if (callRet instanceof org.bouncycastle.asn1.ASN1Primitive || callRet instanceof GeneralName
+                || callRet instanceof Number || callRet instanceof CharSequence || callRet instanceof X500Name
                 || callRet instanceof Date) {
             ret.append(indent).append(": ").append(callRet).append("\n");
             return;
@@ -361,8 +368,8 @@ public class PkiMessageDumper {
         if (msg == null) {
             return "<null>";
         }
-        return "tid=" + msg.getHeader().getTransactionID() + ": " + msgTypeAsString(msg.getBody()) + " [" + msg.getHeader().getSender() + " => "
-                + msg.getHeader().getRecipient() + "]";
+        return "tid=" + msg.getHeader().getTransactionID() + ": " + msgTypeAsString(msg.getBody()) + " ["
+                + msg.getHeader().getSender() + " => " + msg.getHeader().getRecipient() + "]";
     }
 
     /**
@@ -428,9 +435,19 @@ public class PkiMessageDumper {
                 }
                 dumpSingleValue(indent + memberName, callRet, ret);
             } catch (final InvocationTargetException ex) {
-                ret.append(indent).append(methodName).append(": ").append(ex.getTargetException().getMessage()).append(": <could not parse, skipped> ==============\n");
+                ret
+                        .append(indent)
+                        .append(methodName)
+                        .append(": ")
+                        .append(ex.getTargetException().getMessage())
+                        .append(": <could not parse, skipped> ==============\n");
             } catch (final Exception ex) {
-                ret.append(indent).append(methodName).append(":").append(ex.getMessage()).append(": <could not parse, skipped> ==============\n");
+                ret
+                        .append(indent)
+                        .append(methodName)
+                        .append(":")
+                        .append(ex.getMessage())
+                        .append(": <could not parse, skipped> ==============\n");
             }
         }
         if (!nullMemberList.isEmpty()) {
@@ -455,12 +472,11 @@ public class PkiMessageDumper {
          * Constructor for OID Descriptor class
          *
          * @param declaringClass declaring class of the OID
-         * @param id             ID
-         * @param oid            ASN.1 representation of the OID
+         * @param id ID
+         * @param oid ASN.1 representation of the OID
          */
         public OidDescription(final Class<?> declaringClass, final String id, final ASN1ObjectIdentifier oid) {
-            this.declaringPackage =
-                    ifNotNull(declaringClass, x -> x.getSimpleName().replace("ObjectIdentifiers", ""));
+            this.declaringPackage = ifNotNull(declaringClass, x -> x.getSimpleName().replace("ObjectIdentifiers", ""));
             this.declaringClass = declaringClass;
             this.id = id;
             this.oid = oid;
@@ -517,42 +533,20 @@ public class PkiMessageDumper {
             return;
         }
         oidToKeyMap = new HashMap<>();
-        for (final Class<?> aktClass : Arrays.asList(
-                CMPObjectIdentifiers.class,
-                PKCSObjectIdentifiers.class,
-                X509ObjectIdentifiers.class,
-                OIWObjectIdentifiers.class,
-                CRMFObjectIdentifiers.class,
-                CryptoProObjectIdentifiers.class,
-                EACObjectIdentifiers.class,
-                NISTObjectIdentifiers.class,
-                ICAOObjectIdentifiers.class,
-                ISISMTTObjectIdentifiers.class,
-                SECObjectIdentifiers.class,
-                ANSSIObjectIdentifiers.class,
-                BCObjectIdentifiers.class,
-                BSIObjectIdentifiers.class,
-                CMSObjectIdentifiers.class,
-                DVCSObjectIdentifiers.class,
-                GNUObjectIdentifiers.class,
-                IANAObjectIdentifiers.class,
-                ISISMTTObjectIdentifiers.class,
-                ISOIECObjectIdentifiers.class,
-                KISAObjectIdentifiers.class,
-                MicrosoftObjectIdentifiers.class,
-                MiscObjectIdentifiers.class,
-                NTTObjectIdentifiers.class,
-                OCSPObjectIdentifiers.class,
-                TeleTrusTObjectIdentifiers.class,
-                UAObjectIdentifiers.class,
-                ETSIQCObjectIdentifiers.class,
-                RFC3739QCObjectIdentifiers.class,
-                SigIObjectIdentifiers.class,
-                X9ObjectIdentifiers.class,
-                PQCObjectIdentifiers.class,
-                org.bouncycastle.asn1.x509.Extension.class,
-                EdECObjectIdentifiers.class,
-                CMPObjectIdentifiers.class)) {
+        for (final Class<?> aktClass : Arrays
+                .asList(CMPObjectIdentifiers.class, PKCSObjectIdentifiers.class, X509ObjectIdentifiers.class,
+                        OIWObjectIdentifiers.class, CRMFObjectIdentifiers.class, CryptoProObjectIdentifiers.class,
+                        EACObjectIdentifiers.class, NISTObjectIdentifiers.class, ICAOObjectIdentifiers.class,
+                        ISISMTTObjectIdentifiers.class, SECObjectIdentifiers.class, ANSSIObjectIdentifiers.class,
+                        BCObjectIdentifiers.class, BSIObjectIdentifiers.class, CMSObjectIdentifiers.class,
+                        DVCSObjectIdentifiers.class, GNUObjectIdentifiers.class, IANAObjectIdentifiers.class,
+                        ISISMTTObjectIdentifiers.class, ISOIECObjectIdentifiers.class, KISAObjectIdentifiers.class,
+                        MicrosoftObjectIdentifiers.class, MiscObjectIdentifiers.class, NTTObjectIdentifiers.class,
+                        OCSPObjectIdentifiers.class, TeleTrusTObjectIdentifiers.class, UAObjectIdentifiers.class,
+                        ETSIQCObjectIdentifiers.class, RFC3739QCObjectIdentifiers.class, SigIObjectIdentifiers.class,
+                        X9ObjectIdentifiers.class, PQCObjectIdentifiers.class,
+                        org.bouncycastle.asn1.x509.Extension.class, EdECObjectIdentifiers.class,
+                        CMPObjectIdentifiers.class)) {
             for (final Field aktField : aktClass.getFields()) {
                 if (aktField.getType().equals(ASN1ObjectIdentifier.class)
                         && (aktField.getModifiers() & Modifier.STATIC) != 0) {

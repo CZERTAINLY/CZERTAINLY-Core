@@ -5,32 +5,34 @@ import com.otilm.api.model.client.notification.NotificationProfileDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.core.dao.entity.UniquelyIdentified;
-import jakarta.persistence.*;
-import lombok.Getter;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import org.hibernate.annotations.CreationTimestamp;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(
-        name = "notification_profile_version",
-        uniqueConstraints = @UniqueConstraint(
-                name = NotificationProfileVersion.UNIQUE_VERSION_CONSTRAINT,
-                columnNames = {"notification_profile_uuid", "version"}
-        )
-)
+@Table(name = "notification_profile_version", uniqueConstraints = @UniqueConstraint(name = NotificationProfileVersion.UNIQUE_VERSION_CONSTRAINT, columnNames = {
+        "notification_profile_uuid", "version"}))
 public class NotificationProfileVersion extends UniquelyIdentified {
 
     public static final String UNIQUE_VERSION_CONSTRAINT = "uq_notification_profile_version";
@@ -98,7 +100,11 @@ public class NotificationProfileVersion extends UniquelyIdentified {
         notificationProfileDetailDto.setVersion(this.version);
         notificationProfileDetailDto.setRecipientType(this.recipientType);
         notificationProfileDetailDto.setRecipients(recipients);
-        notificationProfileDetailDto.setNotificationInstance(this.notificationInstance == null ? null : new NameAndUuidDto(notificationInstance.getUuid().toString(), notificationInstance.getName()));
+        notificationProfileDetailDto
+                .setNotificationInstance(this.notificationInstance == null
+                        ? null
+                        : new NameAndUuidDto(notificationInstance.getUuid().toString(),
+                                notificationInstance.getName()));
         notificationProfileDetailDto.setInternalNotification(this.internalNotification);
         notificationProfileDetailDto.setFrequency(this.frequency);
         notificationProfileDetailDto.setRepetitions(this.repetitions);

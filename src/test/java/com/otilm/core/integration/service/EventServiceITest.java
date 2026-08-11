@@ -11,7 +11,17 @@ import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.ActionRequestDto;
+import com.otilm.api.model.core.workflows.EventHistoryDto;
+import com.otilm.api.model.core.workflows.EventHistoryRequestDto;
+import com.otilm.api.model.core.workflows.EventStatus;
+import com.otilm.api.model.core.workflows.ExecutionItemRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionType;
+import com.otilm.api.model.core.workflows.ObjectEventHistoryDto;
+import com.otilm.api.model.core.workflows.TriggerHistoryObjectSummaryDto;
+import com.otilm.api.model.core.workflows.TriggerRequestDto;
+import com.otilm.api.model.core.workflows.TriggerType;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.workflows.EventHistory;
@@ -26,15 +36,14 @@ import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class EventServiceITest extends BaseSpringBootTest {
 
@@ -139,8 +148,8 @@ class EventServiceITest extends BaseSpringBootTest {
     @Test
     void testGetObjectEventHistoryEmpty() throws NotFoundException {
         // certificate exists but has no trigger histories linked to it
-        PaginationResponseDto<ObjectEventHistoryDto> response =
-                eventService.getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
+        PaginationResponseDto<ObjectEventHistoryDto> response = eventService
+                .getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
 
         Assertions.assertEquals(0, response.getTotalItems());
         Assertions.assertEquals(0, response.getTotalPages());
@@ -149,10 +158,11 @@ class EventServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectEventHistoryReturnsTriggerHistory() throws NotFoundException {
-        TriggerHistory th = saveTriggerHistory(triggerWithNotificationUuid, certificateUuid, savedEventHistory, true, true);
+        TriggerHistory th = saveTriggerHistory(triggerWithNotificationUuid, certificateUuid, savedEventHistory, true,
+                true);
 
-        PaginationResponseDto<ObjectEventHistoryDto> response =
-                eventService.getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
+        PaginationResponseDto<ObjectEventHistoryDto> response = eventService
+                .getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
 
         Assertions.assertEquals(1, response.getTotalItems());
         ObjectEventHistoryDto dto = response.getItems().getFirst();
@@ -160,7 +170,11 @@ class EventServiceITest extends BaseSpringBootTest {
         Assertions.assertTrue(dto.isConditionsMatched());
         Assertions.assertTrue(dto.isActionsPerformed());
         th = triggerHistoryRepository.findById(th.getUuid()).orElseThrow();
-        Assertions.assertTrue(th.getTriggeredAt().truncatedTo(ChronoUnit.MICROS).isEqual(dto.getTriggeredAt().truncatedTo(ChronoUnit.MICROS)));
+        Assertions
+                .assertTrue(th
+                        .getTriggeredAt()
+                        .truncatedTo(ChronoUnit.MICROS)
+                        .isEqual(dto.getTriggeredAt().truncatedTo(ChronoUnit.MICROS)));
 
     }
 
@@ -170,13 +184,13 @@ class EventServiceITest extends BaseSpringBootTest {
         saveTriggerHistory(triggerWithNotificationUuid, certificateUuid, savedEventHistory, false, false);
         saveTriggerHistory(ignoreTriggerUuid, certificateUuid, savedEventHistory, true, false);
 
-        PaginationResponseDto<ObjectEventHistoryDto> page1 =
-                eventService.getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(2, 1));
+        PaginationResponseDto<ObjectEventHistoryDto> page1 = eventService
+                .getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(2, 1));
         Assertions.assertEquals(3, page1.getTotalItems());
         Assertions.assertEquals(2, page1.getItems().size());
 
-        PaginationResponseDto<ObjectEventHistoryDto> page2 =
-                eventService.getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(2, 2));
+        PaginationResponseDto<ObjectEventHistoryDto> page2 = eventService
+                .getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(2, 2));
         Assertions.assertEquals(3, page2.getTotalItems());
         Assertions.assertEquals(1, page2.getItems().size());
     }
@@ -186,8 +200,8 @@ class EventServiceITest extends BaseSpringBootTest {
         // conditionsMatched=true and no failed SEND_NOTIFICATION records → notificationsSent=true
         saveTriggerHistory(triggerWithNotificationUuid, certificateUuid, savedEventHistory, true, true);
 
-        PaginationResponseDto<ObjectEventHistoryDto> response =
-                eventService.getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
+        PaginationResponseDto<ObjectEventHistoryDto> response = eventService
+                .getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
 
         Assertions.assertEquals(Boolean.TRUE, response.getItems().getFirst().getNotificationsSent());
     }
@@ -197,8 +211,8 @@ class EventServiceITest extends BaseSpringBootTest {
         // conditionsMatched=false → notificationsSent=false
         saveTriggerHistory(triggerWithNotificationUuid, certificateUuid, savedEventHistory, false, false);
 
-        PaginationResponseDto<ObjectEventHistoryDto> response =
-                eventService.getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
+        PaginationResponseDto<ObjectEventHistoryDto> response = eventService
+                .getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
 
         Assertions.assertEquals(Boolean.FALSE, response.getItems().getFirst().getNotificationsSent());
     }
@@ -208,8 +222,8 @@ class EventServiceITest extends BaseSpringBootTest {
         // ignore trigger has no SEND_NOTIFICATION execution → notificationsSent=null
         saveTriggerHistory(ignoreTriggerUuid, certificateUuid, savedEventHistory, true, false);
 
-        PaginationResponseDto<ObjectEventHistoryDto> response =
-                eventService.getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
+        PaginationResponseDto<ObjectEventHistoryDto> response = eventService
+                .getEventHistory(Resource.CERTIFICATE, certificateUuid, pagination(10, 1));
 
         Assertions.assertNull(response.getItems().getFirst().getNotificationsSent());
     }
@@ -219,20 +233,20 @@ class EventServiceITest extends BaseSpringBootTest {
     @Test
     void testGetEventHistoryThrowsWhenOnlyResourceProvided() {
         EventHistoryRequestDto request = eventHistoryRequest();
-        Assertions.assertThrows(ValidationException.class,
-                () -> eventService.getEventHistory(
-                        ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, null, request),
-                "Should throw when UUID is null but resource is set");
+        Assertions
+                .assertThrows(ValidationException.class, () -> eventService
+                        .getEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, null, request),
+                        "Should throw when UUID is null but resource is set");
     }
 
     @Test
     void testGetEventHistoryThrowsWhenOnlyUuidProvided() {
         EventHistoryRequestDto request = eventHistoryRequest();
         UUID uuid = UUID.randomUUID();
-        Assertions.assertThrows(ValidationException.class,
-                () -> eventService.getEventHistory(
-                        ResourceEvent.CERTIFICATE_DISCOVERED, null, uuid, request),
-                "Should throw when resource is null but UUID is set");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> eventService.getEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, null, uuid, request),
+                        "Should throw when resource is null but UUID is set");
     }
 
     @Test
@@ -240,8 +254,9 @@ class EventServiceITest extends BaseSpringBootTest {
         // fresh certificate with no event history
         UUID otherCertificateUuid = createCertificate();
 
-        PaginationResponseDto<EventHistoryDto> response = eventService.getEventHistory(
-                ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, otherCertificateUuid, eventHistoryRequest());
+        PaginationResponseDto<EventHistoryDto> response = eventService
+                .getEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, otherCertificateUuid,
+                        eventHistoryRequest());
 
         Assertions.assertEquals(0, response.getTotalItems());
         Assertions.assertTrue(response.getItems().isEmpty());
@@ -251,8 +266,9 @@ class EventServiceITest extends BaseSpringBootTest {
     void testGetEventHistoryReturnsCorrectEventData() throws NotFoundException {
         saveTriggerHistory(triggerWithNotificationUuid, UUID.randomUUID(), savedEventHistory, true, true);
 
-        PaginationResponseDto<EventHistoryDto> response = eventService.getEventHistory(
-                ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid, eventHistoryRequest());
+        PaginationResponseDto<EventHistoryDto> response = eventService
+                .getEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid,
+                        eventHistoryRequest());
 
         Assertions.assertEquals(1, response.getTotalItems());
         EventHistoryDto dto = response.getItems().getFirst();
@@ -270,8 +286,9 @@ class EventServiceITest extends BaseSpringBootTest {
         // cert3: matched by ignore trigger
         saveTriggerHistory(ignoreTriggerUuid, UUID.randomUUID(), savedEventHistory, true, false);
 
-        PaginationResponseDto<EventHistoryDto> response = eventService.getEventHistory(
-                ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid, eventHistoryRequest());
+        PaginationResponseDto<EventHistoryDto> response = eventService
+                .getEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid,
+                        eventHistoryRequest());
 
         EventHistoryDto dto = response.getItems().getFirst();
         Assertions.assertEquals(3, dto.getObjectsEvaluated());
@@ -284,11 +301,14 @@ class EventServiceITest extends BaseSpringBootTest {
         saveTriggerHistory(triggerWithNotificationUuid, UUID.randomUUID(), savedEventHistory, true, true);
         saveTriggerHistory(triggerWithNotificationUuid, UUID.randomUUID(), savedEventHistory, false, false);
 
-        PaginationResponseDto<EventHistoryDto> response = eventService.getEventHistory(
-                ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid, eventHistoryRequest());
+        PaginationResponseDto<EventHistoryDto> response = eventService
+                .getEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid,
+                        eventHistoryRequest());
 
-        PaginationResponseDto<TriggerHistoryObjectSummaryDto> objectHistories =
-                response.getItems().getFirst().getObjectHistories();
+        PaginationResponseDto<TriggerHistoryObjectSummaryDto> objectHistories = response
+                .getItems()
+                .getFirst()
+                .getObjectHistories();
         Assertions.assertEquals(2, objectHistories.getTotalItems());
         Assertions.assertEquals(2, objectHistories.getItems().size());
     }
@@ -305,8 +325,9 @@ class EventServiceITest extends BaseSpringBootTest {
         otherEventHistory.setStatus(EventStatus.FINISHED);
         eventHistoryRepository.save(otherEventHistory);
 
-        PaginationResponseDto<EventHistoryDto> response = eventService.getEventHistory(
-                ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid, eventHistoryRequest());
+        PaginationResponseDto<EventHistoryDto> response = eventService
+                .getEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificateUuid,
+                        eventHistoryRequest());
 
         Assertions.assertEquals(1, response.getTotalItems());
         EventHistoryDto dto = response.getItems().getFirst();
@@ -332,8 +353,9 @@ class EventServiceITest extends BaseSpringBootTest {
     }
 
     private TriggerHistory saveTriggerHistory(UUID triggerUuid, UUID objectUuid, EventHistory eventHistory,
-                                               boolean conditionsMatched, boolean actionsPerformed) {
-        TriggerHistory th = triggerInternalService.createTriggerHistory(triggerUuid, null, objectUuid, null, eventHistory, Resource.CERTIFICATE);
+            boolean conditionsMatched, boolean actionsPerformed) {
+        TriggerHistory th = triggerInternalService
+                .createTriggerHistory(triggerUuid, null, objectUuid, null, eventHistory, Resource.CERTIFICATE);
         th.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
         th.setConditionsMatched(conditionsMatched);
         th.setActionsPerformed(actionsPerformed);

@@ -1,5 +1,7 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
@@ -14,8 +16,6 @@ import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorRegistrationExternalService;
 import com.otilm.core.util.AuthenticationTokenTestHelper;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,12 +47,13 @@ class ConnectorRegistrationServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testRegisterConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void testRegisterConnector()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");
         request.setAuthType(AuthType.NONE);
-        request.setUrl("http://localhost:"+mockServer.port());
+        request.setUrl("http://localhost:" + mockServer.port());
         UuidDto uuidDto = connectorRegistrationService.registerConnector(request);
 
         ConnectorDto connectorDto = connectorService.getConnector(SecuredUUID.fromString(uuidDto.getUuid()));

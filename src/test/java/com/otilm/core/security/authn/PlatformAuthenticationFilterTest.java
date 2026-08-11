@@ -3,6 +3,7 @@ package com.otilm.core.security.authn;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,11 +18,20 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PlatformAuthenticationFilterTest {
@@ -62,8 +72,7 @@ class PlatformAuthenticationFilterTest {
     @Test
     void noCertHeader_callsNoneAuth() throws Exception {
         // given
-        when(authClient.authenticate(eq(AuthMethod.NONE), isNull(), eq(false)))
-                .thenReturn(authenticatedInfo());
+        when(authClient.authenticate(eq(AuthMethod.NONE), isNull(), eq(false))).thenReturn(authenticatedInfo());
 
         // when
         filter.doFilter(request, response, filterChain);
@@ -77,8 +86,7 @@ class PlatformAuthenticationFilterTest {
     void certHeader_present_callsCertificateAuthWithComputedThumbprint() throws Exception {
         // given
         request.addHeader(CERT_HEADER_NAME, CERT_HEADER);
-        when(authClient.authenticateByCertificate(CERT_HEADER, CERT_THUMBPRINT))
-                .thenReturn(authenticatedInfo());
+        when(authClient.authenticateByCertificate(CERT_HEADER, CERT_THUMBPRINT)).thenReturn(authenticatedInfo());
 
         // when
         filter.doFilter(request, response, filterChain);
@@ -136,7 +144,9 @@ class PlatformAuthenticationFilterTest {
     @Test
     void malformedCertHeader_clearsContextAndContinuesChain() {
         // given - cert header present but Base64 content is garbage (not valid DER)
-        request.addHeader(CERT_HEADER_NAME, "-----BEGIN CERTIFICATE-----\n!!!not-base64!!!\n-----END CERTIFICATE-----\n");
+        request
+                .addHeader(CERT_HEADER_NAME,
+                        "-----BEGIN CERTIFICATE-----\n!!!not-base64!!!\n-----END CERTIFICATE-----\n");
 
         // when - must not propagate a 500; the filter should swallow the malformed-header error
         assertDoesNotThrow(() -> filter.doFilter(request, response, filterChain));
@@ -149,8 +159,7 @@ class PlatformAuthenticationFilterTest {
     @Test
     void nonPlatformAuthException_isRethrown() {
         // given
-        when(authClient.authenticate(any(), any(), anyBoolean()))
-                .thenThrow(new BadCredentialsException("unexpected"));
+        when(authClient.authenticate(any(), any(), anyBoolean())).thenThrow(new BadCredentialsException("unexpected"));
 
         // when / then
         assertThrows(BadCredentialsException.class, () -> filter.doFilter(request, response, filterChain));
@@ -176,8 +185,8 @@ class PlatformAuthenticationFilterTest {
     @Test
     void alreadyAuthenticated_skipsAuth() throws Exception {
         // given - a prior filter already placed an authenticated token in the context
-        PlatformAuthenticationToken existingToken =
-                new PlatformAuthenticationToken(new PlatformUserDetails(authenticatedInfo()));
+        PlatformAuthenticationToken existingToken = new PlatformAuthenticationToken(
+                new PlatformUserDetails(authenticatedInfo()));
         var ctx = SecurityContextHolder.createEmptyContext();
         ctx.setAuthentication(existingToken);
         SecurityContextHolder.setContext(ctx);
@@ -207,8 +216,7 @@ class PlatformAuthenticationFilterTest {
         // given
         request.addHeader("Authorization", "Bearer some.jwt.token");
         request.addHeader(CERT_HEADER_NAME, CERT_HEADER);
-        when(authClient.authenticateByCertificate(CERT_HEADER, CERT_THUMBPRINT))
-                .thenReturn(authenticatedInfo());
+        when(authClient.authenticateByCertificate(CERT_HEADER, CERT_THUMBPRINT)).thenReturn(authenticatedInfo());
 
         // when
         filter.doFilter(request, response, filterChain);

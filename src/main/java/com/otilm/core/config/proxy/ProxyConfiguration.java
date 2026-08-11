@@ -1,16 +1,16 @@
 package com.otilm.core.config.proxy;
 
+import jakarta.annotation.PostConstruct;
+import java.net.Authenticator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 
-import jakarta.annotation.PostConstruct;
-import java.net.Authenticator;
-
 /**
- * Inspired by <a href="https://github.com/Orange-OpenSource/spring-boot-autoconfigure-proxy">spring-boot-autoconfigure-proxy</a>
+ * Inspired by
+ * <a href="https://github.com/Orange-OpenSource/spring-boot-autoconfigure-proxy">spring-boot-autoconfigure-proxy</a>
  */
 @Configuration
 @AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)
@@ -27,11 +27,15 @@ public class ProxyConfiguration {
             ProxySettings proxySettings = ProxySettings.read(protocol);
             if (proxySettings != null) {
                 // CASE 2: auto-conf from ENV
-                logger.info("Configuring proxy for {} from env '{}': {}", protocol, proxySettings.getEnvName(), proxySettings);
+                logger
+                        .info("Configuring proxy for {} from env '{}': {}", protocol, proxySettings.getEnvName(),
+                                proxySettings);
 
                 // set password authentication if specified
                 if (proxySettings.getUsername() != null && proxySettings.getPassword() != null) {
-                    msa.add(proxySettings.getHost() + ":" + proxySettings.getPort(), proxySettings.getUsername(), proxySettings.getPassword());
+                    msa
+                            .add(proxySettings.getHost() + ":" + proxySettings.getPort(), proxySettings.getUsername(),
+                                    proxySettings.getPassword());
                 }
 
                 // set proxy properties

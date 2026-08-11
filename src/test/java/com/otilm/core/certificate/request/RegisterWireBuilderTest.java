@@ -13,14 +13,13 @@ import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,18 +36,27 @@ class RegisterWireBuilderTest {
         savedRdnCache = existing == null ? null : new HashMap<>(existing);
 
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
-                OidRecord.builder().displayName("Organization").code("O").build());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "1.2.840.113549.1.9.1",
-                OidRecord.builder().displayName("Email").code("EMAIL").altCodes(List.of("E", "EMAILADDRESS")).build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
+                        OidRecord.builder().displayName("Organization").code("O").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "1.2.840.113549.1.9.1",
+                        OidRecord
+                                .builder()
+                                .displayName("Email")
+                                .code("EMAIL")
+                                .altCodes(List.of("E", "EMAILADDRESS"))
+                                .build());
     }
 
     @AfterAll
     static void restoreRdnCache() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnCache != null ? savedRdnCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnCache != null ? savedRdnCache : new HashMap<>());
     }
 
     // ── Content building (operator flat input → typed content) ─────────────
@@ -97,8 +105,8 @@ class RegisterWireBuilderTest {
         @Test
         void parsesMultipleSanTypes() {
             // when
-            X509RequestContent content = RegisterWireBuilder.buildContent(
-                    null, "DNS:a.test,IP:1.2.3.4,email:x@y.test,URI:https://a.test,RID:1.2.3.4.5", null);
+            X509RequestContent content = RegisterWireBuilder
+                    .buildContent(null, "DNS:a.test,IP:1.2.3.4,email:x@y.test,URI:https://a.test,RID:1.2.3.4.5", null);
 
             // then
             assertThat(content.getSubjectAltNames())
@@ -137,8 +145,8 @@ class RegisterWireBuilderTest {
         @Test
         void parsesOtherNameSan() {
             // when — OpenSSL otherName convention: otherName:<oid>;UTF8:<value>
-            X509RequestContent content = RegisterWireBuilder.buildContent(
-                    null, "otherName:1.3.6.1.4.1.311.20.2.3;UTF8:user@acme.test", null);
+            X509RequestContent content = RegisterWireBuilder
+                    .buildContent(null, "otherName:1.3.6.1.4.1.311.20.2.3;UTF8:user@acme.test", null);
 
             // then
             GeneralNameEntry entry = content.getSubjectAltNames().get(0);
@@ -212,8 +220,7 @@ class RegisterWireBuilderTest {
             assertThat(content.getCertificateType()).isEqualTo(CertificateType.X509);
             assertThat(content.getSubject())
                     .extracting(RdnEntry::getType, RdnEntry::getValue)
-                    .contains(tuple("CN", "device-7"),
-                            tuple("O", "Acme"));
+                    .contains(tuple("CN", "device-7"), tuple("O", "Acme"));
             // then — SAN and extensions are not persisted on the placeholder, so they stay unset
             assertThat(content.getSubjectAltNames()).isNull();
             assertThat(content.getExtensions()).isNull();
@@ -235,10 +242,9 @@ class RegisterWireBuilderTest {
     class WireBuilding {
 
         private X509RequestContent fullContent() {
-            return RegisterWireBuilder.buildContent(
-                    "CN=device-7,O=Acme",
-                    "DNS:device-7.acme.test",
-                    List.of(extension("2.5.29.37", false, "MAoGCCsGAQUFBwMB")));
+            return RegisterWireBuilder
+                    .buildContent("CN=device-7,O=Acme", "DNS:device-7.acme.test",
+                            List.of(extension("2.5.29.37", false, "MAoGCCsGAQUFBwMB")));
         }
 
         private CertificateExtension extension(String oid, boolean critical, String valueBase64) {
@@ -331,10 +337,9 @@ class RegisterWireBuilderTest {
         @Test
         void flatSan_rendersAllRenderableTypes() {
             // given
-            X509RequestContent content = RegisterWireBuilder.buildContent(
-                    "CN=device-7",
-                    "DNS:a.test,IP:1.2.3.4,email:x@y.test,URI:https://a.test,RID:1.2.3.4.5",
-                    null);
+            X509RequestContent content = RegisterWireBuilder
+                    .buildContent("CN=device-7",
+                            "DNS:a.test,IP:1.2.3.4,email:x@y.test,URI:https://a.test,RID:1.2.3.4.5", null);
 
             // when
             CertificateRegistrationRequestDtoV3 dto = RegisterWireBuilder.buildRegistration(content, false);
@@ -347,8 +352,8 @@ class RegisterWireBuilderTest {
         @Test
         void flatSan_rendersUtf8OtherName() {
             // given
-            X509RequestContent content = RegisterWireBuilder.buildContent(
-                    null, "otherName:1.3.6.1.4.1.311.20.2.3;UTF8:user@acme.test", null);
+            X509RequestContent content = RegisterWireBuilder
+                    .buildContent(null, "otherName:1.3.6.1.4.1.311.20.2.3;UTF8:user@acme.test", null);
 
             // when
             CertificateRegistrationRequestDtoV3 dto = RegisterWireBuilder.buildRegistration(content, false);

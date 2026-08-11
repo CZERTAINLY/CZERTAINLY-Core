@@ -17,20 +17,19 @@ import com.otilm.core.dao.repository.VaultInstanceRepository;
 import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.dao.repository.signing.TspProfileRepository;
 import com.otilm.core.security.authn.client.CredentialVerificationCache;
+import com.otilm.core.security.authz.SecuredParentUUID;
+import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TspProfileBasicCredentialExternalService;
 import com.otilm.core.service.impl.SecretServiceImpl;
 import com.otilm.core.service.impl.UserManagementServiceImpl;
-import com.otilm.core.security.authz.SecuredParentUUID;
-import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -93,8 +92,7 @@ class TspProfileBasicCredentialServiceImplITest extends BaseSpringBootTest {
         user.setUsername("mapped-user");
         when(userManagementService.getUser(anyString())).thenReturn(user);
 
-        when(secretService.createSecret(any(), any(), any()))
-                .thenReturn(secretDtoWithUuid(UUID.randomUUID()));
+        when(secretService.createSecret(any(), any(), any())).thenReturn(secretDtoWithUuid(UUID.randomUUID()));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -133,8 +131,7 @@ class TspProfileBasicCredentialServiceImplITest extends BaseSpringBootTest {
             // when / then
             SecuredParentUUID parent = SecuredParentUUID.fromUUID(profileNoVault.getUuid());
             TspBasicCredentialCreateRequestDto req = createRequest("svc", "secret");
-            assertThatThrownBy(() -> service.create(parent, req))
-                    .isInstanceOf(ValidationException.class);
+            assertThatThrownBy(() -> service.create(parent, req)).isInstanceOf(ValidationException.class);
         }
 
         @Test
@@ -221,8 +218,7 @@ class TspProfileBasicCredentialServiceImplITest extends BaseSpringBootTest {
             // when / then
             SecuredParentUUID parent = SecuredParentUUID.fromUUID(profileWithVault.getUuid());
             var request = createRequest("svc", "secret");
-            assertThatThrownBy(() -> service.create(parent, request))
-                    .isInstanceOf(ValidationException.class);
+            assertThatThrownBy(() -> service.create(parent, request)).isInstanceOf(ValidationException.class);
 
             // then — guard runs before any vault secret is provisioned
             verify(secretService, never()).createSecret(any(), any(), any());

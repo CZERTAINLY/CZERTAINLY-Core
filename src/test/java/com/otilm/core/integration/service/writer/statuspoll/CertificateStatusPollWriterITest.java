@@ -7,20 +7,18 @@ import com.otilm.core.dao.repository.CertificateStatusPollRepository;
 import com.otilm.core.service.handler.authority.CertificateOperation;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.builders.CertificateBuilder.aCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * SQL-level coverage for {@link CertificateStatusPollWriter#resetAttempt}: the update lowers an
- * attempt counter above the floor and leaves a still-ramping row untouched (the guard in the query,
- * not application logic, enforces this).
+ * SQL-level coverage for {@link CertificateStatusPollWriter#resetAttempt}: the update lowers an attempt counter above
+ * the floor and leaves a still-ramping row untouched (the guard in the query, not application logic, enforces this).
  */
 class CertificateStatusPollWriterITest extends BaseSpringBootTest {
 
@@ -50,17 +48,19 @@ class CertificateStatusPollWriterITest extends BaseSpringBootTest {
     }
 
     private UUID pendingCertWithPollRowAtAttempt(int attempt) {
-        Certificate cert = certificateRepository.save(
-                aCertificate().withState(CertificateState.PENDING_ISSUE).build());
+        Certificate cert = certificateRepository.save(aCertificate().withState(CertificateState.PENDING_ISSUE).build());
         writer.schedule(cert.getUuid(), CertificateOperation.ISSUE, OffsetDateTime.now(ZoneOffset.UTC));
         writer.reschedule(cert.getUuid(), attempt, OffsetDateTime.now(ZoneOffset.UTC));
         return cert.getUuid();
     }
 
     private int pollAttempt(UUID certUuid) {
-        return pollRepository.findAll().stream()
+        return pollRepository
+                .findAll()
+                .stream()
                 .filter(p -> p.getCertificateUuid().equals(certUuid))
-                .findFirst().orElseThrow()
+                .findFirst()
+                .orElseThrow()
                 .getAttempt();
     }
 }

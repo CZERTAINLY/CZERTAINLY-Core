@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.core.dao.entity.Setting;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface SettingRepository extends SecurityFilterRepository<Setting, UUID> {

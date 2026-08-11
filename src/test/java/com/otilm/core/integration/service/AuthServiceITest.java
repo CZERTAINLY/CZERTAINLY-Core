@@ -1,5 +1,7 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.auth.UpdateUserRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
@@ -18,8 +20,8 @@ import com.otilm.core.service.AuthExternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.security.cert.CertificateException;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,12 +30,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.security.cert.CertificateException;
-import java.util.List;
-
 @SpringBootTest
 class AuthServiceITest extends BaseSpringBootTest {
-
 
     private WireMockServer mockServer;
 
@@ -49,11 +47,18 @@ class AuthServiceITest extends BaseSpringBootTest {
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/resources")).willReturn(WireMock.okJson(getAuthResourcesMockResponse())));
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson(getUserDetailMockResponse())));
-        mockServer.stubFor(WireMock.put(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson(getUserDetailMockResponse())));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/auth/resources"))
+                        .willReturn(WireMock.okJson(getAuthResourcesMockResponse())));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/auth/users/[^/]+"))
+                        .willReturn(WireMock.okJson(getUserDetailMockResponse())));
+        mockServer
+                .stubFor(WireMock
+                        .put(WireMock.urlPathMatching("/auth/users/[^/]+"))
+                        .willReturn(WireMock.okJson(getUserDetailMockResponse())));
     }
 
     @AfterEach
@@ -70,21 +75,24 @@ class AuthServiceITest extends BaseSpringBootTest {
     }
 
     /**
-     * TSP request processing enforces TSP_PROFILE:TIMESTAMP programmatically (via AuthorizationEnforcer),
-     * so the action is visible to the startup annotation scan only through @ExternalAuthorizationProgrammatic
-     * on TsaServiceImpl. If it drops out of the sync payload, the auth service deletes the action together
-     * with all permissions granted on it.
+     * TSP request processing enforces TSP_PROFILE:TIMESTAMP programmatically (via AuthorizationEnforcer), so the action
+     * is visible to the startup annotation scan only through @ExternalAuthorizationProgrammatic on TsaServiceImpl. If
+     * it drops out of the sync payload, the auth service deletes the action together with all permissions granted on
+     * it.
      */
     @Test
     void tspProfileTimestampActionIsRegisteredForAuthServiceSync() {
-        List<String> tspProfileActions = contextRefreshListener.getResources().stream()
+        List<String> tspProfileActions = contextRefreshListener
+                .getResources()
+                .stream()
                 .filter(r -> Resource.TSP_PROFILE.getCode().equals(r.getName().getCode()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("TSP_PROFILE missing from auth-service sync payload"))
                 .getActions();
 
-        Assertions.assertTrue(tspProfileActions.contains(ResourceAction.TIMESTAMP.getCode()),
-                "TSP_PROFILE actions must include TIMESTAMP, got: " + tspProfileActions);
+        Assertions
+                .assertTrue(tspProfileActions.contains(ResourceAction.TIMESTAMP.getCode()),
+                        "TSP_PROFILE actions must include TIMESTAMP, got: " + tspProfileActions);
     }
 
     @Test
@@ -116,10 +124,12 @@ class AuthServiceITest extends BaseSpringBootTest {
         Assertions.assertTrue(allowedListings.contains(Resource.DASHBOARD), "DASHBOARD must be allowed by default");
         Assertions.assertTrue(allowedListings.contains(Resource.APPROVAL), "APPROVAL must be allowed by default");
         // APPROVAL already has a list action in the synced resources — it must not be duplicated
-        Assertions.assertEquals(1, allowedListings.stream().filter(r -> r == Resource.APPROVAL).count(),
-                "APPROVAL must appear exactly once");
-        Assertions.assertEquals(1, allowedListings.stream().filter(r -> r == Resource.DASHBOARD).count(),
-                "DASHBOARD must appear exactly once");
+        Assertions
+                .assertEquals(1, allowedListings.stream().filter(r -> r == Resource.APPROVAL).count(),
+                        "APPROVAL must appear exactly once");
+        Assertions
+                .assertEquals(1, allowedListings.stream().filter(r -> r == Resource.DASHBOARD).count(),
+                        "DASHBOARD must appear exactly once");
     }
 
     @Test
@@ -182,8 +192,11 @@ class AuthServiceITest extends BaseSpringBootTest {
                 """;
 
         // inject other user profile
-        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41", "localhost", List.of(), userProfileData);
-        SecurityContextHolder.getContext().setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41",
+                "localhost", List.of(), userProfileData);
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
     }
 
     private void injectLocalhostUserProfileChangedToContext() {
@@ -246,8 +259,11 @@ class AuthServiceITest extends BaseSpringBootTest {
                 """;
 
         // inject other user profile
-        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41", "localhost", List.of(), userProfileData);
-        SecurityContextHolder.getContext().setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41",
+                "localhost", List.of(), userProfileData);
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
     }
 
     private void injectAllowAllResourcesUserProfileToContext() {
@@ -275,8 +291,11 @@ class AuthServiceITest extends BaseSpringBootTest {
                 }
                 """;
 
-        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41", "localhost", List.of(), userProfileData);
-        SecurityContextHolder.getContext().setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41",
+                "localhost", List.of(), userProfileData);
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
     }
 
     private String getUserDetailMockResponse() {

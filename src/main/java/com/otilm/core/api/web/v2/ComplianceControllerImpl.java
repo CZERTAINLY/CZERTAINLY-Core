@@ -13,13 +13,12 @@ import com.otilm.core.security.authz.SecuredResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.ComplianceExternalService;
 import com.otilm.core.util.converter.ResourceCodeConverter;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 public class ComplianceControllerImpl implements ComplianceController {
@@ -38,7 +37,9 @@ public class ComplianceControllerImpl implements ComplianceController {
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
-    public void checkCompliance(@LogResource(uuid = true) List<UUID> uuids, @LogResource(resource = true, affiliated = true) Resource resource, String type) throws ConnectorException, NotFoundException {
+    public void checkCompliance(@LogResource(uuid = true) List<UUID> uuids,
+            @LogResource(resource = true, affiliated = true) Resource resource, String type)
+            throws ConnectorException, NotFoundException {
         var securedUuids = SecuredUUID.fromUuidList(uuids);
         complianceService.checkComplianceValidation(securedUuids, resource, type);
         complianceService.checkComplianceAsync(securedUuids, resource, type);
@@ -46,24 +47,28 @@ public class ComplianceControllerImpl implements ComplianceController {
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.NONE, operation = Operation.CHECK_COMPLIANCE)
-    public void checkResourceObjectsCompliance(@LogResource(resource = true) Resource resource, @LogResource(uuid = true) List<UUID> objectUuids) throws NotFoundException {
+    public void checkResourceObjectsCompliance(@LogResource(resource = true) Resource resource,
+            @LogResource(uuid = true) List<UUID> objectUuids) throws NotFoundException {
         complianceService.checkResourceObjectsComplianceValidation(resource, objectUuids);
         complianceService.checkResourceObjectsComplianceAsync(resource, objectUuids);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.NONE, operation = Operation.CHECK_COMPLIANCE)
-    public void checkResourceObjectCompliance(@LogResource(resource = true) Resource resource, @LogResource(uuid = true) UUID objectUuid) throws NotFoundException {
+    public void checkResourceObjectCompliance(@LogResource(resource = true) Resource resource,
+            @LogResource(uuid = true) UUID objectUuid) throws NotFoundException {
         complianceService.checkResourceObjectsComplianceValidation(resource, List.of(objectUuid));
         complianceService.checkResourceObjectComplianceAsync(resource, objectUuid);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.NONE, operation = Operation.GET_COMPLIANCE_RESULT)
-    public ComplianceCheckResultDto getComplianceCheckResult(@LogResource(resource = true) Resource resource, @LogResource(uuid = true) UUID objectUuid) throws NotFoundException {
+    public ComplianceCheckResultDto getComplianceCheckResult(@LogResource(resource = true) Resource resource,
+            @LogResource(uuid = true) UUID objectUuid) throws NotFoundException {
         SecuredResource authorizableResource = SecuredResource.fromResource(authorizableResource(resource));
         SecuredUUID authorizableObject = complianceService.resolveComplianceAuthorizableObject(resource, objectUuid);
-        return complianceService.getComplianceCheckResult(authorizableResource, authorizableObject, resource, objectUuid);
+        return complianceService
+                .getComplianceCheckResult(authorizableResource, authorizableObject, resource, objectUuid);
     }
 
     static Resource authorizableResource(Resource resource) {

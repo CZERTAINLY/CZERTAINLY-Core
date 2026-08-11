@@ -29,13 +29,14 @@ public class CmpControllerImpl implements CmpController {
      * Handling of GET is not allowed - http 500 is returned
      *
      * @param cmpProfileName customer-based configuration name
-     * @param request        binary {@link org.bouncycastle.asn1.cmp.PKIMessage}
+     * @param request binary {@link org.bouncycastle.asn1.cmp.PKIMessage}
      * @return http status 500 because of http get is not allowed
      * @throws CmpBaseException - http get is not allowed
      */
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
-    public ResponseEntity<byte[]> doGet(@LogResource(name = true, affiliated = true) String cmpProfileName, byte[] request) throws CmpBaseException {
+    public ResponseEntity<byte[]> doGet(@LogResource(name = true, affiliated = true) String cmpProfileName,
+            byte[] request) throws CmpBaseException {
         throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
     }
 
@@ -43,13 +44,14 @@ public class CmpControllerImpl implements CmpController {
      * Handling pki request/response flow
      *
      * @param cmpProfileName customer-based configuration name
-     * @param request        binary {@link org.bouncycastle.asn1.cmp.PKIMessage}
+     * @param request binary {@link org.bouncycastle.asn1.cmp.PKIMessage}
      * @return response for given <code>request</code>
      * @throws CmpBaseException if any error has been raised
      */
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
-    public ResponseEntity<byte[]> doPost(@LogResource(name = true, affiliated = true) String cmpProfileName, byte[] request) throws CmpBaseException {
+    public ResponseEntity<byte[]> doPost(@LogResource(name = true, affiliated = true) String cmpProfileName,
+            byte[] request) throws CmpBaseException {
         return cmpService.handlePost(cmpProfileName, request);
     }
 }

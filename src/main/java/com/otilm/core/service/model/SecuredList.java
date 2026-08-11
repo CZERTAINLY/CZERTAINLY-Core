@@ -15,17 +15,15 @@ public class SecuredList<T extends Securable> {
     private final List<T> all;
 
     public static <T extends Securable> SecuredList<T> fromFilter(SecurityFilter filter, List<T> items) {
-        List<SecuredItem<T>> securedItems = items.stream()
-                .map(item -> {
-                    if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
-                        boolean isAccessibleByUser = filter.getResourceFilter().getAllowedObjects().contains(item.getUuid());
-                        return new SecuredItem<>(item, isAccessibleByUser);
-                    } else {
-                        boolean isForbiddenToUser = filter.getResourceFilter().getForbiddenObjects().contains(item.getUuid());
-                        return new SecuredItem<>(item, !isForbiddenToUser);
-                    }
-                })
-                .collect(Collectors.toList());
+        List<SecuredItem<T>> securedItems = items.stream().map(item -> {
+            if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
+                boolean isAccessibleByUser = filter.getResourceFilter().getAllowedObjects().contains(item.getUuid());
+                return new SecuredItem<>(item, isAccessibleByUser);
+            } else {
+                boolean isForbiddenToUser = filter.getResourceFilter().getForbiddenObjects().contains(item.getUuid());
+                return new SecuredItem<>(item, !isForbiddenToUser);
+            }
+        }).collect(Collectors.toList());
 
         return new SecuredList<>(securedItems);
     }

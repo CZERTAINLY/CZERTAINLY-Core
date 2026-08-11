@@ -3,14 +3,13 @@ package com.otilm.core.util.serialnumber;
 import com.otilm.core.util.clocksource.ClockSource;
 import com.otilm.core.util.clocksource.SystemClockSource;
 import com.otilm.core.util.clocksource.TestClockSource;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
-
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -179,15 +178,14 @@ class SnowflakeSerialNumberGeneratorTest {
         clock.wallTimeMillis(startTime - 110);
 
         // then
-        assertThatThrownBy(generator::generate)
-                .isInstanceOf(ClockDriftException.class)
-                .hasMessageContaining("110 ms");
+        assertThatThrownBy(generator::generate).isInstanceOf(ClockDriftException.class).hasMessageContaining("110 ms");
     }
 
     @Test
     void shouldThrowOnTimestampOverflow() {
         // given — set clock past the 40-bit tick maximum
-        long overflowMillis = EPOCH + (SnowflakeSerialNumberGenerator.MAX_TICK + 1) * SnowflakeSerialNumberGenerator.TICK_MS;
+        long overflowMillis = EPOCH
+                + (SnowflakeSerialNumberGenerator.MAX_TICK + 1) * SnowflakeSerialNumberGenerator.TICK_MS;
         var clock = TestClockSource.ofWallTimeMillis(overflowMillis);
         var generator = new SnowflakeSerialNumberGenerator(clock, INSTANCE_ID);
 
@@ -222,7 +220,8 @@ class SnowflakeSerialNumberGeneratorTest {
         // given
         var clock = new SystemClockSource();
         var generator = new SnowflakeSerialNumberGenerator(clock, INSTANCE_ID);
-        Set<BigInteger> ids = ConcurrentHashMap.newKeySet(); // This is a set = will only contain unique IDs, no duplicates
+        Set<BigInteger> ids = ConcurrentHashMap.newKeySet(); // This is a set = will only contain unique IDs, no
+                                                             // duplicates
         int threadCount = 100;
         int idsPerThread = 100;
 

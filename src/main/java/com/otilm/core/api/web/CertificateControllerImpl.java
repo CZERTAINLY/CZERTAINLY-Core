@@ -1,13 +1,38 @@
 package com.otilm.core.api.web;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.CertificateOperationException;
+import com.otilm.api.exception.CertificateRequestException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.CertificateController;
 import com.otilm.api.model.client.approval.ApprovalResponseDto;
-import com.otilm.api.model.client.certificate.*;
+import com.otilm.api.model.client.certificate.BulkOperationResponse;
+import com.otilm.api.model.client.certificate.CertificateComplianceCheckDto;
+import com.otilm.api.model.client.certificate.CertificateResponseDto;
+import com.otilm.api.model.client.certificate.CertificateSearchRequestDto;
+import com.otilm.api.model.client.certificate.CertificateUpdateObjectsDto;
+import com.otilm.api.model.client.certificate.MultipleCertificateObjectUpdateDto;
+import com.otilm.api.model.client.certificate.RemoveCertificateDto;
+import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
 import com.otilm.api.model.common.UuidDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.certificate.*;
+import com.otilm.api.model.core.certificate.BulkOperationStatus;
+import com.otilm.api.model.core.certificate.CertificateChainDownloadResponseDto;
+import com.otilm.api.model.core.certificate.CertificateChainResponseDto;
+import com.otilm.api.model.core.certificate.CertificateContentDto;
+import com.otilm.api.model.core.certificate.CertificateDetailDto;
+import com.otilm.api.model.core.certificate.CertificateDownloadResponseDto;
+import com.otilm.api.model.core.certificate.CertificateEventHistoryDto;
+import com.otilm.api.model.core.certificate.CertificateFormat;
+import com.otilm.api.model.core.certificate.CertificateFormatEncoding;
+import com.otilm.api.model.core.certificate.CertificateRelationsDto;
+import com.otilm.api.model.core.certificate.CertificateValidationResultDto;
+import com.otilm.api.model.core.certificate.FingerprintDto;
 import com.otilm.api.model.core.location.LocationDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
@@ -24,6 +49,12 @@ import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.util.converter.CertificateFormatConverter;
 import com.otilm.core.util.converter.CertificateFormatEncodingConverter;
+import java.io.IOException;
+import java.net.URI;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -32,14 +63,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.io.IOException;
-import java.net.URI;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
-import java.util.List;
-import java.util.UUID;
-
 
 @RestController
 public class CertificateControllerImpl implements CertificateController {
@@ -73,7 +96,9 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DOWNLOAD)
-    public CertificateDownloadResponseDto downloadCertificate(@LogResource(uuid = true) UUID uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
+    public CertificateDownloadResponseDto downloadCertificate(@LogResource(uuid = true) UUID uuid,
+            CertificateFormat certificateFormat, CertificateFormatEncoding encoding)
+            throws CertificateException, NotFoundException, IOException {
         return certificateService.downloadCertificate(uuid, certificateFormat, encoding);
     }
 
@@ -85,14 +110,17 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPDATE)
-    public void updateCertificateObjects(@LogResource(uuid = true) UUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException {
+    public void updateCertificateObjects(@LogResource(uuid = true) UUID uuid, CertificateUpdateObjectsDto request)
+            throws NotFoundException, CertificateOperationException, AttributeException {
         certificateService.updateCertificateObjects(SecuredUUID.fromUUID(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPDATE)
-    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
-        if (request.getFilters() != null && !request.getFilters().isEmpty() && (request.getCertificateUuids() == null || request.getCertificateUuids().isEmpty())) {
+    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request)
+            throws NotFoundException, NotSupportedException {
+        if (request.getFilters() != null && !request.getFilters().isEmpty()
+                && (request.getCertificateUuids() == null || request.getCertificateUuids().isEmpty())) {
             throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");
         }
         certificateService.bulkUpdateCertificatesObjects(SecurityFilter.create(), request);
@@ -100,14 +128,16 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPLOAD)
-    public FingerprintDto uploadAsync(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException {
+    public FingerprintDto uploadAsync(UploadCertificateRequestDto request)
+            throws AlreadyExistException, CertificateException {
         return certificateService.uploadAsync(request);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPLOAD)
     public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
-            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException {
+            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException,
+            AttributeException {
         UuidDto dto = certificateService.uploadSync(request);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -121,9 +151,11 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DELETE)
-    public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException, NotSupportedException {
+    public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request)
+            throws NotFoundException, NotSupportedException {
         BulkOperationResponse response = new BulkOperationResponse();
-        if (request.getFilters() != null && !request.getFilters().isEmpty() && (request.getUuids() == null || request.getUuids().isEmpty())) {
+        if (request.getFilters() != null && !request.getFilters().isEmpty()
+                && (request.getUuids() == null || request.getUuids().isEmpty())) {
             throw new NotSupportedException("Bulk delete of certificates by filters is not supported.");
         }
         certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
@@ -138,10 +170,10 @@ public class CertificateControllerImpl implements CertificateController {
         return certificateService.getSearchableFieldInformationByGroup();
     }
 
-
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.HISTORY)
-    public List<CertificateEventHistoryDto> getCertificateEventHistory(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+    public List<CertificateEventHistoryDto> getCertificateEventHistory(@LogResource(uuid = true) UUID uuid)
+            throws NotFoundException {
         return certificateEventHistoryService.getCertificateEventHistory(uuid);
     }
 
@@ -159,13 +191,16 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.CHECK_VALIDATION)
-    public CertificateValidationResultDto getCertificateValidationResult(@LogResource(uuid = true) UUID uuid) throws NotFoundException, CertificateException {
+    public CertificateValidationResultDto getCertificateValidationResult(@LogResource(uuid = true) UUID uuid)
+            throws NotFoundException, CertificateException {
         return certificateService.getCertificateValidationResult(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "csr", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> getCsrGenerationAttributes(@LogResource(uuid = true, affiliated = true) UUID raProfileUuid) throws NotFoundException, ConnectorException {
+    public List<BaseAttribute> getCsrGenerationAttributes(
+            @LogResource(uuid = true, affiliated = true) UUID raProfileUuid)
+            throws NotFoundException, ConnectorException {
         if (raProfileUuid == null) {
             return certificateService.getCsrGenerationAttributes();
         }
@@ -180,26 +215,34 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.REQUEST)
-    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
+    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request)
+            throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException,
+            AttributeException, CertificateRequestException, NotFoundException {
         return clientOperationService.submitCertificateRequest(request, null);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_CHAIN)
-    public CertificateChainResponseDto getCertificateChain(@LogResource(uuid = true) UUID uuid, boolean withEndCertificate) throws NotFoundException {
+    public CertificateChainResponseDto getCertificateChain(@LogResource(uuid = true) UUID uuid,
+            boolean withEndCertificate) throws NotFoundException {
         return certificateService.getCertificateChain(SecuredUUID.fromUUID(uuid), withEndCertificate);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DOWNLOAD_CHAIN)
-    public CertificateChainDownloadResponseDto downloadCertificateChain(@LogResource(uuid = true) UUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
-        return certificateService.downloadCertificateChain(SecuredUUID.fromUUID(uuid), certificateFormat, withEndCertificate, encoding);
+    public CertificateChainDownloadResponseDto downloadCertificateChain(@LogResource(uuid = true) UUID uuid,
+            CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding)
+            throws NotFoundException, CertificateException {
+        return certificateService
+                .downloadCertificateChain(SecuredUUID.fromUUID(uuid), certificateFormat, withEndCertificate, encoding);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.APPROVAL, operation = Operation.LIST)
-    public ApprovalResponseDto listCertificateApprovals(@LogResource(uuid = true) final UUID uuid, final PaginationRequestDto paginationRequestDto) {
-        return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, uuid, paginationRequestDto);
+    public ApprovalResponseDto listCertificateApprovals(@LogResource(uuid = true) final UUID uuid,
+            final PaginationRequestDto paginationRequestDto) {
+        return approvalService
+                .listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, uuid, paginationRequestDto);
     }
 
     @Override
@@ -228,19 +271,22 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_ASSOCIATIONS)
-    public CertificateRelationsDto getCertificateRelations(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+    public CertificateRelationsDto getCertificateRelations(@LogResource(uuid = true) UUID uuid)
+            throws NotFoundException {
         return certificateService.getCertificateRelations(uuid);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
-    public void associateCertificates(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
+    public void associateCertificates(@LogResource(uuid = true) UUID uuid,
+            @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
         certificateService.associateCertificates(uuid, certificateUuid);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
-    public void removeCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
+    public void removeCertificateAssociation(@LogResource(uuid = true) UUID uuid,
+            @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
         certificateService.removeCertificateAssociation(uuid, certificateUuid);
     }
 
@@ -252,7 +298,8 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Autowired
-    public void setCertificateEventHistoryService(CertificateEventHistoryExternalService certificateEventHistoryService) {
+    public void setCertificateEventHistoryService(
+            CertificateEventHistoryExternalService certificateEventHistoryService) {
         this.certificateEventHistoryService = certificateEventHistoryService;
     }
 

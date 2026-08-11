@@ -5,8 +5,12 @@ import com.otilm.api.interfaces.core.web.SettingController;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.core.audit.ExportResultDto;
-import com.otilm.api.model.core.logging.enums.*;
+import com.otilm.api.model.core.logging.enums.ActorType;
+import com.otilm.api.model.core.logging.enums.AuditLogOutput;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.logging.enums.Module;
+import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.logging.enums.OperationResult;
 import com.otilm.api.model.core.logging.records.ActorRecord;
 import com.otilm.api.model.core.logging.records.LogRecord;
 import com.otilm.api.model.core.logging.records.ResourceObjectIdentity;
@@ -26,18 +30,17 @@ import com.otilm.core.service.AuditLogExternalService;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.service.SettingExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
 
 @SpringBootTest
 class AuditLogServiceITest extends BaseSpringBootTest {
@@ -93,12 +96,18 @@ class AuditLogServiceITest extends BaseSpringBootTest {
         settingController.getPlatformSettings();
 
         AuditLog auditLog = new AuditLog();
-        auditLog.setLogRecord(LogRecord.builder()
-                .resource(ResourceRecord.builder()
-                        .objects(List.of(new ResourceObjectIdentity("name", UUID.randomUUID()))).build())
-                .affiliatedResource(ResourceRecord.builder()
-                        .objects(List.of(new ResourceObjectIdentity("name", UUID.randomUUID()))).build())
-                .build());
+        auditLog
+                .setLogRecord(LogRecord
+                        .builder()
+                        .resource(ResourceRecord
+                                .builder()
+                                .objects(List.of(new ResourceObjectIdentity("name", UUID.randomUUID())))
+                                .build())
+                        .affiliatedResource(ResourceRecord
+                                .builder()
+                                .objects(List.of(new ResourceObjectIdentity("name", UUID.randomUUID())))
+                                .build())
+                        .build());
         auditLog.setTimestamp(OffsetDateTime.now());
         auditLog.setLoggedAt(OffsetDateTime.now());
         auditLog.setModule(Module.AUTH);
@@ -122,7 +131,8 @@ class AuditLogServiceITest extends BaseSpringBootTest {
 
     @Test
     void testLogWithOutput() {
-        LogRecord logRecord = LogRecord.builder()
+        LogRecord logRecord = LogRecord
+                .builder()
                 .actor(ActorRecord.builder().authMethod(AuthMethod.CERTIFICATE).type(ActorType.USER).build())
                 .resource(ResourceRecord.builder().type(com.otilm.api.model.core.auth.Resource.USER).build())
                 .timestamp(OffsetDateTime.now())

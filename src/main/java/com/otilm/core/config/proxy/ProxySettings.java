@@ -1,14 +1,14 @@
 package com.otilm.core.config.proxy;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Inspired by <a href="https://github.com/Orange-OpenSource/spring-boot-autoconfigure-proxy">spring-boot-autoconfigure-proxy</a>
+ * Inspired by
+ * <a href="https://github.com/Orange-OpenSource/spring-boot-autoconfigure-proxy">spring-boot-autoconfigure-proxy</a>
  */
 public class ProxySettings {
 
@@ -22,7 +22,8 @@ public class ProxySettings {
     private final String username;
     private final String password;
 
-    public ProxySettings(String forProtocol, String protocol, String host, int port, String[] noProxyHosts, String username, String password) {
+    public ProxySettings(String forProtocol, String protocol, String host, int port, String[] noProxyHosts,
+            String username, String password) {
         this.forProtocol = forProtocol;
         this.protocol = protocol;
         this.username = username;
@@ -97,15 +98,10 @@ public class ProxySettings {
 
     @Override
     public String toString() {
-        return "ProxySettingsFromEnv{" +
-                "protocol='" + protocol + '\'' +
-                ", host='" + host + '\'' +
-                ", port=" + port +
-                ", forProtocol=" + forProtocol +
-                ", noProxyHosts=" + Arrays.toString(noProxyHosts) +
-                ", username='" + (username == null ? "(none)" : username) + '\'' +
-                ", password='" + (password == null ? "(none)" : "***") + '\'' +
-                '}';
+        return "ProxySettingsFromEnv{" + "protocol='" + protocol + '\'' + ", host='" + host + '\'' + ", port=" + port
+                + ", forProtocol=" + forProtocol + ", noProxyHosts=" + Arrays.toString(noProxyHosts) + ", username='"
+                + (username == null ? "(none)" : username) + '\'' + ", password='"
+                + (password == null ? "(none)" : "***") + '\'' + '}';
     }
 
     /**
@@ -155,7 +151,6 @@ public class ProxySettings {
             return null;
         }
     }
-
 
     static String getEnvIgnoreCase(String name) {
         String val = System.getenv(name.toLowerCase());

@@ -16,7 +16,9 @@ public interface ConnectorInternalService extends ResourceExtensionService {
 
     Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException;
 
-    void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ConnectorException, AttributeException, NotFoundException;
+    void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup,
+            List<RequestAttribute> attributes, String functionGroupType)
+            throws ConnectorException, AttributeException, NotFoundException;
 
     ApiClientConnectorInfo getConnectorForApiClient(UUID connectorUuid) throws NotFoundException;
 }

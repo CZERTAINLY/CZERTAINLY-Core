@@ -1,7 +1,5 @@
 package com.otilm.core.architecture;
 
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -11,13 +9,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The mock modules in {@code com.otilm.core.util.mockbeans} declare their mocks as {@code @Bean @Primary} context
- * singletons, which Spring's reset lifecycle does not touch — it only discovers {@code @MockitoBean} fields on the
- * test class, its superclasses and its enclosing classes.
+ * singletons, which Spring's reset lifecycle does not touch — it only discovers {@code @MockitoBean} fields on the test
+ * class, its superclasses and its enclosing classes.
  *
  * {@code MockBeanResetListener} resets them instead, and {@code BaseSpringBootTest} is the only class registering it.
  * An importer that does not inherit from there keeps its stubbings and interactions across tests sharing the cached
@@ -84,7 +83,8 @@ class MockBeanModuleResetArchTest {
 
     private static Stream<Path> testSources() {
         try (Stream<Path> files = Files.walk(TEST_ROOT)) {
-            return files.filter(Files::isRegularFile)
+            return files
+                    .filter(Files::isRegularFile)
                     .filter(file -> file.toString().endsWith(".java"))
                     .toList()
                     .stream();

@@ -9,11 +9,10 @@ import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,12 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * JPA round-trip coverage for the two new nullable columns added to {@code certificate}:
- * {@code pending_revoke_destroy_key} (BOOLEAN) and {@code pending_revoke_attributes} (JSONB
- * carrying a list of {@link RequestAttribute}).
+ * {@code pending_revoke_destroy_key} (BOOLEAN) and {@code pending_revoke_attributes} (JSONB carrying a list of
+ * {@link RequestAttribute}).
  *
- * <p>Both columns are populated only when a revocation request whose connector responded
- * asynchronously moves the certificate to {@code PENDING_REVOKE}; outside that state they
- * are always {@code null}.</p>
+ * <p>
+ * Both columns are populated only when a revocation request whose connector responded asynchronously moves the
+ * certificate to {@code PENDING_REVOKE}; outside that state they are always {@code null}.
+ * </p>
  */
 class CertificatePendingRevokeFieldsITest extends BaseSpringBootTest {
 
@@ -41,10 +41,8 @@ class CertificatePendingRevokeFieldsITest extends BaseSpringBootTest {
         certificateRepository.save(cert);
 
         Certificate fetched = certificateRepository.findByUuid(cert.getUuid()).orElseThrow();
-        assertNull(fetched.getPendingRevokeDestroyKey(),
-                "pendingRevokeDestroyKey should default to null");
-        assertNull(fetched.getPendingRevokeAttributes(),
-                "pendingRevokeAttributes should default to null");
+        assertNull(fetched.getPendingRevokeDestroyKey(), "pendingRevokeDestroyKey should default to null");
+        assertNull(fetched.getPendingRevokeAttributes(), "pendingRevokeAttributes should default to null");
     }
 
     @Test
@@ -85,8 +83,7 @@ class CertificatePendingRevokeFieldsITest extends BaseSpringBootTest {
         assertEquals(1, stored.size());
         // RequestAttribute's @JsonTypeInfo discriminates by `version`; V2 must come back as V2.
         RequestAttribute firstStored = stored.getFirst();
-        assertInstanceOf(RequestAttributeV2.class, firstStored,
-                "v2 input must round-trip as RequestAttributeV2");
+        assertInstanceOf(RequestAttributeV2.class, firstStored, "v2 input must round-trip as RequestAttributeV2");
         RequestAttributeV2 v2 = (RequestAttributeV2) firstStored;
         assertEquals("revokeReason", v2.getName());
         assertEquals(attr.getUuid(), v2.getUuid());
@@ -136,8 +133,10 @@ class CertificatePendingRevokeFieldsITest extends BaseSpringBootTest {
         cert.setPendingRevokeAttributes(List.of(v2, v3));
         certificateRepository.save(cert);
 
-        List<RequestAttribute> stored = certificateRepository.findByUuid(cert.getUuid())
-                .orElseThrow().getPendingRevokeAttributes();
+        List<RequestAttribute> stored = certificateRepository
+                .findByUuid(cert.getUuid())
+                .orElseThrow()
+                .getPendingRevokeAttributes();
         assertNotNull(stored);
         assertEquals(2, stored.size());
         assertInstanceOf(RequestAttributeV2.class, stored.get(0));

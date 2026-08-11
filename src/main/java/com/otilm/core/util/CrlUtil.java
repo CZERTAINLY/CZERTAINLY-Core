@@ -1,13 +1,5 @@
 package com.otilm.core.util;
 
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.DERIA5String;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.x509.*;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -20,6 +12,17 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509CRL;
 import java.util.ArrayList;
 import java.util.List;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.DERIA5String;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.x509.CRLDistPoint;
+import org.bouncycastle.asn1.x509.DistributionPoint;
+import org.bouncycastle.asn1.x509.DistributionPointName;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 @SuppressWarnings("java:S2696")
@@ -45,8 +48,7 @@ public class CrlUtil {
         if (extensionToDownloadFrom == null) {
             return new ArrayList<>();
         }
-        ASN1InputStream oAsnInStream = new ASN1InputStream(
-                new ByteArrayInputStream(extensionToDownloadFrom));
+        ASN1InputStream oAsnInStream = new ASN1InputStream(new ByteArrayInputStream(extensionToDownloadFrom));
         ASN1Primitive derObjCrlDP = oAsnInStream.readObject();
         DEROctetString dosCrlDP = (DEROctetString) derObjCrlDP;
 
@@ -83,7 +85,9 @@ public class CrlUtil {
         // Handle ldap protocol
         if (crlUrl.startsWith("ldap")) {
             byte[] crl = LdapUtils.downloadFromLdap(crlUrl);
-            if (crl == null) throw new Exception("Crl not available in LDAP.");
+            if (crl == null) {
+                throw new Exception("Crl not available in LDAP.");
+            }
             return (X509CRL) cf.generateCRL(new ByteArrayInputStream(crl));
         }
         X509CRL x509Crl;

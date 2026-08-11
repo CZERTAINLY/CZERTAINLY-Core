@@ -4,21 +4,26 @@ import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.validator.Validator;
+import java.security.MessageDigest;
+import java.util.Arrays;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.PBMParameter;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIHeader;
+import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.cmp.ProtectedPart;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.security.InvalidKeyException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.util.Arrays;
 
 /**
  * Validator of Password-Based MAC protection of {@link PKIMessage}.
@@ -28,14 +33,9 @@ import java.util.Arrays;
 public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
 
     /**
-     * see flow at rfc4210, section 5.1.3.1
-     * id-PasswordBasedMac OBJECT IDENTIFIER ::= {1 2 840 113533 7 66 13}
-     * PBMParameter ::= SEQUENCE {
-     * salt                OCTET STRING,
-     * owf                 AlgorithmIdentifier,
-     * iterationCount      INTEGER,
-     * mac                 AlgorithmIdentifier
-     * }
+     * see flow at rfc4210, section 5.1.3.1 id-PasswordBasedMac OBJECT IDENTIFIER ::= {1 2 840 113533 7 66 13}
+     * PBMParameter ::= SEQUENCE { salt OCTET STRING, owf AlgorithmIdentifier, iterationCount INTEGER, mac
+     * AlgorithmIdentifier }
      *
      * @param message subject (its protection and header) for validation
      * @return null if validation is ok

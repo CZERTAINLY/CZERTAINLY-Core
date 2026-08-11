@@ -1,5 +1,6 @@
 package com.otilm.core.messaging.jms.listeners;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.core.messaging.jms.configuration.MessagingConcurrencyProperties;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.jms.listeners.actions.ActionsJmsEndpointConfig;
@@ -9,7 +10,6 @@ import com.otilm.core.messaging.jms.listeners.notification.NotificationJmsEndpoi
 import com.otilm.core.messaging.jms.listeners.poll.PollJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.scheduler.SchedulerJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.validation.ValidationJmsEndpointConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,11 +28,15 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for all standard JMS endpoint configs.
  *
- * <p>Verifies that each config correctly maps MessagingProperties (queue names, routing keys)
- * to {@link SimpleJmsListenerEndpoint} fields for both RabbitMQ and Azure Service Bus.</p>
+ * <p>
+ * Verifies that each config correctly maps MessagingProperties (queue names, routing keys) to
+ * {@link SimpleJmsListenerEndpoint} fields for both RabbitMQ and Azure Service Bus.
+ * </p>
  *
- * <p>For RabbitMQ: destination = /queues/{name}, no subscription, no selector (broker handles routing via bindings).<br>
- * For ServiceBus: destination = topic (exchange), subscription = queue name, selector = "routingKey = '{rk}'".</p>
+ * <p>
+ * For RabbitMQ: destination = /queues/{name}, no subscription, no selector (broker handles routing via bindings).<br>
+ * For ServiceBus: destination = topic (exchange), subscription = queue name, selector = "routingKey = '{rk}'".
+ * </p>
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -52,18 +56,12 @@ class JmsEndpointConfigTest {
 
     @BeforeEach
     void setUpSharedMocks() {
-        queue = new MessagingProperties.Queue(
-                "core.actions", "core.audit-logs", "core.events",
-                "core.notifications", "core.scheduler", "core.validation",
-                "time-quality.config-request", "time-quality.config", "time-quality.results",
-                "provider.status-poll"
-        );
-        routingKey = new MessagingProperties.RoutingKey(
-                "action", "audit-logs", "event",
-                "notification", "scheduler", "validation",
-                "time-quality.config-request", "time-quality.config", "time-quality.results",
-                "provider.status-poll"
-        );
+        queue = new MessagingProperties.Queue("core.actions", "core.audit-logs", "core.events", "core.notifications",
+                "core.scheduler", "core.validation", "time-quality.config-request", "time-quality.config",
+                "time-quality.results", "provider.status-poll");
+        routingKey = new MessagingProperties.RoutingKey("action", "audit-logs", "event", "notification", "scheduler",
+                "validation", "time-quality.config-request", "time-quality.config", "time-quality.results",
+                "provider.status-poll");
         concurrencyProperties = new MessagingConcurrencyProperties("10", "5", "5", "3", "10", "5", "1", "1", "1-5");
 
         when(messagingProperties.queue()).thenReturn(queue);
@@ -112,8 +110,8 @@ class JmsEndpointConfigTest {
 
         @BeforeEach
         void setUp() {
-            config = new ActionsJmsEndpointConfig(
-                    new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties, concurrencyProperties);
+            config = new ActionsJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate,
+                    messagingProperties, concurrencyProperties);
         }
 
         @Test
@@ -140,8 +138,8 @@ class JmsEndpointConfigTest {
 
         @BeforeEach
         void setUp() {
-            config = new AuditLogsJmsEndpointConfig(
-                    new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties, concurrencyProperties);
+            config = new AuditLogsJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate,
+                    messagingProperties, concurrencyProperties);
         }
 
         @Test
@@ -168,8 +166,8 @@ class JmsEndpointConfigTest {
 
         @BeforeEach
         void setUp() {
-            config = new EventJmsEndpointConfig(
-                    new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties, concurrencyProperties);
+            config = new EventJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties,
+                    concurrencyProperties);
         }
 
         @Test
@@ -196,8 +194,8 @@ class JmsEndpointConfigTest {
 
         @BeforeEach
         void setUp() {
-            config = new NotificationJmsEndpointConfig(
-                    new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties, concurrencyProperties);
+            config = new NotificationJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate,
+                    messagingProperties, concurrencyProperties);
         }
 
         @Test
@@ -224,8 +222,8 @@ class JmsEndpointConfigTest {
 
         @BeforeEach
         void setUp() {
-            config = new SchedulerJmsEndpointConfig(
-                    new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties, concurrencyProperties);
+            config = new SchedulerJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate,
+                    messagingProperties, concurrencyProperties);
         }
 
         @Test
@@ -252,8 +250,8 @@ class JmsEndpointConfigTest {
 
         @BeforeEach
         void setUp() {
-            config = new ValidationJmsEndpointConfig(
-                    new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties, concurrencyProperties);
+            config = new ValidationJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate,
+                    messagingProperties, concurrencyProperties);
         }
 
         @Test
@@ -280,8 +278,8 @@ class JmsEndpointConfigTest {
 
         @BeforeEach
         void setUp() {
-            config = new PollJmsEndpointConfig(
-                    new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties, concurrencyProperties);
+            config = new PollJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate, messagingProperties,
+                    concurrencyProperties);
         }
 
         @Test

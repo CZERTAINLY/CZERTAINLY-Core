@@ -3,13 +3,12 @@ package com.otilm.core.dao.repository.workflows;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.workflows.Rule;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface RuleRepository extends SecurityFilterRepository<Rule, UUID> {
@@ -26,6 +25,5 @@ public interface RuleRepository extends SecurityFilterRepository<Rule, UUID> {
 
     @Query("SELECT r FROM Rule r WHERE r.resource = ?1 OR r.resource = ?#{T(com.otilm.api.model.core.auth.Resource).ANY}")
     List<Rule> findAllByResource(Resource resource);
-
 
 }

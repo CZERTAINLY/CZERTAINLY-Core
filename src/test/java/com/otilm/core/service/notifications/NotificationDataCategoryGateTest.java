@@ -6,13 +6,12 @@ import com.otilm.api.model.core.notification.NotificationDataCategory;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityResourceFilter;
 import com.otilm.core.util.AuthHelper;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,8 +26,10 @@ import static org.mockito.Mockito.when;
 class NotificationDataCategoryGateTest {
 
     private static final SecurityResourceFilter UNRESTRICTED = new SecurityResourceFilter(List.of(), List.of(), false);
-    private static final SecurityResourceFilter ALLOW_LISTED = new SecurityResourceFilter(List.of(UUID.randomUUID().toString()), List.of(), true);
-    private static final SecurityResourceFilter DENY_LISTED = new SecurityResourceFilter(List.of(), List.of(UUID.randomUUID().toString()), false);
+    private static final SecurityResourceFilter ALLOW_LISTED = new SecurityResourceFilter(
+            List.of(UUID.randomUUID().toString()), List.of(), true);
+    private static final SecurityResourceFilter DENY_LISTED = new SecurityResourceFilter(List.of(),
+            List.of(UUID.randomUUID().toString()), false);
 
     @Mock
     private AuthHelper authHelper;
@@ -88,8 +89,8 @@ class NotificationDataCategoryGateTest {
 
     @Test
     void ungatedCategoriesNeverConsultPermissions() {
-        assertDoesNotThrow(() -> gate().assertCanEnable(
-                List.of(NotificationDataCategory.METADATA, NotificationDataCategory.ASSOCIATIONS)));
+        assertDoesNotThrow(() -> gate()
+                .assertCanEnable(List.of(NotificationDataCategory.METADATA, NotificationDataCategory.ASSOCIATIONS)));
         verify(authHelper, never()).loadObjectPermissions(any(), any());
     }
 

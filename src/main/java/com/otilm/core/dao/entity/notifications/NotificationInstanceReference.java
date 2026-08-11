@@ -6,12 +6,21 @@ import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.UniquelyIdentified;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import jakarta.persistence.*;
-import lombok.*;
-
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
@@ -19,7 +28,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "notification_instance_reference")
-public class NotificationInstanceReference extends UniquelyIdentified implements Serializable, DtoMapper<NotificationInstanceDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class NotificationInstanceReference extends UniquelyIdentified
+        implements
+            Serializable,
+            DtoMapper<NotificationInstanceDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "notification_instance_uuid")
     private UUID notificationInstanceUuid;
@@ -50,8 +63,11 @@ public class NotificationInstanceReference extends UniquelyIdentified implements
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-        if (connector != null) this.connectorUuid = connector.getUuid();
-        else this.connectorUuid = null;
+        if (connector != null) {
+            this.connectorUuid = connector.getUuid();
+        } else {
+            this.connectorUuid = null;
+        }
     }
 
     @Override

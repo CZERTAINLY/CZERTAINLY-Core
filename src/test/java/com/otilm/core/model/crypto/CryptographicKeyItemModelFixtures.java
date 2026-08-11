@@ -16,14 +16,15 @@ public final class CryptographicKeyItemModelFixtures {
     private CryptographicKeyItemModelFixtures() {
     }
 
-    public static CryptographicKeyItemModel keyItem(KeyType type, KeyAlgorithm algorithm, KeyState state, List<KeyUsage> usage) {
+    public static CryptographicKeyItemModel keyItem(KeyType type, KeyAlgorithm algorithm, KeyState state,
+            List<KeyUsage> usage) {
         return keyItem(type, algorithm, state, usage, null);
     }
 
-    public static CryptographicKeyItemModel keyItem(KeyType type, KeyAlgorithm algorithm, KeyState state, List<KeyUsage> usage, String pqcParameterSpecName) {
-        return new CryptographicKeyItemModel(
-                UUID.randomUUID(), true, algorithm, state, type, usage, pqcParameterSpecName,
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+    public static CryptographicKeyItemModel keyItem(KeyType type, KeyAlgorithm algorithm, KeyState state,
+            List<KeyUsage> usage, String pqcParameterSpecName) {
+        return new CryptographicKeyItemModel(UUID.randomUUID(), true, algorithm, state, type, usage,
+                pqcParameterSpecName, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
     }
 
     /** An ACTIVE private-key item carrying the SIGN usage. */

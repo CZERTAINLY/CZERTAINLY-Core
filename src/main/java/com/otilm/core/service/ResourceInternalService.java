@@ -22,7 +22,7 @@ public interface ResourceInternalService {
     /**
      * Function to get the object for specified resource, for external use with authorization check
      *
-     * @param resource   resource
+     * @param resource resource
      * @param objectUuid object UUID
      * @return ResourceObjectDto object
      */
@@ -31,7 +31,7 @@ public interface ResourceInternalService {
     /**
      * Function to get the object for specified resource, for internal use without authorization
      *
-     * @param resource   resource
+     * @param resource resource
      * @param objectUuid object UUID
      * @return ResourceObjectDto object
      */
@@ -40,16 +40,19 @@ public interface ResourceInternalService {
     /**
      * Function to get the list of objects available for a resource, for internal/system use without authorization.
      *
-     * @param resource   resource
-     * @param filters    filters for the resource objects
+     * @param resource resource
+     * @param filters filters for the resource objects
      * @param pagination pagination of the response
      * @return List of NameAndUuidDto
      */
-    List<NameAndUuidDto> getResourceObjectsInternal(Resource resource, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotFoundException;
+    List<NameAndUuidDto> getResourceObjectsInternal(Resource resource, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) throws NotFoundException;
 
     boolean hasResourceExtensionService(Resource resource);
 
-    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException, ConnectorException;
+    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback,
+            Map<String, AttributeResource> resources) throws NotFoundException, AttributeException, ConnectorException;
 
-    void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException, ConnectorException;
+    void loadResourceObjectContentData(List<DataAttribute> attributes)
+            throws NotFoundException, AttributeException, ConnectorException;
 }

@@ -11,21 +11,19 @@ import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.dao.repository.CryptographicKeyRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
  * Seeds a {@link CryptographicKey} and its {@link CryptographicKeyItem}s into the test database.
  * <p>
- * Persisting a key item correctly requires a two-phase save — the item is saved once to obtain a UUID,
- * then re-saved with {@code keyReferenceUuid} pointing at itself — which is easy to get wrong and was
- * duplicated across several tests. This seeder centralises that procedure and the per-item defaults
- * every test shares (2048-bit length, {@code ACTIVE} state, enabled). Callers describe only the fields
- * that vary via {@link KeyItemSpec}.
+ * Persisting a key item correctly requires a two-phase save — the item is saved once to obtain a UUID, then re-saved
+ * with {@code keyReferenceUuid} pointing at itself — which is easy to get wrong and was duplicated across several
+ * tests. This seeder centralises that procedure and the per-item defaults every test shares (2048-bit length,
+ * {@code ACTIVE} state, enabled). Callers describe only the fields that vary via {@link KeyItemSpec}.
  */
 @Component
 public class CryptographicKeySeeder {
@@ -39,12 +37,12 @@ public class CryptographicKeySeeder {
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
     /**
-     * In-memory description of one key item. The seeder fills in the persistence-only fields (length,
-     * state, enabled, the self-referential {@code keyReferenceUuid}); the caller specifies only the
-     * type, algorithm, usage, and — when the test needs real key material — the format and key data.
+     * In-memory description of one key item. The seeder fills in the persistence-only fields (length, state, enabled,
+     * the self-referential {@code keyReferenceUuid}); the caller specifies only the type, algorithm, usage, and — when
+     * the test needs real key material — the format and key data.
      */
-    public record KeyItemSpec(KeyType type, KeyAlgorithm algorithm, List<KeyUsage> usage,
-                              KeyFormat format, String keyData) {
+    public record KeyItemSpec(KeyType type, KeyAlgorithm algorithm, List<KeyUsage> usage, KeyFormat format,
+            String keyData) {
 
         public static KeyItemSpec signingPrivateKey(KeyAlgorithm algorithm) {
             return new KeyItemSpec(KeyType.PRIVATE_KEY, algorithm, List.of(KeyUsage.SIGN), null, null);
@@ -60,11 +58,11 @@ public class CryptographicKeySeeder {
     }
 
     /**
-     * Persists a {@link CryptographicKey} bound to the token profile/instance together with its items,
-     * and returns the saved key with the items attached.
+     * Persists a {@link CryptographicKey} bound to the token profile/instance together with its items, and returns the
+     * saved key with the items attached.
      */
     public CryptographicKey seedKey(String name, TokenProfile tokenProfile,
-                                    TokenInstanceReference tokenInstanceReference, KeyItemSpec... items) {
+            TokenInstanceReference tokenInstanceReference, KeyItemSpec... items) {
         CryptographicKey key = new CryptographicKey();
         key.setName(name);
         key.setTokenProfile(tokenProfile);

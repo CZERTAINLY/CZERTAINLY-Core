@@ -6,19 +6,37 @@ import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
+import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.enums.CertificateProtocol;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.PkiStatus;
-import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
-import com.otilm.core.dao.entity.*;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.CertificateEventHistory;
+import com.otilm.core.dao.entity.CertificateProtocolAssociation;
+import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.RegistrationState;
+import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.dao.entity.scep.ScepTransaction;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
+import com.otilm.core.dao.repository.CertificateProtocolAssociationRepository;
+import com.otilm.core.dao.repository.CertificateRegistrationAuthorizationRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepTransactionRepository;
 import com.otilm.core.messaging.jms.producers.ActionProducer;
@@ -33,6 +51,20 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.mockbeans.ProducerMocks;
 import com.otilm.core.util.seeders.CryptographicKeySeeder;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.Security;
+import java.security.Signature;
+import java.security.cert.X509Certificate;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import javax.crypto.Cipher;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1String;
@@ -57,16 +89,6 @@ import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.ResponseEntity;
 
-import javax.crypto.Cipher;
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.Security;
-import java.security.Signature;
-import java.security.cert.X509Certificate;
-import java.time.OffsetDateTime;
-import java.util.*;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -76,13 +98,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 /**
- * End-to-end SCEP enrolment against pre-registrations: a real signed CMS PKCSReq goes into a
- * CERTIFICATE_REGISTRATION profile and the assertions cover both what the client receives and what the
- * platform recorded. The CA key is RSA, so requests are enveloped via key transport and the connector
- * decrypt is stubbed per message: the test extracts the encrypted content-encryption key from the message
- * it just built, decrypts it locally with the test-held CA private key, and stubs the decrypt endpoint to
- * return exactly that key. Response signing is stubbed as in {@link ScepPkiOperationITest}; issuance stays
- * unstubbed — completion is asynchronous and the client sees PENDING.
+ * End-to-end SCEP enrolment against pre-registrations: a real signed CMS PKCSReq goes into a CERTIFICATE_REGISTRATION
+ * profile and the assertions cover both what the client receives and what the platform recorded. The CA key is RSA, so
+ * requests are enveloped via key transport and the connector decrypt is stubbed per message: the test extracts the
+ * encrypted content-encryption key from the message it just built, decrypts it locally with the test-held CA private
+ * key, and stubs the decrypt endpoint to return exactly that key. Response signing is stubbed as in
+ * {@link ScepPkiOperationITest}; issuance stays unstubbed — completion is asynchronous and the client sees PENDING.
  */
 @Import(ProducerMocks.class)
 @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
@@ -173,12 +194,13 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         caKeyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
         // An RSA SCEP CA key must carry the full usage sets (DECRYPT+SIGN / ENCRYPT+VERIFY) —
         // isCertificateScepCaCertAcceptable rejects the profile otherwise.
-        CryptographicKey caKey = cryptographicKeySeeder.seedKey("scepRegistrationCaKey", null, tokenInstance,
-                new CryptographicKeySeeder.KeyItemSpec(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA,
-                        List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyFormat.PRKI, "placeholder"),
-                new CryptographicKeySeeder.KeyItemSpec(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA,
-                        List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyFormat.SPKI,
-                        Base64.getEncoder().encodeToString(caKeyPair.getPublic().getEncoded())));
+        CryptographicKey caKey = cryptographicKeySeeder
+                .seedKey("scepRegistrationCaKey", null, tokenInstance,
+                        new CryptographicKeySeeder.KeyItemSpec(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA,
+                                List.of(KeyUsage.DECRYPT, KeyUsage.SIGN), KeyFormat.PRKI, "placeholder"),
+                        new CryptographicKeySeeder.KeyItemSpec(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA,
+                                List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY), KeyFormat.SPKI,
+                                Base64.getEncoder().encodeToString(caKeyPair.getPublic().getEncoded())));
 
         Certificate caCertificate = storeCertificate(selfSignedRsaCertificate(caKeyPair), caKey, null);
 
@@ -203,9 +225,11 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     @Test
     void matchingEnrolmentCompletesTheRegistrationAsPending() throws Exception {
-        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")),
+                CHALLENGE);
 
-        ResponseEntity<Object> response = postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
+        ResponseEntity<Object> response = postPkiOperation(
+                enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(response, ScepConstants.id_pkiStatus));
@@ -213,13 +237,15 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         assertEquals(CertificateState.REGISTERED, completed.getState(),
                 "the placeholder stays REGISTERED until the async ISSUE action completes");
         assertNotNull(completed.getCertificateRequestUuid(), "the enrolment CSR is attached");
-        List<CertificateProtocolAssociation> certificateProtocolAssociation = certificateProtocolAssociationRepository.findAll();
-        Optional<CertificateProtocolAssociation> association = certificateProtocolAssociation.stream()
-                .filter(pa -> pa.getCertificateUuid().equals(completed.getUuid()) && pa.getProtocol() == CertificateProtocol.SCEP)
+        List<CertificateProtocolAssociation> certificateProtocolAssociation = certificateProtocolAssociationRepository
+                .findAll();
+        Optional<CertificateProtocolAssociation> association = certificateProtocolAssociation
+                .stream()
+                .filter(pa -> pa.getCertificateUuid().equals(completed.getUuid())
+                        && pa.getProtocol() == CertificateProtocol.SCEP)
                 .findFirst();
         assertTrue(association.isPresent(), "the completion is attributed to SCEP");
-        assertTrue(scepTransactionRepository
-                        .findByTransactionId(ScepMessageTestData.TRANSACTION_ID).isPresent(),
+        assertTrue(scepTransactionRepository.findByTransactionId(ScepMessageTestData.TRANSACTION_ID).isPresent(),
                 "the poll transaction is stored");
         verify(actionProducer).produceMessage(Mockito.argThat(m -> m.getResourceAction() == ResourceAction.ISSUE));
     }
@@ -229,22 +255,28 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         // A fresh-key second completion must not overwrite the first CSR. The certificate row lock serializes
         // concurrent completions into this same second attach, so a sequential replay deterministically covers
         // the race, and a fresh transaction id stops the SCEP dedup from folding the replay into a poll.
-        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")),
+                CHALLENGE);
 
         ResponseEntity<Object> first = postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
         assertEquals(String.valueOf(PkiStatus.PENDING.getValue()), attribute(first, ScepConstants.id_pkiStatus));
-        UUID boundRequest = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid();
+        UUID boundRequest = certificateRepository
+                .findByUuid(placeholder.getUuid())
+                .orElseThrow()
+                .getCertificateRequestUuid();
         assertNotNull(boundRequest, "the first enrolment binds its CSR");
 
         String replayTransactionId = "aa1ba25258bfc72fe6cf8aa70f75e21facd8fc3d";
-        ResponseEntity<Object> second = postPkiOperation(ScepMessageTestData.keyTransportEnvelopedPkcsReq(
-                caCertificateX509(), SUBJECT_DN, List.of("device-1.example"), CHALLENGE, replayTransactionId));
+        ResponseEntity<Object> second = postPkiOperation(ScepMessageTestData
+                .keyTransportEnvelopedPkcsReq(caCertificateX509(), SUBJECT_DN, List.of("device-1.example"), CHALLENGE,
+                        replayTransactionId));
 
         assertRegistrationRejection(second);
         assertEquals(boundRequest,
                 certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow().getCertificateRequestUuid(),
                 "the first enrolment's CSR must not be replaced by the different-key replay");
-        assertTrue(scepTransactionRepository.findByTransactionIdAndScepProfile(replayTransactionId, scepProfile).isEmpty(),
+        assertTrue(
+                scepTransactionRepository.findByTransactionIdAndScepProfile(replayTransactionId, scepProfile).isEmpty(),
                 "the rejected replay's staged poll mapping is discarded");
     }
 
@@ -255,7 +287,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         // or a retry with the same key-derived transaction id would be short-circuited to a poll that never completes.
         registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
         doThrow(new IllegalStateException("action broker unavailable"))
-                .when(actionProducer).produceMessage(Mockito.any());
+                .when(actionProducer)
+                .produceMessage(Mockito.any());
 
         postPkiOperation(enrolment(SUBJECT_DN, List.of("device-1.example"), CHALLENGE));
 
@@ -266,7 +299,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     @Test
     void subjectlessRegistrationCompletesBySanOnly() throws Exception {
         // A SAN-only pre-registration carries no subject; a subjectless enrolment must still match it on SANs.
-        Certificate placeholder = registeredPlaceholder(null, Map.of("dNSName", List.of("device-1.example")), CHALLENGE);
+        Certificate placeholder = registeredPlaceholder(null, Map.of("dNSName", List.of("device-1.example")),
+                CHALLENGE);
 
         ResponseEntity<Object> response = postPkiOperation(enrolment("", List.of("device-1.example"), CHALLENGE));
 
@@ -299,12 +333,16 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         storeTransaction(sharedTransactionId, certUnderOtherProfile, otherProfile);
 
         assertEquals(certUnderThisProfile,
-                scepTransactionRepository.findByTransactionIdAndScepProfile(sharedTransactionId, scepProfile)
-                        .orElseThrow().getCertificateUuid(),
+                scepTransactionRepository
+                        .findByTransactionIdAndScepProfile(sharedTransactionId, scepProfile)
+                        .orElseThrow()
+                        .getCertificateUuid(),
                 "the fetch must return this profile's transaction, not the colliding one");
         assertEquals(certUnderOtherProfile,
-                scepTransactionRepository.findByTransactionIdAndScepProfile(sharedTransactionId, otherProfile)
-                        .orElseThrow().getCertificateUuid());
+                scepTransactionRepository
+                        .findByTransactionIdAndScepProfile(sharedTransactionId, otherProfile)
+                        .orElseThrow()
+                        .getCertificateUuid());
     }
 
     private UUID savedCertificate() {
@@ -329,8 +367,9 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         ResponseEntity<Object> response = postPkiOperation(enrolment(SUBJECT_DN, null, "wrong-challenge"));
 
         assertRegistrationRejection(response);
-        CertificateRegistrationAuthorization authorization =
-                authorizationRepository.findByCertificateUuid(placeholder.getUuid()).orElseThrow();
+        CertificateRegistrationAuthorization authorization = authorizationRepository
+                .findByCertificateUuid(placeholder.getUuid())
+                .orElseThrow();
         assertEquals(1, authorization.getFailedAttempts(), "the failed attempt survives the rejection");
         Certificate untouched = certificateRepository.findByUuid(placeholder.getUuid()).orElseThrow();
         assertEquals(CertificateState.REGISTERED, untouched.getState());
@@ -344,8 +383,9 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         for (int attempt = 0; attempt < CertificateRegistrationDefaults.MAX_FAILED_ATTEMPTS; attempt++) {
             assertRegistrationRejection(postPkiOperation(enrolment(SUBJECT_DN, null, "wrong-challenge")));
         }
-        CertificateRegistrationAuthorization authorization =
-                authorizationRepository.findByCertificateUuid(placeholder.getUuid()).orElseThrow();
+        CertificateRegistrationAuthorization authorization = authorizationRepository
+                .findByCertificateUuid(placeholder.getUuid())
+                .orElseThrow();
         assertEquals(RegistrationState.LOCKED, authorization.getState(), "lockout after the configured attempts");
 
         ResponseEntity<Object> lockedResponse = postPkiOperation(enrolment(SUBJECT_DN, null, CHALLENGE));
@@ -359,8 +399,9 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     @Test
     void expiredIssuanceWindowRejectsAndExpiresTheAuthorization() throws Exception {
         Certificate placeholder = registeredPlaceholder(SUBJECT_DN, null, CHALLENGE);
-        CertificateRegistrationAuthorization authorization =
-                authorizationRepository.findByCertificateUuid(placeholder.getUuid()).orElseThrow();
+        CertificateRegistrationAuthorization authorization = authorizationRepository
+                .findByCertificateUuid(placeholder.getUuid())
+                .orElseThrow();
         authorization.setExpiresAt(OffsetDateTime.now().minusMinutes(1));
         authorizationRepository.save(authorization);
 
@@ -397,14 +438,18 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     @Test
     void sanMismatchRejectsAndRecordsEventHistory() throws Exception {
-        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("registered.example")), CHALLENGE);
+        Certificate placeholder = registeredPlaceholder(SUBJECT_DN, Map.of("dNSName", List.of("registered.example")),
+                CHALLENGE);
 
         ResponseEntity<Object> response = postPkiOperation(enrolment(SUBJECT_DN, List.of("other.example"), CHALLENGE));
 
         assertRegistrationRejection(response);
         List<CertificateEventHistory> history = eventHistoryRepository.findByCertificateOrderByCreatedDesc(placeholder);
-        assertTrue(history.stream().anyMatch(event -> event.getStatus() == CertificateEventStatus.FAILED
-                        && event.getMessage().contains("subject alternative names")),
+        assertTrue(
+                history
+                        .stream()
+                        .anyMatch(event -> event.getStatus() == CertificateEventStatus.FAILED
+                                && event.getMessage().contains("subject alternative names")),
                 "the SAN mismatch is recorded on the matched registration");
     }
 
@@ -414,9 +459,9 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
 
         // No decrypt stub: the profile has no shared password, so a password-recipient request is
         // undecryptable by construction and must be answered as a SCEP failure.
-        ResponseEntity<Object> response = scepService.handlePost(
-                SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
-                ScepMessageTestData.passwordEnvelopedPkcsReq(CHALLENGE));
+        ResponseEntity<Object> response = scepService
+                .handlePost(SCEP_PROFILE_NAME, ScepServiceImpl.SCEP_OPERATION_PKI_OPERATION,
+                        ScepMessageTestData.passwordEnvelopedPkcsReq(CHALLENGE));
 
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.FAILURE.getValue()), attribute(response, ScepConstants.id_pkiStatus));
@@ -433,9 +478,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     void authenticatedRenewalBypassesTheGateButAnEcClientCannotBeAnswered() throws Exception {
         registerSignerCertificate();
 
-        ResponseEntity<Object> response = postPkiOperation(
-                ScepMessageTestData.keyTransportEnvelopedPkcsReq(
-                        caCertificateX509(), ScepMessageTestData.SUBJECT_DN, null, null));
+        ResponseEntity<Object> response = postPkiOperation(ScepMessageTestData
+                .keyTransportEnvelopedPkcsReq(caCertificateX509(), ScepMessageTestData.SUBJECT_DN, null, null));
 
         assertScepFormatted(response);
         // The renewal gets past the registration gate (which rejects with badMessageCheck) and is then
@@ -447,12 +491,12 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     }
 
     private byte[] enrolment(String subjectDn, List<String> dnsSans, String challengePassword) throws Exception {
-        return ScepMessageTestData.keyTransportEnvelopedPkcsReq(caCertificateX509(), subjectDn, dnsSans, challengePassword);
+        return ScepMessageTestData
+                .keyTransportEnvelopedPkcsReq(caCertificateX509(), subjectDn, dnsSans, challengePassword);
     }
 
     private X509Certificate caCertificateX509() throws Exception {
-        return CertificateUtil.parseCertificate(
-                scepProfile.getCaCertificate().getCertificateContent().getContent());
+        return CertificateUtil.parseCertificate(scepProfile.getCaCertificate().getCertificateContent().getContent());
     }
 
     private ResponseEntity<Object> postPkiOperation(byte[] message) throws Exception {
@@ -461,10 +505,9 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     }
 
     /**
-     * The connector decrypt must return the real content-encryption key or the CSR can never be read: the
-     * key is extracted from the message's KeyTransRecipientInfo and decrypted locally with the test-held CA
-     * private key, and the stub returns exactly that value. Later stubs override earlier ones, so each
-     * message gets its own.
+     * The connector decrypt must return the real content-encryption key or the CSR can never be read: the key is
+     * extracted from the message's KeyTransRecipientInfo and decrypted locally with the test-held CA private key, and
+     * the stub returns exactly that value. Later stubs override earlier ones, so each message gets its own.
      */
     private void stubConnectorDecrypt(byte[] scepMessage) throws Exception {
         byte[] encryptedKey = extractEncryptedContentEncryptionKey(scepMessage);
@@ -472,11 +515,12 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         cipher.init(Cipher.DECRYPT_MODE, caKeyPair.getPrivate());
         byte[] contentEncryptionKey = cipher.doFinal(encryptedKey);
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/decrypt"))
-                .willReturn(WireMock.okJson("""
-                        {"decryptedData": [{"data": "%s"}]}
-                        """.formatted(Base64.getEncoder().encodeToString(contentEncryptionKey)))));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/decrypt"))
+                        .willReturn(WireMock.okJson("""
+                                {"decryptedData": [{"data": "%s"}]}
+                                """.formatted(Base64.getEncoder().encodeToString(contentEncryptionKey)))));
     }
 
     private static byte[] extractEncryptedContentEncryptionKey(byte[] scepMessage) throws Exception {
@@ -511,7 +555,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     private void assertRegistrationRejection(ResponseEntity<Object> response) throws Exception {
         assertScepFormatted(response);
         assertEquals(String.valueOf(PkiStatus.FAILURE.getValue()), attribute(response, ScepConstants.id_pkiStatus));
-        assertEquals(String.valueOf(FailInfo.BAD_MESSAGE_CHECK.getValue()), attribute(response, ScepConstants.id_failInfo));
+        assertEquals(String.valueOf(FailInfo.BAD_MESSAGE_CHECK.getValue()),
+                attribute(response, ScepConstants.id_failInfo));
         assertEquals(REGISTRATION_REJECTION, attribute(response, ScepConstants.id_scep_failInfoText));
     }
 
@@ -525,14 +570,18 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
     private String attribute(ResponseEntity<Object> response, String oid) throws Exception {
         CMSSignedData signedData = new CMSSignedData((byte[]) response.getBody());
         SignerInformation signer = signedData.getSignerInfos().getSigners().iterator().next();
-        ASN1Primitive value = signer.getSignedAttributes()
-                .get(new ASN1ObjectIdentifier(oid)).getAttrValues().getObjectAt(0).toASN1Primitive();
+        ASN1Primitive value = signer
+                .getSignedAttributes()
+                .get(new ASN1ObjectIdentifier(oid))
+                .getAttrValues()
+                .getObjectAt(0)
+                .toASN1Primitive();
         return ((ASN1String) value).getString();
     }
 
     /**
-     * Registers the request's signer certificate as an issued certificate of this RA profile, with the
-     * subject the request asks for and a validity inside the default half-life renewal window.
+     * Registers the request's signer certificate as an issued certificate of this RA profile, with the subject the
+     * request asks for and a validity inside the default half-life renewal window.
      */
     private void registerSignerCertificate() throws Exception {
         X509Certificate signerCertificate = ScepMessageTestData.signerCertificate();
@@ -543,7 +592,8 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         certificateRepository.save(certificate);
     }
 
-    private Certificate storeCertificate(X509Certificate x509Certificate, CryptographicKey key, RaProfile owner) throws Exception {
+    private Certificate storeCertificate(X509Certificate x509Certificate, CryptographicKey key, RaProfile owner)
+            throws Exception {
         String encoded = Base64.getEncoder().encodeToString(x509Certificate.getEncoded());
         String fingerprint = CertificateUtil.getThumbprint(x509Certificate);
 
@@ -576,17 +626,19 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         X500Name dn = new X500Name(CA_DN);
         Date notBefore = new Date(System.currentTimeMillis() - 3_600_000L);
         Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 3600 * 1000);
-        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                dn, BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
+        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(dn,
+                BigInteger.valueOf(System.currentTimeMillis()), notBefore, notAfter, dn, keyPair.getPublic());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(keyPair.getPrivate());
         return new JcaX509CertificateConverter()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).getCertificate(builder.build(signer));
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(builder.build(signer));
     }
 
     /**
-     * The token connector signs the response. The value is passed through without verification here, so a
-     * fixed well-formed signature is enough to exercise the real response-building path.
+     * The token connector signs the response. The value is passed through without verification here, so a fixed
+     * well-formed signature is enough to exercise the real response-building path.
      */
     private void stubTokenSigning() throws Exception {
         KeyPair throwaway = KeyPairGenerator.getInstance("EC").generateKeyPair();
@@ -595,15 +647,17 @@ class ScepRegistrationEnrolmentITest extends BaseSpringBootTest {
         signature.update("scep".getBytes());
         String signed = Base64.getEncoder().encodeToString(signature.sign());
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
-                .willReturn(WireMock.okJson("""
-                        {"signatures": [{"data": "%s"}]}
-                        """.formatted(signed))));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
-                .willReturn(WireMock.okJson("""
-                        {"verifications": [{"result": true}]}
-                        """)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
+                        .willReturn(WireMock.okJson("""
+                                {"signatures": [{"data": "%s"}]}
+                                """.formatted(signed))));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
+                        .willReturn(WireMock.okJson("""
+                                {"verifications": [{"result": true}]}
+                                """)));
     }
 }

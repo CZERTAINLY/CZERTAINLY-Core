@@ -3,15 +3,14 @@ package com.otilm.core.signing.record;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.model.signing.SigningProfileModel;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 
 /**
- * Test builder for {@link SigningRecordInput} pre-populated with valid defaults, so a test only sets
- * the fields relevant to what it asserts.
+ * Test builder for {@link SigningRecordInput} pre-populated with valid defaults, so a test only sets the fields
+ * relevant to what it asserts.
  */
 public final class SigningRecordInputBuilder {
 
@@ -75,7 +74,8 @@ public final class SigningRecordInputBuilder {
     }
 
     public SigningRecordInput build() {
-        return SigningRecordInput.builder()
+        return SigningRecordInput
+                .builder()
                 .signingProfile(signingProfile)
                 .protocol(protocol)
                 .signingTime(signingTime)

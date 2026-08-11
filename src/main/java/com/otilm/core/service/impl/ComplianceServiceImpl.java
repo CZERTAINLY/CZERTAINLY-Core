@@ -9,12 +9,30 @@ import com.otilm.api.model.core.compliance.ComplianceRuleStatus;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.otilm.core.client.ConnectorApiFactory;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateRequestEntity;
+import com.otilm.core.dao.entity.ComplianceProfile;
+import com.otilm.core.dao.entity.ComplianceProfileAssociation;
+import com.otilm.core.dao.entity.ComplianceSubject;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.Secret;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.CertificateRequestRepository;
+import com.otilm.core.dao.repository.ComplianceInternalRuleRepository;
+import com.otilm.core.dao.repository.ComplianceProfileAssociationRepository;
+import com.otilm.core.dao.repository.ComplianceProfileRepository;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.SecretRepository;
 import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.model.auth.ResourceAction;
-import com.otilm.core.model.compliance.*;
+import com.otilm.core.model.compliance.ComplianceCheckContext;
+import com.otilm.core.model.compliance.ComplianceResultDto;
+import com.otilm.core.model.compliance.ComplianceResultProviderRulesDto;
+import com.otilm.core.model.compliance.ComplianceResultRulesDto;
+import com.otilm.core.model.compliance.ComplianceRulesGroupsBatchDto;
 import com.otilm.core.security.authz.AnyPrincipalEndpoint;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.ExternalAuthorizationDynamic;
@@ -24,6 +42,15 @@ import com.otilm.core.service.ComplianceExternalService;
 import com.otilm.core.service.ComplianceInternalService;
 import com.otilm.core.service.handler.ComplianceProfileRuleHandler;
 import com.otilm.core.service.handler.ComplianceSubjectHandler;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,8 +59,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.*;
 
 @Service
 @Transactional
@@ -54,7 +79,8 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private SecretRepository secretRepository;
 
-    // since only checking condition items, not necessary CertificateTriggerEvaluator that implements special logic for setting properties
+    // since only checking condition items, not necessary CertificateTriggerEvaluator that implements special logic for
+    // setting properties
     private TriggerEvaluator<Certificate> certificateTriggerEvaluator;
     private TriggerEvaluator<CertificateRequestEntity> certificateRequestTriggerEvaluator;
     private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyItemTriggerEvaluator;
@@ -85,7 +111,8 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
     }
 
     @Autowired
-    public void setComplianceProfileAssociationRepository(ComplianceProfileAssociationRepository complianceProfileAssociationRepository) {
+    public void setComplianceProfileAssociationRepository(
+            ComplianceProfileAssociationRepository complianceProfileAssociationRepository) {
         this.complianceProfileAssociationRepository = complianceProfileAssociationRepository;
     }
 
@@ -121,12 +148,14 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
     }
 
     @Autowired
-    public void setCertificateRequestTriggerEvaluator(TriggerEvaluator<CertificateRequestEntity> certificateRequestTriggerEvaluator) {
+    public void setCertificateRequestTriggerEvaluator(
+            TriggerEvaluator<CertificateRequestEntity> certificateRequestTriggerEvaluator) {
         this.certificateRequestTriggerEvaluator = certificateRequestTriggerEvaluator;
     }
 
     @Autowired
-    public void setCryptographicKeyItemTriggerEvaluator(TriggerEvaluator<CryptographicKeyItem> cryptographicKeyItemTriggerEvaluator) {
+    public void setCryptographicKeyItemTriggerEvaluator(
+            TriggerEvaluator<CryptographicKeyItem> cryptographicKeyItemTriggerEvaluator) {
         this.cryptographicKeyItemTriggerEvaluator = cryptographicKeyItemTriggerEvaluator;
     }
 
@@ -142,13 +171,13 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
 
     /**
      * Authorized external read. The {@code authorizableResource} and {@code authorizableObjectUuid} parameters are
-     * intentionally unused in the body: their sole purpose is to be resolved by the {@link ExternalAuthorizationDynamic}
-     * interceptor as the OPA authorization subject.
+     * intentionally unused in the body: their sole purpose is to be resolved by the
+     * {@link ExternalAuthorizationDynamic} interceptor as the OPA authorization subject.
      */
     @Override
     @ExternalAuthorizationDynamic(action = ResourceAction.DETAIL)
-    public ComplianceCheckResultDto getComplianceCheckResult(SecuredResource authorizableResource, SecuredUUID authorizableObjectUuid,
-                                                             Resource resource, UUID objectUuid) throws NotFoundException {
+    public ComplianceCheckResultDto getComplianceCheckResult(SecuredResource authorizableResource,
+            SecuredUUID authorizableObjectUuid, Resource resource, UUID objectUuid) throws NotFoundException {
         return doGetComplianceCheckResult(resource, objectUuid);
     }
 
@@ -160,7 +189,8 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
         }
         return switch (resource) {
             case CERTIFICATE, SECRET -> SecuredUUID.fromUUID(objectUuid);
-            case CRYPTOGRAPHIC_KEY_ITEM -> cryptographicKeyItemRepository.findByUuid(objectUuid)
+            case CRYPTOGRAPHIC_KEY_ITEM -> cryptographicKeyItemRepository
+                    .findByUuid(objectUuid)
                     .map(item -> SecuredUUID.fromUUID(item.getKeyUuid()))
                     .orElse(null);
             // CERTIFICATE_REQUEST (and any other) carry their own compliance result with no stable owning object,
@@ -169,34 +199,44 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
     }
 
     @Override
-    public ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid) throws NotFoundException {
+    public ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid)
+            throws NotFoundException {
         return doGetComplianceCheckResult(resource, objectUuid);
     }
 
-    private ComplianceCheckResultDto doGetComplianceCheckResult(Resource resource, UUID objectUuid) throws NotFoundException {
+    private ComplianceCheckResultDto doGetComplianceCheckResult(Resource resource, UUID objectUuid)
+            throws NotFoundException {
         logger.debug("Get Compliance Check Result called for resource={} uuid={}", resource.getLabel(), objectUuid);
         if (!resource.complianceSubject() && resource != Resource.CRYPTOGRAPHIC_KEY_ITEM) {
-            throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+            throw new ValidationException(
+                    "Cannot get compliance result for resource %s. Resource does not support compliance check"
+                            .formatted(resource.getLabel()));
         }
 
         ComplianceSubject complianceSubject = switch (resource) {
-            case CERTIFICATE ->
-                    certificateRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Certificate.class, objectUuid));
-            case CERTIFICATE_REQUEST ->
-                    certificateRequestRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CertificateRequestEntity.class, objectUuid));
-            case CRYPTOGRAPHIC_KEY_ITEM ->
-                    cryptographicKeyItemRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, objectUuid));
-            case SECRET ->
-                    secretRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Secret.class, objectUuid));
-            default ->
-                    throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+            case CERTIFICATE -> certificateRepository
+                    .findByUuid(objectUuid)
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, objectUuid));
+            case CERTIFICATE_REQUEST -> certificateRequestRepository
+                    .findByUuid(objectUuid)
+                    .orElseThrow(() -> new NotFoundException(CertificateRequestEntity.class, objectUuid));
+            case CRYPTOGRAPHIC_KEY_ITEM -> cryptographicKeyItemRepository
+                    .findByUuid(objectUuid)
+                    .orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, objectUuid));
+            case SECRET -> secretRepository
+                    .findByUuid(objectUuid)
+                    .orElseThrow(() -> new NotFoundException(Secret.class, objectUuid));
+            default -> throw new ValidationException(
+                    "Cannot get compliance result for resource %s. Resource does not support compliance check"
+                            .formatted(resource.getLabel()));
         };
 
         return getComplianceCheckResult(resource, objectUuid, complianceSubject.getComplianceResult());
     }
 
     @Override
-    public ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid, ComplianceResultDto complianceResult) {
+    public ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid,
+            ComplianceResultDto complianceResult) {
         ComplianceCheckResultDto resultDto = new ComplianceCheckResultDto();
         if (complianceResult == null) {
             resultDto.setStatus(ComplianceStatus.NOT_CHECKED);
@@ -211,11 +251,13 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
         resultDto.setTimestamp(complianceResult.getTimestamp());
         // load internal rules
         if (complianceResult.getInternalRules() != null) {
-            List<UUID> failedInternalRulesUuids = new ArrayList<>(complianceResult.getInternalRules().getNotCompliant());
+            List<UUID> failedInternalRulesUuids = new ArrayList<>(
+                    complianceResult.getInternalRules().getNotCompliant());
             failedInternalRulesUuids.addAll(complianceResult.getInternalRules().getNotApplicable());
             failedInternalRulesUuids.addAll(complianceResult.getInternalRules().getNotAvailable());
             internalRuleRepository.findByUuidIn(failedInternalRulesUuids).forEach(internalRule -> {
-                ComplianceRuleStatus status = getFailedRuleStatus(complianceResult.getInternalRules(), internalRule.getUuid());
+                ComplianceRuleStatus status = getFailedRuleStatus(complianceResult.getInternalRules(),
+                        internalRule.getUuid());
                 resultDto.getFailedRules().add(internalRule.mapToComplianceCheckRuleDto(status));
             });
         }
@@ -227,9 +269,14 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
             failedProviderRulesUuids.addAll(providerRules.getNotAvailable());
             ComplianceRulesGroupsBatchDto batchDto = null;
             try {
-                batchDto = ruleHandler.getComplianceProviderRulesBatch(providerRules.getConnectorUuid(), providerRules.getKind(), failedProviderRulesUuids, null, false);
+                batchDto = ruleHandler
+                        .getComplianceProviderRulesBatch(providerRules.getConnectorUuid(), providerRules.getKind(),
+                                failedProviderRulesUuids, null, false);
             } catch (Exception e) {
-                logger.warn("Cannot retrieve compliance rules from provider {} of kind {} when getting compliance result rules of {} with UUID {}. Marking all {} rules as Not Available", providerRules.getConnectorUuid(), providerRules.getKind(), resource, objectUuid, failedProviderRulesUuids.size());
+                logger
+                        .warn("Cannot retrieve compliance rules from provider {} of kind {} when getting compliance result rules of {} with UUID {}. Marking all {} rules as Not Available",
+                                providerRules.getConnectorUuid(), providerRules.getKind(), resource, objectUuid,
+                                failedProviderRulesUuids.size());
                 batchDto = new ComplianceRulesGroupsBatchDto();
                 batchDto.setConnectorUuid(providerRules.getConnectorUuid());
                 batchDto.setKind(providerRules.getKind());
@@ -238,7 +285,12 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
             for (UUID failedRuleUuid : failedProviderRulesUuids) {
                 ComplianceRuleStatus status = getFailedRuleStatus(providerRules, failedRuleUuid);
                 ComplianceRuleResponseDto providerRule = batchDto.getRules().get(failedRuleUuid);
-                resultDto.getFailedRules().add(ruleHandler.mapComplianceCheckProviderRuleDto(batchDto.getConnectorUuid(), batchDto.getConnectorName(), batchDto.getKind(), failedRuleUuid, status, providerRule));
+                resultDto
+                        .getFailedRules()
+                        .add(ruleHandler
+                                .mapComplianceCheckProviderRuleDto(batchDto.getConnectorUuid(),
+                                        batchDto.getConnectorName(), batchDto.getKind(), failedRuleUuid, status,
+                                        providerRule));
             }
         }
 
@@ -247,19 +299,24 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
-    public void checkComplianceValidation(List<SecuredUUID> uuids, Resource resource, String type) throws ValidationException, NotFoundException {
+    public void checkComplianceValidation(List<SecuredUUID> uuids, Resource resource, String type)
+            throws ValidationException, NotFoundException {
         if (resource != null) {
             if (!resource.complianceSubject()) {
-                throw new ValidationException(COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
+                throw new ValidationException(
+                        COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
             }
             ComplianceProfileRuleHandler.getComplianceRuleTypeFromCode(resource, type);
         } else if (type != null) {
-            throw new ValidationException("Cannot check compliance for type %s. Resource must be specified when type is specified".formatted(type));
+            throw new ValidationException(
+                    "Cannot check compliance for type %s. Resource must be specified when type is specified"
+                            .formatted(type));
         }
 
         for (SecuredUUID uuid : uuids) {
             if (!complianceProfileRepository.existsById(uuid.getValue())) {
-                throw new NotFoundException("Cannot check compliance. Compliance profile with UUID %s not found".formatted(uuid.getValue()));
+                throw new NotFoundException("Cannot check compliance. Compliance profile with UUID %s not found"
+                        .formatted(uuid.getValue()));
             }
         }
     }
@@ -281,30 +338,43 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
         IPlatformEnum typeEnum = null;
         if (resource != null) {
             if (!resource.complianceSubject()) {
-                throw new ValidationException(COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
+                throw new ValidationException(
+                        COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
             }
             typeEnum = ComplianceProfileRuleHandler.getComplianceRuleTypeFromCode(resource, type);
         } else if (type != null) {
-            throw new ValidationException("Cannot check compliance for type %s. Resource must be specified when type is specified".formatted(type));
+            throw new ValidationException(
+                    "Cannot check compliance for type %s. Resource must be specified when type is specified"
+                            .formatted(type));
         }
 
         // load compliance profiles
-        ComplianceCheckContext context = new ComplianceCheckContext(resource, typeEnum, ruleHandler, getSubjectHandlers(true), connectorApiFactory, eventProducer);
-        List<ComplianceProfile> complianceProfiles = complianceProfileRepository.findWithAssociationsByUuidIn(uuids.stream().map(SecuredUUID::getValue).toList()).stream()
-                .filter(p -> !p.getAssociations().isEmpty() && !p.getComplianceRules().isEmpty()).toList();
+        ComplianceCheckContext context = new ComplianceCheckContext(resource, typeEnum, ruleHandler,
+                getSubjectHandlers(true), connectorApiFactory, eventProducer);
+        List<ComplianceProfile> complianceProfiles = complianceProfileRepository
+                .findWithAssociationsByUuidIn(uuids.stream().map(SecuredUUID::getValue).toList())
+                .stream()
+                .filter(p -> !p.getAssociations().isEmpty() && !p.getComplianceRules().isEmpty())
+                .toList();
         logger.debug("Loaded {} compliance profiles to be checked", complianceProfiles.size());
         for (ComplianceProfile profile : complianceProfiles) {
             // load compliance subjects
             Map<Resource, Set<ComplianceSubject>> complianceSubjects = new EnumMap<>(Resource.class);
             for (ComplianceProfileAssociation association : profile.getAssociations()) {
                 if (!isAssociationResourceCompatible(association.getResource(), resource)) {
-                    logger.debug("Skipping association resource {} for requested resource {}", association.getResource(), resource);
+                    logger
+                            .debug("Skipping association resource {} for requested resource {}",
+                                    association.getResource(), resource);
                     continue;
                 }
 
-                List<ComplianceSubject> subjects = getComplianceSubjects(association.getResource(), association.getObjectUuid());
+                List<ComplianceSubject> subjects = getComplianceSubjects(association.getResource(),
+                        association.getObjectUuid());
                 if (!subjects.isEmpty()) {
-                    complianceSubjects.computeIfAbsent(getSubjectResouceByAssociationResource(association.getResource()), r -> new HashSet<>()).addAll(subjects);
+                    complianceSubjects
+                            .computeIfAbsent(getSubjectResouceByAssociationResource(association.getResource()),
+                                    r -> new HashSet<>())
+                            .addAll(subjects);
                 }
             }
 
@@ -313,7 +383,9 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
                 logger.debug("No subjects found for compliance profile {}, skipping", profile.getUuid());
                 continue;
             }
-            logger.debug("Adding compliance profile {} with {} subject resource entries", profile.getUuid(), complianceSubjects.size());
+            logger
+                    .debug("Adding compliance profile {} with {} subject resource entries", profile.getUuid(),
+                            complianceSubjects.size());
             context.addComplianceProfile(profile, complianceSubjects);
         }
         context.performComplianceCheck();
@@ -322,18 +394,24 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
-    public void checkResourceObjectsComplianceValidation(Resource resource, List<UUID> objectUuids) throws ValidationException, NotFoundException {
+    public void checkResourceObjectsComplianceValidation(Resource resource, List<UUID> objectUuids)
+            throws ValidationException, NotFoundException {
         doCheckResourceObjectsComplianceValidation(resource, objectUuids);
     }
 
     @Override
-    public void checkResourceObjectsComplianceValidationAsSystem(Resource resource, List<UUID> objectUuids) throws ValidationException, NotFoundException {
+    public void checkResourceObjectsComplianceValidationAsSystem(Resource resource, List<UUID> objectUuids)
+            throws ValidationException, NotFoundException {
         doCheckResourceObjectsComplianceValidation(resource, objectUuids);
     }
 
-    private void doCheckResourceObjectsComplianceValidation(Resource resource, List<UUID> objectUuids) throws ValidationException, NotFoundException {
-        if (resource == Resource.CERTIFICATE_REQUEST || (!resource.complianceSubject() && !resource.hasComplianceProfiles() && resource != Resource.CRYPTOGRAPHIC_KEY_ITEM)) {
-            throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check or does not allow association of compliance profiles".formatted(resource.getLabel()));
+    private void doCheckResourceObjectsComplianceValidation(Resource resource, List<UUID> objectUuids)
+            throws ValidationException, NotFoundException {
+        if (resource == Resource.CERTIFICATE_REQUEST || (!resource.complianceSubject()
+                && !resource.hasComplianceProfiles() && resource != Resource.CRYPTOGRAPHIC_KEY_ITEM)) {
+            throw new ValidationException(
+                    "Cannot check compliance for resource %s. Resource does not support compliance check or does not allow association of compliance profiles"
+                            .formatted(resource.getLabel()));
         }
 
         for (UUID objectUuid : objectUuids) {
@@ -342,17 +420,18 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
                 case CRYPTOGRAPHIC_KEY -> cryptographicKeyRepository.existsById(objectUuid);
                 case CRYPTOGRAPHIC_KEY_ITEM -> cryptographicKeyItemRepository.existsById(objectUuid);
                 case SECRET -> secretRepository.existsById(objectUuid);
-                case RA_PROFILE ->
-                        complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.RA_PROFILE, objectUuid) > 0;
-                case TOKEN_PROFILE ->
-                        complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.TOKEN_PROFILE, objectUuid) > 0;
-                case VAULT_PROFILE ->
-                        complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.VAULT_PROFILE, objectUuid) > 0;
-                default ->
-                        throw new ValidationException(COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
+                case RA_PROFILE -> complianceProfileAssociationRepository
+                        .countByResourceAndObjectUuid(Resource.RA_PROFILE, objectUuid) > 0;
+                case TOKEN_PROFILE -> complianceProfileAssociationRepository
+                        .countByResourceAndObjectUuid(Resource.TOKEN_PROFILE, objectUuid) > 0;
+                case VAULT_PROFILE -> complianceProfileAssociationRepository
+                        .countByResourceAndObjectUuid(Resource.VAULT_PROFILE, objectUuid) > 0;
+                default -> throw new ValidationException(
+                        COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
             };
             if (!exists) {
-                throw new NotFoundException("Cannot check compliance. %s with UUID %s not found".formatted(resource.getLabel(), objectUuid));
+                throw new NotFoundException("Cannot check compliance. %s with UUID %s not found"
+                        .formatted(resource.getLabel(), objectUuid));
             }
         }
     }
@@ -384,15 +463,20 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
     public void checkResourceObjectsComplianceAsync(Resource resource, List<UUID> objectUuids) {
         logger.info("Starting compliance check for resource={} objectCount={}", resource, objectUuids.size());
-        if (resource == Resource.CERTIFICATE_REQUEST || (!resource.complianceSubject() && !resource.hasComplianceProfiles() && resource != Resource.CRYPTOGRAPHIC_KEY_ITEM)) {
-            throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check or does not allow association of compliance profiles".formatted(resource.getLabel()));
+        if (resource == Resource.CERTIFICATE_REQUEST || (!resource.complianceSubject()
+                && !resource.hasComplianceProfiles() && resource != Resource.CRYPTOGRAPHIC_KEY_ITEM)) {
+            throw new ValidationException(
+                    "Cannot check compliance for resource %s. Resource does not support compliance check or does not allow association of compliance profiles"
+                            .formatted(resource.getLabel()));
         }
 
         Map<UUID, ComplianceProfile> complianceProfilesMap = new HashMap<>();
         Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap = new HashMap<>();
-        loadComplianceProfilesFromComplianceSubjects(resource, objectUuids, complianceProfilesMap, complianceProfileSubjectsMap);
+        loadComplianceProfilesFromComplianceSubjects(resource, objectUuids, complianceProfilesMap,
+                complianceProfileSubjectsMap);
 
-        ComplianceCheckContext context = new ComplianceCheckContext(null, null, ruleHandler, getSubjectHandlers(false), connectorApiFactory, eventProducer);
+        ComplianceCheckContext context = new ComplianceCheckContext(null, null, ruleHandler, getSubjectHandlers(false),
+                connectorApiFactory, eventProducer);
         for (ComplianceProfile profile : complianceProfilesMap.values()) {
             context.addComplianceProfile(profile, complianceProfileSubjectsMap.get(profile.getUuid()));
         }
@@ -400,66 +484,97 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
         logger.info("Completed compliance check for resource {} on {} objects", resource, objectUuids.size());
     }
 
-    private void loadComplianceProfilesFromComplianceSubjects(Resource resource, List<UUID> objectUuids, Map<UUID, ComplianceProfile> complianceProfilesMap, Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap) {
+    private void loadComplianceProfilesFromComplianceSubjects(Resource resource, List<UUID> objectUuids,
+            Map<UUID, ComplianceProfile> complianceProfilesMap,
+            Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap) {
         switch (resource) {
             case CERTIFICATE -> {
                 List<Certificate> certificates = certificateRepository.findByUuidInAndArchivedFalse(objectUuids);
                 for (Certificate certificate : certificates) {
-                    ComplianceSubject subject = certificate.getCertificateContentId() != null ? certificate : certificate.getCertificateRequestEntity();
-                    if (certificate.getRaProfileUuid() == null || subject == null) continue;
+                    ComplianceSubject subject = certificate.getCertificateContentId() != null
+                            ? certificate
+                            : certificate.getCertificateRequestEntity();
+                    if (certificate.getRaProfileUuid() == null || subject == null) {
+                        continue;
+                    }
 
-                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.RA_PROFILE, certificate.getRaProfileUuid(), certificate.getCertificateContentId() != null ? Resource.CERTIFICATE : Resource.CERTIFICATE_REQUEST, List.of(subject));
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap,
+                            Resource.RA_PROFILE, certificate.getRaProfileUuid(),
+                            certificate.getCertificateContentId() != null
+                                    ? Resource.CERTIFICATE
+                                    : Resource.CERTIFICATE_REQUEST,
+                            List.of(subject));
                 }
             }
             case CRYPTOGRAPHIC_KEY -> {
                 List<CryptographicKey> keys = cryptographicKeyRepository.findByUuidIn(objectUuids);
                 for (CryptographicKey key : keys) {
-                    if (key.getTokenProfileUuid() == null) continue;
-                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.TOKEN_PROFILE, key.getTokenProfileUuid(), Resource.CRYPTOGRAPHIC_KEY, new ArrayList<>(key.getItems()));
+                    if (key.getTokenProfileUuid() == null) {
+                        continue;
+                    }
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap,
+                            Resource.TOKEN_PROFILE, key.getTokenProfileUuid(), Resource.CRYPTOGRAPHIC_KEY,
+                            new ArrayList<>(key.getItems()));
                 }
             }
             case CRYPTOGRAPHIC_KEY_ITEM -> {
                 List<CryptographicKeyItem> keyItems = cryptographicKeyItemRepository.findByUuidIn(objectUuids);
                 for (CryptographicKeyItem keyItem : keyItems) {
-                    if (keyItem.getKey() == null || keyItem.getKey().getTokenProfileUuid() == null) continue;
-                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.TOKEN_PROFILE, keyItem.getKey().getTokenProfileUuid(), Resource.CRYPTOGRAPHIC_KEY, List.of(keyItem));
+                    if (keyItem.getKey() == null || keyItem.getKey().getTokenProfileUuid() == null) {
+                        continue;
+                    }
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap,
+                            Resource.TOKEN_PROFILE, keyItem.getKey().getTokenProfileUuid(), Resource.CRYPTOGRAPHIC_KEY,
+                            List.of(keyItem));
                 }
             }
             case SECRET -> {
                 List<Secret> secrets = secretRepository.findByUuidIn(objectUuids);
                 for (Secret secret : secrets) {
-                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.VAULT_PROFILE, secret.getSourceVaultProfileUuid(), Resource.SECRET, List.of(secret));
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap,
+                            Resource.VAULT_PROFILE, secret.getSourceVaultProfileUuid(), Resource.SECRET,
+                            List.of(secret));
                 }
             }
             case RA_PROFILE -> {
                 for (UUID associationObjectUuid : objectUuids) {
-                    if (complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.RA_PROFILE, associationObjectUuid) == 0) {
+                    if (complianceProfileAssociationRepository
+                            .countByResourceAndObjectUuid(Resource.RA_PROFILE, associationObjectUuid) == 0) {
                         continue;
                     }
-                    List<Certificate> certificates = certificateRepository.findByRaProfileUuidAndCertificateContentIdNotNullAndArchivedFalse(associationObjectUuid);
-                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.RA_PROFILE, associationObjectUuid, Resource.CERTIFICATE, new ArrayList<>(certificates));
+                    List<Certificate> certificates = certificateRepository
+                            .findByRaProfileUuidAndCertificateContentIdNotNullAndArchivedFalse(associationObjectUuid);
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap,
+                            Resource.RA_PROFILE, associationObjectUuid, Resource.CERTIFICATE,
+                            new ArrayList<>(certificates));
                 }
             }
             case TOKEN_PROFILE -> {
                 for (UUID associationObjectUuid : objectUuids) {
-                    if (complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.TOKEN_PROFILE, associationObjectUuid) == 0) {
+                    if (complianceProfileAssociationRepository
+                            .countByResourceAndObjectUuid(Resource.TOKEN_PROFILE, associationObjectUuid) == 0) {
                         continue;
                     }
-                    List<CryptographicKeyItem> keyItems = cryptographicKeyItemRepository.findByKeyTokenProfileUuid(associationObjectUuid);
-                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.TOKEN_PROFILE, associationObjectUuid, Resource.CRYPTOGRAPHIC_KEY, new ArrayList<>(keyItems));
+                    List<CryptographicKeyItem> keyItems = cryptographicKeyItemRepository
+                            .findByKeyTokenProfileUuid(associationObjectUuid);
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap,
+                            Resource.TOKEN_PROFILE, associationObjectUuid, Resource.CRYPTOGRAPHIC_KEY,
+                            new ArrayList<>(keyItems));
                 }
             }
             case VAULT_PROFILE -> {
                 for (UUID associationObjectUuid : objectUuids) {
-                    if (complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.VAULT_PROFILE, associationObjectUuid) == 0) {
+                    if (complianceProfileAssociationRepository
+                            .countByResourceAndObjectUuid(Resource.VAULT_PROFILE, associationObjectUuid) == 0) {
                         continue;
                     }
                     List<Secret> secrets = secretRepository.findBySourceVaultProfileUuid(associationObjectUuid);
-                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap, Resource.VAULT_PROFILE, associationObjectUuid, Resource.SECRET, new ArrayList<>(secrets));
+                    loadComplianceProfilesWithSubjects(complianceProfilesMap, complianceProfileSubjectsMap,
+                            Resource.VAULT_PROFILE, associationObjectUuid, Resource.SECRET, new ArrayList<>(secrets));
                 }
             }
-            default ->
-                    throw new ValidationException(COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
+            default -> throw new ValidationException(
+                    COMPLIANCE_CHECK_VALIDATION_INVALID_RESOURCE_MESSAGE.formatted(resource.getLabel()));
         }
     }
 
@@ -474,11 +589,18 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
         return ComplianceRuleStatus.NOT_AVAILABLE;
     }
 
-    private void loadComplianceProfilesWithSubjects(Map<UUID, ComplianceProfile> complianceProfilesMap, Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap, Resource resource, UUID associationObjectUuid, Resource subjectResource, Collection<ComplianceSubject> complianceSubjects) {
-        List<ComplianceProfile> complianceProfiles = complianceProfileAssociationRepository.findDistinctByResourceAndObjectUuid(resource, associationObjectUuid).stream().map(ComplianceProfileAssociation::getComplianceProfile).toList();
+    private void loadComplianceProfilesWithSubjects(Map<UUID, ComplianceProfile> complianceProfilesMap,
+            Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap, Resource resource,
+            UUID associationObjectUuid, Resource subjectResource, Collection<ComplianceSubject> complianceSubjects) {
+        List<ComplianceProfile> complianceProfiles = complianceProfileAssociationRepository
+                .findDistinctByResourceAndObjectUuid(resource, associationObjectUuid)
+                .stream()
+                .map(ComplianceProfileAssociation::getComplianceProfile)
+                .toList();
         for (ComplianceProfile profile : complianceProfiles) {
             complianceProfilesMap.putIfAbsent(profile.getUuid(), profile);
-            complianceProfileSubjectsMap.computeIfAbsent(profile.getUuid(), k -> new EnumMap<>(Resource.class))
+            complianceProfileSubjectsMap
+                    .computeIfAbsent(profile.getUuid(), k -> new EnumMap<>(Resource.class))
                     .computeIfAbsent(subjectResource, r -> new HashSet<>())
                     .addAll(complianceSubjects);
         }
@@ -491,9 +613,13 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
 
         return switch (resource) {
             case CERTIFICATE, CERTIFICATE_REQUEST ->
-                    associationResource == Resource.CERTIFICATE || associationResource == Resource.CERTIFICATE_REQUEST || associationResource == Resource.RA_PROFILE;
-            case CRYPTOGRAPHIC_KEY, CRYPTOGRAPHIC_KEY_ITEM ->
-                    associationResource == Resource.CRYPTOGRAPHIC_KEY || associationResource == Resource.CRYPTOGRAPHIC_KEY_ITEM || associationResource == Resource.TOKEN_PROFILE;
+                associationResource == Resource.CERTIFICATE || associationResource == Resource.CERTIFICATE_REQUEST
+                        || associationResource == Resource.RA_PROFILE;
+            case CRYPTOGRAPHIC_KEY,
+                    CRYPTOGRAPHIC_KEY_ITEM ->
+                associationResource == Resource.CRYPTOGRAPHIC_KEY
+                        || associationResource == Resource.CRYPTOGRAPHIC_KEY_ITEM
+                        || associationResource == Resource.TOKEN_PROFILE;
             case SECRET -> associationResource == Resource.VAULT_PROFILE || associationResource == Resource.SECRET;
             default -> false;
         };
@@ -506,35 +632,51 @@ public class ComplianceServiceImpl implements ComplianceExternalService, Complia
             case CRYPTOGRAPHIC_KEY, CRYPTOGRAPHIC_KEY_ITEM, TOKEN_PROFILE -> Resource.CRYPTOGRAPHIC_KEY;
             case SECRET, VAULT_PROFILE -> Resource.SECRET;
             default ->
-                    throw new ValidationException("Cannot determine compliance subject resource for association resource %s".formatted(associationResource.getLabel()));
+                throw new ValidationException("Cannot determine compliance subject resource for association resource %s"
+                        .formatted(associationResource.getLabel()));
         };
     }
 
-    private <T extends ComplianceSubject> List<T> getComplianceSubjects(Resource associationResource, UUID associationObjectUuid) {
-        // Filter by access control or if user can check compliance, allow listing of objects as subjects for compliance check?
+    private <T extends ComplianceSubject> List<T> getComplianceSubjects(Resource associationResource,
+            UUID associationObjectUuid) {
+        // Filter by access control or if user can check compliance, allow listing of objects as subjects for compliance
+        // check?
         return (List<T>) switch (associationResource) {
-            case CERTIFICATE ->
-                    certificateRepository.findByUuidInAndCertificateContentIdNotNullAndArchivedFalse(List.of(associationObjectUuid));
-            case CERTIFICATE_REQUEST ->
-                    certificateRequestRepository.findByUuidIn(List.of(associationObjectUuid)).map(List::of).orElse(List.of());
+            case CERTIFICATE -> certificateRepository
+                    .findByUuidInAndCertificateContentIdNotNullAndArchivedFalse(List.of(associationObjectUuid));
+            case CERTIFICATE_REQUEST -> certificateRequestRepository
+                    .findByUuidIn(List.of(associationObjectUuid))
+                    .map(List::of)
+                    .orElse(List.of());
             case CRYPTOGRAPHIC_KEY -> cryptographicKeyItemRepository.findByKeyUuidIn(List.of(associationObjectUuid));
             case CRYPTOGRAPHIC_KEY_ITEM ->
-                    cryptographicKeyItemRepository.findByUuid(associationObjectUuid).map(List::of).orElse(List.of());
+                cryptographicKeyItemRepository.findByUuid(associationObjectUuid).map(List::of).orElse(List.of());
             case SECRET -> secretRepository.findByUuidIn(List.of(associationObjectUuid));
-            case RA_PROFILE ->
-                    certificateRepository.findByRaProfileUuidAndCertificateContentIdNotNullAndArchivedFalse(associationObjectUuid);
+            case RA_PROFILE -> certificateRepository
+                    .findByRaProfileUuidAndCertificateContentIdNotNullAndArchivedFalse(associationObjectUuid);
             case TOKEN_PROFILE -> cryptographicKeyItemRepository.findByKeyTokenProfileUuid(associationObjectUuid);
             case VAULT_PROFILE -> secretRepository.findBySourceVaultProfileUuid(associationObjectUuid);
             default -> List.of();
         };
     }
 
-    private Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> getSubjectHandlers(boolean checkByProfiles) {
+    private Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> getSubjectHandlers(
+            boolean checkByProfiles) {
         Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> map = new EnumMap<>(Resource.class);
-        map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE, certificateTriggerEvaluator, certificateRepository));
-        map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE_REQUEST, certificateRequestTriggerEvaluator, certificateRequestRepository));
-        map.put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CRYPTOGRAPHIC_KEY_ITEM, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
-        map.put(Resource.SECRET, new ComplianceSubjectHandler<>(checkByProfiles, Resource.SECRET, secretTriggerEvaluator, secretRepository));
+        map
+                .put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE,
+                        certificateTriggerEvaluator, certificateRepository));
+        map
+                .put(Resource.CERTIFICATE_REQUEST,
+                        new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE_REQUEST,
+                                certificateRequestTriggerEvaluator, certificateRequestRepository));
+        map
+                .put(Resource.CRYPTOGRAPHIC_KEY,
+                        new ComplianceSubjectHandler<>(checkByProfiles, Resource.CRYPTOGRAPHIC_KEY_ITEM,
+                                cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
+        map
+                .put(Resource.SECRET, new ComplianceSubjectHandler<>(checkByProfiles, Resource.SECRET,
+                        secretTriggerEvaluator, secretRepository));
 
         return map;
     }

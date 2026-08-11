@@ -3,6 +3,8 @@ package com.otilm.core.messaging.jms.producers;
 import com.otilm.api.model.messaging.timequality.TimeQualityConfigSnapshot;
 import com.otilm.core.dao.entity.signing.TimeQualityConfiguration;
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
+import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,26 +15,29 @@ import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessagePostProcessor;
 import org.springframework.retry.support.RetryTemplate;
 
-import java.time.Duration;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TimeQualityConfigurationProducerTest {
 
-    @Mock JmsTemplate jmsTemplate;
-    @Mock MessagingProperties messagingProperties;
+    @Mock
+    JmsTemplate jmsTemplate;
+    @Mock
+    MessagingProperties messagingProperties;
 
     private TimeQualityConfigurationProducer producer;
 
     @BeforeEach
     void setUp() {
-        when(messagingProperties.produceDestinationTimeQualityConfig()).thenReturn("/exchanges/ilm/time-quality.config");
-        producer = new TimeQualityConfigurationProducer(jmsTemplate, messagingProperties, RetryTemplate.defaultInstance());
+        when(messagingProperties.produceDestinationTimeQualityConfig())
+                .thenReturn("/exchanges/ilm/time-quality.config");
+        producer = new TimeQualityConfigurationProducer(jmsTemplate, messagingProperties,
+                RetryTemplate.defaultInstance());
     }
 
     @Test
@@ -42,10 +47,9 @@ class TimeQualityConfigurationProducerTest {
         producer.publishSnapshot(List.of(config), null);
 
         ArgumentCaptor<Object> messageCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(jmsTemplate).convertAndSend(
-                eq("/exchanges/ilm/time-quality.config"),
-                messageCaptor.capture(),
-                any(MessagePostProcessor.class));
+        verify(jmsTemplate)
+                .convertAndSend(eq("/exchanges/ilm/time-quality.config"), messageCaptor.capture(),
+                        any(MessagePostProcessor.class));
 
         TimeQualityConfigSnapshot sent = (TimeQualityConfigSnapshot) messageCaptor.getValue();
         assertThat(sent.getConfigurations()).hasSize(1);

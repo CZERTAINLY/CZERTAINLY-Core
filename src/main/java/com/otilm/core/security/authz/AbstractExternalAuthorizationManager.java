@@ -1,6 +1,7 @@
 package com.otilm.core.security.authz;
 
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
+import java.util.function.Supplier;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -9,19 +10,18 @@ import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import java.util.function.Supplier;
-
 @Component
 public abstract class AbstractExternalAuthorizationManager<T> implements AuthorizationManager<T> {
 
     protected final Log logger = LogFactory.getLog(this.getClass());
 
-
     @Override
     public AuthorizationDecision check(Supplier<Authentication> authenticationSupplier, T object) {
         Authentication authentication = authenticationSupplier.get();
-        if (!(authentication instanceof PlatformAuthenticationToken || authentication instanceof AnonymousAuthenticationToken)) {
-            logger.trace("Authentication is not of type 'PlatformAuthenticationToken' or 'AnonymousAuthenticationToken'. Cannot authorize.");
+        if (!(authentication instanceof PlatformAuthenticationToken
+                || authentication instanceof AnonymousAuthenticationToken)) {
+            logger
+                    .trace("Authentication is not of type 'PlatformAuthenticationToken' or 'AnonymousAuthenticationToken'. Cannot authorize.");
             return new AuthorizationDecision(false);
         }
 

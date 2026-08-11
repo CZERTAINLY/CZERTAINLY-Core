@@ -1,5 +1,11 @@
 package com.otilm.core.integration.service.writer;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.extension.Parameters;
+import com.github.tomakehurst.wiremock.extension.ServeEventListener;
+import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.dao.entity.Certificate;
@@ -10,20 +16,6 @@ import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.service.CertificateChainService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.extension.ServeEventListener;
-import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
@@ -34,24 +26,35 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * <p>Verifies two invariants that must hold for the certificate chain code:
+ * <p>
+ * Verifies two invariants that must hold for the certificate chain code:
  * <ol>
- * <li><b>No row lock held across AIA HTTP.</b> While the chain bean is in the middle of an AIA-issuer download,
- * a competing UPDATE to the same certificate row must return promptly — proving that the chain bean does not keep
- * a transaction open across the HTTP call.</li>
+ * <li><b>No row lock held across AIA HTTP.</b> While the chain bean is in the middle of an AIA-issuer download, a
+ * competing UPDATE to the same certificate row must return promptly — proving that the chain bean does not keep a
+ * transaction open across the HTTP call.</li>
  * <li><b>No lost update from a stale detached-entity merge.</b> The chain bean's writes go through
  * {@link CertificateChainWriter}, which issues targeted {@code @Modifying} UPDATEs that touch only the issuer columns.
  * A concurrent write to a different column (e.g. {@code state}) must survive the chain bean's later commit.</li>
  * </ol>
  *
- * <p>The test does not extend any class-level {@code @Transactional} — fixtures must be committed before the background
- * and foreground threads run, otherwise neither thread would see them (each thread runs in its own JDBC connection).</p>
+ * <p>
+ * The test does not extend any class-level {@code @Transactional} — fixtures must be committed before the background
+ * and foreground threads run, otherwise neither thread would see them (each thread runs in its own JDBC connection).
+ * </p>
  */
 class CertificateChainWriteVsRevokeITest extends BaseSpringBootTest {
 
@@ -95,23 +98,27 @@ class CertificateChainWriteVsRevokeITest extends BaseSpringBootTest {
 
         // Real CA + EE pair. The EE certificate's AIA caIssuers URL points at WireMock.
         KeyPair caKeyPair = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
-        X509Certificate caX509 = CertificateGeneratorHelper.generateCACertificate(
-                caKeyPair, "CN=ChainRaceCa");
+        X509Certificate caX509 = CertificateGeneratorHelper.generateCACertificate(caKeyPair, "CN=ChainRaceCa");
 
         KeyPair eeKeyPair = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
-        X509Certificate eeX509 = CertificateGeneratorHelper.generateEndEntityCertificateWithCaIssuers(
-                caKeyPair, caX509, eeKeyPair, "CN=ChainRaceEE", caIssuersUrl);
+        X509Certificate eeX509 = CertificateGeneratorHelper
+                .generateEndEntityCertificateWithCaIssuers(caKeyPair, caX509, eeKeyPair, "CN=ChainRaceEE",
+                        caIssuersUrl);
 
         // Persist the EE cert with issuer fields null so chain reconstruction must resolve the issuer.
         eeCertUuid = persistCertificate(eeX509, CertificateState.ISSUED).getUuid();
 
-        // WireMock returns the CA cert (DER) with a 500 ms delay — enough for the foreground/ UPDATE to race the background HTTP wait.
-        aiaServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/aia/ca.cer"))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/pkix-cert")
-                        .withBody(caX509.getEncoded())
-                        .withFixedDelay(500)));
+        // WireMock returns the CA cert (DER) with a 500 ms delay — enough for the foreground/ UPDATE to race the
+        // background HTTP wait.
+        aiaServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/aia/ca.cer"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/pkix-cert")
+                                .withBody(caX509.getEncoded())
+                                .withFixedDelay(500)));
     }
 
     @AfterEach
@@ -145,18 +152,18 @@ class CertificateChainWriteVsRevokeITest extends BaseSpringBootTest {
                 "AIA server did not receive /aia/ca.cer request within 10 s");
 
         // ----- Foreground: competing state update to the SAME row -----
-        // Direct JDBC bypasses JPA so this models any external-actor write (a revoke while validation+chain are in flight).
+        // Direct JDBC bypasses JPA so this models any external-actor write (a revoke while validation+chain are in
+        // flight).
         long fgStart = System.currentTimeMillis();
-        int updated = jdbcTemplate.update(
-                "UPDATE core.certificate SET state = ?, i_upd = CURRENT_TIMESTAMP WHERE uuid = ?",
-                CertificateState.PENDING_REVOKE.name(), eeCertUuid);
+        int updated = jdbcTemplate
+                .update("UPDATE core.certificate SET state = ?, i_upd = CURRENT_TIMESTAMP WHERE uuid = ?",
+                        CertificateState.PENDING_REVOKE.name(), eeCertUuid);
         long fgElapsedMs = System.currentTimeMillis() - fgStart;
         assertEquals(1, updated, "foreground UPDATE must affect exactly one row");
 
         // Invariant 1: the chain bean does not hold a row lock across the AIA HTTP.
-        assertTrue(fgElapsedMs < 2_000,
-                "Foreground UPDATE took " + fgElapsedMs + " ms — chain bean appears to hold "
-                        + "a row lock across AIA HTTP. Expected < 2 s.");
+        assertTrue(fgElapsedMs < 2_000, "Foreground UPDATE took " + fgElapsedMs + " ms — chain bean appears to hold "
+                + "a row lock across AIA HTTP. Expected < 2 s.");
 
         // ----- Drain background -----
         try {
@@ -167,8 +174,8 @@ class CertificateChainWriteVsRevokeITest extends BaseSpringBootTest {
         assertNull(bgError.get(), "background chain reconstruction must not throw: " + bgError.get());
 
         // ----- Invariant 2: the chain bean's targeted UPDATE did not clobber state -----
-        String finalState = jdbcTemplate.queryForObject(
-                "SELECT state FROM core.certificate WHERE uuid = ?", String.class, eeCertUuid);
+        String finalState = jdbcTemplate
+                .queryForObject("SELECT state FROM core.certificate WHERE uuid = ?", String.class, eeCertUuid);
         assertEquals(CertificateState.PENDING_REVOKE.name(), finalState,
                 "Foreground state update must survive the chain bean's later writer call. "
                         + "If state regresses to ISSUED the chain code did a full-entity merge "

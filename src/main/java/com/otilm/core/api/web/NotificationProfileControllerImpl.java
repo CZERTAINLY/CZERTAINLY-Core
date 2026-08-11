@@ -14,13 +14,12 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.NotificationProfileExternalService;
+import java.net.URI;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
 
 @RestController
 public class NotificationProfileControllerImpl implements NotificationProfileController {
@@ -52,8 +51,10 @@ public class NotificationProfileControllerImpl implements NotificationProfileCon
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<?> createNotificationProfile(NotificationProfileRequestDto notificationProfileRequestDto) throws NotFoundException, AlreadyExistException {
-        NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(notificationProfileRequestDto);
+    public ResponseEntity<?> createNotificationProfile(NotificationProfileRequestDto notificationProfileRequestDto)
+            throws NotFoundException, AlreadyExistException {
+        NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService
+                .createNotificationProfile(notificationProfileRequestDto);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -65,8 +66,10 @@ public class NotificationProfileControllerImpl implements NotificationProfileCon
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_PROFILE, operation = Operation.UPDATE)
-    public ResponseEntity<?> editNotificationProfile(String uuid, NotificationProfileUpdateRequestDto notificationProfileUpdateRequestDto) throws NotFoundException {
-        NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.editNotificationProfile(SecuredUUID.fromString(uuid), notificationProfileUpdateRequestDto);
+    public ResponseEntity<?> editNotificationProfile(String uuid,
+            NotificationProfileUpdateRequestDto notificationProfileUpdateRequestDto) throws NotFoundException {
+        NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService
+                .editNotificationProfile(SecuredUUID.fromString(uuid), notificationProfileUpdateRequestDto);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()

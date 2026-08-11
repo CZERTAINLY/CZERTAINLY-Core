@@ -19,20 +19,19 @@ import com.otilm.api.model.core.workflows.TriggerType;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.service.RuleExternalService;
 import com.otilm.core.service.TriggerExternalService;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.UUID;
-
 /**
- * Seeds an "ignore" trigger on the {@code CERTIFICATE_UPLOADED} event whose single condition matches an
- * ISSUED certificate, then associates it globally. With this trigger in place {@code uploadSync} of an
- * issued certificate is suppressed, so the upload is recorded as "not uploaded".
+ * Seeds an "ignore" trigger on the {@code CERTIFICATE_UPLOADED} event whose single condition matches an ISSUED
+ * certificate, then associates it globally. With this trigger in place {@code uploadSync} of an issued certificate is
+ * suppressed, so the upload is recorded as "not uploaded".
  * <p>
- * The condition → rule → trigger → association chain is created through the real {@code RuleExternalService}
- * and {@code TriggerExternalService}, the same path operators use, so tests exercise the genuine workflow
- * wiring rather than a hand-built shortcut.
+ * The condition → rule → trigger → association chain is created through the real {@code RuleExternalService} and
+ * {@code TriggerExternalService}, the same path operators use, so tests exercise the genuine workflow wiring rather
+ * than a hand-built shortcut.
  */
 @Component
 public class CertificateUploadTriggerSeeder {
@@ -74,7 +73,8 @@ public class CertificateUploadTriggerSeeder {
         triggerRequest.setIgnoreTrigger(true);
         TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
 
-        triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null,
-                List.of(UUID.fromString(trigger.getUuid())), true);
+        triggerService
+                .createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null,
+                        List.of(UUID.fromString(trigger.getUuid())), true);
     }
 }

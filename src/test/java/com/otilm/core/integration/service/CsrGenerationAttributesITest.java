@@ -12,20 +12,27 @@ import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.SettingsSectionCategory;
 import com.otilm.core.certificate.request.DefaultRequestAttributeSet;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.RaProfileCertificateRequestAttribute;
+import com.otilm.core.dao.entity.Setting;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.RaProfileCertificateRequestAttributeRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.SettingRepository;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,7 +56,7 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
-    private RaProfileCertificateRequestAttributeRepository  raProfileCertificateRequestAttributeRepository;
+    private RaProfileCertificateRequestAttributeRepository raProfileCertificateRequestAttributeRepository;
 
     // Stub the connector dynamic-set fetch so no test needs a live authority/connector round-trip.
     @MockitoBean
@@ -77,11 +84,13 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
     void withProfileReturnsTheResolvedSetNotTheSeed() throws Exception {
         // given: an enabled profile with a stored STATIC_ONLY set; no authority -> no connector fetch
         RaProfile raProfile = newEnabledRaProfile();
-        writer.saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "department"))),
-                AttributeSetMergeMode.STATIC_ONLY, null);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "department"))),
+                        AttributeSetMergeMode.STATIC_ONLY, null);
 
         // when
-        List<BaseAttribute> resolved = certificateService.getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
+        List<BaseAttribute> resolved = certificateService
+                .getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
 
         // then: the configured set shapes the response, and the connector was never consulted
         assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("department");
@@ -94,11 +103,14 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
         RaProfile raProfile = newEnabledRaProfile();
 
         // when
-        List<BaseAttribute> resolved = certificateService.getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
+        List<BaseAttribute> resolved = certificateService
+                .getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
 
         // then: the platform default set (built-in seed while unset)
-        assertThat(resolved).extracting(BaseAttribute::getName)
-                .containsExactlyElementsOf(DefaultRequestAttributeSet.seed().stream().map(BaseAttribute::getName).toList());
+        assertThat(resolved)
+                .extracting(BaseAttribute::getName)
+                .containsExactlyElementsOf(
+                        DefaultRequestAttributeSet.seed().stream().map(BaseAttribute::getName).toList());
     }
 
     @Test
@@ -131,7 +143,8 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
                 .thenReturn(List.of(def("c1", "connector-attr")));
 
         // when
-        List<BaseAttribute> resolved = certificateService.getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
+        List<BaseAttribute> resolved = certificateService
+                .getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
 
         // then: the stubbed connector set is projected, and the connector attribute fetch was invoked
         assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("connector-attr");
@@ -182,8 +195,10 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
         List<BaseAttribute> result = certificateService.getCsrGenerationAttributes();
 
         // then: same attribute names as the historical fixed seed — the unscoped contract is preserved
-        assertThat(result).extracting(BaseAttribute::getName)
-                .containsExactlyElementsOf(DefaultRequestAttributeSet.seed().stream().map(BaseAttribute::getName).toList());
+        assertThat(result)
+                .extracting(BaseAttribute::getName)
+                .containsExactlyElementsOf(
+                        DefaultRequestAttributeSet.seed().stream().map(BaseAttribute::getName).toList());
     }
 
     @Test

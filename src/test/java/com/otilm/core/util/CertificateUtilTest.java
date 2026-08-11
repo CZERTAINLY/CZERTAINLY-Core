@@ -1,18 +1,31 @@
 package com.otilm.core.util;
 
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.certificate.QcType;
 import com.otilm.api.model.core.oid.OidCategory;
-import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateRequestEntity;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.model.request.CrmfCertificateRequest;
 import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.SubsequentMessage;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -30,19 +43,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.*;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 class CertificateUtilTest {
 
@@ -58,17 +64,11 @@ class CertificateUtilTest {
 
     private static final String VALID_SAN_STRING = "{\"dNSName\":[\"domain.com\"],\"directoryName\":[],\"ediPartyName\":[],\"iPAddress\":[\"192.168.10.10\"],\"otherName\":[\"1.2.3.4=example othername\"],\"registeredID\":[],\"rfc822Name\":[],\"uniformResourceIdentifier\":[],\"x400Address\":[]}";
 
-    private static final Map<String, List<String>> VALID_SAN_MAP = Map.of(
-            "registeredID", List.of(),
-            "ediPartyName", List.of(),
-            "iPAddress", List.of("192.168.10.10"),
-            "x400Address", List.of(),
-            "rfc822Name", List.of(),
-            "otherName", List.of("1.2.3.4=example othername"),
-            "dNSName", List.of("domain.com"),
-            "uniformResourceIdentifier", List.of(),
-            "directoryName", List.of()
-    );
+    private static final Map<String, List<String>> VALID_SAN_MAP = Map
+            .of("registeredID", List.of(), "ediPartyName", List.of(), "iPAddress", List.of("192.168.10.10"),
+                    "x400Address", List.of(), "rfc822Name", List.of(), "otherName",
+                    List.of("1.2.3.4=example othername"), "dNSName", List.of("domain.com"), "uniformResourceIdentifier",
+                    List.of(), "directoryName", List.of());
 
     @Test
     void testSerializeSans() {
@@ -109,7 +109,8 @@ class CertificateUtilTest {
     }
 
     @Test
-    void testParseHybridCertificate() throws IOException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException, SignatureException, OperatorCreationException, CertificateException {
+    void testParseHybridCertificate() throws IOException, NoSuchAlgorithmException, InvalidAlgorithmParameterException,
+            InvalidKeyException, SignatureException, OperatorCreationException, CertificateException {
         X509Certificate certificate = CertificateTestUtil.createHybridCertificate();
 
         Certificate certificateEntity = new Certificate();
@@ -133,7 +134,9 @@ class CertificateUtilTest {
         Assertions.assertNull(entity.getQcCompliance(), "qcCompliance should be null when no QCStatements extension");
         Assertions.assertNull(entity.getQcSscd(), "qcSscd should be null when no QCStatements extension");
         Assertions.assertNull(entity.getQcType(), "qcType should be null when no QCStatements extension");
-        Assertions.assertNull(entity.getQcCcLegislation(), "qcCcLegislation should be null when no QCStatements extension");
+        Assertions
+                .assertNull(entity.getQcCcLegislation(),
+                        "qcCcLegislation should be null when no QCStatements extension");
     }
 
     @Test
@@ -141,8 +144,12 @@ class CertificateUtilTest {
         X509Certificate x509 = CertificateTestUtil.createCertificateWithoutEku();
         Certificate entity = new Certificate();
         CertificateUtil.prepareIssuedCertificate(entity, x509);
-        Assertions.assertNull(entity.getExtendedKeyUsage(), "extendedKeyUsage should be null when EKU extension is absent");
-        Assertions.assertNull(entity.getExtendedKeyUsageCritical(), "extendedKeyUsageCritical should be null when EKU extension is absent — criticality is not applicable");
+        Assertions
+                .assertNull(entity.getExtendedKeyUsage(),
+                        "extendedKeyUsage should be null when EKU extension is absent");
+        Assertions
+                .assertNull(entity.getExtendedKeyUsageCritical(),
+                        "extendedKeyUsageCritical should be null when EKU extension is absent — criticality is not applicable");
     }
 
     @Test
@@ -150,8 +157,12 @@ class CertificateUtilTest {
         X509Certificate x509 = CertificateTestUtil.createCertificateWithEku(true);
         Certificate entity = new Certificate();
         CertificateUtil.prepareIssuedCertificate(entity, x509);
-        Assertions.assertNotNull(entity.getExtendedKeyUsage(), "extendedKeyUsage should be set when EKU extension is present");
-        Assertions.assertTrue(entity.getExtendedKeyUsageCritical(), "extendedKeyUsageCritical should be true when EKU extension is marked critical");
+        Assertions
+                .assertNotNull(entity.getExtendedKeyUsage(),
+                        "extendedKeyUsage should be set when EKU extension is present");
+        Assertions
+                .assertTrue(entity.getExtendedKeyUsageCritical(),
+                        "extendedKeyUsageCritical should be true when EKU extension is marked critical");
     }
 
     @Test
@@ -159,8 +170,12 @@ class CertificateUtilTest {
         X509Certificate x509 = CertificateTestUtil.createCertificateWithEku(false);
         Certificate entity = new Certificate();
         CertificateUtil.prepareIssuedCertificate(entity, x509);
-        Assertions.assertNotNull(entity.getExtendedKeyUsage(), "extendedKeyUsage should be set when EKU extension is present");
-        Assertions.assertFalse(entity.getExtendedKeyUsageCritical(), "extendedKeyUsageCritical should be false when EKU extension is present but not marked critical");
+        Assertions
+                .assertNotNull(entity.getExtendedKeyUsage(),
+                        "extendedKeyUsage should be set when EKU extension is present");
+        Assertions
+                .assertFalse(entity.getExtendedKeyUsageCritical(),
+                        "extendedKeyUsageCritical should be false when EKU extension is present but not marked critical");
     }
 
     @Test
@@ -187,8 +202,8 @@ class CertificateUtilTest {
 
     @Test
     void testPrepareIssuedCertificate_qcTypeAllValues() throws Exception {
-        X509Certificate x509 = CertificateTestUtil.createCertificateWithQcStatements(
-                false, false, List.of(QcType.ESIGN, QcType.ESEAL, QcType.WEB), null);
+        X509Certificate x509 = CertificateTestUtil
+                .createCertificateWithQcStatements(false, false, List.of(QcType.ESIGN, QcType.ESEAL, QcType.WEB), null);
         Certificate entity = new Certificate();
         CertificateUtil.prepareIssuedCertificate(entity, x509);
         Assertions.assertNotNull(entity.getQcType(), "qcType should not be null");
@@ -200,8 +215,8 @@ class CertificateUtilTest {
 
     @Test
     void testPrepareIssuedCertificate_qcCcLegislation() throws Exception {
-        X509Certificate x509 = CertificateTestUtil.createCertificateWithQcStatements(
-                false, false, null, List.of("DE", "FR"));
+        X509Certificate x509 = CertificateTestUtil
+                .createCertificateWithQcStatements(false, false, null, List.of("DE", "FR"));
         Certificate entity = new Certificate();
         CertificateUtil.prepareIssuedCertificate(entity, x509);
         Assertions.assertNotNull(entity.getQcCcLegislation(), "qcCcLegislation should not be null");
@@ -212,8 +227,8 @@ class CertificateUtilTest {
 
     @Test
     void testPrepareIssuedCertificate_allQcStatements() throws Exception {
-        X509Certificate x509 = CertificateTestUtil.createCertificateWithQcStatements(
-                true, true, List.of(QcType.ESIGN), List.of("AT"));
+        X509Certificate x509 = CertificateTestUtil
+                .createCertificateWithQcStatements(true, true, List.of(QcType.ESIGN), List.of("AT"));
         Certificate entity = new Certificate();
         CertificateUtil.prepareIssuedCertificate(entity, x509);
         Assertions.assertTrue(entity.getQcCompliance(), "qcCompliance should be true");
@@ -272,8 +287,7 @@ class CertificateUtilTest {
         GeneralNameEntry typeless = new GeneralNameEntry();
         typeless.setValue("device-9");
 
-        assertThrows(ValidationException.class,
-                () -> CertificateUtil.applyRegistrationSan(cert, List.of(typeless)));
+        assertThrows(ValidationException.class, () -> CertificateUtil.applyRegistrationSan(cert, List.of(typeless)));
         assertNull(cert.getSubjectAlternativeNames());
     }
 
@@ -286,8 +300,7 @@ class CertificateUtilTest {
         otherName.setType(GeneralNameType.OTHER_NAME);
         otherName.setValue("device-9");
 
-        assertThrows(ValidationException.class,
-                () -> CertificateUtil.applyRegistrationSan(cert, List.of(otherName)));
+        assertThrows(ValidationException.class, () -> CertificateUtil.applyRegistrationSan(cert, List.of(otherName)));
         assertNull(cert.getSubjectAlternativeNames());
     }
 
@@ -355,10 +368,11 @@ class CertificateUtilTest {
         keyPairGenerator.initialize(2048);
         KeyPair keyPair = keyPairGenerator.generateKeyPair();
         ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
-        extensionsGenerator.addExtension(Extension.subjectAlternativeName, false,
-                new GeneralNames(new GeneralName(GeneralName.iPAddress, "192.168.1.1")));
-        JcaPKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name("CN=device-1"), keyPair.getPublic());
+        extensionsGenerator
+                .addExtension(Extension.subjectAlternativeName, false,
+                        new GeneralNames(new GeneralName(GeneralName.iPAddress, "192.168.1.1")));
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(
+                new X500Name("CN=device-1"), keyPair.getPublic());
         builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
         CertificateRequest request = new Pkcs10CertificateRequest(
                 builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate())).getEncoded());
@@ -366,20 +380,22 @@ class CertificateUtilTest {
         List<String> ipSans = CertificateUtil.getSAN(request).get("iPAddress");
 
         Assertions.assertEquals(1, ipSans.size());
-        Assertions.assertTrue(ipSans.get(0).equalsIgnoreCase("#c0a80101"),
-                "an IP SAN reads back from a CSR as its octet hex, was: " + ipSans.get(0));
+        Assertions
+                .assertTrue(ipSans.get(0).equalsIgnoreCase("#c0a80101"),
+                        "an IP SAN reads back from a CSR as its octet hex, was: " + ipSans.get(0));
     }
 
     private static CertificateRequest generatePkcs10(String subjectDn, String sanDnsName) throws Exception {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
         keyPairGenerator.initialize(2048);
         KeyPair keyPair = keyPairGenerator.generateKeyPair();
-        JcaPKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), keyPair.getPublic());
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                keyPair.getPublic());
         if (sanDnsName != null) {
             ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
-            extensionsGenerator.addExtension(Extension.subjectAlternativeName, false,
-                    new GeneralNames(new GeneralName(GeneralName.dNSName, sanDnsName)));
+            extensionsGenerator
+                    .addExtension(Extension.subjectAlternativeName, false,
+                            new GeneralNames(new GeneralName(GeneralName.dNSName, sanDnsName)));
             builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
         }
         return new Pkcs10CertificateRequest(

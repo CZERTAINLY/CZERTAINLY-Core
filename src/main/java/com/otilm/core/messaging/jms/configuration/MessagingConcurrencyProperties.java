@@ -16,8 +16,6 @@ public record MessagingConcurrencyProperties(
         @NotBlank @Pattern(regexp = "\\d+(-\\d+)?", message = "must be a number or range (e.g. '5' or '3-10')") String validation,
         @NotBlank @Pattern(regexp = "\\d+(-\\d+)?", message = "must be a number or range (e.g. '5' or '3-10')") String timeQualityConfigRequest,
         @NotBlank @Pattern(regexp = "\\d+(-\\d+)?", message = "must be a number or range (e.g. '5' or '3-10')") String timeQualityResults,
-        @NotBlank @Pattern(regexp = "\\d+(-\\d+)?", message = "must be a number or range (e.g. '5' or '3-10')") String providerStatusPoll
-) {
+        @NotBlank @Pattern(regexp = "\\d+(-\\d+)?", message = "must be a number or range (e.g. '5' or '3-10')") String providerStatusPoll) {
 
 }
-

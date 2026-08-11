@@ -1,11 +1,16 @@
 package com.otilm.core.security.authz.opa;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.core.security.authz.OpaPolicy;
 import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
 import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -17,12 +22,6 @@ import org.junit.jupiter.api.function.Executable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -66,7 +65,8 @@ class OpaClientTest {
         setUpSuccessfulResourceAccessResponse();
 
         // when
-        OpaResourceAccessResult result = opaClient.checkResourceAccess(OpaPolicy.METHOD.policyName, getResource(), getPrincipal(), null);
+        OpaResourceAccessResult result = opaClient
+                .checkResourceAccess(OpaPolicy.METHOD.policyName, getResource(), getPrincipal(), null);
 
         // then
         assertTrue(result.isAuthorized());
@@ -79,7 +79,8 @@ class OpaClientTest {
         setUpSuccessfulObjectAccessResponse();
 
         // when
-        OpaObjectAccessResult result = opaClient.checkObjectAccess(OpaPolicy.OBJECTS.policyName, getResource(), getPrincipal(), null);
+        OpaObjectAccessResult result = opaClient
+                .checkObjectAccess(OpaPolicy.OBJECTS.policyName, getResource(), getPrincipal(), null);
 
         // then
         assertTrue(result.isActionAllowedForGroupOfObjects());
@@ -129,7 +130,8 @@ class OpaClientTest {
         setUpEmptyResponse();
 
         // when
-        Executable shouldThrow = () -> opaClient.checkResourceAccess(OpaPolicy.METHOD.policyName, getResource(), getPrincipal(), null);
+        Executable shouldThrow = () -> opaClient
+                .checkResourceAccess(OpaPolicy.METHOD.policyName, getResource(), getPrincipal(), null);
 
         // then
         assertThrows(AccessDeniedException.class, shouldThrow);
@@ -141,12 +143,12 @@ class OpaClientTest {
         setUpFaultyResponse();
 
         // when
-        Executable shouldThrow = () -> opaClient.checkResourceAccess(OpaPolicy.METHOD.policyName, getResource(), getPrincipal(), null);
+        Executable shouldThrow = () -> opaClient
+                .checkResourceAccess(OpaPolicy.METHOD.policyName, getResource(), getPrincipal(), null);
 
         // then
         assertThrows(AccessDeniedException.class, shouldThrow);
     }
-
 
     OpaRequestedResource getResource() {
         Map<String, String> properties = new HashMap<>();
@@ -179,11 +181,8 @@ class OpaClientTest {
     }
 
     void setUpSuccessfulResourceAccessResponse() {
-        opaMock.enqueue(
-                new MockResponse()
-                        .setResponseCode(200)
-                        .setHeader("content-type", "application/json")
-                        //@formatter:off
+        opaMock.enqueue(new MockResponse().setResponseCode(200).setHeader("content-type", "application/json")
+        //@formatter:off
                         .setBody("{" +
                                     "\"result\": {" +
                                         "\"allow\": [\"SomeOpaRule\"]," +
@@ -195,11 +194,8 @@ class OpaClientTest {
     }
 
     void setUpSuccessfulObjectAccessResponse() {
-        opaMock.enqueue(
-                new MockResponse()
-                        .setResponseCode(200)
-                        .setHeader("content-type", "application/json")
-                        //@formatter:off
+        opaMock.enqueue(new MockResponse().setResponseCode(200).setHeader("content-type", "application/json")
+        //@formatter:off
                         .setBody("{" +
                                     "\"result\": {" +
                                         "\"forbiddenObjects\": [\"f258cb3c-17b5-11ed-861d-0242ac120002\"]," +
@@ -212,17 +208,10 @@ class OpaClientTest {
     }
 
     void setUpEmptyResponse() {
-        opaMock.enqueue(
-                new MockResponse()
-                        .setResponseCode(200)
-                        .setHeader("content-type", "application/json")
-        );
+        opaMock.enqueue(new MockResponse().setResponseCode(200).setHeader("content-type", "application/json"));
     }
 
     void setUpFaultyResponse() {
-        opaMock.enqueue(
-                new MockResponse()
-                        .setResponseCode(500)
-        );
+        opaMock.enqueue(new MockResponse().setResponseCode(500));
     }
 }

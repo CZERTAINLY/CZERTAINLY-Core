@@ -14,8 +14,8 @@ class CertificateDiscoveredEventHandlerStatusTest {
 
     @Test
     void cleanRunReportsProcessingAndKeepsTheOriginalMessage() {
-        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 0, 0, false), ORIGINAL);
+        DiscoveryResult result = CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(0, 0, 0, 0, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
         assertThat(result.getMessage()).isEqualTo(ORIGINAL);
@@ -23,8 +23,8 @@ class CertificateDiscoveredEventHandlerStatusTest {
 
     @Test
     void inventoryGapsAloneAreReported() {
-        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(3, 0, 0, 0, false), ORIGINAL);
+        DiscoveryResult result = CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(3, 0, 0, 0, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
         assertThat(result.getMessage())
@@ -33,8 +33,8 @@ class CertificateDiscoveredEventHandlerStatusTest {
 
     @Test
     void keyGapsAloneAreReported() {
-        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 2, 0, 0, false), ORIGINAL);
+        DiscoveryResult result = CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(0, 2, 0, 0, false), ORIGINAL);
 
         assertThat(result.getMessage())
                 .isEqualTo("2 certificate(s) were imported without all of their public keys associated. " + TRAILER);
@@ -46,12 +46,12 @@ class CertificateDiscoveredEventHandlerStatusTest {
      */
     @Test
     void everyConditionContributesAndNoneMasksAnother() {
-        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(3, 2, 1, 4, false), ORIGINAL);
+        DiscoveryResult result = CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(3, 2, 1, 4, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
-        assertThat(result.getMessage()).isEqualTo(
-                "3 certificate(s) could not be imported into the inventory. "
+        assertThat(result.getMessage())
+                .isEqualTo("3 certificate(s) could not be imported into the inventory. "
                         + "2 certificate(s) were imported without all of their public keys associated. "
                         + "1 certificate(s) could not be processed to a result. "
                         + "Some per-certificate detail could not be recorded. " + TRAILER);
@@ -59,8 +59,8 @@ class CertificateDiscoveredEventHandlerStatusTest {
 
     @Test
     void aBookkeepingFailureAloneStillWarns() {
-        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 0, 1, false), ORIGINAL);
+        DiscoveryResult result = CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(0, 0, 0, 1, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus())
                 .as("the persisted detail is knowingly incomplete, so the run is not clean")
@@ -76,37 +76,35 @@ class CertificateDiscoveredEventHandlerStatusTest {
      */
     @Test
     void validationNotQueuedIsReportedOnItsOwnTerms() {
-        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 0, 0, true), ORIGINAL);
+        DiscoveryResult result = CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(0, 0, 0, 0, true), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
-        assertThat(result.getMessage())
-                .isEqualTo("Validation of the discovered certificates could not be requested.");
+        assertThat(result.getMessage()).isEqualTo("Validation of the discovered certificates could not be requested.");
         assertThat(result.getMessage()).doesNotContain("per-certificate detail could not be recorded");
     }
 
     /**
-     * The pointer to the certificate list appears only when some row actually carries a reason. A run whose only
-     * fault was the bookkeeping write has nothing there to read, and one whose only fault was validation never
-     * being requested has nothing per-certificate at all.
+     * The pointer to the certificate list appears only when some row actually carries a reason. A run whose only fault
+     * was the bookkeeping write has nothing there to read, and one whose only fault was validation never being
+     * requested has nothing per-certificate at all.
      */
     @Test
     void thePointerToTheListAppearsOnlyWhenARowCarriesAReason() {
-        assertThat(CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 0, 1, true), ORIGINAL).getMessage())
-                .doesNotContain(TRAILER);
-        assertThat(CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 1, 1, true), ORIGINAL).getMessage())
-                .endsWith(TRAILER);
+        assertThat(CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(0, 0, 0, 1, true), ORIGINAL)
+                .getMessage()).doesNotContain(TRAILER);
+        assertThat(CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(0, 0, 1, 1, true), ORIGINAL)
+                .getMessage()).endsWith(TRAILER);
     }
 
     @Test
     void notAttemptedAloneStillWarns() {
-        DiscoveryResult result = CertificateDiscoveredEventHandler.decideFinalStatus(
-                new DiscoveryRunCounts(0, 0, 5, 0, false), ORIGINAL);
+        DiscoveryResult result = CertificateDiscoveredEventHandler
+                .decideFinalStatus(new DiscoveryRunCounts(0, 0, 5, 0, false), ORIGINAL);
 
         assertThat(result.getDiscoveryStatus()).isEqualTo(DiscoveryStatus.WARNING);
-        assertThat(result.getMessage())
-                .isEqualTo("5 certificate(s) could not be processed to a result. " + TRAILER);
+        assertThat(result.getMessage()).isEqualTo("5 certificate(s) could not be processed to a result. " + TRAILER);
     }
 }

@@ -6,17 +6,22 @@ import com.otilm.api.interfaces.core.web.ActionController;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.ActionDetailDto;
+import com.otilm.api.model.core.workflows.ActionDto;
+import com.otilm.api.model.core.workflows.ActionRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionDto;
+import com.otilm.api.model.core.workflows.ExecutionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateActionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateExecutionRequestDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.util.converter.ResourceCodeConverter;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 public class ActionControllerImpl implements ActionController {
@@ -53,7 +58,8 @@ public class ActionControllerImpl implements ActionController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.EXECUTION, operation = Operation.UPDATE)
-    public ExecutionDto updateExecution(@LogResource(uuid = true) String executionUuid, UpdateExecutionRequestDto request) throws NotFoundException, AlreadyExistException {
+    public ExecutionDto updateExecution(@LogResource(uuid = true) String executionUuid,
+            UpdateExecutionRequestDto request) throws NotFoundException, AlreadyExistException {
         return actionService.updateExecution(executionUuid, request);
     }
 
@@ -83,7 +89,8 @@ public class ActionControllerImpl implements ActionController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.ACTION, operation = Operation.UPDATE)
-    public ActionDetailDto updateAction(@LogResource(uuid = true) String actionUuid, UpdateActionRequestDto request) throws NotFoundException, AlreadyExistException {
+    public ActionDetailDto updateAction(@LogResource(uuid = true) String actionUuid, UpdateActionRequestDto request)
+            throws NotFoundException, AlreadyExistException {
         return actionService.updateAction(actionUuid, request);
     }
 

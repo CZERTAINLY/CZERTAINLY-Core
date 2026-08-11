@@ -12,28 +12,29 @@ import com.otilm.core.dao.entity.RaProfile;
 import java.util.List;
 
 public interface ExtendedAttributeService {
-    List<BaseAttribute> listIssueCertificateAttributes(
-            RaProfile raProfile) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listIssueCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException;
 
-    void validateIssueCertificateAttributes(
-            RaProfile raProfile,
-            List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException;
+    void validateIssueCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, ValidationException, NotFoundException;
 
-    List<BaseAttribute> listRevokeCertificateAttributes(
-            RaProfile raProfile) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listRevokeCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException;
 
-    List<BaseAttribute> listRegisterCertificateAttributes(
-            RaProfile raProfile) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listRegisterCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException;
 
-    void validateRevokeCertificateAttributes(
-            RaProfile raProfile,
-            List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException;
+    void validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, ValidationException, NotFoundException;
 
-    void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException;
+    void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException;
 
-    void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException;
+    void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException;
 
-    void mergeAndValidateRegisterAttributes(RaProfile raProfile, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException;
+    void mergeAndValidateRegisterAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException;
 
     void validateLegacyConnector(Connector connector) throws NotFoundException;
 }

@@ -17,6 +17,10 @@ import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.OutboundSecretContainment;
 import com.otilm.core.client.ConnectorApiFactory;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,24 +31,21 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
 /**
  * Outbound NG attribute-callback dispatcher.
  *
- * <p>This is a <strong>separate collaborator bean</strong>, by design. {@link com.otilm.core.service.impl.CallbackServiceImpl}
- * is class-level {@code @Transactional}; if the dispatch were a private method on it, the
- * {@code NOT_SUPPORTED} suspension would be a self-invocation no-op (Spring AOP skips the proxy) and the
- * connector HTTP call would run inside the ambient transaction — exactly the "don't hold a tx across an
+ * <p>
+ * This is a <strong>separate collaborator bean</strong>, by design.
+ * {@link com.otilm.core.service.impl.CallbackServiceImpl} is class-level {@code @Transactional}; if the dispatch were a
+ * private method on it, the {@code NOT_SUPPORTED} suspension would be a self-invocation no-op (Spring AOP skips the
+ * proxy) and the connector HTTP call would run inside the ambient transaction — exactly the "don't hold a tx across an
  * external call" violation we forbid. Crossing this proxy boundary makes the suspension real.
  *
- * <p>{@link #dispatchNgCallback} runs with no ambient transaction: it builds the
- * {@link AttributeCallbackRequestDto} envelope, POSTs it via the v2 client, and only then opens a short
- * explicit transaction for any registry ingest the response requires. On {@code ATTRIBUTE_DEFINITION_NOT_FOUND}
- * it refreshes the missed definition exactly once and retries the dispatch a single time.
+ * <p>
+ * {@link #dispatchNgCallback} runs with no ambient transaction: it builds the {@link AttributeCallbackRequestDto}
+ * envelope, POSTs it via the v2 client, and only then opens a short explicit transaction for any registry ingest the
+ * response requires. On {@code ATTRIBUTE_DEFINITION_NOT_FOUND} it refreshes the missed definition exactly once and
+ * retries the dispatch a single time.
  */
 @Component
 public class NgCallbackDispatcher {
@@ -57,10 +58,8 @@ public class NgCallbackDispatcher {
     private final OutboundSecretContainment outboundContainment;
     private PlatformTransactionManager transactionManager;
 
-    public NgCallbackDispatcher(ConnectorApiFactory connectorApiFactory,
-                                AttributeEngine attributeEngine,
-                                AttributeDefinitionResolver definitionResolver,
-                                OutboundSecretContainment outboundContainment) {
+    public NgCallbackDispatcher(ConnectorApiFactory connectorApiFactory, AttributeEngine attributeEngine,
+            AttributeDefinitionResolver definitionResolver, OutboundSecretContainment outboundContainment) {
         this.connectorApiFactory = connectorApiFactory;
         this.attributeEngine = attributeEngine;
         this.definitionResolver = definitionResolver;
@@ -76,27 +75,23 @@ public class NgCallbackDispatcher {
      * Envelope inputs assembled by the scope resolver and the dispatch ladder. Core stamps
      * {@code connectorInterface}/{@code interfaceVersion} from the form context.
      *
-     * @param definition        the resolved attribute definition (carries attributeUuid + name)
+     * @param definition the resolved attribute definition (carries attributeUuid + name)
      * @param connectorInterface the v2 connector interface this callback targets (Core-stamped)
-     * @param interfaceVersion  the interface version string (Core-stamped)
+     * @param interfaceVersion the interface version string (Core-stamped)
      * @param contextAttributes the scope chain (expanded, credential-bearing) — never null
      * @param currentAttributes the dependsOn-named current values (expanded) — may be null
      */
-    public record NgDispatchContext(BaseAttribute definition,
-                                    ConnectorInterface connectorInterface,
-                                    String interfaceVersion,
-                                    List<ScopedAttributes> contextAttributes,
-                                    List<RequestAttribute> currentAttributes) {
+    public record NgDispatchContext(BaseAttribute definition, ConnectorInterface connectorInterface,
+            String interfaceVersion, List<ScopedAttributes> contextAttributes,
+            List<RequestAttribute> currentAttributes) {
     }
 
     /**
      * Dispatch the NG callback to the connector, outside any ambient transaction.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public AttributeCallbackResponseDto dispatchNgCallback(ApiClientConnectorInfo connector,
-                                                           NgDispatchContext context,
-                                                           RequestAttributeCallback callback,
-                                                           Set<String> expandedSecrets)
+    public AttributeCallbackResponseDto dispatchNgCallback(ApiClientConnectorInfo connector, NgDispatchContext context,
+            RequestAttributeCallback callback, Set<String> expandedSecrets)
             throws ConnectorException, ValidationException {
         UUID connectorUuid = UUID.fromString(connector.getUuid());
         AttributeCallbackRequestDto envelope = buildEnvelope(context, callback);
@@ -114,9 +109,12 @@ public class NgCallbackDispatcher {
             // resending the identical envelope would be pointless, so we do not. resolveForced (not resolve) is
             // mandatory here: the local row is still present, so resolve() would short-circuit on it and re-send
             // the rejected envelope unchanged — resolveForced always re-fetches the registry definition.
-            BaseAttribute refreshed = definitionResolver.resolveForced(connector,
-                    context.definition().getUuid() == null ? null : UUID.fromString(context.definition().getUuid()),
-                    context.definition().getName(), context.definition().getType());
+            BaseAttribute refreshed = definitionResolver
+                    .resolveForced(connector,
+                            context.definition().getUuid() == null
+                                    ? null
+                                    : UUID.fromString(context.definition().getUuid()),
+                            context.definition().getName(), context.definition().getType());
             AttributeCallbackRequestDto refreshedEnvelope = buildEnvelope(
                     new NgDispatchContext(refreshed, context.connectorInterface(), context.interfaceVersion(),
                             context.contextAttributes(), context.currentAttributes()),
@@ -128,8 +126,8 @@ public class NgCallbackDispatcher {
         // against this, the MQ one does not). Surface it as a clean error rather than NPE at the caller's
         // response.getContent() (which would become an opaque 500 on a successful-but-empty connector reply).
         if (response == null) {
-            throw new ValidationException(ValidationError.create(
-                    "Connector returned an empty attribute-callback response"));
+            throw new ValidationException(
+                    ValidationError.create("Connector returned an empty attribute-callback response"));
         }
 
         // Fail-closed leak gate runs BEFORE any ingest/commit: a connector must not echo back a secret
@@ -141,8 +139,8 @@ public class NgCallbackDispatcher {
         // (a response that both mutates the registry and returns data). Both null -> dispatchNg returns null to the FE.
         // The single (content == null) == (attributes == null) test covers both edges.
         if ((response.getContent() == null) == (response.getAttributes() == null)) {
-            throw new ValidationException(ValidationError.create(
-                    "Connector callback response must set exactly one of content or attributes"));
+            throw new ValidationException(ValidationError
+                    .create("Connector callback response must set exactly one of content or attributes"));
         }
         handleResponseArms(connectorUuid, response);
         return response;
@@ -154,10 +152,10 @@ public class NgCallbackDispatcher {
         // missing coordinate ships a body a conformant connector rejects. The dispatch ladder always resolves the
         // pair before reaching here — from the scoped object (resource-scoped forms) or the request's interfaceUuid
         // (connector route). A both-null or half-pair shape is a wiring error; fail fast rather than dispatch it.
-        if (context.connectorInterface() == null
-                || context.interfaceVersion() == null || context.interfaceVersion().isBlank()) {
-            throw new ValidationException(ValidationError.create(
-                    "NG callback envelope requires both connectorInterface and interfaceVersion"));
+        if (context.connectorInterface() == null || context.interfaceVersion() == null
+                || context.interfaceVersion().isBlank()) {
+            throw new ValidationException(ValidationError
+                    .create("NG callback envelope requires both connectorInterface and interfaceVersion"));
         }
         BaseAttribute definition = context.definition();
         AttributeCallbackRequestDto envelope = new AttributeCallbackRequestDto();
@@ -171,17 +169,20 @@ public class NgCallbackDispatcher {
         // currentAttributes is @NotNull and the DTO is @JsonInclude(NON_NULL): a null (fire-on-mount callback with
         // no in-form dependency) would be dropped from the JSON, so a conformant connector rejects the body. Send an
         // empty list — mutable, to match the pass-through branch's Jackson-deserialized ArrayList.
-        envelope.setCurrentAttributes(context.currentAttributes() == null ? new ArrayList<>() : context.currentAttributes());
+        envelope
+                .setCurrentAttributes(
+                        context.currentAttributes() == null ? new ArrayList<>() : context.currentAttributes());
         envelope.setPagination(callback.getPagination());
         return envelope;
     }
 
     /**
-     * The {@code attributes} arm of an NG response carries child definitions to ingest (the NG analogue of
-     * the legacy GROUP post-process). Unlike the legacy {@code processGroupAttributes}, ingest failures are
-     * NOT swallowed — a failed ingest is surfaced so callers cannot silently proceed on stale state.
+     * The {@code attributes} arm of an NG response carries child definitions to ingest (the NG analogue of the legacy
+     * GROUP post-process). Unlike the legacy {@code processGroupAttributes}, ingest failures are NOT swallowed — a
+     * failed ingest is surfaced so callers cannot silently proceed on stale state.
      */
-    private void handleResponseArms(UUID connectorUuid, AttributeCallbackResponseDto response) throws ValidationException {
+    private void handleResponseArms(UUID connectorUuid, AttributeCallbackResponseDto response)
+            throws ValidationException {
         if (response == null || response.getAttributes() == null || response.getAttributes().isEmpty()) {
             return;
         }
@@ -195,8 +196,9 @@ public class NgCallbackDispatcher {
             // Never forward the raw message: a DataIntegrityViolationException (or similar) can carry SQL/column
             // fragments to the wire.
             logger.debug("Failed to ingest NG callback child definitions: {}", e.getMessage());
-            throw new ValidationException(ValidationError.create(
-                    "Callback child attribute definitions could not be ingested for connector " + connectorUuid));
+            throw new ValidationException(ValidationError
+                    .create("Callback child attribute definitions could not be ingested for connector "
+                            + connectorUuid));
         }
     }
 

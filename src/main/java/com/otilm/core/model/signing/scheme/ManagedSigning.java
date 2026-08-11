@@ -6,7 +6,10 @@ import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 /**
  * Sealed interface for the managed-signing branch of the scheme model hierarchy.
  *
- * <p>Use pattern matching to access type-specific fields:</p>
+ * <p>
+ * Use pattern matching to access type-specific fields:
+ * </p>
+ *
  * <pre>{@code
  * switch (model.signingScheme()) {
  *     case StaticKeyManagedSigning s -> s.certificateUuid();

@@ -6,7 +6,10 @@ import com.otilm.api.exception.SchedulerException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.scheduler.*;
+import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.api.model.core.scheduler.ScheduledJobDetailDto;
+import com.otilm.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
+import com.otilm.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.otilm.api.model.scheduler.SchedulerJobDto;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.otilm.api.model.scheduler.SchedulerRequestDto;
@@ -35,6 +38,10 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,11 +55,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class SchedulerServiceImpl implements SchedulerExternalService, SchedulerInternalService {
@@ -103,16 +105,23 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
 
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.LIST)
-    public ScheduledJobsResponseDto listScheduledJobs(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
+    public ScheduledJobsResponseDto listScheduledJobs(final SecurityFilter filter,
+            final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
-        final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ScheduledJob> scheduledJobList = scheduledJobsRepository.findUsingSecurityFilter(filter, List.of(), null, pageable, null);
+        final Pageable pageable = PageRequest
+                .of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
+        final List<ScheduledJob> scheduledJobList = scheduledJobsRepository
+                .findUsingSecurityFilter(filter, List.of(), null, pageable, null);
 
         final Long maxItems = scheduledJobsRepository.countUsingSecurityFilter(filter, null);
         final ScheduledJobsResponseDto responseDto = new ScheduledJobsResponseDto();
-        responseDto.setScheduledJobs(scheduledJobList.stream()
-                .map(job -> job.mapToDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(job.getUuid())))
-                .toList());
+        responseDto
+                .setScheduledJobs(scheduledJobList
+                        .stream()
+                        .map(job -> job
+                                .mapToDto(scheduledJobHistoryRepository
+                                        .findTopByScheduledJobUuidOrderByJobExecutionDesc(job.getUuid())))
+                        .toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -123,14 +132,19 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DETAIL)
     public ScheduledJobDetailDto getScheduledJobDetail(final String uuid) throws NotFoundException {
-        final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ScheduledJob.class, uuid));
-        return scheduledJob.mapToDetailDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID.fromString(uuid)));
+        final ScheduledJob scheduledJob = scheduledJobsRepository
+                .findByUuid(SecuredUUID.fromString(uuid))
+                .orElseThrow(() -> new NotFoundException(ScheduledJob.class, uuid));
+        return scheduledJob
+                .mapToDetailDto(scheduledJobHistoryRepository
+                        .findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID.fromString(uuid)));
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DELETE)
     public void deleteScheduledJob(final String uuid) {
-        final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
+        final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository
+                .findByUuid(SecuredUUID.fromString(uuid));
         if (scheduledJobOptional.isPresent()) {
             final ScheduledJob scheduledJob = scheduledJobOptional.get();
 
@@ -139,11 +153,12 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
                 throw new ValidationException(ValidationError.create("Unable to delete system job."));
             }
 
-            if (scheduledJobHistoryRepository.existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(
-                    UUID.fromString(uuid), SchedulerJobExecutionStatus.STARTED)) {
+            if (scheduledJobHistoryRepository
+                    .existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(UUID.fromString(uuid),
+                            SchedulerJobExecutionStatus.STARTED)) {
                 logger.warn("Unable to delete scheduled job '{}' while it is executing.", scheduledJob.getJobName());
-                throw new ValidationException(ValidationError.create(
-                        "Unable to delete scheduled job while it is executing. Wait for the current run to finish."));
+                throw new ValidationException(ValidationError
+                        .create("Unable to delete scheduled job while it is executing. Wait for the current run to finish."));
             }
 
             try {
@@ -157,16 +172,22 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
 
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DETAIL)
-    public ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto, final String uuid) {
-        final TriFunction<Root<ScheduledJobHistory>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
+    public ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter,
+            final PaginationRequestDto paginationRequestDto, final String uuid) {
+        final TriFunction<Root<ScheduledJobHistory>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
+                root, cb, cr) -> FilterPredicatesBuilder.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
 
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
-        final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("jobExecution")));
+        final Pageable pageable = PageRequest
+                .of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
+        final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository
+                .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, pageable,
+                        (root, cb) -> cb.desc(root.get("jobExecution")));
 
         final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final ScheduledJobHistoryResponseDto responseDto = new ScheduledJobHistoryResponseDto();
-        responseDto.setScheduledJobHistory(scheduledJobHistoryList.stream().map(ScheduledJobHistory::mapToDto).toList());
+        responseDto
+                .setScheduledJobHistory(scheduledJobHistoryList.stream().map(ScheduledJobHistory::mapToDto).toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -189,23 +210,33 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
 
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.UPDATE)
-    public ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException {
-        ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ScheduledJob.class, uuid));
-        if (scheduledJob.isSystem()) throw new ValidationException("Cannot updated system job.");
-        SchedulerRequestDto schedulerRequestDto = new SchedulerRequestDto(
-                new SchedulerJobDto(scheduledJob.getUuid(), scheduledJob.getJobName(), request.getCronExpression(), scheduledJob.getJobClassName())
-        );
+    public ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request)
+            throws NotFoundException, SchedulerException {
+        ScheduledJob scheduledJob = scheduledJobsRepository
+                .findByUuid(SecuredUUID.fromString(uuid))
+                .orElseThrow(() -> new NotFoundException(ScheduledJob.class, uuid));
+        if (scheduledJob.isSystem()) {
+            throw new ValidationException("Cannot updated system job.");
+        }
+        SchedulerRequestDto schedulerRequestDto = new SchedulerRequestDto(new SchedulerJobDto(scheduledJob.getUuid(),
+                scheduledJob.getJobName(), request.getCronExpression(), scheduledJob.getJobClassName()));
         schedulerApiClient.updateScheduledJob(schedulerRequestDto);
-        if (!scheduledJob.isEnabled()) disableScheduledJob(uuid);
+        if (!scheduledJob.isEnabled()) {
+            disableScheduledJob(uuid);
+        }
 
         scheduledJob.setCronExpression(request.getCronExpression());
         scheduledJobsRepository.save(scheduledJob);
 
-        return scheduledJob.mapToDetailDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID.fromString(uuid)));
+        return scheduledJob
+                .mapToDetailDto(scheduledJobHistoryRepository
+                        .findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID.fromString(uuid)));
     }
 
-    private void changeScheduledJobState(final String uuid, final boolean enabled) throws SchedulerException, NotFoundException {
-        final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
+    private void changeScheduledJobState(final String uuid, final boolean enabled)
+            throws SchedulerException, NotFoundException {
+        final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository
+                .findByUuid(SecuredUUID.fromString(uuid));
         if (scheduledJobOptional.isPresent()) {
             final ScheduledJob scheduledJob = scheduledJobOptional.get();
             if (enabled) {
@@ -224,21 +255,27 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
     // Scheduled job processing
 
     @Override
-    public ScheduledJobDetailDto registerScheduledJob(final Class<? extends ScheduledJobTask> scheduledJobTaskClass) throws SchedulerException {
+    public ScheduledJobDetailDto registerScheduledJob(final Class<? extends ScheduledJobTask> scheduledJobTaskClass)
+            throws SchedulerException {
         final ScheduledJobTask scheduledJobTask = applicationContext.getBean(scheduledJobTaskClass);
-        return registerScheduler(scheduledJobTask, scheduledJobTask.getDefaultJobName(), scheduledJobTask.getDefaultCronExpression(), scheduledJobTask.isDefaultOneTimeJob(), null);
+        return registerScheduler(scheduledJobTask, scheduledJobTask.getDefaultJobName(),
+                scheduledJobTask.getDefaultCronExpression(), scheduledJobTask.isDefaultOneTimeJob(), null);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.CREATE)
-    public ScheduledJobDetailDto registerScheduledJob(final Class<? extends ScheduledJobTask> scheduledJobTaskClass, final String jobName, final String cronExpression, final boolean oneTime, final Object taskData) throws SchedulerException {
+    public ScheduledJobDetailDto registerScheduledJob(final Class<? extends ScheduledJobTask> scheduledJobTaskClass,
+            final String jobName, final String cronExpression, final boolean oneTime, final Object taskData)
+            throws SchedulerException {
         final ScheduledJobTask scheduledJobTask = applicationContext.getBean(scheduledJobTaskClass);
         return registerScheduler(scheduledJobTask, jobName, cronExpression, oneTime, taskData);
     }
 
     @Override
     public void runScheduledJob(final String jobName) throws NotFoundException {
-        final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName).orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, jobName));
+        final ScheduledJob scheduledJob = scheduledJobsRepository
+                .findByJobName(jobName)
+                .orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, jobName));
 
         ScheduledJobTask scheduledJobTask;
         try {
@@ -254,23 +291,26 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
         }
 
         if (scheduledJobTask == null) {
-            String errorMessage = "Unknown scheduled task '%s' for job '%s'".formatted(scheduledJob.getJobClassName(), scheduledJob.getJobName());
+            String errorMessage = "Unknown scheduled task '%s' for job '%s'"
+                    .formatted(scheduledJob.getJobClassName(), scheduledJob.getJobName());
             registerJobHistory(scheduledJob, SchedulerJobExecutionStatus.FAILED, errorMessage);
             logger.error(errorMessage);
             return;
         }
 
-        final ScheduledJobHistory scheduledJobHistory = registerJobHistory(scheduledJob, SchedulerJobExecutionStatus.STARTED, null);
+        final ScheduledJobHistory scheduledJobHistory = registerJobHistory(scheduledJob,
+                SchedulerJobExecutionStatus.STARTED, null);
 
         if (scheduledJob.getUserUuid() != null) {
             authHelper.authenticateAsUser(scheduledJob.getUserUuid());
         }
 
-
         boolean skipped = false;
         ScheduledTaskResult result = null;
         try {
-            result = scheduledJobTask.performJob(new ScheduledJobInfo(scheduledJob.getJobName(), scheduledJob.getUuid(), scheduledJobHistory.getUuid()), scheduledJob.getObjectData());
+            result = scheduledJobTask
+                    .performJob(new ScheduledJobInfo(scheduledJob.getJobName(), scheduledJob.getUuid(),
+                            scheduledJobHistory.getUuid()), scheduledJob.getObjectData());
         } catch (ScheduledJobSkippedException e) {
             skipped = true;
         } finally {
@@ -284,12 +324,18 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleScheduledJobFinishedEvent(ScheduledJobFinishedEvent event) throws NotFoundException {
         logger.debug("ScheduledJobFinished event handler: {}", event.scheduledJobInfo().jobUuid());
-        final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobUuid())).orElseThrow(() -> new NotFoundException(ScheduledJob.class, event.scheduledJobInfo().jobUuid()));
-        final ScheduledJobHistory scheduledJobHistory = scheduledJobHistoryRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobHistoryUuid())).orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, event.scheduledJobInfo().jobHistoryUuid()));
+        final ScheduledJob scheduledJob = scheduledJobsRepository
+                .findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobUuid()))
+                .orElseThrow(() -> new NotFoundException(ScheduledJob.class, event.scheduledJobInfo().jobUuid()));
+        final ScheduledJobHistory scheduledJobHistory = scheduledJobHistoryRepository
+                .findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobHistoryUuid()))
+                .orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class,
+                        event.scheduledJobInfo().jobHistoryUuid()));
         finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, event.result(), false);
     }
 
-    private void finalizeFinishedScheduledJob(ScheduledJob scheduledJob, ScheduledJobHistory scheduledJobHistory, ScheduledTaskResult result, boolean skipped) {
+    private void finalizeFinishedScheduledJob(ScheduledJob scheduledJob, ScheduledJobHistory scheduledJobHistory,
+            ScheduledTaskResult result, boolean skipped) {
         logger.debug("Finalizing finished scheduled job '{}'", scheduledJob.getJobName());
 
         // update job history
@@ -306,10 +352,13 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
         }
 
         // deregister one-time job
-        if (result != null && SchedulerJobExecutionStatus.SUCCESS.equals(result.getStatus()) && scheduledJob.isOneTime()) {
+        if (result != null && SchedulerJobExecutionStatus.SUCCESS.equals(result.getStatus())
+                && scheduledJob.isOneTime()) {
             try {
                 schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
-                logger.info("Scheduled job '{}' was deleted/unscheduled because it was one-time job only.", scheduledJob.getJobName());
+                logger
+                        .info("Scheduled job '{}' was deleted/unscheduled because it was one-time job only.",
+                                scheduledJob.getJobName());
             } catch (SchedulerException e) {
                 logger.error("Failed to delete/unschedule finished one-time job '{}'", scheduledJob.getJobName());
             }
@@ -317,18 +366,22 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
 
         // raise event for non-system job
         if (!scheduledJob.isSystem() && result != null) {
-            eventProducer.produceMessage(ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), result));
+            eventProducer
+                    .produceMessage(
+                            ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), result));
         }
 
         logger.info("Scheduled job '{}' has finished", scheduledJob.getJobName());
     }
 
-    private ScheduledJobDetailDto registerScheduler(ScheduledJobTask scheduledJobTask, final String jobName, final String cronExpression, final boolean oneTime, final Object taskData) throws SchedulerException {
+    private ScheduledJobDetailDto registerScheduler(ScheduledJobTask scheduledJobTask, final String jobName,
+            final String cronExpression, final boolean oneTime, final Object taskData) throws SchedulerException {
         if (scheduledJobTask == null) {
             throw new SchedulerException("Unknown scheduled task for job: " + jobName);
         }
 
-        final SchedulerJobDto schedulerDetail = new SchedulerJobDto(jobName, cronExpression, scheduledJobTask.getJobClassName());
+        final SchedulerJobDto schedulerDetail = new SchedulerJobDto(jobName, cronExpression,
+                scheduledJobTask.getJobClassName());
         schedulerApiClient.schedulerCreate(new SchedulerRequestDto(schedulerDetail));
 
         Optional<ScheduledJob> scheduledJob = scheduledJobsRepository.findByJobName(jobName);
@@ -358,7 +411,8 @@ public class SchedulerServiceImpl implements SchedulerExternalService, Scheduler
         return scheduledJobEntity.mapToDetailDto(null);
     }
 
-    private ScheduledJobHistory registerJobHistory(final ScheduledJob scheduledJob, SchedulerJobExecutionStatus status, String message) {
+    private ScheduledJobHistory registerJobHistory(final ScheduledJob scheduledJob, SchedulerJobExecutionStatus status,
+            String message) {
         final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
         scheduledJobHistory.setScheduledJobUuid(scheduledJob.getUuid());
         scheduledJobHistory.setJobExecution(new Date());

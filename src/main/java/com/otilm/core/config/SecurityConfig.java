@@ -1,6 +1,12 @@
 package com.otilm.core.config;
 
-import com.otilm.core.auth.oauth2.*;
+import com.otilm.core.auth.oauth2.OAuth2LoginFilter;
+import com.otilm.core.auth.oauth2.PlatformAuthenticationSuccessHandler;
+import com.otilm.core.auth.oauth2.PlatformClientRegistrationRepository;
+import com.otilm.core.auth.oauth2.PlatformJwtAuthenticationConverter;
+import com.otilm.core.auth.oauth2.PlatformJwtDecoder;
+import com.otilm.core.auth.oauth2.PlatformLogoutSuccessHandler;
+import com.otilm.core.auth.oauth2.PlatformOAuth2FailureHandler;
 import com.otilm.core.security.authn.PlatformAuthenticationFilter;
 import com.otilm.core.security.authn.client.CredentialVerificationCache;
 import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
@@ -81,9 +87,10 @@ public class SecurityConfig {
                 .oauth2Client(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exceptionHandling -> exceptionHandling
-                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
-                )
+                        .authenticationEntryPoint((request, response, authException) -> response
+                                .sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, accessDeniedException) -> response
+                                .sendError(HttpServletResponse.SC_FORBIDDEN)))
                 .addFilterBefore(createTspAuthenticationFilter(), X509AuthenticationFilter.class);
         return http.build();
     }
@@ -93,13 +100,15 @@ public class SecurityConfig {
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(AuthHelper.getPermitAllEndpoints()).permitAll()
-                        .anyRequest().authenticated()
-                )
+                        .requestMatchers(AuthHelper.getPermitAllEndpoints())
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
                 .exceptionHandling(exceptionHandling -> exceptionHandling
-                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
-                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
-                )
+                        .accessDeniedHandler((request, response, accessDeniedException) -> response
+                                .sendError(HttpServletResponse.SC_FORBIDDEN))
+                        .authenticationEntryPoint((request, response, authException) -> response
+                                .sendError(HttpServletResponse.SC_UNAUTHORIZED)))
                 .sessionManagement(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -108,10 +117,7 @@ public class SecurityConfig {
                 .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
                 .addFilterBefore(createPlatformAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.decoder(jwtDecoder)
-                                .jwtAuthenticationConverter(jwtAuthenticationConverter)
-                        )
-                )
+                        .jwt(jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthenticationConverter)))
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository))
@@ -119,18 +125,13 @@ public class SecurityConfig {
                         .clearAuthentication(true) // Clear the authentication
                         .deleteCookies(CookieConfig.COOKIE_NAME) // Delete the session cookie
                 )
-                .oauth2Login(oauth2
-                        ->
-                        oauth2.successHandler(authenticationSuccessHandler)
-                                .failureHandler(failureHandler)
-                )
+                .oauth2Login(
+                        oauth2 -> oauth2.successHandler(authenticationSuccessHandler).failureHandler(failureHandler))
                 .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
-                .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class)
-        ;
+                .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class);
 
         return http.build();
     }
-
 
     @Bean
     public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
@@ -138,20 +139,20 @@ public class SecurityConfig {
     }
 
     protected PlatformAuthenticationFilter createPlatformAuthenticationFilter() {
-        return new PlatformAuthenticationFilter(authenticationClient, environment.getProperty(CERTIFICATE_HEADER_NAME), environment.getProperty("server.servlet.context-path"));
+        return new PlatformAuthenticationFilter(authenticationClient, environment.getProperty(CERTIFICATE_HEADER_NAME),
+                environment.getProperty("server.servlet.context-path"));
     }
 
     protected TspAuthenticationFilter createTspAuthenticationFilter() {
         TspSecurityContextWriter contextWriter = new TspSecurityContextWriter(authHelper);
         // Order matters: a presented client certificate takes precedence over an Authorization header.
-        List<TspAuthenticator> authenticators = List.of(
-                new ClientCertificateAuthenticator(authenticationClient, environment.getProperty(CERTIFICATE_HEADER_NAME), contextWriter),
-                new BearerTokenAuthenticator(platformJwtDecoder, authenticationClient, contextWriter),
-                new BasicPasswordAuthenticator(credentialVerificationCache, contextWriter));
-        return new TspAuthenticationFilter(
-                new TspRouteResolver(tspProfileService, signingProfileService),
-                authenticators,
-                new TspChallengeWriter());
+        List<TspAuthenticator> authenticators = List
+                .of(new ClientCertificateAuthenticator(authenticationClient,
+                        environment.getProperty(CERTIFICATE_HEADER_NAME), contextWriter),
+                        new BearerTokenAuthenticator(platformJwtDecoder, authenticationClient, contextWriter),
+                        new BasicPasswordAuthenticator(credentialVerificationCache, contextWriter));
+        return new TspAuthenticationFilter(new TspRouteResolver(tspProfileService, signingProfileService),
+                authenticators, new TspChallengeWriter());
     }
 
     // SETTERs

@@ -3,14 +3,15 @@ package com.otilm.core.integration.service;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.FilterFieldSource;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.ExecutionItemRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionType;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.io.Serializable;
 import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -63,7 +64,7 @@ class ActionServiceITest extends BaseSpringBootTest {
     }
 
     private ExecutionRequestDto buildRequest(FilterFieldSource sourceFieldSource, String sourceFieldIdentifier,
-                                             Serializable data) {
+            Serializable data) {
         ExecutionItemRequestDto item = new ExecutionItemRequestDto();
         item.setFieldSource(FilterFieldSource.CUSTOM);
         item.setFieldIdentifier("targetCustomAttr|STRING");

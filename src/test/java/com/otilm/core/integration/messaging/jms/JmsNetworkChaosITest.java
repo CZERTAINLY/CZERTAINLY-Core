@@ -6,6 +6,11 @@ import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.jms.test.CountingRetryListener;
 import com.otilm.core.messaging.model.EventMessage;
 import eu.rekawek.toxiproxy.model.ToxicDirection;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -13,22 +18,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.JmsException;
 import org.springframework.retry.support.RetryTemplate;
 
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Deterministic chaos engineering tests for JMS messaging resilience.
-
- * Key design principles:
- * 1. DETERMINISTIC: Uses CountingRetryListener to observe actual retry behavior
- * 2. NO RACE CONDITIONS: Toxics set BEFORE operations; synchronization via CountDownLatch
- * 3. RETRY COUNT ASSERTIONS: Verify number of retries, not timing
- * 4. CLEAR SEPARATION: Each test has a single responsibility
+ *
+ * Key design principles: 1. DETERMINISTIC: Uses CountingRetryListener to observe actual retry behavior 2. NO RACE
+ * CONDITIONS: Toxics set BEFORE operations; synchronization via CountDownLatch 3. RETRY COUNT ASSERTIONS: Verify number
+ * of retries, not timing 4. CLEAR SEPARATION: Each test has a single responsibility
  */
 public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
 
@@ -63,7 +64,8 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
         eventProducer.produceMessage(createTestEventMessage());
 
         // Wait for completion
-        assertTrue(countingRetryListener.awaitCompletion(5, TimeUnit.SECONDS), "Operation should complete within timeout");
+        assertTrue(countingRetryListener.awaitCompletion(5, TimeUnit.SECONDS),
+                "Operation should complete within timeout");
 
         // Then: Should succeed on first attempt with no retries
         assertEquals(1, countingRetryListener.getAttemptsCount(), "Should succeed on first attempt");
@@ -81,14 +83,16 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
 
         // When: Send message
         EventMessage testMessage = createTestEventMessage();
-        assertThrows(JmsException.class, () ->
-            eventProducer.produceMessage(testMessage), "Should throw JmsException after exhausting retries");
+        assertThrows(JmsException.class, () -> eventProducer.produceMessage(testMessage),
+                "Should throw JmsException after exhausting retries");
 
         // Wait for retry completion
-        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS), "Retries should complete within timeout");
+        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS),
+                "Retries should complete within timeout");
 
         // Then: Should have attempted maxAttempts times
-        assertEquals(maxAttempts, countingRetryListener.getAttemptsCount(), "Should have attempted exactly maxAttempts times");
+        assertEquals(maxAttempts, countingRetryListener.getAttemptsCount(),
+                "Should have attempted exactly maxAttempts times");
         assertEquals(maxAttempts, countingRetryListener.getErrorCount(), "All attempts should have failed");
         assertNotNull(countingRetryListener.getLastException(), "Should have captured the last exception");
 
@@ -132,9 +136,9 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
             assertTrue(countingRetryListener.getErrorCount() >= retriesBeforeRestore,
                     "Should have at least " + retriesBeforeRestore + " error(s)");
 
-            logger.info("Message succeeded after {} attempts ({} errors)",
-                    countingRetryListener.getAttemptsCount(),
-                    countingRetryListener.getErrorCount());
+            logger
+                    .info("Message succeeded after {} attempts ({} errors)", countingRetryListener.getAttemptsCount(),
+                            countingRetryListener.getErrorCount());
         } finally {
             executor.shutdownNow();
         }
@@ -150,7 +154,8 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
         EventMessage firstMessage = createTestEventMessage();
         assertThrows(JmsException.class, () -> eventProducer.produceMessage(firstMessage));
 
-        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS), "First message retries should complete");
+        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS),
+                "First message retries should complete");
 
         int firstAttemptCount = countingRetryListener.getAttemptsCount();
         logger.info("First message failed after {} attempts", firstAttemptCount);
@@ -188,18 +193,19 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
         countingRetryListener.expectCompletion();
 
         // When: Send a message
-        assertDoesNotThrow(() ->
-            eventProducer.produceMessage(createTestEventMessage()), "Should eventually succeed despite latency");
+        assertDoesNotThrow(() -> eventProducer.produceMessage(createTestEventMessage()),
+                "Should eventually succeed despite latency");
 
         // Wait for completion
-        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS), "Operation should complete within timeout");
+        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS),
+                "Operation should complete within timeout");
 
         // Then: Verify behavior (may or may not retry depending on latency impact)
         assertTrue(countingRetryListener.getAttemptsCount() >= 1, "Should have at least one attempt");
 
-        logger.info("Message sent successfully with {} attempt(s), {} error(s)",
-                countingRetryListener.getAttemptsCount(),
-                countingRetryListener.getErrorCount());
+        logger
+                .info("Message sent successfully with {} attempt(s), {} error(s)",
+                        countingRetryListener.getAttemptsCount(), countingRetryListener.getErrorCount());
     }
 
     @Test
@@ -218,14 +224,16 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
         assertThrows(Exception.class, () -> eventProducer.produceMessage(testMessage));
 
         // Wait for retry completion
-        assertTrue(countingRetryListener.awaitCompletion(5, TimeUnit.SECONDS), "Retries should complete within timeout");
+        assertTrue(countingRetryListener.awaitCompletion(5, TimeUnit.SECONDS),
+                "Retries should complete within timeout");
 
         // Then: Should have attempted maxAttempts times
-        assertEquals(maxAttempts, countingRetryListener.getAttemptsCount(), "Should have attempted exactly maxAttempts times");
+        assertEquals(maxAttempts, countingRetryListener.getAttemptsCount(),
+                "Should have attempted exactly maxAttempts times");
 
-        logger.info("Timeout test completed: {} attempt(s), {} error(s)",
-                countingRetryListener.getAttemptsCount(),
-                countingRetryListener.getErrorCount());
+        logger
+                .info("Timeout test completed: {} attempt(s), {} error(s)", countingRetryListener.getAttemptsCount(),
+                        countingRetryListener.getErrorCount());
     }
 
     @Test
@@ -237,7 +245,8 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
 
         EventMessage firstMessage = createTestEventMessage();
         assertThrows(Exception.class, () -> eventProducer.produceMessage(firstMessage));
-        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS), "First message retries should complete");
+        assertTrue(countingRetryListener.awaitCompletion(10, TimeUnit.SECONDS),
+                "First message retries should complete");
 
         countingRetryListener.reset();
 
@@ -262,7 +271,9 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
         // Given: Slicer toxic (1KB chunks with 20ms delay each)
         int averageSliceSize = 1024;
         int delayMicros = 20_000; // 20ms
-        proxy.toxics().slicer("slicer-toxic", ToxicDirection.UPSTREAM, averageSliceSize, delayMicros)
+        proxy
+                .toxics()
+                .slicer("slicer-toxic", ToxicDirection.UPSTREAM, averageSliceSize, delayMicros)
                 .setSizeVariation(256);
 
         logger.info("Added slicer: {}bytes with {}us delay", averageSliceSize, delayMicros);
@@ -273,41 +284,35 @@ public class JmsNetworkChaosITest extends AbstractJmsResilienceITest {
         String largePayload = generateLargeRandomString(64 * 1024);
 
         // When: Send large message
-        assertDoesNotThrow(() ->
-            eventProducer.produceMessage(new EventMessage(
-                    ResourceEvent.CERTIFICATE_DISCOVERED,
-                    Resource.DISCOVERY,
-                    UUID.randomUUID(),
-                    largePayload
-            )),
-            "Should succeed despite sliced connection");
+        assertDoesNotThrow(() -> eventProducer
+                .produceMessage(new EventMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
+                        UUID.randomUUID(), largePayload)),
+                "Should succeed despite sliced connection");
 
         // Wait for completion
-        assertTrue(countingRetryListener.awaitCompletion(20, TimeUnit.SECONDS), "Operation should complete within timeout");
+        assertTrue(countingRetryListener.awaitCompletion(20, TimeUnit.SECONDS),
+                "Operation should complete within timeout");
 
         // Then: Message should succeed (possibly with retries due to slow transfer)
         assertTrue(countingRetryListener.getAttemptsCount() >= 1, "Should have at least one attempt");
 
-        logger.info("Slicer test completed: {} attempt(s), {} error(s)",
-                countingRetryListener.getAttemptsCount(),
-                countingRetryListener.getErrorCount());
+        logger
+                .info("Slicer test completed: {} attempt(s), {} error(s)", countingRetryListener.getAttemptsCount(),
+                        countingRetryListener.getErrorCount());
     }
 
     private EventMessage createTestEventMessage() {
-        return new EventMessage(
-                ResourceEvent.CERTIFICATE_DISCOVERED,
-                Resource.DISCOVERY,
-                UUID.randomUUID(),
-                "testData"
-        );
+        return new EventMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, UUID.randomUUID(),
+                "testData");
     }
 
     private String generateLargeRandomString(int targetSizeInBytes) {
-        int leftLimit = 48;  // '0'
+        int leftLimit = 48; // '0'
         int rightLimit = 122; // 'z'
         java.util.Random random = new java.util.Random();
 
-        return random.ints(leftLimit, rightLimit + 1)
+        return random
+                .ints(leftLimit, rightLimit + 1)
                 .filter(i -> (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
                 .limit(targetSizeInBytes)
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)

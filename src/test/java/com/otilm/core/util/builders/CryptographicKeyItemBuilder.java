@@ -5,10 +5,10 @@ import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
 
 /**
- * Builds an in-memory {@link CryptographicKeyItem}; tests override only the fields whose values drive the
- * assertion under test. The item is not linked to its key here — persistence helpers wire {@code key} and
- * save through the repositories. Defaults match a bare {@code new CryptographicKeyItem()}; a field is
- * written only when its {@code withXxx} is called.
+ * Builds an in-memory {@link CryptographicKeyItem}; tests override only the fields whose values drive the assertion
+ * under test. The item is not linked to its key here — persistence helpers wire {@code key} and save through the
+ * repositories. Defaults match a bare {@code new CryptographicKeyItem()}; a field is written only when its
+ * {@code withXxx} is called.
  */
 public class CryptographicKeyItemBuilder {
 
@@ -37,9 +37,15 @@ public class CryptographicKeyItemBuilder {
 
     public CryptographicKeyItem build() {
         CryptographicKeyItem item = new CryptographicKeyItem();
-        if (name != null) item.setName(name);
-        if (type != null) item.setType(type);
-        if (state != null) item.setState(state);
+        if (name != null) {
+            item.setName(name);
+        }
+        if (type != null) {
+            item.setType(type);
+        }
+        if (state != null) {
+            item.setState(state);
+        }
         return item;
     }
 }

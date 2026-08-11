@@ -1,5 +1,6 @@
 package com.otilm.core.tasks;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
 import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.otilm.api.model.core.auth.Resource;
@@ -8,7 +9,9 @@ import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.otilm.core.model.ScheduledTaskResult;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,10 +22,6 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.UUID;
 
 @Component
 @NoArgsConstructor
@@ -90,15 +89,22 @@ public class DiscoveryCertificateTask implements ScheduledJobTask {
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
-            final String errorMessage = String.format("Unable to create discovery %s for job %s. Error: %s", discoveryDto.getName(), scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
+            final String errorMessage = String
+                    .format("Unable to create discovery %s for job %s. Error: %s", discoveryDto.getName(),
+                            scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
             logger.error(errorMessage);
-            return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, discovery != null ? Resource.DISCOVERY : null, discovery != null ? discovery.getUuid() : null);
+            return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage,
+                    discovery != null ? Resource.DISCOVERY : null, discovery != null ? discovery.getUuid() : null);
         }
 
         // After the discovery is created and commited, run discovery
         discovery = discoveryInternalService.runDiscovery(UUID.fromString(discovery.getUuid()), scheduledJobInfo);
         if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
-            return new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid());
+            return new ScheduledTaskResult(
+                    discovery.getStatus() == DiscoveryStatus.FAILED
+                            ? SchedulerJobExecutionStatus.FAILED
+                            : SchedulerJobExecutionStatus.SUCCESS,
+                    discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid());
         }
 
         return null;

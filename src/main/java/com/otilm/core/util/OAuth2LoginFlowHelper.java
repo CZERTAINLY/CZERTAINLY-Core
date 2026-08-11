@@ -15,8 +15,9 @@ public final class OAuth2LoginFlowHelper {
         if (session == null) {
             return null;
         }
-        if (session.getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE)
-                instanceof OAuth2AccessToken oauth2AccessToken) {
+        if (session
+                .getAttribute(
+                        OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE) instanceof OAuth2AccessToken oauth2AccessToken) {
             return oauth2AccessToken.getTokenValue();
         }
         return null;

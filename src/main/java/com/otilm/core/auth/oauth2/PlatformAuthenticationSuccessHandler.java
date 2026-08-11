@@ -1,6 +1,9 @@
 package com.otilm.core.auth.oauth2;
 
-import com.otilm.api.model.core.logging.enums.*;
+import com.otilm.api.model.core.logging.enums.ActorType;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
+import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.logging.enums.OperationResult;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
@@ -12,19 +15,18 @@ import com.otilm.core.util.OAuth2Constants;
 import com.otilm.core.util.OAuth2Util;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Component
 public class PlatformAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -46,17 +48,25 @@ public class PlatformAuthenticationSuccessHandler implements AuthenticationSucce
     }
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+            Authentication authentication) {
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
         OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) authentication;
         OidcUser oidcUser = (OidcUser) authenticationToken.getPrincipal();
 
-        OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());
+        OAuth2AuthorizedClient authorizedClient = authorizedClientService
+                .loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(),
+                        authentication.getName());
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(authenticationToken.getAuthorizedClientRegistrationId());
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings
+                .getOAuth2Providers()
+                .get(authenticationToken.getAuthorizedClientRegistrationId());
         if (providerSettings == null) {
-            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(authenticationToken.getAuthorizedClientRegistrationId());
-            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, authorizedClient.getAccessToken().getTokenValue());
+            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow"
+                    .formatted(authenticationToken.getAuthorizedClientRegistrationId());
+            auditLogService
+                    .logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message,
+                            authorizedClient.getAccessToken().getTokenValue());
             throw new PlatformAuthenticationException(message);
         }
 
@@ -67,36 +77,52 @@ public class PlatformAuthenticationSuccessHandler implements AuthenticationSucce
         try {
             OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
         } catch (PlatformAuthenticationException e) {
-            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
+            auditLogService
+                    .logAuthentication(Operation.LOGIN, OperationResult.FAILURE, e.getMessage(),
+                            authorizedClient.getAccessToken().getTokenValue());
             throw e;
         }
 
         try {
-            OAuth2Util.getAllClaimsAvailable(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oidcUser.getIdToken());
+            OAuth2Util
+                    .getAllClaimsAvailable(providerSettings, authorizedClient.getAccessToken().getTokenValue(),
+                            oidcUser.getIdToken());
         } catch (PlatformAuthenticationException e) {
-            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
+            auditLogService
+                    .logAuthentication(Operation.LOGIN, OperationResult.FAILURE, e.getMessage(),
+                            authorizedClient.getAccessToken().getTokenValue());
             throw new PlatformAuthenticationException(e.getMessage());
         }
 
-        request.getSession().setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
-        request.getSession().setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
+        request
+                .getSession()
+                .setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
+        request
+                .getSession()
+                .setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
 
         String redirectUrl = (String) request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
         request.getSession().removeAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
         request.getSession().removeAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE);
 
         if (redirectUrl == null || redirectUrl.isEmpty()) {
-            logger.warn("Authentication of user {} via OAuth2 successful, but redirect URL is missing in session. Redirecting to default.", username);
+            logger
+                    .warn("Authentication of user {} via OAuth2 successful, but redirect URL is missing in session. Redirecting to default.",
+                            username);
             redirectUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         }
 
         try {
             response.sendRedirect(redirectUrl);
         } catch (IOException e) {
-            logger.error("Error occurred when sending redirect user {} to {} after authentication via OAuth2. ", username, redirectUrl);
+            logger
+                    .error("Error occurred when sending redirect user {} to {} after authentication via OAuth2. ",
+                            username, redirectUrl);
             return;
         }
         logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", username, redirectUrl);
-        auditLogService.logAuthentication(Operation.LOGIN, OperationResult.SUCCESS, null, authorizedClient.getAccessToken().getTokenValue());
+        auditLogService
+                .logAuthentication(Operation.LOGIN, OperationResult.SUCCESS, null,
+                        authorizedClient.getAccessToken().getTokenValue());
     }
 }

@@ -10,6 +10,18 @@ import com.otilm.core.service.AuditLogExternalService;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.SessionTableHelper;
+import java.net.HttpCookie;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,17 +37,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import java.net.HttpCookie;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -61,9 +68,7 @@ class OAuth2LoginControllerITest {
 
     @BeforeEach
     void setUp() {
-        http = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
+        http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
 
         SessionTableHelper.createSessionTables(jdbcTemplate);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, new AuthenticationSettingsDto());
@@ -80,34 +85,27 @@ class OAuth2LoginControllerITest {
     @ValueSource(strings = {"/login", "/v2/oauth2/providers"})
     void shouldFailAndInvalidateSessionWhenErrorPresent(String path) throws Exception {
         // 1) Hit endpoint once to establish a session cookie
-        HttpResponse<String> first = http.send(
-                HttpRequest.newBuilder(uri(path + "?redirect=/ui"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        HttpResponse<String> first = http
+                .send(HttpRequest.newBuilder(uri(path + "?redirect=/ui")).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
         String sessionCookie = extractSessionCookie(first.headers());
         Assertions.assertNotNull(sessionCookie);
 
         // 2) Call endpoint with error, using the same cookie → should invalidate
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri(path + "?redirect=/ui&error=oops"))
+        HttpResponse<String> res = http
+                .send(HttpRequest
+                        .newBuilder(uri(path + "?redirect=/ui&error=oops"))
                         .header("Cookie", sessionCookie)
                         .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+                        .build(), HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertTrue(res.statusCode() >= 400);
 
-        // 3) A subsequent call with the same cookie should behave like a fresh session (i.e., server issues a new session cookie)
-        HttpResponse<String> after = http.send(
-                HttpRequest.newBuilder(uri(path + "?redirect=/ui"))
-                        .header("Cookie", sessionCookie)
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        // 3) A subsequent call with the same cookie should behave like a fresh session (i.e., server issues a new
+        // session cookie)
+        HttpResponse<String> after = http
+                .send(HttpRequest.newBuilder(uri(path + "?redirect=/ui")).header("Cookie", sessionCookie).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
         String newSessionCookie = extractSessionCookie(after.headers());
         Assertions.assertNotNull(newSessionCookie);
         Assertions.assertNotEquals(sessionCookie, newSessionCookie);
@@ -124,13 +122,12 @@ class OAuth2LoginControllerITest {
         settings.setOAuth2Providers(providers);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri(path + "?redirect=/ui"))
+        HttpResponse<String> res = http
+                .send(HttpRequest
+                        .newBuilder(uri(path + "?redirect=/ui"))
                         .header("Accept", MediaType.APPLICATION_JSON_VALUE)
                         .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+                        .build(), HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertEquals(200, res.statusCode());
         Assertions.assertTrue(res.headers().firstValue("Content-Type").orElse("").contains("application/json"));
@@ -140,8 +137,12 @@ class OAuth2LoginControllerITest {
         Assertions.assertTrue(json.contains("\"name\":\"two\""));
         Assertions.assertFalse(json.contains("\"name\":\"bad\""));
 
-        String expectedProvider1Path = path.equals("/login") ? "/oauth2/authorization/one/prepare" : "/v2/oauth2/providers/one/login";
-        String expectedProvider2Path = path.equals("/login") ? "/oauth2/authorization/two/prepare" : "/v2/oauth2/providers/two/login";
+        String expectedProvider1Path = path.equals("/login")
+                ? "/oauth2/authorization/one/prepare"
+                : "/v2/oauth2/providers/one/login";
+        String expectedProvider2Path = path.equals("/login")
+                ? "/oauth2/authorization/two/prepare"
+                : "/v2/oauth2/providers/two/login";
         Assertions.assertTrue(json.contains(expectedProvider1Path));
         Assertions.assertTrue(json.contains(expectedProvider2Path));
     }
@@ -154,16 +155,15 @@ class OAuth2LoginControllerITest {
         settings.setOAuth2Providers(providers);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=/ui"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        HttpResponse<String> res = http
+                .send(HttpRequest.newBuilder(uri("/login?redirect=/ui")).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
 
         // controller does sendRedirect("oauth2/authorization/{provider}") => 302
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("http://localhost:" + port + "/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
+        Assertions
+                .assertEquals("http://localhost:" + port + "/oauth2/authorization/only",
+                        res.headers().firstValue("Location").orElse(null));
 
         // We can’t directly introspect server-side session here; instead, verify session cookie exists.
         Assertions.assertNotNull(extractSessionCookie(res.headers()));
@@ -179,17 +179,15 @@ class OAuth2LoginControllerITest {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
         String path = String.format(pathTemplate, "test");
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri(path + "?redirect=/test-redirect"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        HttpResponse<String> res = http
+                .send(HttpRequest.newBuilder(uri(path + "?redirect=/test-redirect")).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
         String location = res.headers().firstValue("Location").orElse("");
-        Assertions.assertTrue(location.endsWith("/oauth2/authorization/test"),
-                "Expected Location to end with '/oauth2/authorization/test' but was: " + location);
+        Assertions
+                .assertTrue(location.endsWith("/oauth2/authorization/test"),
+                        "Expected Location to end with '/oauth2/authorization/test' but was: " + location);
     }
 
     @Test
@@ -201,16 +199,15 @@ class OAuth2LoginControllerITest {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
         // Typical query parameter: redirect=%2Fadministrator%2F (which is /administrator/)
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=%2Fadministrator%2F"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        HttpResponse<String> res = http
+                .send(HttpRequest.newBuilder(uri("/login?redirect=%2Fadministrator%2F")).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
         // The Location should NOT contain the redirect anymore
-        Assertions.assertEquals("http://localhost:" + port + "/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
+        Assertions
+                .assertEquals("http://localhost:" + port + "/oauth2/authorization/only",
+                        res.headers().firstValue("Location").orElse(null));
     }
 
     @Test
@@ -223,15 +220,16 @@ class OAuth2LoginControllerITest {
 
         // redirect=/administrator/?foo=bar#baz
         // Encoded: /login?redirect=%2Fadministrator%2F%3Ffoo%3Dbar%23baz
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/login?redirect=%2Fadministrator%2F%3Ffoo%3Dbar%23baz"))
+        HttpResponse<String> res = http
+                .send(HttpRequest
+                        .newBuilder(uri("/login?redirect=%2Fadministrator%2F%3Ffoo%3Dbar%23baz"))
                         .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+                        .build(), HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertTrue(res.statusCode() >= 300 && res.statusCode() < 400);
-        Assertions.assertEquals("http://localhost:" + port + "/oauth2/authorization/only", res.headers().firstValue("Location").orElse(null));
+        Assertions
+                .assertEquals("http://localhost:" + port + "/oauth2/authorization/only",
+                        res.headers().firstValue("Location").orElse(null));
     }
 
     @ParameterizedTest
@@ -239,15 +237,14 @@ class OAuth2LoginControllerITest {
     void shouldAuditAndFailWhenProviderUnknown(String path) throws Exception {
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, new AuthenticationSettingsDto());
 
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri(path + "?redirect=/ui"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        HttpResponse<String> res = http
+                .send(HttpRequest.newBuilder(uri(path + "?redirect=/ui")).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertTrue(res.statusCode() >= 400);
-        verify(auditLogService, times(1)).logAuthentication(eq(Operation.LOGIN), eq(OperationResult.FAILURE), contains("Unknown OAuth2 Provider"), any());
+        verify(auditLogService, times(1))
+                .logAuthentication(eq(Operation.LOGIN), eq(OperationResult.FAILURE),
+                        contains("Unknown OAuth2 Provider"), any());
     }
 
     @Test
@@ -264,15 +261,13 @@ class OAuth2LoginControllerITest {
         settings.setOAuth2Providers(providers);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/oauth2/test/jwkSet"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        HttpResponse<String> res = http
+                .send(HttpRequest.newBuilder(uri("/oauth2/test/jwkSet")).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertEquals(200, res.statusCode());
-        Assertions.assertEquals(MediaType.APPLICATION_JSON_VALUE, res.headers().firstValue("Content-type").orElse(null));
+        Assertions
+                .assertEquals(MediaType.APPLICATION_JSON_VALUE, res.headers().firstValue("Content-type").orElse(null));
         Assertions.assertEquals(jwkJson, res.body());
     }
 
@@ -286,12 +281,9 @@ class OAuth2LoginControllerITest {
         settings.setOAuth2Providers(providers);
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, settings);
 
-        HttpResponse<String> res = http.send(
-                HttpRequest.newBuilder(uri("/oauth2/test/jwkSet"))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        HttpResponse<String> res = http
+                .send(HttpRequest.newBuilder(uri("/oauth2/test/jwkSet")).GET().build(),
+                        HttpResponse.BodyHandlers.ofString());
 
         Assertions.assertTrue(res.statusCode() >= 400);
     }
@@ -304,10 +296,12 @@ class OAuth2LoginControllerITest {
         // Default for Spring Session/Tomcat is JSESSIONID; for Spring Session it can be SESSION.
         // For the platform, the custom session cookie name is custom set in cookie config
         List<String> setCookies = headers.allValues("Set-Cookie");
-        Optional<String> match = setCookies.stream()
+        Optional<String> match = setCookies
+                .stream()
                 .map(HttpCookie::parse)
                 .flatMap(List::stream)
-                .filter(c -> c.getName().equalsIgnoreCase("JSESSIONID") || c.getName().equalsIgnoreCase("SESSION") || c.getName().equalsIgnoreCase(CookieConfig.COOKIE_NAME))
+                .filter(c -> c.getName().equalsIgnoreCase("JSESSIONID") || c.getName().equalsIgnoreCase("SESSION")
+                        || c.getName().equalsIgnoreCase(CookieConfig.COOKIE_NAME))
                 .findFirst()
                 .map(c -> c.getName() + "=" + c.getValue());
 

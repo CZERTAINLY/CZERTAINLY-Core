@@ -16,8 +16,6 @@ public class OpaRequestDetails {
 
     @Override
     public String toString() {
-        return "OpaRequestDetails{" +
-                "remoteAddress='" + remoteAddress + '\'' +
-                '}';
+        return "OpaRequestDetails{" + "remoteAddress='" + remoteAddress + '\'' + '}';
     }
 }

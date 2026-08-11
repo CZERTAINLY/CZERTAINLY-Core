@@ -3,6 +3,7 @@ package com.otilm.core.api;
 import com.otilm.api.exception.AcmeProblemDocumentException;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.ValidationException;
+import java.util.Arrays;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -11,8 +12,6 @@ import org.aspectj.lang.annotation.Pointcut;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
 
 @Aspect
 @Component
@@ -60,7 +59,9 @@ public class LoggingAdvice {
             log.trace("Method {} result: {}", path, getValue(result));
             return result;
         } catch (AcmeProblemDocumentException | ValidationException | AlreadyExistException e) {
-            log.error(e.getClass().getSimpleName() + " when calling " + path + " Exception: " + e.getLocalizedMessage());
+            log
+                    .error(e.getClass().getSimpleName() + " when calling " + path + " Exception: "
+                            + e.getLocalizedMessage());
             throw e;
         } catch (Exception e) {
             log.error("Exception when calling " + path, e);
